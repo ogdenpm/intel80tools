@@ -1,0 +1,1290 @@
+plm0e: DO;
+DECLARE LIT LITERALLY 'LITERALLY',
+	TRUE LIT '0FFH',
+	CR LIT '0DH',
+	LF LIT '0AH',
+	QUOTE LIT '27H',
+	FALSE LIT '0',
+	boolean lit 'byte';
+
+$include(toks.inc)
+$include(:f3:err.inc)
+$include(:f3:lex.inc)
+$include(cclass.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+
+DECLARE ENDorSEMICOLON(2) BYTE DATA(T$END, T$SEMICOLON);
+DECLARE tokenTypeTable(*) BYTE DATA(
+	T$NUMBER, T$NUMBER, T$NUMBER, T$VARIABLE,
+	T$VARIABLE, T$PLUSSIGN, T$MINUSSIGN, T$STAR,
+	T$SLASH, T$LPAREN, T$RPAREN, T$COMMA,
+	T$COLON, T$SEMICOLON, T$STRING, T$PERIOD,
+	T$EQ, T$LT, T$GT, T$VARIABLE,
+	T$VARIABLE, T$VARIABLE, T$VARIABLE, T$VARIABLE);
+
+DECLARE typeProcIdx(*) BYTE DATA(
+	1, 1, 1, 2, 2, 3, 3, 3,
+	4, 3, 3, 3, 5, 3, 6, 3,
+	3, 7, 8, 0, 9, 9, 10, 0);
+
+DECLARE binValidate(4) BYTE DATA(0, 1, 1, 1),
+	octValidate(4) BYTE DATA(0, 0, 1, 1),
+	decValidate(4) BYTE DATA(0, 0, 0, 1),
+	hexValidate(4) BYTE DATA(0, 0, 0, 2);
+
+/* $include(data.inc) */
+DECLARE	curInfo$p address external,
+	curSymbol$p ADDRESS EXTERNAL,
+	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE),
+	(botInfo, topInfo) address external,
+	procInfo(1) address external;
+
+DECLARE 
+	curProcData ADDRESS EXTERNAL,
+	scope BASED curProcData ADDRESS,
+	cClass(1) BYTE EXTERNAL,
+	tokenVal ADDRESS EXTERNAL,
+	tokenStr(1) BYTE EXTERNAL,
+	tokenType BYTE EXTERNAL,
+	macroPtrs(1) ADDRESS EXTERNAL,
+	macroDepth ADDRESS EXTERNAL,
+	inChr$p ADDRESS EXTERNAL,
+	curMacroInfo$p ADDRESS EXTERNAL,
+	markedSymbol$p ADDRESS EXTERNAL,
+	lastch BYTE EXTERNAL,
+	yyAgain BYTE EXTERNAL,
+	unexpectedEOF BYTE EXTERNAL,
+	stmtLabelCnt ADDRESS EXTERNAL,
+	curProcInfo$p ADDRESS EXTERNAL,
+	stmtLabels(1) ADDRESS EXTERNAL,
+	curDoBlkCnt BYTE EXTERNAL,
+	curProcId BYTE EXTERNAL,
+	procCnt ADDRESS EXTERNAL,
+	doBlkCnt ADDRESS EXTERNAL;
+
+
+
+tokenErrorAt: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
+tokenError: PROCEDURE(err, str) EXTERNAL; DECLARE err BYTE, str ADDRESS; end;
+$include(:f3:gilit.pex)
+$include(:f3:lookup.pex)
+$include(:f3:fi.pex)
+$include(:f3:sitype.pex)
+$include(:f3:gitype.pex)
+wrXrefUse: PROCEDURE EXTERNAL; end; 
+gnxtch: PROCEDURE EXTERNAL; end; 
+$include(:f3:giscop.pex)
+$include(:f3:tiflag.pex)
+wrByte: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; end;
+wrWord: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end;
+wrOffset: PROCEDURE(info$p) EXTERNAL; DECLARE info$p ADDRESS; end;
+wrXrefDef: PROCEDURE EXTERNAL; end;
+$include(:f3:siflag.pex)
+$include(:f3:sidim.pex)
+$include(:f3:siparo.pex)
+$include(:f3:cpyflg.pex)
+$include(:f3:zerflg.pex)
+$include(:f3:silit.pex)
+$include(:f3:sibseo.pex)
+createLit: PROCEDURE(str) ADDRESS EXTERNAL; DECLARE str ADDRESS; end;
+wrOprAndValue: PROCEDURE EXTERNAL; end;
+$include(:f3:findmi.pex)
+$include(:f3:giparo.pex)
+$include(:f3:gidtyp.pex)
+$include(:f3:sidtyp.pex)
+$include(:f3:sipcnt.pex)
+$include(:f3:siintn.pex)
+$include(:f3:sipid.pex)
+pushBlock: PROCEDURE(scope) EXTERNAL; DECLARE scope ADDRESS; end;
+syntaxError: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
+$include(:f3:ftlerr.pex)
+$include(:f3:tstflg.pex)
+$include(:f3:clrflg.pex)
+$include(:f3:setflg.pex)
+$include(:f3:fiscop.pex)
+$include(:f3:creati.pex)
+
+DECLARE endToggle BYTE INITIAL(0);
+
+yylex: PROCEDURE public;
+    DECLARE saveClass BYTE,
+    pad ADDRESS, curOff ADDRESS;
+
+
+	toupper: PROCEDURE(c) BYTE;
+	    DECLARE c BYTE;
+
+	    if 'a' <= c and c <= 'z' then
+		c = c and 5FH;
+	    return c;
+	end;
+
+
+
+	token2Num: PROCEDURE;
+		DECLARE (tokenLen, ch) BYTE;
+
+		str2num: PROCEDURE(radix, validate$p);
+			DECLARE radix byte, validate$p ADDRESS;
+			DECLARE validate BASED validate$p(4) BYTE;
+			DECLARE trial ADDRESS, valId BYTE,
+				errored BYTE, curoff BYTE, ct BYTE;
+
+		    
+			tokenVal, trial, errored = 0;
+			do curoff = 1 to tokenLen;
+				if (ct := cClass(ch := tokenStr(curoff))) > CC$HEXCHAR then
+				    valId = 1;
+				else
+				    valId = validate(ct);
+				do case valId;
+					ch = ch - '0';
+					do;
+						if not errored then
+						do;
+							call tokenErrorAt(ERR5);
+							errored = TRUE;
+						end;
+						ch = 0;
+					end;
+					ch = ch - 'A' + 10;
+				end;
+
+				if (trial := tokenVal * radix + ch) < tokenVal then
+				do;
+				    call tokenErrorAt(ERR94);
+				    return;
+				end;
+				tokenVal = trial;
+			end;
+		end;
+
+
+		if cClass(ch := tokenStr(tokenlen := tokenStr(0))) <= CC$DECDIGIT then
+			call str2Num(10, .decValidate);
+		else 
+		do;
+			tokenlen = tokenLen - 1;
+			if ch = 'H' then
+				call str2num(16, .hexValidate);
+			else if ch = 'Q' or ch = 'O' then
+				call str2num(8, .octValidate);
+			else if ch = 'B' then
+				call str2num(2, .binValidate);
+			else if ch = 'D' then
+				call str2num(10, .decValidate);
+			else
+			do;
+				call tokenErrorAt(ERR4);
+				tokenVal = 0;
+			end;
+		end;
+	end token2num;
+
+	nestMacro: PROCEDURE;
+		DECLARE tmp ADDRESS;
+
+		tmp = getLitAddr + 2;	
+		call wrXrefUse;
+		if macroDepth = 10 then
+			call tokenErrorAT(ERR7);	
+		else
+		do;
+			call setType(7);
+			macroPtrs(macroDepth := macroDepth + 2) = inChr$p;
+			macroPtrs(macroDepth + 1) = curMacroInfo$p;
+			inChr$p = tmp - 1;
+			curMacroInfo$p = curInfo$p;
+		end;
+	end nestMacro;
+
+	chkMacro: PROCEDURE BOOLEAN;
+
+	    call lookup(.tokenStr);
+	    markedSymbol$p = curSymbol$p;
+	    if high(sym.info$p) = 0FFH then	/* simple key word */
+		tokenType = low(sym.info$p);
+	    else
+	    do; 
+		call findInfo;
+		if curInfo$p <> 0 then
+			if getType = LIT$T then
+			do;
+				call nestMacro;
+				return FALSE;
+			end;
+			else if getType = MACRO$T then
+			do;
+				call tokenErrorAt(ERR6);
+				return FALSE;
+			end;
+	    end;
+	    return TRUE;
+	end;
+
+	getName: PROCEDURE(maxlen);
+		DECLARE maxlen ADDRESS;
+		DECLARE ct BYTE;
+
+	    curOff = 1;
+	   
+	    ct = cClass(lastch); 
+	    do while ct <= CC$ALPHA or lastch = '$';
+		if lastch = '$' then
+		    call gnxtch;
+		else if curOff > maxlen then
+		do;
+		    call tokenErrorAt(ERR3);
+		    do while ct <= CC$ALPHA or lastch = '$';
+			call gnxtch;
+			ct = cClass(lastch);
+		    end;
+		    curOff = maxlen + 1;
+		end;
+		else
+		do;
+		    tokenStr(curOff) = toupper(lastch);
+		    curOff = curOff + 1;
+		    call gnxtch;
+		end;
+		ct = cClass(lastch);
+	    end;
+	    
+	    tokenStr(0) = curOff - 1;
+	end;
+
+
+	parseString: PROCEDURE;
+		DECLARE tooLong BYTE;
+
+		tooLong = FALSE;
+		curOff = 1;
+		
+		do while 1;
+			call gnxtch;
+			do while lastch <> QUOTE;
+				do while lastch = CR or lastch = LF;
+					call gnxtch;
+				end;
+				if lastch <> QUOTE then
+				do;
+					if curOff <> 256 then
+					do;
+						tokenStr(curOff) = lastch;
+						curOff = curOff + 1;
+					end;
+					else
+					do;
+						toolong = TRUE;
+						if lastch = ';' then
+						do;
+							call tokenErrorAt(ERR85);
+							goto L5F4E;
+						end;
+					end;
+					call gnxtch;
+				end;
+			end;
+			call gnxtch;
+			if lastch = QUOTE then
+				if curOff <> 256 then
+				do;
+					tokenStr(curOff) = lastch;
+					curOff = curOff + 1;
+				end;
+				else
+					toolong = TRUE;
+			else
+				goto L5F4E;
+		end;
+	l5F4E:
+	    tokenStr(0) = curOff - 1;
+	    if tokenStr(0) = 0 then
+			call tokenErrorAt(ERR189);
+	    if toolong then
+			call tokenErrorAt(ERR3);
+	end;
+
+
+	locyylex: PROCEDURE;
+		DECLARE tmp ADDRESS, inComment BYTE;
+
+		do while 1;
+			saveClass = cClass(lastch);
+			tokenType = tokenTypeTable(saveClass);
+			do case typeProcIdx(saveClass);
+			do;	/* white space */
+				call gnxtch;
+				saveClass = cClass(lastch);
+				do while saveClass = CC$WSPACE;
+					call gnxtch;
+					saveClass = cClass(lastch);
+				end;
+			end;
+			do;	/* digits */
+				call getName(31);
+				call token2Num;
+				return;
+			end;
+			do;	/* letters */
+				tmp = curInfo$p;
+				call getName(255);
+				if chkMacro then
+					return;
+				curInfo$p = tmp;
+				call gnxtch;
+			end;
+			do;	/* -, +, *, (, ), ,, ;, = */
+				call gnxtch;
+				return;
+			end;
+			do;	/* slash */
+				call gnxtch;
+				inComment = TRUE;
+				if lastch <> '*' then
+					return;
+				call gnxtch;
+				do while inComment;
+					do while lastch <> '*';
+						call gnxtch;
+					end;
+					call gnxtch;
+					if lastch = '/' then
+					do;
+						inComment = FALSE;
+						call gnxtch;
+					end;
+				end;
+			end;
+			do;	/* : */
+				call gnxtch;
+				if lastch = '=' then
+				do;
+					tokenType = T$COLON$EQUALS;
+					call gnxtch;
+				end;
+				return;
+			end;
+			do;	/* quote */
+				call parseString;
+				return;
+			end;
+			do;	/* < */
+				call gnxtch;
+				if lastch = '>' then
+				do;
+					tokenType = T$NE;
+					call gnxtch;
+				end;
+				else if lastch = '=' then
+				do;
+					tokenType = T$LE;
+					call gnxtch;
+				end;
+				return;
+			end;
+			do;	/* > */
+				call gnxtch;
+				if lastch = '=' then
+				do;
+					tokenType = T$GE;
+					call gnxtch;
+				end;
+				return;
+			end;
+			do;	/* $, !, ", #, %, &, ?, @, [, \, ], ^, $, `, {, |, end;, ~ */
+				call tokenErrorAt(ERR1);
+				call gnxtch;
+			end;
+			do;	/* non white space control chars and DEL */
+				call tokenErrorAt(ERR2);
+				call gnxtch;
+			end;
+			end;
+		end;
+	end locyylex;
+
+	if yyAgain then
+		yyAgain = FALSE;
+	else if unexpectedEOF then
+		tokenType = ENDorSEMICOLON(endToggle := (endToggle + 1) and 1);
+	else 
+	do;
+		call locyylex;
+		if tokenType = T$EOF then
+		do;
+		    unexpectedEOF = TRUE;
+		    tokenType = T$END;
+		end;
+	end;
+end;
+
+setYyAgain: PROCEDURE public;
+	yyAgain = TRUE;
+end;
+
+
+yylexMatch: PROCEDURE(token) BOOLEAN public;
+	DECLARE token BYTE;
+
+    call yylex;
+    if tokenType = token then
+		return TRUE;
+    else
+    do;
+	    call setYyAgain;
+	    return FALSE;
+    end;
+end;
+
+yylexNotMatch: PROCEDURE(token) BOOLEAN public;
+	DECLARE token BYTE;
+    return not yylexMatch(token);
+end;
+
+sub$60F9: PROCEDURE;
+	DECLARE i ADDRESS;
+
+	i = 1;
+	call wrOprAndValue;
+	call yylex;
+    
+	do while 1;
+		if tokenType = T$LPAREN then
+		    i = i + 1;
+		else if tokenType = T$RPAREN then
+		do;
+		    if (i := i - 1) = 0 then
+		    do;
+			call wrOprAndValue;
+			return;
+		    end;
+		end;
+		else if tokenType = T$SEMICOLON or
+				(tokenType >= T$CALL and tokenType <= T$RETURN)  then
+		do;
+			call tokenErrorAt(ERR82);
+			do while i <> 0;
+				call wrByte(L$RPAREN);
+				i = i - 1;
+			end;
+			call setYyAgain;
+			return;
+		end;
+		call wrOprAndValue;
+		call yylex;
+	end;
+end;
+
+
+parseExpresion: PROCEDURE(endTok) public;
+	DECLARE endTok BYTE;
+	call yylex;
+	do while tokenType <> endTok and tokenType <> T$SEMICOLON;
+		if T$CALL <= tokenType and tokenType <= T$RETURN then
+			goto L61CB;
+		call wrOprAndValue;
+		call yylex;
+	end;
+L61CB:
+	call setYyAgain;
+end;
+
+
+sub$61CF: PROCEDURE;
+	DECLARE i ADDRESS;
+
+	i = 0;
+	do while (1);
+		if tokenType = T$SEMICOLON then
+			goto L6216;
+		if tokenType = T$LPAREN then
+			i = i + 1;
+		else if tokenType = T$RPAREN then
+			if i = 0 then
+				goto L6216;
+			else
+				i = i - 1;
+		call yylex;
+	end;
+L6216:
+	call setYyAgain;
+end;
+
+
+
+sub$621A: PROCEDURE;
+	DECLARE i ADDRESS;
+	i = 0;
+	do while 1;
+		if tokenType = T$SEMICOLON then
+			goto L6278;
+		if i = 0 then
+			if tokenType = T$COMMA then
+				goto L6278;
+		if tokenType = T$LPAREN then
+			i = i + 1;
+		else if tokenType = T$RPAREN then
+			if i = 0 then
+				goto L6278;
+			else
+				i = i - 1;
+		call yylex;
+	end;
+L6278:
+	call setYyAgain;
+end;
+
+
+
+DECLARE declNames(33) ADDRESS,
+	declBasedNames(33) ADDRESS,
+	declNameCnt ADDRESS,
+	declaringName ADDRESS,
+	declaringBase ADDRESS,
+	parentStructure ADDRESS,
+	basedInfo ADDRESS,
+	dclFlags(3) BYTE,
+	dclType BYTE,
+	lastLit ADDRESS,
+	arrayDim ADDRESS,
+	structMembers(33) ADDRESS,
+	structMemDim(33) ADDRESS,
+	structMemType(33) BYTE,
+	structMCnt ADDRESS,
+	byte$9D7B BYTE,
+	flag BYTE;
+
+
+
+parseDcl: PROCEDURE public;
+
+	sub$62B0: PROCEDURE(errcode);
+		DECLARE errcode ADDRESS;
+
+		call tokenError(errcode, declaringName);
+	end;
+
+
+
+	chkModuleLevel: PROCEDURE;	/* 62C2 */
+
+		if scope <> 100H then
+			call tokenErrorAt(ERR73);
+	end;
+
+	chkNotArray: PROCEDURE;	/* 62D5 */
+
+		if testFlag(.dclFlags, F$ARRAY) then
+		do;
+			call tokenErrorAt(ERR63);
+			call clrFlag(.dclFlags, F$ARRAY);
+			call clrFlag(.dclFlags, F$STARDIM);
+			arrayDim = 0;
+		end;
+	end;
+
+
+	chkNotStarDim: PROCEDURE;
+
+		if testFlag(.dclFlags, F$STARDIM) then
+		do;
+			call tokenErrorAt(ERR62);
+			call clrFlag(.dclFlags, F$STARDIM);
+			arrayDim = 1;
+		end;
+	end;
+
+	createStructMemberInfo: PROCEDURE;
+
+		DECLARE (i, memDim) ADDRESS, memType BYTE;
+
+		if structMCnt = 0 then
+			return;
+
+		do i = 1 to structMCnt;
+			curSymbol$p = structMembers(i);
+			memType = structMemType(i);
+			memDim = structMemDim(i);
+			call createInfo(scope, memType);
+			call wrXrefDef;
+			call setInfoFlag(F$MEMBER);
+			call setInfoFlag(F$LABEL);
+			if memDim <> 0 then
+			do;
+				call setInfoFlag(F$ARRAY);
+				call setDimension(memDim);
+			end;
+			else
+				call setDimension(1);
+			call setParentOffset(parentStructure);
+		end;
+	end;
+
+	sub$63B7: PROCEDURE(val);
+		DECLARE val ADDRESS;
+		DECLARE (cFlags, i) BYTE;
+	    
+		curSymbol$p = declaringName;
+		call findScopedInfo(scope);
+		if curInfo$p <> 0 then
+		do;
+			call wrXrefUse;
+			if testInfoFlag(F$PARAMETER) and not testInfoFlag(F$LABEL) then
+			do;
+				cFlags = 0;
+				do i = 0 to 2;
+					cFlags = cFlags or dclFlags(i);
+				end;
+				if cFlags <> 0 then
+					call sub$62B0(ERR76);
+				if dclType <> 2 and dclType <> 3 then
+					call sub$62B0(ERR79);
+				else
+					call setType(dclType);
+				if declaringBase <> 0 then
+				do;
+					call sub$62B0(ERR77);
+					declaringBase = 0;
+				end;
+			end;
+			else
+			do;
+			    call sub$62B0(ERR78);
+			    return;
+			end;
+		end;
+		else
+		do;
+			call createInfo(scope, dclType);
+			call wrXrefDef;
+			call cpyFlags(.dclFlags);
+		end;
+		parentStructure = curInfo$p;
+		if dclType = 0 then
+		do;
+			if declaringBase <> 0 then
+			    call sub$62B0(ERR81);
+			call setLitaddr(lastLit);
+			return;
+		end;
+		else if dclType = 1 then
+		do;
+			if declaringBase <> 0 then
+			    call sub$62B0(ERR80);
+			if testInfoFlag(F$EXTERNAL) then
+			    call setInfoFlag(F$LABEL);
+			return;
+		end;
+		else
+		do;
+			if declaringBase <> 0 then
+			do;
+				if testInfoFlag(F$PUBLIC) or testInfoFlag(F$EXTERNAL)
+				    or testInfoFlag(F$AT) or testInfoFlag(F$INITIAL)
+				    or testInfoFlag(F$DATA) then
+				do;
+				    call sub$62B0(ERR81);
+				    declaringBase = 0;
+				end;
+				else
+				    call setInfoFlag(F$BASED);
+			end;
+			call setDimension(arrayDim);
+			call setBaseOffset(declaringBase);
+			curInfo$p = curProcInfo$p;
+			if testInfoFlag(F$REENTRANT) then
+			do;
+				curInfo$p = parentStructure;
+				if not( testInfoFlag(F$DATA) or testInfoFlag(F$BASED)
+				   or testInfoFlag(F$AT)) then
+				    call setInfoFlag(F$AUTOMATIC);
+			end;
+			curInfo$p = parentStructure;
+		end;
+		if testInfoFlag(F$PARAMETER) then
+			byte$9D7B = byte$9D7B + 1;
+		else if val - byte$9D7B <> 1 then
+			call setInfoFlag(F$PACKED);
+		call setInfoFlag(F$LABEL);
+		if dclType = 4 then
+			call createStructMemberInfo;
+	end;
+
+	sub$65AF: PROCEDURE;
+		DECLARE i ADDRESS;
+
+		byte$9D7B = 0;
+		do i = 1 to declNameCnt;
+			declaringName = declNames(i);
+			declaringBase = declBasedNames(i);
+			call sub$63B7(i);
+		end;
+	end;
+
+	sub$65FA: PROCEDURE(lexItem, locflag);
+		DECLARE (lexitem, locflag) BYTE;
+
+		if testFlag(.dclFlags, F$EXTERNAL) then
+			call tokenErrorAt(ERR41);
+		if yylexMatch(T$LPAREN) then
+		do;
+			call wrByte(lexItem);
+			if flag then
+				call wrOffset(topInfo + 1);
+			else
+				call wrOffset(botinfo);
+			call setFlag(.dclFlags, locflag);
+			call sub$60F9;
+		end;
+		else
+			call tokenErrorAt(ERR75);
+	end;
+
+
+	parseDclInitial: PROCEDURE;
+
+		if yylexMatch(T$INITIAL) then
+		do;
+			call chkModuleLevel;
+			call sub$65FA(L$INITIAL, F$INITIAL);
+		end;
+		else if yylexMatch(T$DATA) then
+			call sub$65FA(L$DATA, F$DATA);
+		else if testFlag(.dclFlags, F$STARDIM) then
+		do;
+			call tokenErrorAt(ERR74);
+			call clrFlag(.dclFlags, F$STARDIM);
+			arrayDim = 1;
+		end;
+	end;
+
+	parseDclAt: PROCEDURE;
+		if yylexMatch(T$AT) then
+			call sub$65FA(L$AT, F$AT);
+	end;
+
+	parseDclScope: PROCEDURE;
+		if yylexMatch(T$PUBLIC) then
+		do;
+			call chkModuleLevel;
+			call setFlag(.dclFlags, F$PUBLIC);
+		end;
+		else if yylexMatch(T$EXTERNAL) then
+		do;
+			call chkNotStarDim;
+			call chkModuleLevel;
+			call setFlag(.dclFlags, F$EXTERNAL);
+		end;
+	end;
+
+	parseStructMType: PROCEDURE;
+		DECLARE type ADDRESS;
+		
+		if yylexMatch(T$BYTE) then
+			type = 2;
+		else if yylexMatch(T$ADDRESS) then
+			type = 3;
+		else
+		do;
+			type = 2;
+			if yylexMatch(T$STRUCTURE) then
+			do;
+				call tokenErrorAt(ERR70);
+				if yylexMatch(T$LPAREN) then
+				do;
+					call sub$61CF;
+					call yylex;
+				end;
+			end;
+			else if yylexMatch(T$LABEL) then
+				call tokenErrorAt(ERR71);
+			else
+				call tokenErrorAt(ERR72);
+		end;
+		structMemType(structMCnt) = type;
+	end;
+
+	parseStructMDim: PROCEDURE;
+		DECLARE dim ADDRESS;
+		
+		if yylexMatch(T$LPAREN) then
+		do;
+			if yylexMatch(T$NUMBER) then
+				dim = tokenVal;
+			else if yylexMatch(T$STAR) then
+			do;
+				dim = 1;
+				call tokenErrorAt(ERR69);
+			end;
+			else
+			do;
+				dim = 1;
+				call tokenErrorAt(ERR59);
+			end;
+			if dim = 0 then
+			do;
+				dim = 1;
+				call tokenErrorAt(ERR57);
+			end;
+			if yylexNotMatch(T$RPAREN) then
+			do;
+				call tokenErrorAt(ERR60);
+				call sub$61CF;
+				call yylex;
+			end;
+			structMemDim(structMCnt) = dim;
+		end;
+	end;
+
+
+	locParseStructMem: PROCEDURE;
+		DECLARE mcnt BYTE;
+
+		if yylexNotMatch(T$VARIABLE) then
+			call tokenErrorAt(ERR66);
+		else
+		do;
+			do mcnt = 1 to structMCnt;
+				if curSymbol$p = structMembers(mcnt) then
+					call tokenErrorAt(ERR67);
+			end;
+			if structMCnt = 32 then
+				call tokenErrorAt(ERR68);
+			else
+				structMCnt = structMCnt + 1;
+			structMembers(structMCnt) = curSymbol$p;
+			structMemType(structMCnt) = 0;
+			structMemDim(structMCnt) = 0;
+			call parseStructMDim;
+			call parseStructMType;
+	    end;
+	end;
+
+	parseStructMem: PROCEDURE;
+		structMCnt = 0;
+		if yylexNotMatch(T$LPAREN) then
+			call tokenErrorAt(ERR64);
+		else
+		do;
+			do while 1;
+				call locParseStructMem;
+				if yylexNotMatch(T$COMMA) then
+					goto exit;
+			end;
+			exit:
+			if yylexNotMatch(T$RPAREN) then
+			do;
+				call tokenErrorAt(ERR65);
+				call sub$61CF;
+				call yylex;
+			end;
+		end;
+	end;
+
+	parseDclDataType: PROCEDURE;
+		if yylexMatch(T$BYTE) then
+			dclType = 2;
+		else if yylexMatch(T$ADDRESS) then
+			dclType = 3;
+		else if yylexMatch(T$STRUCTURE) then
+		do;
+			dclType = 4;
+			call chkNotStarDim;
+			call parseStructMem;
+		end;
+		else if yylexMatch(T$LABEL) then
+		do;
+			dclType = 1;
+			call chkNotArray;
+		end;
+		else
+		do;
+			call tokenErrorAt(ERR61);
+			dclType = 2;
+		end;
+	end;
+
+	parseArraySize: PROCEDURE;
+		if yylexMatch(T$LPAREN) then
+		do;
+			call setFlag(.dclFlags, F$ARRAY);
+			if yylexMatch(T$NUMBER) then
+			do;
+				if tokenVal = 0 then
+				do;
+					call tokenErrorAt(ERR57);
+					arrayDim = 1;
+				end;
+				else
+					arrayDim = tokenVal;
+			end;
+			else if yylexMatch(T$STAR) then
+			do;
+				if declNameCnt > 1 then
+				do;
+					call tokenErrorAt(ERR58);
+					arrayDim = 1;
+				end;
+				else
+					call setFlag(.dclFlags, F$STARDIM);
+			end;
+			else
+			do;
+				call tokenErrorAt(ERR59);
+				arrayDim = 1;
+			end;
+			if yylexNotMatch(T$RPAREN) then
+			do;
+				call tokenErrorAt(ERR60);
+				call sub$61CF;
+				call yylex;
+			end;
+		end;
+	end;
+
+	parseDeclType: PROCEDURE;
+		call parseArraySize;
+		call parseDclDataType;
+		call parseDclScope;
+		call parseDclAt;
+		call parseDclInitial;
+	end;
+
+
+	parseLiterally: PROCEDURE;
+		if yylexNotMatch(T$STRING) then
+		do;
+			call tokenErrorAt(ERR56);
+			tokenStr(0) = 1;
+			tokenStr(1) = ' ';
+		end;
+		lastLit = createLit(.tokenStr);
+		dclType = 0;
+	end;
+
+
+	parseLitOrType: PROCEDURE;
+
+		arrayDim = 1;
+		call clrFlags(.dclFlags);
+		dclType = 0;
+		if yylexMatch(T$LITERALLY) then
+			call parseLiterally;
+		else
+			call parseDeclType;
+	end;
+
+	getBaseInfo: PROCEDURE;
+	    DECLARE (base1Name, base2Name) ADDRESS;
+
+		basedInfo = 0;
+		if yylexNotMatch(T$VARIABLE) then
+			call tokenErrorAt(ERR52);
+		else 
+		do;
+			base1Name = curSymbol$p;
+			if yylexMatch(T$PERIOD) then
+				if yylexMatch(T$VARIABLE) then
+					base2Name = curSymbol$p;
+				else 
+				do;
+					call tokenErrorAt(ERR53);
+					return;
+				end;
+			else
+				base2Name = 0;
+			curSymbol$p = base1Name;
+			call findInfo;
+			if curInfo$p = 0 then
+			do;
+				call tokenErrorAt(ERR54);
+				return;
+			end;
+			call wrXrefUse;
+			if base2Name = 0 then
+				basedInfo = curInfo$p;
+			else 
+			do;
+				curSymbol$p = base2Name;
+				call findMemberInfo;
+				if curInfo$p = 0 then
+				do;
+					call tokenErrorAt(ERR55);
+					return;
+				end;
+				call wrXrefUse;
+				basedInfo = curInfo$p;
+			end;
+		end;
+	end getBaseInfo;
+
+
+	sub$6A68: PROCEDURE;
+		if yylexNotMatch(T$VARIABLE) then
+			call tokenErrorAt(ERR48);
+		else
+		do;
+			if declNameCnt = 32 then
+				call tokenErrorAt(ERR49);
+			else
+				declNameCnt = declNameCnt + 1;
+
+			declNames(declNameCnt) = curSymbol$p;
+			declBasedNames(declNameCnt) = 0;
+			if not flag then
+			do;
+				call findScopedInfo(scope);
+				if curInfo$p = 0 then
+					flag = TRUE;
+			end;
+			if yylexMatch(T$BASED) then
+			do;
+				call getBaseInfo;
+				if basedInfo <> 0 then
+				do;
+					curInfo$p = basedInfo;
+					if testInfoFlag(F$BASED) or testInfoFlag(F$ARRAY) or getType <> ADDRESS$T then
+					do; 
+						call tokenErrorAt(ERR50);
+						basedInfo = 0;
+					end;
+					else if testInfoFlag(F$MEMBER) then
+					do;
+						curInfo$p = getParentOffset;
+						if testInfoFlag(F$ARRAY) or testInfoFlag(F$BASED) then
+						do;
+							call tokenErrorAt(ERR52);
+							basedInfo = 0;
+						end;
+					end;
+					declBasedNames(declNameCnt) = basedInfo;
+				end;
+			end;
+		end;
+	end;
+
+
+	getDclNames: PROCEDURE;
+
+		declNameCnt = 0;
+		flag = FALSE;
+		if yylexMatch(T$LPAREN) then
+		do;
+			do while 1;
+				call sub$6A68;
+				if yylexNotMatch(T$COMMA) then
+					goto exit;
+			end;
+			exit:
+			if yylexNotMatch(T$RPAREN) then
+			do;
+				call tokenErrorAt(ERR47);
+				call sub$61CF;
+				call yylex;
+			end;
+		end;
+		else
+			call sub$6A68;
+	end;
+	if stmtLabelCnt <> 0 then
+		call syntaxError(ERR46);
+	do while 1;
+		call getDclNames;
+		if declNameCnt <> 0 then
+		do;
+			call parseLitOrType;
+			call sub$65AF;
+		end;
+		if yylexNotMatch(T$COMMA) then
+			return;
+    	end;
+end;
+
+parseProcDcl: PROCEDURE public;
+	DECLARE hasParams BYTE, tmp ADDRESS;
+
+	setPublic: PROCEDURE;
+		if getScope <> 100h then
+			call tokenErrorAt(ERR39);
+		else if testInfoFlag(F$PUBLIC) then
+			call tokenErrorAt(ERR40);
+		else if testInfoFlag(F$EXTERNAL) then
+			call tokenErrorAt(ERR41);
+		else
+			call setInfoFlag(F$PUBLIC);
+	end;
+
+
+	setExternal: PROCEDURE;
+
+		if getScope <> 100H then
+			call tokenErrorAt(ERR39);
+		else if testInfoFlag(F$EXTERNAL) then
+			call tokenErrorAt(ERR40);	
+		else if testInfoFlag(F$REENTRANT) or testInfoFlag(F$PUBLIC) then
+			call tokenErrorAt(ERR41);
+		else
+			call setInfoFlag(F$EXTERNAL);
+	end;
+
+	setReentrant: PROCEDURE;
+
+		if getScope <> 100h then
+			call tokenErrorAt(ERR39);
+		else if testInfoFlag(F$REENTRANT) then
+			call tokenErrorAt(ERR40);
+		else if testInfoFlag(F$EXTERNAL) then
+			call tokenErrorAt(ERR41);
+		else
+			call setInfoFlag(F$REENTRANT);
+	end;
+
+	setInterruptNo: PROCEDURE;
+
+		if yylexMatch(T$NUMBER) then
+		do;
+			if tokenVal > 255 then
+			do;
+				call tokenErrorAt(ERR42);
+				tokenVal = 0;
+			end;
+		end;
+		else 
+		do;
+			call tokenErrorAt(ERR43);
+			tokenVal = 0;
+		end;
+		if getScope <> 100h then
+			call tokenErrorAt(ERR39);
+		else if testInfoFlag(F$INTERRUPT) then
+			call tokenErrorAt(ERR40);
+		else if hasParams then
+			call tokenErrorAt(ERR44);
+		else if getDataType <> 0 then
+			call tokenErrorAt(ERR45);
+		else if testInfoFlag(F$EXTERNAL) then
+			call tokenErrorAt(ERR41);
+		else
+		do;
+			call setInfoFlag(F$INTERRUPT);
+			call setIntrNo(tokenVal);
+		end;
+	end;
+
+
+	parseProcAttrib: PROCEDURE;
+
+	    curInfo$p = curProcInfo$p;
+		
+	    do while 1;
+			if yylexMatch(T$PUBLIC) then
+				call setPublic;
+			else if yylexMatch(T$EXTERNAL) then
+				call setExternal;
+			else if yylexMatch(T$REENTRANT) then
+				call setReentrant;
+			else if yylexMatch(T$INTERRUPT) then
+				call setInterruptNo;
+			else
+				return;
+	    end;
+	end;
+
+	parseRetType: PROCEDURE;
+
+	    curInfo$p = curProcInfo$p;
+	    if yylexMatch(T$BYTE) then
+			call setDataType(2);
+	    else if yylexMatch(T$ADDRESS) then
+			call setDataType(3);
+	end;
+
+	DECLARE paramCnt ADDRESS;
+
+	sub$6E4B: PROCEDURE;
+
+	    call findScopedInfo(scope);
+	    if curInfo$p <> 0 then
+			call tokenErrorAt(ERR38);
+	    call createInfo(scope, BYTE$T);
+	    call wrXrefDef;
+	    call setInfoFlag(F$PARAMETER);
+	    paramCnt = paramCnt + 1;
+	end;
+
+	parseParams: PROCEDURE;
+
+		paramCnt = 0;
+		if yylexMatch(T$LPAREN) then
+		do;
+			do while 1;
+				hasParams = TRUE;
+				if yylexMatch(T$VARIABLE) then
+					call sub$6E4B;
+				else
+				do;
+					call tokenErrorAt(ERR36);
+					call sub$621A;
+				end;
+				if yylexNotMatch(T$COMMA) then
+					goto exit;
+			end;
+		exit:	
+			if yylexNotMatch(T$RPAREN) then
+			do;
+				call tokenErrorAt(ERR37);
+				call sub$61CF;
+				call yylex;
+			end;
+			curInfo$p = curProcInfo$p;
+			call setParamCnt(paramCnt);
+		end;
+		else
+			hasParams = FALSE;
+	end;
+
+
+	tmp = curProcInfo$p;
+	curSymbol$p = stmtLabels(1);
+	call findScopedInfo(scope);
+	if curInfo$p <> 0 then
+		call syntaxError(ERR34);
+	call createInfo(scope, PROC$T);
+	call setInfoFlag(F$LABEL);
+	call wrXrefDef;
+	if procCnt = 254 then
+		call fatalError(ERR35);
+	procInfo(procCnt := procCnt + 1) = curInfo$p;
+	curProcId = procCnt;
+	curProcInfo$p = curInfo$p;
+	curDoBlkCnt = 0;
+	doBlkCnt = 0;
+	call pushBlock(scope);
+	call parseParams;
+	call parseRetType;
+	call parseProcAttrib;
+	curInfo$p = curProcInfo$p;
+	if not testInfoFlag(F$EXTERNAL) then
+	do;
+		call wrByte(L$PROCEDURE);
+		call wrOffset(curInfo$p);
+		call wrByte(L$SCOPE);
+		call wrWord(scope);
+	end;
+	else
+	do;
+		call wrByte(L$EXTERNAL);
+		call wrOffset(curInfo$p);
+	end;
+	call setProcId(curProcId);
+	if tmp <> 0 then
+	do;
+		curInfo$p = tmp;
+		if testInfoFlag(F$REENTRANT) then
+			call syntaxError(ERR88);
+		curInfo$p = curProcInfo$p;
+	end;
+end;
+END;

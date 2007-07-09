@@ -1,0 +1,27 @@
+findmi: DO;
+declare lit literally 'literally';
+
+$include(:f3:flags.inc)
+declare curinfo$p address external,
+	curSymbol$p address external,
+	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE);
+
+
+$include(:f3:gilnko.pex)
+$include(:f3:giparo.pex)
+$include(:f3:tiflag.pex)
+
+
+findMemberInfo: PROCEDURE public;
+	DECLARE tmp ADDRESS;
+
+	tmp = curInfo$p;
+	curInfo$p = sym.info$p;
+	do while curInfo$p <> 0;
+		if testInfoFlag(F$MEMBER) then
+			if tmp = getParentOffset then
+				return;
+		curInfo$p = getLinkOffset;
+	end;
+end;
+end;

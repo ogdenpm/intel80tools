@@ -1,0 +1,621 @@
+plm4c: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah',
+	tab lit '9';
+
+$nolist
+$include(:f3:data.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+
+declare (helperModId, endHelperId) byte external,
+	listing byte external,
+	listOff byte external,
+	codeOn byte external,
+	locLabStr(32) byte external,
+	wa8125(3) address external,
+	bo812B  byte external,
+	baseAddr address external,
+	cfCode byte external,
+	w812F address external,
+	lineNo address external,
+	depth address external,
+	stmtNo address external,
+	olstch address external,
+	ocurch address external,
+	bo813B byte external,
+	bo813C byte external,
+	lstLineLen byte external,
+	lstLine(130) byte external,
+	rec6$4 structure(type byte, len address, seg byte, addr address, val(1018) byte) external,
+	rec22 structure(type byte, len address, val(1019) byte) external,
+	rec24$1 structure(type byte, len address, val(1019) byte) external,
+	rec24$2 structure(type byte, len address, val(101) byte) external,
+	rec24$3 structure(type byte, len address, val(101) byte) external,
+	rec20 structure(type byte, len address, val(1019) byte) external,
+	rec8 structure(type byte, len address, val(1021) byte) external,
+	rec4 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
+	b9692 byte external,
+	helperId byte external,
+	helperStr(1) byte external,
+	b969C byte external,
+	b969D byte external,
+	w969E address external,
+	wValAry(4) address external,
+	sValAry(4) address external,
+	b96B0 byte external,
+	b96B1(37) byte external,
+	b96D6 byte external,
+	w96D7 address external,
+	curExtId byte external,
+	commentStr(41) byte external,
+	lineLen byte external,
+	line(80) byte external,
+	opByteCnt byte external,
+	opBytes(3) byte external,
+	dstRec byte external,
+	srcbuf(640) byte external,
+	tx1buf(640) byte external,
+	objbuf(640) byte external,
+	lstbuf(640) byte external;
+
+
+
+declare b42A8(1) byte external,
+	b42D6(1) byte external,
+	b4304(1) byte external,
+	b4332(1) byte external,
+	b4431(1) byte external,
+	b4444(1) byte external,
+	b4495(1) byte external,
+	b4566(1) byte external,
+	b457C(1) byte external,
+	b4602(1) byte external,
+	opcodes(1) byte external,
+	regNo(1) byte external,
+	regIdx(1) byte external,
+	stkRegNo(1) byte external,
+	stkRegIdx(1) byte external,
+	b473D(1) byte external,
+	b475E(1) byte external,
+	b4774(1) byte external,
+	b478A(1) byte external,
+	b47A0(1) byte external,
+	w47C1(1) address external,
+	w4919(1) address external,
+	b4A03(1) byte external,
+	b4A78(1) byte external,
+	w506F(1) address external,
+	stack$origin(1) byte external;
+
+$include(:f3:movmem.aex)
+$include(:f3:itoa.pex)
+$include(:f3:fread.aex)
+
+flushRecs: procedure external; end;
+recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
+recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
+writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
+
+addWrdDisp: procedure(arg1w, arg2w) external; declare (arg1w, arg2w) address ; end;
+emitError: procedure external; end;
+$include(:f3:gilnkv.pex)
+$include(:f3:gisym.pex)
+$include(:f3:gieid.pex)
+$include(:f3:gitype.pex)
+$include(:f3:tiflag.pex)
+sub$5E3E: procedure external; end;
+sub$5BD3: procedure external; end;
+
+
+/* plm4a.plm */
+/* plm4b.plm */
+$list
+declare ccBits(*) byte data(10h, 18h, 8, 0, 18h, 10h),
+	ccCodes(*) byte data( 2, 'NC', 1, 'C ', 1, 'Z ', 2, 'NZ', 1, 'C ', 2, 'NC');
+
+
+sub$5FE7: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+	declare p address, wA18D address,
+		bA18F byte, bA190 byte;
+
+
+	sub$603C: procedure;
+
+		pstrcat2Line: procedure(str$p);
+			declare str$p address;
+			declare len based str$p byte;
+			if str$p <> 0 then
+			do;
+				call movmem(len, str$p + 1, .line(lineLen));
+				lineLen = lineLen + len;
+			end;
+		end;
+
+		sub$6175: procedure;
+			declare i byte, p address, j byte;
+
+			j= ror(bA18F, 4) and 3;	
+			bA190 = bA18F and 0fh;
+			if bA190 < 4 then
+			do;
+				i= wValAry(bA190);
+				p= sValAry(bA190);
+			end;
+			else if j= 0 then
+			do;
+				i= stkRegNo(bA190 - 4);
+				p= .opcodes(stkRegIdx(bA190 - 4));
+			end;
+			else
+			do;
+				i= regNo(bA190 - 4);
+				p= .opcodes(regIdx(bA190 - 4));
+			end;
+
+			do case j;
+				i = rol(i, 4);
+				i = rol(i, 3);
+				;
+			end;
+			opBytes(0) = opBytes(0) or i;
+			call pstrcat2Line(p);
+		end;
+
+
+
+		addWord: procedure;
+			declare pw address,
+				w based pw address;
+
+			dstRec = b96D6;
+			pw = .opBytes(opByteCnt);
+			w = wValAry(bA190);
+			opByteCnt = opByteCnt + 2;
+			call pstrcat2Line(sValAry(bA190));
+		end;
+
+
+
+		addHelper: procedure;
+			declare (pw, q) address,
+				(i, j) byte;
+			declare w based pw address;
+			declare helpers based helpers$p(1) address;
+
+			pw = .opBytes(opByteCnt);
+			if bA190 = 1 then
+				q = 69h;
+			else
+			do;
+				i = b4566(b969D);
+				j = b4495(b9692 + 11 * i);
+				q = b42D6(shr(j, 2)) + (j and 3);
+			end;
+			helperStr(0) = num2Asc(q, -4, 10, .helperStr(3)) + 2;
+			call pstrcat2Line(.helperStr);
+			if standAlone then
+			do;
+				w = helpers(q);
+				dstRec = 1;
+			end;
+			else
+			do;
+				w = 0;
+				dstRec = 5;
+				curExtId = helpers(q);
+			end;
+			opByteCnt = opByteCnt + 2;
+		end;
+
+
+		addSmallNum: procedure;
+			declare i byte;
+			
+			wA18D = wA18D + 1;
+			i = b4A78(wA18D);
+			opBytes(opByteCnt) = i;
+			opByteCnt = opByteCnt + 1;
+			/* extend to word on opBytes if not 84h */
+			if bA190 <> 0 then
+			do;
+				opBytes(opByteCnt) = 0;
+				opByteCnt = opByteCnt + 1;
+			end;
+			lineLen = lineLen + num2Asc(i, 0, 10, .line(lineLen));
+		end;
+
+
+
+		addStackOrigin: procedure;
+			dstRec = 3;
+			opBytes(opByteCnt) = 0;
+			opBytes(opByteCnt + 1) = 0;
+			opByteCnt = opByteCnt + 2;
+			call pstrcat2Line(.stack$origin);
+		end;
+
+
+
+		addByte: procedure;
+			declare str$p address,
+				str based str$p(1) byte;
+
+			opBytes(opByteCnt) = wValAry(bA190);
+			opByteCnt = opByteCnt + 1;
+			if wValAry(bA190) > 255 then
+			do;		/* reformat number to byte size */
+				str$p = sValAry(bA190);
+				str(0) = num2Asc(low(wValAry(bA190)), 0, -16, .str(1));
+			end;
+			call pstrcat2Line(sValAry(bA190));
+		end;
+
+		addPCRel: procedure;
+			declare (pw, q) address,
+				w based pw address;
+
+			dstRec = 1;
+			pw = .opBytes(opByteCnt);
+			wA18D = wA18D + 1;
+			q = b4A78(wA18D);
+			if q > 127 then	/* sign extend */
+				q = q or 0ff00h;
+			w = baseAddr + q;
+			opByteCnt = opByteCnt + 2;
+			line(lineLen) = '$';
+			lineLen = lineLen + 1;
+			call addWrdDisp(.lineLen, q);
+		end;
+
+
+
+
+		addccCode: procedure;
+			opBytes(0) = opBytes(0) or ccBits(b969C);
+			call pstrcat2Line(.ccCodes(3 * b969C));
+		end;
+
+
+		emitHelperLabel: procedure;
+			helperStr(0) = num2Asc(helperId, -4, 10, .helperStr(3)) + 3;
+			call pstrcat2Line(.helperStr);
+			helperId = helperId + 1;
+		end;
+
+
+		sub$64CF: procedure;
+			declare i byte;
+			do case bA190;
+				i= b4566(b969D);
+				i= b475E(b969D);
+				i= b4774(b969D);
+				i= b478A(b969D);
+			end;
+			opBytes(0) = b473D(i);
+			opByteCnt = 1;
+			call pstrcat2Line(.opcodes(b47A0(i)));
+		end;
+
+
+/* sub$603C */
+		wA18D = w506F(arg1w);
+		if b4A78(wA18D) = 0 then
+			opByteCnt = 0;
+		else
+		do;
+			opBytes(0) = b4A78(wA18D);
+			opByteCnt = 1;
+		end;
+
+		dstRec = 0;
+		lineLen = 0;
+
+		do while 1;
+			wA18D = wA18D + 1;
+			bA18F = b4A78(wA18D);
+			if bA18F < 80h then
+			do;
+				line(lineLen) = bA18F;
+				lineLen = lineLen + 1;
+			end;
+			else if bA18F >= 0c0h then 
+				call sub$6175;
+			else
+			do;
+				bA190 = shr(bA18F,4) and 3;
+				do case bA18F and 0fh;
+					return;
+					call pstrcat2Line(sValAry(bA190));
+					call addWord;
+					call addHelper;
+					call addSmallNum;
+					call addStackOrigin;
+					call addByte;
+					call addPCRel;
+					call addccCode;
+					call emitHelperLabel;
+					call pstrcat2Line(w969E);
+					call sub$64CF;
+				end;
+			end;
+		end;
+	end;
+
+
+
+
+	sub$654F: procedure;
+		declare p address, i byte;
+
+		if opByteCnt = 0 or not OBJECT then
+			return;
+		if rec6$4.len + opByteCnt >= 1018 then
+			call flushRecs;
+		p = baseAddr + opByteCnt - 2;	
+		do case dstRec;
+			;
+			do;
+				if rec22.len + 2 >= 1018 then
+					call flushRecs;
+				call recAddWord(.rec22.type, 1, p);
+			end;
+			do;
+				if rec24$1.len + 2 >= 1017 then
+					call flushRecs;
+				call recAddWord(.rec24$1.type, 2, p);
+			end;
+			do;
+				if rec24$2.len + 2 >= 99 then
+					call flushRecs;
+				call recAddWord(.rec24$2.type, 2, p);
+			end;
+			do;
+				if rec24$3.len + 2 >= 99 then
+					call flushRecs;
+				call recAddWord(.rec24$3.type, 2, p);
+			end;
+			do;
+				if rec20.len + 4 >= 1018 then
+					call flushRecs;
+				call recAddWord(.rec20.type, 1, curExtId);
+				call recAddWord(.rec20.type, 1, p);
+			end;
+		end;
+		do i = 0 to opByteCnt - 1;
+			call recAddByte(.rec6$4.type, 3, opBytes(i));
+		end;
+	end sub$654F;
+
+/* sub$5FE7 */
+	do while arg2b > 0;
+		call sub$603C;
+		call sub$654F;
+		call sub$5E3E;
+		arg1w = arg1w + 1;
+		arg2b = arg2b - 1;
+		p = baseAddr + opByteCnt;
+		if baseAddr > p then
+		do;
+			wa8125(2), wa8125(1) = 0;
+			wa8125(0) = 0CEh;
+			call emitError;
+		end; 
+		baseAddr = p;
+	end;
+end;
+
+
+
+
+
+sub$668B: procedure public;
+	declare i byte;
+	declare bA1AB byte;
+
+	sub$66F1: procedure;
+
+		if cfCode >= 0AEh then
+		do; 
+			i = cfCode - 0AEh;
+			cfCode = b4602(i);
+			i = b4444(i);
+			b9692 = b4431(i);
+		end;
+	end;
+
+
+	sub$6720: procedure;
+		declare i byte;
+
+
+		sub$67AD: procedure(arg1b, arg2b);
+			declare (arg1b, arg2b) byte;
+
+
+			sub$685C: procedure(arg1b, arg2b, arg3b);
+				declare (arg1b, arg2b, arg3b) byte;
+				wValAry(arg1b) = arg2b;
+				sValAry(arg1b) = .opcodes(arg3b);
+			end;
+
+
+
+			rdBVal: procedure;
+				call fread(.tx1File, .wValAry(arg2b), 1);
+				wValAry(arg2b) = wValAry(arg2b) and 0ffh;
+				b96B0 = num2Asc(wValAry(arg2b), 0, -16, .b96B1);
+				sValAry(arg2b) = .b96B0;
+			end;
+
+
+
+			rdWVal: procedure;
+				call fread(.tx1File, .wValAry(arg2b), 2);
+				b96B0 = num2Asc(wValAry(arg2b), 0, -16, .b96B1);
+				sValAry(arg2b) = .b96B0;
+			end;
+
+			rdLocLab: procedure;
+				declare localLabels based localLabels$p(1) address;
+
+				call fread(.tx1File, .w96D7, 2);
+				wValAry(arg2b) = localLabels(w96D7);
+				locLabStr(1) = '@';
+				locLabStr(0) = num2Asc(w96D7, 0, 10, .locLabStr(2)) + 1;
+				sValAry(arg2b) = .locLabStr(0);
+				b96D6 = 1;
+			end;
+
+
+
+			sub$6982: procedure;
+				declare s structure(i byte, p address);
+
+				call fread(.tx1File, .s, 3);
+				w969E = .commentStr;
+				commentStr(0) = num2Asc(s.i, 0, 10, .commentStr(3)) + 2;
+				wValAry(arg2b) = s.p;
+				b96B0 = num2Asc(s.p, 0, 10, .b96B1);
+				sValAry(arg2b) = .b96B0;
+			end;
+
+
+			sub$69E1: procedure(disp);
+				declare disp address;
+				call fread(.tx1File, .curInfo$p, 2);
+				curInfo$p = curInfo$p + botInfo;
+				wValAry(arg2b) = getLinkVal + disp;
+				curSymbol$p = getSymbol;
+				if curSymbol$p <> 0 then
+				do;
+					b96B0 = sym.name(0);
+					call movmem(b96B0, .sym.name(1), .b96B1);
+				end;
+				else
+				do;
+					b96B0 = 1;
+					b96B1(0) = '$';
+					disp = wValAry(arg2b) - baseAddr;
+				end;
+				sValAry(arg2b) =  .b96B0;
+				call addWrdDisp(sValAry(arg2b), disp);
+				if testInfoFlag(F$EXTERNAL) then
+				do;
+					b96D6 = 5;
+					curExtId = getExternId;
+				end;
+				else if getType = PROC$T then
+					b96D6 = 1;
+				else if getType = LABEL$T then 
+					b96D6 = 1;
+				else if testInfoFlag(F$MEMBER) then
+					;
+				else if testInfoFlag(F$BASED) then
+					;
+				else if testInfoFlag(F$DATA) then
+					b96D6 = 1;
+				else if testInfoFlag(F$MEMORY) then
+					b96D6 = 4;
+				else if not testInfoFlag(F$ABSOLUTE) then
+					b96D6 = 2;
+			end;
+
+
+
+
+			sub$6B0E: procedure;
+				declare p(3) address;
+
+				call fread(.tx1File, .p, 6);
+				curInfo$p = p(1) + botInfo;
+				wValAry(arg2b) = p(2);
+				b96B0 = num2Asc(p(2), 0, -16, .b96B1);
+				sValAry(arg2b) = .b96B0;
+				w969E = .commentStr;
+				curSymbol$p = getSymbol;
+				commentStr(0) = sym.name(0) + 2;
+				call movmem(sym.name(0), .sym.name(1), .commentStr(3));
+				call addWrdDisp(w969E, p(0));
+			end;
+
+
+
+			sub$6B9B: procedure;
+				declare wA1BD address;
+				do case arg1b - 8;
+					call rdBVal;
+					call rdWVal;
+					call sub$6982;
+					do;
+						call fread(.tx1File, .wA1BD, 2);
+						call sub$69E1(wA1BD);
+					end;
+					call sub$6B0E;
+				end;
+			end;
+
+
+		/* sub$67AD */
+
+			do case bA1AB;
+				return;
+				do;
+					call sub$685C(arg2b, regNo(arg1b), regIdx(arg1b));
+					call sub$685C(arg2b + 2, regNo(4 + arg1b), regIdx(4 + arg1b));
+				end;
+				call sub$685C(arg2b, stkRegNo(arg1b), stkRegIdx(arg1b));
+				call sub$6B9B;
+				call rdBVal;
+				call rdWVal;
+				call rdLocLab;
+				call sub$69E1(0);
+			end;
+		end sub$67AD;
+
+
+/* sub$6720 */
+
+		b96D6 = 0;
+		if rol(b4332(cfCode), 1) then
+		do;
+			call fread(.tx1File, .b969C, 1);
+			b969D = b457C(b969C);
+		end;
+		w969E = 0;
+		bA1AB = ror(b4332(cfCode), 4) and 7;
+		if bA1AB <> 0 then
+		do;
+			if bA1AB <= 3 then
+				call fread(.tx1File, .i, 1);
+			call sub$67AD(ror(i, 4) and 0fh, 0);
+			bA1AB = ror(b4332(cfCode), 1) and 7;
+			call sub$67AD(i and 0fh, 1);
+		end;
+	end sub$6720;
+
+/* sub$668B */
+
+	call sub$66F1;
+	call sub$6720;
+	if cfCode = 87h then
+	do; 
+		baseAddr = getLinkVal;
+		if DEBUG then
+		do;
+			rec8.len = rec8.len - 4;
+			call recAddWord(.rec8.type, 1, baseAddr);
+			rec8.len = rec8.len + 2;
+		end;
+		call flushRecs;
+	end;
+	call sub$5BD3;
+	call sub$5FE7(w47C1(cfCode) and 0fffh, shr(w47C1(cfCode), 12));
+end;
+
+
+end;

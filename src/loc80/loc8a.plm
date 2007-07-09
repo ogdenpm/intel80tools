@@ -1,0 +1,74 @@
+locate8: DO;
+$INCLUDE(LOC.LIT)
+$INCLUDE(LOC9.EXT)
+
+DECLARE hexch(*) BYTE DATA ('0123456789ABCDEF');
+
+parseNumber: PROCEDURE(ppstr) ADDRESS PUBLIC;
+	DECLARE ppstr ADDRESS;
+	DECLARE pstr BASED ppstr ADDRESS;
+	DECLARE (pch, pafter, pendNum) ADDRESS;
+	DECLARE (i, radix, digit) BYTE;
+	DECLARE (num, lastnum) ADDRESS;
+	DECLARE ch BASED pch BYTE;
+
+	pch = pstr;
+	DO WHILE ch = ' ';	/* skip spaces */
+		pch = pch + 1;
+	END;
+	pstr = pch;		/* update the source pstr */
+
+	DO WHILE '0' <= ch AND ch <= '9' OR 'A' <= ch AND ch <= 'F';
+		pch = pch + 1;
+	END;
+	pafter = (pendNum := pch) + 1;
+	IF ch = 'H' THEN
+		radix = 16;
+	ELSE IF ch = 'O' OR ch = 'Q' THEN
+		radix = 8;
+	ELSE
+	DO;	/* check for D or B or numeric */
+		pendNum, pch = (pafter := pch) - 1;
+		IF ch = 'B' THEN
+			radix = 2;
+		ELSE
+		DO;
+			radix = 10;
+			IF ch <> 'D' THEN	/* if a digit then include in number */
+				pendNum = pendNum + 1;
+		END;
+	END;
+	pch = pstr;	/* reset to start */
+	num, lastnum = 0;
+	DO WHILE pch < pendNum;
+		DO i = 0 TO 15;
+			IF ch = hexch(i) THEN
+				digit = i;
+		END;
+		IF digit >= radix THEN
+			RETURN 0;	/* illegal number */
+		IF (num := lastnum * radix + digit) < lastnum THEN
+			RETURN 0;	/* overflow */
+		lastnum = num;
+		pch = pch + 1;
+	END;
+	pstr = pafter;
+	RETURN num;
+END parseNumber;
+
+
+strequ: PROCEDURE(pstr1, pstr2, len) BYTE PUBLIC;
+	DECLARE (pstr1, pstr2) ADDRESS, len BYTE;
+	DECLARE i BYTE;
+	DECLARE str1 BASED pstr1 (1) BYTE, str2 BASED pstr2 (1) BYTE;
+
+	len = len - 1;
+	DO i = 0 TO len;
+		IF str1(i) <> str2(i) THEN
+			RETURN 0;
+	END;
+	RETURN 0FFH;
+END strequ;
+
+
+END locate8;

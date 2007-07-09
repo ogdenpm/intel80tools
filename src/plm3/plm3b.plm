@@ -1,0 +1,50 @@
+plm3b: do;
+declare lit literally 'literally';
+$include(:f3:data.inc)
+
+$include(:f3:fwrite.aex)
+
+writeRec: procedure(rec$p, arg2b) public;
+	declare rec$p address, arg2b byte;
+	declare (p, len$p) address, crc byte, cnt address;
+	declare len based len$p address;
+	declare brec based rec$p(1) byte;
+
+	len$p = rec$p + 1;
+	if len > 0 and OBJECT then
+	do;
+			crc = 0;
+			p = 0;
+			len = len + arg2b + 1;
+			cnt = len + 2;
+			do while p < cnt;
+				crc = crc - brec(p);
+				p = p + 1;
+			end;
+			brec(cnt) = crc;	/* insert checksum */
+			call fwrite(.objFile, rec$p, cnt + 1);
+	end;
+	len = 0;
+end;
+
+
+
+recAddByte: procedure(rec$p, arg2b, arg3b) public;
+	declare rec$p address, (arg2b, arg3b) byte;
+	declare len$p address, len based len$p address;
+	declare rec based rec$p structure(type byte, len address, val(1) byte);
+
+	len$p = .rec.len;
+	rec.val(len + arg2b) = arg3b;
+	len = len + 1;
+end;
+
+
+
+recAddWord: procedure(arg1w, arg2b, arg3w) public;
+	declare arg1w address, arg2b byte, arg3w address;
+
+	call recAddByte(arg1w, arg2b, low(arg3w));
+	call recAddByte(arg1w, arg2b, high(arg3w));
+end;
+end;

@@ -1,0 +1,45 @@
+plm5a: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah';
+
+$nolist
+$include(:f3:data.inc)
+
+$include(:f3:prints.pex)
+$include(:f3:readf.pex)
+
+sub$557A: procedure;
+	declare i byte, line(30) byte, actual address, j byte;
+
+	do i = 0 to 25;
+		debugSwitches(i) = false;
+	end;
+	if not debugFlag then
+		return;
+
+	call printStr(.('ENTER DEBUG SWITCHES', cr, lf, '*'), 23);
+	call readF(.conFile, .line, 30, .actual);
+	if actual <> 0 then
+	do;
+		actual = actual - 1;
+		do i = 0 to actual;
+			j = line(i);
+			if 'A' <= j and j <= 'Z' then
+				debugSwitches(j - 'A') = true;	
+		end;
+	end;
+	call printStr(.('BEGINNING PHASE EXECUTION', cr, lf), 27);
+end;
+
+
+sub$561E: procedure(arg1b) byte;
+	declare arg1b byte;
+	if debugSwitches(arg1b - 'A') then
+		return true;
+	else
+		return false;
+end;
+end;

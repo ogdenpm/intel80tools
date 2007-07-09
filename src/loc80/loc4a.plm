@@ -1,0 +1,27 @@
+loc4a: DO;
+$INCLUDE (ISIS.EXT)
+$INCLUDE (LOC2A.EXT)
+$INCLUDE (LOC5.EXT)
+
+skipspc: PROCEDURE(pch) ADDRESS EXTERNAL;
+	DECLARE pch ADDRESS;
+END skipspc;
+
+errChkReport: PROCEDURE(errCode, file, errExit) PUBLIC;
+	DECLARE errCode ADDRESS;
+	DECLARE file ADDRESS;
+	DECLARE errExit BYTE;
+	DECLARE status ADDRESS;
+	
+	IF errCode <> 0 THEN
+	DO;
+		file = skipspc(file);
+		CALL write(0, .(' '), 1, .status);
+		CALL write(0, file, pastAFN(file) - file, .status);	/* write file name */
+		CALL write(0, .(','), 1, .status);
+		CALL errmsg(errCode);
+		IF errExit THEN
+			CALL exit;
+	END;
+END errChkReport;
+END;

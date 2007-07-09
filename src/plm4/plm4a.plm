@@ -1,0 +1,836 @@
+plm4a: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah',
+	tab lit '9';
+
+$nolist
+$include(:f3:data.inc)
+
+declare (helperModId, endHelperId) byte external,
+	listing byte external,
+	listOff byte external,
+	codeOn byte external,
+	locLabStr(32) byte external,
+	wa8125(3) address external,
+	bo812B  byte external,
+	baseAddr address external,
+	cfCode byte external,
+	w812F address external,
+	lineNo address external,
+	depth address external,
+	stmtNo address external,
+	olstch address external,
+	ocurch address external,
+	bo813B byte external,
+	bo813C byte external,
+	lstLineLen byte external,
+	lstLine(130) byte external,
+	rec6$4 structure(type byte, len address, seg byte, addr address, val(1018) byte) external,
+	rec22 structure(type byte, len address, val(1019) byte) external,
+	rec24$1 structure(type byte, len address, val(1019) byte) external,
+	rec24$2 structure(type byte, len address, val(101) byte) external,
+	rec24$3 structure(type byte, len address, val(101) byte) external,
+	rec20 structure(type byte, len address, val(1019) byte) external,
+	rec8 structure(type byte, len address, val(1021) byte) external,
+	rec4 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
+	b9692 byte external,
+	helperId byte external,
+	helperStr(1) byte external,
+	b969C byte external,
+	b969D byte external,
+	w969E address external,
+	wValAry(4) address external,
+	sValAry(4) address external,
+	b96B0 byte external,
+	b96B1(37) byte external,
+	b96D6 byte external,
+	w96D7 address external,
+	curExtId byte external,
+	commentStr(41) byte external,
+	lineLen byte external,
+	line(80) byte external,
+	opByteCnt byte external,
+	opBytes(3) byte external,
+	dstRec byte external,
+	srcbuf(640) byte external,
+	tx1buf(640) byte external,
+	objbuf(640) byte external,
+	lstbuf(640) byte external;
+
+$include(:f3:fread.aex)
+$include(:f3:movmem.aex)
+$include(:f3:closef.pex)
+$include(:f3:initf.pex)
+$include(:f3:tellf.pex)
+$include(:f3:backup.pex)
+$include(:f3:itoa.pex)
+$include(:f3:openf.pex)
+sub$5BD3: procedure external; end;
+getSourceLine: procedure external; end;
+emitStatementNo: procedure external; end;
+recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
+recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
+writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
+emitLabel: procedure external; end;
+$include(:f3:gisym.pex)
+$include(:f3:gilnkv.pex)
+flushRecs: procedure external; end;
+emitError: procedure external; end;
+newPageNextChLst: procedure external; end;
+sub$668B: procedure external; end;
+sub$5E1B: procedure(arg1b) external; declare arg1b byte; end;
+
+declare b42A8(*) byte public data(
+	2, 2, 3, 4, 3, 4, 2, 2, 
+	3, 4, 2, 3, 2, 3, 3, 3, 
+	3, 2, 2, 3, 4, 2, 3, 2, 
+	3, 2, 2, 2, 2, 3, 2, 2, 
+	2, 3, 2, 3, 2, 2, 3, 2, 
+	2, 1, 2, 2, 3, 4),
+
+	b42D6(*) byte public data(
+	  0,  2,  4,  7,0Bh,0Eh,12h,14h,
+	16h,19h,1Dh,1Fh,22h,24h,27h,2Ah,
+	2Dh,30h,32h,34h,37h,3Bh,3Dh,40h,
+	42h,45h,47h,49h,4Bh,4Dh,50h,52h,
+	54h,56h,59h,5Bh,5Eh,60h,62h,65h,
+	67h,69h,6Ah,6Ch,6Eh,71h),
+
+	b4304(*) byte public data(
+	24h,24h,24h,24h,13h,13h,18h,18h,
+	18h,18h,16h,2Ch,15h,1Fh,1Fh,20h,
+	20h,19h,19h,19h,19h,   8,   8,   9,
+	   9,   6,   7,25h,25h,25h,25h,25h,
+	 0Ah, 0Ah, 0Bh, 0Bh,14h,14h,14h,14h,
+	14h,39h,1Ah,1Ah,1Ah,1Ah),
+
+	b4332(*) byte public data(
+	   0,   0,   0,   0,26h,30h,30h,26h,
+	30h,20h,30h,12h,12h,12h,   0,10h,
+	10h,10h,10h,10h,10h,60h,   0,26h,
+	20h,20h,   0,   0,   0,   0,   0,   0,
+	10h,80h,80h,80h,90h,90h,40h,0A0h,
+	0A0h,0A0h,80h,0B0h,90h,80h,0B0h,90h,
+	80h,0B0h,90h,80h,0B0h,90h,80h,0B0h,
+	90h,20h,30h,30h,30h,10h,10h,70h,
+	70h,30h,30h,30h,30h,80h,80h,80h,
+	80h,80h,80h,80h,80h,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,   0,   0,
+	20h,20h,   0,   0,20h,   0,   0,2Ch,
+	40h,   0,10h,10h,60h,20h,   0,   0,
+	0A0h,0A0h,0A0h,0A0h,32h,16h,10h,20h,
+	   0,10h,10h,10h,10h,10h,60h,   0,
+	   0,   0,   0,   0,   0,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,   0,70h,
+	60h,60h,70h,50h,70h,60h,60h,0E0h,
+	   0,   0,   0,   0,   0,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,80h,80h,
+	80h,80h,80h,80h,   0,   0,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h,80h,
+	80h,80h,80h,80h,80h,80h,80h),
+
+	b4431(*) byte public data(
+	0, 0, 1, 1, 2, 2, 3, 3,
+	4, 4, 5, 5, 6, 6, 7, 7,
+	8, 9, 0Ah),
+
+	b4444(*) byte public data(
+	   0,   2,   4,   6,   8, 0Ah, 0Ch,10h,
+	11h, 0Eh,12h,   0,   2,   4,   6,   8,
+	 0Ah, 0Ch,10h,11h, 0Eh,12h,   0,   2,
+	   4,   6,   8, 0Ah, 0Ch,10h,11h, 0Eh,
+	12h,   0,   2,   4,   6,   8, 0Ah, 0Ch,
+	10h,11h, 0Eh,12h,   0,   2,   4,   6,
+	   8, 0Ah, 0Ch,10h,11h, 0Eh,12h, 0Ch,
+	11h,12h, 0Ch,11h,12h,   2,   6,   0,
+	   4,   6,   8, 0Ah, 0Ch, 0Eh,10h,11h,
+	12h, 0Dh, 0Fh,   7,   9, 0Bh,   1,   5,
+	   3),
+
+	b4495(*) byte public data(	/* 11 byte entries */
+	90h,91h,94h,95h,98h,99h,9Ah,9Ch,0A0h,0A1h,9Dh,
+	6Ch,6Dh,70h,71h,74h,75h,76h,78h,7Ch,7Dh,79h,
+	   0,   0,   0,   0,   0,   0,64h,65h,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,68h,69h,   0,   0,   0,
+	   0,58h,   0,   0,59h,5Ah,54h,55h,   0,   0,   0,
+	   0,60h,   0,   0,61h,62h,5Ch,5Dh,   0,   0,   0,
+	   0,84h,   0,   0,85h,86h,80h,81h,   0,   0,   0,
+	   0,8Ch,   0,   0,8Dh,8Eh,88h,89h,   0,   0,   0,
+	   0,   0,   0,   0,10h,11h,12h,14h,15h,16h,17h,
+	   0,   1,   4,   5,   8,   9, 0Ah, 0Ch, 0Dh, 0Eh, 0Fh,
+	   0,30h,   0,31h,   0,   0,   0,   0,   0,   0,   0,
+	   0,28h,   0,29h,   0,   0,   0,   0,   0,   0,   0,
+	18h,19h,1Ch,1Dh,20h,21h,22h,24h,25h,26h,27h,
+	44h,45h,48h,49h,4Ch,4Dh,4Eh,50h,51h,52h,53h,
+	0A8h,0A9h,0ACh,0ADh,0B0h,0B1h,0B2h,0B4h,0B5h,0B6h,0B7h,
+	34h,36h,35h,38h,39h,3Ah,   0,   0,   0,   0,   0,
+	3Ch,3Dh,3Eh,40h,41h,42h,   0,   0,   0,   0,   0,
+	   0,2Ch,   0,   0,2Dh,2Eh,   0,   0,   0,   0,   0,
+	0A4h,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0),
+
+	b4566(*) byte public data(
+	   8,1Ch, 0Ch,   0, 0Bh,11h,   1, 0Ah,
+	 0Fh,10h, 0Dh,   9,   2,   3,   4,   5,
+	   6,   7,   0,1Eh,12h,0Eh),
+
+	b457C(*) byte public data(
+	   3,   3,   3,   3,   3,   3, 0Ch, 0Dh,
+	 0Eh, 0Fh,10h,11h,   0,   0,   0,   0,
+	   0,   0,   0,   0,12h,   7,   4,   4,
+	   2, 0Ah,15h,   0,   0,   0,   0,   8,
+	   9,   0,   0,   0, 0Bh,   6,12h,12h,
+	12h,12h,12h,12h,   5,   1,   1,   1,
+	13h,13h,13h,   1,   1,   1,13h,13h,
+	13h,14h,   0,   0,   0,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,   0,   0,
+	   0,   0,   0,   1,   1, 0Ch, 0Ch, 0Ch,
+	 0Ch, 0Ch, 0Ch, 0Ch, 0Ch, 0Dh, 0Dh, 0Dh,
+	 0Dh, 0Dh, 0Dh, 0Dh, 0Dh,   0, 0Eh, 0Eh,
+	 0Eh, 0Eh, 0Fh, 0Fh, 0Fh, 0Fh,   0, 0Fh,
+	 0Fh, 0Fh, 0Fh, 0Eh, 0Eh, 0Eh, 0Eh,   0,
+	10h,10h,10h,10h,10h,   0,   0,   0,
+	   0,   0,   0,   0,   0,   0,   0,   0,
+	   1,   1,   0,   0,   0,0),
+
+	b4602(*) byte public data(
+	0A7h,0A7h,0A7h,0A7h,0A7h,0A7h,0A7h,0A7h,
+	0A7h,0A7h,0A7h,0A8h,0A8h,0A8h,0A8h,0A8h,
+	0A8h,0A8h,0A8h,0A8h,0A8h,0A8h,0A9h,0A9h,
+	0A9h,0A9h,0A9h,0A9h,0A9h,0A9h,0A9h,0A9h,
+	0A9h,0AAh,0AAh,0AAh,0AAh,0AAh,0AAh,0AAh,
+	0AAh,0AAh,0AAh,0AAh,0ABh,0ABh,0ABh,0ABh,
+	0ABh,0ABh,0ABh,0ABh,0ABh,0ABh,0ABh,0A6h,
+	0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,
+	0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,
+	0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,0A6h,
+	0A6h),
+
+	opcodes(*) byte public data(
+	3, 'SUB', 3, 'SBB', 3, 'RLC', 3, 'RRC',
+	3, 'RAL', 3, 'RAR', 3, 'SHL', 3, 'SHR',
+	3, 'ADD', 3, 'ADC', 3, 'MUL', 3, 'DIV',
+	3, 'ANA', 3, 'ORA', 3, 'XRA', 3, 'NEG',
+	3, 'NOT', 3, 'M10', 3, 'CPI', 3, 'CMP',
+	3, 'SUI', 3, 'SBI', 3, 'ADI', 3, 'ACI',
+	3, 'ANI', 3, 'ORI', 3, 'XRI', 3, 'INR',
+	3, 'INX', 3, 'DCR', 3, 'DCX', 5, 'ADD', tab, 'A',
+	3, 'PSW', 1, 'A', 1, 'B', 1, 'C',
+	1, 'D', 1, 'E', 1, 'H', 1, 'L',
+	1, 'M', 2, 'AH', 2, 'DH', 2, 'DA',
+	2, 'DB', 3, 'DBP', 3, 'DHP', 3, 'PDB',
+	3, 'APH', 3, 'DPH', 3, 'PDA', 3, 'PDH',
+	2, 'PB', 2, 'PD', 2, 'PH', 3, 'BPH',
+	3, 'BBA', 0),
+
+	regNo(*) byte public data(7, 0, 2, 4, 7, 1, 3, 5, 6),
+					/* A B D H A C E L M */
+	regIdx(*) byte public data(86h,88h,8Ch,90h,86h,8Ah,8Eh,92h,94h),
+	stkRegNo(*) byte public data(3, 0, 1, 2),
+	stkRegIdx(*) byte public data(82h, 88h, 8Ch, 90h),	/* psw b d h */
+
+	b473D(*) byte public data(
+	90h, 98h, 7, 0Fh, 17h, 1Fh, 0, 0, 
+	80h, 88h, 0, 0, 0A0h, 0B0h, 0A8h, 0, 
+	0, 0, 0, 0FEh, 0B8h, 0D6h, 0DEh, 0C6h, 
+	0CEh, 0E6h, 0F6h, 0EEh, 4, 3, 5, 0Bh, 
+	87h),
+
+	b475E(*) byte public data(
+	9, 1Dh, 0Ch, 1, 0, 0, 1, 0, 
+	0, 0, 0Dh, 9, 2, 3, 4, 5, 
+	20h, 0, 1, 1Fh, 0, 0Eh),
+
+	b4774(*) byte public data(
+	17h, 0, 19h, 13h, 0, 0, 16h, 0, 0, 0, 1Ah, 18h, 3, 
+	2, 5, 4, 0, 0, 15h, 0, 0, 1Bh),
+
+	b478A(*) byte public data(
+	8, 0, 0Ch, 14h, 0, 0, 1, 0, 
+	0, 0, 0Dh, 9, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0Eh),
+
+	b47A0(*) byte public data(
+	0,4,8,0Ch,10h,14h,18h,1Ch,
+	20h,24h,28h,2Ch,30h,34h,38h,3Ch,
+	40h,44h,0CFh,48h,4Ch,50h,54h,58h,
+	5Ch,60h,64h,68h,6Ch,70h,74h,78h,
+	7Ch),
+
+	w47C1(*) address public data(
+	0,0,0,0,1000h,1001h,2002h,1004h,
+	1005h,1006h,1007h,2008h,200Ah,100Ch,100Dh,100Eh,
+	300Fh,2012h,1014h,3015h,1018h,1019h,101Ah,101Bh,
+	101Ch,101Dh,101Eh,101Fh,1022h,2022h,3022h,4022h,
+	2020h,1026h,2026h,3026h,1029h,2029h,120Fh,102Ch,
+	202Ch,302Ch,102Fh,1030h,1031h,2032h,2034h,2036h,
+	3038h,303Bh,303Eh,3041h,3044h,3047h,304Ah,304Dh,
+	3050h,1053h,2054h,1056h,1057h,3058h,305Bh,105Eh,
+	105Eh,405Fh,7063h,906Ah,0D073h,1083h,2083h,3083h,
+	4083h,5083h,4080h,3081h,2082h,4088h,308Ch,208Fh,
+	2091h,3093h,4096h,509Ah,509Fh,40A4h,30A8h,20ABh,
+	20AEh,10ADh,10B0h,20B1h,20B3h,20B5h,10B7h,80B8h,
+	10C0h,10FCh,10C1h,10C2h,20C3h,10C5h,80C6h,0A0CEh,
+	102Ch,202Ch,102Ch,202Ch,220Dh,1210h,1211h,2212h,
+	1022h,1214h,1215h,1216h,1217h,1218h,2219h,0,
+	0,0,0,0,0,0,0,0,
+	0,0,0,0,0,0,0,10D8h,
+	0,0,0,10D9h,10DAh,10DAh,10DBh,10DCh,
+	30DDh,30E0h,30E3h,10E6h,10E7h,10E8h,20E9h,0,
+	0,10EBh,0,0,0,0,0,0,
+	0,0,0,0,0,0,10ECh,20EDh,
+	40EFh,40F3h,20F7h,30F9h),
+
+	w4919(*) address public data(
+	134h,137h,13Fh,142h,14Ah,14Dh,151h,15Ah,
+	15Ch,15Fh,161h,14Ah,14Dh,151h,15Ah,15Ch,
+	15Fh,161h,134h,137h,13Fh,142h,14Ah,14Dh,
+	151h,15Ah,15Ch,15Fh,161h,11Ah,11Dh,0FDh,
+	101h,103h,10Bh,10Eh,1F6h,1F9h,1FBh,1E9h,
+	1ECh,1EEh,1DBh,1DEh,1E0h,1CEh,1D1h,1D3h,
+	134h,137h,13Fh,142h,14Ah,14Dh,151h,15Ah,
+	15Ch,15Fh,161h,183h,185h,1AEh,1B2h,1B4h,
+	183h,185h,1BEh,1C2h,1C4h,183h,185h,183h,
+	185h,134h,137h,13Fh,142h,14Ah,14Dh,151h,
+	177h,17Ah,16Ah,16Dh,183h,185h,192h,196h,
+	198h,18Ah,18Ch,19Dh,1A1h,1A3h,134h,137h,
+	13Fh,142h,14Ah,14Dh,151h,177h,17Ah,16Ah,
+	16Dh,205h,134h,137h,13Fh,142h,14Ah,14Dh,
+	151h,15Ah,15Ch,15Fh,161h),
+
+	b4A03(*) byte public data(
+	0Bh, 8, 0Bh, 8, 10h, 0Dh, 9, 10h, 
+	0Eh, 0Bh, 9, 10h, 0Dh, 9, 10h, 0Eh, 
+	0Bh, 9, 0Bh, 8, 0Bh, 8, 10h, 0Dh, 
+	9, 10h, 0Eh, 0Bh, 9, 1Ah, 17h, 0Eh, 
+	0Ah, 8, 0Fh, 0Ch, 0Fh, 0Ch, 0Ah, 0Dh, 
+	0Ah, 8, 0Eh, 0Bh, 9, 0Dh, 0Ah, 8, 
+	0Bh, 8, 0Bh, 8, 10h, 0Dh, 9, 10h, 
+	0Eh, 0Bh, 9, 7, 5, 10h, 0Ch, 0Ah, 
+	7, 5, 10h, 0Ch, 0Ah, 7, 5, 7, 
+	5, 0Bh, 8, 0Bh, 8, 10h, 0Dh, 9, 
+	0Ch, 9, 0Dh, 0Ah, 7, 5, 0Bh, 7, 
+	5, 8, 6, 11h, 0Dh, 0Bh, 0Bh, 8, 
+	0Bh, 8, 10h, 0Dh, 9, 0Ch, 9, 0Dh, 
+	0Ah, 8, 0Bh, 8, 0Bh, 8, 10h, 0Dh, 
+	9, 10h, 0Eh, 0Bh, 9),
+
+	b4A78(*) byte public data(
+/* 0000 */ 8Dh, tab, 'ADC', tab, 'L', 80h,
+/* 0008 */ 0C6h, tab, 'ADI', tab, 84h, 0FFh, 80h,
+/* 0011 */ 0E6h, tab, 'ANI', tab, 84h, 01h, 80h,
+/* 001A */ 0E6h, tab, 'ANI', tab, 84h, 03h, 80h,
+/* 0023 */ 0E6h, tab, 'ANI', tab, 84h, 07h, 80h,
+/* 002C */ 0E6h, tab, 'ANI', tab, 84h, 80h,
+/* 0034 */ 80h, 0E6h, tab, 'ANI', tab, 84h, 0c0h, 80h,
+/* 003E */ 0E6h, tab, 'ANI', tab, 84h, 0E0h, 80h,
+/* 0047 */ 0E6h, tab, 'ANI', tab, 84h, 0F8h, 80h,
+/* 0050 */ 0E6h, tab, 'ANI', tab, 84h, 0FCh, 80h,
+/* 0059 */ 0E6h, tab, 'ANI', tab, 84h, 0FEh, 80h,
+/* 0062 */ 0E6h, tab, 'ANI', tab, 84h, 0F0h, 80h,
+/* 006B */ 0CDh, tab, 'CALL', tab, 82h, 80h,
+/* 0074 */ 0CDh, tab, 'CALL', tab, 83h, ' ', 80h,
+/* 007E */ 0CDh, tab, 'CALL', tab, 93h, '     ', 80h,
+/* 008C */ 2Fh, tab, 'CMA', 80h,
+/* 0092 */ 27h, tab, 'DAA', 80h,
+/* 0098 */ 09h, tab, 'DAD', tab, 'B', 80h,
+/* 00A0 */ 29h, tab, 'DAD', tab, 'H', 80h,
+/* 00A8 */ 09h, tab, 'DAD', tab, 0C0h, 80h,
+/* 00B0 */ 39h, tab, 'DAD', tab, 'SP', 80h,
+/* 00B9 */ 3Dh, tab, 'DCR', tab, 'A', 80h,
+/* 00C1 */ 0Dh, tab, 'DCR', tab, 'C', 80h,
+/* 00C9 */ 1Bh, tab, 'DCX', tab, 'D', 80h,
+/* 00D1 */ 2Bh, tab, 'DCX', tab, 'H', 80h,
+/* 00D9 */ 0F3h, tab, 'DI', 80h,
+/* 00DE */ 00h, tab, 'DW', tab, 82h, 80h,
+/* 00E5 */ 0FBh, tab, 'EI', 80h,
+/* 00EA */ 00h, 089h, 'AH:', 80h,
+/* 00F0 */ 00h, 089h, 'APH:', 80h,
+/* 00F7 */ 00h, 089h, 'B:', 80h,
+/* 00FC */ 00h, 089h, 'BBA:', 80h,
+/* 0103 */ 00h, 089h, 'BPH:', 80h,
+/* 010A */ 00h, 089h, 'D:', 80h,
+/* 010F */ 00h, 089h, 'DA:', 80h,
+/* 0115 */ 00h, 089h, 'DB:', 80h,
+/* 011B */ 00h, 089h, 'DBP:', 80h,
+/* 0122 */ 00h, 089h, 'DH:', 80h,
+/* 0128 */ 00h, 089h, 'DHP:', 80h,
+/* 012F */ 00h, 089h, 'DPH:', 80h,
+/* 0136 */ 00h, 089h, 'H:', 80h,
+/* 013B */ 00h, 089h, 'PB:', 80h,
+/* 0141 */ 00h, 089h, 'PD:', 80h,
+/* 0147 */ 00h, 089h, 'PDA:', 80h,
+/* 014E */ 00h, 089h, 'PDB:', 80h,
+/* 0155 */ 00h, 089h, 'PDH:', 80h,
+/* 015C */ 00h, 089h, 'PH:', 80h,
+/* 0162 */ 76h, tab, 'HLT', 80h,
+/* 0168 */ 0DBh, tab, 'IN', tab, 86h, 80h,
+/* 016F */ 3Ch, tab, 'INR', tab, 'A', 80h,
+/* 0177 */ 13h, tab, 'INX', tab, 'D', 80h,
+/* 017F */ 23h, tab, 'INX', tab, 'H', 80h,
+/* 0187 */ 0C2h, tab, 'J', 88h, tab, 82h, 80h,
+/* 018E */ 0FAh, tab, 'JM', tab, 87h, 04h, 80h,
+/* 0196 */ 0C3h, tab, 'JMP', tab, 82h, 80h,
+/* 019E */ 0D2h, tab, 'JNC', tab, 82h, 80h,
+/* 01A6 */ 0D2h, tab, 'JNC', tab, 87h, 04h, 80h,
+/* 01AF */ 0D2h, tab, 'JNC', tab, 87h, 05h, 80h,
+/* 01B8 */ 0C2h, tab, 'JNZ', tab, 87h, 0FEh, 80h,
+/* 01C1 */ 0C2h, tab, 'JNZ', tab, 87h, 0ECh, 80h,
+/* 01CA */ 0C2h, tab, 'JNZ', tab, 87h, 0FDh, 80h,
+/* 01D3 */ 0C2h, tab, 'JNZ', tab, 87h, 0F9h, 80h,
+/* 01DC */ 0C2h, tab, 'JNZ', tab, 87h, 0F8h, 80h,
+/* 01E5 */ 0C2h, tab, 'JNZ', tab, 87h, 0F7h, 80h,
+/* 01EE */ 0EAh, tab, 'JPE', tab, 87h, 04h, 80h,
+/* 01F7 */ 0CAh, tab, 'JZ', tab, 87h, 04h, 80h,
+/* 01FF */ 3Ah, tab, 'LDA', tab, 82h, 80h,
+/* 0207 */ 0Ah, tab, 'LDAX', tab, 0C0h, 80h,
+/* 0210 */ 2Ah, tab, 'LHLD', tab, 82h, 80h,
+/* 0219 */ 21h, tab, 'LXI', tab, 'H,', 82h, tab, 8Ah, 80h,
+/* 0225 */ 21h, tab, 'LXI', tab, 'H,', 87h, 0Dh, 80h,
+/* 0230 */ 21h, tab, 'LXI', tab, 'H,', 87h, 11h, 80h,
+/* 023B */ 21h, tab, 'LXI', tab, 'H,', 87h, 08h, 80h,
+/* 0246 */ 21h, tab, 'LXI', tab, 'H,', 87h, tab, 80h,
+/* 0251 */ 21h, tab, 'LXI', tab, 'H,', 94h, 00h, 80h,
+/* 025C */ 01h, tab, 'LXI', tab, 0C0h, ',', 92h, 80h,
+/* 0266 */ 31h, tab, 'LXI', tab, 'SP,', 85h, 80h,
+/* 0271 */ 7Ah, tab, 'MOV', tab, 'A,D', 80h,
+/* 027B */ 7Bh, tab, 'MOV', tab, 'A,E', 80h,
+/* 0285 */ 7Ch, tab, 'MOV', tab, 'A,H', 80h,
+/* 028F */ 7Dh, tab, 'MOV', tab, 'A,L', 80h,
+/* 0299 */ 78h, tab, 'MOV', tab, 'A,', 0E0h, 80h,
+/* 02A3 */ 78h, tab, 'MOV', tab, 'A,', 0E2h, 80h,
+/* 02AD */ 7Eh, tab, 'MOV', tab, 'A,M', 80h,
+/* 02B7 */ 44h, tab, 'MOV', tab, 'B,H', 80h,
+/* 02C1 */ 4Fh, tab, 'MOV', tab, 'C,A', 80h,
+/* 02CB */ 4Dh, tab, 'MOV', tab, 'C,L', 80h,
+/* 02D5 */ 57h, tab, 'MOV', tab, 'D,A', 80h,
+/* 02DF */ 50h, tab, 'MOV', tab, 'D,B', 80h,
+/* 02E9 */ 56h, tab, 'MOV', tab, 'D,M', 80h,
+/* 02F3 */ 5Fh, tab, 'MOV', tab, 'E,A', 80h,
+/* 02FD */ 59h, tab, 'MOV', tab, 'E,C', 80h,
+/* 0307 */ 5Eh, tab, 'MOV', tab, 'E,M', 80h,
+/* 0311 */ 67h, tab, 'MOV', tab, 'H,A', 80h,
+/* 031B */ 66h, tab, 'MOV', tab, 'H,M', 80h,
+/* 0325 */ 6Fh, tab, 'MOV', tab, 'L,A', 80h,
+/* 032F */ 46h, tab, 'MOV', tab, 0D0h, ',M', 80h,
+/* 0339 */ 40h, tab, 'MOV', tab, 0D2h, ',', 0e0h, 80h,
+/* 0343 */ 46h, tab, 'MOV', tab, 0D2h, ',M', 80h,
+/* 034D */ 40h, tab, 'MOV', tab, 0D0h, ',', 0e1h, 80h,
+/* 0357 */ 40h, tab, 'MOV', tab, 0D2h, ',', 0e3h, 80h,
+/* 0361 */ 70h, tab, 'MOV', tab, 'M,', 0E0h, 80h,
+/* 036B */ 70h, tab, 'MOV', tab, 'M,', 0E2h, 80h,
+/* 0375 */ 3Eh, tab, 'MVI', tab, 'A,', 84h, 10h, 80h,
+/* 0380 */ 3Eh, tab, 'MVI', tab, 'A,', 84h, 0FFh, 80h,
+/* 038B */ 3Eh, tab, 'MVI', tab, 'A,', 84h, 00h, 80h,
+/* 0396 */ 06h, tab, 'MVI', tab, 'B,', 84h, 00h, 80h,
+/* 03A1 */ 16h, tab, 'MVI', tab, 'D,', 84h, 00h, 80h,
+/* 03AC */ 26h, tab, 'MVI', tab, 'H,', 84h, 00h, 80h,
+/* 03B7 */ 06h, tab, 'MVI', tab, 0D2h, ',', 96h, 80h,
+/* 03C1 */ 06h, tab, 'MVI', tab, 0D0h, ',', 84h, 0, 80h,
+/* 03CC */ 36h, tab, 'MVI', tab, 'M,', 84h, 00h, 80h,
+/* 03D7 */ 00h, tab, 9Bh, 80h,
+/* 03DB */ 00h, tab, 9Bh, tab, 0E5h, 80h,
+/* 03E1 */ 00h, tab, 9Bh, tab, 0E7h, 80h,
+/* 03E7 */ 00h, tab, 9Bh, tab, 0C0h, 80h,
+/* 03ED */ 00h, tab, 9Bh, tab, 0ECh, 80h,
+/* 03F3 */ 00h, tab, 0ABh, 80h,
+/* 03F7 */ 00h, tab, 0ABh, tab, 86h, 80h,
+/* 03FD */ 00h, tab, 0BBh, tab, 0ECh, 80h,
+/* 0403 */ 00h, tab, 8Bh, tab, 0E9h, 80h,
+/* 0409 */ 00h, tab, 8Bh, tab, 0EBh, 80h,
+/* 040F */ 00h, tab, 8Bh, tab, 0ECh, 80h,
+/* 0415 */ 00h, tab, 8Bh, tab, 0DCh, 80h,
+/* 041B */ 0B7h, tab, 'ORA', tab, 'A', 80h,
+/* 0423 */ 0B5h, tab, 'ORA', tab, 'L', 80h,
+/* 042B */ 0D3h, tab, 'OUT', tab, 86h, 80h,
+/* 0433 */ 0E9h, tab, 'PCHL', 80h,
+/* 043A */ 00h, '; PROC', tab, 81h, 80h,
+/* 0444 */ 0C1h, tab, 'POP', tab, 'B', 80h,
+/* 044C */ 0C1h, tab, 'POP', tab, 0C0h, tab, 8Ah, 80h,
+/* 0456 */ 0F1h, tab, 'POP', tab, 'PSW', 80h,
+/* 0460 */ 0E5h, tab, 'PUSH', tab, 'H', 80h,
+/* 0469 */ 0C5h, tab, 'PUSH', tab, 0C0h, tab, 8Ah, 80h,
+/* 0474 */ 0F5h, tab, 'PUSH', tab, 'PSW', 80h,
+/* 047F */ 17h, tab, 'RAL', 80h,
+/* 0485 */ 1Fh, tab, 'RAR', 80h,
+/* 048B */ 0C9h, tab, 'RET', 80h,
+/* 0491 */ 9Fh, tab, 'SBB', tab, 'A', 80h,
+/* 0499 */ 98h, tab, 'SBB', tab, 'B', 80h,
+/* 04A1 */ 9Ch, tab, 'SBB', tab, 'H', 80h,
+/* 04A9 */ 9Eh, tab, 'SBB', tab, 'M', 80h,
+/* 04B1 */ 22h, tab, 'SHLD', tab, 82h, 80h,
+/* 04BA */ 0F9h, tab, 'SPHL', 80h,
+/* 04C1 */ 32h, tab, 'STA', tab, 82h, 80h,
+/* 04C9 */ 97h, tab, 'SUB', tab, 'A', 80h,
+/* 04D1 */ 91h, tab, 'SUB', tab, 'C', 80h,
+/* 04D9 */ 95h, tab, 'SUB', tab, 'L', 80h,
+/* 04E1 */ 96h, tab, 'SUB', tab, 'M', 80h,
+/* 04E9 */ 0D6h, tab, 'SUI', tab, 84h, 01h, 80h,
+/* 04F2 */ 0EBh, tab, 'XCHG', 80h,
+/* 04F9 */ 0E3h, tab, 'XTHL', tab, tab, 8Ah, 80h,
+/* 0503 */ 03h, tab, 'INX', tab, 0C0h, 80h,
+/* 050B */ 0Bh, tab, 'DCX', tab, 0C0h, 80h,
+/* 0513 */ 69h, tab, 'MOV', tab, 'L,C', 80h,
+/* 051D */ 60h, tab, 'MOV', tab, 'H,B', 80h,
+/* 0527 */ 4Eh, tab, 'MOV', tab, 'C,M', 80h,
+/* 0531 */ 46h, tab, 'MOV', tab, 'B,M', 80h,
+/* 053B */ 1Ah, tab, 'LDAX', tab, 'D', 80h,
+/* 0544 */ 0Ah, tab, 'LDAX', tab, 'B', 80h,
+/* 054D */ 12h, tab, 'STAX', tab, 'D', 80h,
+/* 0556 */ 0C2h, tab, 'JNZ', tab, 87h, 0FBh, 80h,
+/* 055F */ 06h, tab, 'MVI', tab, 'B,', 84h, 0Ch, 80h,
+/* 056A */ 48h, tab, 'MOV', tab, 'C,B', 80h,
+/* 0574 */ 0C2h, tab, 'JNZ', tab, 87h, 0FFh, 80h,
+/* 057D */ 0C2h, tab, 'JNZ', tab, 87h, 0FAh, 80h,
+/* 0586 */ 21h, tab, 'LXI', tab, 'H,', 92h, 80h,
+/* 0590 */ 03h, tab, 'INX', tab, 'B', 80h,
+/* 0598 */ 78h, tab, 'MOV', tab, 'A,', 0E3h, 80h,
+/* 05A2 */ 36h, tab, 'MVI', tab, 'M,', 86h, 80h,
+/* 05AC */ 00h, tab, 8Bh, tab, 0D2h, 80h,
+/* 05B2 */ 00h, tab, 0BBh, tab, 0E2h, 80h,
+/* 05B8 */ 2Dh, tab, 'DCR', tab, 'L', 80h,
+/* 05C0 */ 00h, 89h, 80h,
+/* 05C3 */ 40h, tab, 'MOV', tab, 0D0h, ',', 0e2h, 80h,
+/* 05CD */ 33h, tab, 'INX', tab, 'SP', 80h,
+/* 05D6 */ 3Bh, tab, 'DCX', tab, 'SP', 80h,
+/* 05DF */ 0DAh, tab, 'JC', tab, 82h, 80h,
+/* 05E6 */ 2Ch, tab, 'INR', tab, 'L', 80h,
+/* 05EE */ 0C3h, tab, 'JMP', tab, 87h, 07h, 80h),
+
+	w506F(*) address public data(
+/*  A4-1 */ 44ch,
+/*  A5-1 */ 4f9h,
+/*  A6-2 */ 219h, 0b0h,
+/*  A7-1 */ 25ch,
+/*  A8-1 */ 1ffh,
+/*  A9-1 */ 207h,
+/*  A10-1 */ 210h,
+/*  A11-2 */ 34dh, 357h,
+/*  A12-2 */ 357h, 3c1h,
+/*  A13-1 */ 357h,
+/*  A14-1 */ 4f2h,
+/*  A15-1 */ 3c1h,
+/*  A16-3 */ 343h, 17fh, 32fh,
+/*  A17-2 */ 343h, 3c1h,
+/*  A18-1 */ 343h,
+/*  A19-3 */ 361h, 0d1h, 36bh,
+/*  A20-1 */ 36bh,
+/*  A21-1 */ 0deh,
+/*  A22-1 */ 4bah,
+/*  A23-1 */ 469h,
+/*  A24-1 */ 503h,
+/*  A25-1 */ 50bh,
+/*  A26-1 */ 0d1h,
+/*  A27-1 */ 48bh,
+/*  A32-2 */ 2a3h, 48bh,
+/*  A28-1 A29-2 A30-3 A31-4 A112-1 */ 0a0h, 0a0h, 0a0h, 0a0h,
+/*  A33-1 A34-2 A35-3 */ 415h, 415h, 415h,
+/*  A36-1 A37-2 */ 5ach, 5ach, 5ach,
+/*  A39-1 A40-2 A41-3 A104-1 A105-2 A106-1 A107-2 */ 3e7h, 3e7h, 3e7h,
+/*  A42-1 */ 3fdh,
+/*  A43-1 */ 3f7h,
+/*  A44-1 */ 5b2h,
+/*  A45-2 */ 3fdh, 491h,
+/*  A46-2 */ 3f7h, 491h,
+/*  A47-2 */ 5b2h, 491h,
+/*  A48-3 */ 3fdh, 4e9h, 491h,
+/*  A49-3 */ 3f7h, 4e9h, 491h,
+/*  A50-3 */ 5b2h, 4e9h, 491h,
+/*  A51-3 */ 3fdh, 8h, 491h,
+/*  A52-3 */ 3f7h, 8h, 491h,
+/*  A53-3 */ 5b2h, 8h, 491h,
+/*  A54-3 */ 3fdh, 491h, 8ch,
+/*  A55-3 */ 3f7h, 491h, 8ch,
+/*  A56-3 */ 5b2h, 491h, 8ch,
+/*  A57-1 */ 0a8h,
+/*  A58-2 */ 210h, 3ach,
+/*  A59-1 */ 4b1h,
+/*  A60-1 */ 4c1h,
+/*  A61-3 */ 36bh, 17fh, 3cch,
+/*  A62-3 */ 36bh, 17fh, 361h,
+/*  A63-1 A64-1 */ 6bh,
+/*  A65-4 */ 23bh, 460h, 210h, 433h,
+/*  A66-7 */ 246h, 4f9h, 2adh, 17fh, 31bh, 325h, 433h,
+/*  A67-9 */ 225h, 460h, 219h, 0b0h, 2adh, 17fh, 31bh, 325h, 433h,
+/*  A68-13 */ 230h, 460h, 219h, 0b0h, 2adh, 17fh, 31bh, 325h, 2adh, 17fh, 31bh, 325h, 433h,
+/*  A74-4 */ 3f3h,
+/*  A75-3 */ 3f3h,
+/*  A76-2 */ 3f3h,
+/*  A69-1 A70-2 A71-3 A72-4 A73-5 */ 3d7h, 3d7h, 3d7h, 3d7h, 3d7h,
+/*  A77-4 */ 23h, 485h, 485h, 485h,
+/*  A78-3 */ 1ah, 485h, 485h,
+/*  A79-2 */ 11h, 485h,
+/*  A80-2 */ 41bh, 485h,
+/*  A81-3 */ 59h, 485h, 485h,
+/*  A82-4 */ 50h, 485h, 485h, 485h,
+/*  A83-5 */ 47h, 485h, 485h, 485h, 485h,
+/*  A84-5 */ 62h, 47fh, 47fh, 47fh, 47fh,
+/*  A85-4 */ 3eh, 47fh, 47fh, 47fh,
+/*  A86-3 */ 35h, 47fh, 47fh,
+/*  A87-2 */ 2ch, 47fh,
+/*  A89-1 */ 0a8h,
+/*  A88-2 */ 0a8h, 0a8h,
+/*  A90-1 */ 8ch,
+/*  A91-2 */ 8ch, 16fh,
+/*  A92-2 */ 503h, 207h,
+/*  A93-2 */ 17fh, 2adh,
+/*  A94-1 */ 92h,
+/*  A95-8 */ 586h, 0a8h, 0a8h, 307h, 17fh, 2e9h, 4f2h, 433h,
+/*  A96-1 */ 42bh,
+/*  A98-1 */ 2a3h,
+/*  A99-1 */ 299h,
+/*  A100-2 */ 485h, 19eh,
+/*  A101-1 */ 0a8h,
+/*  A102-8 */ 5e6h, 5eeh, 544h, 54dh, 590h, 177h, 5b8h, 556h,
+/*  A103-10 */ 17fh, 5eeh, 544h, 54dh, 590h, 177h, 0d1h, 285h, 423h, 1d3h,
+/*  A135-1 */ 43ah,
+/*  A139-1 */ 168h,
+/*  A140-1 A141-1 */ 196h,
+/*  A142-1 */ 19eh,
+/*  A143-1 */ 187h,
+/*  A144-3 */ 380h, 18eh, 4c9h,
+/*  A145-3 */ 380h, 1f7h, 4c9h,
+/*  A146-3 */ 380h, 1eeh, 4c9h,
+/*  A147-1 */ 491h,
+/*  A148-1 */ 0d9h,
+/*  A149-1 */ 0e5h,
+/*  A150-2 */ 0e5h, 162h,
+/*  A153-1 */ 266h,
+/*  A166-1 */ 74h,
+/*  A167-2 */ 74h, 423h,
+/*  A168-4 */ 74h, 423h, 4e9h, 491h,
+/*  A169-4 */ 74h, 423h, 8h, 491h,
+/*  A170-2 */ 74h, 491h,
+/*  A171-3 */ 74h, 491h, 8ch,
+/*  A97-1 */ 7eh,
+/*  B31-14 */ 15ch, 307h, 17fh, 2e9h,
+/*  B32-10 */ 10ah, 4f2h,
+/*  B33-8 */ 136h, 0a0h, 460h, 0a0h, 0a0h, 444h, 98h, 48bh,
+/*  B34-15 */ 122h, 2b7h, 2cbh,
+/*  B35-12 */ 115h, 251h, 375h, 0a0h, 4f2h, 0a0h, 4f2h, 1a6h, 98h, 0b9h, 1e5h, 48bh,
+/*  B29-26 */ 122h, 2b7h, 2cbh,
+/*  B30-23 */ 115h, 251h, 375h, 474h, 0a0h, 4f2h, 4c9h, 0a0h, 4f2h, 0h, 4d1h, 325h,
+	      285h, 499h, 311h, 177h, 1afh, 98h, 0c9h, 456h, 0b9h, 1c1h, 48bh,
+/*  B0 B18 B48 B73 B94 B106 -11 */ 0eah, 2f3h, 3a1h,
+/*  B1 B19 B49 B74 B95 B107 -8 */ 122h, 27bh, 409h, 325h, 271h, 3e1h, 311h, 48bh,
+/*  B2 B20 B50 B75 B96 B108 -11 */ 10fh, 2c1h, 396h,
+/*  B3 B21 B51 B76 B97 B109 -8 */ 115h, 27bh, 403h, 325h, 271h, 3dbh, 311h, 48bh,
+/*  B4 B11 B22 B52 B77 B98 B110 -16 */ 11bh, 513h, 51dh,
+/*  B5 B12 B23 B53 B78 B99 B111 -13 */ 128h, 527h, 17fh, 531h,
+/*  B6 B13 B24 B54 B79 B100 B112 -9 */ 14eh, 53bh, 403h, 325h, 177h, 53bh, 3dbh, 311h, 48bh,
+/*  B7 B14 B25 B55 B113 -16 */ 147h, 4f2h,
+/*  B8 B15 B26 B56 B114 -14 */ 0f0h, 2f3h, 3a1h,
+/*  B9 B16 B27 B57 B115 -11 */ 12fh, 4f2h,
+/*  B10 B17 B28 B58 B116 -9 */ 155h, 53bh, 409h, 325h, 177h, 53bh, 3e1h, 311h, 48bh,
+/*  B82 B103 -13 */ 0f0h, 2f3h, 3a1h,
+/*  B83 B104 -10 */ 12fh, 27bh, 40fh, 2f3h, 271h, 17fh, 3edh, 2d5h, 4f2h, 48bh,
+/*  B80 B101 -12 */ 147h, 325h, 3ach,
+/*  B81 B102 -9*/ 155h, 53bh, 409h, 325h, 177h, 53bh, 3e1h, 311h, 48bh,
+/*  B59 B64 B69 B71 B84 -7 */ 103h, 2adh,
+/*  B60 B65 B70 B72 B85 -5 */ 0fch, 3d7h, 0c1h, 1b8h, 48bh,
+/*  B89-8 */ 103h, 2adh,
+/*  B90-6 */ 0fch, 41bh, 485h, 0c1h, 1cah, 48bh,
+/*  B86-11 */ 15ch, 307h, 17fh, 2e9h,
+/*  B87-7 */ 10ah, 4f2h,
+/*  B88-5 */ 136h, 0a0h, 0c1h, 1b8h, 48bh,
+/*  B91-17 */ 15ch, 307h, 17fh, 2e9h,
+/*  B92-13 */ 10ah, 4f2h,
+/*  B93-11 */ 136h, 285h, 41bh, 485h, 311h, 28fh, 485h, 325h, 0c1h, 1dch, 48bh,
+/*  B61-16 */ 15ch, 307h, 17fh, 2e9h,
+/*  B62-12 */ 10ah, 4f2h,
+/*  B63-10 */ 136h, 28fh, 47fh, 325h, 285h, 47fh, 311h, 0c1h, 1d3h, 48bh,
+/*  B66-16 */ 15ch, 307h, 17fh, 2e9h,
+/*  B67-12 */ 10ah, 4f2h,
+/*  B68-10 */ 136h, 285h, 485h, 311h, 28fh, 485h, 325h, 0c1h, 1d3h, 48bh,
+/*  B45-13 */ 0f7h, 2fdh, 2dfh,
+/*  B46-10 */ 10ah, 4f2h,
+/*  B47-8 */ 136h, 28fh, 8ch, 325h, 285h, 8ch, 311h, 48bh,
+/*  B42-14 */ 13bh, 513h, 51dh,
+/*  B43-11 */ 15ch, 4f2h,
+/*  B44-9 */ 141h, 53bh, 8ch, 325h, 177h, 53bh, 8ch, 311h, 48bh,
+/*  B39-13 */ 0f7h, 2fdh, 2dfh,
+/*  B40-10 */ 10ah, 4f2h,
+/*  B41-8 */ 136h, 4c9h, 4d9h, 325h, 38bh, 4a1h, 311h, 48bh,
+/*  B36-15 */ 13bh, 2fdh, 2dfh,
+/*  B37-12 */ 141h, 4f2h,
+/*  B38-10 */ 15ch, 4c9h, 4e1h, 2f3h, 38bh, 17fh, 4a9h, 2d5h, 4f2h, 48bh,
+/*  B105-8 */ 5c0h, 55fh, 56ah, 0c1h, 574h, 0b9h, 57dh, 48bh,
+/*  A108-2 */ 598h, 42bh,
+/*  A38-1 */ 5a2h,
+/*  A109-1 */ 3b7h,
+/*  A110-1 */ 339h,
+/*  A111-2 */ 0a0h, 0a8h,
+/*  A113-1 */ 5c3h,
+/*  A114-1 */ 32fh,
+/*  A115-1 */ 361h,
+/*  A116-1 */ 5cdh,
+/*  A117-1 */ 5d6h,
+/*  A118-2 */ 485h, 5dfh
+),
+	stack$origin(*) byte public data(14, '@STACK$ORIGIN ');
+
+$list
+
+sub$54BA: procedure public;
+
+	emitSource: procedure;
+		declare p(3) address, (s, t) address;
+
+		call fread(.tx1File, .p, 6);
+		if p(1) > 0 or p(2) = 0 then
+			s = p(0);
+		else
+		do;
+			s = p(2);
+			p(2) = 0;
+		end;
+		do t = p(0) to s;
+			call sub$5BD3;
+			w812F = t;
+			lineNo = p(1);
+			depth = p(2);
+			call getSourceLine;
+		end;
+	end;
+
+
+
+	newStatementNo: procedure;
+		call fread(.tx1File, .stmtNo, 2);
+		if stmtNo = 0 then
+			return;
+		if DEBUG then
+		do; 
+			if rec8.len + 4 >= 1020 then
+				call writeRec(.rec8.type, 1);
+			call recAddWord(.rec8.type, 1, baseAddr);
+			call recAddWord(.rec8.type, 1, stmtNo);
+		end;
+		if codeOn then
+			call emitStatementNo;
+	end;
+
+
+	addrCheck: procedure(arg1w);
+		declare arg1w address;
+		if arg1w <> baseAddr then
+			call sub$5E1B(0D8h);
+	end;
+
+
+	emitLocalLabel: procedure;
+		declare localLabels based localLabels$p(1) address;
+
+		call fread(.tx1File, .w96D7, 2);
+		locLabStr(1) = '@';
+		locLabStr(0) = num2Asc(w96D7, 0, 10, .locLabStr(2)) + 1;
+		call addrCheck(localLabels(w96D7));
+		call emitLabel;
+	end;
+
+	emitSymLabel: procedure;
+		call fread(.tx1File, .curInfo$p, 2);
+		curInfo$p = curInfo$p + botInfo;
+		curSymbol$p = getSymbol;
+		locLabStr(0) = sym.name(0);
+		call movmem(locLabStr(0), .sym.name(1), .locLabStr(1));
+		call addrCheck(getLinkVal);
+		call emitLabel;
+	end;
+
+	emitSimpleError: procedure;
+		call fread(.tx1File, .wa8125, 2);
+		wa8125(1) = 0;
+		wa8125(2) = stmtNo;
+		call emitError;
+	end;
+
+
+	emitNearError: procedure;
+		call fread(.tx1File, .wa8125, 4);
+		wa8125(2) = stmtNo;
+		call emitError;
+	end;
+
+	emitFullError: procedure;
+		call fread(.tx1File, .wa8125, 6);
+		call emitError;
+	end;
+
+	miscControl: procedure;
+		declare pad byte, fname(19) byte;
+
+		do case cfCode - 9dh;
+			listOff = false;
+			listOff = true;
+			codeOn = PRINT;
+			codeOn = false;
+			if listing then
+				call newPageNextChLst;
+			do;
+				call sub$5BD3;
+				call tellF(.srcFil, .srcFileTable(srcFileIdx + 8));
+				call backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+				srcFileIdx = srcFileIdx + 10;
+				call fread(.tx1File, .fname(13), 6);
+				call fread(.tx1File, .fname(6), 7);
+				call fread(.tx1File, .fname(0), 7);
+				call movmem(16, .fname(1), .srcFileTable(srcFileIdx));
+				call closeF(.srcFil);
+				call initF(.srcFil, .('SOURCE'), .fname(1));
+				call openF(.srcFil, 1);
+				ocurch = olstch;
+			end;
+		end;
+	end;
+
+	setNewAddr: procedure;
+		call fread(.tx1File, .curInfo$p, 2);
+		call fread(.tx1File, .baseAddr, 2);
+		curInfo$p = curInfo$p + botInfo;
+		baseAddr = baseAddr + getLinkVal;
+		call flushRecs;
+	end;
+
+/* sub$54BA */
+
+
+	call fread(.tx1File, .cfCode, 1);
+	if cfCode = 98h then
+		call emitSource;
+	else if cfCode = 86h then
+		call fread(.tx1File, .stmtNo, 2);
+	else if cfCode = 97h then
+		call newStatementNo;
+	else if cfCode = 88h or cfCode = 89h then
+		call emitLocalLabel;
+	else if cfCode = 8Ah then
+		call emitSymLabel;
+	else if cfCode = 0A4h then
+		call setNewAddr;
+	else if cfCode = 9Ah then
+		call emitSimpleError;
+	else if cfCode = 9Bh then
+		call emitNearError;
+	else if 9Dh <= cfCode and cfCode <= 0A2h then
+		call miscControl;
+	else if cfCode = 9Ch then
+		bo812B = 0;
+	else if cfCode = 0A3h then
+		call emitFullError;
+	else
+		call sub$668B;
+end;
+
+end;

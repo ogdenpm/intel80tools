@@ -1,0 +1,90 @@
+plm0:
+DO;
+	DECLARE LIT LITERALLY 'LITERALLY';
+
+	DECLARE local LIT ' ';
+
+$INCLUDE(:f3:lex.inc)
+$include(:f3:data.inc)
+
+DECLARE copyright(*) BYTE DATA('(C) 1976, 1977, 1982 INTEL CORP');
+DECLARE resetPt LABEL PUBLIC;
+DECLARE blockOff LIT '8',
+	LF LIT '0AH',
+	ERR87 LIT '87';
+
+DECLARE state BYTE EXTERNAL,
+	ocurch ADDRESS EXTERNAL,
+	olstch ADDRESS EXTERNAL,
+	curProcData address external,
+	curDoBlkCnt byte external,
+	inChr$p address external;
+
+
+
+sub$4119: PROCEDURE EXTERNAL; end sub$4119;
+sub$6F00: PROCEDURE EXTERNAL; end sub$6F00;
+syntaxError: PROCEDURE(ecode) EXTERNAL; DECLARE ecode BYTE; end syntaxError;
+writeLineInfo: PROCEDURE EXTERNAL; end writeLineInfo; 
+wrByte: PROCEDURE(tok) EXTERNAL; DECLARE tok BYTE; end wrByte;
+$include(:f3:initf.pex)
+$include(:f3:openf.pex)
+$include(:f3:seekf.pex)
+$include(:f3:tellf.pex)
+$include(:f3:backup.pex)
+$include(:f3:closef.pex)
+$include(:f3:chain.pex)
+
+gnxtch: PROCEDURE EXTERNAL;
+end gnxtch;
+
+do$Control: PROCEDURE(text$p) EXTERNAL;
+	DECLARE text$p ADDRESS;
+end do$Control;
+
+
+sub$3EDF: PROCEDURE local;
+	if unexpectedEOF then
+		call syntaxError(ERR87);
+	call writeLineInfo;
+	call wrByte(L$EOF);
+	call sub$4119;
+	call tellf(.srcFil, .srcFileTable(srcFileIdx + 8));
+	call backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+	call closef(.srcFil);
+end sub$3EDF;
+
+
+sub$3F23: PROCEDURE local;
+	call initf(.srcFil, .('SOURCE'), .srcFileTable(srcFileIdx));
+	call openf(.srcFil, 1);
+	call seekf(.srcFil, .srcFileTable(srcFileIdx + 8));
+	ocurch = olstch;
+	if offNxtCmdChM1 <> 0 then
+		do while cmdLine$p <> 0;
+			call do$Control(offNxtCmdChM1 + cmdLine$p);
+			offNxtCmdChM1 = 2;
+			cmdLine$p = cmd.link;
+		end;
+	offNxtCmdChM1 = 0;
+	curProcData = .curDoBlkCnt;
+	inChr$p = .(LF) - 1;
+	blockDepth = 1;
+	procChains(1) = 0;
+	call gnxtch;
+end sub$3F23;
+
+sub$3FAD: PROCEDURE local;
+	call sub$3F23;
+	call sub$6F00;
+end sub$3FAD;
+
+
+
+start:
+		state = 20;	/* 9B46 */
+		call sub$3FAD;
+resetPt:	call sub$3EDF;
+		call chain(.overlay1);
+
+END;

@@ -1,0 +1,503 @@
+plm1d: DO;
+declare LIT LITERALLY 'LITERALLY',
+    CR  LIT '0DH',
+    LF LIT '0AH',
+    TRUE LIT '0FFH',
+    FALSE LIT '0';
+
+$nolist
+$include(:f3:lex.inc)
+declare
+	ERR100 LIT '100',	/* INVALID STRING CONSTANT IN EXPRESSION  */
+	ERR101 LIT '101',	/* INVALID ITEM FOLLOWS DOT OPERATOR */
+	ERR102 LIT '102',	/* MISSING PRIMARY OPERAND */
+	ERR103 LIT '103',	/* MISSING ') ' AT END OF SUBEXPRESSION */
+	ERR104 LIT '104',	/* ILLEGAL PROCEDURE INVOCATION WITH DOT OPERATOR */
+	ERR110 LIT '110',	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+	ERR111 LIT '111',	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+	ERR113 LIT '113',	/* MISSING ') ' AT END OF ARGUMENT LIST */
+	ERR114 LIT '114',	/* INVALID SUBSCRIPT, MULTIPLE SUBSCRIPTS ILLEGAL */
+	ERR115 LIT '115',	/* MISSING ') ' AT END OF SUBSCRIPT */
+	ERR123 LIT '123',	/* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
+	ERR127 LIT '127',	/* INVALID SUBSCRIPT ON NON-ARRAY */
+	ERR128 LIT '128',	/* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
+	ERR130 LIT '130',	/* ILLEGAL REFERENCE TO OUTPUT FUNCTION */
+	ERR132 LIT '132',	/* ILLEGAL USE OF LABEL */
+	ERR133 LIT '133',	/* ILLEGAL REFERENCE TO UNSUBSCRIPTED ARRAY */
+	ERR134 LIT '134',	/* ILLEGAL REFERENCE TO UNSUBSCRIPTED MEMBER ARRAY */
+	ERR135 LIT '135',	/* ILLEGAL REFERENCE TO AN UNQUALIFIED STRUCTURE */
+	ERR158 LIT '158',	/* INVALID DOT OPERAND, LABEL ILLEGAL */
+	ERR218 LIT '218';	/* ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS */
+$include(t2code.inc)
+$include(icodes.inc)
+$include(:f3:flags.inc)
+$include(:f3:data.inc)
+$include(:f3:info.inc)
+$list
+
+pushOperator: procedure(op) external; declare op byte; end;
+matchTx2Item: PROCEDURE(arg1b) BYTE external; declare arg1b byte; end;
+pushParseWord: PROCEDURE(arg1w) external; declare arg1w address; end;
+pushParseByte: PROCEDURE(arg1b) external; declare arg1b byte; end;
+sub$45E0: PROCEDURE external; end;
+sub$512E: PROCEDURE(arg1w) BYTE external; declare arg1w address; end;
+wrTx2ExtError: PROCEDURE(arg1b) external; declare arg1b byte; end;
+exprPop: PROCEDURE external; end;
+wrTx2Error: PROCEDURE(arg1b) external; declare arg1b byte; end;
+exprPush2: PROCEDURE(arg1b, arg2w) external; declare arg1b byte, arg2w address; end;
+exprMakeNode: PROCEDURE(arg1b, arg2b) external; declare (arg1b, arg2b) byte; end;
+matchTx2AuxFlag: PROCEDURE(arg1b) BYTE external; declare arg1b byte; end;
+acceptOpAndArgs: PROCEDURE external; end;
+popOperatorStack: PROCEDURE external; end;
+$include(:f3:gitype.pex)
+resyncRPAREN: PROCEDURE external; end;
+sub$521B: PROCEDURE external; end;
+expectRPAREN: PROCEDURE(arg1b) external; declare arg1b byte; end;
+popParseStack: PROCEDURE external; end;
+$include(:f3:tiflag.pex)
+notMatchTx2Item: PROCEDURE(arg1b) BYTE external; declare arg1b byte; end;
+sub$4631: PROCEDURE external; end;
+sub$4CFD: PROCEDURE(arg1w) external; declare arg1w address; end;
+parsePortNum: PROCEDURE(arg1b) external; declare arg1b byte; end;
+getCallArgCnt: PROCEDURE BYTE external; end;
+mkIndexNode: PROCEDURE external; end;
+sub$4DCF: PROCEDURE(arg1b) external; declare arg1b byte; end;
+sub$50D5: PROCEDURE external; end;
+sub$4D38: PROCEDURE external; end;
+sub$4599: PROCEDURE external; end;
+$include(:f3:gipcnt.pex)
+$include(:f3:gibin.pex)
+
+declare markedStSP address external,
+	T2CntForStmt address external,
+	curProcInfo$p address external,
+	curStmtNum address external,
+	(varInfoOffset, varArrayIndex, varNestedArrayIndex, val) address external,
+	regetTx1Item byte external,
+	b88B3 byte external,
+	tx1Item structure(type byte, dataw(129) address) external,
+	linfo structure(itemType byte, lineCnt address, stmtCnt address, blkCnt address) external,
+	tx1Aux2 byte external,
+	tx1Aux1 byte external,
+	tx1RdBuf(512) byte external,
+	tx2Buf(512) byte external,
+	xrfBuf(512) byte external,
+	atBuf(512) byte external,
+	b91C0 byte external,
+	parseSP address external,
+	parseStack(100) address external,
+	operatorSP address external,
+	operatorStack(50) address external,
+	exSP address external,
+	ex1Stack(100) byte external,
+	ex2Stack(100) byte external,
+	ex3Stack(100) address external,
+	stSP address external,
+	st1Stack(300) byte external,
+	st2Stack(300) byte external,
+	st3Stack(300) address external,
+	b4172(1) byte external,
+	builtinsMap(1) byte external;
+
+exprParse0: PROCEDURE public;
+    call pushOperator(0);
+    if matchTx2Item(L$VARIABLE) then
+    do;
+	call pushParseByte(1);
+	call sub$45E0;
+	call pushParseByte(11);
+    end;
+    else
+    do;
+	call pushParseByte(3);
+	call pushParseByte(4);
+    end;
+end;
+
+exprParse1: PROCEDURE public;
+    if matchTx2Item(L$COLONEQUALS) then
+    do;
+	if sub$512E(exSP) then
+	do;
+	    call wrTx2ExtError(ERR128);	/* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
+	    call exprPop;
+	end;
+	else
+	    call pushParseByte(2);
+	call pushParseByte(3);
+	call pushParseByte(4);
+    end;
+    else
+    do;
+	if ex1Stack(exSP) = I$OUTPUT then
+	do;
+	    call wrTx2Error(ERR130);	/*  ILLEGAL REFERENCE TO OUTPUT FUNCTION */
+	    call exprPop;
+	    call exprPush2(I$NUMBER, 0);
+	end;
+	call pushParseByte(3);
+    end;
+end;
+
+exprParse2: PROCEDURE public;
+    call exprMakeNode(I$COLONEQUALS, 2);
+end;
+
+
+exprParse3: PROCEDURE public;
+    if matchTx2AuxFlag(64) then
+    do;
+	do while b4172(tx1Aux1) <= b4172(operatorStack(operatorSP));
+	    if b4172(tx1Aux1) = 50 and b4172(operatorStack(operatorSP)) = 50 then
+		call wrTx2ExtError(ERR218);	/* ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS */
+	    call acceptOpAndArgs;
+	end;
+	call pushOperator(tx1Aux1);
+	call pushParseByte(3);
+	call pushParseByte(4);
+    end;
+    else
+    do;
+	do while operatorStack(operatorSP) <> 0;
+	    call acceptOpAndArgs;
+	end;
+	call popOperatorStack;
+    end;
+end;
+
+
+exprParse4: PROCEDURE public;
+    if matchTx2Item(L$MINUSSIGN) then
+	call pushOperator(I$UNARYMINUS);
+    else if matchTx2Item(L$NOT) then
+	call pushOperator(I$NOT);
+    call pushParseByte(5);
+end;
+
+exprParse5: PROCEDURE public;
+    declare (p, q) address; 
+    declare bpair based q(2) byte;
+
+    if matchTx2Item(L$VARIABLE) then
+    do;
+	call sub$45E0;
+	if getType = BUILTIN$T and getBuiltinId = 9 then
+	do;	 /* 9 -> OUTPUT */
+	    call wrTx2ExtError(ERR130);	/* ILLEGAL REFERENCE TO OUTPUT FUNCTION */
+	    if matchTx2Item(L$LPAREN) then
+		call resyncRPAREN;
+	    call exprPush2(I$NUMBER, 0);
+	end;
+	else 
+	    call pushParseByte(11);
+    end;
+    else if matchTx2Item(L$NUMBER) then
+	call exprPush2(I$NUMBER, tx1Item.dataw(0));
+    else if matchTx2Item(L$STRING) then
+    do;
+	if tx1Item.dataw(0) = 1 then
+	    p = low(tx1Item.dataw(1));
+	else if tx1Item.dataw(0) = 2 then
+	do;
+	    q = .p;
+	    bpair(0) = high(tx1Item.dataw(1));
+	    bpair(1) = low(tx1Item.dataw(1));
+	end;
+	else
+	do;
+	    call wrTx2ExtError(ERR100);	/* INVALID STRING CONSTANT IN EXPRESSION  */
+	    p = 0;
+	end;
+	call exprPush2(I$NUMBER, p);
+    end;
+    else if matchTx2Item(L$LPAREN) then
+    do;
+	call pushParseByte(6);
+	call pushParseByte(0);
+    end;
+    else if matchTx2Item(L$PERIOD) then
+    do;
+	if matchTx2Item(L$VARIABLE) then
+	do;
+	    call pushParseByte(7);
+	    call pushParseByte(8);
+	end;
+	else if matchTx2Item(L$LPAREN) then
+	do;
+	    call sub$521B;
+	    call pushParseByte(7);
+	end;
+	else
+	do;
+	    call wrTx2ExtError(ERR101);	/* INVALID ITEM FOLLOWS DOT OPERATOR */
+	    call pushParseByte(5);
+	end;
+    end;
+    else
+    do;
+	call wrTx2ExtError(ERR102);	/* MISSING PRIMARY OPERAND */
+	call exprPush2(I$NUMBER, 0);
+    end;
+end;
+
+
+exprParse6: PROCEDURE public;
+    call expectRPAREN(ERR103);	/* MISSING ') ' AT END OF SUBEXPRESSION */
+end;
+
+exprParse7: PROCEDURE public;
+    call exprMakeNode(I$ADDRESSOF, 1);
+end;
+
+
+exprParse8: PROCEDURE public;
+    call sub$45E0;
+    if getType = BUILTIN$T then
+    do;
+	call popParseStack;
+	call wrTx2ExtError(ERR123);	/* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
+	if matchTx2Item(L$LPAREN) then
+	    call resyncRPAREN;
+	call exprPush2(I$NUMBER, 0);
+    end;
+    else
+    do;
+	call exprPush2(I$VARIABLE, curInfo$p);
+	if getType = PROC$T then
+	do;
+	    if matchTx2Item(L$LPAREN) then
+	    do;
+		call wrTx2ExtError(ERR104);	/* ILLEGAL PROCEDURE INVOCATION WITH DOT OPERATOR */
+		call resyncRPAREN;
+	    end;
+	end;
+	else
+	do;
+	    if getType = LABEL$T then
+		call wrTx2ExtError(ERR158);	/* INVALID DOT OPERAND, LABEL ILLEGAL */
+	    call pushParseByte(9);
+	end;
+    end;
+end;
+
+exprParse9: PROCEDURE public;
+    call pushParseWord(curInfo$p);
+    call pushParseByte(0ah);
+    if matchTx2Item(L$LPAREN) then
+    do;
+	if not testInfoFlag(F$ARRAY) then
+	    call wrTx2ExtError(ERR127);	/* INVALID SUBSCRIPT ON NON-ARRAY */
+	call pushParseByte(13h);
+    end;
+end;
+
+exprParse10: PROCEDURE public;
+    declare p address;
+    p = parseStack(parseSP);
+    call popParseStack;
+    if matchTx2Item(L$PERIOD) then
+    do;
+	curInfo$p = p;
+	if getType <> STRUCT$T then
+	    call wrTx2ExtError(ERR110);	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+	else if notMatchTx2Item(L$VARIABLE) then
+	    call wrTx2ExtError(ERR111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+	else
+	do;
+	    call sub$4631;
+	    call exprPush2(I$VARIABLE, curInfo$p);
+	    call pushParseWord(p);
+	    call pushParseByte(14);
+	    if matchTx2Item(L$LPAREN) then
+		call pushParseByte(19);
+	end;
+    end;
+    else 
+	call sub$4CFD(p);
+end;
+
+exprParse11: PROCEDURE public;
+    declare p address;
+    if getType = BUILTIN$T then
+    do;
+	p = builtinsMap(getBuiltinId);
+	if p = I$INPUT or p = I$OUTPUT then
+	    call parsePortNum(p);
+	else if p = I$LENGTH or p = I$LAST or p = I$SIZE then
+	    call sub$4DCF(p);
+	else
+	do;
+	    call pushParseWord(p);
+	    call pushParseWord(getParamCnt);
+	    call pushOperator(0);
+	    call pushParseByte(17);
+	    call sub$4D38;
+	    if matchTx2Item(L$LPAREN) then
+	    do;
+		call pushParseByte(15);
+		call pushParseByte(0);
+	    end;
+	end;
+    end;
+    else if getType = PROC$T then
+    do;
+	call sub$50D5;
+	call exprPush2(I$VARIABLE, curInfo$p);
+	call sub$4D38;
+	call pushParseWord(getParamCnt);
+	call pushOperator(0);
+	call pushParseByte(16);
+	if matchTx2Item(L$LPAREN) then
+	do;
+	    call pushParseByte(15);
+	    call pushParseByte(0);
+	end;
+    end;
+    else
+	call pushParseByte(12);
+end;
+
+exprParse12: PROCEDURE public;
+    call exprPush2(I$VARIABLE, curInfo$p);
+    call pushParseWord(curInfo$p);
+    if getType = LABEL$T then
+	call wrTx2ExtError(ERR132);	/* ILLEGAL USE OF LABEL */
+    call pushParseByte(13);
+    if testInfoFlag(F$ARRAY) then
+    do;
+	if matchTx2Item(L$LPAREN) then
+	    call pushParseByte(19);
+	else
+	    call wrTx2ExtError(ERR133);	/* ILLEGAL REFERENCE TO UNSUBSCRIPTED ARRAY */
+    end;
+    else if matchTx2Item(L$LPAREN) then
+    do;
+	call wrTx2ExtError(ERR127);	 /* INVALID SUBSCRIPT ON NON-ARRAY */
+	call pushParseByte(19);
+    end;
+end;
+
+exprParse13: PROCEDURE public;
+    declare p address;
+
+    p, curInfo$p = parseStack(parseSP);
+    call popParseStack;
+    if matchTx2Item(L$PERIOD) then
+    do;
+	if getType <> STRUCT$T then
+	    call wrTx2ExtError(ERR110);	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+	else if notMatchTx2Item(L$VARIABLE) then
+	    call wrTx2ExtError(ERR111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+	else
+	do;
+	    call sub$4631;
+	    call exprPush2(I$VARIABLE, curInfo$p);
+	    call pushParseWord(p);
+	    call pushParseByte(14);
+	    if testInfoFlag(F$ARRAY) then
+	    do;
+		if matchTx2Item(L$LPAREN) then
+			call pushParseByte(19);
+		else
+			call wrTx2ExtError(ERR134);	/* ILLEGAL REFERENCE TO UNSUBSCRIPTED MEMBER ARRAY */
+	    end;
+	    else if matchTx2Item(L$LPAREN) then
+		call wrTx2ExtError(ERR127);	/* INVALID SUBSCRIPT ON NON-ARRAY */
+	end;
+    end;
+    else
+    do;
+	if getType = STRUCT$T then
+	    call wrTx2ExtError(ERR135);	/* ILLEGAL REFERENCE TO AN UNQUALIFIED STRUCTURE */
+	call sub$4CFD(p);
+    end;
+end;
+
+exprParse14: PROCEDURE public;
+    declare p address;
+    p = parseStack(parseSP);
+    call popParseStack;
+    call exprMakeNode(I$MEMBER, 2);
+    call sub$4CFD(p);
+end;
+
+
+exprParse15: PROCEDURE public;
+    operatorStack(operatorSP) = operatorStack(operatorSP) + 1;
+    if matchTx2Item(L$COMMA) then
+    do;
+	call pushParseByte(0fh);
+	call pushParseByte(0);
+    end;
+    else
+	call expectRPAREN(ERR113);	/* MISSING ') ' AT END OF ARGUMENT LIST */
+end;
+
+
+exprParse16: PROCEDURE public;
+    call exprMakeNode(I$CALL, getCallArgCnt + 1);
+end;
+
+
+exprParse17: PROCEDURE public;
+    declare (i, j) byte;
+    j = getCallArgCnt;
+    i = parseStack(parseSP);
+    call popParseStack;
+    call exprMakeNode(i, j);
+end;
+
+
+exprParse18: PROCEDURE public;
+    call exprMakeNode(I$CALLVAR, operatorStack(operatorSP)+1);
+    call popOperatorStack;
+end;
+
+
+exprParse19: PROCEDURE public;
+    call pushParseByte(20);
+    call pushParseByte(0);
+end;
+
+
+exprParse20: PROCEDURE public;
+    if matchTx2Item(L$COMMA) then
+    do;
+	call wrTx2ExtError(ERR114);	/* INVALID SUBSCRIPT, MULTIPLE SUBSCRIPTS ILLEGAL */
+	call sub$4599;
+    end;
+    call expectRPAREN(ERR115);	/* MISSING ') ' AT END OF SUBSCRIPT */
+    call mkIndexNode;
+end;
+
+exprParse: PROCEDURE public;
+    declare p address;
+    do while parseSP <> 0;
+	p = parseStack(parseSP);
+	parseSP = parseSP - 1;
+	do case p;
+	    call exprParse0;
+	    call exprParse1;
+	    call exprParse2;
+	    call exprParse3;
+	    call exprParse4;
+	    call exprParse5;
+	    call exprParse6;
+	    call exprParse7;
+	    call exprParse8;
+	    call exprParse9;
+	    call exprParse10;
+	    call exprParse11;
+	    call exprParse12;
+	    call exprParse13;
+	    call exprParse14;
+	    call exprParse15;
+	    call exprParse16;
+	    call exprParse17;
+	    call exprParse18;
+	    call exprParse19;
+	    call exprParse20;
+	end;
+    end;
+end;
+END;

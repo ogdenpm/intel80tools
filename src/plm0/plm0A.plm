@@ -1,0 +1,297 @@
+plm0a:
+DO;
+DECLARE LIT LITERALLY 'LITERALLY',
+	CR LIT '0DH',
+	LF LIT '0AH',
+	TRUE LIT '0FFH',
+	FALSE LIT '0';
+
+$INCLUDE(cclass.inc)
+
+DECLARE	cClass(*) BYTE PUBLIC DATA(
+	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
+	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
+	CC$NONPRINT, CC$WSPACE, CC$NEWLINE, CC$NONPRINT,
+	CC$NONPRINT, CC$WSPACE, CC$NONPRINT, CC$NONPRINT,
+	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
+	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
+	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
+	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
+	CC$WSPACE, CC$INVALID, CC$INVALID, CC$INVALID,
+	CC$DOLLAR, CC$INVALID, CC$INVALID, CC$QUOTE,
+	CC$LPAREN,  CC$RPAREN,  CC$STAR,  CC$PLUS,
+	CC$COMMA,  CC$MINUS, CC$PERIOD,  CC$SLASH,
+	CC$BINDIGIT, CC$BINDIGIT, CC$OCTDIGIT, CC$OCTDIGIT,
+	CC$OCTDIGIT, CC$OCTDIGIT, CC$OCTDIGIT, CC$OCTDIGIT,
+	CC$DECDIGIT, CC$DECDIGIT, CC$COLON, CC$SEMICOLON,
+	CC$LESS, CC$EQUALS, CC$GREATER, CC$INVALID,
+	CC$INVALID, CC$HEXCHAR, CC$HEXCHAR, CC$HEXCHAR,
+	CC$HEXCHAR, CC$HEXCHAR, CC$HEXCHAR, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$INVALID,
+	CC$INVALID, CC$INVALID, CC$INVALID, CC$INVALID,
+	CC$INVALID, CC$HEXCHAR, CC$HEXCHAR, CC$HEXCHAR,
+	CC$HEXCHAR, CC$HEXCHAR, CC$HEXCHAR, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$ALPHA,
+	CC$ALPHA, CC$ALPHA, CC$ALPHA, CC$INVALID,
+	CC$INVALID, CC$INVALID, CC$INVALID, CC$NONPRINT
+	);
+
+$INCLUDE(:f3:lex.inc)
+$INCLUDE(toks.inc)
+
+
+
+$INCLUDE (:f3:err.inc)
+DECLARE tok2oprMap(*) BYTE PUBLIC DATA(
+	L$VARIABLE, L$NUMBER, L$STRING, L$PLUSSIGN,
+	L$MINUSSIGN, L$STAR, L$SLASH, L$MOD,
+	L$PLUS, L$MINUS, L$AND, L$OR,
+	L$XOR, L$NOT, 0, L$LT,
+	L$LE, L$EQ, L$NE, L$GE,
+	L$GT, L$COLONEQUALS, L$INVALID, L$INVALID,
+	L$PERIOD, L$LPAREN, L$RPAREN, L$COMMA,
+	L$CALL, L$INVALID, L$DISABLE, L$INVALID,
+	L$ENABLE, L$END, L$GO, L$GOTO,
+	L$HALT, L$IF, L$PROCEDURE, L$RETURN,
+	L$INVALID, L$INVALID, L$INVALID, L$INVALID,
+	L$INVALID, L$INVALID, L$INVALID, L$INVALID,
+	L$INVALID, L$INVALID, L$INVALID, L$INVALID,
+	L$INVALID, L$BY, L$INVALID, L$INVALID,
+	L$INVALID, L$INVALID, L$TO, L$INVALID);
+
+DECLARE
+	aDynamicStorage(*) BYTE DATA('DYNAMIC STORAGE OVERFLOW'),
+	aUnknownErr(*) BYTE DATA('UNKNOWN FATAL ERROR');
+
+
+DECLARE resetPt LABEL EXTERNAL;
+$include(:f3:data.inc)
+
+/* public variables */
+DECLARE	macroPtrs(6) STRUCTURE(inChr$p ADDRESS, info$p ADDRESS) PUBLIC,
+	macroDepth ADDRESS PUBLIC INITIAL(0),
+	tokenVal ADDRESS PUBLIC,
+	inChr$p ADDRESS PUBLIC,
+	stateStack(100) ADDRESS PUBLIC,
+	stateIdX ADDRESS PUBLIC,
+	stmtLabels(10) ADDRESS PUBLIC,
+	stmtLabelCnt ADDRESS PUBLIC,
+	curProcInfo$p ADDRESS PUBLIC,
+	pad8FA1 ADDRESS,
+	ocurch ADDRESS PUBLIC INITIAL(0),
+	olstch ADDRESS PUBLIC INITIAL(0),
+	curStmtCnt ADDRESS PUBLIC INITIAL(0),
+	curBlkCnt ADDRESS PUBLIC INITIAL(0),
+	curMacroInfo$p ADDRESS PUBLIC INITIAL(0),
+	markedSymbol$p ADDRESS PUBLIC INITIAL(0),
+	lineBuf(128) BYTE PUBLIC,
+	inbuf(1280) BYTE PUBLIC,
+	tokenType BYTE PUBLIC,
+	tokenStr(256) BYTE PUBLIC INITIAL(0),
+	lastch BYTE PUBLIC,
+	stmtStartCode BYTE PUBLIC,
+	labelBrkToken BYTE PUBLIC,
+	lblBrkTxiCode BYTE PUBLIC,
+	doBlkCnt ADDRESS PUBLIC INITIAL(0),
+	tx1Buf(1280) BYTE PUBLIC,
+	labelBrkSymbol ADDRESS PUBLIC,
+	lineInfoToWrite BYTE PUBLIC INITIAL(FALSE),
+	isNonCtrlLine BYTE PUBLIC INITIAL(FALSE),
+	yyAgain BYTE PUBLIC INITIAL(FALSE),
+	linfo STRUCTURE(type BYTE, lineCnt ADDRESS, stmtCnt ADDRESS, blkCnt ADDRESS) PUBLIC INITIAL(0, 0),
+	(curDoBlkCnt, curProcId) BYTE PUBLIC INITIAL(0, 0),
+	curProcData ADDRESS PUBLIC,
+	state BYTE PUBLIC,
+	skippingCOND BYTE PUBLIC INITIAL(FALSE),
+	ifDepth ADDRESS PUBLIC INITIAL(0);
+	
+$include(:f3:movmem.aex)
+$include(:f3:openf.pex)
+$include(:f3:fflush.pex)
+$include(:f3:rewind.pex)
+$include(:f3:fwrite.aex)
+$include(:f3:fatal.pex)
+$include(:f3:creatf.pex)
+
+
+createTxi1File:	PROCEDURE PUBLIC;
+	DECLARE tmp ADDRESS;
+
+	tmp = tx1File.curoff;
+	call openf(.tx1File, 3);
+	call creatf(.tx1File, .tx1Buf, 1280, 2);
+	tx1File.curoff = tmp;
+end createTxi1File;
+
+writeTx1: PROCEDURE(buf, len) PUBLIC;
+	DECLARE (buf, len) ADDRESS;
+
+	if tx1File.aftn = 0 then
+		if tx1File.curoff > 1024 then
+			call createTxi1File;
+		else
+		do;
+			call movmem(len, buf, .tx1Buf(tx1File.curoff));
+			tx1File.curoff = tx1File.curoff + len;
+			return;
+		end;
+	call fwrite(.tx1File, buf, len);
+end writeTx1;
+
+sub$4119: PROCEDURE PUBLIC;
+	if tx1File.aftn = 0 then
+		call createTxi1File;
+	call fflush(.tx1File);
+	call rewind(.tx1File);
+end sub$4119;
+
+
+writeLineInfo: PROCEDURE PUBLIC;
+	if lineInfoToWrite then
+	do;
+		call writeTx1(.linfo, 7);
+		lineInfoToWrite = FALSE;
+	end;
+end writeLineInfo;
+
+
+wrBuf: PROCEDURE(buf, len) PUBLIC;
+	DECLARE (buf, len) ADDRESS;
+
+	call writeLineInfo;
+	call writeTx1(buf, len);
+end wrBuf;
+
+wrByte: PROCEDURE(val) PUBLIC;
+	DECLARE val BYTE;
+
+	call wrBuf(.val, 1);
+end wrByte;
+
+
+
+wrWord: PROCEDURE(val) PUBLIC;
+	DECLARE val ADDRESS;
+
+	call wrBuf(.val, 2);
+end wrWord;
+
+
+wrOffset: PROCEDURE(addr) PUBLIC;
+	DECLARE addr ADDRESS;
+
+	call wrWord(addr - botInfo);
+end wrOffset; 
+
+syntaxError: PROCEDURE(err) PUBLIC;
+	DECLARE err BYTE;
+	hasErrors = TRUE;
+	call wrByte(L$SYNTAXERROR);
+	call wrWord(err);
+end syntaxError;
+
+
+tokenErrorAt: PROCEDURE(err) PUBLIC;
+	DECLARE err BYTE;
+
+	hasErrors = TRUE;
+	call wrByte(L$TOKENERROR);
+	call wrWord(err);
+	call wrWord(markedSymbol$p);
+end tokenErrorAt;
+
+
+tokenError: PROCEDURE(err, sym$p) PUBLIC;
+	DECLARE err BYTE, sym$p ADDRESS;
+
+	hasErrors = TRUE;
+	call wrByte(L$TOKENERROR);
+	call wrWord(err);
+	call wrWord(sym$p);
+end tokenError;
+
+
+fatalError: PROCEDURE(err) PUBLIC;
+	DECLARE err BYTE;
+
+	hasErrors = TRUE;
+	if state <> 20 then
+	do;
+		if err = ERR83 then
+			call fatal(.aDynamicStorage, length(aDynamicStorage));
+		call fatal(.aUnknownErr, length(aUnknownErr));
+	end;
+	call tokenErrorAt(err);
+	fatalErrorCode = err;
+	goto resetPt;
+end fatalError;
+
+pushBlock: PROCEDURE(idAndLevel) PUBLIC;
+	DECLARE idAndLevel ADDRESS;
+
+	if blockDepth = 34 then
+		call fatalError(ERR84);
+	else
+	do;
+		procChains(blockDepth := blockDepth + 1) = idAndlevel;
+		curBlkCnt = curBlkCnt + 1;
+	end;
+end pushBlock;
+
+popDO:	PROCEDURE PUBLIC;
+	DECLARE procDW BASED curProcData ADDRESS;
+	if blockDepth = 0 then
+		call fatalError(ERR96);
+	else
+	do;
+		curBlkCnt = curBlkCnt - 1;
+		procDW = procChains(blockDepth := blockDepth - 1);
+	end;
+end popDO;
+
+
+
+wrOprAndValue:	PROCEDURE PUBLIC;
+	if tok2oprMap(tokenType) = L$INVALID then
+	do;
+		call tokenErrorAt(ERR171);
+		return;
+	end;
+	call wrByte(tok2oprMap(tokenType));
+	if tokenType = T$VARIABLE then
+		call wrWord(curSymbol$p);
+	else if tokenType = T$NUMBER then
+		call wrWord(tokenVal);
+	else if tokenType = T$STRING then
+	do;
+		call wrWord(tokenstr(0));
+		call wrBuf(.tokenStr(1), tokenstr(0));
+	end;
+end wrOprAndValue;
+
+
+wrXrefUse: PROCEDURE PUBLIC;
+	if XREF then
+	do;
+		call wrByte(L$XREFINFO);
+		call wrOffset(curInfo$p);
+	end;
+end;
+
+
+wrXrefDef: PROCEDURE PUBLIC;
+	if XREF or IXREF or SYMBOLS then
+	do;
+		call wrByte(L$XREF);
+		call wrOffset(curInfo$p);
+	end;
+end;
+
+END;

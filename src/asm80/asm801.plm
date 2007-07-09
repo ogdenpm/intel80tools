@@ -1,0 +1,474 @@
+asm80$1:
+do;
+
+$include(global.inc)
+
+close: procedure(w1, w2) external; declare (w1, w2) address; end;
+delete: procedure(w1, w2) external; declare (w1, w2) address; end;
+error: procedure(w1) external; declare w1 address; end;
+exit: procedure external; end;
+load: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+open: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+ovl1: procedure external; end;
+writeRec02: procedure external; end;		/* in overlay 2 */
+parseCmds: procedure external; end;
+asmComplete: procedure external; end;
+writeRec040E: procedure external; end;
+ovl9: procedure external; end;
+ovl10: procedure external; end;
+ovl11: procedure external; end;
+skip2NextLine: procedure external; end;
+sub$4904: procedure external; end;
+sub$540D: procedure external; end;
+sub$54FD: procedure external; end;
+writeRec: procedure(w) external; declare w address; end;	/* in overlay 2 */
+getAsmFileX: procedure external; end;
+printDecimal: procedure(w1) external; declare w1 address; end;		/* overlay 1 */
+resetData: procedure external; end;
+sub$70EE: procedure external; end;
+write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
+
+strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
+isSkipping: procedure byte external; end;
+getCh: procedure byte external; end;
+
+
+
+declare (b6C21, b6C27, b6C30) byte external,
+	(includefd, rootfd, off6C2C, off6C2E) address external;
+
+declare	asc$3680(*) byte public data('                  '),
+	asc$3692(*) byte public data('      ', 0),
+	asc$3699(*) byte public data(0Dh, 0Ah, 0),
+	signonMsg(*) byte public data(0Dh, 0Ah),
+	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
+	aModulePage(*) byte public data('MODULE ',9, ' PAGE ', 0),
+	cZERO byte public data(0),
+	c255 byte public data(0FFh),
+	aC19761977197$0(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
+	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
+	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
+	aCommand(*) byte public data(0Dh, 0Ah, 'COMMAND', 0),
+	aEof(*) byte public data(0Dh, 0Ah, 'EOF', 0),
+	aFile(*) byte public data(0Dh, 0Ah, 'FILE', 0),
+	aMemory(*) byte public data(0Dh, 0Ah, 'MEMORY', 0),
+	aError(*) byte public data(' ERROR', 0Dh, 0Ah, 0),
+	aError$0(*) byte public data(' ERROR, ', 0Dh,0Ah, 0),
+	errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
+	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
+	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
+	aCo(*) byte public data(':CO:', 0);
+
+declare	loadedOvl byte initial(4),
+	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
+
+
+physmem: procedure address public;
+	declare top address at(4);
+
+	return (top - 100h) and 0FF00h;
+end;
+
+
+nxtCmdCh: procedure byte public;
+	declare cmdch based cmdch$p byte;
+	declare ch byte;
+
+	ch = cmdch;
+	cmdch$p = cmdch$p + 1;
+	if 'a' <= ch and ch <= 'z' then
+		ch = ch and 5Fh;
+	return ch;
+end;	
+
+
+ioErrChk: procedure public;
+	if statusIO = 0 then
+		return;
+	call error(statusIO);
+	call exit;
+end;
+
+
+flushout: procedure public;
+	call write(outfd, .outbuf, out$p - .outbuf, .statusIO);
+	out$p = .outbuf;
+end;
+
+outch: procedure(arg1b) public;
+	declare arg1b byte;
+	declare ch based out$p byte;
+
+	if out$p = endOutBuf then
+		call flushout;
+	ch = arg1b;
+	out$p = out$p + 1;
+end;
+
+outStrN: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+	declare ch based arg1w byte;
+
+	do while arg2b > 0;
+		call outch(ch);
+		arg1w = arg1w + 1;
+		arg2b = arg2b - 1;
+	end;
+end;
+
+ovlMgr: procedure(ovl) public;
+	declare ovl byte;
+	declare w6BF9 address;
+
+	if ovl > 4 then
+	do;
+		statusIO = 0Dh;
+		call ioErrChk;
+	end;
+	if ovl <> loadedOvl then
+	do;
+		ovlFile(12) = ovl + '0';
+		call load(.ovlFile, 0, 0, .w6BF9, .statusIO);
+		call ioErrChk;
+		loadedOvl = ovl;
+	end;
+end;
+
+closeF: procedure(arg1w) public;
+	declare arg1w address;
+
+	call close(arg1w, .statusIO);
+end;
+
+isSpace: procedure byte public;
+	return curChar = 20h;
+end;
+
+isTab: procedure byte public;
+	return curChar = 9;
+end;
+
+isWhite: procedure byte public;
+	return isSpace or isTab;
+end;
+
+isRParen: procedure byte public;
+	return curChar = 29h;
+end;
+
+isCR: procedure byte public;
+	return curChar = 0Dh;
+end;
+
+isComma: procedure byte public;
+	return curChar = 2Ch;
+end;
+
+isPhase1: procedure byte public;
+	return phase = 1;
+end;
+
+
+skip2EOL: procedure public;
+	if not isCR then
+		do while getCh <> 0Dh;
+		end;
+end;
+
+
+sub$3A71: procedure byte public;
+	return phase > 2 and optOBJECT;
+end;
+
+
+isPhase2Print: procedure byte public;
+	return phase = 2 and optPRINT;
+end;
+
+wrConsole: procedure(arg1w, arg2w) public;
+	declare (arg1w, arg2w) address;
+
+	call write(0, arg1w, arg2w, .statusIO);
+	call ioErrChk;
+end;
+
+sub$3AAB: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if b6BD9 then
+		return;
+	
+	if isPhase1 and arg1b = 0 then
+	do;
+		b6B33 = TRUE;
+		return;
+	end;
+
+	w6BE0 = .aError;
+	if arg1b = 4 then
+		w6BE0 = .aError$0;
+
+	call wrConsole(errStrs(arg1b), errStrsLen(arg1b));
+	call wrConsole(w6BE0, 8);
+	if isPhase2Print then
+	do;
+		call outStrN(errStrs(arg1b), errStrsLen(arg1b));
+		call outStrN(w6BE0, 8);
+	end;
+	if arg1b = 4 or arg1b = 3 then
+	do;
+		if collectBufIdx = 0 then
+		do;
+			call wrConsole(.aBadSyntax, 12);
+			if not scanOptions then
+			do;
+				call skip2NextLine;
+				outfd = 0;
+				call ovlMgr(1);
+				call printDecimal(w6A4E);		/* overlay 1 */
+				call outch(0Ah);
+			end;
+		end;
+		else
+		do;
+			call wrConsole(curFileName$p, collectBufIdx);
+			call wrConsole(.asc$3699, 2);
+		end;
+	end;
+	if arg1b = 0 then
+	do;
+		b6BD9 = TRUE;
+		return;
+	end;
+	call exit;
+end;
+
+fileError: procedure(arg1w) public;
+	declare arg1w address;
+	declare ch based arg1w byte;
+
+	collectBufIdx = 0;
+	curFileName$p = arg1w;
+
+	do while ch <> ' ' and ch <> 0dh and ch <> 9;
+		collectBufIdx = collectBufIdx + 1;
+		arg1w = arg1w + 1;
+	end;
+	if b6C27 then
+		call sub$3AAB(3);	/* EOF error */
+	call sub$3AAB(4);		/* file error */
+end;
+
+inOpen: procedure(arg1w, arg2w) address public;
+	declare (arg1w, arg2w) address;
+	declare open$infd address;
+
+	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
+	if openStatus <> 0 then
+		call fileError(arg1w);
+	return open$infd;
+end;
+
+
+nibble2Ascii: procedure(n) byte public;
+	declare n byte;
+	n = (n and 0Fh) + '0';
+	if n > '9' then
+		n = n + 7;
+	return n;
+end;
+
+put2Hex: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+
+	call arg1w(nibble2Ascii(ror(arg2b, 4)));
+	call arg1w(nibble2Ascii(arg2b));
+end;
+
+xisSpace: procedure byte public;
+	return b6896 = 20h;
+end;
+
+sub$3C91: procedure byte public;
+	return xisSpace or b6896 = 'M' or b6896 = 'P';
+end;
+
+
+getNibble: procedure(arg1w, arg2b) byte public;
+	declare arg1w address, arg2b byte;
+	declare ch based arg1w byte;
+	declare b6C11 byte;
+
+	arg1w = arg1w + shr(arg2b, 1);
+	b6C11 = ch;
+	if not arg2b then
+		b6C11 = ror(b6C11, 4);
+	return b6C11 and 0Fh;
+end;
+
+sub$3CDF: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if not isSkipping or b6B2B = 22h then	/* ELSE */
+	do;
+		if b6749 then
+			b6754 = TRUE;
+		if xisSpace then
+			errCnt = errCnt + 1;
+
+		if sub$3C91 or arg1b = 'L' or arg1b = 'U' then
+			if b6896 <> 'L' then
+				b6896 = arg1b;
+	end;
+end;
+
+sub$3D3F: procedure public;
+	do while getCh = '$';
+		if isSkipping then
+		do;
+			call skip2NextLine;
+			b6B20 = 0FFh;
+		end;
+		else
+		do;
+			call ovlMgr(0);
+			call parseCmds;
+		end;
+		call sub$54FD;
+	end;
+	reget = 1;
+end;
+
+
+sub$3D6D: procedure public;
+	cmdch$p = options$p;
+	scanOptions = 0FFh;
+	call ovlMgr(0);
+	call parseCmds;
+	if isPhase2Print then
+	do;
+		call ovlMgr(1);
+		call ovl1;
+	end;
+
+	if b6C21 then
+		call sub$4904;
+
+	b6C21, b6B20, scanOptions = cZERO;
+	call sub$3D3F;
+	b6898 = 0;
+	optDEBUG = optDEBUG and optOBJECT;
+	optXREF = optXREF and optPRINT;
+	optSYMBOLS = optSYMBOLS and optPRINT;
+	optPAGING = optPAGING and optPRINT;
+end;
+
+
+
+sub$3DCE: procedure public;
+	off6C2E = off6C2C + 1;
+	b6C30 = 0;
+	if b6C21 then
+		call sub$4904;
+
+	b68AD, needAddrOperand, b6B20, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
+	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = cZERO;
+	b689C, b6B31, b6B34, b6B35 = c255;
+	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = cZERO;
+	b6896 = 20h;
+	b689A = 1;
+	w6A4E = w6A4E + 1;
+	skipping(0) = skipping(0) > 0;
+end;
+
+
+
+start:
+	call getAsmFileX;
+	phase = 1;
+	call resetData;
+	call sub$3D6D;
+	if optMACROFILE then
+	do;
+		if physmem < 8001h then
+			call sub$3AAB(5);	 /* memory error */
+		if includefd <> rootfd then
+			call closeF(includefd);
+		call closeF(infd);
+		ovlFile(12) = '4';
+		call load(.ovlFile, 0, 1, 0, .statusIO);
+		call ioErrChk;
+	end;
+	if physmem > 8001h then
+	do;
+		if includefd <> rootfd then
+			call closeF(includefd);
+		call closeF(infd);
+		ovlFile(12) = '5';
+		call load(.ovlFile, 0, 1, 0, .statusIO);
+		call ioErrChk;
+	end;
+
+	if MacroDebugOrGen then			/* error if no Macrofile */
+		call sub$3AAB(2);		/* command error */
+
+	if optOBJECT then
+	do;
+		call delete(.objFile, .statusIO);
+		objfd = inOpen(.objFile, 3);
+	end;
+
+	if optXREF then
+	do;
+		xreffd = inOpen(.aF0Asxref$tmp, 2);
+		outfd = xreffd;
+	end;
+
+	call sub$540D;
+	phase = 2;
+	if optOBJECT then
+	do;
+		call ovlMgr(2);
+		if rec18a.len > 0 then
+			call writeRec(.rec18a); /* in overlay 2 */
+		if w6750 = 0 then
+			call writeRec02;		/* in overlay 2 */
+	end;
+	if not optOBJECT or optPRINT then
+	do;
+		if optPRINT then
+			outfd = inOpen(.lstFile, 2);
+
+		call ovlMgr(3);
+		call resetData;
+		call sub$3D6D;
+		call sub$540D;
+	end;
+	if optPRINT then
+	do;
+		call ovlMgr(1);
+		call asmComplete;
+		call flushout;
+	end;
+	if optOBJECT then
+	do;
+		phase = 3;
+		call ovlMgr(3);
+		call resetData;
+		call sub$70EE;
+		call sub$3D6D;
+		call sub$540D;
+		call ovlMgr(2);
+		call ovl11;
+		call writeRec040E;
+	end;
+	if not strUCequ(.aCo, .lstFile) then
+	do;
+		call ovlMgr(1);
+		call ovl9;
+	end;
+
+	call ovlMgr(1);
+	call ovl10;
+
+end;

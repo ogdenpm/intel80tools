@@ -1,0 +1,463 @@
+link3a:
+DO;
+$INCLUDE(LINK.EXT)
+/* from ISIS.EXT */
+
+open: procedure (conn$p, path$p, access, echo, status$p) external;
+    declare (conn$p, path$p, access, echo, status$p) address;
+end open;
+
+read: procedure (conn, buff$p, count, actual$p, status$p) external;
+    declare (conn, buff$p, count, actual$p, status$p) address;
+end read;
+
+exit: procedure external;
+end exit;
+
+spath: procedure (path$p, info$p, status$p) external;
+    declare (path$p, info$p, status$p) address;
+end spath;
+
+rescan: procedure (conn, status$p) external;
+    declare (conn, status$p) address;
+end rescan;
+
+memck: procedure address external;
+end memck;
+
+
+
+DECLARE controls(*) BYTE PUBLIC DATA(1, 3, 'MAP', 2, 4, 'NAME', 3, 5, 'PRINT');
+DECLARE cin(*) BYTE DATA(':CI: ');
+DECLARE cout(*) BYTE DATA(5, ':CO: ');
+
+DECLARE info SPATH$T,
+	login(*) BYTE INITIAL(0CH, 'ISIS-II OBJECT LINKER '),
+	msgInvoked(*) BYTE INITIAL(' INVOKED BY:', 0DH, 0AH),
+	msgtailerror(*) BYTE INITIAL('COMMAND TAIL ERROR NEAR #:'),
+	linkFile(*) BYTE INITIAL(0,'LINK', 0, 0,'TMP'),
+	scmd$p ADDRESS,
+	cmd$p ADDRESS;
+
+DECLARE	cmdch BASED cmd$p BYTE;
+DECLARE	cmdbuf BASED cmd$p (1) BYTE;
+
+DECLARE	CRLF (2) BYTE EXTERNAL,
+	objFileHead ADDRESS EXTERNAL,
+	curObjFile ADDRESS EXTERNAL,
+	curModule ADDRESS EXTERNAL,
+	doMap BYTE EXTERNAL,
+	moduleName(32) BYTE EXTERNAL,
+	printFileNo ADDRESS EXTERNAL,
+	printFileName(16) BYTE EXTERNAL,
+	inFileName(16) BYTE EXTERNAL,
+	actRead ADDRESS EXTERNAL,
+	baseHeap ADDRESS EXTERNAL,
+	topHeap ADDRESS EXTERNAL,
+	npbuf ADDRESS EXTERNAL,
+	sibuf$p ADDRESS EXTERNAL,
+	ibuf$p ADDRESS EXTERNAL,
+	eibuf$p ADDRESS EXTERNAL,
+	filePath(16) BYTE EXTERNAL,
+	toFileName(16) BYTE EXTERNAL,
+	linkPath(16) BYTE EXTERNAL,
+	hashChains(128) ADDRESS EXTERNAL,
+	alignType(6) BYTE EXTERNAL,
+	byte$45F6(256) BYTE EXTERNAL,
+	type2b1 BYTE EXTERNAL,
+	type2b2 BYTE EXTERNAL,
+	segSizes(6) ADDRESS EXTERNAL,
+	entrySeg BYTE EXTERNAL,
+	entryAddr ADDRESS EXTERNAL,
+	word$4820 ADDRESS EXTERNAL,
+	headunres ADDRESS EXTERNAL,
+	headcitem ADDRESS EXTERNAL,
+	isMain BYTE EXTERNAL,
+	unresolved ADDRESS EXTERNAL,
+	statusIO ADDRESS EXTERNAL;
+
+DECLARE VERSION(4) BYTE EXTERNAL;
+
+DECLARE objFile BASED curObjFile LIBRARY$T;
+DECLARE module BASED curModule MODULE$T;
+
+
+pastFileName: PROCEDURE(pch) ADDRESS EXTERNAL;
+	DECLARE pch ADDRESS;
+END pastFileName;
+
+conOutStr: PROCEDURE(pstr, count) EXTERNAL;
+	DECLARE pstr ADDRESS;
+	DECLARE count ADDRESS;
+END conOutStr;
+
+writeErrStr: PROCEDURE(errcode) EXTERNAL;
+	DECLARE errcode ADDRESS;
+END writeErrStr;
+
+skipSpc: PROCEDURE(pch) ADDRESS EXTERNAL;
+	DECLARE pch ADDRESS;
+END skipSpc;
+
+makeFullName: PROCEDURE(pinfo, pstr) EXTERNAL;
+	DECLARE (pinfo, pstr) ADDRESS;
+END makeFullName;
+
+errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
+	DECLARE errCode ADDRESS;
+	DECLARE file ADDRESS;
+	DECLARE errExit BYTE;
+END errChkReport;
+
+allocUp: PROCEDURE(count) ADDRESS EXTERNAL;
+	DECLARE count ADDRESS;
+END allocUp;
+
+
+allocdown: PROCEDURE(count) ADDRESS EXTERNAL;
+	DECLARE count ADDRESS;
+END allocdown;
+
+pstrcpy: PROCEDURE(psrc, pdst) EXTERNAL;
+	DECLARE psrc ADDRESS;
+	DECLARE pdst ADDRESS;
+END pstrcpy;
+
+strequ: PROCEDURE(str1p, str2p, cnt) BYTE EXTERNAL;
+	DECLARE (str1p, str2p) ADDRESS;
+	DECLARE cnt BYTE;
+END strequ;
+
+crStrUpper: PROCEDURE(PCH) EXTERNAL;
+	DECLARE PCH ADDRESS;
+END crStrUpper;
+
+writeBytes: PROCEDURE(buf$p, count) EXTERNAL;
+	DECLARE buf$p ADDRESS;
+	DECLARE count ADDRESS;
+END writeBytes;
+
+
+fatalCmdLineErr: PROCEDURE(errCode) PUBLIC;
+	DECLARE errCode ADDRESS;
+	DECLARE scmd BASED scmd$p (1) BYTE;
+
+	IF pastFileName(cmd$p) = cmd$p THEN
+	DO;				/* isn't a filename so a single char */
+		IF cmdch <> 0DH THEN	/* don't skip past the EOL */
+			cmd$p = cmd$p + 1;
+	END;
+	ELSE
+		cmd$p = pastFileName(cmd$p);
+	cmdch = '#';	/* mark after error */
+	CALL conOutStr(.msgtailerror, 26);
+	CALL writeErrStr(errCode);
+	CALL conOutStr(.scmd, cmd$p - .scmd + 1);
+	CALL conOutStr(.CRLF, 2);
+	CALL exit;
+END fatalCmdLineErr;
+
+
+skipWhite: PROCEDURE(arg1w) PUBLIC;
+	DECLARE arg1w ADDRESS;
+
+	cmd$p = skipSpc(arg1w);
+	DO WHILE cmdch = '&';		/* skip continuation lines */
+		cmd$p = skipSpc(cmd$p + 5);
+	END;
+END skipWhite;
+
+
+expectChar: PROCEDURE(ch, errCode) PUBLIC;
+	DECLARE ch BYTE;
+	DECLARE errCode BYTE;
+
+	CALL skipWhite(cmd$p);
+	IF cmdch = ch THEN
+		CALL skipWhite(cmd$p+1);
+	ELSE
+		CALL fatalCmdLineErr(errCode);
+END expectChar;
+
+
+chkLP: PROCEDURE PUBLIC;
+	CALL expectChar('(', ERR227);	/* left parenthesis expected */
+END chkLP;
+
+
+chkRP: PROCEDURE PUBLIC;
+	CALL expectChar(')', ERR228);	/* right parenthesis expected */
+END chkRP;
+
+
+expectComma: PROCEDURE PUBLIC;
+	CALL expectChar(',', ERR203);	/* Invalid syntax */
+END expectComma;
+
+
+checkFile: PROCEDURE PUBLIC;
+	CALL spath(cmd$p, .info, .statusIO);
+	IF statusIO > 0 THEN
+		CALL fatalCmdLineErr(statusIO);
+	CALL skipWhite(pastFileName(cmd$p));
+END checkFile;
+
+
+errNotDiscFile: PROCEDURE PUBLIC;
+	CALL makeFullName(.info, .inFileName(1));
+	CALL errChkReport(ERR17, .inFileName(1), 0FFH);	/* not a disk file */
+END errNotDiscFile;
+
+
+getModuleName: PROCEDURE(pstr) PUBLIC;
+	DECLARE pstr ADDRESS;
+	DECLARE str BASED pstr (1) BYTE;
+
+	IF cmdch < '?' OR cmdch > 'Z' THEN
+		CALL fatalCmdLineErr(ERR225);	/* invalid name */
+	str(0) = 0;
+
+	DO WHILE '0' <= cmdch AND cmdch <= '9' OR '?' <= cmdch AND cmdch <= 'Z';
+		str(0) = str(0) + 1;
+		IF str(0) > 31 THEN
+			CALL fatalCmdLineERR(ERR226);	/* name too long */
+		str(str(0)) = cmdch;	
+		cmd$p = cmd$p + 1;
+	END;
+END getModuleName;
+
+
+initPublicFile: PROCEDURE PUBLIC;
+	CALL makeFullName(.info, .inFileNAme(1));
+	inFileName(0) = pastFileName(.inFileName(1)) - .inFileName(1);
+	IF objFileHead = 0 THEN
+		objFileHead, curObjFile = allocdown(DOUBLE(7) + inFileName(0));
+	ELSE
+	DO;
+		objFile.link = allocdown(DOUBLE(7) + inFileName(0));
+		curObjFile = objFile.link;	
+	END;
+	objFile.link, objFile.modlist = 0;
+	objFile.ispublics = 0;
+	objFile.hasModules = 0;
+	CALL pstrcpy(.inFileName, .objFile.name);
+END initPublicFile;
+
+
+getObjFileName: PROCEDURE PUBLIC;
+	DECLARE curModuleName(32) BYTE;
+	IF strequ(cmd$p, .('PUBLICS'), 7) THEN
+	DO;
+		cmd$p = pastFileName(cmd$p);
+		CALL chkLP;
+		CALL checkFile;
+		IF info.deviceType <> 3 THEN
+			CALL errNotDiscFile;
+		CALL initPublicFile;
+		objFile.ispublics = 0FFH;
+		DO WHILE cmdCh = ',';
+			CALL expectComma;
+			CALL checkFile;
+			IF info.deviceType <> 3 THEN
+				CALL errNotDiscFile;
+			CALL initPublicFile;
+			objFile.ispublics = 0FFH;
+		END;
+		CALL chkRP;
+	END;
+	ELSE
+	DO;
+		CALL checkFile;
+		IF info.deviceType <> 3 THEN
+			CALL errNotDiscFile;
+		CALL initPublicFile;
+		IF cmdCh = '(' THEN
+		DO;
+			CALL chkLP;
+			objFile.hasModules = 0FFH;
+			CALL getModuleName(.curModuleName);
+			curModule = (objFile.modList := allocDown(DOUBLE(13) + curModuleName(0)));
+			module.link, module.symlist, module.scode = 0;
+			CALL pstrcpy(.curModuleName, .module.name);
+			CALL skipWhite(cmd$p);
+			DO WHILE cmdch = ',';
+				CALL expectComma;
+				CALL getModuleName(.curModuleName);
+				module.link = allocdown(DOUBLE(13) + curModuleName(0));
+				curModule = module.link;
+				module.link, module.symlist, module.scode = 0;
+				CALL pstrcpy(.curModuleName, .module.name);
+				CALL skipWhite(cmd$p);
+			END;
+			CALL chkRP;
+		END;
+	END;
+END getObjFileName;
+
+
+parseControl: PROCEDURE PUBLIC;
+	DECLARE (i, j, k) BYTE;
+	k = pastFileName(cmd$p) - cmd$p;
+	i= 0;
+	j= 0;
+	IF k > 0 THEN
+		DO WHILE i < 18;
+			IF k = controls(i+1) AND strequ(cmd$p, .controls(i + 2), k) THEN
+			DO;
+				j = controls(i);
+				i = 18;
+			END;
+			ELSE
+				i = i + controls(i+1) + 2;
+		END;
+
+	IF j = 0 THEN
+		CALL fatalCmdLineErr(ERR229);	/* Unrecognised control */
+	CALL skipWhite(cmd$p + k);
+	DO CASE j - 1;
+		doMap = 0FFH;
+		DO;
+			CALL chkLP;
+			CALL getModuleName(.moduleName);
+			CALL chkRP;
+		END;
+		DO;
+			CALL chkLP;
+			CALL checkFile;
+			CALL makeFullName(.info, .printFileName(1));
+			printFileName(0) = pastFileName(.printFileName(1)) - .printFileName(1);
+			CALL chkRP;
+		END;
+	END;
+END parseControl;
+
+
+readCmdLine: PROCEDURE PUBLIC;
+	CALL read(1, cmd$p, 128, .actRead, .statusIO);
+	CALL errChkReport(statusIO, .cin, 0FFH);
+	cmdbuf(actRead) = 0DH;
+	CALL crStrUpper(cmd$p);
+END readCmdLine;
+
+
+sub6774: PROCEDURE PUBLIC;
+	DECLARE scmdch BASED scmd$p BYTE;
+	DECLARE (p, q) ADDRESS;
+
+	baseHeap = .MEMORY;
+	topHeap = memck;
+	IF HIGH(memck - .MEMORY) - 1 >= 40H THEN
+		npbuf = 3072;
+	ELSE
+		npbuf = 1056;
+	sibuf$p = allocdown(npbuf);
+	eibuf$p, ibuf$p = sibuf$p + npbuf;
+	scmd$p = allocUp(0);	/* alloc 0 length buffer below heap. Will fix later */
+	scmdch = '-';
+	CALL rescan(1, .statusIO);
+	cmd$p = scmd$p + 1;
+	CALL readCmdLine;
+	cmd$p = skipSpc(cmd$p);
+	IF strequ(cmd$p, .('DEBUG '), 6) THEN
+		cmd$p = skipSpc(cmd$p + 6);
+	q = cmd$p;
+	CALL checkFile;		/* reads the invoking filename */
+	info.ext(0) = 'O';
+	info.ext(1) = 'V';
+	info.ext(2) = 'L';
+	CALL makeFullName(.info, .filePath(1));
+	filePath(0) = pastFileName(.filePath(1)) - .filePath(1);
+	cmd$p = q;
+
+	DO WHILE cmdch <> 0DH;
+		IF cmdch = '&' THEN
+		DO;
+			p = cmd$p;
+			cmd$p = skipSpc(cmd$p + 1);
+			IF cmdch <> 0DH THEN
+				CALL fatalCmdLineErr(ERR203);	/* invalid syntax */
+			cmd$p = p;
+			CALL conOutStr(.('**'), 2);
+			cmdbuf(1) = 0DH;
+			cmdbuf(2) = 0AH;
+			cmdbuf(3) = '*';
+			cmdbuf(4) = '*';
+			cmd$p = cmd$p + 5;
+			CALL readCmdLine;
+		END;
+		ELSE
+			cmd$p = cmd$p + 1;
+	END;	/* DO WHILE */
+
+	CALL conOutStr(.login(1), 22);
+	CALL conOutStr(.VERSION, 4);
+	CALL conOutStr(.CRLF, 2);
+	p =  allocup(cmd$p - .scmdch + 2);
+	CALL skipWhite(pastFileName(q));
+	objFileHead = 0;
+	CALL getObjFileName;
+	DO WHILE cmdch = ',';
+		CALL expectComma;
+		CALL getObjFileName;
+	END;
+
+	IF strequ(cmd$p, .('TO '), 3) OR strequ(cmd$p, .('TO&'), 3) THEN
+	DO;
+		CALL skipWhite(cmd$p + 2);
+		q = cmd$p;
+		CALL checkFile;
+		IF info.deviceType <> 3 AND info.deviceId <> 22 THEN /* file or :BB: */
+			CALL errNotDiscFile;
+		cmd$p = q;
+		CALL makeFullName(.info, .toFileName(1));
+		toFileName(0) = pastFileName(.toFileName(1)) - .toFileName(1);
+		curObjFile = objFileHead;
+		DO WHILE curObjFile > 0;
+			IF strequ(.toFileName, .objFile.name, toFileName(0) + 1) AND NOT objFile.ispublics THEN
+				CALL fatalCmdLineERr(ERR234);	/* Duplicate file name */
+			curObjFile = objFile.link;
+		END;
+		CALL skipWhite(pastFileName(cmd$p));
+	END;
+	ELSE
+		CALL fatalCmdLineErr(ERR233);	/* 'TO' expected */
+
+	linkFile(0) = info.deviceId;
+	CALL makeFullName(.linkFile, .linkPath(1));
+	linkPath(0) = pastFileName(.linkPath(1)) - .linkPath(1);
+	moduleName(0) = 0;
+	DO WHILE info.name(moduleName(0)) <> 0 AND moduleName(0) < 6;
+		moduleName(0) = moduleName(0) + 1;
+		moduleName(moduleName(0)) = info.name(moduleName(0)-1);
+	END;
+	CALL pstrcpy(.cout, .printFileName);
+	doMap = 0;
+	DO WHILE cmdCh <> 0DH;
+		CALL parseControl;
+	END;
+	DO p = 0 TO 127;
+		hashChains(p) = 0;
+	END;
+	DO p = 0 TO 5;
+		segSizes(p) = 0;
+		alignType(p) = 0;
+	END;
+	DO p = 0 TO 255;
+		byte45F6(p) = 0;
+	END;
+	type2b1 = 0;
+	type2b2 = 0;
+	isMain = 0;
+	entrySeg = 0;
+	entryAddr, headcitem, unresolved, word$4820, headunres = 0;
+	CALL open(.printFileNo, .printFileName(1), 2, 0, .statusIO);
+	CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+	IF printFileNo > 0 THEN
+	DO;
+		CALL writeBytes(.login, 23);
+		CALL writeBytes(.VERSION, 4);
+		CALL writeBytes(.msgInvoked, 14);
+		CALL writeBytes(.scmdch, cmd$p - .scmdch + 2);
+	END;
+END sub$6774;
+END;

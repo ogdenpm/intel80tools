@@ -1,0 +1,24 @@
+bin2a:
+DO;
+DECLARE hexdigits(*) BYTE DATA ('0123456789ABCDEF');
+
+binasc: PROCEDURE(num, base, padch, bufp, width) PUBLIC;
+	DECLARE num ADDRESS;
+	DECLARE (base, padch) BYTE;
+	DECLARE bufp ADDRESS;
+	DECLARE width BYTE;
+
+	DECLARE i BYTE;
+	DECLARE buf BASED bufp (1) BYTE;
+
+	DO i = 1 TO width;
+		buf(width - i) = hexdigits(num MOD base);
+		num = num / base;
+	END;
+	i = 0;
+	DO WHILE buf(i) = '0' AND i < width - 1;
+		buf(i) = padch;
+		i = i + 1;
+	END;
+END binasc;
+END;

@@ -1,0 +1,28 @@
+fi: DO;
+$include(:f3:fiscop.pex)
+
+declare curInfo$p address external,
+	curSymbol$p address external,
+	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE),
+	blockDepth address external,
+	procChains(1) address external;
+
+findInfo: PROCEDURE PUBLIC;
+	DECLARE i ADDRESS;
+
+	if sym.info$p= 0 then
+	do;
+		curInfo$p = 0;
+		return;
+	end;
+	i = blockDepth;
+	do while i <> 0;
+		call findScopedInfo(procChains(i));
+		if curInfo$p <> 0 then
+			return;
+		i = i - 1;
+	end;
+end;
+
+
+END;

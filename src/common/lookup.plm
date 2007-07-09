@@ -1,0 +1,68 @@
+lookup: DO;
+$include(:f3:allocs.pex)
+$include(:f3:movmem.aex)
+$include(:f3:strcmp.pex)
+$include(:f3:alloc.pex)
+
+declare hashChains$p address external,
+	curSymbol$p address external,
+	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE);
+
+
+
+lookup: PROCEDURE(pstr) PUBLIC;
+	DECLARE pstr ADDRESS;
+	DECLARE (p, r, q, hval) ADDRESS;
+	DECLARE cmp BYTE;
+	DECLARE hashchains BASED hashChains$p(64) ADDRESS;
+	DECLARE len BASED pstr BYTE;
+
+	hash:	PROCEDURE ADDRESS;
+		DECLARE p ADDRESS, len BYTE, hash BYTE;
+		DECLARE cha BASED pstr(1) BYTE;
+		DECLARE ch BASED p BYTE;
+
+		p = pstr;
+		hash = 0;
+		len = cha(0);
+		do while len <> 0;
+			hash = ROL(hash, 1) + ch;
+			p = p + 1;
+			len = len - 1;
+		end;
+		return hash and 3FH;
+	end hash;
+
+	hval = hash;
+	curSymbol$p = hashChains(hval);
+	p = 0;
+	do while curSymbol$p <> 0;
+		if sym.name(0) = len then
+		do;
+			cmp = strncmp(.sym.name(1), pstr + 1, len);
+			if cmp = 0 then
+			do;
+				if p <> 0 then
+				do;
+					q = sym.link;
+					r = curSymbol$p;
+					curSymbol$p = p;
+					sym.link = q;
+					curSymbol$p = r;
+					sym.link = hashChains(hval);
+					hashChains(hval) = curSymbol$p;
+				end;
+				return;
+			end;
+		end;
+		p = curSymbol$p;
+		curSymbol$p = sym.link;
+	end;
+	call alloc(0, len + 1);
+	curSymbol$p = allocSymbol(5 + len);
+	call movmem(len + 1, pstr, .sym.name);
+	sym.info$p = 0;
+	sym.link = hashChains(hval);
+	hashChains(hval) = curSymbol$p;
+end lookup;
+END;

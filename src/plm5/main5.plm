@@ -1,0 +1,739 @@
+plm5: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah';
+
+$nolist
+$include(:f3:data.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+
+newlineLst: procedure external; end;
+$include(:f3:fread.aex)
+tabLst: procedure(ntab) external; declare ntab byte; end;
+
+$include(:f3:gitype.pex)
+$include(:f3:adninf.pex)
+$include(:f3:tiflag.pex)
+xputStr2cLst: procedure(str, ch) external; declare str address, ch byte; end;
+$include(:f3:closef.pex)
+xnumLst: procedure(arg1w, arg2b, arg3b) external; declare arg1w address, (arg2b, arg3b) byte; end;
+
+$include(:f3:gibsev.pex)
+$include(:f3:gibseo.pex)
+$include(:f3:giscop.pex)
+$include(:f3:siscop.pex)
+setSkipLst: procedure(arg1b) external; declare arg1b byte; end;
+$include(:f3:gisym.pex)
+$include(:f3:openf.pex)
+$include(:f3:creatf.pex)
+$include(:f3:giparo.pex)
+$include(:f3:gidtyp.pex)
+$include(:f3:giintn.pex)
+$include(:f3:gieid.pex)
+$include(:f3:gidim.pex)
+$include(:f3:gidim2.pex)
+$include(:f3:gilnkv.pex)
+xwrnstrLst: procedure(str, cnt) external; declare str address, cnt byte; end;
+setMarkerInfo: procedure(arg1b, arg2b, arg3b) external; declare (arg1b, arg2b, arg3b) byte; end;
+newPageNextChLst: procedure external; end;
+$include(:f3:fflush.pex)
+$include(:f3:deletf.pex)
+$include(:f3:endcom.pex)
+$include(:f3:exit.pex)
+$include(:f3:fwrite.aex)
+
+lstModuleInfo: procedure external; end;
+
+declare	lstBuf(1280) byte public,
+	maxSymLen byte public,
+	dictSize address public,
+	w66D2 address public,
+	w66D4 address public,
+	xrefItem$p address public,
+	xrefItem based xrefItem$p(1) address,
+	b66D8 byte public initial(0),
+	dictionary$p address public,
+	dictionary based dictionary$p(1) address,
+	dictTop$p address public;
+
+$list
+
+declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
+	dots(*) byte data('. . . . . . . . . . . . . . . . . . . . '),
+	dashes(*) byte data('------------------------------------'),
+	b3F0B byte public data(TRUE);
+
+
+	sub$4121: procedure(str);
+		declare str address;
+		call newLineLst;
+		call xputstr2cLst(.('*** WARNING -- ', 0), 0);
+		call xputstr2cLst(str, 0);
+		call newLineLst;
+	end;
+
+	loadDictionary: procedure;
+		declare dictItem based dictTop$p address;
+		declare symLen based curSymbol$p byte;
+
+		dictionary$p, dictTop$p = botMem;
+		dictSize, maxSymLen = 0;
+		curInfo$p = botInfo + 2;
+
+		do while 1;
+			if getType < MACRO$T and getSymbol <> 0 then
+			do;
+				dictTop$p = dictTop$p + 2;
+				if dictTop$p >= botSymbol then
+				do;
+					call sub$4121(.('INSUFFICIENT MEMORY FOR FULL DICTIONARY LISTING', 0));
+					return;
+				end;
+				dictSize = dictSize + 1;
+				dictItem = curInfo$p;
+				call setScope(0);		/* used for xref chain */
+				curSymbol$p = getSymbol;
+				if symLen > maxSymLen then
+					maxSymLen = symLen;
+			end;
+			call advNxtInfo;
+			if curInfo$p = 0 then
+				return;
+		end;
+	end;
+
+	cmpSym: procedure(dictItem1, dictItem2) byte;
+		declare (dictItem1, dictItem2) address;
+		declare (sym1, sym2, sym1str, sym2str) address, (i, j) byte;
+		declare len1 based sym1 byte, len2 based sym2 byte;
+		declare ch1 based sym1str byte, ch2 based sym2str byte;
+
+		curInfo$p = dictItem1;
+		sym1 = getSymbol;
+		sym1str = sym1 + 1;
+		curInfo$p = dictItem2;
+		sym2 = getSymbol;
+		sym2str = sym2 + 1;
+		if len1 < len2 then
+		do;
+			i = len1;
+			j = 0;
+		end;
+		else if len1 > len2 then
+		do;
+			i = len2;
+			j = 2;
+		end;
+		else
+		do;
+			i = len1;
+			j = 1;
+		end;
+
+		do while i <> 0;
+			if ch1 < ch2 then
+				return 0;
+			if ch1 > ch2 then
+				return 2;
+			sym1str = sym1str + 1;
+			sym2str = sym2str + 1;
+			i = i - 1;
+		end;
+		return j;
+	end;
+
+
+	sortDictionary: procedure;
+		declare (p, q, r, s, t, u, v, w, x, y, z) address;
+
+		if dictSize = 1 then
+			return;
+		r = dictSize / 2;
+		s = r + 2;
+		t = 1;
+		p = 2;
+		q = r;
+		y = dictSize;
+		u = q;
+		w = dictionary(u);
+
+		do while 1;
+			v = u * 2;
+			if v > y then
+			do;
+				dictionary(u) = w;
+				if t = 2 then
+				do;
+					x = dictionary(1);
+					dictionary(1) = dictionary(q);
+					dictionary(q) = x;
+					if p >= dictSize then
+						goto done;
+					else
+					do;
+						p = p + 1;
+						q, y = z - p;
+						u = 1;
+					end;
+				end;
+				else if p >= r then
+				do; 
+					t = 2;
+					z = dictSize + 2;
+					p = 2;
+					q, y = dictSize;
+					u = 1;
+				end;
+				else
+				do;
+					p = p + 1;
+					q = s - p;
+					y = dictSize;
+					u = q;
+				end;
+				w = dictionary(u);
+			end;
+			else
+			do;
+				if v <> y then
+					if cmpSym(dictionary(v + 1), dictionary(v)) > 1 then
+						v = v + 1;
+				if cmpSym(dictionary(v), w) <= 1 then
+				do;
+					dictionary(u) = w;
+					if t = 2 then
+					do;
+						x = dictionary(1);
+						dictionary(1) = dictionary(q);
+						dictionary(q) = x;
+						if p >= dictSize then
+							goto done;
+						p = p + 1;
+						q, y = z - p;
+						u = 1;
+					end;
+					else if p >= r then
+					do;
+						t = 2;
+						z = dictSize + 2;
+						p = 2;
+						q, y = dictSize;
+						u = 1;
+					end;
+					else
+					do;
+						p = p + 1;
+						q = s - p;
+						y = dictSize;
+						u = q;
+					end;
+					w = dictionary(u);
+				end;
+				else
+				do;
+					dictionary(u) = dictionary(v);
+					u = v;
+				end;
+			end;
+		end;
+	done:
+	end;
+
+
+	prepXref: procedure;
+
+		loadXref: procedure;
+			declare xrfbuf(128) byte,
+				b6783 byte,
+				pa(2) address,
+				xrefItem based xrefItem$p(1) address;
+
+			call openF(.xrfFile, 1);
+			call creatF(.xrfFile, .xrfbuf, 128, 1);
+			do while 1;
+				call fread(.xrfFile, .b6783, 1);
+				if b6783 = 0 then
+					goto break;
+				call fread(.xrfFile, .pa, 4);
+				if b6783 = 42h or XREF then
+				do;
+					curInfo$p = pa(0) + botInfo;
+					xrefItem$p = w66D4 + 1;
+					w66D4 = w66D4 + 4;
+					if w66D4 > botSymbol then
+					do;
+						call sub$4121(.('INSUFFICIENT MEMORY FOR FULL XREF PROCESSING', 0));
+						goto break;
+					end;
+					xrefItem(0) = getScope;
+					call setScope(xrefItem$p);
+					if b6783 = 42h then
+						xrefItem(1) = -pa(1);	/* make defn line -ve */
+					else
+						xrefItem(1) = pa(1);
+				end;
+			end;
+		break:
+			call closeF(.xrfFile);
+		end;
+
+
+		xrefDef2Head: procedure;
+			declare (p, q, r) address;
+
+			do p = 1 to dictSize;
+				curInfo$p = dictionary(p);
+				xrefItem$p = getScope;
+				if xrefItem$p <> 0 then
+				do; 
+					q = 0;
+					call setScope(0);
+					do while xrefItem$p <> 0; 
+						r = xrefItem(0);
+						if (xrefItem(1) and 8000h) <> 0 then
+							q = xrefItem$p;	/* definition */
+						else
+						do;
+							xrefItem(0) = getScope;
+							call setScope(xrefItem$p);
+						end;
+						xrefItem$p = r;
+					end;
+
+					if q <> 0 then		/* insert definition at head */
+					do;
+						xrefItem$p = q;
+						xrefItem(0) = getScope;
+						call setScope(xrefItem$p);
+					end;
+				end;
+			end;
+		end;
+
+
+		w66D2 = dictTop$p + 2;
+		if w66D2 >= botSymbol then
+		do;
+			call sub$4121(.('INSUFFICIENT MEMORY FOR ANY XREF PROCESSING', 0));
+			return;
+		end;
+		w66D4 = w66D2 - 1;
+		call loadXref;
+		call xrefDef2Head;
+	end;
+
+
+	printRefs: procedure;
+		declare (defnCol, addrCol, sizeCol, nameCol, attribCol, refContCol) byte,
+			p address, pad byte;
+
+		sub$480A: procedure;
+			declare p address;
+
+			if not XREF then
+			do; 
+				call newLineLst;
+				return;
+			end;
+
+			xrefItem$p = getScope;
+			if xrefItem$p = 0 then
+			do;
+				call newLineLst;
+				return;
+			end;
+			call xwrnstrlst(.(': '), 2);
+			p = 0;
+
+			do while xrefItem$p <> 0;
+				if p <> xrefItem(1) then
+				do;
+					if PWIDTH < col + 5 then
+					do;
+						call newLineLst;
+						call tabLst(-refContCol);
+					end;
+					call tabLst(1);
+					call xnumLst(xrefItem(1), 0, 10);
+					p = xrefItem(1);
+				end;
+				xrefItem$p = xrefItem(0);
+			end;
+			if col <> 0 then
+				call newLineLst;
+		end;
+
+
+
+		sub$48A7: procedure;
+			declare pstr based curSymbol$p structure(len byte, str(1) byte);
+
+			curSymbol$p = getSymbol;
+			call tabLst(-nameCol);
+			call xwrnstrlst(.pstr.str, pstr.len);
+			call xwrnstrlst(.dots(pstr.len), attribCol - col - 2);
+			call tabLst(1);
+		end;
+
+		sub$48E2: procedure(arg1w, arg2w);
+			declare (arg1w, arg2w) address;
+			call tabLst(-addrCol);
+			call xnumLst(arg1w, 0FCh, 0F0h);
+			if arg2w <> 0 then
+			do;
+				call tabLst(-sizeCol);
+				call xnumLst(arg2w, 5, 10);
+			end;
+		end;
+
+
+		sub$4921: procedure;
+			xrefItem$p = getScope;
+			if getType = BUILTIN$T then
+				return;
+			if xrefItem$p <> 0 and (xrefItem(1) and 8000h) <> 0 then
+			do;
+				call tabLst(-defnCol);
+				call xnumLst(-xrefItem(1), 5, 10); /* defn stored as -ve */
+				call setScope(xrefItem(0));
+			end;
+			else if not testInfoFlag(F$LABEL) then
+			do;
+				call tabLst(-defnCol);
+				call xwrnstrlst(.dashes, 5);
+			end;
+		end;
+
+		sub$499C: procedure;
+			call xputstr2cLst(.(' EXTERNAL(', 0), 0);
+			call xnumLst(getExternId, 0, 10);
+			call xwrnstrlst(.(')'), 1);
+		end;
+
+
+		sub$49BB: procedure;
+			declare (p, q, r) address;
+			declare pstr based curSymbol$p structure(len byte, str(1) byte);
+
+			p = curInfo$p;
+			call xputstr2cLst(.(' BASED(', 0), 0);
+			curInfo$p = getBaseOffset;
+			if testInfoFlag(F$MEMBER) then
+			do;
+				r = getSymbol;
+				curInfo$p = getParentOffset;
+				q = getSymbol;
+			end;
+			else
+			do;
+				q = getSymbol;
+				r = 0;
+			end;
+
+			curSymbol$p = q;
+			call xwrnstrlst(.pstr.str, pstr.len);
+			if r <> 0 then
+			do;
+				call xwrnstrlst(.('.'), 1);
+				curSymbol$p = r;
+				call xwrnstrlst(.pstr.str, pstr.len);
+			end;
+			call xwrnstrlst(.(')'), 1);
+			curInfo$p = p;
+		end;
+
+
+		sub$4A42: procedure;
+			declare p address;
+			declare pstr based curSymbol$p structure(len byte, str(1) byte);
+
+			p = curInfo$p;
+			curInfo$p = getParentOffset;
+			call xputstr2cLst(.(' MEMBER(', 0), 0);
+			curSymbol$p = getSymbol;
+			call xwrnstrlst(.pstr.str, pstr.len);
+			call xwrnstrlst(.(')'), 1);
+			curInfo$p = p;
+		end;
+
+		sub$4A78: procedure(str);
+			declare str address;
+			call sub$4921;
+			call sub$48A7;
+			call xputstr2cLst(str, 0);
+			call sub$480A;
+		end;
+
+
+		sub$4A92: procedure;
+			declare p address;
+
+			call sub$4921;
+			call sub$48E2(getLinkVal, getDimension2);
+			call sub$48A7;
+			call xputstr2cLst(.('PROCEDURE', 0), 0);
+			if getDataType <> 0 then
+			do;
+				if getDataType = 2 then
+					p = .(' BYTE', 0);
+				else
+					p = .(' ADDRESS', 0);
+				call xputstr2cLst(p, 0);
+			end;
+			if testInfoFlag(F$PUBLIC) then
+				call xputstr2cLst(.(' PUBLIC', 0), 0);
+
+			if testInfoFlag(F$EXTERNAL) then
+				call sub$499C;
+
+			if testInfoFlag(F$REENTRANT) then
+				call xputstr2cLst(.(' REENTRANT', 0),0);
+
+			if testInfoFlag(F$INTERRUPT) then
+			do;
+				call xputstr2cLst(.(' INTERRUPT(', 0), 0);
+				call xnumLst(getIntrNo, 0, 10);
+				call xwrnstrlst(.(')'), 1);
+			end;
+			if not testInfoFlag(F$EXTERNAL) then
+			do; 
+				call xputstr2cLst(.(' STACK=', 0), 0);
+				call xnumLst(getBaseVal, 0fch, 0f0h);
+			end;
+			call sub$480A;
+		end;
+
+		sub$4B4A: procedure(str);
+			declare str address;
+			declare p address, i byte;
+
+			call sub$4921;
+			i = getType;
+			if i = BYTE$T then
+				p = 1;
+			else if i = ADDRESS$T then
+				p = 2;
+			else if i = LABEL$T then
+				p = 0;
+			else
+				p = getParentOffset;
+
+			if testInfoFlag(F$ARRAY) then
+				p = p * getDimension;
+			call sub$48E2(getLinkVal, p);
+			call sub$48A7;
+			call xputstr2cLst(str, 0);
+			if testInfoFlag(2) then
+				call sub$49BB;
+			if testInfoFlag(F$ARRAY) then
+			do;
+				call xputstr2cLst(.(' ARRAY(', 0), 0);
+				call xnumLst(getDimension, 0, 10);
+				call xwrnstrlst(.(')'), 1);
+			end;
+			if testInfoFlag(F$PUBLIC) then
+				call xputstr2cLst(.(' PUBLIC', 0),0);
+
+			if testInfoFlag(F$EXTERNAL) then
+				call sub$499C;
+
+			if testInfoFlag(F$AT) then
+				call xputstr2cLst(.(' AT', 0), 0);
+			if testInfoFlag(F$DATA) then
+				call xputstr2cLst(.(' DATA', 0), 0);
+			if testInfoFlag(F$INITIAL) then
+				call xputstr2cLst(.(' INITIAL', 0), 0);
+
+			if testInfoFlag(F$MEMBER) then
+				call sub$4A42;
+
+			if testInfoFlag(F$PARAMETER) then
+				call xputstr2cLst(.(' PARAMETER', 0), 0);
+
+			if testInfoFlag(F$AUTOMATIC) then
+				call xputstr2cLst(.(' AUTOMATIC', 0), 0);
+
+			if testInfoFlag(F$ABSOLUTE) then
+				call xputstr2cLst(.(' ABSOLUTE', 0),0);
+
+			call sub$480A;
+		end;
+
+		sub$4C84: procedure;
+			declare pstr based curSymbol$p structure(len byte, str(1) byte);
+			
+			curSymbol$p = getSymbol;
+			if b66D8 <> pstr.str(0) then
+			do;
+				call newLineLst;
+				b66D8 = pstr.str(0);
+			end;
+			if getType < MACRO$T then
+				do case getType;
+					call sub$4A78(.('LITERALLY', 0));
+					call sub$4B4A(.('LABEL', 0));
+					call sub$4B4A(.('BYTE', 0));
+					call sub$4B4A(.('ADDRESS', 0));
+					call sub$4B4A(.('STRUCTURE', 0));
+					call sub$4A92;
+					call sub$4A78(.('BUILTIN', 0));
+				end;
+		end sub$4C84;
+
+/* printRefs */
+		defnCol = 3;
+		addrCol = defnCol + 6;
+		sizeCol = addrCol + 6;
+		nameCol = sizeCol + 7;
+		attribCol = nameCol + maxSymLen + 2;
+		refContCol = attribCol + 1;
+		call setMarkerInfo(attribCol, '-', 3);
+		call newPageNextChLst;
+		if XREF then
+		do;
+			call xputstr2cLst(.('CROSS-REFERENCE LISTING', 0), 0);
+			call newLineLst;
+			call xwrnstrlst(.dashes, 23);
+			call newLineLst;
+		end;
+		else
+		do;
+			call xputstr2cLst(.('SYMBOL LISTING', 0), 0);
+			call newLineLst;
+			call xwrnstrlst(.dashes, 14);
+			call newLineLst;
+		end;
+		call setSkipLst(2);
+		call tabLst(-defnCol);
+		call xputstr2cLst(.(' DEFN', 0), 0);
+		call tabLst(-addrCol);
+		call xputstr2cLst(.(' ADDR', 0), 0);
+		call tabLst(-sizeCol);
+		call xputstr2cLst(.(' SIZE', 0), 0);
+		call tabLst(-nameCol);
+		call xputstr2cLst(.('NAME, ATTRIBUTES, AND REFERENCES', 0), 0);
+		call newLineLst;
+		call tabLst(-defnCol);
+		call xwrnstrlst(.dashes, 5);
+		call tabLst(-addrCol);
+		call xwrnstrlst(.dashes, 5);
+		call tabLst(-sizeCol);
+		call xwrnstrlst(.dashes, 5);
+		call tabLst(-nameCol);
+		call xwrnstrlst(.dashes, 32);
+		call newLineLst;
+		call newLineLst;
+
+		do p = 1 to dictSize;
+			curInfo$p = dictionary(p);
+			if getType = BUILTIN$T then
+			do;
+				if getScope <> 0 then
+					call sub$4C84;
+			end;
+			else
+				call sub$4C84;
+		end;
+	end printRefs;
+
+
+
+
+
+
+	createIXREFFile: procedure;
+		declare (p, q, r) address,
+			(i, j) byte, ixibuf(128) byte, k byte;
+		declare pstr based curSymbol$p structure(len byte, str(1) byte);
+
+		sub$4EAA: procedure(buf, cnt);
+			declare buf address, cnt address;
+			call fwrite(.ixiFile, buf, cnt);
+		end;
+
+
+		call openF(.ixiFile, 2);
+		call creatF(.ixiFile, .ixibuf, 128, 2);
+		curInfo$p = botInfo + procInfo(1);
+		curSymbol$p = getSymbol;
+		if curSymbol$p <> 0 then			/* write the module info */
+		do;
+			call sub$4EAA(.b3F0B, 1);
+			k = 22 + pstr.len;
+			call sub$4EAA(.k, 1);
+			call sub$4EAA(.pstr.len, 1);		/* module name len */
+			call sub$4EAA(.pstr.str, pstr.len);	/* module name */
+		end;
+		if low(srcFileTable(0)) = ':' then
+			j = 2;
+		else
+			j = 0;
+		call sub$4EAA(.srcFileTable(j), 10);		/* filename minus any :fx: */
+		call sub$4EAA(.('---------'), 9);
+
+		do p = 1 to dictSize;
+			curInfo$p = dictionary(p);
+			i = getType;
+			if LABEL$T <= i and i <= PROC$T and 
+			   (testInfoFlag(F$PUBLIC) or (testInfoFlag(F$EXTERNAL) and not testInfoFlag(F$AT))) then
+			do;
+				if testInfoFlag(F$PUBLIC) then
+					call sub$4EAA(.(0), 1);
+				else
+					call sub$4EAA(.(1), 1);
+
+				curSymbol$p = getSymbol;
+				k = 6 + pstr.len;
+				call sub$4EAA(.k, 1);
+				call sub$4EAA(.pstr.len, 1);
+				call sub$4EAA(.pstr.str, pstr.len);
+				call sub$4EAA(.i, 1);
+				if getType = PROC$T then
+				do;
+					r = getDataType;
+					call sub$4EAA(.r, 2);
+				end;
+				else
+				do;
+					if testInfoFlag(F$ARRAY) then
+						q = getDimension;
+					else
+						q = 0;
+					call sub$4EAA(.q, 2);
+				end;
+			end;
+		end;
+		call fflush(.ixiFile);
+		call closeF(.ixiFile);
+	end;
+
+
+
+	sub$4EC5: procedure;
+		call loadDictionary;
+		call sortDictionary;
+		call prepXref;
+		if (XREF or SYMBOLS) and PRINT then
+			call printRefs;
+		if IXREF then
+			call createIXREFFile;
+	end;
+
+	botMem = .MEMORY + 100h;
+	topSymbol = topSymbol + 4;
+	if PRINT then
+	do;
+		lBuf$p = .lstBuf;
+		lBufSz = 1279;
+	end;
+	call sub$4EC5;
+	if PRINT then
+		call lstModuleInfo;
+	call deletf(.xrfFile);
+	call endCompile;
+	call exit;
+end;
+

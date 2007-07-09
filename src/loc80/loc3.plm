@@ -1,0 +1,221 @@
+locate3: DO;
+$INCLUDE(ISIS.EXT)
+$INCLUDE(LOC.LIT)
+$INCLUDE(LOC1.EXT)
+$INCLUDE(LOC2A.EXT)
+$INCLUDE(LOC2B.EXT)
+/*$INCLUDE(LOC3.EXT)*/
+$INCLUDE(LOC4.EXT)
+$INCLUDE(LOC5.EXT)
+$INCLUDE(LOC6.EXT)
+$INCLUDE(LOC7.EXT)
+$INCLUDE(LOC8.EXT)
+$INCLUDE(LOC9.EXT)
+
+$INCLUDE(LOC.BAS)
+
+DECLARE erec BASED erec$p BYTE;
+
+fixupBoundsChk: PROCEDURE(addr) PUBLIC;
+	DECLARE addr ADDRESS;
+	IF addr < t6desc4.saddr OR t6desc4.eaddr < addr THEN
+		CALL fatalErr(ERR213);	/* Fixup Bounds Error */
+END fixupBoundsChk;
+
+
+sub$5041: PROCEDURE PUBLIC;
+	DECLARE rdata BASED rec$p BYTE;
+	DECLARE buf BASED out$p (1) BYTE;
+	DECLARE wbuf BASED out$p (1) ADDRESS;
+
+	IF NOT PurgeSeen OR LinesSeen THEN
+	DO;
+		outSegType(0) =  setWorkingSeg(t8arec.seg);
+		IF NOT PurgeSeen THEN
+		DO;
+			CALL initRecOut(8);
+			t8aout.seg = outSegType(0);
+			out$p = out$p + 1;
+		END;
+		rec$p = rec$p + 1;
+		DO WHILE rec$p < .erec;
+			IF NOT PurgeSeen THEN
+			DO;
+				t8bout.addr = workingSegBase + t8brec.addr;
+				t8bout.line = t8brec.line;
+				out$p = out$p + 4;
+				
+			END;
+			IF LinesSeen THEN
+			DO;
+				CALL binasc(workingSegBase + t8brec.addr, 16, '0', .alin, 4);
+				CALL binasc(t8brec.line, 10, ' ', .x5(1), 5);
+				CALL sub$4B3A(.alin, .x5);
+			END;
+			rec$p = rec$p + 4;
+		END;
+		IF NOT PurgeSeen THEN
+			CALL endRecord;
+	END;
+	CALL getRecord;
+END sub$5041;
+
+
+sub$5113: PROCEDURE PUBLIC;
+	DECLARE str BASED rec$p (1) BYTE;
+	IF LinesSeen OR SymbolsSeen THEN
+	DO;
+		CALL sub$4B3A(.aMod, rec$p);
+		CALL forceSOL;
+	END;
+	IF NOT PurgeSeen THEN
+	DO;
+		CALL initRecOut(16);
+		CALL writeBytes(.str(0), str(0) + 1);
+		CALL endRecord;
+	END;
+	CALL getRecord;
+END sub$5113;
+
+
+proc12$16: PROCEDURE(arg1b, arg2w) PUBLIC;
+	DECLARE arg1b BYTE;
+	DECLARE arg2w ADDRESS;
+	DECLARE ritem BASED rec$p STRUCTURE (len ADDRESS, name (1) BYTE);
+	DECLARE owd BASED out$p ADDRESS;
+	DECLARE buf BASED out$p (1) BYTE;
+
+	IF NOT purgeseen OR arg1b THEN
+	DO;
+		IF t12arec.seg = 3 THEN	/* stack ? */
+		DO;
+			outSegType(0) = 3;
+			workingSegBase = 0;
+		END;
+		ELSE
+			outSegType(0)= setWorkingSeg(t12arec.seg);	
+		IF NOT PurgeSeen THEN
+		DO;
+			CALL initRecOut(srec.type);
+			t12aout.seg = outSegType(0);
+			out$p = out$p + 1;
+		END;
+		rec$p = rec$p + 1;
+		DO WHILE rec$p < .erec;
+			IF NOT PurgeSeen THEN
+			DO;
+				t12bout.offset = workingSegBase + t12brec.offset;
+				CALL pstrcpy(.t12brec.name, .t12bout.name);
+				t12bout.name(t12brec.name(0) + 1) = 0;
+				out$p = out$p + 4 + t12brec.name(0);
+			END;
+			IF arg1b THEN
+			DO;
+				CALL binasc(workingSegBase + t12brec.offset, 16, '0', arg2w, 4);
+				CALL sub$4B3A(arg2w, .t12brec.name);
+			END;
+			rec$p = rec$p + 4 + t12brec.name(0);
+		END;
+		IF NOT PurgeSeen THEN
+			CALL endRecord;
+	END;
+	CALL getRecord;
+END proc12$16;
+
+
+sub$5257: PROCEDURE PUBLIC;
+	DECLARE ch BASED rec$p BYTE;
+	DECLARE buf BASED out$p (1) BYTE;
+
+	CALL initRecOut(18H);
+	DO WHILE rec$p < .erec;
+		CALL forceSOL;
+		CALL binasc((unsatisfiedCnt := unsatisfiedCnt + 1) - 1, 10, ' ', .aUnsatisfiedExt(21), 5);
+			CALL conAndPrint(.aUnsatisfiedExt, 21);
+			CALL conAndPrint(curColumn := skipSpc(.aUnsatisfiedExt(21)), 7 - (curColumn - .aUnsatisfiedExt(21)));
+			CALL conAndPrint(.t18rec.name(1), t18rec.name(0));
+			CALL conAndPrint(.crlf, 2);
+			CALL pstrcpy(.t18rec.name, .t18out.name);
+			t18out.name(DOUBLE(t18rec.name(0)) + 1) = 0;
+			out$p = out$p + 2 + t18rec.name(0);
+			rec$p = rec$p + 2 + t18rec.name(0);
+	END;
+	CALL endRecord;
+	CALL getRecord;
+END sub$5257;
+
+
+sub$5309: PROCEDURE(buf, len) PUBLIC;
+	DECLARE buf ADDRESS;
+	DECLARE len ADDRESS;
+	CALL printString(buf, len);
+	CALL printString(.nameArg(1), nameArg(0));
+	CALL printString(.aReadFromFile, 17);
+	CALL printString(.inFileName(1), inFileName(0));
+	CALL printString(.aWrittenToFile, 18);
+	CALL printString(.outFileName(1), outFileName(0));
+	CALL printcrlf;
+END sub$5309;
+
+
+sub$5359: PROCEDURE PUBLIC;
+	DECLARE buf BASED out$p (1) BYTE;
+	CALL procHeader;
+	CALL initRecOut(2);	/* create header record */
+	CALL writeBytes(.nameArg, nameArg(0)+1);	/* write the name */
+	buf(0) = type2$b1;	/* copy the passed in data */
+	buf(1) = type2$b2;
+	out$p = out$p + 2;
+	CALL endRecord;
+	IF PublicsSeen  OR SymbolsSeen OR LinesSeen THEN
+	DO;
+		CALL sub$5309(.aSymbolTableOfM, 25);
+		CALL printcrlf;
+		DO curColumn = 1 TO columns;
+			CALL sub$4B3A(.aValueType, .aSymbol);
+		END;
+		CALL printcrlf;
+	END;
+	DO WHILE srec.type <> 4;
+	    DO CASE SHR(srec.type, 1);
+		CALL illegalReloc;	/* 0 */
+		CALL badRecordSeq;	/* 2 */
+		;			/* 4 */
+		CALL sub$4CAA;		/* 6 */
+		CALL sub$5041;		/* 8 */
+		CALL illegalReloc;	/* 0A */
+		CALL illegalReloc;	/* 0C */
+		CALL errChkReport(ERR204, .inFileName(1), 0FFH); /* 0E - Premature EOF */
+		CALL sub$5113;		/* 10 */
+		CALL proc12$16(SymbolsSeen, .aSym);	/* 12 */
+		CALL illegalReloc;	/* 14 */
+		CALL proc12$16(PublicsSeen, .aPub);	/* 16 */
+		call sub$5257;		/* 18 - undefined externals */
+		CALL illegalReloc;	/* 1A */
+		CALL illegalReloc;	/* 1C */
+		CALL illegalReloc;	/* 1E */
+		CALL badRecordSeq;	/* 20 */
+		CALL badRecordSeq;	/* 22 */
+		CALL badRecordSeq;	/* 24 */
+		CALL badRecordSeq;	/* 26 */
+		CALL badRecordSeq;	/* 28 */
+		CALL badRecordSeq;	/* 2A */
+		CALL badRecordSeq;	/* 2C */
+		CALL badRecordSeq;	/* 2E */
+	    END;
+	END;
+	CALL procType4;
+	CALL close(outputfd, .statusIO);
+	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
+	IF havePagingFile THEN
+	DO;
+		CALL close(tmpfd, .statusIO);
+		CALL delete(.tmpFileName(1), .statusIO);
+	END;
+	CALL forceSOL;
+	CALL sub$5576;
+	CALL close(readfd, .statusIO);
+	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+END sub$5359;
+
+END locate3;

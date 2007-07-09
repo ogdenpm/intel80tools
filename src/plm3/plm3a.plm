@@ -1,0 +1,437 @@
+plm3a: DO;
+declare lit literally 'literally',
+    cr lit '0dh',
+    lf lit '0ah',
+    true lit '0ffh',
+    false lit '0',
+    boolean lit 'byte';
+
+$nolist
+$include(:f3:data.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+declare	ATI$AHDR LIT '0',
+	ATI$DHDR LIT '1',
+	ATI$2 LIT '2',
+	ATI$STRING LIT '3',
+	ATI$DATA LIT '4',
+	ATI$END LIT '5',
+	ATI$EOF LIT '6';
+
+
+recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
+recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
+writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
+$include(:f3:gitype.pex)
+$include(:f3:fread.aex)
+$include(:f3:fwrite.aex)
+$include(:f3:adninf.pex)
+$include(:f3:tiflag.pex)
+$include(:f3:gibsev.pex)
+$include(:f3:giparo.pex)
+$include(:f3:gidim.pex)
+$include(:f3:gilnkv.pex)
+$include(:f3:gieid.pex)
+
+
+declare b4789(*) byte public data(
+	2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3,
+	3, 2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2,
+	2, 3, 2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4);
+
+declare b47B7(*) byte public data(
+	0, 2, 4, 7, 0Bh, 0Eh, 12h, 14h,
+	16h, 19h, 1Dh, 1Fh, 22h, 24h, 27h, 2Ah,
+	2Dh, 30h, 32h, 34h, 37h, 3Bh, 3Dh, 40h,
+	42h, 45h, 47h, 49h, 4Bh, 4Dh, 50h, 52h,
+	54h, 56h, 59h, 5Bh, 5Eh, 60h, 62h, 65h,
+	67h, 69h, 6Ah, 6Ch, 6Eh, 71h, 24h, 24h,
+	24h, 24h, 13h, 13h, 18h, 18h, 18h, 18h,
+	16h, 2Ch, 15h, 1Fh, 1Fh, 20h, 20h, 19h,
+	19h, 19h, 19h, 8, 8, 9, 9, 6,
+	7, 25h, 25h, 25h, 25h, 25h, 0Ah, 0Ah,
+	0Bh, 0Bh, 14h, 14h, 14h, 14h, 14h, 39h,
+	1Ah, 1Ah, 1Ah, 1Ah);
+
+declare b4813(*) byte public data(
+	3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 3, 8, 1, 3,
+	1, 8, 3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 1Dh, 3,
+	1, 7, 2, 12h, 2, 1, 0Ah, 2, 1, 8, 2, 1, 8, 2, 1, 7,
+	3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 1, 6, 3, 1, 0Bh,
+	1, 6, 3, 1, 0Bh, 1, 6, 1, 6, 3, 7, 3, 7, 2, 3, 8,
+	3, 8, 3, 9, 1, 6, 3, 1, 6, 1, 7, 3, 1, 0Ch, 3, 7,
+	3, 7, 2, 3, 8, 3, 8, 3, 9, 0Ch, 3, 7, 3, 7, 2, 3,
+	8, 1, 3, 1, 8);
+
+
+
+declare (tx1Buf, nmsBuf,  atBuf, objBuf) (1280) byte public,
+	w7197 address public,
+	b7199 byte public,
+	rec2 structure(type byte, len address, val(51) byte) public initial(2, 0),
+	rec18 structure(type byte, len address, val(300) byte) public initial(18h, 0),
+	rec16$1 structure(type byte, len address, val(301) byte) public initial(16h, 0, 0),
+	rec16$2 structure(type byte, len address, val(301) byte) public initial(16h, 0, 1),
+	rec16$3 structure(type byte, len address, val(301) byte) public initial(16h, 0, 2),
+	rec16$4 structure(type byte, len address, val(301) byte) public initial(16h, 0, 4),
+	rec12 structure(type byte, len address, val(1021) byte) public initial(12h, 0, 1),
+	rec6 structure(type byte, len address, seg byte, addr address, val(300) byte) public initial(6, 0, 0),
+	rec22 structure(type byte, len address, val(151) byte) public initial(22h, 0, 3),
+	rec24$1 structure(type byte, len address, val(151) byte) public initial(24h, 0, 1, 3),
+	rec24$2 structure(type byte, len address, val(151) byte) public initial(24h, 0, 2, 3),
+	rec24$3 structure(type byte, len address, val(151) byte) public initial(24h, 0, 4, 3),
+	rec20 structure(type byte, len address, val(150) byte) public initial(20h, 0, 3);
+
+$list
+
+sub$4889: procedure public;
+	call writeRec(.rec6, 3);
+	call writeRec(.rec22, 1);
+	call writeRec(.rec24$1, 2);
+	call writeRec(.rec24$2, 2);
+	call writeRec(.rec24$3, 2);
+	call writeRec(.rec20, 1);
+end;
+
+
+
+sub$48BA: procedure(arg1w, arg2b, arg3b, arg4b$p) public;
+	declare arg1w address, (arg2b, arg3b) byte, arg4b$p address;
+	declare i byte;
+	declare arg4b based arg4b$p(1) byte;
+
+	call recAddByte(arg1w, arg2b, arg3b);
+	i = 0;
+	do while i <> arg3b;
+		call recAddByte(arg1w, arg2b, arg4b(i));
+		i = i + 1;
+	end;
+end;
+
+
+
+
+sub$4908: procedure(arg1w$p, arg2w, arg3b) public;
+	declare arg1w$p address, arg2w address, arg3b byte;
+	declare arg1w based arg1w$p address;
+
+	arg1w$p = arg1w$p + 1;
+	if arg1w + arg3b >= arg2w then
+	do;
+		call sub$4889;
+		rec6.addr = w7197;
+	end;
+end;
+
+
+
+
+sub$4938: procedure address public;
+	declare (p, q) address;
+	q = 0;
+	do p = 1 to procCnt;
+		curInfo$p = procInfo(p) + botInfo;
+		if q < getBaseVal then
+			q = getBaseVal;
+	end;
+	return q;
+end;
+
+
+
+
+sub$4984: procedure address public;
+	declare i byte;
+
+	i = getType - 2;
+	if i > 2 then
+		return 0;
+	do case i;
+		return 1;	/* BYTE$T */
+		return 2;	/* ADDRESS$T */
+		return getParentOffset;	/* STRUCT$T */
+	end;
+end;
+
+
+sub$49BC: procedure(arg1w, arg2w, arg3w) public;
+	declare (arg1w, arg2w, arg3w) address;
+
+	if b7199 then
+	do; 
+		call fwrite(.tx1File, .(0a3h), 1);
+		call fwrite(.tx1File, .arg1w, 6);
+	end;
+	else
+		programErrCnt = programErrCnt + 1;
+end;
+
+
+
+sub$49F9: procedure public;
+	declare atFData STRUCTURE(type byte, info$p address, stmtNum address,
+		varInfoOffset address, varArrayIndex address, varNestedArrayIndex address,
+		val address), dat(255) byte;
+	
+
+	sub$4A31: procedure;
+		declare (w8115, w8117, w8119, w811B) address,
+			b811D byte, w811E address;
+
+		sub$4B6C: procedure;
+			if curInfo$p = 0 or not testInfoFlag(F$MEMBER) then
+			do;
+				if w8119 > 1 then
+				do;
+					w8119 = w8119 - 1;
+					curInfo$p = atFData.info$p;
+				end;
+				else if curInfo$p = 0 then
+				do;
+					b811D = 0;
+					return;
+				end;
+				else
+				do;
+					if not testInfoFlag(F$PACKED) then
+						b811D = 0;
+					if getType  = STRUCT$T then
+					do;
+						if testInfoFlag(F$ARRAY) then
+							w8119 = getDimension;
+						call advNxtInfo;
+						atFData.info$p = curInfo$p;
+					end;
+				end;
+			end;
+			if testInfoFlag(F$ARRAY) then
+				w811B = getDimension;
+		end;
+
+		sub$4BF4: procedure;
+			if not b811D or w8117 >= w8115 then
+			do;
+				call fread(.atFile, .atFData.type, 1);
+				do case atFData.type - 2;
+					call fread(.atFile, .atFData.val, 2); /* ATI$2 */
+					do;		/* ATI$STRING */
+						call fread(.atFile, .w8115, 2);
+						call fread(.atFile, .dat, w8115);
+						w8117 = 0;
+					end;
+					call fread(.atFile, .atFData.varInfoOffset, 8); /* ATI$DATA */
+					;		/* ATI$END */
+				end;
+			end;
+		end;
+
+
+
+		sub$4C7A: procedure;
+			sub$4CAC: procedure;
+				if getType = BYTE$T then
+				do;
+					call sub$4908(.rec6, 12ch, 1);
+					call recAddByte(.rec6, 3, atFData.val);
+					w7197 = w7197 + 1;
+				end;
+				else
+				do;
+					call sub$4908(.rec6, 12Ch, 2);
+					call recAddWord(.rec6, 3, atFData.val);
+					w7197 = w7197 + 2;
+				end;
+			end;
+
+			sub$4CF9: procedure;
+				call sub$49BC(0d2h, curInfo$p - botInfo, atFData.stmtNum);
+				call sub$4CAC;
+			end;
+
+			sub$4D13: procedure;
+				declare w8120 address, bytpr based w8120(2) byte; 
+
+				if getType = BYTE$T then
+				do;
+					atFData.val = dat(w8117);
+					w8117 = w8117 + 1;
+				end;
+				else
+				do;
+						w8120 = .atFData.val;
+						bytpr(1) = dat(w8117);
+						w8117 = w8117 + 1;
+						if w8117 < w8115 then
+						do;
+							bytpr(0) = dat(w8117);
+							w8117 = w8117 + 1;
+						end;
+						else
+						do;
+								bytpr(0) = bytpr(1);
+								bytpr(1) = 0;
+						end;
+				end;
+				call sub$4CAC;
+			end;
+
+
+
+			sub$4D85: procedure;
+				if atFData.val > 255 and getType = BYTE$T then
+					call sub$4CF9;
+				else
+					call sub$4CAC;
+			end;
+
+			sub$4DA8: procedure;
+				declare i byte, (p, q) address, j byte;
+
+				if atFData.varInfoOffset = 0 then
+					call sub$4D85;
+				else if getType = BYTE$T then
+					call sub$4CF9;
+				else
+				do;
+					p = curInfo$p;
+					curInfo$p = botInfo + atFData.varInfoOffset;
+					if testInfoFlag(F$MEMBER) then
+					do;
+						atFData.val = atFData.val + sub$4984 * atFData.varNestedArrayIndex + getLinkVal;
+						curInfo$p = getParentOffset;
+					end;
+
+					atFData.val = atFData.val + sub$4984 * atFData.varArrayIndex + getLinkVal;
+					if testInfoFlag(F$EXTERNAL) then
+					do;
+						i = getExternId;
+						curInfo$p = p;
+						call sub$4908(.rec20, 95h, 4);
+						call sub$4CAC;
+						call recAddWord(.rec20, 1, i);
+						call recAddWord(.rec20, 1, w7197 - 2);
+					end;
+					else if testInfoFlag(F$ABSOLUTE) then
+					do;
+						curInfo$p = p;
+						call sub$4CAC;
+					end;
+					else
+					do;
+						if getType = PROC$T or getType = LABEL$T or testInfoFlag(F$DATA) then
+						do;
+							q = .rec24$1;
+							i = 1;
+						end;
+						else if testInfoFlag(F$MEMORY) then
+						do;
+							q = .rec24$3;
+							i = 4;
+						end;
+						else
+						do;
+							q = .rec24$2;
+							i = 2;
+						end;
+
+						if i = rec6.seg then
+						do;
+							q = .rec22;
+							j = 1;
+						end;
+						else
+							j = 2;
+
+						curInfo$p = p;
+						call sub$4908(q, 95h, 2);
+						call sub$4CAC;
+						call recAddWord(q, j, w7197 - 2);
+					end;
+				end;
+			end sub$4DA8;
+
+	/* sub$4C7A */	if b811D then
+			do;
+				do case atFData.type - 2;
+					call sub$4D85;	/* ATI$2 */
+					call sub$4D13;	/* ATI$STRING */
+					call sub$4DA8;	/* ATI$DATA */
+				end;
+			end;
+		end;
+
+	/* sub$4A31 */
+		call fread(.atFile, .atFData.info$p, 4);
+		curInfo$p = (w811E := atFData.info$p) + botInfo;
+		w8119,  w811B, w8115, w8117 = 0;
+		if testInfoFlag(F$DATA) then
+			rec6.seg = 1;
+		else if testInfoFlag(F$MEMORY) then
+			rec6.seg = 4;
+		else if testInfoFlag(F$ABSOLUTE) then
+			rec6.seg = 0;
+		else
+			rec6.seg = 2;
+
+		rec6.addr = getLinkVal;
+		w7197 = rec6.addr;
+		if curInfo$p = botInfo then
+			b811D = 0;
+		else if testInfoFlag(F$EXTERNAL) then
+		do;
+			call sub$49BC(0d9h, w811E, atFData.stmtNum);
+			b811D = 0;
+		end;
+		else
+		do;
+			call sub$4B6C;
+			b811D = 0ffh;
+		end;
+
+		call sub$4BF4;
+		if atFData.type = ATI$END then
+		do;
+			call sub$4889;
+			return;
+		end;
+
+		do while 1;
+			call sub$4C7A;
+			call sub$4BF4;
+			if atFData.type = ATI$END then
+			do; 
+				call sub$4889;
+				return;
+			end;
+			else if b811D then
+			do;
+				if w811B > 1 then
+					w811B = w811B - 1;
+				else
+				do;
+					call advNxtInfo;
+					do while curInfo$p <> 0;
+						if BYTE$T <= getType and getType <= STRUCT$T then
+							goto break;
+						call advNxtInfo;
+					end;
+				break:
+					call sub$4B6C;
+					if not b811D then
+						call sub$49BC(0d1h, w811E, atFData.stmtNum);
+				end;
+			end;
+		end;
+	end;
+
+	do while 1;
+		call fread(.atFile, .atFData.type, 1);
+		if atFData.type = ATI$AHDR then
+			call fread(.atFile, .atFData.info$p, 12);
+		else if atFData.type = ATI$DHDR then
+			call sub$4A31;
+		else
+			return;
+	end;
+end;
+END;

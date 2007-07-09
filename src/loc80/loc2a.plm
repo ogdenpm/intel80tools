@@ -1,0 +1,75 @@
+locate2a: DO;
+
+$INCLUDE(ISIS.EXT)
+
+$list
+DECLARE	errTab(*) BYTE DATA (
+	   2, 'ILLEGAL AFTN ARGUMENT', 0,
+	   3, 'TOO MANY OPEN FILES', 0,
+	   4, 'INCORRECTLY SPECIFIED FILE', 0,
+	   5, 'UNRECOGNIZED DEVICE NAME', 0,
+	   9, 'DISK DIRECTORY FULL', 0,
+	 0Ch, 'FILE IS ALREADY OPEN', 0,
+	 0Dh, 'NO SUCH FILE', 0,
+	 0Eh, 'WRITE PROTECTED', 0,
+	 11h, 'NOT A DISK FILE', 0,
+	 13h, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+	 14h, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+	 15h, 'CAN''T RESCAN', 0,
+	 16h, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+	 17h, 'MISSING FILENAME', 0,
+	 1Bh, 'ILLEGAL SEEK COMMAND', 0,
+	 1Ch, 'MISSING EXTENSION', 0,
+	 1Fh, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+	 20h, 'CAN''T DELETE OPEN FILE', 0,
+	 23h, 'SEEK PAST EOF', 0,
+	0CBh, 'INVALID SYNTAX', 0,
+	0CCh, 'PREMATURE EOF', 0,
+	0D0h, 'CHECKSUM ERROR', 0,
+	0D2h, 'INSUFFICIENT MEMORY', 0,
+	0D3h, 'RECORD TOO LONG', 0,
+	0D4h, 'ILLEGAL RELO RECORD', 0,
+	0D5h, 'FIXUP BOUNDS ERROR', 0,
+	0DAh, 'ILLEGAL RECORD FORMAT', 0,
+	0E0h, 'BAD RECORD SEQUENCE', 0,
+	0E1h, 'INVALID NAME', 0,
+	0E2h, 'NAME TOO LONG', 0,
+	0E3h, 'LEFT PARENTHESIS EXPECTED', 0,
+	0E4h, 'RIGHT PARENTHESIS EXPECTED', 0,
+	0E5h, 'UNRECOGNIZED CONTROL', 0,
+	0E9h, '''TO'' EXPECTED', 0,
+	0EDh, 'COMMON NOT FOUND', 0,
+	0EEh, 'ILLEGAL STACK CONTENT RECORD', 0,
+	0EFh, 'NO MODULE HEADER RECORD', 0,
+	0F0h, 'PROGRAM EXCEEDS 64K', 0);
+
+errmsg: PROCEDURE(errCode) PUBLIC;
+	DECLARE errCode ADDRESS;
+	DECLARE i ADDRESS;
+	DECLARE status ADDRESS;
+	
+	IF LOW(errCode) <> 0 THEN
+	DO;
+		i = 0;
+		DO WHILE i < LENGTH(errTab);	/* 328h */
+			IF LOW(errCode) = errTab(i) THEN
+			DO;
+				CALL write(0, .(' '), 1, .status);
+				DO WHILE errTab(i := i + 1) <> 0;
+					CALL write(0, .errTab(i), 1, .status);
+				END;
+				CALL write(0, .(0DH, 0AH), 2, .status);
+				RETURN;
+			END;
+			ELSE
+			DO;
+				DO WHILE errTab(i := i + 1) <> 0;
+				END;
+				i = i + 1;
+			END;
+		END;
+		CALL error(errCode);	/* ISIS error code */
+	END;
+END errmsg;
+
+END locate2a;

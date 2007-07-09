@@ -1,0 +1,113 @@
+main1: DO;
+	DECLARE LIT LITERALLY 'LITERALLY',
+		TRUE LIT '0FFH',
+		FALSE LIT '0',
+		CR LIT '0DH',
+		LF LIT '0AH';
+$include(:f3:data.inc)
+$include(:f3:info.inc)
+$include(:f3:lex.inc)
+declare	ATI$AHDR LIT '0',
+	ATI$DHDR LIT '1',
+	ATI$2 LIT '2',
+	ATI$STRING LIT '3',
+	ATI$DATA LIT '4',
+	ATI$END LIT '5',
+	ATI$EOF LIT '6';
+
+$include(:f3:openf.pex)
+$include(:f3:creatf.pex)
+$include(:f3:deletf.pex)
+$include(:f3:closef.pex)
+$include(:f3:fwrite.aex)
+$include(:f3:fflush.pex)
+$include(:f3:rewind.pex)
+$include(:f3:chain.pex)
+
+wrTx2File: procedure(buf, cnt) external; declare buf address, cnt byte; end;
+sub$6523: procedure external; end;
+sub$6EE0: procedure external; end;
+mapLtoT2: procedure external; end;
+wrTx2ExtError: procedure(err) external; declare err byte; end;
+getTx1Item: procedure external; end;
+wrAtFileByte: procedure(byt) external; declare byt byte; end;
+
+
+DECLARE copyright(*) BYTE DATA('(C) 1976, 1977, 1982 INTEL CORP');
+DECLARE cleanup LABEL public;
+
+declare markedStSP address public,
+	T2CntForStmt address public,
+	curProcInfo$p address public initial(0),
+	curStmtNum address public,
+	(varInfoOffset, varArrayIndex, varNestedArrayIndex, val) address public,
+	regetTx1Item byte public initial(FALSE),
+	b88B3 byte public initial(FALSE),
+	linfo structure(itemType byte, lineCnt address, stmtCnt address, blkCnt address) public,
+	tx1Item structure(type byte, dataw(129) address) public,
+	tx1Aux2 byte public,
+	tx1Aux1 byte public,
+	tx1RdBuf(512) byte public,
+	tx2Buf(512) byte public,
+	xrfBuf(512) byte public,
+	atBuf(512) byte public,
+	b91C0 byte public;
+
+
+	sub$3F19: PROCEDURE;
+		call creatf(.tx1File, .tx1RdBuf, 512, 1);
+		call openf(.tx2File, 3);
+		call creatf(.tx2File, .tx2Buf, 512, 2);
+		if XREF or IXREF or SYMBOLS then
+		do;
+			call openf(.xrfFile, 2);
+			call creatf(.xrfFile, .xrfBuf, 512, 2);
+		end;
+		call openf(.atFile, 3);
+		call creatf(.atFile, .atBuf, 16, 2);
+		blockDepth = 1;
+		procChains(1) = 0;
+	end;
+
+	sub$3F8B: PROCEDURE;
+		if b88B3 then 
+			call wrTx2File(.linfo, 7);
+		call closef(.tx1File);
+		call deletf(.tx1File);
+		call openf(.tx1File, 3);
+		if XREF or IXREF or SYMBOLS then
+		do;
+			call fwrite(.xrfFile, .(0), 1);
+			call fflush(.xrfFile);
+			call closef(.xrfFile);
+		end;
+		call wrAtFileByte(ATI$END);
+		call wrAtFileByte(ATI$EOF);
+		call fflush(.atFile);
+		call rewind(.atFile);
+	end;
+
+
+	call sub$3F19;	/* create files and preload tx1 */
+	call sub$6523;
+loop:	
+	call sub$3F8B;
+	call sub$6EE0;
+	if hasErrors then 
+		call chain(.overlay6);
+	else
+		call chain(.overlay2);
+
+cleanup:
+	call wrTx2ExtError(b91C0);
+	do while tx1Item.type <> L$EOF;
+		if tx1Item.type = L$STMTCNT then
+		do;
+			T2CntForStmt = 0;
+			call mapLtoT2;
+			curStmtNum = tx1Item.dataw(0);
+		end;
+		call getTx1Item;
+	end;
+	goto loop;
+END;

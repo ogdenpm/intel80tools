@@ -1,0 +1,347 @@
+plm2c: DO;
+$nolist
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	boolean lit 'byte',
+	cr lit '0dh',
+	lf lit '0ah';
+
+$include(:f3:data.inc)
+$include(t2code.inc)
+$include(:f3:info.inc)
+$include(:f3:flags.inc)
+declare ERR200 lit '200',	/*  LIMIT EXCEEDED */
+	ERR205 lit '205',	/*  ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED */
+	ERR204 lit '204',	/*  LIMIT EXCEEDED: NUMBER OF ACTIVE */
+
+	CF$XCHG lit '14',
+	CF$6 lit '6',
+	CF$SPHL lit '22',
+	CF$INXSP lit '116',
+	CF$POP lit '4',
+	CF$PUSH lit '23',
+	CF$EI lit '149',
+	CF$INX lit '24',
+	CF$DCX lit '25';
+
+declare	tx2Buf(512) byte external,
+	tx1Buf(512) byte external,
+	blkCurInfo(20) address external,
+	wB488(20) address external,
+	wB4B0(20) address external,
+	wB4D8(20) address external,
+	extProcId(20) byte external,
+	procChainNext(20) byte external,
+	wB528(10) address external,
+	wB53C(10) address external,
+	tx2opc(255) byte external,
+	tx2Aux1b(255) byte external,
+	tx2Aux2b(255) byte external,
+	tx2op1(255) address external,
+	tx2op2(255) address external,
+	tx2op3(255) address external,
+	tx2Auxw(255) address external,
+	bC045(9) byte external,
+	bC04E(9) byte external,
+	boC057(9) byte external,
+	boC060(9) byte external,
+	boC069(9) byte external,
+	boC072(9) byte external,
+	boC07B(9) byte external,
+	wC084(9) address external,
+	wC096(9) address external,
+	bC0A8(9) byte external,
+	bC0B1 byte external,
+	bC0B2 byte external,
+	bC0B3(2) byte external,
+	bC0B5(2) byte external,
+	bC0B7(2) byte external,
+	bC0B9(2) byte external,
+	bC0BB(2) byte external,
+	bC0BD(2) byte external,
+	bC0BF(2) byte external,
+	bC0C1(2) byte external,
+	bC0C3(125) byte external,
+	bC140(126) byte external,
+	tx2qp byte external,
+	bC1BF byte external,
+	tx2qEnd byte external,
+	pc address external,
+	wC1C3 address external,
+	wC1C5 address external,
+	wC1C7 address external,
+	blkSP byte external,
+	blkOverCnt byte external,
+	procCallDepth byte external,
+	boC1CC byte external,
+	boC1CD byte external,
+	eofSeen byte external,
+	wC1CF address external,
+	curOp byte external,
+	bC1D2 byte external,
+	padC1D3 byte external,
+	curExtProcId byte external,
+	procChainId byte external,
+	wC1D6 address external,
+	boC1D8 byte external,
+	bC1D9 byte external,
+	cfrag1 byte external,
+	bC1DB byte external,
+	wC1DC(5) address external,
+	bC1E6 byte external,
+	buf$C1E7(34) byte external,
+	bC209(1) byte external,
+	boC20F byte external,
+	finalise label external;
+
+
+$include(:f3:gitype.pex)
+$include(:f3:giparo.pex)
+$include(:f3:sibsev.pex)
+$include(:f3:tiflag.pex)
+$include(:f3:sidim.pex)
+$include(:f3:gidim.pex)
+$include(:f3:gieid.pex)
+$include(:f3:gipid.pex)
+$include(:f3:gilnkv.pex)
+sub$575E: procedure(arg1w) address external; declare arg1w address; end;
+sub$56A0: procedure(arg1b, arg2b) external; declare arg1b byte, arg2b byte; end;
+
+declare b5286(1) byte external,
+	b5124(1) byte external;
+
+
+sub$6BD6: procedure public;
+	declare (bC259, bC25A) byte;
+
+
+
+	sub$6C54: procedure(arg1b);
+	    declare arg1b byte;
+	    if arg1b <> 0 then
+		tx2Auxw(arg1b) = tx2Auxw(arg1b) + 1;  
+	end;
+
+
+
+	sub$6C73: procedure(arg1b);
+	    declare arg1b byte;
+	    if OPTIMIZE  then
+		do while tx2qp - 1 > arg1b;
+		    arg1b = arg1b + 1;
+		    if tx2opc(arg1b) = curOp then
+		    do;
+			if tx2op1(arg1b) = tx2op1(tx2qp) then
+			do;
+			    if tx2op2(arg1b) = tx2op2(tx2qp) then
+			    do;
+				if tx2Aux1b(arg1b) = tx2Aux1b(tx2qp) then
+				do;
+				    if tx2op3(arg1b) <> 0ff00h then
+				    do;
+				    	tx2opc(tx2qp) = T2$OPTBACKREF;
+				    	tx2op1(tx2qp) = arg1b;
+				    	return;
+				    end;
+				end;
+			    end;
+			end;
+		    end;
+		end; 
+	    if (bC1D2 and 0c0h) = 0 then
+	    do;
+		call sub$6C54(tx2op1(tx2qp));
+		call sub$6C54(tx2op2(tx2qp));
+	    end;
+	    tx2op3(tx2qp) = tx2qp;
+	end;
+
+
+	sub$6D52: procedure;
+	    declare boC25D byte;
+
+	 	sub$6EAB: procedure(arg1w$p);
+		    declare arg1w$p address;
+		    declare arg1w based arg1w$p address;
+		    if arg1w <> 0 then
+		    do;
+			if tx2opc(arg1w) = T2$OPTBACKREF then 
+			    arg1w = tx2op1(arg1w);
+		    end;
+		end;
+
+	
+
+
+		sub$6EE1: procedure(arg1b);
+		    declare arg1b byte;
+
+			sub$6F20: procedure(arg1b);
+			    declare arg1b byte;
+			    declare i byte;
+			    if (i := tx2opc(arg1b)) = T2$BASED then
+				boC25D = 0ffh;
+			    else if i = T2$BYTEINDEX or i = T2$WORDINDEX then
+			    do;
+				if tx2opc(tx2op2(arg1b)) <> T2$NUMBER then
+				    boC25D = 0ffh;
+				else
+				do;
+				    curInfo$p = tx2op1(tx2op1(arg1b));
+				    if tx2op2(tx2op2(arg1b)) >= getDimension or testInfoFlag(F$AT) then
+					boC25D = 0ffh;
+				end;
+			    end;
+			    else if i = T2$VARIABLE then
+			    do;
+				curInfo$p = tx2op1(arg1b);
+				if testInfoFlag(F$AT) then
+				    boC25D = 0ffh;
+			    end;
+			end sub$6F20;
+
+	/* sub$6EE1 */
+		    boC25D = 0;
+		    if tx2opc(arg1b) = T2$MEMBER then
+		    do;
+			call sub$6F20(tx2op1(arg1b));
+			call sub$6F20(tx2op2(arg1b));
+		    end;
+		    else
+			call sub$6F20(arg1b);
+		end;
+
+
+
+
+
+		sub$6FE2: procedure byte;
+		    declare bC263 byte;
+
+		    sub$7018: procedure(arg1b);
+			declare arg1b byte;
+			if tx2opc(arg1b) <> T2$CALL then
+			    arg1b = tx2op3(arg1b);
+			if arg1b <> 0 then
+			    if arg1b > bC263 then
+				bC263 = arg1b;
+		    end;
+
+		    if boC25D then
+			bC263 = bC259;
+		    else
+			bC263 = bC25A;
+
+		    call sub$7018(tx2op1(tx2qp));
+		    call sub$7018(tx2op2(tx2qp));
+		    return bC263;
+		end;
+
+
+		sub$7055: procedure;
+			bsub$70BC: procedure(arg1b) byte;
+			    declare arg1b byte;
+			    call sub$6EE1(tx2op1(arg1b));
+			    if boC25D then
+				return TRUE;
+			    if tx2op1(arg1b) = 0ach then
+			    do;
+				curInfo$p = tx2op1(tx2op1(arg1b));
+				if testInfoFlag(F$AUTOMATIC) then
+				    return TRUE;
+			    end;
+			    return FALSE;
+			end;
+		/* sub$7055 */
+		    if bsub$70BC(tx2qp) then
+			bC25A = tx2qp;
+		    if tx2op3(tx2op1(bC259 := tx2qp)) <> 0ff00h then
+			tx2op3(tx2op1(tx2qp)) = tx2qp;
+		    call sub$6C54(tx2op1(tx2qp));
+		    call sub$6C54(tx2op2(tx2qp));
+		end;
+
+	    call sub$6EAB(.tx2op1(tx2qp));
+	    call sub$6EAB(.tx2op2(tx2qp));
+	    if curOp = T2$STORE then
+		call sub$7055;
+	    else if procCallDepth > 0 then
+	    do;
+		call sub$6C54(tx2op1(tx2qp));
+		call sub$6C54(tx2op2(tx2qp));
+		if curOp = T2$CALL then
+		    procCallDepth = procCallDepth - 1;  
+		else if curOp = T2$MOVE or curOp = T2$CALLVAR then
+		do;
+		    procCallDepth = procCallDepth - 1;  
+		    call sub$6EAB(.tx2op3(tx2qp));
+		    call sub$6C54(tx2op3(tx2qp));
+		end;
+		else
+		    tx2op3(tx2qp) = 0ff00h;
+	    end;
+	    else if curOp = T2$OUTPUT or curOp = T2$TIME then
+	    do;
+		call sub$6C54(tx2op1(tx2qp));
+		call sub$6C54(tx2op2(tx2qp));
+	    end;
+	    else
+	    do;
+		tx2op3(tx2qp) = 0;
+		call sub$6EE1(tx2qp);
+		call sub$6C73(sub$6FE2);
+		if curOp = T2$JMPFALSE then
+		do;
+		    if tx2opc(tx2qp - 1) = T2$NOT then
+		    do;
+			boC20F = TRUE;
+			tx2op2(tx2qp) = tx2op1(tx2qp - 1);
+			call sub$56A0(tx2qp, tx2qp - 1);
+			tx2opc(tx2qp) = T2$SEMICOLON;
+		    end;
+		end;
+	    end;
+	end;
+
+
+
+
+
+
+	sub$7111: procedure;
+	    if procCallDepth > 0 then
+		tx2op3(tx2qp) = 0ff00h;
+	    else
+	    do;
+		tx2op3(tx2qp) = 0;
+		if curOp = T2$VARIABLE then
+		do;
+		    curInfo$p = tx2op1(tx2qp);
+		    if testInfoFlag(F$AT) then
+			call sub$6C73(bC259);
+		    else
+			call sub$6C73(bC25A);
+		end;
+		else
+		    call sub$6C73(bC25A);
+	    end;
+	end;
+
+/* sub$6BD6 */
+	bC259 = 4;
+	bC25A = 4;
+	do tx2qp = 4 to bC1BF - 1;
+		tx2Auxw(tx2qp) = 0;
+		curOp = tx2opc(tx2qp);
+		bC1D2 = b5124(curOp);
+		if (bC1D2 and 0c0h) = 0 then
+			call sub$6D52;
+		else if (bC1D2 and 0c0h) = 40h then
+			call sub$7111;
+		if curOp = T2$BEGCALL or curOp = T2$BEGMOVE then
+			procCallDepth = procCallDepth + 1;  
+
+	end;
+end;
+END;

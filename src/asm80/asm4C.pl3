@@ -1,0 +1,361 @@
+asm4C:
+do;
+
+declare rec18a structure(type byte, len address, dta(1) byte) external,
+	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
+	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
+	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
+	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec18 structure(type byte, len address, dta(1) byte) external,
+	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
+	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
+
+declare	b6D6E(*) byte data(1, 2, 1, 3),
+	off$6D72(*) address data(.rec16.len, .rec24.len, .rec20.len, .rec06.len),
+	b6D7A(*) byte data(7Bh, 3Ah, 39h, 7Ch),
+	b6D7E(*) byte data(0Ah, 12h, 40h);
+
+
+declare	rec02 structure(type byte, len address, b0 byte, dta(25) byte) initial(2),
+	(w758B$p, w758D$p) address;
+
+
+
+
+ioErrChk: procedure external; end;
+seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
+unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
+sub$3FA9: procedure byte external; end;
+testBit: procedure(b, w) byte external; declare b byte, w address; end;
+sub$4646: procedure byte external; end;
+isSkipping: procedure byte external; end;
+
+declare tokenSize literally 'toksiz',
+	tokStart literally 'tokst';
+declare	(b6521, b6524, b6525, b652A, b652F) byte external,
+	(moduleNameLen, b6744, b6745, activeSeg, b6755, b689A, b6A56, optDEBUG) byte external,
+	(b6B23, b6B24, b6B33, b6B34, b6BDB) byte external,
+	curTokenSym$p address external,
+	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
+	symb based curTokenSym$p(1) byte,
+	(statusIO, w651F, w6522, w6750, w6752, startAddr, objfd) address external,
+	(w68A0, w68A2, w6BD3) address external,
+	(rec0E, b6526, b652B, b674C, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
+	(w6868, w6B41, symTab, tokStart, w6818, segSize)(1) address external;
+
+
+
+writeRec: procedure(arg1w) public;
+	declare arg1w address,
+		w7591 address, w7593 address,
+		b7595 byte, b7596 byte;
+	declare wrd based w7591 address;
+	declare ch based w7591 byte;
+
+	w7591 = arg1w + 1;
+	w7593 = (wrd := wrd + 1) + 3;	
+	b7596 = 0;
+	w7591 = w7591 - 1;
+	do b7595 = 2 to w7593;
+		b7596 = b7596 - ch;
+		w7591 = w7591 + 1;
+	end;
+	ch = b7596;
+	call write(objfd, arg1w, w7593, .statusIO);
+	call ioErrChk;
+end;
+
+
+sub$6DF1: procedure byte;
+	declare b7597 byte;
+	if ((b7597 := tokenAttr(b6A56)) and 5Fh) = 0 then
+		return 3;
+	if (b7597 and 40h) <> 0 then
+		return 2;
+	if (b6521 := b7597 and 7) = 0 then
+		return 3;
+	return (b6521 <> activeSeg) and 1;
+end;
+
+
+sub$6E32: procedure public;
+	declare b7598 byte;
+	declare wrd based w758B$p address;
+	do b7598 = 0 to 3;
+		b6BDB = (b7598 - 1) and 3;
+		w758B$p = off$6D72(b6BDB);
+		if wrd > b6D6E(b6BDB) then
+			call writeRec(w758B$p - 1);
+
+		wrd = b6D6E(b6BDB);
+		b6526(b6BDB) = 0;
+		if b6525 <>  b6BDB then
+			b652B(b6BDB) = 0FFh;
+	end;
+	rec06.addr = w6752 + segSize(rec06.seg := activeSeg);
+	rec16.seg = b6524;
+	rec24.seg = tokenAttr(b6A56) and 7;
+	rec24.fixtype, rec20.fixtype = b6524;
+end;
+
+
+
+sub$6EE1: procedure;
+	declare w7599 address;
+
+	declare wrd based w758B$p address;
+
+	w758B$p = off$6D72(b6525 := sub$6DF1);
+	if wrd > b6D7A(b6525) or rec06.len + tokenSize(b6A56) > 7Ch then
+		call sub$6E32;
+
+	if b652F then
+	do;
+		b652F = 0;
+		rec06.addr = segSize(rec06.seg := activeSeg) + w6752;
+	end;
+	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + b6526(3)) <> segSize(activeSeg) + w6752
+	  or w7599 < rec06.addr then
+		call sub$6E32;
+
+
+	do case b6525;
+/* 0 */		do;
+			if b652B(0) then
+			do;
+				b652B(0) = 0;
+				rec16.seg = b6524;
+			end;
+			else if rec16.seg <> b6524 then
+				call sub$6E32;
+		end;
+/* 1 */		do;
+			if b652B(1) then
+			do;
+				b652B(1) = 0;
+				rec24.seg = tokenAttr(b6A56) and 7;
+				rec24.fixtype = b6524;
+			end;
+			else if rec24.fixtype <> b6524 or (tokenAttr(b6A56) and 7) <> rec24.seg then
+				call sub$6E32;
+		end;
+/* 2 */		do;
+			if b652B(2) then
+			do;
+				b652B(2) = 0;
+				rec20.fixtype = b6524;
+			end;
+			else if rec20.fixtype <> b6524 then
+				call sub$6E32;
+
+		end;
+/* 4 */		;
+	end;
+end;
+
+
+sub$704D: procedure;
+	declare b759B byte;
+
+	declare ch based w651F byte;
+	do b759B = 1 to tokenSize(b6A56);
+		rec06.dta(b6526(3)) = ch;
+		b6526(3) = b6526(3) + 1;
+		w651F = w651F + 1;
+	end;
+	rec06.len = rec06.len + tokenSize(b6A56);
+end;
+
+
+
+sub$709D: procedure;
+	rec16.len = rec16.len + 2;
+	rec16.dta(b6526(0)) = w6522;
+	b6526(0) = b6526(0) + 1;
+end;
+
+
+sub$70C1: procedure;
+	rec24.len = rec24.len + 2;
+	rec24.dta(b6526(1)) = w6522;
+	b6526(1) = b6526(1) + 1;
+end;
+
+sub$70E5: procedure;
+	rec20.dta(b6526(2)) = w6818(b6A56);
+	rec20.dta(b6526(2) + 1) = w6522;
+	rec20.len = rec20.len + 4;
+	b6526(2) = b6526(2) + 2;
+end;
+
+sub$7131: procedure;
+	b6524 = shr(tokenAttr(b6A56) and 18h, 3);
+	w6522 = segSize(activeSeg) + w6752;
+	if not (b6B23 or b6B24) and (tokenSize(b6A56) = 2 or tokenSize(b6A56) = 3) then
+		w6522 = w6522 + 1;
+	call sub$6EE1;
+	w651F = w68A2;
+	call sub$704D;
+	do case sub$6DF1;
+/* 0 */ 	call sub$709D;
+/* 1 */		call sub$70C1;
+/* 2 */		call sub$70E5;
+/* 3 */		;
+	end;
+end;
+
+
+ovl2: procedure public;
+	declare b759C byte;
+
+	if rec18a.len + 9 > 7Dh then
+	do;
+		call writeRec(.rec18a);
+		rec18a.type = 18h;
+		rec18a.len = 0;
+		b652A = 0;
+	end;
+	rec18a.len = rec18a.len + b6744 + 2;
+	rec18a.dta(b652A) = b6744;
+	b652A = b652A + 1;
+	do b759C = 0 to b6744;
+		rec18a.dta(b652A + b759C) = b6873(b759C);
+	end;
+
+	rec18a.dta(b652A + b6744) = 0;
+	b652A = b652A + b6744 + 1;
+end;
+
+
+sub$725E: procedure(arg1b);
+	declare arg1b byte;
+	declare b759E byte;
+
+	sub$72EC: procedure;
+		declare w759F address;
+		declare b758B based w758B$p(6) byte;
+		declare b758D based w758D$p(1) byte;
+		declare w758D based w758D$p address;
+		declare wrd based w759F address;
+		declare ch based w758D$p byte;
+
+		if (symb(1) and 40h) <> 0 then
+			return;
+		w759F = curTokenSym$p - 2;
+		w758D = wrd; 
+		call unpackToken(curTokenSym$p - 6, (w758B$p := (w758D$p := w758D$p + 2) + 1));
+		b758B(6) = ' ';
+		ch = 0;
+
+		do while b758B(0) <> ' ';
+			b758D(0) = b758D(0) + 1;
+			w758B$p = w758B$p + 1;
+		end;
+		b758B(0) = 0;
+		w758D$p = w758B$p + 1;
+	end;
+
+	sub$7359: procedure;
+		if (rec16.len := w758D$p - .rec16.seg) > 1 then
+			call writeRec(.rec16);
+		rec16.type = (arg1b and 4) or 12h;
+		rec16.seg = b759E;
+		w758D$p = .rec16.dta;
+	end;
+
+	w758D$p = .rec16.dta;
+	do b759E = 0 to 4;
+		call sub$7359;
+		curTokenSym$p = symTab(1) - 2;
+	
+		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
+			if w758D$p > .rec16.dta(57) then
+				call sub$7359;
+
+			if (symb(1) and 7) = b759E and symb(0) <> 3Ah and sub$3FA9
+			  and not testBit(symb(0), .b6D7E) and (not arg1b or (symb(1) and 20h) <> 0) then
+				call sub$72EC;
+		end;
+		call sub$7359;
+	end;
+end;
+
+writeRec02: procedure public;
+	declare wrd based w758B$p address;
+	declare ch based w758B$p byte;
+	declare b75A1 byte;
+
+	call move((rec02.b0 := moduleNameLen), .aModulePage, .rec02.dta);
+	w758B$p = .rec02 + moduleNameLen + 4;
+	wrd = 0;
+	w758B$p = w758B$p + 1;
+	if segSize(1) < w6B41(1) then
+		segSize(1) = w6B41(1);
+	if segSize(2) < w6B41(2) then
+		segSize(2) = w6B41(2);
+
+	do b75A1 = 1 to 4;
+		w758B$p = w758B$p + 1;
+		ch = b75A1;
+		w758B$p = w758B$p + 1;
+		wrd = segSize(b75A1);
+		w758B$p = w758B$p + 2;
+		ch = b674C(b75A1 - 1);
+	end;
+	rec02.len = moduleNameLen + 13h;
+	call writeRec(.rec02);
+end;
+
+
+writeRec040E: procedure public;
+	rec04.subtype = b6755;
+	rec04.seg = b6745;
+	rec04.addr = startAddr;
+	call writeRec(.rec04);
+	rec0E(1) = 0;
+	call writeRec(.rec0E);
+end;
+
+ovl8: procedure public;
+	w6752 = 0;
+	b689A = 1;
+	b6A56 = 1;
+	if b6B33 then
+		;
+	else
+	do while b6A56 <> 0;
+		b6A56 = sub$4646;
+		w68A0 = tokStart(b6A56) + tokenSize(b6A56);
+		w68A2 = tokStart(b6A56);
+		if isSkipping or not b6B34 then
+			w68A0 = w68A2;
+		if w68A0 > w68A2 then
+		do;
+			call sub$7131;
+			w6752 = w6752 + tokenSize(b6A56);
+		end;
+		if not(b6B23 or b6B24) then
+			b6A56 = 0;
+	end;
+end;
+
+
+ovl11: procedure public;
+	declare myrec16 structure(type byte, len address, seg byte, b1 byte) at (.rec16);
+	if w6750 <> 0 then
+	do;
+		call seek(objfd, 2, .w6BD3, .w6BD3, .statusIO);		/* SEEKABS */
+		call writeRec02;
+		call seek(objfd, 4, .w6BD3, .w6BD3, .statusIO);		/* SEEKEND */
+	end;
+	rec22.type = 16h;
+	rec22.len = 1;
+	rec22.seg = 0;
+	rec22.fixtype = 0;
+	call sub$725E(0FFh);
+	if optDEBUG then
+		call sub$725E(0);
+end;
+
+end;

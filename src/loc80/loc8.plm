@@ -1,0 +1,51 @@
+locate8: DO;
+$INCLUDE(LOC.LIT)
+$INCLUDE(LOC9.EXT)
+
+DECLARE devices (*) BYTE DATA('F0F1F2F3F4F5TITO',
+		      'VIVOI1O1TRHRR1R2',
+		      'TPHPP1P2LPL1BBCI',
+		      'COF6F7F8F9');
+
+makeFullName: PROCEDURE(pinfo, pstr) PUBLIC;
+	DECLARE pinfo ADDRESS;
+	DECLARE pstr ADDRESS;
+	DECLARE str BASED pstr(1) BYTE;
+	DECLARE ch BASED pstr BYTE;
+	DECLARE info BASED pinfo SPATH$T;
+
+	DECLARE i BYTE;
+
+	str(0) = ':';
+	str(1) = devices(info.deviceId + info.deviceId);
+	str(2) = devices(info.deviceId + info.deviceId + 1);
+	str(3) = ':';
+	pstr = pstr + 4;	/* past the :xx: inserted */
+	DO i = 0 TO 5;
+		IF (ch := info.name(i)) <> 0 THEN
+			pstr = pstr + 1;
+	END;
+	IF info.ext(0) <> 0 THEN
+	DO;
+		ch = '.';
+		pstr = pstr + 1;
+	END;
+	DO i = 0 TO 2;
+		IF (ch := info.ext(i)) <> 0 THEN
+			pstr = pstr + 1;
+	END;
+	ch = ' ';	/* space at end */
+END makeFullName;
+
+
+strupr: PROCEDURE(pch) PUBLIC;
+	DECLARE pch ADDRESS;
+	DECLARE ch BASED pch BYTE;
+
+	DO WHILE ch <> 0DH;
+		ch = toupper(ch);
+		pch = pch + 1;
+	END;
+END strupr;
+
+END locate8;

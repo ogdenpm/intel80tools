@@ -1,0 +1,325 @@
+asm44:
+do;
+
+declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
+			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
+			   0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh, 1, 1,
+			   1, 1, 80h, 1, 0, 0, 47h, 7, 7, 7,
+			   17h, 47h, 7, 47h, 37h, 5, 7, 0, 0, 0,
+			   40h, 40h, 0, 1, 80h, 40h, 80h, 0, 40h, 80h, 80h,
+			   40h, 81h, 0C0h, 80h, 0Dh),
+
+	b41B7(*) byte data(41h, 0, 0, 0, 19h, 40h, 0, 1Ch, 0, 0),
+	b41C1(*) byte data(1Ah, 5, 80h, 0, 0C0h),
+	b41C6(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
+	b41D2(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
+	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
+	b41E7(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
+			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
+			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			   1, 1, 1, /* extra */ 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah);
+
+
+flushout: procedure external; end;
+outch: procedure(b) external; declare b byte; end;
+outStrN: procedure(w1, w2) external; declare (w1, w2) address; end;
+closeF: procedure(w) external; declare w address; end;
+sub$3CDF: procedure(b) external; declare b byte; end;
+sub$5EE3: procedure external; end;
+sub$5F01: procedure external; end;
+sub$5F37: procedure external; end;
+popToken: procedure external; end;
+pushToken: procedure(b) external; declare b byte; end;
+nibble2Ascii: procedure(b) byte external; declare b byte; end; 
+isPhase1: procedure byte external; end;
+isSkipping: procedure byte external; end;
+
+declare tokenSize literally 'toksiz',
+	tokStart literally 'tokst';
+declare (tokenSP, b6855, b6856, b6858) byte external,
+	(tokenType, tokenSize, tokenAttr, accum1byt, accum2byt, lstFile, bp6A4E, bp6BE0)(1) byte external,
+	(b6859, b6881, b689A, optXREF, optPAGING, optPAGEWIDTH) byte external,
+	(optPAGELENGTH, optLIST, optGEN, optCOND, b6A6F, needAddrOperand, b6B2B, b6B2D) byte external,
+	(b6B30, b6B31, b6B32, b6B36, b6BDB, b6BDC, b6BDD, b$905B) byte external,
+	(skipping, b$9A77) byte external,
+	(curTokenSym$p, curTokStart, accum1, w685A, w685C, xreffd) address external,
+	(w6818)(1) address external;
+
+
+
+testBit: procedure(arg1b, arg2w) byte public;
+	declare arg1b byte, arg2w address;
+	declare ch based arg2w byte;
+
+	if ch < arg1b then
+		return 0;
+	
+	arg2w = arg2w + shr(arg1b, 3) + 1;
+	return (ch and ROR(1, (arg1b and 7) + 1)) <> 0;
+end;
+
+sub$425B: procedure(arg1b) byte public;
+	declare arg1b byte;
+
+	return arg1b = 7 or arg1b = 8;
+end;
+
+sub$4274: procedure public;
+	if testBit(b6B2B, .b41B7) then
+		if sub$425B(b6858) then
+			call sub$5F37;
+end;
+
+sub$4291: procedure public;
+	if sub$425B(b6858) then
+		call sub$5F37;
+	if (b4181(b6B2B) and 2) = 0 then
+		b6856 = 0;
+	else if sub$425B(b6859) then
+		call sub$5F37;
+
+	b6858 = 0Ch;
+	bp6BE0(0) = (b6855 and 18h) <> 0;
+	bp6BE0(1) = (b6856 and 18h) <> 0;
+	if (b6855 and 7) <> 0 then
+		if (b6856 and 7) <> 0 then
+			if ((b6855 xor b6856) and 1Fh) <> 0 then
+				call sub$5EE3;
+	if (b6BDB := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
+	do;
+		if b6B2B = 5 then
+			if not (b6BDB or bp6BE0(0)) then
+			do;
+				w685A = w685C;
+				b6855 = b6856;
+				return;
+			end;
+		if b6BDC or bp6BE0(1) or not testBit(b6B2B, .b41C1) then
+			goto L4394;
+		else
+			return;
+	end;
+	b6BDD = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
+	if testBit(b6BDD, .b41C6) then
+L4394:	do;
+		call sub$5EE3;
+		b6855 = 0;
+		return;
+	end;
+	if testBit(b6BDD, .b41D2) then
+	do;
+		if not bp6BE0(0) then
+			b6855 = b6856;
+		return;
+	end;
+	b6855 = 0;
+end;
+
+
+swapAccBytes: procedure public;
+	declare b6C17 byte;
+	b6C17 = accum1byt(0);
+	accum1byt(0) = accum1byt(1);
+	accum1byt(1) = b6C17;
+end;
+
+
+
+sub$43D2: procedure public;
+	b6B30 = 0FFh;
+	b6B31 = 0;
+end;
+
+
+
+sub$43DD: procedure address public;
+	declare ch based curTokStart byte,
+		s based curTokStart(1) byte,
+		w$9B69 address,
+		wrd based w$9B69 address;
+
+	sub$4884: procedure(arg1b);
+		declare arg1b byte;
+
+		if tokenType(tokenSP) <> 40h then
+		do;
+			call sub$3CDF(arg1b);
+			return;
+		end;
+		if tokenSize(0) = 0 then
+			tokenType(tokenSP) = 41h;
+	end;
+
+
+
+	b6855 = 0;
+	accum1 = 0;
+	b6858 = 9;
+	if tokenType(0) = 40h then
+		call pushToken(0Dh);
+
+	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
+		call sub$4884(51h);
+	else
+	do;
+		if tokenType(0) = 9 or tokenType(0) = 6 then
+			call sub$4884(55h);
+		else
+		do;
+			b6858 = tokenType(0);
+			if testBit(b6858, .b41DE) then
+			do;
+				curTokStart = curTokenSym$p + 7;
+				b6855 = ch and 0DFh;
+				curTokStart, w$9B69 = curTokenSym$p + 4;
+				w685A = wrd;
+				tokenSize(0) = 2;
+
+			end;
+			else if tokenSize(0) = 0 then
+				call sub$4884(56h);
+			else
+			do;
+				if tokenSize(0) > 2 then
+					call sub$4884(56h);
+
+				b6855 = (tokenAttr(0) and 0DFh);
+				w685A = w6818(0);
+			end;
+
+			if tokenSize(0) > 0 then
+				accum1byt(0) = ch;
+			if tokenSize(0) > 1 then
+				accum1byt(1) = s(1) and tokenType(0) <> 7;
+		end;	
+
+		if needAddrOperand then
+			if tokenSize(0) = 2 then
+				if tokenType(0) = 0Ah then
+					call swapAccBytes;
+
+		if (b6855 and 40h) <> 0 then
+			if tokenType(0) < 9 then
+				accum1 = 0;
+
+		call popToken;
+	end;
+
+	b6B36 = 0;
+	return accum1;
+end;
+
+
+
+
+
+getPrec: procedure(arg1b) byte public;
+	declare arg1b byte;
+	return b41E7(arg1b);
+end;
+
+sub$450F: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if (arg1b and 3) <> 0 then
+	do;
+		if accum2byt(1) <> 0
+		   or accum2byt(0) > 7
+		   or arg1b and accum2byt(0)
+		   or (arg1b and 3) = 3 and accum2byt(0) > 2
+		   or (not sub$425B(b6859) and b6B2B <> 2Eh) then
+			call sub$5F37;
+		else if sub$425B(b6859) and b6B2B = 2Eh then
+			call sub$5F37;
+		if ror(arg1b, 2) then
+			accum2byt(0) = rol(accum2byt(0), 3);
+		accum1byt(0) = accum1byt(0) or accum2byt(0);
+	end;
+	else if b6B2B <> 2Dh then
+		if sub$425B(b6859) then
+			call sub$5F37;
+
+	if shr(arg1b, 3) then
+	do;
+		if (b6856 and 18h) = 18h then
+		do;
+			call sub$5F01;
+			b6856 = b6856 and 0E7h or 8;
+		end;
+		if accum2byt(1) + 1 > 1 then
+			call sub$5F01;
+	end;
+	if b6B2B = 28h or b6B2B = 2Ch then
+	do;
+		b6855 = b6856;
+		w685A = w685C;
+	end;
+	else
+		b6855 = 0;
+
+	if b6B2B <> 2Dh then
+		if accum1byt(0) = 76h then
+			call sub$5F37;
+	if (b6B2B := shr(arg1b, 4) + 24h) = 24h then
+		b6B2D = 0Bh;
+end;
+
+sub$4646: procedure byte public;
+	if b689A >= tokenSP then
+		return 0;
+	return (b689A := b689A + 1);
+end;
+
+
+
+sub$465B: procedure byte public;
+	return ((not b$9A77) and optLIST or b6A6F and b$9A77)
+	        and (not (b$905B > 1) or optGEN)
+		and (not(b6B32 or skipping) or optCOND);
+end;
+
+sub$467F: procedure(arg1b, arg2w) public;
+	declare arg1b byte, arg2w address;
+	declare (b6C1F, b6C20) byte;
+
+	if not isPhase1 or not optXREF or isSkipping and not b6881 then
+		return;
+
+	call outch(arg1b + '0');
+	if arg1b <> 2 then
+	do;
+		call outStrN(arg2w, 6);
+		b6881 = 0;
+		b6C20 = bp6A4E(1);
+		b6C1F = 0;
+		do while b6C1F < 4;
+			b6C1F = b6C1F + 1;
+			if b6C1F then
+			do;
+				if b6C1F = 3 then
+					b6C20 = bp6A4E(0);
+				call outch(nibble2Ascii(shr(b6C20, 4)));
+			end;
+			else
+				call outch(nibble2Ascii(b6C20));
+		end;
+	end;
+	else
+	do;
+		call outStrN(.lstFile, 15);
+		if optPAGING then
+			call outch('1');
+		else
+			call outch('0');
+
+		call outch(nibble2Ascii(ror(optPAGELENGTH, 4)));
+		call outch(nibble2Ascii(optPAGELENGTH));
+		call outch(nibble2Ascii(ror(optPAGEWIDTH, 4)));
+		call outch(nibble2Ascii(optPAGEWIDTH));
+		call outch('3');
+		call flushout;
+		call closeF(xreffd);
+	end;
+end;
+
+end;

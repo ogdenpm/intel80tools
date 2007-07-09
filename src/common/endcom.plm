@@ -1,0 +1,24 @@
+endcom: do;
+declare cr literally '0dh',
+	lf literally '0ah';
+
+declare programErrCnt address external;
+
+declare endMsg(*) byte data('PL/M-80 COMPILATION COMPLETE.  '),
+	errMsg(*) byte data('XXXXX PROGRAM ERROR'),
+	crlf2(*) byte data(cr, lf, cr, lf);
+
+$include(:f3:itoa.pex)
+$include(:f3:prints.pex)
+
+endCompile: procedure public;
+	declare junk byte;
+	junk = num2Asc(programErrCnt, 5, 10, .errMsg);
+	call printStr(.endMsg, length(endMsg));
+	call printStr(.errMsg, length(errMsg));
+	if programErrCnt <> 1 then
+		call printstr(.('S'), 1);
+	call printStr(.crlf2, 4);
+end;	
+
+end;

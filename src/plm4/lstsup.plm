@@ -1,0 +1,110 @@
+lstsup: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah',
+	tab lit '9';
+
+$nolist
+$include(:f3:data.inc)
+wr2cLst: procedure(ch2) external; declare ch2 address; end;
+$include(:f3:openf.pex)
+$include(:f3:writef.pex)
+$include(:f3:itoa.pex)
+newPgl: procedure external; end;
+putLst: procedure(ch) external; declare ch byte; end;
+
+
+flushLstBuf: procedure public;
+	if lChCnt <> 0 then
+	do;
+		if not lfOpen then
+		do;
+			call openf(.lstFil, 2);
+			lfOpen = true;
+		end;
+		call writef(.lstFil, lbuf$p, lChCnt);
+		lChCnt = 0;
+	end;
+end;
+
+newLineLst: procedure public;
+	if col = 0 then
+		if linlft = 0 then
+			call newPgl;
+	call wr2cLst(0d0ah);
+	linlft = linlft - 1;
+	col = 0;
+end;
+
+
+tabLst: procedure(arg1b) public;
+	declare arg1b byte;
+	if arg1b > 7fh then
+	do;
+		arg1b = -arg1b;
+		if col >= arg1b then
+			call newLineLst;
+		arg1b = arg1b - col - 1;
+	end;
+	do while arg1b <> 0;
+		call putLst(' ');
+		arg1b = arg1b - 1;
+	end;
+end;
+
+
+newPageNextChLst: procedure public;
+	linlft = 0;
+end;
+
+setMarkerInfo: procedure(arg1b, arg2b, arg3b) public;
+	declare (arg1b, arg2b, arg3b) byte;
+	b3CFB = arg1b;
+	b3CFC = arg2b;
+	b3CFD = arg3b;
+end;
+
+
+setStartAndTabW: procedure(arg1b, arg2b) public;
+	declare (arg1b, arg2b) byte;
+	margin = arg1b - 1;
+	tWidth = arg2b;
+end;
+
+
+setSkipLst: procedure(arg1b) public;
+	declare arg1b byte;
+	b3CFF = arg1b;
+end;
+
+
+xputstr2cLst: procedure(str, endch) public;
+	declare str address, endch byte,
+		ch based str byte;
+	do while ch <> endch;
+		call putLst(ch);
+		str = str + 1;
+	end;
+end;
+
+xwrnstrLst: procedure(str, cnt) public;
+	declare str address, cnt byte,
+		ch based str byte;
+	do while cnt <> 0;
+		call putLst(ch);
+		str=  str + 1;
+		cnt = cnt - 1;
+	end;
+end;
+
+
+xnumLst: procedure(num, width, radix) public;
+	declare num address, (width, radix) byte;
+	declare i byte, buf(7) byte;
+
+	i = num2Asc(num, width, radix, .buf);
+	call xwrnstrLst(.buf, i);
+end;
+end;

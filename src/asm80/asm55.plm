@@ -1,0 +1,157 @@
+asm851: do;
+
+declare TRUE literally '0FFh',
+	FALSE literally '0';
+
+declare pad1 address data(40h);
+declare pad2 address;
+
+declare tokenSize literally 'toksiz',
+	tokStart literally 'tokst';
+declare (skipping, tokenType, tokenSize, b6759, b6A52)(1) byte external,
+	(b6A56, b6B30, b68AD, b6B23, b6B24, tokenSP, b6BD9) byte external,
+	(b6B20, b6BDB, b6B34, b6B2C, activeSeg, b6880, optXREF, phase, b6873) byte external,
+	(b6B33, b6B2E, optSYMBOLS) byte external,
+	(out$p, w6BCE, w68A6) address external,
+	(tokStart, segSize)(1) address external;
+
+exit: procedure external; end;
+flushout: procedure external; end;
+ovl3: procedure external; end;
+ovl8: procedure external; end;
+popToken: procedure external; end;
+sub$3DCE: procedure external; end;
+sub$467F: procedure(b, w) external; declare b byte, w address; end;
+sub$5ED7: procedure external; end;
+sub$7041: procedure external; end;			/* in overlay 1 */
+sub2$6E32: procedure external; end;
+sub$4646: procedure byte external; end;
+haveTokens: procedure byte external; end;
+xisSpace: procedure byte external; end;
+isPhase2Print: procedure byte external; end;
+sub$465B: procedure byte external; end;
+sub4$3A6A: procedure byte external; end;
+
+
+
+strUCequ: procedure(arg1w, arg2w) byte public;
+	declare (arg1w, arg2w) address;
+	declare ch1 based arg1w byte,
+		ch2 based arg2w byte;
+
+	do while ch1 <> 0;
+		if ch1 <> ch2 and ch1 <> (ch2 and 5Fh) then
+			return FALSE;
+		arg1w = arg1w + 1;
+		arg2w = arg2w + 1;
+	end;
+	return TRUE;
+end;
+
+
+isSkipping: procedure byte public;
+	return skipping(0);
+end;
+
+
+sub$546F: procedure public;
+	b6A56 = sub$4646;
+	if b6B30 then
+		call sub$5ED7;
+	if haveTokens then
+		if not(tokenType(b6A56) = 0Bh or b68AD) then
+			call sub$5ED7;
+	if b6B23 or b6B24 then
+	do;
+		if tokenSP = 1 and not xisSpace and tokenSize(0) <> 1 then
+			tokenSize(0) = 2;
+	end;
+	else if not xisSpace and haveTokens then
+		if tokenSize(b6A56) > 3 then
+			tokenSize(b6A56) = 3;
+end;
+
+
+
+sub$54FD: procedure public;
+	declare w6CD7 address, b6CD9 byte;
+	declare ch based w6CD7 byte;
+
+	call sub$546F;
+	if isPhase2Print then
+	do;
+		w6CD7 = .b6A52(3);
+		b6CD9 = TRUE;
+
+		do while b6CD9;
+			if ch = '9' then
+				ch = '0';
+			else
+			do;
+				if ch = ' ' then
+					ch = '1';
+				else
+					ch = ch + 1;
+				b6CD9 = FALSE;
+			end;
+			w6CD7 = w6CD7 - 1;
+		end;
+
+		if sub$465B or not xisSpace then
+		do;
+			call ovl3;
+		end;
+	end;
+
+	if b6BD9 then
+	do;
+		out$p = out$p + 1;
+		call flushout;
+		call exit;
+	end;
+
+
+	if not b6B20 then
+	do;
+		b6BDB = 2;
+		if tokenSP < 2 or b6B23 or b6B24 then
+			b6BDB = 0;
+
+		w6BCE = tokStart(b6BDB) + tokenSize(b6BDB);
+		if isSkipping or not b6B34 then
+			w6BCE = .b6759;
+
+		if sub4$3A6A then
+		do;
+			call ovl8;
+		end;
+
+		b6B2C = 0FFh;
+		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .b6759);
+	end;
+
+	if optXREF and b6880 then
+		if phase = 1 then
+			call sub$467F(1, .b6873);
+
+	do while tokenSP > 0;
+		call popToken;
+	end;
+
+	call sub$3DCE;
+	if b6B33 then
+	do;
+		b6B2E = 0FFh;
+		if isPhase2Print and optSYMBOLS then
+		do;
+			call sub$7041;			/* in overlay 1 */
+		end;
+
+		call sub$467F(2, .b6873);
+		if sub4$3A6A then
+		do;
+			call sub2$6E32;
+		end;
+	end;
+end;
+end;

@@ -1,0 +1,522 @@
+asm48:
+do;
+declare	b5666(*) byte data(9, 2Dh, 80h),
+	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
+	b5672(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0,
+			   0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
+			   /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+	chClassX(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,
+			      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0Bh, 0, 0, 0, 0,	/* ESC maps to 0Bh */
+			      1, 0, 0, 0, 6, 0, 0, 7, 5, 5, 5, 5, 5, 5, 0, 5,
+			      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 2, 0, 0, 0, 9,
+			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0,
+			      0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);
+
+
+sub$3AAB: procedure(b) external; declare b byte; end;
+sub$3CDF: procedure(b) external; declare b byte; end;
+sub$3D55: procedure(b) external; declare b byte; end;
+readM: procedure(w) external; declare w address; end;
+sub$5ED7: procedure external; end;
+sub$5EFB: procedure external; end;
+sub$5F0D: procedure external; end;
+sub$5F1F: procedure external; end;
+sub$5F2B: procedure external; end;
+sub$5F31: procedure external; end;
+popToken: procedure external; end;
+nxtCmdCh: procedure byte external; end;
+xisSpace: procedure byte external; end;
+isPhase1: procedure byte external; end;
+isPhase2Print: procedure byte external; end;
+testBit: procedure(b, w) byte external; declare b byte, w address; end;
+sub$4879: procedure byte external; end;
+isSkipping: procedure byte external; end;
+
+declare (activeSeg, tokenSP, b6855, b6857, b6858) byte external,
+	(curChar, reget, lookAhead, b6882, b6883, b6884, b6885, optMOD85, scanOptions) byte external,
+	(needAddrOperand, opType, b6BDB, b6BDD, b$9059, b$905B, b$905C, b$905D) byte external,
+	(b$905E, b$9062, b$9067, b$91A1, b$91A2) byte external,
+	(b6742, b6748, b6749) byte external,
+	(tokenType, b$91A4, mem, macroBuf)(1) byte external,
+	curTokenSym$p address external,
+	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
+	(w$9054, off$9056, curTokStart, w6866) address external,
+	(w686E, w6870, w6A4E, w6BE0, w$906A) address external,
+	(curMacroBlk, w$9197, w$919D) address external,
+	(symTab, w6868, tokenSym)(1) address external,
+	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
+			     w4 address, buf$p address, blk address, w10 address,
+			     w12 address, w14 address) external;
+
+
+
+
+
+
+unpackToken: procedure(arg1w, arg2w) public;
+	declare (arg1w, arg2w) address;
+	declare wrd based arg1w address;
+	declare ch based arg2w byte;
+	declare w6CDE address;
+
+	unpack1: procedure;
+		ch = w6CDE mod 40;	
+		if ch = 0 then
+			ch = ' ';
+		else if ch <= 10 then
+			ch = ch + 2Fh;	/* digit */
+		else 
+			ch = ch + 34h;	/* ? @ and letters */
+		w6CDE = w6CDE / 40;
+		arg2w = arg2w - 1;
+	end;
+
+
+	arg1w = arg1w + 2;
+	arg2w = arg2w + 5;
+	w6CDE = wrd;
+	call unpack1;
+	call unpack1;
+	call unpack1;
+	arg1w = arg1w - 2;
+	w6CDE = wrd;
+	call unpack1;
+	call unpack1;
+	call unpack1;
+end;
+
+
+sub$5C08: procedure;
+	declare (w$9C32, w$9C34) address;
+	declare ch1 based w$9C32 byte;
+	declare ch2 based w$9C34 byte;
+
+	w686E, w$9C32 = (w$9C34 := w686E) + 8;
+	if w6870 < w$9C32 then
+		call sub$3AAB(1);
+
+	do while w$9C34 > curTokenSym$p;
+		w$9C32 = w$9C32 - 1;
+		w$9C34 = w$9C34 - 1;
+		ch1 = ch2;
+	end;
+
+	call move(4, curTokStart, curTokenSym$p);
+	w6868(2) = w6868(2) + 8;
+	curTokenSym.type = 0;
+end;
+
+
+sub$5C73: procedure(arg1b) byte;
+	declare arg1b byte;
+
+	if w6868(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
+		return 0;
+
+	call sub$5ED7;
+	return 0FFh;
+end;
+
+
+sub$5CAD: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+
+	if sub$5C73(2) then
+		return;
+	call sub$5C08;
+	curTokenSym.w4 = arg1w;
+	curTokenSym.type = arg2b;
+	curTokenSym.b7 = 0;
+	call popToken;
+end;
+
+declare b$9C3A byte public;
+
+sub$5CE8: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+	declare (b6CE8, b6CE9, b6CEA, b6CEB, b6CEC) byte;
+
+	sub$5B9A: procedure;
+		tokenType(0) = arg2b;
+		if (b6858 = 7 or b6858 = 8) and b6CEB then
+			tokenType(0) = 12 - arg2b;
+	end;
+
+	b6CEC = tokenType(0);
+	b6CEB = arg2b = 5 or arg2b = 4;
+	b6CE9 = 0;
+	b6CE8 = curTokenSym.b7;
+	b6CEA = 0;
+	if sub$5C73(1) then
+		return;
+
+	if tokenSP > 1 then
+		call sub$5ED7;
+
+	if isPhase1 then
+		if tokenType(0) = 9 then
+		do;
+			if b6883 then
+			do;
+				if curTokenSym.type >= 80h or arg2b = 3Ah and curTokenSym.w4 <> w6A4E then
+				do;
+					call sub$5F31;
+					b6CE9 = 80h;
+				end;
+			end;
+			else
+			do;
+				call sub$5C08;
+				w6866 = w6866 + 8;
+				w6868(1) = w6868(1) + 8;
+				b6CE8 = 0;
+			end;
+
+			b6CE8 = ((activeSeg <> 0) and 18h) or (b6748 and 20h) or (b6749 and 58h);
+			if b$9C3A = 1 then
+				b6CE8 = b6855;
+
+			if b$9C3A = 2 then
+				b6CE8 = b6CE8 or activeSeg;
+
+			if b6857 and b6CEB then
+				tokenType(0) = 64h;
+			else
+				call sub$5B9A;
+
+			goto L5F82;
+		end;
+
+	if b6882 = 2 then
+		if tokenType(0) = 9 then
+			if b6858 <> 9 then
+				if b6CEB then
+				do;
+					call sub$5B9A;
+					if curTokenSym.type < 80h then
+					do;
+						curTokenSym.type = tokenType(0);
+						curTokenSym.w4 = arg1w;
+						b6CE8 = b6855;
+						b6CEA = 0FFh;
+					end;
+					goto L5F82;
+				end;
+
+	if isPhase1 then
+		if tokenType(0) = 6 then
+			if testBit(arg2b, .b5666) then
+			do;
+				if b6749 then
+					tokenType(0) = 3;
+				else
+				do;
+					tokenType(0) = arg2b;
+					b6CE8 = (b6CE8 and 0E0h);
+					if b$9C3A = 1 then
+						b6CE8 = b6855 or 20h;
+
+					if b$9C3A = 2 then
+						if activeSeg <> 0 then
+							b6CE8 = b6CE8 or activeSeg or 38h;
+				end;
+				goto L5F82;
+			end;
+
+	if isPhase1 then
+		if arg2b = 6 then
+			if testBit(tokenType(0), .b5666) then
+			do;
+				if (b6CE8 and 60h) <> 0 then
+					tokenType(0) = 3;
+				else
+					b6CE8 = b6CE8 or 20h;
+				goto L5F82;
+			end;
+
+	if isPhase1 then
+		if tokenType(0) <> arg2b and  8 <> tokenType(0) or arg2b = 5 then
+			tokenType(0) = 3;
+
+	if not b6748 and testBit(tokenType(0), .b5669) then
+		b6CE8 = (b6CE8 and 20h) and tokenType(0) <> 3Ah or b6855;
+	else
+	do;
+		if isPhase1 then
+			tokenType(0) = 3;
+
+		if not (b6748 or b6749) then
+			if curTokenSym.w4 <> arg1w then
+				call sub$5F0D;
+	end;
+
+L5F82:
+	b6CE9 = b6CE9 or (curTokenSym.type and 80h);
+
+	if isPhase1 and (arg2b = 9 or arg2b = 6 or b6CEC <> tokenType(0)) then
+		curTokenSym.type = tokenType(0) or b6CE9;
+
+	b6BDD = curTokenSym.type;
+	if tokenType(0) = 3 or b6BDD = 3 then
+		call sub$5EFB;
+
+	if b6BDD >= 80h then
+		call sub$5F31;
+
+	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7) or arg2b = 4 and xisSpace
+	   or b6CEA or arg2b = 3Ah then
+		curTokenSym.w4 = arg1w;
+
+	curTokenSym.b7 = b6CE8;
+	b6748 = 0;
+	b6749 = 0;
+	if curTokenSym.type = 6 then
+		call sub$5F2B;
+
+	b6857 = 0;
+	if b6883 then
+		call popToken;
+
+end;
+
+
+
+lookup: procedure(arg1b) byte public;
+	declare arg1b byte;
+	declare (w6CEE, w6CF0, s6CF2$p, w6CF4, s6CF6$p, s6CF8$p) address,
+		(b6CFA, b6CFB) byte;
+	declare s6CF6 based s6CF6$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte),
+		s6CF8 based s6CF8$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte);
+	declare wrd based w6BE0 address;
+
+	s6CF8$p = curTokStart;
+	if arg1b = 0 then
+	do;
+		s6CF6$p = 0;
+		w6CF4 = symTab(0) + (s6CF8.w0 + s6CF8.w2) mod 97h * 8;
+
+		do while w6CF4 <> 0;
+			s6CF6$p = s6CF6$p + w6CF4;
+			if s6CF6.w0 = s6CF8.w0 then
+				if s6CF6.w2 = s6CF8.w2 then
+				do;
+					curTokenSym$p = s6CF6$p;
+					tokenType(0) = curTokenSym.type;
+					if tokenType(0) < 2Dh then
+						if b5672(tokenType(0)) then
+							needAddrOperand = 0FFh;
+					if curTokenSym.b7 = 2 and not optMOD85 then
+						call sub$3CDF(4Fh);
+
+					if tokenType(0) = 8 then	/* SP */
+					do;
+						if not (opType = 24h or opType = 25h) then /* lxi or push/pop */
+							call sub$3CDF(58h);
+						tokenType(0) = 7;	/* reg */
+					end;
+					return (tokenType(0) and 7Fh);
+				end;
+			w6CF4 = s6CF6.b5;
+		end;
+		return 9;
+	end;
+
+	w6CEE = symTab(arg1b);
+	w6CF0, s6CF6$p = w6868(arg1b);
+
+	do while (s6CF2$p := w6CEE + shr((w6CF0 - w6CEE) and 0FFF0h, 1)) <> s6CF6$p;
+		s6CF6$p = s6CF2$p;
+		if s6CF8.w0 = s6CF6.w0 then
+		do;
+			if s6CF8.w2 = s6CF6.w2 then
+			do;
+				curTokenSym$p = s6CF6$p;
+				tokenType(0) = curTokenSym.type;
+				if tokenType(0) = 64h then
+					tokenType(0) = 9;
+
+				if (b6884 := (b6BDD := (tokenType(0) and 7Fh)) = 9) then
+					if b6885 then
+						curTokenSym.type = 89h;
+				return b6BDD;
+			end;
+			else
+				b6CFB = s6CF6.w2 > s6CF8.w2;
+		end;
+		else
+			b6CFB = s6CF6.w0 > s6CF8.w0;
+
+		s6CF6$p = s6CF2$p;
+		if b6CFB then
+			w6CF0 = s6CF6$p;
+		else
+			w6CEE = s6CF6$p;
+	end;
+
+	curTokenSym$p = w6CF0;
+	if arg1b = 1 and not isSkipping then
+	do;
+		b6883 = 0;
+		b$9C3A = 0;
+		call sub$5CE8(w6A4E, (b6885 and 80h) or 9);
+		w6BE0 = .tokenSym;
+		do b6CFA = 1 to tokenSP;
+			w6BE0 = w6BE0 + 2;
+			if wrd >= curTokenSym$p then
+				wrd = wrd + 8;
+		end;
+
+		b6883 = 0FFh;
+	end;
+	return 9;
+end;
+
+
+
+getChX: procedure byte public;
+	declare (b6CFC, b6CFD) byte;
+	declare ch based s906C.buf$p byte;
+	declare ch1 based off$9056 byte;
+
+L6339:
+	if not reget then
+	do;
+		b6CFD = b6CFC;
+
+	L6347:
+		b6CFC = lookAhead;
+		if b$905B then
+		do;
+			do while (lookAhead := ch) = 0FEh;
+				call readM(curMacroBlk + 1);
+				s906C.buf$p = .macroBuf;
+			end;
+
+			s906C.buf$p = s906C.buf$p + 1;
+		end;
+		else if scanOptions then
+			lookAhead = nxtCmdCh;
+		else
+			lookAhead = sub$4879;
+
+		if chClassX(b6CFC) = 0 then
+			if b6CFC = 0 or b6CFC = 7Fh or b6CFC = 0Ch then
+				goto L6347;
+
+		if b$905B then
+		do;
+			if b6CFC = 1Bh then
+			do;
+				goto L65B2;
+			end;
+			else if b6CFC = 26h then
+			do;
+				if not b6CFD < 80h or lookAhead = 80h then
+					goto L6339;
+			end;
+			else if b6CFC = 21h and b6CFD <> 0 then
+			do;
+				if not (b$905D or b$905E) and b$905C then
+				do;
+					b6CFC = 0;
+					goto L6339;
+				end;
+			end;
+			else if b6CFC >= 128 then
+			do;
+				if not (b$905C := not b$905C) then
+					s906C.buf$p = w$9197;
+				else
+				do;
+					w$9197 = s906C.buf$p;
+					if b6CFC = 80h then
+					do;
+						s906C.buf$p = s906C.w12;
+						if b$9062 = 2 then
+						do;
+							b$91A2 = ch;
+							s906C.buf$p = .b$91A2;
+							if ch = 21h then
+							do;
+								b$91A1 = 21h;
+								b$91A2 = mem(s906C.w12 + 1);
+								s906C.buf$p = s906C.buf$p - 1;
+							end;
+						end;
+						else
+						do;
+							do while (lookAhead := lookAhead - 1) <> 0FFh;
+								s906C.buf$p = s906C.buf$p - (ch and 7Fh);
+							end;
+
+							s906C.buf$p = s906C.buf$p + 1;
+						end;
+					end;
+					else
+					do;
+						s906C.buf$p = .b$91A4;
+						w6BE0 = lookAhead + s906C.w4;
+						do b6BDB = 1 to 4;
+							b$91A4(6 - b6BDB) = w6BE0 mod 10 + '0';
+							w6BE0 = w6BE0 / 10;
+						end;
+					end;
+				end;
+
+				lookAhead = 0;
+				goto L6339;
+			end;
+		end;
+
+		if b$905B > 1 then
+			if isPhase2Print then
+				if off$9056 < .w$9054 then
+				do;
+					ch1 = b6CFC;	
+					off$9056 = off$9056 + 1;
+				end;
+
+		if b$905E then
+			if w$919D <> w$906A and b6CFC = 0Dh or not b$9059 then
+			call sub$3D55(b6CFC);
+
+		if not(b6CFD = 21h or b6742) then
+		do;
+			if b6CFC = 3Eh then
+				b$9067 = b$9067 - 1;
+
+			if b6CFC = 3Ch then
+				b$9067 = b$9067 + 1;
+		end;
+	end;
+L65B2:
+	reget = 0;
+	return (curChar := b6CFC);
+end;
+
+sub$65BE: procedure byte public;
+	curChar = getChX;
+	if b$905D then
+		return 0Ah;
+
+	return chClassX(curChar);
+end;
+
+
+
+sub$65D9: procedure public;
+	if lookAhead = 0Ah then
+		lookAhead = 0;
+	else
+	do;
+		b$905E = b$905E and 0FEh;
+		call sub$5F1F;
+		b$905E = b$905E > 0;
+	end;
+end;
+
+end;
+

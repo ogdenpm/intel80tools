@@ -1,0 +1,348 @@
+plm1a: DO;
+declare LIT LITERALLY 'LITERALLY',
+    CR  LIT '0DH',
+    LF LIT '0AH',
+    TRUE LIT '0FFH',
+    FALSE LIT '0';
+
+$nolist
+$include(:f3:lex.inc)
+declare
+	E105 LIT '105',	/* UNDECLARED IDENTIFIER */
+	E106 LIT '106',	/* INVALID INPUT/OUTPUT PORT NUMBER */
+	E107 LIT '107',	/* ILLEGAL INPUT/OUTPUT PORT NUMBER, NOT NUMERIC CONSTANT */
+	E108 LIT '108',	/* MISSING ') ' AFTER INPUT/OUTPUT PORT NUMBER */
+	E109 LIT '109',	/* MISSING INPUT/OUTPUT PORT NUMBER */
+	E110 LIT '110',	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+	E111 LIT '111',	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+	E112 LIT '112',	/* UNDECLARED STRUCTURE MEMBER */
+	E119 LIT '119',	/* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+	E120 LIT '120',	/* LIMIT EXCEEDED: EXPRESSION TOO COMPLEX */
+	E121 LIT '121',	/* LIMIT EXCEEDED: EXPRESSION TOO COMPLEX */
+	E122 LIT '122',	/* LIMIT EXCEEDED: PROGRAM TOO COMPLEX	 */
+	E123 LIT '123',	/* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
+	E124 LIT '124',	/* MISSING ARGUMENTS FOR BUILT-IN PROCEDURE */
+	E125 LIT '125',	/*  ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE */
+	E126 LIT '126',	/* MISSING ') ' AFTER BUILT-IN PROCEDURE ARGUMENT LIST */
+	E127 LIT '127',	/* INVALID SUBSCRIPT ON NON-ARRAY */
+	E131 LIT '131',	/* ILLEGAL REFERENCE TO UNTYPED PROCEDURE */
+	E147 LIT '147',	/* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
+	E148 LIT '148',	/* INVALID QUALIFICATION IN RESTRICTED REFERENCE */
+	E149 LIT '149',	/* INVALID SUBSCRIPTING IN RESTRICTED REFERENCE */
+	E150 LIT '150',	/* MISSING ') ' AT END OF RESTRICTED SUBSCRIPT */
+	E151 LIT '151',	/* INVALID OPERAND IN RESTRICTED EXPRESSION */
+	E152 LIT '152',	/* MISSING ') ' AFTER CONSTANT LIST */
+	E153 LIT '153',	/* INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY */
+	E154 LIT '154',	/* INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW */
+	E157 LIT '157',
+	E159 LIT '159',	/* COMPILER ERROR: PARSE STACK UNDERFLOW */
+	E160 LIT '160',	/* COMPILER ERROR: OPERAND STACK UNDERFLOW */
+	E161 LIT '161',	/* COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE */
+	E162 LIT '162',	/* COMPILER ERROR: OPERATOR STACK UNDERFLOW */
+	E163 LIT '163',	/* COMPILER ERROR: GENERATION FAILURE  */
+	E169 LIT '169',		/* ILLEGAL FORWARD CALL */
+	E170 LIT '170',		/* ILLEGAL RECURSIVE CALL */
+	E173 LIT '173';
+$include(t2code.inc)
+$include(icodes.inc)
+$include(:f3:flags.inc)
+$include(:f3:data.inc)
+$include(:f3:info.inc)
+
+declare	ATI$AHDR LIT '0',
+	ATI$DHDR LIT '1',
+	ATI$2 LIT '2',
+	ATI$STRING LIT '3',
+	ATI$DATA LIT '4',
+	ATI$END LIT '5',
+	ATI$EOF LIT '6';
+
+/* L$LINEINFO, L$SYNTAXERROR, L$TOKENERROR, L$LIST, L$NOLIST, L$CODE, L$NOCODE, L$EJECT, */
+/* L$INCLUDE, L$STMTCNT, L$LABELDEF, L$LOCALLABEL, L$JMP, L$JMPFALSE, L$PROCEDURE, L$SCOPE, */
+/* L$END, L$DO, L$DOLOOP, L$WHILE, L$CASE, L$CASELABEL, L$IF, L$STATEMENT, */
+/* L$CALL, L$RETURN, L$GO, L$GOTO, L$SEMICOLON, L$ENABLE, L$DISABLE, L$HALT, */
+/* L$EOF, L$AT, L$INITIAL, L$DATA, L$VARIABLE, L$NUMBER, L$STRING, L$PLUSSIGN, */
+/* L$MINUSSIGN, L$PLUS, L$MINUS, L$STAR, L$SLASH, L$MOD, L$COLONEQUALS, L$AND, */
+/* L$OR, L$XOR, L$NOT, L$LT, L$LE, L$EQ, L$NE, L$GE, */
+/* L$GT, L$COMMA, L$LPAREN, L$RPAREN, L$PERIOD, L$TO, L$BY, L$INVALID, */
+/* L$MODULE, L$XREFINFO, L$XREF, L$EXTERNAL */
+
+
+$include(:f3:fread.aex)
+$include(:f3:fwrite.aex)
+getDataType: procedure byte external; end;
+
+$list
+
+/* index into precedence table */
+DECLARE tx1Aux1Map(*) BYTE DATA(0, 0, 0, 0, 0, 0, 0, 0,
+	      0, 0, 0, 0, 0, 0, 0, 0,
+	      0, 0, 0, 0, 0, 0, 0, 0,
+	      0, 0, 0, 0, 0, 0, 0, 0,
+	      0, 0, 0, 0, 1, 2, 0, 3,
+	      4, 5, 6, 7, 8, 9, 1Dh, 0Ah,
+	      0Bh, 0Ch, 0Dh, 0Eh, 0Fh, 10h, 11h, 12h,
+	      13h, 0, 0, 0, 0, 0, 0, 0,
+	      0, 0, 0, 0);
+
+DECLARE b402F(*) BYTE PUBLIC DATA(
+    /* L$LINEINFO, L$SYNTAXERROR, L$TOKENERROR, L$LIST, L$NOLIST, L$CODE, L$NOCODE, L$EJECT, */
+    T2$LINEINFO, T2$SYNTAXERROR, T2$TOKENERROR, T2$LIST, T2$NOLIST, T2$CODE, T2$NOCODE, T2$EJECT,
+    /* L$INCLUDE, L$STMTCNT, L$LABELDEF, L$LOCALLABEL, L$JMP, L$JMPFALSE, L$PROCEDURE, L$SCOPE, */
+    T2$INCLUDE, T2$STMTCNT, T2$LABELDEF, T2$LOCALLABEL, T2$JMP, T2$JMPFALSE, T2$PROCEDURE, 0,
+    /* L$END, L$DO, L$DOLOOP, L$WHILE, L$CASE, L$CASELABEL, L$IF, L$STATEMENT, */
+    0, 0, 0, 0, T2$CASE, T2$CASELABEL, 0, 0,
+    /* L$CALL, L$RETURN, L$GO, L$GOTO, L$SEMICOLON, L$ENABLE, L$DISABLE, L$HALT, */
+    0, T2$RETURN, T2$GO$TO, T2$GO$TO, T2$SEMICOLON, T2$ENABLE, T2$DISABLE, T2$HALT,
+    /* L$EOF, L$AT, L$INITIAL, L$DATA, L$VARIABLE, L$NUMBER, L$STRING, L$PLUSSIGN, */
+    0, 0, 0, 0,T2$VARIABLE, 0, 0, T2$ADDB,
+    /* L$MINUSSIGN, L$PLUS, L$MINUS, L$STAR, L$SLASH, L$MOD, L$COLONEQUALS, L$AND, */
+    T2$MINUSSIGN, T2$PLUS, T2$MINUS, T2$STAR, T2$SLASH, T2$MOD, T2$STORE, T2$AND,
+    /* L$OR, L$XOR, L$NOT, L$LT, L$LE, L$EQ, L$NE, L$GE, */
+    T2$OR, T2$XOR, T2$NOT, T2$LT, T2$LE, T2$EQ, T2$NE, T2$GE,
+    /* L$GT, L$COMMA, L$LPAREN, L$RPAREN, L$PERIOD, L$TO, L$BY, L$UNUSED, */
+    T2$GT, 0, 0, 0, 0, 0, 0, 0,
+    /* L$MODULE, L$XREFINFO, L$XREF, L$EXTERNAL */
+    T2$MODULE, 0, 0, 0);
+
+/* 80h	- expression item */
+/* 40h - binary operator */
+/* 20h - pass through */
+/* 10h - PROCEDURE, AT, DATA, INITIAL or EXTERNAL */
+
+DECLARE tx1Aux2Map(*) BYTE DATA(
+        20h, 20h, 20h, 20h, 20h, 20h, 20h, 20h,
+        20h, 0, 0, 0, 0, 0, 10h, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0,
+        0, 10h, 10h, 10h, 80h, 80h, 80h,0C0h,
+        0C0h,0C0h,0C0h,0C0h,0C0h,0C0h, 80h,0C0h,
+        0C0h,0C0h, 80h,0C0h,0C0h,0C0h,0C0h,0C0h,
+        0C0h, 80h, 80h, 80h, 80h, 80h, 80h, 0,
+        20h, 0, 0, 10h);
+
+DECLARE b40B7(*) BYTE public DATA(
+    /* L$LINEINFO, L$SYNTAXERROR, L$TOKENERROR, L$LIST, L$NOLIST, L$CODE, L$NOCODE, L$EJECT, */
+    12h, 12h, 12h, 12h, 12h, 12h, 12h, 12h,
+    /* L$INCLUDE, L$STMTCNT, L$LABELDEF, L$LOCALLABEL, L$JMP, L$JMPFALSE, L$PROCEDURE, L$SCOPE,  */
+    12h, 0, 13h, 13h, 13h, 13h, 7, 1,
+    /* L$END, L$DO, L$DOLOOP, L$WHILE, L$CASE, L$CASELABEL, L$IF, L$STATEMENT,  */
+    2, 6, 4, 5, 8, 13h, 3, 9,
+    /* L$CALL, L$RETURN, L$GO, L$GOTO, L$SEMICOLON, L$ENABLE, L$DISABLE, L$HALT,  */
+    0Ah, 0Bh, 0Dh, 0Ch, 0Eh, 0Fh, 0Fh, 0Fh,
+    /* L$EOF, L$AT, L$INITIAL, L$DATA, L$VARIABLE, L$NUMBER, L$STRING, L$PLUSSIGN,  */
+    12h, 10h, 11h, 11h, 12h, 12h, 12h, 12h,
+    /* L$MINUSSIGN, L$PLUS, L$MINUS, L$STAR, L$SLASH, L$MOD, L$COLONEQUALS, L$AND,  */
+    12h, 12h, 12h, 12h, 12h, 12h, 12h, 12h,
+    /* L$OR, L$XOR, L$NOT, L$LT, L$LE, L$EQ, L$NE, L$GE,  */
+    12h, 12h, 12h, 12h, 12h, 12h, 12h, 12h,
+    /* L$GT, L$COMMA, L$LPAREN, L$RPAREN, L$PERIOD, L$TO, L$BY, L$INVALID,  */
+    12h, 12h, 12h, 12h, 12h, 12h, 12h, 12h,
+    /* L$MODULE, L$XREFINFO, L$XREF, L$EXTERNAL */
+    12h, 12h, 12h, 14h);
+
+
+DECLARE tx1ItemLengths(*) BYTE DATA(
+    6, 2, 4, 0, 0, 0, 0, 0,
+    6, 2, 2, 2, 2, 2, 2, 2,
+    0, 0, 0, 0, 0, 2, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 2, 2, 2, 2, 2,0FFh, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 2, 2, 2);
+
+
+DECLARE b413F(*) BYTE public DATA(
+    /* ?, I$VARIABLE, I$NUMBER, I$PLUSSIGN, I$MINUSSIGN, I$PLUS, I$MINUS, I$STAR */
+    0 , T2$VARIABLE, T2$NUMBER, T2$ADDB, T2$MINUSSIGN, T2$PLUS, T2$MINUS, T2$STAR,
+    /* I$SLASH, I$MOD, I$AND, I$OR, I$XOR, I$NOT, I$LT, I$LE */
+    T2$SLASH, T2$MOD, T2$AND, T2$OR, T2$XOR, T2$NOT, T2$LT, T2$LE,
+    /* I$EQ, I$NE, I$GE, I$GT, I$ADDRESSOF, I$UNARYMINUS, I$STACKPTR, I$INPUT */
+    T2$EQ, T2$NE, T2$GE, T2$GT, T2$ADDRESSOF, T2$UNARYMINUS, T2$STACKPTR, T2$INPUT,
+    /* I$OUTPUT, I$CALL, I$CALLVAR, I$BYTEINDEX, I$WORDINDEX, I$COLONEQUALS, I$MEMBER, I$BASED */
+    T2$OUTPUT, T2$CALL, T2$CALLVAR, T2$BYTEINDEX, T2$WORDINDEX, T2$STORE, T2$MEMBER, T2$BASED,
+    /* I$CARRY, I$DEC, I$DOUBLE, I$HIGH, I$LAST, I$LENGTH, I$LOW, I$MOVE, */
+    T2$CARRY, T2$DEC, T2$DOUBLE, T2$HIGH, T2$LAST, T2$LENGTH, T2$LOW, T2$MOVE,
+    /* I$PARITY, I$ROL, I$ROR, I$SCL, I$SCR, I$SHL, I$SHR, I$SIGN, */
+    T2$PARITY, T2$ROL, T2$ROR, T2$SCL, T2$SCR, T2$SHL, T2$SHR, T2$SIGN,
+    /* I$SIZE, I$TIME, I$ZERO, */
+    T2$SIZE, T2$TIME, T2$ZERO);
+
+DECLARE b4172(*) BYTE public DATA(
+/* I$STRING, I$VARIABLE, I$NUMBER, I$PLUSSIGN, I$MINUSSIGN, I$PLUS, I$MINUS, I$STAR */
+	10, 0, 0, 60, 60, 60, 60, 70,
+/* I$SLASH, I$MOD, I$AND, I$OR, I$XOR, I$NOT, I$LT, I$LE */
+        70, 70, 30, 20, 20, 40, 50, 50,
+/* I$EQ, I$NE, I$GE, I$GT,$ADDRESSOF,I$UNARYMINUS, I$STACKPTR, I$INPUT */
+        50, 50, 50, 50, 0, 80, 0, 0,
+/* I$OUTPUT, I$CALL, I$CALLVAR, I$BYTEINDEX, I$WORDINDEX, I$COLONEQUALS, I$MEMBER, I$BASED */
+        0, 0, 0, 0, 0, 0, 0, 0,
+/* I$CARRY, I$DEC, I$DOUBLE, I$HIGH, I$LAST, I$LENGTH, I$LOW, I$MOVE  */
+        0, 0, 0, 0, 0, 0, 0, 0,
+/* I$PARITY, I$ROL, I$ROR, I$SCL, I$SCR, I$SHL, I$SHR, I$SIGN */
+        0, 0, 0, 0, 0, 0, 0, 0,
+/*  I$SIZE, I$TIME, I$ZERO */
+        0, 0, 0);
+
+
+DECLARE builtinsMap(*) BYTE public DATA(
+     I$CARRY, I$DEC, I$DOUBLE, I$HIGH, I$INPUT, I$LAST, I$LENGTH, I$LOW,
+     I$MOVE, I$OUTPUT, I$PARITY, I$ROL, I$ROR, I$SCL, I$SCR, I$SHL,
+     I$SHR, I$SIGN, I$SIZE, I$STACKPTR, I$TIME, I$ZERO);
+
+
+declare cleanup label external;
+
+
+
+declare T2CntForStmt address external,
+	curProcInfo$p address external,
+	curStmtNum address external,
+	(varInfoOffset, varArrayIndex, varNestedArrayIndex, val) address external,
+	regetTx1Item byte external,
+	b88B3 byte external,
+	tx1Item structure(type byte, dataw(129) address) external,
+	linfo structure(itemType byte, lineCnt address, stmtCnt address, blkCnt address) external,
+	tx1Aux2 byte external,
+	tx1Aux1 byte external,
+	tx1RdBuf(512) byte external,
+	tx2Buf(512) byte external,
+	xrfBuf(512) byte external,
+	atBuf(512) byte external,
+	b91C0 byte external,
+	parseSP address public,
+	parseStack(100) address public,
+	operatorSP address public,
+	operatorStack(50) address public,
+	exSP address public,
+	ex1Stack(100) byte public,
+	ex2Stack(100) byte public,
+	ex3Stack(100) address public,
+	stSP address public,
+	st1Stack(300) byte public,
+	st2Stack(300) byte public,
+	st3Stack(300) address public;
+
+
+fatalError: PROCEDURE(err) public;
+    DECLARE err BYTE;
+    hasErrors = TRUE;
+    b91C0, fatalErrorCode = err;
+    goto cleanup;
+end;
+
+
+optWrXrf: PROCEDURE public;
+    DECLARE tmp STRUCTURE(type BYTE, info ADDRESS, stmt ADDRESS);
+
+    if not XREF then
+	return;
+    tmp.type = T2$65;
+    tmp.info = curInfo$p - botInfo;
+    tmp.stmt = curStmtNum;
+    call fwrite(.xrfFile, .tmp, 5);
+end;
+
+wrTx2File: PROCEDURE(buf, cnt) public;
+    DECLARE buf ADDRESS, cnt BYTE;
+    DECLARE type BASED buf BYTE;
+
+    T2CntForStmt = T2CntForStmt + 1;
+    if not hasErrors then 
+	call fwrite(.tx2File, buf, cnt);
+    else if T2$STMTCNT <= type and type <= T2$ERROR then
+	call fwrite(.tx2File, buf, cnt);
+end;
+
+sub$4251: PROCEDURE(type$p, cnt);
+    DECLARE type$p ADDRESS, cnt BYTE;
+    DECLARE type BASED type$p BYTE;
+
+    if b88B3 then
+	if type = T2$STMTCNT then
+	do;
+	    call wrTx2File(.linfo, 7);
+	    b88B3 = 0;
+	    if tx1Item.dataw(0) = 0 then
+		return;
+	end;
+    call wrTx2File(type$p, cnt);
+end;
+
+wrTx2Item: PROCEDURE(arg1b) ADDRESS public;
+    DECLARE arg1b BYTE;
+    call sub$4251(.arg1b, 1);
+    return T2CntForStmt;
+end;
+
+wrTx2Item1Arg: PROCEDURE(arg1b, arg2w) ADDRESS public;
+    DECLARE arg1b BYTE, arg2w ADDRESS;
+    call sub$4251(.arg1b, 3);
+    return T2CntForStmt;
+end;
+
+wrTx2Item2Arg: PROCEDURE(arg1b, arg2w, arg3w) ADDRESS public;
+    DECLARE arg1b BYTE, (arg2w, arg3w) ADDRESS;
+    call sub$4251(.arg1b, 5);
+    return T2CntForStmt;
+end;
+
+wrTx2Item3Arg: PROCEDURE(arg1b, arg2w, arg3w, arg4w) ADDRESS public;
+    DECLARE arg1b BYTE, (arg2w, arg3w, arg4w) ADDRESS;
+    call sub$4251(.arg1b, 7);
+    return T2CntForStmt;
+end;
+
+sub$42EF: PROCEDURE(arg1w) ADDRESS public;
+    declare arg1w address;
+    return (T2CntForStmt + 1 - arg1w);
+end;
+
+mapLtoT2: PROCEDURE public;
+    DECLARE i BYTE;
+    i = tx1ItemLengths(tx1Item.type) + 1;
+    tx1Item.type = b402F(tx1Item.type);
+    call sub$4251(.tx1Item.type, i);
+end;
+
+wrTx2Error: PROCEDURE(arg1b) public;
+    DECLARE arg1b BYTE, junk ADDRESS;
+    hasErrors = TRUE;
+    junk = wrTx2Item1Arg(T2$SYNTAXERROR, arg1b);
+end;
+
+
+wrTx2ExtError: PROCEDURE(arg1b) public;
+    declare arg1b byte, junk address;
+    hasErrors = TRUE;
+    if curInfo$p <> 0 then 
+	junk = wrTx2Item2Arg(T2$TOKENERROR, arg1b, curInfo$p - botInfo);
+    else
+	junk = wrTx2Item1Arg(T2$SYNTAXERROR, arg1b);
+end;
+
+setRegetTx1Item: PROCEDURE public;
+    regetTx1Item = TRUE;
+end;
+
+rdTx1Item: PROCEDURE public;
+    DECLARE tx1ItemLen ADDRESS;
+    call fread(.tx1File, .tx1Item, 1);
+    tx1ItemLen = tx1ItemLengths(tx1Item.type);
+    if tx1ItemLen <> 0 then
+	if tx1ItemLen <> 255 then
+	do;		/* i.e. not a string */
+	    call fread(.tx1File, .tx1Item.dataw, tx1ItemLen);
+	end;
+	else
+	do;
+	    call fread(.tx1File, .tx1Item.dataw, 2);
+	    tx1ItemLen = tx1Item.dataw(0);
+	    call fread(.tx1File, .tx1Item.dataw(1), tx1Item.dataw(0));
+	end;
+    tx1Aux1 = tx1Aux1Map(tx1Item.type);
+    tx1Aux2 = tx1Aux2Map(tx1Item.type);
+end;
+end;

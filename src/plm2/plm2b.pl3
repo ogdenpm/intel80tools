@@ -1,0 +1,216 @@
+plm2b: DO;
+$nolist
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	boolean lit 'byte',
+	cr lit '0dh',
+	lf lit '0ah';
+
+$include(:f3:data.inc)
+$include(t2code.inc)
+$include(:f3:info.inc)
+$include(:f3:flags.inc)
+declare ERR200 lit '200',	/*  LIMIT EXCEEDED */
+	ERR205 lit '205',	/*  ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED */
+	ERR204 lit '204',	/*  LIMIT EXCEEDED: NUMBER OF ACTIVE */
+
+	CF$XCHG lit '14',
+	CF$6 lit '6',
+	CF$SPHL lit '22',
+	CF$INXSP lit '116',
+	CF$POP lit '4',
+	CF$PUSH lit '23',
+	CF$EI lit '149',
+	CF$INX lit '24',
+	CF$DCX lit '25';
+
+declare	tx2Buf(512) byte external,
+	tx1Buf(512) byte external,
+	blkCurInfo(20) address external,
+	wB488(20) address external,
+	wB4B0(20) address external,
+	wB4D8(20) address external,
+	extProcId(20) byte external,
+	procChainNext(20) byte external,
+	wB528(10) address external,
+	wB53C(10) address external,
+	tx2opc(255) byte external,
+	tx2Aux1b(255) byte external,
+	tx2Aux2b(255) byte external,
+	tx2op1(255) address external,
+	tx2op2(255) address external,
+	tx2op3(255) address external,
+	tx2Auxw(255) address external,
+	bC045(9) byte external,
+	bC04E(9) byte external,
+	boC057(9) byte external,
+	boC060(9) byte external,
+	boC069(9) byte external,
+	boC072(9) byte external,
+	boC07B(9) byte external,
+	wC084(9) address external,
+	wC096(9) address external,
+	bC0A8(9) byte external,
+	bC0B1 byte external,
+	bC0B2 byte external,
+	bC0B3(2) byte external,
+	bC0B5(2) byte external,
+	bC0B7(2) byte external,
+	bC0B9(2) byte external,
+	bC0BB(2) byte external,
+	bC0BD(2) byte external,
+	bC0BF(2) byte external,
+	bC0C1(2) byte external,
+	bC0C3(125) byte external,
+	bC140(126) byte external,
+	tx2qp byte external,
+	bC1BF byte external,
+	tx2qEnd byte external,
+	pc address external,
+	wC1C3 address external,
+	wC1C5 address external,
+	wC1C7 address external,
+	blkSP byte external,
+	blkOverCnt byte external,
+	procCallDepth byte external,
+	boC1CC byte external,
+	boC1CD byte external,
+	eofSeen byte external,
+	wC1CF address external,
+	curOp byte external,
+	bC1D2 byte external,
+	padC1D3 byte external,
+	curExtProcId byte external,
+	procChainId byte external,
+	wC1D6 address external,
+	boC1D8 byte external,
+	bC1D9 byte external,
+	cfrag1 byte external,
+	bC1DB byte external,
+	wC1DC(5) address external,
+	bC1E6 byte external,
+	buf$C1E7(34) byte external,
+	bC209(1) byte external,
+	boC20F byte external,
+	finalise label external;
+
+
+$include(:f3:gitype.pex)
+$include(:f3:giparo.pex)
+$include(:f3:tiflag.pex)
+$include(:f3:gilnkv.pex)
+sub$575E: procedure(arg1w) address external; declare arg1w address; end;
+
+
+declare b5286(1) byte external,
+	b5124(1) byte external;
+
+
+$list
+sub$689E: procedure public;
+	sub$68E8: procedure;
+		declare bC252 byte;
+		declare i byte;
+
+		sub$69EB: procedure(arg1b, arg2w$p);
+		    declare arg1b byte, arg2w$p address;
+		    declare arg2w based arg2w$p address;
+		    declare p address;
+		    if arg2w <> 0 then
+		    do;
+			if arg1b > bC252 then
+			    arg2w = 0;
+			else
+			do;
+			    p = arg2w;
+			    arg2w = tx2qp;
+
+			    do while p <> 0;
+				p = p - 1;  
+				arg2w = arg2w - 1;
+				if tx2opc(arg2w) = T2$LINEINFO then
+				    if tx2op2(arg2w) = 0 then
+					if tx2op3(arg2w) <> 0 then
+					    p = p -(tx2op3(arg2w) - tx2op1(arg2w));
+			    end;
+			end;
+		    end;
+		end sub69EB;
+
+	/* sub$68E8 */
+		bC252 = bC1D2 and 3;
+		if (bC1D2 and 4) <> 0 then
+		do;
+			tx2op2(1) = tx2op1(tx2qp);
+			tx2op1(tx2qp) = 1;
+		end;
+		else
+			call sub$69EB(1, .tx2op1(tx2qp));
+
+		call sub$69EB(2, .tx2op2(tx2qp));
+		if bC252 = 3 then
+		do;
+			if curOp = T2$CALL then
+				tx2op3(tx2qp) = tx2op3(tx2qp) + botInfo;
+			else if  curOp = T2$BYTEINDEX or curOp = T2$WORDINDEX then
+			do;
+				i = tx2op1(tx2qp);
+				tx2op2(i) = tx2op2(i) + tx2op3(tx2qp) *sub$575E(tx2op1(i));
+			end;
+			else
+				call sub$69EB(3, .tx2op3(tx2qp));
+		end;
+		tx2Aux1b(tx2qp) = 0ch;
+		tx2Aux2b(tx2qp) = 9;
+	end;
+
+	sub$6AA4: procedure;
+		if curOp = T2$VARIABLE then
+		do;
+			curInfo$p, tx2op1(tx2qp) = tx2op1(tx2qp) + botInfo;
+			if testInfoFlag(F$MEMBER) then
+			do;
+				curInfo$p = getParentOffset;
+				tx2Aux2b(tx2qp) = 4;
+			end;
+			else if testInfoFlag(F$AUTOMATIC) then
+				tx2Aux2b(tx2qp) = 0ah;
+			else
+				tx2Aux2b(tx2qp) = 4;
+			curInfo$p = tx2op1(tx2qp);
+			tx2op2(tx2qp) = getLinkVal;
+			tx2Aux1b(tx2qp) = b5286(getType);
+		end;
+		else if curOp <= T2$BIGNUMBER then
+		do;
+			tx2op2(tx2qp) = tx2op1(tx2qp);
+			tx2Aux2b(tx2qp) = 8;
+			tx2op1(tx2qp) = 0;
+			if curOp = T2$BIGNUMBER then
+			do;
+				tx2Aux1b(tx2qp) = 1;
+				tx2opc(tx2qp) = T2$NUMBER;
+			end;
+			else
+				tx2Aux1b(tx2qp) = 0;
+		end;
+		else
+		do;
+			tx2Aux1b(tx2qp) = 0;
+			tx2op2(tx2qp) = 0;
+		end;
+	end;
+
+/* sub$679E */
+	do tx2qp = 4 to bC1Bf - 1;
+		curOp = tx2opc(tx2qp);
+		bC1D2 = b5124(curOp);
+		if (bC1D2 and 0c0h) = 0 then
+			call sub$68E8;
+		else if (bC1D2 and 0c0h) = 40h then
+			call sub$6AA4;
+	end;
+end;
+
+END;

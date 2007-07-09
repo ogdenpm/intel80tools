@@ -1,0 +1,49 @@
+fiscop: DO;
+declare lit literally 'literally';
+
+$include(:f3:tiflag.pex)
+$include(:f3:giscop.pex)
+$include(:f3:silnko.pex)
+$include(:f3:gilnko.pex)
+$include(:f3:gitype.pex)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+
+declare curInfo$p address external,
+	curSymbol$p address external,
+	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE);
+
+findScopedInfo: PROCEDURE(scp) PUBLIC;
+	DECLARE scp ADDRESS;
+	DECLARE (p, q, next) ADDRESS, infoType BYTE;
+
+	curInfo$p = sym.info$p;
+	p = 0;
+	do while curInfo$p <> 0;
+		if scp = getScope then
+		do;
+			infoType = getType;
+			if infoType = LIT$T or infoType = MACRO$T then
+				;
+			else if testInfoFlag(F$MEMBER) then
+				goto nxt;
+			if p <> 0 then	/* not at start of chain */
+			do;
+				next = getLinkOffset;	/* move to head of chain */
+				q = curInfo$p;		/* save current */
+				curInfo$p = p;		/* pick up previous */
+				call setLinkOffset(next);	/* set its link */
+				curInfo$p = q;		/* restore current */
+				call setLinkOffset(sym.info$p);	/* set its link to current head */
+				sym.info$p = curInfo$p;	/* set head to found info */
+			end;
+			return;
+		end;
+	nxt:	p = curInfo$p;
+		curInfo$p = getLinkOffset;
+	end;
+end;
+
+
+
+END;

@@ -1,0 +1,40 @@
+locate5a: DO;
+$INCLUDE (loc5b.ext)
+
+DECLARE hexdigits(*) BYTE DATA ('0123456789ABCDEF');
+
+binasc: PROCEDURE(number, base,	pad, bufp, ndigits) PUBLIC;
+	DECLARE number ADDRESS, (base, pad) BYTE, bufp ADDRESS, ndigits BYTE;
+	DECLARE i BYTE;
+	DECLARE buf BASED bufp (1) BYTE;
+	
+	DO i = 1 TO ndigits;
+		buf(ndigits - i) = hexdigits(number MOD base);
+		number = number / base;
+	END;
+
+	i = 0;
+	DO WHILE buf(i) = '0' AND i < ndigits - 1;
+		buf(i) = pad;
+		i = i + 1;
+	END;
+END binasc;
+
+
+pastAFN: PROCEDURE(pch) ADDRESS PUBLIC;
+	DECLARE pch ADDRESS;
+	DECLARE ch BASED pch BYTE;
+
+	DO WHILE 1;
+		pch = pastFileName(pch);
+		IF ch = '*' OR ch = '?' THEN
+			pch = pch + 1;
+		ELSE
+			RETURN pch;
+	END;
+END pastAFN;
+
+END locate5a;
+
+
+

@@ -1,0 +1,377 @@
+plm4b: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah',
+	tab lit '9';
+
+$nolist
+$include(:f3:data.inc)
+
+
+declare (helperModId, endHelperId) byte external,
+	listing byte external,
+	listOff byte external,
+	codeOn byte external,
+	locLabStr(32) byte external,
+	wa8125(3) address external,
+	bo812B  byte external,
+	baseAddr address external,
+	cfCode byte external,
+	w812F address external,
+	lineNo address external,
+	depth address external,
+	stmtNo address external,
+	olstch address external,
+	ocurch address external,
+	bo813B byte external,
+	bo813C byte external,
+	lstLineLen byte external, 
+	lstLine(130) byte external,
+	rec6$4 structure(type byte, len address, seg byte, addr address, val(1018) byte) external,
+	rec22 structure(type byte, len address, val(1019) byte) external,
+	rec24$1 structure(type byte, len address, val(1019) byte) external,
+	rec24$2 structure(type byte, len address, val(101) byte) external,
+	rec24$3 structure(type byte, len address, val(101) byte) external,
+	rec20 structure(type byte, len address, val(1019) byte) external,
+	rec8 structure(type byte, len address, val(1021) byte) external,
+	rec4 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
+	b9692 byte external,
+	helperId byte external,
+	helperStr(1) byte external,
+	b969C byte external,
+	b969D byte external,
+	w969E address external,
+	wValAry(4) address external,
+	sValAry(4) address external,
+	b96B0 byte external,
+	b96B1(37) byte external,
+	b96D6 byte external,
+	w96D7 address external,
+	curExtId byte external,
+	commentStr(41) byte external,
+	lineLen byte external,
+	line(80) byte external,
+	opByteCnt byte external,
+	opBytes(3) byte external,
+	dstRec byte external,
+	srcbuf(640) byte external,
+	tx1buf(640) byte external,
+	objbuf(640) byte external,
+	lstbuf(640) byte external;
+
+
+
+declare b42A8(1) byte external,
+	b42D6(1) byte external,
+	b4304(1) byte external,
+	b4332(1) byte external,
+	b4431(1) byte external,
+	b4444(1) byte external,
+	b4495(1) byte external,
+	b4566(1) byte external,
+	b457C(1) byte external,
+	b4602(1) byte external,
+	opcodes(1) byte external,
+	regNo(1) byte external,
+	regIdx(1) byte external,
+	stkRegNo(1) byte external,
+	stkRegIdx(1) byte external,
+	b473D(1) byte external,
+	b475E(1) byte external,
+	b4774(1) byte external,
+	b478A(1) byte external,
+	b47A0(1) byte external,
+	w47C1(1) address external,
+	w4919(1) address external,
+	b4A03(1) byte external,
+	b4A78(1) byte external,
+	w506F(1) address external,
+	stack$origin(1) byte external,
+	errCont label external;
+
+$include(:f3:itoa.pex)
+$include(:f3:initf.pex)
+$include(:f3:openf.pex)
+$include(:f3:closef.pex)
+$include(:f3:seekf.pex)
+$include(:f3:readf.pex)
+$include(:f3:gisym.pex)
+
+writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
+putLst: procedure(ch) external; declare ch byte; end;
+tabLst: procedure(tpos) external; declare tpos byte; end;
+setStartAndTabW: procedure(arg1b, arg2b) external; declare (arg1b, arg2b) byte; end;
+lstLineNo: procedure external; end;
+newLineLst: procedure external; end;
+xnumLst: procedure(num, width, radix) external; declare num address, (width, radix) byte; end;
+xwrnstrLst: procedure(str, cnt) external; declare str address, cnt byte; end;
+xputstr2cLst: procedure(str, endch) external; declare str address, endch byte; end;
+
+
+/* plm4a.plm */
+declare	digits(*) byte data(' 123456789'),
+	ErrStrings(*) byte data(
+	0ACh, 'INVALID LABEL: UNDEFINED', 0,
+	0C8h, 'LIMIT EXCEEDED: STATEMENT SIZE', 0,
+	0C9h, 'INVALID DO CASE BLOCK, AT LEAST ONE CASE REQUIRED', 0,
+	0CAh, 'LIMIT EXCEEDED: NUMBER OF ACTIVE CASES', 0,
+	0CBh, 'LIMIT EXCEEDED: NESTING OF TYPED PROCEDURE CALLS', 0,
+	0CCh, 'LIMIT EXCEEDED: NUMBER OF ACTIVE PROCEDURES AND DO CASE GROUPS', 0,
+	0CDh, 'ILLEGAL NESTING OF BLOCKS, ENDS NOT BALANCED', 0,
+	0CEh, 'LIMIT EXCEEDED: CODE SEGMENT SIZE', 0,
+	0D1h, 'ILLEGAL INITIALIZATION OF MORE SPACE THAN DECLARED', 0,
+	0D2h, 'ILLEGAL INITIALIZATION OF A BYTE TO A VALUE > 255', 0,
+	0D6h, 'COMPILER ERROR: OPERAND CANNOT BE TRANSFORMED', 0,
+	0D7h, 'COMPILER ERROR: EOF READ IN FINAL ASSEMBLY', 0,
+	0D8h, 'COMPILER ERROR: BAD LABEL ADDRESS', 0,
+	0D9h, 'ILLEGAL INITIALIZATION OF AN EXTERNAL VARIABLE', 0,
+	0);
+
+$list
+
+flushRecs: procedure public;
+	call writeRec(.rec8.type, 1);
+	call writeRec(.rec6$4.type, 3);
+	call writeRec(.rec22.type, 1);
+	call writeRec(.rec24$1.type, 2);
+	call writeRec(.rec24$2.type, 2);
+	call writeRec(.rec24$3.type, 2);
+	call writeRec(.rec20.type, 1);
+	rec6$4.addr = baseAddr;
+end;
+
+
+
+addWrdDisp: procedure(str$p, arg2w) public;
+	declare str$p address, arg2w address;
+	declare str based str$p(1) byte;
+
+	if arg2w <> 0 then
+	do; 
+		str(0) = str(0) + 1;
+		if arg2w > 8000h then
+		do;
+			str(str(0)) = '-';
+			arg2w = -arg2w;
+		end;
+		else
+			str(str(0)) = '+';
+		str(0) = str(0) + num2Asc(arg2w, 0, -16, .str(str(0) + 1));
+	end;
+end;
+
+
+sub$5BD3: procedure public;
+	if  not bo813B and listing then
+	do;
+		call setStartAndTabW(15, 4);
+		if lineNo <> 0 then
+			call lstLineNo;
+		call tabLst(-7);
+		if depth < 10 then
+		do;
+			call putLst(' ');
+			call putLst(digits(depth));
+		end;
+		else
+			call xnumLst(depth, 2, 10);
+		if srcFileIdx <> 0 then
+		do; 
+			call tabLst(-11);
+			call xwrnstrLst(.('='), 1);
+			if srcFileIdx <> 10 then 
+				call xnumLst(srcFileIdx / 10 - 1, 1, 10);
+		end;
+		if lstLineLen > 0 then
+		do;
+			call tabLst(-15);
+			call xwrnstrLst(.lstLine, lstLineLen);
+		end;
+
+		call newLineLst;
+		bo813C = true;
+	end;
+	bo813B = true;
+	listing = not listOff and PRINT;
+end;
+
+
+
+emitStatementNo: procedure public;
+	call sub$5BD3;
+	call tabLst(-50);
+	call xwrnstrLst(.('; STATEMENT # '), 14);
+	call xnumLst(stmtNo, 0, 0Ah);
+	call newLineLst;
+end;
+
+
+emitLabel: procedure public;
+	if codeOn then
+	do; 
+		call sub$5BD3;
+		call tabLst(-26);
+		call xwrnstrLst(.locLabStr(1), locLabStr(0));
+		call xwrnstrLst(.(':'), 1);
+		call newLineLst;
+	end;
+end;
+
+
+emitError: procedure public;
+	declare (ErrOff, ErrLen) address;
+
+
+	sub$5DB7: procedure;
+		declare (p, q) address;
+
+		q = 0;
+		do while ErrStrings(q) <> 0;
+			p = q;
+			do while ErrStrings(q) <> 0;
+				q = q + 1;
+			end;
+			if ErrStrings(p) = wa8125(0) then
+			do;
+				ErrOff = p + 1;
+				ErrLen = q - ErrOff;
+				return;
+			end;
+			q = q + 1;
+		end;
+		ErrLen = 0;
+	end;
+
+
+	programErrCnt = programErrCnt + 1;
+	if PRINT then
+	do;
+		bo813B = bo813C;
+		listing = true;
+		call sub$5BD3;
+		call xwrnstrLst(.('*** ERROR #'), 11);
+		call xnumLst(wa8125(0), 0, 10);
+		call xwrnstrLst(.(', '), 2);
+		if wa8125(2) <> 0 then
+		do;
+			call xwrnstrLst(.('STATEMENT #'), 11);
+			call xnumLst(wa8125(2), 0, 10);
+			call xwrnstrLst(.(', '), 2);
+		end;
+		if wa8125(1) <> 0 then
+		do; 
+			call xwrnstrLst(.('NEAR '''), 6);
+			curInfo$p = wa8125(1) + botInfo;
+			curSymbol$p = getSymbol;
+			if curSymbol$p <> 0 then
+				call xwrnstrLst(.sym.name(1), sym.name(0));
+			else
+				call xputstr2cLst(.('<LONG CONSTANT>', 0), 0);
+			call xwrnstrLst(.(''', '), 3);
+		end;
+		call sub$5DB7;
+		call tabLst(2);
+		if ErrLen = 0 then 
+			call xwrnstrLst(.('UNKNOWN ERROR'), 13);
+		else
+			call xwrnstrLst(.ErrStrings(ErrOff), ErrLen);
+		call newLineLst;
+	end;
+end;
+
+
+
+
+sub$5E1B: procedure(arg1b) public;
+	declare arg1b byte;
+	fatalErrorCode, wa8125(0) = arg1b;
+	wa8125(1) = 0;
+	wa8125(2) = stmtNo;
+	call emitError;
+	goto errCont;
+end;
+
+sub$5E3E: procedure public;
+	declare i byte;
+	if codeOn then
+	do; 
+		if opByteCnt > 0 then
+		do;
+			call tabLst(-12);
+			call xnumLst(baseAddr, -4, 10h);
+			i = 0;
+			call tabLst(-18);
+			do while i < opByteCnt;
+				call xnumLst(opBytes(i), -2, 10h);
+				i = i + 1;
+			end;
+		end;
+		call tabLst(-26);
+		call setStartAndTabW(26, 8);
+		call xwrnstrLst(.line, lineLen);
+		call newLineLst;
+	end;
+end;
+
+
+
+
+getSourceLine: procedure public;
+	declare bA187 byte;
+
+	getSourceCh: procedure byte;
+		if ocurch = olstch then
+		do;
+			do while 1;
+				call readf(.srcFil, .srcbuf, 640, .olstch);
+				ocurch = 0;
+				if olstch > 0 then
+					goto break;
+				if lstLineLen <> 0 then
+					return lf;
+
+				if srcFileIdx = 0 then
+				do;
+					if bA187 <> 0 then
+						return lf;
+					else
+						call sub$5E1B(0D7h);
+				end;
+
+				bA187 = 0;
+				call closeF(.srcFil);
+				srcFileIdx = srcFileIdx - 10;
+				call initF(.srcFil, .('SOURCE'), .srcFileTable(srcFileIdx));
+				call openf(.srcFil, 1);
+				call seekF(.srcFil, .srcFileTable(srcFileIdx + 8));
+			end;
+		break:	olstch = olstch - 1;
+		end;
+		else
+			ocurch = ocurch + 1;
+		return srcbuf(ocurch) and 7fh;
+	end;
+
+
+
+	lstLineLen = 0;
+	bA187 = 0;
+
+	do while 1;
+		lstLine(lstLineLen) = getSourceCh;
+		if lstLine(lstLineLen) = lf then
+		do;
+			bo813B = 0;
+			bo813C = 0;
+			return;
+		end;
+		else if lstLine(lstLineLen) = cr then
+			bA187 = bA187 + 1;
+		else if lstLine(lstLineLen) <> cr and lstLineLen < 80h  then
+			lstLinelen = lstLineLen + 1;
+	end;
+end;
+
+end;

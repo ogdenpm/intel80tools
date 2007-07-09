@@ -1,0 +1,247 @@
+asm861: do;
+
+$include(global.inc)
+
+declare cZERO byte external;
+
+sub$3CDF: procedure(b) external; declare b byte; end;
+sub$3AAB: procedure(b) external; declare b byte; end;
+getChClass: procedure byte external; end;
+getCh: procedure byte external; end;
+
+
+
+sub$5ED7: procedure public;
+	call sub$3CDF('Q');
+end;
+
+sub$5EDD: procedure public;
+	call sub$3CDF('D');
+end;
+
+sub$5EE3: procedure public;
+	call sub$3CDF('E');
+end;
+
+sub$5EE9: procedure public;
+	call sub$3CDF('C');
+end;
+
+sub$5EEF: procedure public;
+	call sub$3CDF('O');
+end;
+
+sub$5EF5: procedure public;
+	call sub$3CDF('R');
+end;
+
+sub$5EFB: procedure public;
+	call sub$3CDF('M');
+end;
+
+sub$5F01: procedure public;
+	call sub$3CDF('V');
+end;
+
+sub$5F07: procedure public;
+	call sub$3CDF('N');
+end;
+
+sub$5F0D: procedure public;
+	call sub$3CDF('P');
+end;
+
+sub$5F13: procedure public;
+	call sub$3AAB(0);	/* stack error */
+end;
+
+sub$5F19: procedure public;
+	call sub$3AAB(4);	/* file error */
+end;
+
+sub$5F1F: procedure public;
+	call sub$3CDF('I');
+end;
+
+sub$5F25: procedure public;
+	call sub$3CDF('B');
+end;
+
+sub$5F2B: procedure public;
+	call sub$3CDF('U');
+end;
+
+sub$5F31: procedure public;
+	call sub$3CDF('L');
+end;
+
+sub$5F37: procedure public;
+	call sub$3CDF('X');
+end;
+
+haveTokens: procedure byte public;
+	return tokenSP <> 0;
+end;
+
+
+popToken: procedure public;
+	tokStart(0) = tokStart(tokenSP);
+	tokenSym(0) = tokenSym(tokenSP);
+	tokenType(0) = tokenType(tokenSP);
+	tokenAttr(0) = tokenAttr(tokenSP);
+	tokenSize(0) = tokenSize(tokenSP);
+	w6818(0) = w6818(tokenSP);
+	if haveTokens then
+		tokenSP = tokenSP - 1;
+end;
+
+
+nestIF: procedure(arg1b) public;
+	declare arg1b byte;
+	
+	if (ifDepth := ifDepth + 1) > 8 then
+	do;
+		call sub$5F13;
+		ifDepth = 0;
+	end;
+	else
+	do;
+		skipping(ifDepth) = skipping(0);
+		inElse(ifDepth) = inElse(0);
+	end;
+end;
+
+unnestIF: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if ifDepth = 0 then
+		call sub$5F07;
+	else
+	do;
+		skipping(0) = skipping(ifDepth);
+		inElse(0) = inElse(ifDepth);
+		ifDepth = ifDepth - 1;
+	end;
+end;
+
+pushToken: procedure(arg1b) public;
+	declare arg1b byte;
+	if tokenSP >= 8 then
+		call sub$5F13;
+	else
+	do;
+		tokenSP = tokenSP + 1;
+		tokStart(tokenSP) = tokStart(0);
+		tokenSym(tokenSP) = tokenSym(0);
+		tokenType(tokenSP) = tokenType(0);
+		tokenAttr(tokenSP) = tokenAttr(0);
+		tokenSize(tokenSP) = tokenSize(0);
+		w6818(tokenSP) = w6818(0);
+		tokStart(0) = tokStart(0) + tokenSize(0);
+		tokenType(0) = arg1b;
+		tokenAttr(0), tokenSize(0) = cZERO;
+		tokenSym(0) = w673F;
+		w6818(0) = tokenSym(0);
+	end;
+end;
+
+addByte2Tok: procedure(arg1b) public;
+	declare arg1b byte, w6D02 address;
+	declare ch based w6D02 byte;
+
+	if (w6D02 := tokStart(0) + tokenSize(0)) < off682A then
+	do;
+		ch = arg1b;
+		tokenSize(0) = tokenSize(0) + 1;
+	end;
+	else
+		call sub$5F13;
+end;
+
+collectIdent: procedure(arg1b) public;
+	declare arg1b byte;
+
+	call pushToken(arg1b);
+	reget = 1;
+
+	do while (arg1b := getChClass) = 8 or arg1b = 9;	/* digit or letter */
+		if curChar > 60h then
+			curChar = curChar and 0DFh;
+		call addByte2Tok(curChar);
+	end;
+	reget = 1;
+end;
+
+
+ascii2Num: procedure public;
+	declare accum address, (radix, digit, i) byte;
+	declare chrs based curTokStart(1) byte;
+
+	call collectIdent(0Ch);
+	
+
+	radix = chrs(tokenSize(0) := tokenSize(0) - 1);
+	if radix = 'H' then
+		radix = 10h;
+
+	if radix = 'D' then
+		radix = 0Ah;
+
+	if radix = 'O' or radix = 'Q' then
+		radix = 8;
+
+	if radix = 'B' then
+		radix = 2;
+
+	if radix > 10h then
+		radix = 10;
+	else
+		tokenSize(0) = tokenSize(0) - 1;
+
+	accum = 0;
+	do i = 0 to tokenSize(0);
+		if chrs(i) = '?' or chrs(i) = '@' then
+		do;
+			call sub$5F1F;
+			digit = 0;
+		end;
+		else
+		do;
+			digit = chrs(i) - '0';
+			if digit > 9 then
+				digit = digit - 7;
+			if digit >= radix then
+				if tokenType(2) <> 40h then
+				do;
+					call sub$5F1F;
+					digit = 0;
+				end;
+		end;
+
+		accum = accum * radix + digit;
+	end;
+
+	/* replace with packed number */
+	tokenSize(0) = 0;
+	call addByte2Tok(low(accum));
+	call addByte2Tok(high(accum));
+end;
+
+
+collectString: procedure public;
+	call pushToken(0Ah);
+
+	do while getCh <> 0Dh;
+		if curChar = 27h then
+			if getCh <> 27h then
+				goto L6268;
+		call addByte2Tok(curChar);
+	end;
+
+	call sub$5F25;
+
+L6268:
+	reget = 1;
+end;
+
+end;

@@ -1,0 +1,348 @@
+locate2: DO;
+$INCLUDE(ISIS.EXT)
+
+$INCLUDE(LOC.LIT)
+$INCLUDE(LOC1.EXT)
+$INCLUDE(LOC3.EXT)
+$INCLUDE(LOC4.EXT)
+$INCLUDE(LOC5.EXT)
+$INCLUDE(LOC6.EXT)
+
+$INCLUDE(LOC.BAS)
+
+DECLARE aUnsatisfiedExt(*) BYTE PUBLIC INITIAL('UNSATISFIED EXTERNAL(XXXXX) '),
+
+	aReferenceToUns(*) BYTE PUBLIC INITIAL('REFERENCE TO UNSATISFIED EXTERNAL(XXXXX) AT XXXXH', 0DH, 0AH),
+	aSymbolTableOfM(*) BYTE PUBLIC INITIAL(0DH, 0AH, 'SYMBOL TABLE OF MODULE '),
+	aReadFromFile(*) BYTE PUBLIC INITIAL(0DH, 0AH, 'READ FROM FILE '),
+	aWrittenToFile(*) BYTE PUBLIC INITIAL(0DH, 0AH, 'WRITTEN TO FILE '),
+	aValueType(*) BYTE PUBLIC INITIAL('VALUE TYPE '),
+	aSymbol(*) BYTE PUBLIC INITIAL(6, 'SYMBOL'),
+	aPub(*) BYTE PUBLIC INITIAL('XXXXH PUB  '),
+	aSym(*) BYTE PUBLIC INITIAL('XXXXH SYM  '),
+	alin(*) BYTE PUBLIC INITIAL('XXXXH LIN  '),
+	aMod(*) BYTE PUBLIC INITIAL('      MOD  '),
+	x5(*) BYTE PUBLIC INITIAL(5, 'XXXXX'),
+	spc32(*) BYTE PUBLIC INITIAL('                                ');
+
+DECLARE	fixType BYTE PUBLIC,
+	outSegType(3) BYTE PUBLIC,
+	curColumn ADDRESS PUBLIC,
+	workingSegBase ADDRESS PUBLIC,
+	unsatisfiedCnt ADDRESS PUBLIC INITIAL(0),
+	curcol BYTE PUBLIC INITIAL(0),
+	word$6483 ADDRESS PUBLIC INITIAL(0),
+	LabelLen BYTE PUBLIC INITIAL(0),
+	lsout$p ADDRESS PUBLIC,
+	lsout BASED lsout$p STRUCTURE (type BYTE, len ADDRESS, bytes(1) BYTE);
+
+
+seekOutFile: PROCEDURE(mode, pblk, pbyt) PUBLIC;
+	DECLARE (mode, pblk, pbyt) ADDRESS;
+	CALL seek(outputfd, mode, pblk, pbyt, .statusIO);
+	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
+END seekOutFile;
+
+
+flushOut: PROCEDURE PUBLIC;
+	CALL write(outputfd, sout$p, out$p - sout$p, .statusIO);
+	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
+	out$p = sout$p;
+END flushOut;
+
+writeBytes: PROCEDURE(buf$p, cnt) PUBLIC;
+	DECLARE (buf$p, cnt) ADDRESS;
+	DECLARE bcnt ADDRESS;
+
+	bcnt = eout$p - out$p;
+	DO WHILE cnt > bcnt;
+		CALL mem$mov(bcnt, buf$p, out$p);
+		cnt = cnt - bcnt;
+		buf$p = buf$p + bcnt;
+		out$p = out$p + bcnt;
+		CALL flushOut;
+		bcnt = npbuf;
+	END;
+	CALL mem$mov(cnt, buf$p, out$p);
+	out$p = out$p + cnt;
+END writeBytes;
+
+
+initRecOut: PROCEDURE(type) PUBLIC;
+	DECLARE type BYTE;
+	DECLARE lsout BASED lsout$p STRUCTURE(type BYTE);
+
+	IF eout$p - out$p < 1028 THEN
+		CALL flushout;
+	lsout$p = out$p;
+	lsout.type = type;
+	out$p = out$p + 3;	/* type + length */
+END initRecOut;
+
+
+endRecord: PROCEDURE PUBLIC;
+	DECLARE crc BYTE;
+	DECLARE pch ADDRESS;
+	DECLARE ch BASED pch BYTE;
+	DECLARE outch BASED out$p BYTE;
+
+	IF (lsout.len := out$p - .lsout.type - 2) > 1025 THEN
+		CALL errChkReport(ERR211, .outFileName(1), 0FFH);	/* RECORD TOO LONG */
+	crc = 0;
+	DO pch = .lsout TO out$p - 1;
+		crc = crc + ch;
+	END;
+	outch = -crc;
+	out$p = out$p + 1;
+END endRecord;
+
+
+writeType6Block: PROCEDURE(pdesc4) PUBLIC;
+	DECLARE pdesc4 ADDRESS;
+	DECLARE desc4 BASED pdesc4 DESC4$T;
+	DECLARE (i, bcnt, pmem, curPC, j) ADDRESS;
+	DECLARE crc BYTE;
+	DECLARE mem BASED pmem (1) BYTE;
+
+	CALL initRecOut(6);
+	i = desc4.eaddr - desc4.saddr + 1;	/* last - first + 1 */
+	lsout.len = i + 4;
+	t6out.seg = 0;		/* abs seg */
+	curPC = (t6out.addr := desc4.saddr);		/* load address */	
+	crc = HIGH(lsout.len) + 6 + LOW(lsout.len) + HIGH(t6out.addr) + LOW(t6out.addr);
+	out$p = out$p + 3;
+
+	DO WHILE i > 0;
+		bcnt = 256;
+		IF LOW(curPC) <> 0 THEN
+			bcnt = 256 - LOW(curPC);
+		IF bcnt > i THEN
+			bcnt = i;
+		pmem =  RAddr2LAddr(curPC);
+		DO j = 0 TO bcnt - 1;
+			crc = crc + mem(j);
+		END;
+		CALL writeBytes(pmem, bcnt);
+		IF bcnt = 256 THEN
+		DO;
+			pageTab1(pageTab2(HIGH(curPC)).state).state = 0FFH;
+			pageTab2(HIGH(curPC)).state = 0FFH;	/* mark page as free */
+		END;
+		curPC = curPC + bcnt;
+		i = i - bcnt;
+	END;	/* DO WHILE */
+
+	crc = -crc;
+	CALL writeBytes(.crc, 1);
+END writeType6Block;
+
+
+forceSOL: PROCEDURE PUBLIC;
+	IF curcol <> 0 THEN
+		CALL printcrlf;
+	curcol = 0;
+END forceSOL;
+
+
+
+sub$4B3A: PROCEDURE(arg1w, pstr) PUBLIC;
+	DECLARE arg1w ADDRESS;
+	DECLARE pstr ADDRESS;
+	DECLARE str BASED pstr (1) BYTE;
+
+	IF arg1w <> word$6483 THEN
+		CALL forceSOL;
+	word$6483 = arg1w;
+	IF curcol = columns THEN
+		CALL forceSOL;
+	IF curcol <> 0 THEN
+		CALL printString(.spc32, 32 - LabelLen);
+	curcol = curcol + 1;
+	LabelLen = str(0);
+	CALL printString(arg1w, 11);
+	CALL printString(pstr + 1, LabelLen);
+END sub$4B3A;
+
+
+setWorkingSeg: PROCEDURE(seg) BYTE PUBLIC;	/* always returns 0 */
+	DECLARE seg BYTE;
+	workingSegBase = segBases(seg);
+	RETURN 0;
+END setWorkingSeg;
+
+
+procType4: PROCEDURE PUBLIC;
+	DECLARE rst0$p ADDRESS;
+	DECLARE jmp BASED rst0$p STRUCTURE (inst BYTE, addr ADDRESS);
+
+	IF t4rec.subtype = 1 THEN
+	DO;
+		type4SubType = 1;
+		outSegType(0) = setWorkingSeg(t4rec.segtype);
+		IF NOT startSeen THEN
+			startAddr = workingSegBase + t4rec.addr;
+		IF restart0Seen THEN
+		DO;
+			rst0$p = RAddr2LAddr(0);
+			jmp.inst = 0C3H;
+			jmp.addr = startAddr;
+			CALL insert6Desc(0, 0, 0, 3);
+			CALL insert4Desc(0, 2);
+		END;
+	END;
+	ELSE
+		startAddr = 0;	/* 0 start address if type4 input does not have one */
+	CALL flushOut;
+	curDescriptor = topDescriptor;
+	DO WHILE curDescriptor <> botHeap;
+		curDescriptor = curDescriptor - DOUBLE(4);
+		CALL writeType6Block(curDescriptor);
+	END;
+
+	CALL initRecOut(4);	/* generate the type 4 record */
+	t4out.subtype = type4SubType;
+	t4out.segtype = 0;
+	t4out.addr = startAddr;
+	out$p = out$p + 4;
+	CALL writeBytes(rec$p + DOUBLE(4), recLen - DOUBLE(4) - 1);	/* copy type 4 tail over */
+	CALL endRecord;					/* insert length and CRC */
+	CALL initRecOut(0EH);				/* EOF record */
+	CALL endRecord;
+	CALL flushOut;
+END procType4;
+
+
+sub$4CAA: PROCEDURE PUBLIC;
+	DECLARE (mark, backup) STRUCTURE (blk ADDRESS, byt ADDRESS);
+	DECLARE type20primed BYTE;
+	DECLARE (fixRAddr, pad) ADDRESS;
+	DECLARE (locRecLen, lasttype6base) ADDRESS;
+	DECLARE (fixLoc, fixLoc2) ADDRESS;
+	DECLARE (loByt, hiByt) BYTE, bothByt ADDRESS AT (.loByt);
+
+	DECLARE bfix BASED fixLoc BYTE;
+	DECLARE bfix2 BASED fixLoc2 BYTE;
+	DECLARE wfix BASED fixLoc ADDRESS;
+	DECLARE erec BASED erec$p(1) BYTE;
+
+
+	srec$p = .(6);
+	ibuf$p = rec$p;
+	CALL chkRead(3);
+	rec$p = ibuf$p;
+	IF t6rec.seg = 3 THEN
+		CALL fatalErr(ERR238);	/* ILLEGAL STACK CONTENT RECORD */
+
+	outSegType(0) = setWorkingSeg(t6rec.seg);
+	lasttype6Base = workingSegBase;
+	t6desc4.saddr = lasttype6base + t6rec.addr;
+	IF (t6desc4.eaddr := t6desc4.saddr + recLen - 5) < t6desc4.saddr THEN
+		CALL illegalRecord;	/* oops over 64k */
+	IF t6rec.seg = 0 THEN
+		CALL insert6Desc(0, 0, t6desc4.saddr, recLen - 4);
+	ELSE IF (segFlags(t6rec.seg) AND 0FH) = 0 THEN
+		CALL illegalRecord;	/* align 0 is invalid */
+	IF (locRecLen := recLen) > 1025 THEN
+	DO;
+		IF t6rec.seg <> 0 THEN
+			CALL fatalErr(ERR211);	/* RECORD TOO LONG */
+		CALL insert4Desc(t6desc4.saddr, t6desc4.eaddr);
+	END;
+	CALL loadtype6Data(t6rec.seg);
+	CALL getRecord;
+	IF locRecLen > 1025 THEN
+		RETURN;
+
+	type20primed = 0;
+
+	DO WHILE srec.type = 20H OR srec.type = 22H OR srec.type = 24H;
+		IF srec.type = 20H THEN
+		DO;
+			IF NOT type20primed THEN
+			DO;
+				CALL flushOut;
+				CALL seekOutFile(0, .mark.blk, .mark.byt);
+				backup.blk = 0;
+				backup.byt = locRecLen + 3;
+				CALL seekOutFile(3, .backup.blk, .backup.byt);
+			END;
+			type20primed = 0FFH;
+			CALL initRecOut(20H);
+			IF (fixType := t20arec.fixType) - 1 > 2 THEN
+				CALL illegalRecord;
+
+			t20aout.fixType = fixType;
+			out$p = out$p + 1;
+			rec$p = rec$p + 1;
+
+			DO WHILE rec$p < .erec;
+				CALL fixupBoundsChk(t20bout.addr := lasttype6base + t20brec.addr);
+				IF fixType = 3 THEN
+					CALL fixupBoundsChk(t20bout.addr + 1);	/* check 2nd byte in range */
+				IF (t20bout.sym := t20brec.sym) >= unsatisfiedCnt THEN
+					CALL badRecordSeq;
+				CALL forceSOL;
+				CALL binasc(t20bout.sym, 10, ' ', .aReferenceToUns(34), 5);
+				CALL binasc(t20bout.addr, 16, '0', .aReferenceToUns(44), 4);
+				CALL conAndPrint(.aReferenceToUns, 34);
+				
+				CALL conAndPrint((curColumn := skipspc(.aReferenceToUns(34))),
+						17 - (curColumn - .aReferenceToUns(34)));
+				out$p = out$p +  4;
+				rec$p = rec$p + 4;
+			END;	/* DO WHILE */
+
+			CALL endRecord;
+		END;
+		ELSE
+		DO;
+			workingSegBase = lasttype6base;
+			IF srec.type = 24H THEN
+			DO;
+				outSegType(0) = setWorkingSeg(t24arec.seg);
+				rec$p = rec$p + 1;				/* rest treat as type 22H */
+			END;
+			IF (fixType := t22arec.fixtype) - 1 > 2 THEN
+				CALL illegalRecord;
+			rec$p = rec$p + 1;
+
+			DO WHILE rec$p < .erec;
+				CALL fixupBoundsChk(fixRaddr := lasttype6base + t22brec.addr);
+				IF fixType = 3 THEN
+					CALL fixupBoundsChk(fixRaddr + 1);
+				fixLoc = RAddr2LAddr(fixRaddr);
+				DO CASE fixType - 1;
+					bfix = bfix + LOW(workingSegBase);
+					bfix = bfix + HIGH(workingSegBase);
+					IF LOW(fixRaddr) <> 0FFH THEN	/* doesn't span pages */
+						wfix = wfix + workingSegBase;	
+					ELSE
+					DO;
+						lobyt = bfix;
+						fixLoc2 = RAddr2Laddr(fixRaddr + 1);
+						hibyt = bfix2;
+						bothbyt = bothbyt + workingSegBase;
+						bfix = lobyt;
+						bfix2 = hibyt;
+					END;
+				END;
+				rec$p = rec$p + 2;
+			END;
+		   END;
+		CALL getRecord;
+	END;
+	IF type20primed THEN
+	DO;
+		CALL flushOut;
+		CALL seekOutFile(2, .mark.blk, .mark.byt);
+		CALL writeType6Block(.t6desc4.saddr);
+		CALL flushOut;
+		CALL seekOutFile(4, .backup.blk, .backup.byt);
+	END;
+	ELSE
+		CALL insert4Desc(t6desc4.saddr, t6desc4.eaddr);
+
+END sub$4CAA;
+
+END locate2;
+

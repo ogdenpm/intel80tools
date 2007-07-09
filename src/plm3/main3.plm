@@ -1,0 +1,410 @@
+main3: DO;
+declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
+
+declare lit literally 'literally',
+    cr lit '0dh',
+    lf lit '0ah',
+    true lit '0ffh',
+    false lit '0',
+    boolean lit 'byte';
+
+$nolist
+$include(:f3:data.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+
+declare (tx1Buf, nmsBuf,  atBuf, objBuf) (1280) byte external,
+    w7197 address external,
+    b7199 byte external,
+    rec2 structure(type byte, len address, val(51) byte) external,
+    rec18 structure(type byte, len address, val(300) byte) external,
+    rec16$1 structure(type byte, len address, val(301) byte) external,
+    rec16$2 structure(type byte, len address, val(301) byte) external,
+    rec16$3 structure(type byte, len address, val(301) byte) external,
+    rec16$4 structure(type byte, len address, val(301) byte) external,
+    rec12 structure(type byte, len address, val(1021) byte) external,
+    rec6 structure(type byte, len address, seg byte, addr address, val(300) byte) external,
+    rec22 structure(type byte, len address, val(151) byte) external,
+    rec24$1 structure(type byte, len address, val(151) byte) external,
+    rec24$2 structure(type byte, len address, val(151) byte) external,
+    rec24$3 structure(type byte, len address, val(151) byte) external,
+    rec20 structure(type byte, len address, val(150) byte) external,
+    b4789(1) byte external,
+    b47B7(1) byte external,
+    b4813(1) byte external;
+
+
+recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
+recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
+
+$include(:f3:deletf.pex)
+$include(:f3:closef.pex)
+$include(:f3:sekend.pex)
+$include(:f3:fflush.pex)
+$include(:f3:rewind.pex)
+$include(:f3:openf.pex)
+$include(:f3:fread.aex)
+$include(:f3:fwrite.aex)
+$include(:f3:tiflag.pex)
+$include(:f3:silnkv.pex)
+$include(:f3:gilnkv.pex)
+$include(:f3:gidim2.pex)
+$include(:f3:gitype.pex)
+$include(:f3:adninf.pex)
+writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
+sub$48BA: procedure(arg1w, arg2b, arg3b, arg4b$p) external;
+	declare arg1w address, (arg2b, arg3b) byte, arg4b$p address;
+end;
+sub$49BC: procedure(arg1w, arg2w, arg3w) external; declare (arg1w, arg2w, arg3w) address; end;
+$include(:f3:giscop.pex)
+$include(:f3:itoa.pex)
+$include(:f3:endcom.pex)
+$include(:f3:chain.pex)
+$include(:f3:exit.pex)
+$include(:f3:creatf.pex)
+$include(:f3:giintn.pex)
+$include(:f3:gisym.pex)
+sub$49F9: procedure external; end;
+sub$4938: procedure address external; end;
+
+$list
+
+
+    sub$3F3C: procedure;
+	b7199 = PRINT or OBJECT;
+	if OBJECTSet then
+	do;
+	    call deletf(.objFile);
+	    OBJECTSet = FALSE;
+	end;
+	if not lfOpen and PRINTSet then
+	do;
+	    call deletf(.lstFil);
+	    PRINTSet = FALSE;
+	end;
+	call closef(.tx2File);
+	call deletf(.tx2File);
+	call creatf(.tx1File, .tx1Buf, 1280, 2);
+	if b7199 or IXREF then
+	    call creatf(.nmsFile, .nmsBuf, 1280, 1);
+	call creatf(.atFile, .atBuf, 1280, 1);
+	if OBJECT then
+	do;
+	    call openF(.objFile, 3);
+	    call creatf(.objFile, .objBuf, 1280, 2);
+	    call sekend(.objFile);
+	end;
+	w7197 = csegSize;
+    end;
+
+
+
+
+    sub$3FE2: procedure;
+	declare p address;
+	do p = 1 to procCnt;
+	    curInfo$p = procInfo(p) + botInfo;
+	    if not testInfoFlag(F$EXTERNAL) then
+	    do;
+		call setLinkVal(w7197);
+		w7197 = w7197 + getDimension2;
+	    end;
+	end;
+    end;
+
+
+
+    sub$402F: procedure;
+	declare (p, q) address;
+	curInfo$p = botInfo + 2;
+	do while curInfo$p <> 0;
+	    if getType = LABEL$T then
+	    do;
+		if not testInfoFlag(F$LABEL) then 
+			call sub$49BC(0ACh, curInfo$p - botInfo, 0);
+		else if not testInfoFlag(F$EXTERNAL) then
+		do;
+			p = getLinkVal;
+			q = curInfo$p;
+			curInfo$p = procInfo(high(getScope)) + botInfo;
+			p = p + getLinkVal;
+			curInfo$p = q;
+			call setLinkVal(p);
+		end;
+	    end;
+	    call advNxtInfo;
+	end;
+    end;
+
+
+
+
+    sub$40B6: procedure;
+	declare p address;
+	declare memb based w381E(1) byte,
+	    localLabels based localLabels$p(1) address;
+
+	do p = 1 to localLabelCnt;
+	    curInfo$p = procInfo(memb(p)) + botInfo;
+	    localLabels(p) = localLabels(p) + getLinkVal;
+	end;
+    end;
+
+
+
+
+    sub$4105: procedure;
+	declare (i, j, k, m) byte, p address;
+	declare helpers based helpers$p(1) address;
+
+	if not standAlone then
+	    return;
+
+	call fwrite(.tx1File, .(0A4h), 1);
+	call fwrite(.tx1File, .procInfo(1), 2);
+	curInfo$p = procInfo(1) + botInfo;
+	p = w7197 - getLinkVal;
+	call fwrite(.tx1File, .p, 2);
+	do i = 0 to 45;
+	    k = b47B7(i);
+	    j = k + b4789(i);
+	    m = 0;
+	    do while k < j;
+		if m then
+		do;
+			helpers(k) = w7197;
+			w7197 = w7197 + b4813(k);
+		end;
+		else if helpers(k) <> 0 then
+		do;
+			m = 0FFh;
+			helpers(k) = w7197;
+			w7197 = w7197 + b4813(k);
+		end;
+		k = k + 1;
+	    end;
+	end;
+    end;
+
+
+
+    sub$4201: procedure;
+	declare i byte;
+
+	curSymbol$p = (topSymbol := localLabels$p - 3) - 1;
+	call fread(.nmsFile, .i, 1);
+	do while i <> 0;
+	    curSymbol$p = curSymbol$p - i - 1;
+	    sym.name(0) = i;
+	    call fread(.nmsFile, .sym.name(1), i);
+	    call fread(.nmsFile, .i, 1);
+	end;
+	botSymbol = curSymbol$p + 4;
+	botMem = botSymbol;
+    end;
+
+
+    sub$426E: procedure;
+
+	curInfo$p = botInfo + procInfo(1);
+	curSymbol$p = getSymbol;
+	if curSymbol$p = 0 then
+	    call recAddByte(.rec2, 0, 0);
+	else 
+	    call sub$48BA(.rec2, 0, sym.name(0), .sym.name(1));
+	call recAddByte(.rec2, 0, 1);
+	call recAddByte(.rec2, 0, shl(version(1), 4) or (version(3) and 0fh));
+	call recAddByte(.rec2, 0, 1);
+	call recAddWord(.rec2, 0, csegSize);
+	call recAddByte(.rec2, 0, 3);
+	call recAddByte(.rec2, 0, 2);
+	call recAddWord(.rec2, 0, dsegSize);
+	call recAddByte(.rec2, 0, 3);
+	call recAddByte(.rec2, 0, 3);
+	call recAddWord(.rec2, 0, sub$4938);
+	call recAddByte(.rec2, 0, 3);
+	call recAddByte(.rec2, 0, 4);
+	call recAddWord(.rec2, 0, 0);
+	call recAddByte(.rec2, 0, 3);
+	call writeRec(.rec2, 0);
+    end;
+
+
+    sub$436C: procedure;
+	declare (p, q) address, (i, j) byte,
+	    (r, s) address, (k, m) byte, t(6) byte;
+	declare helpers based helpers$p(1) address;
+
+	s = 0;
+	curInfo$p = botInfo + 2;
+	do while curInfo$p <> 0;
+	    curSymbol$p = getSymbol;
+	    if LABEL$T <= getType and getType <= PROC$T and curSymbol$p <> 0 then
+	    do; 
+		if testInfoFlag(F$EXTERNAL) and not testInfoFlag(F$AT) then
+		do; 
+			if rec18.len + sym.name(0) + 2 >= 299 then
+				call writeRec(.rec18.type, 0);
+			s = s + 1;
+			call sub$48BA(.rec18.type, 0, sym.name(0), .sym.name(1));
+			call recAddByte(.rec18.type, 0, 0);
+		end;
+		else if not (testInfoFlag(F$AUTOMATIC) or testInfoFlag(F$BASED) or testInfoFlag(F$MEMBER)) then
+		do;
+			if testInfoFlag(F$DATA) or getType = LABEL$T or getType = PROC$T then
+			do;
+				p = .rec16$2;
+				q = rec16$2.len;
+				i = 1;
+			end;
+			else if testInfoFlag(F$MEMORY) then
+			do; 
+				p = .rec16$4;
+				q = rec16$4.len;
+				i = 4;
+			end;
+			else if testInfoFlag(F$ABSOLUTE) then
+			do; 
+				p = .rec16$1;
+				q = rec16$1.len;
+				i = 0;
+			end;
+			else
+			do;
+				p = .rec16$3;
+				q = rec16$3.len;
+				i = 2;
+			end;
+
+			if testInfoFlag(F$PUBLIC) then
+			do; 
+				if q + sym.name(0) + 4 >= 299 then
+					call writeRec(p, 1);
+				call recAddWord(p, 1, getLinkVal);
+				call sub$48BA(p, 1, sym.name(0), .sym.name(1));
+				call recAddByte(p, 1, 0);
+			end;
+			if DEBUG then
+			do;
+				if curInfo$p = procInfo(1) + botInfo then
+					j = true;
+				else if not testInfoFlag(F$PARAMETER) then
+					j = testInfoFlag(F$EXTERNAL);
+				else
+				do;
+					r = curInfo$p;
+					curInfo$p = procInfo(high(getScope)) + botInfo;
+					j = testInfoFlag(F$EXTERNAL);
+					curInfo$p = r;
+				end;
+				if not j then
+				do;
+					if i <> rec12.val(0) or rec12.len + sym.name(0) + 4 >= 1019 then
+						call writeRec(.rec12, 1);
+					rec12.val(0) = i;
+					call recAddWord(.rec12, 1, getLinkVal);
+					call sub$48BA(.rec12, 1, sym.name(0), .sym.name(1));
+					call recAddByte(.rec12, 1, 0);
+				end;
+			end;
+		end;
+	    end;
+	    call advNxtInfo;
+	end; /* of while */
+
+	t(0) = '@';
+	t(1) = 'P';
+	if not standAlone then
+	do;
+	    do k = 0 to 116;
+		if helpers(k) <> 0 then
+		do;
+			helpers(k) = s;
+			s = s + 1;
+			if rec18.len + 8 >= 299 then
+				call writeRec(.rec18, 0);
+			m = num2Asc(k, 0fch, 10, .t(2));
+			call sub$48BA(.rec18, 0, 6, .t);
+			call recAddByte(.rec18, 0, 0);
+		end;
+	    end;
+	end;
+	call writeRec(.rec18, 0);
+	call writeRec(.rec16$1, 1);
+	call writeRec(.rec16$2, 1);
+	call writeRec(.rec16$3, 1);
+	call writeRec(.rec16$4, 1);
+	call writeRec(.rec12, 1);
+    end;
+
+
+
+    sub$46B7: procedure;
+	declare p address;
+
+	if intVecNum = 0 then
+	    return;
+	do p = 1 to procCnt;
+	    curInfo$p = procInfo(p) + botInfo;
+		if testInfoFlag(F$INTERRUPT) then
+		do; 
+			rec6.addr = intVecLoc + intVecNum * getIntrNo;
+			call recAddByte(.rec6, 3, 0C3h);
+			call recAddWord(.rec6, 3, getLinkVal);
+			call writeRec(.rec6, 3);
+			call recAddWord(.rec24$1, 2, rec6.addr + 1);
+			call writeRec(.rec24$1, 2);
+	    end;
+	end;
+    end;
+
+
+
+    sub$4746: procedure;
+	if b7199 or IXREF then
+	do;
+	    call fwrite(.tx1File, .(9ch), 1);
+	    call fflush(.tx1File);
+	    call rewind(.tx1File);
+	    call closef(.nmsFile);
+	    call deletf(.nmsFile);
+	    call fflush(.objFile);
+	end;
+	call closef(.atFile);
+	call deletf(.atFile);
+    end;
+
+    call sub$3F3C;
+    if b7199 or IXREF then
+	call sub$3FE2;
+    call sub$402F;
+    if b7199 or IXREF then
+    do;
+	call sub$40B6;
+	call sub$4105;
+	csegSize = w7197;
+	call sub$4201;
+    end;
+    if OBJECT then
+    do;
+	call sub$426E;
+	call sub$436C;
+	call sub$46B7;
+    end;
+    call sub$49F9;
+    call sub$4746;
+    if b7199 then
+	call chain(.overlay4);
+    else
+    do;
+	call closef(.tx1File);
+	call deletf(.tx1File);
+	if IXREF then
+	    call chain(.overlay5);
+	else
+	do;
+		call endCompile;
+		call Exit;
+	end;
+    end;
+end;

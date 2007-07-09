@@ -1,0 +1,24 @@
+plm0g: DO;
+declare lf literally '0ah';
+
+$include(:f3:movmem.aex)
+$include(:f3:allocs.pex)
+
+
+createLit: PROCEDURE(pstr) ADDRESS PUBLIC;
+	DECLARE pstr ADDRESS, str BASED pstr(1) BYTE;
+	DECLARE (litLen, litSymbol) ADDRESS;
+	DECLARE litStr BASED litSymbol(1) BYTE;
+
+	litLen = str(0) + 1;
+	litSymbol = allocSymbol(litLen + 3);
+	call movmem(litLen, pstr, litSymbol + 1);
+	call movmem(2, .(' ', LF), litSymbol + litLen + 1);	/* add " \n" */
+	litStr(0) = 255;		/* put max size \n will terminate */
+	return litSymbol;
+end;
+
+
+end;
+
+

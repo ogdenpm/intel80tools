@@ -1,0 +1,104 @@
+asm51: do;
+
+declare	asc$3680(*) byte public data('                  '),
+	asc$3692(*) byte public data('      ', 0),
+	asc$3699(*) byte public data(0Dh, 0Ah, 0),
+	signonMsg(*) byte public data(0Dh, 0Ah),
+	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
+	aModulePage(*) byte public data('MODULE ',9, ' PAGE ', 0),
+	cZERO byte public data(0),
+	c255 byte public data(0FFh),
+	aC19761977197$0(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
+	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
+	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
+	aCommand(*) byte public data(0Dh, 0Ah, 'COMMAND', 0),
+	aEof(*) byte public data(0Dh, 0Ah, 'EOF', 0),
+	aFile(*) byte public data(0Dh, 0Ah, 'FILE', 0),
+	aMemory(*) byte public data(0Dh, 0Ah, 'MEMORY', 0),
+	aError(*) byte public data(' ERROR', 0Dh, 0Ah, 0),
+	aError$0(*) byte public data(' ERROR, ', 0Dh,0Ah, 0),
+	errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
+	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
+	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
+	aCo(*) byte public data(':CO:', 0);
+
+
+
+delete: procedure(w1, w2) external; declare (w1, w2) address; end;
+flushout: procedure external; end;
+writeRec: procedure(w) external; declare w address; end;	/* in overlay 2 */
+ovl10: procedure external; end;
+ovl11: procedure external; end;
+writeRec02: procedure external; end;		/* in overlay 2 */
+asmComplete: procedure external; end;
+writeRec040E: procedure external; end;
+ovl9: procedure external; end;
+sub$540D: procedure external; end;
+getAsmFile: procedure external; end;
+resetData: procedure external; end;
+sub$70EE: procedure external; end;
+sub$3D6D: procedure external; end;
+
+inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
+strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
+
+
+declare	(objFile, optXREF, optPRINT, optOBJECT, optMACROFILE, MacroDebugOrGen, phase) byte external,
+	(w6750, objfd, xreffd, includefd, rootfd, statusIO, infd, outfd) address external,
+	rec18a structure(type byte, len address, dta(1) byte) external,
+	lstFile(1) byte external,
+	aF0Asxref$tmp(1) byte external;;
+
+	
+start:
+	call getAsmFile;
+	phase = 1;
+	call resetData;
+	call sub$3D6D;
+	if optOBJECT then
+	do;
+		call delete(.objFile, .statusIO);
+		objfd = inOpen(.objFile, 3);
+	end;
+
+	if optXREF then
+	do;
+		xreffd = inOpen(.aF0Asxref$tmp, 2);
+		outfd = xreffd;
+	end;
+
+	call sub$540D;
+	phase = 2;
+	if optOBJECT then
+	do;
+		if rec18a.len > 0 then
+			call writeRec(.rec18a);
+		if w6750 = 0 then
+			call writeRec02;
+		call sub$70EE;
+	end;
+	
+	if optPRINT then
+		outfd = inOpen(.lstFile, 2);
+
+	call resetData;
+	call sub$3D6D;
+	call sub$540D;
+	if optPRINT then
+	do;
+		call asmComplete;
+		call flushout;
+	end;
+
+	if optOBJECT then
+	do;
+		call ovl11;
+		call writeRec040E;
+	end;
+
+	if not strUCequ(.aCo, .lstFile) then
+		call ovl9;
+	call ovl10;
+
+
+end;

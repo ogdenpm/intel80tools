@@ -1,0 +1,299 @@
+asm49:
+do;
+
+
+sub$3CDF: procedure(b) external; declare b byte; end;
+sub$3AAB: procedure(b) external; declare b byte; end;
+readM: procedure(w) external; declare w address; end;
+physmem: procedure address external; end;
+getChX: procedure byte external; end;
+sub$65BE: procedure byte external; end;
+
+declare tokenSize literally 'toksiz',
+	tokStart literally 'tokst';
+declare (cZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byte external,
+	(b9062, b9063) byte external,
+	(tokenType, tokenSize, tokenAttr, skipping, inElse, macroCondStk)(1) byte external,
+	(off$682A, curTokStart, w6870, w673F) address external,
+	(w6818, tokenSym, tokStart)(1) address external,
+	s906CStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
+			     w4 address, buf$p address, blk address, w10 address,
+			     w12 address, w14 address) external,
+	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
+			     w4 address, buf$p address, blk address, w10 address,
+			     w12 address, w14 address) external;
+
+
+sub$5ED7: procedure public;
+	call sub$3CDF('Q');
+end;
+
+sub$5EDD: procedure public;
+	call sub$3CDF('D');
+end;
+
+sub$5EE3: procedure public;
+	call sub$3CDF('E');
+end;
+
+sub$5EE9: procedure public;
+	call sub$3CDF('C');
+end;
+
+sub$5EEF: procedure public;
+	call sub$3CDF('O');
+end;
+
+sub$5EF5: procedure public;
+	call sub$3CDF('R');
+end;
+
+sub$5EFB: procedure public;
+	call sub$3CDF('M');
+end;
+
+sub$5F01: procedure public;
+	call sub$3CDF('V');
+end;
+
+sub$5F07: procedure public;
+	call sub$3CDF('N');
+end;
+
+sub$5F0D: procedure public;
+	call sub$3CDF('P');
+end;
+
+sub$5F13: procedure public;
+	call sub$3AAB(0);
+end;
+
+sub$5F19: procedure public;
+	call sub$3AAB(4);
+end;
+
+sub$5F1F: procedure public;
+	call sub$3CDF('I');
+end;
+
+sub$5F25: procedure public;
+	call sub$3CDF('B');
+end;
+
+sub$5F2B: procedure public;
+	call sub$3CDF('U');
+end;
+
+sub$5F31: procedure public;
+	call sub$3CDF('L');
+end;
+
+sub$5F37: procedure public;
+	call sub$3CDF('X');
+end;
+
+haveTokens: procedure byte public;
+	return tokenSP <> 0;
+end;
+
+
+popToken: procedure public;
+	tokStart(0) = tokStart(tokenSP);
+	tokenSym(0) = tokenSym(tokenSP);
+	tokenType(0) = tokenType(tokenSP);
+	tokenAttr(0) = tokenAttr(tokenSP);
+	tokenSize(0) = tokenSize(tokenSP);
+	w6818(0) = w6818(tokenSP);
+	if haveTokens then
+		tokenSP = tokenSP - 1;
+end;
+
+
+
+nestIFX: procedure(arg1b) public;
+	declare arg1b byte;
+
+	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
+	if (macroCondStk(0) := arg1b) = 1 then
+	do;
+		if (b$9063 := b$9063 + 1) > 9 then
+		do;
+			call sub$5F13;
+			b$9063 = 0;
+		end;
+		else
+		do;
+			call move(16, .s906CStk(0), .s906CStk(b$9063));
+			s906C.macroCondSP = macroCondSP;
+			s906C.ifDepth = ifDepth;
+			b$9061 = 0FFh;
+		end;
+	end;
+	else
+	do;
+		if (ifDepth := ifDepth + 1) > 8 then
+		do;
+			call sub$5F13;
+			ifDepth = 0;
+		end;
+		else
+		do;
+			skipping(ifDepth) = skipping(0);
+			inElse(ifDepth) = inElse(0);
+		end;
+	end;
+end;
+
+
+sub$676D: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if arg1b <> macroCondStk(0) then
+	do;
+		call sub$5F07;
+		if arg1b = 2 then
+			return;
+		macroCondSP = s906C.macroCondSP;
+		ifDepth = s906C.ifDepth;
+	end;
+
+	macroCondStk(0) = macroCondStk(macroCondSP);
+	macroCondSP = macroCondSP - 1;
+	if arg1b = 1 then
+	do;
+		call move(16, .s906CStk(b$9063), .s906CStk(0));
+		call readM(s906C.blk);
+		b$9062 = s906C.mtype;
+		if (b$9063 := b$9063 - 1) = 0 then
+		do;
+			b$905B = 0;
+			w6870 = physmem + 0BFh;
+		end;
+	end;
+	else
+	do;
+		skipping(0) = skipping(ifDepth);
+		inElse(0) = inElse(ifDepth);
+		ifDepth = ifDepth - 1;
+	end;
+end;
+
+pushToken: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if tokenSP >= 8 then
+		call sub$5F13;
+	else
+	do;
+		tokenSP = tokenSP + 1;
+		tokStart(tokenSP) = tokStart(0);
+		tokenSym(tokenSP) = tokenSym(0);
+		tokenType(tokenSP) = tokenType(0);
+		tokenAttr(tokenSP) = tokenAttr(0);
+		tokenSize(tokenSP) = tokenSize(0);
+		w6818(tokenSP) = w6818(0);	
+		tokStart(0) = tokStart(0) + tokenSize(0);
+		tokenType(0) = arg1b;
+		tokenAttr(0), tokenSize(0) = cZERO;
+		tokenSym(0) = w673F;
+		w6818(0) = w673F;
+	end;
+end;
+
+collectByte: procedure(arg1b) public;
+	declare arg1b byte;
+	declare w6D02 address;
+	declare ch based w6D02 byte;
+
+
+	if (w6D02 := curTokStart + tokenSize(0)) < off$682A then
+	do;
+		ch = arg1b;
+		tokenSize(0)= tokenSize(0)+ 1;
+	end;
+	else
+		call sub$5F13;
+end;
+
+collectIdent: procedure(arg1b) public;
+	declare arg1b byte;
+
+	call pushToken(arg1b);
+	reget = 1;
+
+	do while (arg1b := sub$65BE) = 8 or arg1b = 9;
+		if curChar > 60h then
+			curChar = curChar and 0DFh;
+		call collectByte(curChar);
+	end;
+	reget = 1;
+end;
+
+
+ascii2Num: procedure public;
+	declare w$9C5B address,
+		(b$9C5D, b$9C5E, b$9C5F) byte;
+	declare cha based curTokStart(1) byte;
+
+	call collectIdent(0Ch);
+	b$9C5D = cha(tokenSize(0):= tokenSize(0)- 1);
+	if b$9C5D = 48h then
+		b$9C5D = 10h;
+
+	if b$9C5D = 44h then
+		b$9C5D = 0Ah;
+
+	if b$9C5D = 4Fh or b$9C5D = 51h then
+		b$9C5D = 8;
+
+	if b$9C5D = 42h then
+		b$9C5D = 2;
+
+	if b$9C5D > 10h then
+		b$9C5D = 0Ah;
+	else
+		tokenSize(0)= tokenSize(0)- 1;
+
+	w$9C5B = 0;
+	do b$9C5F = 0 to tokenSize(0);
+		if cha(b$9C5F) = 3Fh or cha(b$9C5F) = 40h then
+		do;
+			call sub$5F1F;
+			b$9C5E = 0;
+		end;
+		else
+		do;
+			if (b$9C5E := cha(b$9C5F) - '0') > 9 then
+				b$9C5E = b$9C5E - 7;
+			if b$9C5E >= b$9C5D then
+				if not (tokenType(2) = 40h) then
+				do;
+					call sub$5F1F;
+					b$9C5E = 0;
+				end;
+		end;
+
+		w$9C5B = w$9C5B * b$9C5D + b$9C5E;
+	end;
+	tokenSize(0)= 0;
+	call collectByte(low(w$9C5B));
+	call collectByte(high(w$9C5B));
+end;
+
+collectString: procedure public;
+	call pushToken(0Ah);
+
+	do while getChX <> 0Dh;
+		if curChar = 27h then
+			if getChX <> 27h then
+				goto L6268;
+		call collectByte(curChar);
+	end;
+
+	call sub$5F25;
+
+L6268:
+	reget = 1;
+end;
+
+end;

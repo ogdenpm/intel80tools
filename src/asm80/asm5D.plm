@@ -1,0 +1,187 @@
+asm5D: do;
+declare lit literally 'literally',
+	TRUE lit '0FFh',
+	FALSE lit '0',
+	CR lit '0Dh';
+
+
+declare (cmdch$p, actRead) address external,
+	(b6BDB, b6BDD) byte external,
+	(lstFile, objFile, cmdLineBuf, signonMsg, b674A, b68AE)(1) byte external,
+	(inElse, opStack, aF0Asxref, aF0Asxref$tmp, skipping, optionSeen)(1) byte external,
+	(cZERO, c255, b6742, b6743, activeSeg, ifDepth) byte external,
+	(opSP, b6857, curChar, lookAhead, b6882, b6898) byte external,
+	(b68B8, b6A00, optLIST, optCOND, b6A6F, saveIdx, scanOptions) byte external,
+	(opType, b6B2C, b6B2E, b6B33, b6C21, fileIdx) byte external,
+	(w673F, w6750, w686E, w6870) address external,
+	(lineCnt, w68A6, pageCnt, w6A4E) address external,
+	(errCnt, options$p, includefd, rootfd, w75C4, statusIO, infd, off6C25) address external,
+	(off6C2C, off6C2E, w6BD3, endOutBuf) address external,
+	(w6868, w6B41, segSize, symTab)(1) address external,
+	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
+	rec06 structure(type byte, len address, dta(125) byte) external,
+	rec16 structure(type byte, len address, seg byte, dta(125) byte) external,
+	rec24 structure(type byte, len address, dta(61) byte) external,
+	rec20 structure(type byte, len address, dta(70) byte) external;
+
+rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
+isPhase1: procedure byte external; end;
+physmem: procedure address external; end;
+ioErrChk: procedure external; end;
+sub$3DCE: procedure external; end;
+sub$3AAB: procedure(b) external; declare b byte; end;
+closeF: procedure(w) external; declare w address; end;
+read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
+inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
+
+
+declare aExtents(*) byte public initial(' LSTOBJ'),
+	aDebug(*) byte public initial('DEBUG');
+
+
+
+/* overlay 3 appears to repair the code that starts here */
+
+cmdSkipWhite: procedure public;
+	declare cmdch based cmdch$p byte;
+	
+	do while (cmdch = ' ' or cmdch = 9) and cmdch$p <> actRead;
+		cmdch$p = cmdch$p + 1;
+	end;
+end;
+
+getDrive: procedure byte public;
+	declare cmdch based cmdch$p byte;
+
+	if cmdch = ':' then
+	do;
+		cmdch$p = cmdch$p + 2;
+		return cmdch;
+	end;
+	else
+		do b6BDB = 0 to 4;
+		if cmdch <> aDebug(b6BDB) and aDebug(b6BDB) + 20h <> cmdch then
+				return '0';
+			cmdch$p = cmdch$p + 1;
+		end;
+	call cmdSkipWhite;
+	if cmdch <> ':' then
+		return '0';
+	cmdch$p = cmdch$p + 2;
+	return cmdch;
+end;
+
+addExtents: procedure public;
+	do b6BDB = 1 to 3;
+		lstFile(b6BDD + b6BDB) = aExtents(b6BDB);
+		objFile(b6BDD + b6BDB) = aExtents(b6BDB+3);
+	end;
+end;
+
+getAsmFile: procedure public;
+	declare cmdch based cmdch$p byte;
+
+	cmdIsWhite: procedure byte;
+		declare cmdch based cmdch$p byte;
+		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
+	end;
+
+	symTab(0) = .w75C4;
+	w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
+	call rescan(1, .statusIO);
+	call ioErrChk;
+	call read(1, .cmdLineBuf, 128, .actRead, .statusIO);
+	call ioErrChk;
+	actRead = actRead + .cmdLineBuf;
+	scanOptions = 0FFh;
+	call cmdSkipWhite;
+	aF0Asxref(2) = getDrive; 
+
+	do while not cmdIsWhite;
+		cmdch$p = cmdch$p + 1;
+	end;
+
+	call cmdSkipWhite;
+	if cmdch = CR then
+		call sub$3AAB(4);
+
+	infd = inOpen(cmdch$p, 1);
+	rootfd, includefd = infd;
+	b6BDB = TRUE;
+	b6BDD = 0;
+
+	do while not cmdIsWhite;
+		files(0).name(b6BDD) = cmdch;
+		if b6BDB then
+			lstFile(b6BDD), objFile(b6BDD) = cmdch;
+		if cmdch = '.' then
+		do;
+			b6BDB = FALSE;
+			call addExtents;
+		end;
+		b6BDD = b6BDD + 1;
+		cmdch$p = cmdch$p + 1;
+	end;
+	options$p = cmdch$p;
+	if b6BDB then
+	do;
+		lstFile(b6BDD) = '.';
+		objFile(b6BDD) = '.';
+		call addExtents;
+	end;
+
+	files(0).name(b6BDD) = ' ';
+	if lstFile(0) = ':' and lstFile(2) <> '0' then
+		aF0Asxref$tmp(2) = lstFile(2);
+end;
+
+
+
+
+resetData: procedure public;
+	call sub$3DCE;
+	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = cZERO;
+	b6743, b6898, optLIST, b6A6F, optCOND = c255;
+	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = cZERO;
+	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = w673F;
+	b6882 = b6882 + 1;
+	w6A4E, opType, pageCnt, lineCnt = 1;
+	b68AE(0) = 0;
+	curChar = 20h;
+	do b6BDB = 0 to 11;
+		optionSeen(b6BDB) = 0;
+	end;
+	if not isPhase1 then
+	do;
+		if fileIdx <> 0 then
+		do;
+			call closeF(includefd);
+			call ioErrChk;
+			includefd = rootfd;
+		end;
+		fileIdx = cZERO;
+		off6C25 = .b68B8;
+		off6C2C = off6C25 - 1;
+		off6C2E = .b68B8;
+		call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+		call ioErrChk;
+	end;
+	w6870 = physmem + 0BFh;
+	endOutBuf = .b6A00;
+end;
+
+
+sub$70EE: procedure public;
+	rec06.type = 6;
+	rec06.len = 3;
+	rec16.type = 22h;
+	rec16.len = 1;
+	rec24.type = 24h;
+	rec24.len = 2;
+	rec20.type = 20h;
+	rec20.len = 1;
+end;
+
+end;

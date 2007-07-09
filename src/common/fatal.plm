@@ -1,0 +1,22 @@
+fatal: DO;
+
+DECLARE debugFlag BYTE EXTERNAL,
+	REBOOTVECTOR ADDRESS EXTERNAL,
+	CR LITERALLY '0DH',
+	LF LITERALLY '0AH';
+
+$include(:f3:exit.pex)
+$include(:f3:prints.pex)
+
+fatal: PROCEDURE(str, len) PUBLIC;
+	DECLARE str ADDRESS, len BYTE;
+	call printStr(.(CR, LF, LF,'PL/M-80 FATAL ERROR --', CR, LF, LF), 28);
+	call printStr(str, len);
+	call printStr(.(CR, LF, LF,'COMPILATION TERMINATED', CR, LF, LF), 28);
+	if debugFlag then
+		call REBOOTVECTOR;
+	else
+		call Exit;
+end fatal;
+
+end;

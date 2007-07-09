@@ -1,0 +1,37 @@
+mkfnam:
+DO;
+DECLARE SPATH$T LITERALLY
+'STRUCTURE (deviceId BYTE, name(6) BYTE, ext(3) BYTE, deviceType BYTE, driveType BYTE)';
+
+DECLARE devices(*) BYTE DATA('F0F1F2F3F4F5TITO',
+			     'VIVOI1O1TRHRR1R2',
+			     'TPHPP1P2LPL1BBCI',
+			     'COF6F7F8F9');
+
+makeFullName: PROCEDURE(pinfo, pstr) PUBLIC;
+	DECLARE (pinfo, pstr) ADDRESS;
+	DECLARE str BASED pstr(1) BYTE;
+	DECLARE ch BASED pstr BYTE;
+	DECLARE inf BASED pinfo SPATH$T;
+	DECLARE i BYTE;
+	str(0) = ':';
+	str(1) = devices(inf.deviceId + inf.deviceId);
+	str(2) = devices(inf.deviceId + inf.deviceId + 1);
+	str(3) = ':';
+	pstr = pstr + 4;
+	DO i = 0 TO 5;
+		IF (ch := inf.name(I)) <> 0 THEN
+			pstr = pstr + 1;
+	END;
+	IF inf.ext(0) <> 0 THEN
+	DO;
+		ch = '.';
+		pstr = pstr + 1;
+	END;
+	DO i = 0 TO 2;
+		IF (ch := inf.ext(I)) <> 0 THEN
+			pstr = pstr + 1;
+	END;
+	ch = ' ';
+END makeFullName;
+END;

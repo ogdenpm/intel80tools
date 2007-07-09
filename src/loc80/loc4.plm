@@ -1,0 +1,157 @@
+locate4: DO;
+$INCLUDE(ISIS.EXT)
+$INCLUDE(LOC.LIT)
+$INCLUDE(LOC1.EXT)
+$INCLUDE(LOC2A.EXT)
+$INCLUDE(LOC3.EXT)
+$INCLUDE(LOC5.EXT)
+$INCLUDE(LOC6.EXT)
+
+$INCLUDE(LOC.BAS)
+
+DECLARE erec BASED erec$p BYTE;
+
+DECLARE	aMemoryMapOfMod(*) BYTE PUBLIC INITIAL(0DH, 0AH, 'MEMORY MAP OF MODULE '),
+	aStartStopLengt(*) BYTE PUBLIC INITIAL(0DH, 0AH, 0AH, 'START   STOP LENGTH REL NAME', 0DH, 0AH, 0AH),
+	aModuleStartAdd(*) BYTE PUBLIC INITIAL('MODULE START ADDRESS XXXXH'),
+	aModuleIsNotAMa(*) BYTE PUBLIC INITIAL('MODULE IS NOT A MAIN MODULE'),
+	aStartControlIg(*) BYTE PUBLIC INITIAL(', START CONTROL IGNORED'),
+	aRestartControl(*) BYTE PUBLIC INITIAL(', RESTART CONTROL IGNORED'),
+	aAddresses(*) BYTE PUBLIC INITIAL('XXXXH  XXXXH  XXXXH  X  '),
+	aMemOverlap(*) BYTE PUBLIC INITIAL('  (MEMORY OVERLAP FROM XXXXH THROUGH XXXXH)'),
+	a0LengthSegment(*) BYTE PUBLIC INITIAL('  (0 LENGTH SEGMENT WRAPPED AROUND TO 0000H)'),
+	segNames(*) BYTE PUBLIC INITIAL('ABSOLUTE', 'CODE    ', 'DATA    ', 'STACK   ', 'MEMORY  '),
+	alignNames(*) BYTE PUBLIC INITIAL('AIPB');
+
+sub$5517: PROCEDURE(seg) ADDRESS PUBLIC;
+	DECLARE seg BYTE;
+	DECLARE rdata BASED rec$p (1) BYTE;
+
+	IF seg = 255 THEN
+		RETURN .(0);
+	CALL iseek(0,0);
+	CALL getRecord;
+	DO WHILE 1;
+		CALL getRecord;
+		IF srec.type <> 2EH THEN
+			CALL badRecordSeq;
+		DO WHILE rec$p < .erec;
+			IF seg = rdata(0) THEN
+				RETURN rec$p + 1;
+			rec$p = rec$p + 2 + rdata(1);
+		END;
+	END;
+END sub$5517;
+
+sub$5576: PROCEDURE PUBLIC;
+	DECLARE (p, q) ADDRESS;
+	DECLARE (i, j, k) BYTE;
+	DECLARE desc6 BASED curDescriptor62F DESC6$T;
+	DECLARE rdata BASED rec$p (1) BYTE;
+
+	IF MapSeen THEN
+	DO;
+		CALL sub$5309(.aMemoryMapOfMod, 23);
+		IF type4SubType THEN
+		DO;
+			CALL binasc(startAddr, 16, '0', .aModuleStartAdd(21), 4);
+			CALL printString(.aModuleStartAdd, 26);
+		END;
+		ELSE
+		DO;
+			CALL printString(.aModuleIsNotAMa, 27);
+			IF startSeen THEN
+				CALL printString(.aStartControlIg, 23);
+			IF restart0Seen THEN
+				CALL printString(.aRestartControl, 25);
+		END;
+		CALL printString(.aStartStopLengt, 34);
+	END;
+	stackAddr = stackAddr - stackSize;
+	DO q = 1 TO 254;
+		IF segSizes(i := segOrder(q)) > 0 OR (segFlags(i) AND 20H) <> 0 THEN
+			CALL insert6Desc(segFlags(i), i, segBases(i), segSizes(i));
+	END;
+
+	p, j = 0;
+	curDescriptor62F = topHeap;
+	DO WHILE curDescriptor62F <> topDescriptor ; 
+		curDescriptor62F = curDescriptor62F - DOUBLE(6);
+		CALL binasc(desc6.start, 16, '0', .aAddresses, 4);
+		aAddresses(7) = '*';
+		aAddresses(8) = '*';
+		aAddresses(9) = '*';
+		aAddresses(10) = '*';
+		IF desc6.len > 0 THEN
+			CALL binasc(desc6.start + desc6.len - 1, 16, '0', .aAddresses(7), 4);
+		CALL binasc(desc6.len, 16, ' ', .aAddresses(14), 4);
+		CALL mem$mov(4, .aAddresses, .aMemOverlap(23));
+		CALL mem$mov(4, .aAddresses(7), .aMemOverlap(37));
+		IF desc6.start + desc6.len > p THEN
+		DO;
+			aMemOverlap(37) = '*';
+			aMemOverlap(38) = '*';
+			aMemOverlap(39) = '*';
+			aMemOverlap(40) = '*';
+			IF desc6.len > 0 AND (p > 0  OR j <> 0) THEN
+				CALL binasc(p - 1, 16, '0', .aMemOverlap(37), 4);
+		END;
+		k = 0;
+		IF mapSeen THEN
+		DO;
+			aAddresses(21) = alignNames(desc6.flags AND 0FH);
+			CALL printString(.aAddresses, 24);
+			IF desc6.seg >= 6 THEN
+			DO;
+				CALL printString(.('/'), 1);
+				rec$p = sub$5517(desc6.seg);
+				CALL printString(rec$p+1, rdata(0));	
+				CALL printString(.('/'), 1);
+			END;
+			ELSE
+				CALL printString(.segNames(SHL(desc6.seg, 3)), 8);
+		END;
+		IF desc6.start < p OR j <> 0 THEN
+		DO;
+			k = 0FFH;
+			CALL conAndPrint(.aMemOverlap, 43);
+		END;
+		IF (desc6.flags AND 40H) <> 0 THEN
+		DO;
+			k = 0FFH;
+			CALL conAndPrint(.a0LengthSegment, 44);
+		END;
+		IF k THEN
+			CALL conAndPrint(.crlf, 2);
+		ELSE IF MapSeen THEN
+			CALL printcrlf;
+		IF desc6.start + desc6.len = 0 AND desc6.len > 0 THEN
+		DO;
+			p = 0;
+			j = 40H;
+		END;
+		ELSE IF j = 0 THEN
+			IF desc6.start + desc6.len > p THEN
+				p = desc6.start + desc6.len;
+	END;	/* DO WHILE */
+END sub$5576;
+
+
+
+
+
+
+skipspc: PROCEDURE(pch) ADDRESS PUBLIC;
+	DECLARE pch ADDRESS;
+	DECLARE ch BASED pch BYTE;
+	
+	DO WHILE ch = ' ';
+		pch = pch + 1;
+	END;
+	RETURN pch;
+END skipspc;
+
+
+
+
+END locate4;

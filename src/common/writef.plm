@@ -1,0 +1,22 @@
+writef: DO;
+
+DECLARE LIT LITERALLY 'LITERALLY';
+
+DECLARE FILE$T LIT
+ 'STRUCTURE(AFTN ADDRESS, sNam(6) BYTE, fNam(16) BYTE, BUF$P ADDRESS, BSIZE ADDRESS, ACTUAL ADDRESS, CUROFF ADDRESS)';
+
+$include(:f3:write.pex)
+$include(:f3:fatlIO.pex)
+
+writeF: PROCEDURE(fp, buf, count) PUBLIC;
+ DECLARE (fp, buf, count) ADDRESS;
+ DECLARE status ADDRESS;
+ DECLARE file BASED fp FILE$T;
+
+ call Write(file.aftn, buf, count, .status);
+ if status <> 0 then
+  call fatlIO(fp, status);
+end;
+
+
+END;

@@ -1,0 +1,751 @@
+plm0f: DO;
+DECLARE LIT LITERALLY 'LITERALLY',
+	TRUE LIT '0FFH',
+	FALSE LIT '0';
+
+$include(:f3:lex.inc)
+$include(:f3:err.inc)
+$include(toks.inc)
+$include(:f3:data.inc)
+$include(plm0.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+
+DECLARE brkTxiCodes(*) BYTE DATA(
+	L$STATEMENT, L$SEMICOLON, L$CALL, L$LINEINFO,
+	L$DISABLE, L$DO, L$ENABLE, L$END,
+	L$GO, L$GOTO, L$HALT, L$IF,
+	L$PROCEDURE, L$RETURN);
+
+
+$include(:f3:ftlerr.pex)
+syntaxError: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
+tokenErrorAt: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
+yylex: PROCEDURE EXTERNAL; end;
+setYyAgain: PROCEDURE EXTERNAL; end;
+$include(:f3:adninf.pex)
+popDO: PROCEDURE EXTERNAL; end;
+$include(:f3:sipid.pex)
+yylexNotMatch: PROCEDURE(tok) BYTE EXTERNAL; DECLARE tok BYTE; end;
+yylexMatch: PROCEDURE(tok) BYTE EXTERNAL; DECLARE tok BYTE; end;
+wrByte: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; end;
+wrWord: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end;
+$include(:f3:fiscop.pex)
+pushBlock: PROCEDURE(scope) EXTERNAL; DECLARE scope ADDRESS;end;
+$include(:f3:tiflag.pex)
+$include(:f3:siflag.pex)
+tokenError: PROCEDURE(err, sym) EXTERNAL; DECLARE err BYTE, sym ADDRESS;end;
+$include(:f3:giscop.pex)
+$include(:f3:gisym.pex)
+$include(:f3:lookup.pex)
+$include(:f3:alloc.pex)
+wrXrefUse: PROCEDURE EXTERNAL; end;
+wrOffset: PROCEDURE(info$p) EXTERNAL;
+	DECLARE info$p ADDRESS;
+end;
+
+wrXrefDef: PROCEDURE EXTERNAL; end;
+
+$include(:f3:creati.pex)
+parseExpresion: PROCEDURE(tok) EXTERNAL; DECLARE tok BYTE; end;
+wrOprAndValue: PROCEDURE EXTERNAL; end;
+parseDcl: PROCEDURE EXTERNAL; end;
+parseProcDcl: PROCEDURE EXTERNAL; end;
+$include(:f3:gipcnt.pex)
+
+DECLARE curState ADDRESS PUBLIC, endSeen BYTE PUBLIC;
+
+sub$6F00: PROCEDURE public;
+
+	skipToSemiColon: PROCEDURE;
+		do while tokenType <> T$SEMICOLON;
+			call yylex;
+		end;
+		
+		yyAgain = FALSE;
+	end;
+
+	expectSemiColon: PROCEDURE;
+		if yylexNotMatch(T$SEMICOLON) then
+		do;
+			call tokenErrorAt(ERR32);	/* INVALID SYNTAX, TEXT IGNORED UNTIL ';' */
+			call skipToSemiColon;
+		end;
+	end;
+
+	errorSkip: PROCEDURE;
+		call skipToSemiColon;
+		call setYyAgain;
+	end;
+
+	popStateWord: PROCEDURE(state$p);
+		DECLARE state$p ADDRESS,
+			state BASED state$p ADDRESS;
+
+		if stateIdx = 0 then
+			call fatalError(ERR97);		/* COMPILER ERROR: PARSE STACK UNDERFLOW */
+		state = stateStack(stateIdx);
+		stateIdx = stateIdx - 1;
+	end;
+
+	genLocalLabel: PROCEDURE;
+		call alloc(3, 3);
+		localLabelCnt = localLabelCnt + 1;
+	end;
+
+	parseStmtLabels: PROCEDURE;
+		stmtLabelCnt = 0;
+		
+		do while (1);
+			labelBrkToken = tokenType;
+			labelBrkSymbol = curSymbol$p;
+			if tokenType <> T$VARIABLE then
+				return;
+			
+			if yylexMatch(T$COLON) then
+			do;
+				if stmtLabelCnt = 9 then
+					call tokenErrorAt(ERR30);
+						/* LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT */
+				else
+					stmtLabelCnt = stmtLabelCnt + 1;
+				stmtLabels(stmtLabelCnt) = curSymbol$p;
+			end;
+			else
+				return;
+			call yylex;
+		end;
+	end;
+
+	parseStartStmt: PROCEDURE;
+		DECLARE tmp BYTE;
+		
+		if endSeen then
+		do;
+			endSeen = FALSE;
+			return;
+		end;
+		tmp = XREF;
+		XREF = FALSE;
+		call yylex;
+		XREF = tmp;
+		curStmtCnt = curStmtCnt + 1;
+		if linfo.stmtCnt = 0 then
+		do;
+			linfo.stmtCnt = curStmtCnt;
+			linfo.blkCnt = curBlkCnt;
+		end;
+		call wrByte(L$STMTCNT);
+		call wrWord(curStmtCnt);
+		if trunc then
+		do;
+			call syntaxError(ERR86);	/* LIMIT EXCEEDED: SOURCE LINE LENGTH */
+			trunc = FALSE;
+		end;
+		call parseStmtLabels;
+		if labelBrkToken = T$SEMICOLON then
+		do;
+			stmtStartCode = 1;
+			call setYyAgain;
+		end;
+		else if labelBrkToken = T$VARIABLE then
+			stmtStartCode = 0;
+		else if labelBrkToken >= T$CALL and labelBrkToken <= T$RETURN then
+			stmtStartCode = labelBrkToken - T$CALL + 2;
+		else
+		do;
+			call tokenErrorAt(ERR29);	/* ILLEGAL STATEMENT */
+			stmtStartCode = 1;
+			call errorSkip;
+		end;
+		lblBrkTxiCode = brkTxiCodes(stmtStartCode);
+	end;
+
+	wrLabelDefs: PROCEDURE;
+		DECLARE i ADDRESS, tmp ADDRESS;
+
+		tmp = curSymbol$p;
+		if stmtLabelCnt <> 0 then
+		do;
+			do i = 1 to stmtLabelCnt;
+				curSymbol$p = stmtLabels(i);
+				call findScopedInfo(scope);
+				if curInfo$p <> 0 then		/* already seen at this scope */
+				do;
+					if testInfoFlag(F$LABEL) then
+						call tokenError(ERR33, curSymbol$p);
+							/* DUPLICATE LABEL DECLARATION */
+					else
+					do;
+						call wrByte(L$LABELDEF);
+						call wrOffset(curInfo$p);
+						call setInfoFlag(F$LABEL);
+					end;
+					call wrXrefUse;
+				end;
+				else
+				do;
+					call createInfo(scope, LABEL$T);
+					call wrXrefDef;
+					call wrByte(L$LABELDEF);
+					call wrOffset(curInfo$p);
+					call setInfoFlag(F$LABEL);
+				end;
+			end;
+			if scope = 100h then
+				call wrByte(L$MODULE);
+		end;
+		curSymbol$p = tmp;
+	end wrLabelDefs;
+
+	sub$723A: PROCEDURE BYTE;
+		if yylexMatch(T$VARIABLE) then
+		do;
+			curInfo$p = procInfo(1);
+			if getSymbol <> curSymbol$p then
+			    call tokenErrorAt(ERR20);	/* MISMATCHED IDENTIFIER AT END OF BLOCK */
+		end;
+		call expectSemiColon;
+		if unexpectedEOF then
+		do;
+			call wrByte(L$END);
+			return TRUE;
+		end;
+		else
+		do;
+			call yylex;
+			if unexpectedEOF then
+			do;
+				call wrByte(L$END);
+				unexpectedEOF = FALSE;
+				return TRUE;
+			end;
+			else
+			do;
+				call syntaxError(ERR93);	/* MISSING 'DO' FOR 'END' , 'END' IGNORED */
+				call setYyAgain;
+				return FALSE;
+			end;
+		end;
+	end sub$723A;
+
+	sub$7296: PROCEDURE;
+		DECLARE (i, val) BYTE;
+		
+		call popDO;
+		if yylexMatch(T$VARIABLE) then
+		do;
+			curInfo$p = curProcInfo$p;
+			if getSymbol <> curSymbol$p then
+				call tokenErrorAt(ERR20);	/* MISMATCHED IDENTIFIER AT END OF BLOCK */
+		end;
+		curInfo$p = curProcInfo$p;
+		val = getParamCnt;
+		do i = 1 to val;
+			call advNxtInfo;
+			if not testInfoFlag(F$LABEL) then
+				call tokenError(ERR25, getSymbol);	/* UNDECLARED PARAMETER */
+		end;
+		call popStateWord(.doBlkCnt);
+		call popStateWord(.curProcInfo$p);
+		call expectSemiColon;
+	end;
+
+	pushStateWord: PROCEDURE(val);
+		DECLARE val ADDRESS;
+		if stateIdx <> 63h then
+		do;
+			stateStack(stateIdx := stateIdx + 1) = val;
+		end;
+		else
+			call fatalError(ERR31);		/* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+	end;
+
+
+	pushStateByte: PROCEDURE(state);
+		DECLARE state BYTE;
+		call pushStateWord(state);
+	end;
+
+
+	createModuleInfo: PROCEDURE(symptr);
+		DECLARE symptr ADDRESS;
+
+		curSymbol$p = symptr;
+		call createInfo(0, PROC$T);
+		call setInfoFlag(F$LABEL);
+		call wrXrefDef;
+		curProcInfo$p = curInfo$p;
+		call setProcId(1);
+		procCnt = 1;
+		procInfo(1) = curInfo$p;
+		scope = 100H;			/* proc = 1,  do level = 0 */
+		call wrByte(L$DO);
+		call wrByte(L$SCOPE);
+		call wrWord(scope);
+		call pushBlock(scope);
+	end;
+
+
+	state0: PROCEDURE;
+		call parseStartStmt;
+		call pushStateByte(1);
+		if stmtStartCode <> (T$DO - T$CALL + 2) then
+		do;
+			call syntaxError(ERR89);		/* MISSING 'DO' FOR MODULE */
+			call lookup(.(6, 'MODULE'));
+			call createModuleInfo(curSymbol$p);
+			call pushStateByte(19);
+		end;
+		else
+		do;
+			if stmtLabelCnt = 0 then
+			do;
+				call syntaxError(ERR90);	/* MISSING NAME FOR MODULE */
+				call lookup(.(6, 'MODULE'));
+				stmtLabelCnt = 1;
+				stmtLabels(1) = curSymbol$p;
+			end;
+			else if stmtLabelCnt > 1 then
+				call syntaxError(ERR18);	/* INVALID MULTIPLE LABELS AS MODULE NAMES */
+			call createModuleInfo(stmtLabels(1));
+			call expectSemiColon;
+			call pushStateByte(3);
+		end;
+	end state0;
+
+
+
+	state1: PROCEDURE;
+		if stmtStartCode <> (T$END - T$CALL + 2) then
+		do;
+			haveModule = TRUE;
+			call wrByte(L$MODULE);
+			call pushStateByte(2);
+		end;
+		else
+		do;
+			if stmtLabelCnt <> 0 then
+				call tokenErrorAt(ERR19);	/* INVALID LABEL IN MODULE WITHOUT MAIN PROGRAM */
+			if not sub$723A then
+			do;
+				call pushStateByte(1);
+				call pushStateByte(10);
+			end;
+		end;
+	end state1;
+
+
+	state2: PROCEDURE;
+		if stmtStartCode <> (T$END - T$CALL + 2) then
+		do;
+			call pushStateByte(2);
+			call pushStateByte(10);
+			call pushStateByte(11);
+		end;
+		else
+		do;
+			call wrLabelDefs;
+			if sub$723A then
+				call wrByte(L$HALT);
+			else
+			do;
+				call pushStateByte(2);
+				call pushStateByte(10);
+			end;
+		end;
+	end state2;
+
+
+	state3: PROCEDURE;
+		call parseStartStmt;
+		call pushStateByte(19);
+	end;
+
+
+	state19: PROCEDURE;	/* check for DECLARE or PROCEDURE */
+		if stmtStartCode = (T$DECLARE - T$CALL + 2) then
+		do;
+			call parseDcl;
+			call pushStateByte(3);
+			call expectSemiColon;
+		end;
+		else if stmtStartCode = (T$PROCEDURE - T$CALL + 2) then
+		do;
+			call pushStateByte(3);
+			call pushStateByte(4);
+		end;
+	end;
+
+	state4: PROCEDURE;
+		if stmtLabelCnt = 0 then
+		do;
+			call syntaxError(ERR21);	/* MISSING PROCEDURE NAME */
+			call pushStateByte(7);
+		end;
+		else
+		do;
+			if stmtLabelCnt <> 1 then
+			do;
+				call tokenErrorAt(ERR22);	/* INVALID MULTIPLE LABELS AS PROCEDURE NAMES */
+				stmtLabelCnt = 1;
+			end;
+			call pushStateWord(curProcInfo$p);
+			call pushStateWord(doBlkCnt);
+			call parseProcDcl;
+			call expectSemiColon;
+			curInfo$p = curProcInfo$p;
+			if testInfoFlag(F$EXTERNAL) then
+				call pushStateByte(5);
+			else
+			do;
+				call pushStateByte(6);
+				call pushStateByte(21);
+				call pushStateByte(3);
+			end;
+		end;
+	end;
+
+
+	state5: PROCEDURE;
+		call parseStartStmt;
+		if stmtStartCode = (T$END - T$CALL + 2) then
+		do;
+			if stmtLabelCnt <> 0 then
+			do;
+				call tokenErrorAt(ERR23);	/* INVALID LABELLED END IN EXTERNAL PROCEDURE */
+				stmtLabelCnt = 0;
+			end;
+			call sub$7296;
+		end;
+		else
+		do;
+			call pushStateByte(5);
+			if stmtStartCode = (T$DECLARE - T$CALL + 2) then
+			do;
+				call parseDcl;
+				call expectSemiColon;
+			end;
+			else
+			do;
+				call tokenErrorAt(ERR24);	/* INVALID STATEMENT IN EXTERNAL PROCEDURE */
+				if stmtStartCode = (T$PROCEDURE - T$CALL + 2) or
+				   stmtStartCode = (T$DO - T$CALL + 2) then
+					call pushStateByte(7);
+				else
+					call skipToSemiColon;
+			end;
+		end;
+	end;
+
+
+	state21: PROCEDURE;
+		if stmtStartCode = (T$END - T$CALL + 2) then
+			call tokenErrorAt(ERR174);	/* INVALID NULL PROCEDURE */
+		else
+			call pushStateByte(9);
+	end;
+
+
+	state6: PROCEDURE;
+		call wrLabelDefs;
+		call sub$7296;
+		call wrByte(L$END);
+	end;
+
+
+	/* states 7 & 8 skip to end of block, handling nested blocks */
+	state7: PROCEDURE;
+		call skipToSemiColon;
+		call pushStateByte(8);
+	end;
+
+
+	state8: PROCEDURE;
+		call parseStartStmt;
+		if stmtStartCode = (T$PROCEDURE - T$CALL + 2) or 	/* nested block */
+		   stmtStartCode = (T$DO - T$CALL + 2) then
+		do;
+			call pushStateByte(8);
+			call pushStateByte(7);				/* proc nested block */
+		end;
+		else
+		do;
+			call skipToSemiColon;				/* skip to end of statement */
+			if stmtStartCode <> (T$END - T$CALL + 2) then	/* if not an END then go again */
+				call pushStateByte(8);
+		end;
+	end;
+
+	state9: PROCEDURE;
+		if stmtStartCode <> (T$END - T$CALL + 2) then
+		do;
+			call pushStateByte(9);
+			call pushStateByte(10);
+			call pushStateByte(11);
+		end;
+	end;
+
+
+	state10: PROCEDURE;
+		call parseStartStmt;
+	end;
+
+	state11: PROCEDURE;
+		if stmtStartCode = (T$DECLARE - T$CALL + 2) or
+			stmtStartCode = (T$PROCEDURE - T$CALL + 2) or
+			stmtStartCode = (T$END - T$CALL + 2) then
+		do;
+
+			call tokenErrorAt(ERR26);	/* INVALID DECLARATION, STATEMENT OUT OF PLACE */
+			call pushStateByte(20);
+		end;
+		else if stmtStartCode = (T$DO - T$CALL + 2) then
+			call pushStateByte(12);
+		else if stmtStartCode = (T$IF - T$CALL + 2) then
+			call pushStateByte(16);
+		else
+		do;
+			call wrLabelDefs;
+			call wrByte(lblBrkTxiCode);
+			if stmtStartCode <> 1 then		/* Semicolon */
+			do;
+				if stmtStartCode = 0 then 	/* Variable */
+				do;
+					call wrByte(L$VARIABLE);
+					call wrWord(labelBrkSymbol);
+				end;
+				call parseExpresion(T$SEMICOLON);
+			end;
+			call expectSemiColon;
+			end;
+	end;
+
+
+	state20: PROCEDURE;
+		if stmtStartCode = (T$DECLARE - T$CALL + 2) then
+		do;
+			call parseDcl;
+			call expectSemiColon;
+			call pushStateByte(20);
+			call pushStateByte(10);
+		end;
+		else if stmtStartCode = (T$PROCEDURE - T$CALL + 2) then
+		do;
+			call pushStateByte(20);
+			call pushStateByte(10);
+			call pushStateByte(4);
+		end;
+		else if stmtStartCode = (T$END - T$CALL + 2) then
+			endSeen = TRUE;
+		else
+			call pushStateByte(11);
+	end;
+
+
+	state12: PROCEDURE;	/* process DO */
+		call wrLabelDefs;
+		if stmtLabelCnt <> 0 then
+			call pushStateWord(stmtLabels(stmtLabelCnt));
+		else
+			call pushStateWord(0);
+		if yylexMatch(T$VARIABLE) then
+		do;
+			call wrByte(L$DOLOOP);	/* start of do loop */
+			call wrOprAndValue;
+			call parseExpresion(T$SEMICOLON);
+			call pushStateByte(13);
+			call pushStateByte(9);
+			call pushStateByte(10);
+		end;
+		else if yylexMatch(T$WHILE) then
+		do;
+			call wrByte(L$WHILE);	/* start of while */
+			call parseExpresion(T$SEMICOLON);
+			call pushStateByte(13);
+			call pushStateByte(9);
+			call pushStateByte(10);
+		end;
+		else if yylexMatch(T$CASE) then
+		do;
+			call wrByte(L$CASE);	/* start of case */
+			call parseExpresion(T$SEMICOLON);
+			call genLocalLabel;
+			call pushStateWord(localLabelCnt);
+			call pushStateByte(14);
+		end;
+		else
+		do;
+			call wrByte(L$DO);	/* simple do end block */
+			call pushStateByte(13);
+			call pushStateByte(9);
+			call pushStateByte(3);
+		end;
+		call expectSemiColon;		/* we should now see a semicolon */
+		if doBlkCnt >= 255 then
+			call syntaxError(ERR27);	/* LIMIT EXCEEDED: NUMBER OF DO BLOCKS */
+		else
+			doBlkCnt = doBlkCnt + 1;
+
+		curDoBlkCnt = doBlkCnt;
+		call pushBlock(scope);
+		call wrByte(L$SCOPE);
+		call wrWord(scope);
+	end;
+
+
+
+	state13: PROCEDURE;
+		DECLARE labelPtr ADDRESS;
+
+		call wrLabelDefs;
+		call popDO;
+		call popStateWord(.labelPtr);
+		if yylexMatch(T$VARIABLE) then
+			if curSymbol$p <> labelPtr then
+				call tokenErrorAt(ERR20);	/* MISMATCHED IDENTIFIER AT END OF BLOCK */
+		call wrByte(L$END);
+		call expectSemiColon;
+	end;
+
+
+	state14: PROCEDURE;	/* process CASE statements */
+		DECLARE labelptr ADDRESS, stateWord ADDRESS;
+		
+		call parseStartStmt;
+		if stmtStartCode <> (T$END - T$CALL + 2) then
+		do;
+			call genLocalLabel;
+			call wrByte(L$CASELABEL);
+			call wrWord(localLabelCnt);
+			call pushStateByte(15);
+			call pushStateByte(11);
+		end;
+		else
+		do;
+			call popStateWord(.stateWord);	/* get the head jump */
+			call wrLabelDefs;
+			if stmtLabelCnt <> 0 then
+			do;
+				call wrByte(L$JMP);
+				call wrWord(stateWord);
+			end;
+			call popDO;
+			call popStateWord(.labelptr);
+			call wrByte(L$END);
+			call wrByte(L$LOCALLABEL);
+			call wrWord(stateWord);
+			/* check end label if present */
+			if yylexMatch(T$VARIABLE) then
+				if curSymbol$p <> labelptr then
+					call syntaxError(ERR20);	/* MISMATCHED IDENTIFIER AT END OF BLOCK */
+			call expectSemiColon;
+		end;
+	end;
+
+
+	state15: PROCEDURE;
+		DECLARE stateWord ADDRESS;
+		
+		call popStateWord(.stateWord);
+		call wrByte(L$JMP);
+		call wrWord(stateWord);
+		call pushStateWord(stateWord);
+		call pushStateByte(14);
+	end;
+
+
+	state16: PROCEDURE;	/* process if condition then */
+		call wrLabelDefs;
+		call wrByte(L$IF);
+		call parseExpresion(T$THEN);
+		if yylexNotMatch(T$THEN) then
+		do;
+			call tokenErrorAt(ERR28);	/* MISSING 'THEN' */
+			call wrByte(L$JMPFALSE);
+			call wrWord(0);
+		end;
+		else
+		do;
+			call genLocalLabel;
+			call pushStateWord(localLabelCnt);
+			call wrByte(L$JMPFALSE);
+			call wrWord(localLabelCnt);
+			call pushStateByte(17);
+			call pushStateByte(11);
+			call pushStateByte(10);
+		end;
+	end;
+
+
+	state17: PROCEDURE;	/* process optional ELSE */
+		DECLARE stateWord ADDRESS, tmp BYTE;
+		
+		call popStateWord(.stateWord);	/* labelref for if condition false */
+		call yylex;
+		tmp = lineInfoToWrite;			/* supress line info for labeldefs etc */
+		lineInfoToWrite = FALSE;
+		if tokenType = T$ELSE then
+		do;
+			call genLocalLabel;
+			call wrByte(L$JMP);
+			call wrWord(localLabelCnt);	/* jump round else labelref */
+			call pushStateWord(localLabelCnt);	/* save labelref for end of else statement */
+			call pushStateByte(18);
+			call pushStateByte(11);
+			call pushStateByte(10);
+		end;
+		else
+			call setYyAgain;
+
+		call wrByte(L$LOCALLABEL);	/* emit label for if condition false */
+		call wrWord(stateWord);
+		lineInfoToWrite = tmp;
+	end;
+
+
+
+	state18: PROCEDURE;		/* end of else */
+		DECLARE stateWord ADDRESS, tmp BYTE;
+
+		tmp = lineInfoToWrite;				/* supress line info for labeldefs */
+		
+		lineInfoToWrite = FALSE;
+		call popStateWord(.stateWord);		/* labelref for end of else */
+		call wrByte(L$LOCALLABEL);	/* emit label */
+		call wrWord(stateWord);
+		lineInfoToWrite = tmp;
+	end;
+
+	stateIdx = 0;
+	endSeen = FALSE;
+	call pushStateByte(0);
+	do while stateIdx <> 0;
+		curState = stateStack(stateIdx);
+		stateIdx = stateIdx - 1;
+		do case curState;
+			call state0;
+			call state1;
+			call state2;
+			call state3;
+			call state4;
+			call state5;
+			call state6;
+			call state7;
+			call state8;
+			call state9;
+			call state10;
+			call state11;
+			call state12;
+			call state13;
+			call state14;
+			call state15;
+			call state16;
+			call state17;
+			call state18;
+			call state19;
+			call state20;
+			call state21;
+		end;
+	end;
+end;end;

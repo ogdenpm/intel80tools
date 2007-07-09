@@ -1,0 +1,26 @@
+creatf: DO;
+
+DECLARE LIT LITERALLY 'LITERALLY';
+
+DECLARE FILE$T LIT
+ 'STRUCTURE(AFTN ADDRESS, sNam(6) BYTE, fNam(16) BYTE, BUF$P ADDRESS, BSIZE ADDRESS, ACTUAL ADDRESS, CUROFF ADDRESS)';
+
+$include(:f3:readf.pex)
+
+/* creatF(file$p, buf$p, size$w, mode$b)
+   set files buffer and buffer size
+   read into buffer if mode$b =    1
+*/
+
+creatf: PROCEDURE(fp, buf, bsize, mode) public;
+	DECLARE (fp, buf, bsize) ADDRESS, mode BYTE;
+	DECLARE file BASED fp FILE$T;
+
+	file.buf$p = buf;
+	file.bsize = bsize;
+	if mode = 1 then
+		call readf(fp, buf, bsize, .file.actual);
+	file.curoff = 0;
+end;
+
+END;

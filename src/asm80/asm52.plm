@@ -1,0 +1,335 @@
+asm52: do;
+
+declare TRUE literally '0FFh',
+	FALSE literally '0';
+
+close: procedure(w1, w2) external; declare (w1, w2) address; end;
+error: procedure(w1) external; declare w1 address; end;
+exit: procedure external; end;
+load: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+open: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
+ovl1: procedure external; end;
+parseCmds: procedure external; end;
+skip2NextLine: procedure external; end;
+sub$4904: procedure external; end;
+sub$54FD: procedure external; end;
+printDecimal: procedure(w1) external; declare w1 address; end;		/* overlay 1 */
+write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
+
+getCh: procedure byte external; end;
+isSkipping: procedure byte external; end;
+
+declare tokenSize literally 'toksiz',
+	tokStart literally 'tokst';
+
+declare (w6A4E, curFileName$p, w6BE0, cmdch$p, statusIO, outfd, out$p, endOutBuf) address external,
+	(openStatus, errCnt, options$p, off6C2C, off6C2E) address external,
+	(outbuf, aError, aError$0, errStrsLen)(1) byte external,
+	(aBadSyntax, asc$3699)(1) byte external,
+	errStrs(1) address external,
+	(phase, optPRINT, optOBJECT, collectBufIdx, scanOptions, b6B33, b6BD9) byte external,
+	(b6C27, b6896, b6B2B, b6749, b6754, curChar, b6B20, reget) byte external,
+	(b6C21, cZERO, c255, b6898, optDEBUG, optXREF, optSYMBOLS, optPAGING, b6C30) byte external,
+	(b6742, b6855, b6857, b6858, b6859, b6872) byte external,
+	(b687F, b6880, b6881, b6884, b6885, b689A, b689B, b689C, b68AB) byte external,
+	(b68AD, optEJECT, b6B23, b6B24, b6B25, needAddrOperand, b6B30, b6B31, b6B32) byte external,
+	(b6B34, b6B35, tokenSP) byte external,
+	(tokenSize, skipping, tokenType)(1) byte external;
+
+physmem: procedure address public;
+	declare top address at(4);
+
+	return (top - 100h) and 0FF00h;
+end;
+
+
+nxtCmdCh: procedure byte public;
+	declare cmdch based cmdch$p byte;
+	declare ch byte;
+
+	ch = cmdch;
+	cmdch$p = cmdch$p + 1;
+	if 'a' <= ch and ch <= 'z' then
+		ch = ch and 5Fh;
+	return ch;
+end;
+
+
+ioErrChk: procedure public;
+	if statusIO = 0 then
+		return;
+	call error(statusIO);
+	call exit;
+end;
+
+
+flushout: procedure public;
+	call write(outfd, .outbuf, out$p - .outbuf, .statusIO);
+	out$p = .outbuf;
+end;
+
+outch: procedure(arg1b) public;
+	declare arg1b byte;
+	declare ch based out$p byte;
+
+	if out$p = endOutBuf then
+		call flushout;
+	ch = arg1b;
+	out$p = out$p + 1;
+end;
+
+outStrN: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+	declare ch based arg1w byte;
+
+	do while arg2b > 0;
+		call outch(ch);
+		arg1w = arg1w + 1;
+		arg2b = arg2b - 1;
+	end;
+end;
+
+
+closeF: procedure(arg1w) public;
+	declare arg1w address;
+
+	call close(arg1w, .statusIO);
+end;
+
+isSpace: procedure byte public;
+	return curChar = 20h;
+end;
+
+isTab: procedure byte public;
+	return curChar = 9;
+end;
+
+isWhite: procedure byte public;
+	return isSpace or isTab;
+end;
+
+isRParen: procedure byte public;
+	return curChar = 29h;
+end;
+
+isCR: procedure byte public;
+	return curChar = 0Dh;
+end;
+
+isComma: procedure byte public;
+	return curChar = 2Ch;
+end;
+
+isPhase1: procedure byte public;
+	return phase = 1;
+end;
+
+
+skip2EOL: procedure public;
+	if not isCR then
+		do while getCh <> 0Dh;
+		end;
+end;
+
+sub4$3A6A: procedure byte public;
+	return (phase = 2) and optOBJECT;
+end;
+
+
+isPhase2Print: procedure byte public;
+	return phase = 2 and optPRINT;
+end;
+
+wrConsole: procedure(arg1w, arg2w) public;
+	declare (arg1w, arg2w) address;
+
+	call write(0, arg1w, arg2w, .statusIO);
+	call ioErrChk;
+end;
+
+sub$3AAB: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if b6BD9 then
+		return;
+
+	if isPhase1 and arg1b = 0 then
+	do;
+		b6B33 = TRUE;
+		return;
+	end;
+
+	w6BE0 = .aError;
+	if arg1b = 4 then
+		w6BE0 = .aError$0;
+
+	call wrConsole(errStrs(arg1b), errStrsLen(arg1b));
+	call wrConsole(w6BE0, 8);
+	if isPhase2Print then
+	do;
+		call outStrN(errStrs(arg1b), errStrsLen(arg1b));
+		call outStrN(w6BE0, 8);
+	end;
+	if arg1b = 4 or arg1b = 3 then
+	do;
+		if collectBufIdx = 0 then
+		do;
+			call wrConsole(.aBadSyntax, 12);
+			if not scanOptions then
+			do;
+				call skip2NextLine;
+				outfd = 0;
+				call printDecimal(w6A4E);		/* overlay 1 */
+				call outch(0Ah);
+			end;
+		end;
+		else
+		do;
+			call wrConsole(curFileName$p, collectBufIdx);
+			call wrConsole(.asc$3699, 2);
+		end;
+	end;
+	if arg1b = 0 then
+	do;
+		b6BD9 = TRUE;
+		return;
+	end;
+	call exit;
+end;
+
+fileError: procedure(arg1w) public;
+	declare arg1w address;
+	declare ch based arg1w byte;
+
+	collectBufIdx = 0;
+	curFileName$p = arg1w;
+
+	do while ch <> ' ' and ch <> 0dh and ch <> 9;
+		collectBufIdx = collectBufIdx + 1;
+		arg1w = arg1w + 1;
+	end;
+	if b6C27 then
+		call sub$3AAB(3);
+	call sub$3AAB(4);
+end;
+
+inOpen: procedure(arg1w, arg2w) address public;
+	declare (arg1w, arg2w) address;
+	declare open$infd address;
+
+	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
+	if openStatus <> 0 then
+		call fileError(arg1w);
+	return open$infd;
+end;
+
+
+nibble2Ascii: procedure(n) byte public;
+	declare n byte;
+	n = (n and 0Fh) + '0';
+	if n > '9' then
+		n = n + 7;
+	return n;
+end;
+
+put2Hex: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+
+	call arg1w(nibble2Ascii(ror(arg2b, 4)));
+	call arg1w(nibble2Ascii(arg2b));
+end;
+
+xisSpace: procedure byte public;
+	return b6896 = 20h;
+end;
+
+sub$3C91: procedure byte public;
+	return xisSpace or b6896 = 'M' or b6896 = 'P';
+end;
+
+
+getNibble: procedure(arg1w, arg2b) byte public;
+	declare arg1w address, arg2b byte;
+	declare ch based arg1w byte;
+	declare b6C11 byte;
+
+	arg1w = arg1w + shr(arg2b, 1);
+	b6C11 = ch;
+	if not arg2b then
+		b6C11 = ror(b6C11, 4);
+	return b6C11 and 0Fh;
+end;
+
+sub$3CDF: procedure(arg1b) public;
+	declare arg1b byte;
+
+	if not isSkipping or b6B2B = 22h then		/* ELSE */
+	do;
+		if b6749 then
+			b6754 = TRUE;
+		if xisSpace then
+			errCnt = errCnt + 1;
+
+		if sub$3C91 or arg1b = 'L' or arg1b = 'U' then
+			if b6896 <> 'L' then
+				b6896 = arg1b;
+	end;
+end;
+
+sub$3D3F: procedure public;
+	do while getCh = '$';
+		if isSkipping then
+		do;
+			call skip2NextLine;
+			b6B20 = 0FFh;
+		end;
+		else
+		do;
+			call parseCmds;
+		end;
+		call sub$54FD;
+	end;
+	reget = 1;
+end;
+
+
+sub$3D6D: procedure public;
+	cmdch$p = options$p;
+	scanOptions = TRUE;
+	call parseCmds;
+	if isPhase2Print then
+	do;
+		call ovl1;
+	end;
+
+	if b6C21 then
+		call sub$4904;
+
+	b6C21, b6B20, scanOptions = cZERO;
+	call sub$3D3F;
+	b6898 = 0;
+	optDEBUG = optDEBUG and optOBJECT;
+	optXREF = optXREF and optPRINT;
+	optSYMBOLS = optSYMBOLS and optPRINT;
+	optPAGING = optPAGING and optPRINT;
+end;
+
+
+
+sub$3DCE: procedure public;
+	off6C2E = off6C2C + 1;
+	b6C30 = 0;
+	if b6C21 then
+		call sub$4904;
+
+	b68AD, needAddrOperand, b6B20, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
+	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = cZERO;
+	b689C, b6B31, b6B34, b6B35 = c255;
+	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = cZERO;
+	b6896 = 20h;
+	b689A = 1;
+	w6A4E = w6A4E + 1;
+	skipping(0) = skipping(0) > 0;
+end;
+
+end;

@@ -1,0 +1,72 @@
+lstInfo: DO;
+declare lit literally 'literally',
+	true lit '0ffh',
+	false lit '0',
+	cr lit '0dh',
+	lf lit '0ah',
+	tab lit '9';
+
+$nolist
+$include(:f3:data.inc)
+$include(:f3:gibsev.pex)
+
+setSkipLst: procedure(arg1b) external; declare arg1b byte; end;
+newLineLst: procedure external; end;
+tabLst: procedure(arg1b) external; declare arg1b byte; end;
+xnumLst: procedure(arg1w, arg2b, arg3b) external; declare arg1w address, (arg2b, arg3b) byte; end;
+$include(:f3:closef.pex)
+flushLstBuf: procedure external; end;
+xputStr2cLst: procedure(str, ch) external; declare str address, ch byte; end;
+
+
+
+lstModuleInfo: procedure public;
+	declare (p, q, r) address;
+	p = 0;
+	do q = 1 to procCnt;
+		curInfo$p = botInfo + procInfo(q);
+		r = getBaseVal;
+		if r > p then
+			p = r;
+	end;
+	call setSkipLst(3);
+	call xputstr2cLst(.('MODULE INFORMATION:', 0), 0);
+	call newLineLst;
+	call setSkipLst(1);
+	call tabLst(5);
+	call xputstr2cLst(.('CODE AREA SIZE     = ', 0), 0);
+	call xnumLst(csegSize, 0FCh, 0F0h);
+	call tabLst(2);
+	call xnumLst(csegSize, 5, 0F6h);
+	call newLineLst;
+	call tabLst(5);
+	call xputstr2cLst(.('VARIABLE AREA SIZE = ', 0), 0);
+	call xnumLst(dsegSize, 0FCh, 0F0h);
+	call tabLst(2);
+	call xnumLst(dsegSize, 5, 0F6h);
+	call newLineLst;
+	call tabLst(5);
+	call xputstr2cLst(.('MAXIMUM STACK SIZE = ', 0), 0);
+	call xnumLst(p, 0FCh, 0F0h);
+	call tabLst(2);
+	call xnumLst(p, 5, 0F6h);
+	call newLineLst;
+	call tabLst(5);
+	call xnumLst(linesRead, 0, 0Ah);
+	call xputstr2cLst(.(' LINES READ', 0), 0);
+	call newLineLst;
+	call tabLst(5);
+	call xnumLst(programErrCnt, 0, 0Ah);
+	call xputstr2cLst(.(' PROGRAM ERROR', 0), 0);
+	if programErrCnt <> 1 then
+		call xputstr2cLst(.('S', 0), 0);
+
+	call newLineLst;
+	call setSkipLst(1);
+	call xputstr2cLst(.('END OF PL/M-80 COMPILATION', 0), 0);
+	call newLineLst;
+	call flushLstBuf;
+	call closeF(.lstFil);
+	lfOpen = false;
+end;
+end;

@@ -1,0 +1,59 @@
+creati: DO;
+
+DECLARE lit literally 'literally';
+$include(:f3:err.inc)
+$include(:f3:info.inc)
+
+declare curInfo$p address external,
+	curSymbol$p address external,
+	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE),
+	(botInfo, topInfo) address external,
+	botSymbol address external;
+
+
+$include(:f3:fill.aex)
+$include(:f3:alloc.pex)
+$include(:f3:ftlerr.pex)
+$include(:f3:silnko.pex)
+$include(:f3:sitype.pex)
+$include(:f3:silen.pex)
+$include(:f3:siscop.pex)
+$include(:f3:sisym.pex)
+
+
+DECLARE infoLengths(*) BYTE DATA(10, 12, 18, 18, 18, 22, 11, 10, 8, 9);
+
+
+allocInfo: PROCEDURE(isize) ADDRESS PUBLIC;
+	DECLARE isize ADDRESS;
+	DECLARE (q, p) ADDRESS;
+
+	call alloc(isize, isize);
+	p = topInfo + 1;
+	if botSymbol < (q := topInfo + isize) then
+		call fatalError(ERR83);
+	call fill(isize, p, 0);
+	topInfo = q;
+	return p;
+end allocInfo;
+
+
+createInfo: PROCEDURE(val, type) PUBLIC;
+	DECLARE val ADDRESS, type BYTE;
+	DECLARE len BYTE;
+
+	len = infoLengths(type);
+	curInfo$p = allocInfo(len);
+	if curSymbol$p <> 0 then
+	do;
+		call setLinkOffset(sym.info$p);
+		sym.info$p = curInfo$p;
+	end;
+	call setType(type);
+	call setLen(len);
+	call setScope(val);
+	call setSymbol(curSymbol$p);
+end createInfo;
+
+
+end;

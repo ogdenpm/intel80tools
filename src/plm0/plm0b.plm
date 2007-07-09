@@ -1,0 +1,1092 @@
+plm0b:
+DO;
+DECLARE LIT LITERALLY 'LITERALLY',
+	CR LIT '0DH',
+	LF LIT '0AH',
+	TRUE LIT '0FFH',
+	FALSE LIT '0',
+	boolean lit 'byte';
+
+DECLARE local lit ' ';
+
+$include(cclass.inc)
+$include(:f3:err.inc)
+$include(:f3:lex.inc)
+$include(:f3:info.inc)
+
+DECLARE opttable(*) BYTE DATA(
+	5,'PRINT', 0, 0, 0FFh, 7, 0,
+	7,'NOPRINT', 0, 0, 0FFh, 8, 0,
+	4,'LIST', 3, 1, 0, 0, 0,
+	6,'NOLIST', 4, 1, 0, 0, 0,
+	4,'CODE', 5, 1, 0, 0, 0,
+	6,'NOCODE', 6, 1, 0, 0, 0,
+	4,'XREF', 0, 0, 1, 1, 1,
+	6,'NOXREF', 0, 0, 1, 0, 1,
+	7,'SYMBOLS', 0, 0, 2, 1, 2,
+	9,'NOSYMBOLS', 0, 0, 2, 0, 2,
+	5,'DEBUG', 0, 0, 3, 1, 3,
+	7,'NODEBUG', 0, 0, 3, 0, 3,
+	6,'PAGING', 0, 0, 4, 1, 4,
+	8,'NOPAGING', 0, 0, 4, 0, 4,
+	10,'PAGELENGTH', 0, 0, 0FFh, 0, 5,
+	9,'PAGEWIDTH', 0, 0, 0FFh, 1, 6,
+	4,'DATE', 0, 0, 0FFh, 2, 7,
+	5,'TITLE', 0, 0, 0FFh, 3, 8,
+	5,'EJECT', 7, 1, 0, 0, 0,
+	10,'LEFTMARGIN', 0, 1, 0FFh, 4, 0,
+	6,'OBJECT', 0, 0, 0FFh, 5, 9,
+	8,'NOOBJECT', 0, 0, 0FFh, 9, 9,
+	8,'OPTIMIZE', 0, 0, 6, 1, 0Ah,
+	10,'NOOPTIMIZE', 0, 0, 6, 0, 0Ah,
+	7,'INCLUDE', 0, 1, 0FFh, 6, 0,
+	9,'WORKFILES', 0, 0, 0FFh, 0Ah, 0Bh,
+	9,'INTVECTOR', 0, 0, 0FFh, 0Bh, 0Ch,
+	11,'NOINTVECTOR', 0, 0, 0FFh, 0Ch, 0Ch,
+	5,'IXREF', 0, 0, 0FFh, 0Dh, 0Dh,
+	7,'NOIXREF', 0, 0, 0FFh, 0Eh, 0Dh,
+	4,'SAVE', 0, 1, 0FFh, 0Fh, 0,
+	7,'RESTORE', 0, 1, 0FFh, 10h, 0,
+	3,'SET', 0, 1, 0FFh, 11h, 0,
+	5,'RESET', 0, 1, 0FFh, 12h, 0,
+	2,'IF', 0, 1, 0FFh, 13h, 0,
+	6,'ELSEIF', 0, 1, 0FFh, 14h, 0,
+	4,'ELSE', 0, 1, 0FFh, 14h, 0,
+	5,'ENDIF', 0, 1, 0FFh, 15h, 0,
+	4,'COND', 0, 1, 0FFh, 16h, 0,
+	6,'NOCOND', 0, 1, 0FFh, 17h, 0,
+	0);
+
+DECLARE ebadTail(*) BYTE DATA('ILLEGAL COMMAND TAIL SYNTAX OR VALUE');
+DECLARE ebadcontrol(*) BYTE DATA('UNRECOGNIZED CONTROL IN COMMAND TAIL');
+DECLARE errNotDisk(*) BYTE DATA('INCLUDE FILE IS NOT A DISKETTE FILE'),
+	errWorkFiles(*) BYTE DATA('MISPLACED CONTROL: WORKFILES ALREADY OPEN');
+
+$include(:f3:data.inc)
+declare
+	isNonCtrlLine BYTE EXTERNAL,
+	skippingCOND BYTE EXTERNAL,
+	ifDepth ADDRESS EXTERNAL,
+	cClass(1) byte external,
+	ocurch ADDRESS EXTERNAL,
+	olstch ADDRESS EXTERNAL;
+
+
+
+
+DECLARE	primaryCtrlSeen(14) BYTE INITIAL(0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+	saveStack(5) STRUCTURE(code BYTE, list BYTE, cond BYTE, leftmargin ADDRESS),
+	saveDepth BYTE INITIAL(0),
+	CODE BYTE INITIAL(FALSE),
+	LIST BYTE INITIAL(TRUE),
+	COND BYTE INITIAL(TRUE),
+	curCh$p ADDRESS,
+	chrClass BYTE,
+	tknLen BYTE,
+	optStrVal$p ADDRESS,
+	optNumValue ADDRESS,
+	optFileName(16) BYTE,
+	ixiGiven BYTE,
+	objGiven BYTE,
+	lstGiven BYTE,
+	inIFpart BYTE,
+	skippingCONDDepth ADDRESS,
+	tknFlags$p ADDRESS,	
+	tknFlags BASED tknFlags$p STRUCTURE(tokenId BYTE, primary BYTE,
+			controlId BYTE, controlVal BYTE, primaryId BYTE);
+	
+$include(:f3:fatal.pex)
+$include(:f3:movmem.aex)
+$include(:f3:fill.aex)
+$include(:f3:initf.pex)
+$include(:f3:openf.pex)
+$include(:f3:tellf.pex)
+$include(:f3:backup.pex)
+$include(:f3:closef.pex)
+syntaxError: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
+wrByte: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; end;
+wrBuf: PROCEDURE(buf, len) EXTERNAL; DECLARE (buf, len) ADDRESS; end;
+$include(:f3:lookup.pex)
+$include(:f3:fiscop.pex)
+setPAGELEN: PROCEDURE(len) EXTERNAL; DECLARE len ADDRESS; end;
+setPAGEWIDTH: PROCEDURE(len) EXTERNAL; DECLARE len ADDRESS; end;
+setDate: PROCEDURE(str, len) EXTERNAL; DECLARE str ADDRESS, len BYTE; end;
+$include(:f3:ftlerr.pex)
+$include(:f3:creati.pex)
+$include(:f3:sicond.pex)
+$include(:f3:gicond.pex)
+$include(:f3:strcmp.pex)
+
+
+
+DECLARE curCh BASED curCh$p BYTE;
+
+nxtCh: PROCEDURE PUBLIC;
+	if chrClass = CC$NEWLINE then
+		return;
+	curCh$p = curCh$p + 1;
+	if curCh = CR or (offNxtCmdChM1 <> 0 and curCh = '&') then
+		chrClass = CC$NEWLINE;
+	else if (chrClass := cClass(curCh)) = CC$NONPRINT then
+		curCh = ' ';
+	if curCh >= 'a' then
+		curCh = curCh and 5fh;
+end nxtCh;
+	
+
+badCmdTail: PROCEDURE(err) PUBLIC;
+	DECLARE err BYTE;
+
+	if offNxtCmdChM1 <> 0 then
+		call fatal(.ebadTail, length(ebadTail));
+	else
+		call syntaxError(err);
+end;
+
+
+unknownCtrl: PROCEDURE PUBLIC;
+
+	if offNxtCmdChM1 <> 0 then
+		call fatal(.ebadcontrol, length(ebadcontrol));
+	else
+		call syntaxError(ERR9);
+end;
+
+
+skipWhite: PROCEDURE PUBLIC;
+	do while curCh = ' ';
+		call nxtCh;
+	end;
+end;
+
+
+skipToRPARorEOL: PROCEDURE PUBLIC;
+	do while curCh <> CR and curCh <> ')';
+		call nxtCh;
+	end;
+	if curCh = ')' then
+		call nxtCh;
+end;	
+
+acceptRPAR: PROCEDURE PUBLIC;
+	call skipWhite;
+	if curCh <> ')' then
+	do;
+		call badCmdTail(ERR12);
+		call skipToRPARorEOL;
+	end;
+	else
+		call nxtCh;
+end;
+
+accessOptStrVal: PROCEDURE local;
+	DECLARE nesting BYTE;
+	nesting = 0;
+	call skipWhite;
+	if curCh <> '(' then
+		tknLen = 0;
+	else
+	do;
+		call nxtCh;
+		optStrVal$p = curCh$p;
+		loop:
+			if chrClass = CC$NEWLINE or curCh = '''' then
+				goto done;
+			if curCh = '(' then
+				nesting = nesting + 1;
+			else if curCh = ')' then
+			do;
+				if nesting = 0 then
+					goto done;
+				nesting = nesting - 1;
+			end;
+			call nxtCh;
+			goto loop;
+		done:
+		tknLen = curCh$p - optStrVal$p;
+		call acceptRPAR;
+	end;			
+
+end accessOptStrVal;
+
+acceptFileName:	PROCEDURE local;
+	call skipWhite;
+	if curCh <> '(' then
+		tknLen = 0;
+	else
+	do;
+		call nxtCh;
+		call skipWhite;
+		optStrVal$p = curCh$p;
+		do while curCh <> ' ' and curCh <> ')' and chrClass <> CC$NEWLINE;
+			call nxtCh;
+		end;
+		tknLen = curCh$p - optStrVal$p;
+		if tknLen > 14 then
+		do;
+			call badCmdTail(ERR17);
+			tknLen = 0;
+		end;
+		else
+		do;
+			call FILL(16, .optFileName, ' ');
+			call movmem(tknLen, optStrVal$p, .optFileName);
+			optStrVal$p = .optFileName;
+			tknLen = tknLen + 1;
+		end;
+		call acceptRPAR;
+	end;
+end;
+
+
+asc2Num: PROCEDURE(firstch$p, lastch$p, radix) ADDRESS local;
+	DECLARE (firstch$p, lastch$p) ADDRESS, radix BYTE;
+	DECLARE num ADDRESS, digit BYTE, trial ADDRESS;
+	DECLARE firstch BASED firstch$p BYTE;
+	
+    if lastch$p < firstch$p or radix = 0 then
+		return 0ffffh;
+	
+    num = 0;
+    do while firstch$p <= lastch$p;
+	if cClass(firstch) <= CC$DECDIGIT then
+		digit = firstch - '0';
+	else if cClass(firstch) < CC$ALPHA then
+		digit = firstch - '7';
+	else
+		return 0ffffh;
+	if digit >= radix then
+		return 0ffffh;
+	if (trial := num * radix + digit) < digit or (num * radix + digit - digit) / radix <> num then
+		return 0ffffh;
+	num = trial;
+	firstch$p = firstch$p + 1;
+    end;
+    return num;
+end;
+
+chkRadix: PROCEDURE(p$lastch) BYTE local;
+	DECLARE p$lastch ADDRESS;
+	DECLARE lastch BASED p$lastch ADDRESS;
+	DECLARE p ADDRESS;
+	DECLARE ch BASED p BYTE;
+
+	p = lastch;
+	if cClass(ch) <= CC$DECDIGIT then
+		return 10;
+	lastch = lastch - 1;
+	if ch = 'B' then
+		return 2;
+	if ch = 'Q' or ch = 'O' then
+		return 8;
+	if ch = 'H' then
+		return 16;
+	if ch = 'D' then
+		return 10;
+	else
+		return 0;
+end;
+
+parseNum: PROCEDURE ADDRESS local;
+	DECLARE (firstch, lastch) ADDRESS;
+	DECLARE radix BYTE;
+
+	call nxtCh;
+	call skipWhite;
+	firstch = curCh$p;
+	do while chrClass <= CC$ALPHA;
+		call nxtCh;
+	end;	
+	lastch = curCh$p - 1;
+	call skipWhite;
+	radix = chkRadix(.lastch);
+	return asc2Num(firstch, lastch, radix);
+end;
+
+getOptNumVal: PROCEDURE local;
+	call skipWhite;
+	optNumValue = 0;
+	if curCh <> '(' then
+		call badCmdTail(Err11);
+	else
+	do;
+		optNumValue = parseNum;
+		call acceptRPAR;
+	end;
+end;
+
+
+getToken: PROCEDURE local;
+	optStrVal$p = curCh$p;
+	do while curCh <> ' ' and curCh <> '(' and chrClass <> CC$NEWLINE;
+		call nxtCh;
+	end;
+	tknLen = curCh$p - optStrVal$p;
+end;
+
+
+
+parseWord: PROCEDURE(maxlen) local;
+	DECLARE maxlen BYTE;
+    	DECLARE pstr(33) BYTE;
+	
+	optStrVal$p = .pstr(1);
+	tknLen = 0;
+	call skipWhite;
+	if chrClass = CC$HEXCHAR or chrClass = CC$ALPHA then
+		do while chrClass <= CC$ALPHA or chrClass = CC$DOLLAR;
+			if chrClass <> CC$DOLLAR and tknLen <= maxlen then
+			do;
+				pstr(tknLen + 1) = curCh;
+				tknLen = tknLen + 1;
+			end;
+			call nxtCh;
+		end;
+	if tknLen > maxlen then
+		pstr(0) = maxlen;
+	else
+		pstr(0) = tknLen;
+end;
+
+
+getval:	PROCEDURE local;
+	DECLARE tmp ADDRESS;
+	tmp = curCh$p - 1;
+	call parseWord(31);
+	if tknLen = 0 then
+	do;
+		curInfo$p = 0FFFFh;
+		curCh$p = tmp;
+		chrClass = 0;
+		call nxtCh;
+		return;
+	end;
+	if tknlen > 31 then
+	do;
+		tknlen = tknlen - 1;
+		call badCmdTail(ERR184);
+	end;
+	call lookup(optStrVal$p - 1);
+	if HIGH(sym.info$p) = 0FFH then	/* special */
+	do;
+		curInfo$p = 0FFFFh;
+		curCh$p = tmp;
+		chrClass = 0;
+		call nxtCh;
+		return;
+	end;
+
+	call findScopedInfo(1);
+end;
+
+
+getlogical: PROCEDURE BYTE local;
+	call parseWord(3);
+	if tknLen = 0 and chrClass = CC$NEWLINE then
+		return 0;
+	if tknLen = 2 then
+	do;
+		if strncmp(optStrVal$p, .('OR'), 2) = 0 then
+			return 1;
+	end;
+	else if tknLen = 3 then
+		if strncmp(optStrVal$p, .('AND'), 3) = 0 then
+			return 2;
+		else if strncmp(optStrVal$p, .('XOR'), 3) = 0 then
+			return 3;
+	
+	call badCmdTail(ERR185);
+	call skipToRPARorEOL;
+	return 4;
+end;
+
+
+getTest: PROCEDURE BYTE local;
+	DECLARE test BYTE;
+
+	test = 0;
+	call skipWhite;
+	if curCh = '<' then
+	do;
+		call nxtCh;
+		if curCh = '>' then
+		do;
+			call nxtCh;
+			return 6;
+		end;
+		test = 2;
+	end;
+	else if curCh = '>' then
+	do;
+		call nxtCh;
+		test = 4;
+	end;
+	if curCh = '=' then
+	do;
+		call nxtCh;
+		test = test + 1;
+	end;
+	return test;
+end;
+
+chkNot: PROCEDURE BOOLEAN local;
+	DECLARE notStatus BYTE, tmp ADDRESS;
+
+	notStatus = FALSE;
+
+	do while (1);
+		tmp = curCh$p - 1;
+		call parseWord(3);
+		if tknLen <> 3 or strncmp(optStrVal$p, .('NOT'), 3) <> 0 then
+		do;
+			curCh$p = tmp;
+			return notStatus;
+		end;
+		notStatus = not notStatus;
+	end;
+end;
+
+getIFVal: PROCEDURE ADDRESS local;
+	DECLARE val ADDRESS;
+
+	chrClass = 0;
+	call nxtCh;
+	call skipWhite;
+	if chrClass < CC$HEXCHAR then
+	do;
+		curCh$p = curCh$p - 1;
+		val = parseNum;
+		if val > 255 then
+			call badCmdTail(ERR186);
+		return low(val);
+	end;
+	else
+	do;
+		call getval;
+		if curInfo$p = 0ffffh then
+		do;
+			call badCmdTail(ERR180);
+			call skipToRPARorEOL;
+			return 256;
+		end;
+		else if curInfo$p = 0 then
+		do;
+			return 0;
+		end;
+		else
+			return getCondFlag;
+	end;
+end;
+
+parseIfCond: PROCEDURE BOOLEAN local;
+	DECLARE (andFactor, orFactor, xorFactor) BYTE;
+	DECLARE (val1, val2) ADDRESS;
+	DECLARE (relOp, not1, not2) BYTE;
+
+	andFactor = TRUE;
+	orFactor = FALSE;
+	xorFactor = FALSE;
+	
+	do while (1);
+		not1 = chkNot;
+		val1 = getIfVal;
+		if val1 > 255 then
+			return TRUE;
+		
+		relOp = getTest;
+		if relOp > 0 then
+		do;
+			not2 = chkNot;
+			val2 = getIfVal;
+			if val2 > 255 then
+				return TRUE;
+			val2 = not2 xor val2;
+			do case relOp - 1;
+			val1 = val1 = val2;
+			val1 = val1 < val2;
+			val1 = val1 <= val2;
+			val1 = val1 > val2;
+			val1 = val1 >= val2;
+			val1 = val1 <> val2;
+			end;
+		end;
+		val1 = (not1 xor val1) and andFactor;
+		andFactor = TRUE;
+		do case getlogical;
+		return (val1 or orFactor) xor xorFactor;
+		do;
+			orFactor = (val1 or orFactor) xor xorFactor; 
+			xorFactor = FALSE;
+		end;
+		andFactor = val1;
+		do;
+			xorFactor = (val1 or orFactor) xor xorFactor;
+			orFactor = FALSE;
+		end;
+		return TRUE;
+		end;
+	end;
+end;
+
+
+optPageLen: PROCEDURE local;
+	call getOptNumVal;
+	if optNumValue < 4 or optNumValue = 0FFFFH then
+		call badCmdTail(ERR91);
+	else
+		call setPAGELEN(optNumValue - 3);
+end;
+
+optPageWidth: PROCEDURE local;
+	call getOptNumVal;
+	if optNumValue < 60 or optNumValue = 0FFFFH then
+		call badCmdTail(ERR92);
+	else if optNumValue > 132 then
+		call badCmdTail(ERR92);
+	else
+		call setPAGEWIDTH(optNumValue);
+end;
+
+optDate: PROCEDURE local;
+	call accessOptStrVal;
+	call setDate(optStrVal$p, tknLen);
+end;
+
+optTitle: PROCEDURE local;
+
+	setTITLE: PROCEDURE BYTE;
+		DECLARE len BYTE;
+		call nxtCh;
+		if curCh <> '''' then
+			return 0;
+		len = 0;
+		do while 1;
+			call nxtCh;
+			if curCh = CR then
+				goto done;
+			if curCh = '''' then
+			do;
+				call nxtCh;
+				if curCh <> '''' then
+					goto done;
+			end;
+			if len <= 59 then
+			do;
+				TITLE(len) = curCh;
+				len = len + 1;
+			end;
+		end;
+	done:	if len <> 0 then
+			TITLELEN = len;
+		else
+		do;
+			TITLELEN = 1;
+			TITLE(0) = ' ';
+		end;
+		if curch <> ')' then
+			return 0;
+		else
+		do;
+			call nxtCh;
+			return TRUE;
+		end;
+	end;
+
+	call skipWhite;
+	if curCh <> '(' then
+	do;
+		call badCmdTail(ERR11);
+		return;
+	end;
+	if not setTITLE then
+	do;
+		call badCmdTail(ERR12);
+		call skipToRPARorEOL;
+	end;
+end;
+
+
+optLeftMargin:	PROCEDURE local;
+	call getOptNumVal;
+	if optNumValue = 0 then
+	do;
+		call badCmdTail(ERR12);
+		optNumValue = 1;
+	end;
+	else if optNumValue = 0FFFFh then
+	do;
+		call badCmdTail(ERR12);
+		return;
+	end;
+	LEFTMARGIN = optNumValue;
+end;
+
+optIXRef: PROCEDURE local;
+	call acceptFileName;
+	if tknLen <> 0 then
+		call initf(.ixiFile, .('IXREF '), optStrVal$p);
+	else
+		call initf(.ixiFile, .('IXREF '), .ixiFileName);
+	IXREFSet = TRUE;
+	IXREF = TRUE;
+	call openf(.ixiFile, 2);
+	ixiGiven = TRUE;
+end;
+
+optObject: PROCEDURE local;
+	call acceptFileName;
+	if tknLen <> 0 then
+		call initf(.objFile, .('OBJECT'), optStrVal$p);
+	else
+		call initf(.objFile, .('OBJECT'), .objFileName);
+	objBlk, objByte = 0;
+	OBJECT = TRUE;
+	OBJECTSet = TRUE;
+	call openf(.objFile, 2);
+	objGiven = TRUE;
+end;
+
+optInclude: PROCEDURE local;
+	call acceptFileName;
+	if tknLen = 0 then
+	do;
+		call badCmdTail(ERR15);
+		return;
+	end;
+	if optFileName(0) = ':' then
+	do;
+		if optFileName(1) <> 'F' then
+			if offNxtCmdChM1 <> 0 then
+				call fatal(.errNotDisk, length(errNotDisk));
+			else
+				call fatalError(ERR98);
+	end;
+	if srcFileIdx >= 50 then
+		call syntaxError(ERR13);
+	else
+	do;
+		call tellf(.srcFil, .srcFileTable(srcFileIdx + 8));
+		call backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+		srcFileIdx = srcFileIdx + 10;
+		call movmem(tknLen, optStrVal$p, .srcFileTable(srcFileIdx));
+		call closef(.srcFil);
+		call initf(.srcFil, .('SOURCE'), optStrVal$p);
+		call openf(.srcFil, 1);
+		ocurch = olstch;
+		call wrByte(L$INCLUDE);
+		call wrBuf(optStrVal$p + 12, 6);
+		call wrByte(L$INCLUDE);
+		call wrBuf(optStrVal$p + 6, 6);
+		call wrByte(L$INCLUDE);
+		call wrBuf(optStrVal$p, 6);
+	end;
+	call skipWhite;
+	if curCh <> CR then
+		call badCmdTail(ERR14);
+end;
+
+
+optPrint: PROCEDURE local;
+	call acceptFileName;
+	if lfOpen then
+		call badCmdTail(ERR16);
+	else
+	do;
+		if tknLen <> 0 then
+			call initf(.lstFil, .('LIST '), optStrVal$p);
+		else
+			call initf(.lstFil, .('PRINT '), .lstFileName);
+		PRINTSet = TRUE;
+	end;
+	PRINT = TRUE;
+	call openf(.lstFil, 2);
+	lstGiven = TRUE;
+end;
+
+
+optIntVector: PROCEDURE local;
+	DECLARE vecNum BYTE, vecLoc ADDRESS;
+
+	call skipWhite;
+	if curCh <> '(' then
+		call badCmdTail(ERR11);
+	else
+	do;
+		vecNum = parseNum;
+		if vecNum <> 4 and vecNum <> 8 then
+		do;
+			call badCmdTail(ERR176);
+			call skipToRPARorEOL;
+		end;
+		else if curCh <> ',' then
+		do;
+			call badCmdTail(ERR177);
+			call skipToRPARorEOL;
+		end;
+		else
+		do;
+			vecLoc = parseNum;
+			if vecLoc > 0FFE0H or vecLoc mod (vecNum * 8) <> 0 or curCh <> ')' then
+			do;
+				call badCmdTail(ERR177);
+				call skipToRPARorEOL;
+			end;
+			else
+			do;
+				call nxtCh;
+				intVecNum = vecNum;
+				intVecLoc = vecLoc;
+			end;
+		end;
+	end;
+end;
+
+acceptDrive: PROCEDURE(fname, follow) BOOLEAN local;
+	DECLARE fname ADDRESS, follow BYTE;
+	DECLARE isOK boolean;
+	DECLARE fnch BASED fname BYTE;
+
+	acceptRangeChrs: PROCEDURE(lch, hch);
+		DECLARE (lch, hch) BYTE;
+		if isOK then
+			if curch < lch or hch < curch then
+			do;
+				call badCmdTail(ERR12);
+				call skipToRPARorEOL;
+				isOK = FALSE;
+			end;
+			else
+			do;
+				fnch = curch;
+				fname = fname + 1;
+				call nxtch;
+			end;
+	end;
+	
+	isOK = TRUE;
+	call skipWhite;
+    	call acceptRangeChrs(':', ':');
+    	call acceptRangeChrs('F', 'F');
+    	call acceptRangeChrs('0', '9');
+    	call acceptRangeChrs(':', ':');
+    	call skipWhite;
+	call acceptRangeChrs(follow, follow);
+	return isOK;
+end;
+
+
+optWorkFiles: PROCEDURE local;
+	DECLARE wrkFiles1(5) BYTE, wrkFiles2(5) BYTE;
+
+	call skipWhite;
+	if curCh <> '(' then
+		call badCmdTail(ERR11);
+	else
+	do;
+		call nxtCh;
+		if not acceptDrive(.wrkFiles1, ',') then
+			return;
+		if not acceptDrive(.wrkFiles2, ')') then
+			return;
+		if tx1File.aftn <> 0 then
+			call fatal(.errWorkFiles, length(errWorkFiles));
+		call movmem(4, .wrkFiles1, .atFile.fnam);
+		call movmem(4, .wrkFiles1, .nmsFile.fnam);
+		call movmem(4, .wrkFiles1, .tx1File.fnam);
+		call movmem(4, .wrkFiles1, .xrfFile.fnam);
+		call movmem(4, .wrkFiles2, .tx2File.fnam);
+	end;
+end;
+
+optSave: PROCEDURE local;
+	if saveDepth >= 5 then
+		call badCmdTail(ERR187);
+	else
+	do;
+		saveStack(saveDepth).code = CODE;
+		saveStack(saveDepth).list = LIST;
+		saveStack(saveDepth).cond = COND;
+		saveStack(saveDepth).leftmargin = LEFTMARGIN;
+		saveDepth = saveDepth + 1;
+	end;
+end;
+
+optRestore: PROCEDURE local;
+	if saveDepth = 0 then
+		call badCmdTail(ERR188);
+	else
+	do;
+		saveDepth = saveDepth - 1;
+		CODE = saveStack(saveDepth).code;
+		LIST = saveStack(saveDepth).list;
+		COND = saveStack(saveDepth).cond;
+		LEFTMARGIN = saveStack(saveDepth).leftmargin;
+		if CODE then
+			call wrByte(L$CODE);
+		else
+			call wrByte(L$NOCODE);
+		if LIST then
+			call wrByte(L$LIST);
+		else
+			call wrByte(L$NOLIST);
+	end;
+end;
+
+
+optSetReset: PROCEDURE(isSet) local;
+	DECLARE isSet BYTE;
+	DECLARE val ADDRESS;
+
+	call skipWhite;	
+	if curCh <> '(' then
+		call badCmdTail(ERR11);
+	else 
+		do while (1);
+			call nxtCh;
+			call getval;
+			if curInfo$p = 0ffffh then
+			do;
+				call badCmdTail(ERR180);
+				call skipToRPARorEOL;
+				return;
+			end;
+			if curInfo$p = 0 then
+				call createInfo(1, TEMP$T);
+			call skipWhite;
+			if curCh = '=' and isSet then
+			do;
+				val = parseNum;
+				if val > 255 then
+				do;
+					call badCmdTail(ERR181);
+					call skipToRPARorEOL;
+					return;
+				end;
+				call setCondFlag(val);
+			end;
+			else
+				call setCondFlag(isSet);
+			if curCh <> ',' then
+			do;
+				call acceptRPAR;
+				return;
+			end;
+		end;
+end;
+
+optIf: PROCEDURE local;
+
+	ifDepth = ifDepth + 1;
+	if not parseIfCond then
+	do;
+		skippingCOND = TRUE;
+		inIFpart = TRUE;
+		skippingCONDDepth = ifDepth;
+		if not COND then
+			if LIST then
+				call wrByte(L$NOLIST);
+	end;
+end;
+
+optElseElseIf: PROCEDURE local;
+	if ifDepth = 0 then
+		call badCmdTail(ERR182);
+	else
+	do;
+		skippingCOND = TRUE;
+		inIFpart = FALSE;
+		skippingCONDDepth = ifDepth;
+		if not COND then
+			if LIST then
+				call wrByte(L$NOLIST);
+	end;
+	do while curCh <> CR;
+		call nxtCh;
+	end;
+end;
+
+
+optEndIf: PROCEDURE local;
+	if ifDepth = 0 then
+		call badCmdTail(ERR183);
+	else
+		ifDepth = ifDepth - 1;
+end;
+
+
+sub$550C: PROCEDURE local;
+
+	do case tknFlags.controlVal;
+	call optPageLen;
+	call optPageWidth;
+	call optDate;
+	call optTitle;
+	call optLeftMargin;
+	call optObject;
+	call optInclude;
+	call optPrint;
+	do;
+		PRINT = FALSE; PRINTSet = FALSE;
+	end;
+	do;
+		OBJECT = FALSE; OBJECTSet = FALSE;
+	end;
+	call optWorkFiles;
+	call optIntVector;
+	intVecNum = 0;
+	call optIXRef;
+	do;
+		IXREF = FALSE; IXREFSet = FALSE;
+	end;
+	call optSave;
+	call optRestore;
+	call optSetReset(TRUE);
+	call optSetReset(FALSE);
+	call optIf;
+	call optElseElseIf;
+	call optEndif;
+	COND = TRUE;
+	COND = FALSE;
+	end;
+end;
+
+findOption: PROCEDURE local;
+	DECLARE (off, clen) ADDRESS;
+	off = 0;
+	clen = optTable(0);	
+
+	do while clen <> 0;
+		if clen = tknLen then
+			if strncmp(optStrVal$p, .optTable(off) + 1, clen) = 0 then
+			do;
+				tknFlags$p = .optTable(off) + clen + 1;
+				return;
+			end;
+		clen = optTable(off := off + clen + 6);
+	end;
+	tknFlags$p = 0;
+end;
+
+
+skipControlParam: PROCEDURE local;
+	call skipWhite;
+	if curCh = '(' then
+	do;
+		call nxtCh;
+		call skipToRPARorEOL;
+	end;
+end;
+
+
+
+doControls: PROCEDURE local;
+	call getToken;
+	if tknLen = 0 then
+	do;
+		call badCmdTail(ERR8);
+		call skipControlParam;
+	end;
+	else
+	do;
+		call findOption;
+		if tknFlags$p = 0 then
+		do;
+			call unknownCtrl;
+			call skipControlParam;
+		end;
+		else
+		do;
+			if tknFlags.primary = 0 then
+				if isNonCtrlLine then
+				do;
+					call syntaxError(ERR10);
+					call skipControlParam;
+					return;
+				end;
+				else if primaryCtrlSeen(tknFlags.PrimaryId) then
+				do;
+					call badCmdTail(ERR95);
+					call skipControlParam;
+					return;
+				end;
+				else
+					primaryCtrlSeen(tknFlags.PrimaryId) = TRUE;
+
+			if tknFlags.controlId <> 0FFH then
+				if tknFlags.tokenId = 0 then
+					CONTROLS(tknFlags.controlId) = tknFlags.controlVal;
+				else 
+				do;
+					call wrByte(tknFlags.tokenId);
+					if tknFlags.tokenId = 5 then
+						CODE = TRUE;
+					else if tknFlags.tokenId = 6 then
+						CODE = FALSE;
+					else if tknFlags.tokenId = 3 then
+						LIST = TRUE;
+					else if tknFlags.tokenId = 4 then
+						LIST = FALSE;
+				end;
+			else
+				call sub$550C;
+		end;
+	end;
+end;
+
+do$Control: PROCEDURE(pch) public;
+	DECLARE pch ADDRESS;
+
+	curCh$p = pch;
+	chrClass = 0;
+	ixiGiven, objGiven, lstGiven = 0;
+	call nxtCh;
+
+	do while (1);
+		call skipWhite;
+		if chrClass = CC$NEWLINE then
+		do;
+			if ixiGiven then
+				call closef(.ixiFile);
+			if objGiven then
+				call closef(.objFile);
+			if lstGiven then
+				call closef(.lstFil);
+			return;
+		end;
+		call doControls;
+	end;
+end;
+
+
+doCONDcompile: PROCEDURE(pch) public;
+	DECLARE pch ADDRESS;
+
+	curCh$p = pch;
+	if curCh = '$'then
+	do;
+		chrClass = 0;
+		call nxtCh;
+		call skipWhite;
+		call getToken;
+		if tknLen = 2 and strncmp(optStrVal$p, .('IF'), 2) = 0 then
+			ifDepth = ifDepth + 1;
+		else if tknLen = 5 and strncmp(optStrVal$p, .('ENDIF'), 5) = 0 then
+		do;
+			if (ifDepth := ifDepth - 1) < skippingCONDDepth then
+				skippingCOND = FALSE;
+		end;
+		else if skippingCONDDepth = ifDepth and inIFpart then
+			if tknLen = 4 and strncmp(optStrVal$p, .('ELSE'), 4) = 0 then
+				skippingCOND = FALSE;
+			else if tknLen = 6 and strncmp(optStrVal$p, .('ELSEIF'), 6) = 0 then
+				skippingCOND = not parseIfCond;
+		if not skippingCOND then
+			if not COND then
+				if LIST then
+					call wrByte(L$LIST);
+	end;
+end;
+
+
+end;
+

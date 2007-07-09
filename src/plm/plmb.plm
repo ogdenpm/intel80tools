@@ -1,0 +1,82 @@
+PLMB: DO;
+
+declare lit literally 'literally';
+
+$include(:f3:data.inc)
+$include(:f3:flags.inc)
+$include(:f3:info.inc)
+DECLARE builtins(1) BYTE EXTERNAL,
+	keywords(1) BYTE EXTERNAL;
+
+$include(:f3:lookup.pex)
+$include(:f3:creati.pex)
+$include(:f3:sibin.pex)
+$include(:f3:sipcnt.pex)
+$include(:f3:siflag.pex)
+$include(:f3:sidtyp.pex)
+setPageNo: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end setPageNo;
+
+sub$4767: PROCEDURE PUBLIC;
+
+	installBuiltins: PROCEDURE;
+		DECLARE p ADDRESS;
+		DECLARE len BASED p BYTE;
+		DECLARE charray BASED p(1) BYTE;
+
+		p = .builtins;
+		do while len <> 0;
+			call lookup(p);
+			call createInfo(0, BUILTIN$T);
+			call setBuiltinId(charray(len + 1));
+			call setParamCnt(charray(len + 2));
+			call setDataType(charray(len + 3));
+			p = p + len +  4;
+		end;	
+		call lookup(.(6, 'MEMORY'));
+		call createInfo(0, BYTE$T);
+		call setInfoFlag(F$LABEL);
+		call setInfoFlag(F$MEMORY);
+		call setInfoFlag(F$ARRAY);
+	end installBuiltins;
+
+
+	installKeywords: PROCEDURE;
+		DECLARE p ADDRESS;
+		DECLARE pstr BASED p STRUCTURE(len BYTE, array(1) BYTE);
+	
+		p = .keywords;
+		do while pstr.len <> 0;
+			call lookup(p);
+			sym.info$p = 0FF00H or pstr.array(pstr.len);
+			p = p + pstr.len + 2;
+		end;
+	end installKeywords;
+
+
+	sub$4845: PROCEDURE;
+		DECLARE i ADDRESS;
+		DECLARE hashChains BASED hashChains$p(1) ADDRESS;
+
+		if w3C44 > w3C34 then
+			botMem = w3C44;
+		else
+			botMem = w3C34;
+		botMem = botMem + 256;
+		botSymbol = (topSymbol := (hashChains$p := topMem + 1 - DOUBLE(128)) - 1) + 1;
+		topInfo = (botInfo := botMem) + 1;
+		do i = 0 to 63;
+			hashChains(i) = 0;
+		end;
+		call setPageNo(1);
+		locallabelCnt = 0;
+		w382A = w382A + 1;
+		procChains(0), procChains(1), blockDepth = 0;
+	end sub$4845;
+
+	call sub$4845;
+	call installKeywords;
+	call installBuiltins;
+end sub$4767;
+
+
+END;

@@ -1,0 +1,63 @@
+plmd: DO;
+
+declare lit literally 'literally';
+
+$include(:f3:data.inc)
+$include(:f3:movmem.aex)
+/* use local definition for fill */
+$include(:f3:fill.aex)
+
+setDate: PROCEDURE(str, len) PUBLIC;
+	DECLARE str ADDRESS, len BYTE;
+	if len > 9 then
+		len = 9;
+	call fill(9, .DATE, ' ');
+	call movmem(len, str, .DATE);
+end setDate;
+
+
+setPageLen: PROCEDURE(len) PUBLIC;
+	DECLARE len ADDRESS;
+	PAGELEN = len;
+end setPageLen;
+
+
+setMarkerInfo: PROCEDURE(b1, b2, b3) PUBLIC;
+	DECLARE (b1, b2, b3) BYTE;
+	b3CFB = b1;
+	b3CFC = b2;
+	b3CFD = b3;
+end;
+
+setPageNo: PROCEDURE(val) PUBLIC;
+	DECLARE val ADDRESS;
+
+	pageNo = val - 1;
+end;
+
+
+setMarginAndTabW: PROCEDURE(b1, b2) PUBLIC;
+	DECLARE (b1, b2) BYTE;
+
+	margin = b1 - 1;
+	tWidth = b2;
+end;
+
+
+setTitle: PROCEDURE(str, len) PUBLIC;
+	DECLARE str ADDRESS, len BYTE;
+	if len > 60 then
+		len = 60;
+	call movmem(len, str, .TITLE);
+	TITLELEN = len;
+end setTitle;
+
+
+setPageWidth: PROCEDURE(width) PUBLIC;
+	DECLARE width ADDRESS;
+	PWIDTH = width;
+end setPageWidth;
+
+
+
+END;

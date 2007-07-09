@@ -1,0 +1,354 @@
+locate7: DO;
+$INCLUDE(ISIS.EXT)
+$INCLUDE(LOC.LIT)
+$INCLUDE(LOC1.EXT)
+$INCLUDE(LOC2A.EXT)
+$INCLUDE(LOC2B.EXT)
+$INCLUDE(LOC3.EXT)
+$INCLUDE(LOC4.EXT)
+$INCLUDE(LOC5.EXT)
+$INCLUDE(LOC6.EXT)
+/*$INCLUDE(LOC7.EXT)*/
+$INCLUDE(LOC8.EXT)
+$INCLUDE(LOC9.EXT)
+
+$INCLUDE(LOC.BAS)
+
+DECLARE erec BASED erec$p BYTE;
+
+DECLARE cin(1) BYTE EXTERNAL;
+DECLARE cout(1) BYTE EXTERNAL;
+DECLARE mdebug(1) BYTE EXTERNAL;
+DECLARE mstar2(1) BYTE EXTERNAL;
+DECLARE mto(1) BYTE EXTERNAL;
+DECLARE mtoand(1) BYTE EXTERNAL;
+
+DECLARE nxtSegOrder BYTE PUBLIC;
+
+parseLPNumRP: PROCEDURE ADDRESS PUBLIC;
+	DECLARE num ADDRESS;
+
+	CALL expectLP;
+	IF cmdCh < '0' OR '9' < cmdCh THEN	/* must have digit */
+		CALL cmdErr(ERR203);	/* invalid syntax */
+	num = parseNumber(.cmd$p);
+	IF pastFileName(cmd$p) <> cmd$p THEN	/* make sure not a filename or bad number */
+		CALL cmdErr(ERR203);	/* invalid syntax */
+	CALL expectRP;
+	RETURN num;
+END parseLPNumRP;
+
+
+getCommonTypeID: PROCEDURE BYTE PUBLIC;
+	DECLARE name(32) BYTE;
+
+	IF cmdch = '/' THEN
+		RETURN 0FFH;	/* blank common */
+	CALL getpstrName(.name);
+	name(name(0) + 1) = ' ';	/* space at end */
+	CALL iseek(0, 0);
+	CALL getRecord;		/* skip type 2 record */
+
+	DO WHILE 1;
+		CALL getRecord;
+		IF srec.type <> 2EH THEN
+			CALL errChkReport(ERR237, .name(1), 0FFH);	/* common not found */
+		DO WHILE rec$p < .erec;
+			IF strequ(.name, .t2Erec.name, name(0)+1) THEN
+				RETURN t2Erec.seg;
+			rec$p = rec$p + 2 + t2Erec.name(0);
+		END;
+	END;
+END getCommonTypeID;
+
+
+insSegIdOrder: PROCEDURE(seg) PUBLIC;
+	DECLARE seg BYTE;
+	DECLARE i BYTE;
+	nxtSegOrder = nxtSegOrder + 1;
+	IF segOrder(nxtSegOrder) = seg THEN	/* already in order */
+		RETURN;
+	DO i = 0 TO nxtSegOrder;
+		IF segOrder(i) = seg THEN	/* already allocated ? */
+			CALL cmdErr(ERR203);	/* invalid syntax */
+	END;
+	DO i = nxtSegOrder + 1 TO 254;
+		IF segOrder(i) = seg THEN
+			goto L6C93;
+	END;
+L6C93:
+	DO WHILE i > nxtSegOrder;
+		segOrder(i) = segOrder(i - 1);	/* make room for this seg */
+		i = i - 1;
+	END;
+	segOrder(nxtSegOrder) = seg;
+END insSegIdOrder;
+
+
+readCmdLine: PROCEDURE PUBLIC;
+
+	CALL read(1, cmd$p, 128, .actRead, .statusIO);
+	CALL errChkReport(statusIO, .cin, 0FFH);
+	cmdbuf(actRead) = 0DH;
+	call strupr(cmd$p);
+END readCmdLine;
+
+
+procArgs$Init: PROCEDURE PUBLIC;
+	DECLARE scmdch BASED scmd$p BYTE;
+	DECLARE (p, q) ADDRESS;
+
+	IF (pageCacheSize := HIGH(memck - baseMemImage) - 1) >= 128 THEN
+		npbuf = 4096;
+	ELSE IF pageCacheSize >= 64 THEN
+		npbuf = 2048;
+	ELSE
+		npbuf = 1056;
+
+	eibuf$p, ibuf$p = memck;
+	sibuf$p, eout$p = eibuf$p - npbuf;
+	sout$p, out$p, spbuf$p, pbuf$p, epbuf$p = eout$p - npbuf;
+	scmd$p = .MEMORY;
+	IF (usePrintBuf := pageCacheSize >= 64) THEN
+		scmd$p = sout$p;
+	scmdch = '-';
+	CALL rescan(1, .statusIO);
+	cmd$p = scmd$p + 1;
+	CALL readCmdLine;
+	cmd$p = skipspc(cmd$p);
+	IF strequ(cmd$p, .mdebug, 6) THEN
+		cmd$p = skipspc(cmd$p + 6);
+	cmd$p, q = skipspc(pastFileName(cmd$p));
+	DO WHILE cmdch <> 0DH;
+		IF cmdch = '&' THEN
+		DO;
+			p = cmd$p;
+			cmd$p = skipspc(cmd$p + 1);
+			IF cmdch <> 0DH THEN
+				CALL cmdErr(ERR203);	/* invalid syntax */
+			cmd$p = p;
+			CALL conStrOut(.mstar2, 2);
+			cmdbuf(1) = 0DH;
+			cmdbuf(2) = 0AH;
+			cmdbuf(3) = '*';
+			cmdbuf(4) = '*';
+			cmd$p = cmd$p + 5;
+			CALL readCmdLine;
+		END;
+		ELSE
+			cmd$p = cmd$p + 1;
+	END;	/* DO WHILE */
+
+	CALL constrOut(.signonMsg + 1, 23);
+	CALL constrOut(.VERSION, 4);
+	CALL constrOut(.crlf, 2);
+	IF cmd$p > sibuf$p THEN
+		CALL cmdErr(ERR210);	/* insufficient memory */
+	CALL skipWhiteSpc(q);
+	CALL checkFile;
+	IF spathInfo.deviceType <> 3 THEN
+		CALL errNotADisk;
+	CALL makeFullName(.spathInfo, .inFileName(1));
+	inFileName(0) = pastFileName(.inFileName(1)) - .inFileName(1);
+	IF strequ(cmd$p, .mto, 3) OR strequ(cmd$p, .mtoand, 3) THEN
+	DO;
+		CALL skipWhiteSpc(cmd$p + 2);
+		CALL checkFile;
+	END;
+	ELSE
+	DO;
+		IF spathInfo.ext(0) = 0 THEN
+			CALL cmdErr(ERR233);	/* TO expected */
+		spathInfo.ext(0) = 0;
+		spathInfo.ext(1) = 0;
+		spathInfo.ext(2) = 0;
+	END;
+	CALL makeFullName(.spathInfo, .outFileName(1));
+	outFileName(0) = pastFileName(.outFileName(1)) - .outFileName(1);
+	IF spathInfo.deviceType <> 3 and spathInfo.deviceId <> 22 THEN	/* 22 -> :BB: */
+		CALL errNotADisk;
+	tmpFileInfo(0) = spathInfo.deviceId;
+	CALL makefullName(.tmpFileInfo, .tmpFileName(1));
+	tmpFileName(0) = pastFileName(.tmpFileName(1)) - .tmpFileName(1);
+	isNotBB = spathInfo.deviceId <> 22;
+	CALL open(.readfd, .InFileName(1), 1, 0, .statusIO);
+	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+	recNum = 0;
+	CALL getRecord;
+	IF srec.type <> 2 THEN
+		CALL errChkReport(ERR239, .inFileName(1), 0FFH);	/* no module header record */
+	CALL pstrcpy(.cout, .printFileName);
+	columns = 1;
+	startSeen = 0;
+	stackSizeSet = 0;
+	restart0Seen = 0;
+	MapSeen = 0;
+	PublicsSeen = 0;
+	SymbolsSeen = 0;
+	LinesSeen = 0;
+	PurgeSeen = 0;
+	nameArgSeen = 0;
+	type4SubType = 0;
+	type2$b1 = 0;
+	type2$b2 = 0;
+	startAddr = 0;
+	CALL initSegOrder;
+	DO p = 0 TO 255;
+		segFlags(p) = 0;
+		segBases(p), segSizes(p) = 0;
+	END;
+	DO WHILE cmdch <> 0DH;
+		CALL processControls;
+	END;
+	havePagingFile = 0;
+	roundRobinIndex = 0;
+	pageIndexTmpFil = 0;
+	pageCacheSize = HIGH(sout$p - (pageTab1$p := pageTab2$p + 512)) - 1;
+	baseMemImage =  pageTab1$p + (pageCacheSize + 1) * 2 ;
+	DO p = 0 TO 255;
+		IF p <= pageCacheSize THEN
+			pageTab1(p).state = 0FFH;
+		pageTab2(p).state = 0FFH;
+		pageTab2(p).fpage = 0FFH;
+	END;
+
+	IF usePrintBuf THEN
+		spbuf$p, pbuf$p = epbuf$p - npbuf;
+	topHeap, topDescriptor, botHeap = spbuf$p;
+	pageCacheSize = HIGH(botHeap - baseMemImage) - 1;
+	CALL delete(.outFileName(1), .statusIO);
+	CALL open(.outputfd, .outFilename(1), 3, 0, .statusIO);
+	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
+	CALL open(.printfd, .printFileName(1), 2, 0, .statusIO);
+	CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+	IF printfd > 0 THEN
+	DO;
+		CALL printString(.signonMsg, 24);
+		CALL printString(.VERSION, 4);
+		CALL printString(.aInvokedBY, 14);
+		CALL printString(.scmdch, cmd$p - .scmdch + 2);
+	END;
+END procArgs$Init;
+
+DECLARE aInpageSegment2(*) BYTE PUBLIC INITIAL('INPAGE SEGMENT > 256 BYTES COERCED TO PAGE BOUNDRY', 0DH, 0AH),
+	segId BYTE PUBLIC,
+	pad7935(3) BYTE PUBLIC;
+
+alignAddress: PROCEDURE(align, size, laddr) ADDRESS PUBLIC;
+	DECLARE align BYTE;
+	DECLARE (size, laddr) ADDRESS;
+	IF size = 0 THEN
+		RETURN laddr;
+
+	IF align = 3 THEN
+		RETURN laddr;
+	IF align = 1 THEN
+		IF size <= 256 THEN
+		DO;
+			IF HIGH(laddr) = HIGH(laddr + size - 1) THEN
+				RETURN laddr;
+		END;
+		ELSE    /* inpage seg > 256 coerced to page boundary */
+			CALL conAndPrint(.aInpageSegment2, 52);	
+	RETURN (laddr + 0FFH) AND 0FF00H;	/* get a whole page */
+END alignAddress;
+
+
+procRec2: PROCEDURE PUBLIC;
+	DECLARE rbyt BASED rec$p (1) BYTE;
+	DECLARE sdef BASED rec$p STRUCTURE (segId BYTE, len ADDRESS, combine BYTE, next BYTE);
+	DECLARE (loadAddress, segSize, segOrderId) ADDRESS;
+	DECLARE (atTopOfMem, loadHasSize) BYTE;
+
+	IF NOT nameArgSeen THEN
+		CALL pstrcpy(rec$p, .nameArg);
+	rec$p = rec$p + rbyt(0) + 1;	/* past name */
+	type2$b1 = rbyt(0);
+	type2$b2 = rbyt(1);
+	rec$p = rec$p + 2;
+	loadHasSize = 0;
+	DO WHILE rec$p < .erec;
+		IF (segFlags(segId := sdef.segId) AND 0FH) <> 0 THEN
+			CALL illegalRecord;
+		IF segId <> 3 THEN
+			segSizes(segId) = sdef.len;
+		ELSE IF NOT stackSizeSet THEN
+			stackSize = sdef.len;
+		IF segSizes(segId) > 0 THEN
+			loadHasSize = 0FFH;
+		IF sdef.combine - 1 > 2 THEN
+			CALL illegalRecord;
+		segFlags(segId) = segFlags(segId) + sdef.combine;
+		rec$p = .sdef.next;
+	END;
+	IF (segFlags(3) AND 0FH) = 0 THEN
+		segFlags(3) = segFlags(3) + 3;	/* set low bits to 3 */
+	IF (segFlags(4) AND 0FH) = 0 THEN
+		segFlags(4) = segFlags(4) + 3;	/* set low bits to 3 */
+	IF NOT stackSizeSet AND loadHasSize THEN
+		stackSize = stackSize + 12;
+	loadAddress = 3680H;				/* ISIS load address */
+	atTopOfMem = 0;
+
+	DO segOrderId = 1 TO 254;
+		segid = segOrder(segOrderId);
+		segSize = segSizes(segId);	/* pick up seg to process */
+		IF (segFlags(segId) AND 80H) = 0 THEN
+		DO;
+			IF atTopOfMem <> 0 THEN
+			DO;
+				IF segSize > 0 THEN	/* program exceeds 64k */
+					CALL errChkReport(ERR240, .inFileName(1), 0FFH);
+				segFlags(segId) = segFlags(segId) OR 40H;
+			END;
+		END;
+		ELSE
+		DO;					/* common */
+			IF segSize > 0 THEN
+				atTopOfMem = 0;
+			loadAddress = segBases(segId);
+		END;
+		segBases(segId) = alignAddress(segFlags(segId) AND 0FH, segSize, loadAddress);
+		IF segId = 4 THEN
+			IF segSize = 0 AND loadHasSize THEN
+				IF atTopOfMem = 0 AND memck > MemoryBase(0) THEN
+					MemorySize(0), segSize = memck - MemoryBase(0);
+		IF (loadAddress := segBases(segId) + segSize) < segBases(segId) THEN
+			IF loadAddress = 0 THEN
+				atTopOfMem = 40H;
+			ELSE
+				CALL errChkReport(ERR240, .inFileName(1), 0FFH);  /* exceeds 64k */
+	END; 
+	stackAddr = stackAddr + stackSize;	/* stack goes down so update top */
+	CALL getRecord;
+END procRec2;
+
+
+procRec2E: PROCEDURE PUBLIC;
+	DO WHILE rec$p < .erec;
+		IF (segId := t2Erec.seg) < 6 OR segId = 0FFH THEN
+			CALL illegalRecord;
+		IF ((segFlags(segId) AND 0FH) = 0) OR ((segFlags(segId) AND 10H) <> 0)THEN
+			CALL illegalRecord;
+		segFlags(segId) = segFlags(segId) OR 10H;
+		rec$p = rec$p + 2 + t2Erec.name(0);		/* past byte, len, string */
+	END;
+	CALL getRecord;
+END procRec2E;
+
+
+procHeader: PROCEDURE PUBLIC;
+	CALL iseek(0, 0);
+	CALL getRecord;
+	CALL procRec2;
+
+	DO WHILE srec.type = 2EH;
+		CALL procRec2E;
+	END;
+	DO segId = 6 TO 254;	
+		IF ((segFlags(segId) AND 0FH) <> 0) AND ((segFlags(segId) AND 10H) = 0) THEN
+			CALL badRecordSeq;
+	END;
+END procHeader;
+
+END locate7;
