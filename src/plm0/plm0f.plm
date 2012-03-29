@@ -93,6 +93,12 @@ sub$6F00: PROCEDURE public;
 		localLabelCnt = localLabelCnt + 1;
 	end;
 
+	/*
+		collect labels (max 9)
+		looks for Variable ':'
+		sybmol references stored in stmtLabels array
+		count is in stmtLabelCnt
+	*/
 	parseStmtLabels: PROCEDURE;
 		stmtLabelCnt = 0;
 		
@@ -105,7 +111,7 @@ sub$6F00: PROCEDURE public;
 			if yylexMatch(T$COLON) then
 			do;
 				if stmtLabelCnt = 9 then
-					call tokenErrorAt(ERR30);
+					call tokenErrorAt(ERR30);	/* LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT */
 						/* LIMIT EXCEEDED: NUMBER OF LABELS ON STATEMENT */
 				else
 					stmtLabelCnt = stmtLabelCnt + 1;
@@ -173,7 +179,7 @@ sub$6F00: PROCEDURE public;
 				if curInfo$p <> 0 then		/* already seen at this scope */
 				do;
 					if testInfoFlag(F$LABEL) then
-						call tokenError(ERR33, curSymbol$p);
+						call tokenError(ERR33, curSymbol$p);	/* DUPLICATE LABEL DECLARATION */
 							/* DUPLICATE LABEL DECLARATION */
 					else
 					do;

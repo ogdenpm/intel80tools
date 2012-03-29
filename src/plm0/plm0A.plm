@@ -224,7 +224,7 @@ fatalError: PROCEDURE(err) PUBLIC;
 	hasErrors = TRUE;
 	if state <> 20 then
 	do;
-		if err = ERR83 then
+		if err = ERR83 then	/* LIMIT EXCEEDED: DYNAMIC STORAGE */
 			call fatal(.aDynamicStorage, length(aDynamicStorage));
 		call fatal(.aUnknownErr, length(aUnknownErr));
 	end;
@@ -237,7 +237,7 @@ pushBlock: PROCEDURE(idAndLevel) PUBLIC;
 	DECLARE idAndLevel ADDRESS;
 
 	if blockDepth = 34 then
-		call fatalError(ERR84);
+		call fatalError(ERR84);	/* LIMIT EXCEEDED: BLOCK NESTING */
 	else
 	do;
 		procChains(blockDepth := blockDepth + 1) = idAndlevel;
@@ -248,7 +248,7 @@ end pushBlock;
 popDO:	PROCEDURE PUBLIC;
 	DECLARE procDW BASED curProcData ADDRESS;
 	if blockDepth = 0 then
-		call fatalError(ERR96);
+		call fatalError(ERR96);	/* COMPILER ERROR: SCOPE STACK UNDERFLOW */
 	else
 	do;
 		curBlkCnt = curBlkCnt - 1;
@@ -261,7 +261,7 @@ end popDO;
 wrOprAndValue:	PROCEDURE PUBLIC;
 	if tok2oprMap(tokenType) = L$INVALID then
 	do;
-		call tokenErrorAt(ERR171);
+		call tokenErrorAt(ERR171);	/* INVALID USE OF DELIMITER OR RESERVED WORD IN EXPRESSION */
 		return;
 	end;
 	call wrByte(tok2oprMap(tokenType));

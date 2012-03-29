@@ -149,7 +149,7 @@ unknownCtrl: PROCEDURE PUBLIC;
 	if offNxtCmdChM1 <> 0 then
 		call fatal(.ebadcontrol, length(ebadcontrol));
 	else
-		call syntaxError(ERR9);
+		call syntaxError(ERR9);	/* INVALID CONTROL */
 end;
 
 
@@ -172,7 +172,7 @@ acceptRPAR: PROCEDURE PUBLIC;
 	call skipWhite;
 	if curCh <> ')' then
 	do;
-		call badCmdTail(ERR12);
+		call badCmdTail(ERR12);	/* INVALID CONTROL PARAMETER */
 		call skipToRPARorEOL;
 	end;
 	else
@@ -224,7 +224,7 @@ acceptFileName:	PROCEDURE local;
 		tknLen = curCh$p - optStrVal$p;
 		if tknLen > 14 then
 		do;
-			call badCmdTail(ERR17);
+			call badCmdTail(ERR17);	/* INVALID PATH-NAME */
 			tknLen = 0;
 		end;
 		else
@@ -364,7 +364,7 @@ getval:	PROCEDURE local;
 	if tknlen > 31 then
 	do;
 		tknlen = tknlen - 1;
-		call badCmdTail(ERR184);
+		call badCmdTail(ERR184);	/* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
 	end;
 	call lookup(optStrVal$p - 1);
 	if HIGH(sym.info$p) = 0FFH then	/* special */
@@ -395,7 +395,7 @@ getlogical: PROCEDURE BYTE local;
 		else if strncmp(optStrVal$p, .('XOR'), 3) = 0 then
 			return 3;
 	
-	call badCmdTail(ERR185);
+	call badCmdTail(ERR185);	/* MISSING OPERATOR IN CONDITIONAL COMPILATION EXPRESSION */
 	call skipToRPARorEOL;
 	return 4;
 end;
@@ -457,7 +457,7 @@ getIFVal: PROCEDURE ADDRESS local;
 		curCh$p = curCh$p - 1;
 		val = parseNum;
 		if val > 255 then
-			call badCmdTail(ERR186);
+			call badCmdTail(ERR186);	/* INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE */
 		return low(val);
 	end;
 	else
@@ -465,7 +465,7 @@ getIFVal: PROCEDURE ADDRESS local;
 		call getval;
 		if curInfo$p = 0ffffh then
 		do;
-			call badCmdTail(ERR180);
+			call badCmdTail(ERR180);	/* MISSING OR INVALID CONDITIONAL COMPILATION PARAMETER */
 			call skipToRPARorEOL;
 			return 256;
 		end;
@@ -532,7 +532,7 @@ end;
 optPageLen: PROCEDURE local;
 	call getOptNumVal;
 	if optNumValue < 4 or optNumValue = 0FFFFH then
-		call badCmdTail(ERR91);
+		call badCmdTail(ERR91);	/* ILLEGAL PAGELENGTH CONTROL VALUE */
 	else
 		call setPAGELEN(optNumValue - 3);
 end;
@@ -540,9 +540,9 @@ end;
 optPageWidth: PROCEDURE local;
 	call getOptNumVal;
 	if optNumValue < 60 or optNumValue = 0FFFFH then
-		call badCmdTail(ERR92);
+		call badCmdTail(ERR92);	/* ILLEGAL PAGEWIDTH CONTROL VALUE */
 	else if optNumValue > 132 then
-		call badCmdTail(ERR92);
+		call badCmdTail(ERR92);	/* ILLEGAL PAGEWIDTH CONTROL VALUE */
 	else
 		call setPAGEWIDTH(optNumValue);
 end;
@@ -595,12 +595,12 @@ optTitle: PROCEDURE local;
 	call skipWhite;
 	if curCh <> '(' then
 	do;
-		call badCmdTail(ERR11);
+		call badCmdTail(ERR11);	/* MISSING CONTROL PARAMETER */
 		return;
 	end;
 	if not setTITLE then
 	do;
-		call badCmdTail(ERR12);
+		call badCmdTail(ERR12);	/* INVALID CONTROL PARAMETER */
 		call skipToRPARorEOL;
 	end;
 end;
@@ -610,12 +610,12 @@ optLeftMargin:	PROCEDURE local;
 	call getOptNumVal;
 	if optNumValue = 0 then
 	do;
-		call badCmdTail(ERR12);
+		call badCmdTail(ERR12);	/* INVALID CONTROL PARAMETER */
 		optNumValue = 1;
 	end;
 	else if optNumValue = 0FFFFh then
 	do;
-		call badCmdTail(ERR12);
+		call badCmdTail(ERR12);	/* INVALID CONTROL PARAMETER */
 		return;
 	end;
 	LEFTMARGIN = optNumValue;
@@ -650,7 +650,7 @@ optInclude: PROCEDURE local;
 	call acceptFileName;
 	if tknLen = 0 then
 	do;
-		call badCmdTail(ERR15);
+		call badCmdTail(ERR15);	/* MISSING INCLUDE CONTROL PARAMETER */
 		return;
 	end;
 	if optFileName(0) = ':' then
@@ -659,10 +659,10 @@ optInclude: PROCEDURE local;
 			if offNxtCmdChM1 <> 0 then
 				call fatal(.errNotDisk, length(errNotDisk));
 			else
-				call fatalError(ERR98);
+				call fatalError(ERR98);	/* INCLUDE FILE IS NOT A DISKETTE FILE */
 	end;
 	if srcFileIdx >= 50 then
-		call syntaxError(ERR13);
+		call syntaxError(ERR13);	/* LIMIT EXCEEDED: INCLUDE NESTING */
 	else
 	do;
 		call tellf(.srcFil, .srcFileTable(srcFileIdx + 8));
@@ -682,14 +682,14 @@ optInclude: PROCEDURE local;
 	end;
 	call skipWhite;
 	if curCh <> CR then
-		call badCmdTail(ERR14);
+		call badCmdTail(ERR14);	/* INVALID CONTROL FORMAT, INCLUDE NOT LAST CONTROL */
 end;
 
 
 optPrint: PROCEDURE local;
 	call acceptFileName;
 	if lfOpen then
-		call badCmdTail(ERR16);
+		call badCmdTail(ERR16);	/* ILLEGAL PRINT CONTROL */
 	else
 	do;
 		if tknLen <> 0 then
@@ -709,18 +709,18 @@ optIntVector: PROCEDURE local;
 
 	call skipWhite;
 	if curCh <> '(' then
-		call badCmdTail(ERR11);
+		call badCmdTail(ERR11);	/* MISSING CONTROL PARAMETER */
 	else
 	do;
 		vecNum = parseNum;
 		if vecNum <> 4 and vecNum <> 8 then
 		do;
-			call badCmdTail(ERR176);
+			call badCmdTail(ERR176);	/* INVALID INTVECTOR INTERVAL VALUE */
 			call skipToRPARorEOL;
 		end;
 		else if curCh <> ',' then
 		do;
-			call badCmdTail(ERR177);
+			call badCmdTail(ERR177);	/* INVALID INTVECTOR LOCATION VALUE */
 			call skipToRPARorEOL;
 		end;
 		else
@@ -728,7 +728,7 @@ optIntVector: PROCEDURE local;
 			vecLoc = parseNum;
 			if vecLoc > 0FFE0H or vecLoc mod (vecNum * 8) <> 0 or curCh <> ')' then
 			do;
-				call badCmdTail(ERR177);
+				call badCmdTail(ERR177);	/* INVALID INTVECTOR LOCATION VALUE */
 				call skipToRPARorEOL;
 			end;
 			else
@@ -751,7 +751,7 @@ acceptDrive: PROCEDURE(fname, follow) BOOLEAN local;
 		if isOK then
 			if curch < lch or hch < curch then
 			do;
-				call badCmdTail(ERR12);
+				call badCmdTail(ERR12);	/* INVALID CONTROL PARAMETER */
 				call skipToRPARorEOL;
 				isOK = FALSE;
 			end;
@@ -780,7 +780,7 @@ optWorkFiles: PROCEDURE local;
 
 	call skipWhite;
 	if curCh <> '(' then
-		call badCmdTail(ERR11);
+		call badCmdTail(ERR11);	/* MISSING CONTROL PARAMETER */
 	else
 	do;
 		call nxtCh;
@@ -800,7 +800,7 @@ end;
 
 optSave: PROCEDURE local;
 	if saveDepth >= 5 then
-		call badCmdTail(ERR187);
+		call badCmdTail(ERR187);	/* LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5 */
 	else
 	do;
 		saveStack(saveDepth).code = CODE;
@@ -813,7 +813,7 @@ end;
 
 optRestore: PROCEDURE local;
 	if saveDepth = 0 then
-		call badCmdTail(ERR188);
+		call badCmdTail(ERR188);	/* MISPLACED RESTORE OPTION */
 	else
 	do;
 		saveDepth = saveDepth - 1;
@@ -839,14 +839,14 @@ optSetReset: PROCEDURE(isSet) local;
 
 	call skipWhite;	
 	if curCh <> '(' then
-		call badCmdTail(ERR11);
+		call badCmdTail(ERR11);	/* MISSING CONTROL PARAMETER */
 	else 
 		do while (1);
 			call nxtCh;
 			call getval;
 			if curInfo$p = 0ffffh then
 			do;
-				call badCmdTail(ERR180);
+				call badCmdTail(ERR180);	/* MISSING OR INVALID CONDITIONAL COMPILATION PARAMETER */
 				call skipToRPARorEOL;
 				return;
 			end;
@@ -858,7 +858,7 @@ optSetReset: PROCEDURE(isSet) local;
 				val = parseNum;
 				if val > 255 then
 				do;
-					call badCmdTail(ERR181);
+					call badCmdTail(ERR181);	/* MISSING OR INVALID CONDITIONAL COMPILATION CONSTANT */
 					call skipToRPARorEOL;
 					return;
 				end;
@@ -890,7 +890,7 @@ end;
 
 optElseElseIf: PROCEDURE local;
 	if ifDepth = 0 then
-		call badCmdTail(ERR182);
+		call badCmdTail(ERR182);	/* MISPLACED ELSE OR ELSEIF OPTION */
 	else
 	do;
 		skippingCOND = TRUE;
@@ -908,7 +908,7 @@ end;
 
 optEndIf: PROCEDURE local;
 	if ifDepth = 0 then
-		call badCmdTail(ERR183);
+		call badCmdTail(ERR183);	/* MISPLACED ENDIF OPTION */
 	else
 		ifDepth = ifDepth - 1;
 end;
@@ -983,7 +983,7 @@ doControls: PROCEDURE local;
 	call getToken;
 	if tknLen = 0 then
 	do;
-		call badCmdTail(ERR8);
+		call badCmdTail(ERR8);	/* INVALID CONTROL FORMAT */
 		call skipControlParam;
 	end;
 	else
@@ -999,13 +999,13 @@ doControls: PROCEDURE local;
 			if tknFlags.primary = 0 then
 				if isNonCtrlLine then
 				do;
-					call syntaxError(ERR10);
+					call syntaxError(ERR10);	/* ILLEGAL USE OF PRIMARY CONTROL AFTER NON-CONTROL LINE */
 					call skipControlParam;
 					return;
 				end;
 				else if primaryCtrlSeen(tknFlags.PrimaryId) then
 				do;
-					call badCmdTail(ERR95);
+					call badCmdTail(ERR95);	/* ILLEGAL RESPECIFICATION OF PRIMARY CONTROL IGNORED */
 					call skipControlParam;
 					return;
 				end;

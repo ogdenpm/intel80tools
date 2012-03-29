@@ -143,7 +143,7 @@ yylex: PROCEDURE public;
 					do;
 						if not errored then
 						do;
-							call tokenErrorAt(ERR5);
+							call tokenErrorAt(ERR5);	/* INVALID CHARACTER IN NUMERIC CONSTANT */
 							errored = TRUE;
 						end;
 						ch = 0;
@@ -153,7 +153,7 @@ yylex: PROCEDURE public;
 
 				if (trial := tokenVal * radix + ch) < tokenVal then
 				do;
-				    call tokenErrorAt(ERR94);
+				    call tokenErrorAt(ERR94);	/* ILLEGAL CONSTANT, VALUE > 65535 */
 				    return;
 				end;
 				tokenVal = trial;
@@ -176,7 +176,7 @@ yylex: PROCEDURE public;
 				call str2num(10, .decValidate);
 			else
 			do;
-				call tokenErrorAt(ERR4);
+				call tokenErrorAt(ERR4);	/* ILLEGAL NUMERIC CONSTANT TYPE */
 				tokenVal = 0;
 			end;
 		end;
@@ -188,7 +188,7 @@ yylex: PROCEDURE public;
 		tmp = getLitAddr + 2;	
 		call wrXrefUse;
 		if macroDepth = 10 then
-			call tokenErrorAT(ERR7);	
+			call tokenErrorAT(ERR7);	/* LIMIT EXCEEDED: MACROS NESTED TOO DEEPLY */
 		else
 		do;
 			call setType(7);
@@ -216,7 +216,7 @@ yylex: PROCEDURE public;
 			end;
 			else if getType = MACRO$T then
 			do;
-				call tokenErrorAt(ERR6);
+				call tokenErrorAt(ERR6);	/* ILLEGAL MACRO REFERENCE, RECURSIVE EXPANSION */
 				return FALSE;
 			end;
 	    end;
@@ -235,7 +235,7 @@ yylex: PROCEDURE public;
 		    call gnxtch;
 		else if curOff > maxlen then
 		do;
-		    call tokenErrorAt(ERR3);
+		    call tokenErrorAt(ERR3);	/* IDENTIFIER, STRING, OR NUMBER TOO LONG, TRUNCATED */
 		    do while ct <= CC$ALPHA or lastch = '$';
 			call gnxtch;
 			ct = cClass(lastch);
@@ -279,7 +279,7 @@ yylex: PROCEDURE public;
 						toolong = TRUE;
 						if lastch = ';' then
 						do;
-							call tokenErrorAt(ERR85);
+							call tokenErrorAt(ERR85);	/* LONG STRING ASSUMED CLOSED AT NEXT SEMICOLON OR QUOTE */
 							goto L5F4E;
 						end;
 					end;
@@ -301,9 +301,9 @@ yylex: PROCEDURE public;
 	l5F4E:
 	    tokenStr(0) = curOff - 1;
 	    if tokenStr(0) = 0 then
-			call tokenErrorAt(ERR189);
+			call tokenErrorAt(ERR189);	/* LONG STRING ASSUMED CLOSED AT NEXT SEMICOLON OR QUOTE */
 	    if toolong then
-			call tokenErrorAt(ERR3);
+			call tokenErrorAt(ERR3);	/* IDENTIFIER, STRING, OR NUMBER TOO LONG, TRUNCATED */
 	end;
 
 
@@ -394,11 +394,11 @@ yylex: PROCEDURE public;
 				return;
 			end;
 			do;	/* $, !, ", #, %, &, ?, @, [, \, ], ^, $, `, {, |, end;, ~ */
-				call tokenErrorAt(ERR1);
+				call tokenErrorAt(ERR1);	/* INVALID PL/M-80 CHARACTER */
 				call gnxtch;
 			end;
 			do;	/* non white space control chars and DEL */
-				call tokenErrorAt(ERR2);
+				call tokenErrorAt(ERR2);	/* UNPRINTABLE ASCII CHARACTER */
 				call gnxtch;
 			end;
 			end;
@@ -424,16 +424,18 @@ setYyAgain: PROCEDURE public;
 	yyAgain = TRUE;
 end;
 
-
+/*
+	look for matching token
+*/
 yylexMatch: PROCEDURE(token) BOOLEAN public;
 	DECLARE token BYTE;
 
-    call yylex;
+    call yylex;			/* get the token to check */
     if tokenType = token then
 		return TRUE;
     else
     do;
-	    call setYyAgain;
+	    call setYyAgain;	/* not matching but push back */
 	    return FALSE;
     end;
 end;
@@ -464,7 +466,7 @@ sub$60F9: PROCEDURE;
 		else if tokenType = T$SEMICOLON or
 				(tokenType >= T$CALL and tokenType <= T$RETURN)  then
 		do;
-			call tokenErrorAt(ERR82);
+			call tokenErrorAt(ERR82);	/* INVALID SYNTAX, MISMATCHED '(' */
 			do while i <> 0;
 				call wrByte(L$RPAREN);
 				i = i - 1;
@@ -492,6 +494,11 @@ L61CB:
 end;
 
 
+/*
+	error recovery to ) or end of statement
+	skip to ; or
+		) unless inside nested ()
+*/
 sub$61CF: PROCEDURE;
 	DECLARE i ADDRESS;
 
@@ -506,14 +513,18 @@ sub$61CF: PROCEDURE;
 				goto L6216;
 			else
 				i = i - 1;
-		call yylex;
+		call yylex;	/* get next token */
 	end;
 L6216:
-	call setYyAgain;
+	call setYyAgain;	/* push back token */
 end;
 
 
-
+/*
+	error recovery to next element in parameter list
+	skip to ; or
+		) or , unless inside nested ()
+*/
 sub$621A: PROCEDURE;
 	DECLARE i ADDRESS;
 	i = 0;
@@ -530,10 +541,10 @@ sub$621A: PROCEDURE;
 				goto L6278;
 			else
 				i = i - 1;
-		call yylex;
+		call yylex;	/* get next token */
 	end;
 L6278:
-	call setYyAgain;
+	call setYyAgain;	/* push back token */
 end;
 
 
@@ -571,14 +582,14 @@ parseDcl: PROCEDURE public;
 	chkModuleLevel: PROCEDURE;	/* 62C2 */
 
 		if scope <> 100H then
-			call tokenErrorAt(ERR73);
+			call tokenErrorAt(ERR73);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 	end;
 
 	chkNotArray: PROCEDURE;	/* 62D5 */
 
 		if testFlag(.dclFlags, F$ARRAY) then
 		do;
-			call tokenErrorAt(ERR63);
+			call tokenErrorAt(ERR63);	/* INVALID DIMENSION WITH THIS ATTRIBUTE */
 			call clrFlag(.dclFlags, F$ARRAY);
 			call clrFlag(.dclFlags, F$STARDIM);
 			arrayDim = 0;
@@ -590,7 +601,7 @@ parseDcl: PROCEDURE public;
 
 		if testFlag(.dclFlags, F$STARDIM) then
 		do;
-			call tokenErrorAt(ERR62);
+			call tokenErrorAt(ERR62);	/* INVALID STAR DIMENSION WITH 'STRUCTURE' OR 'EXTERNAL' */
 			call clrFlag(.dclFlags, F$STARDIM);
 			arrayDim = 1;
 		end;
@@ -638,20 +649,20 @@ parseDcl: PROCEDURE public;
 					cFlags = cFlags or dclFlags(i);
 				end;
 				if cFlags <> 0 then
-					call sub$62B0(ERR76);
+					call sub$62B0(ERR76);	/* CONFLICTING ATTRIBUTE WITH PARAMETER */
 				if dclType <> 2 and dclType <> 3 then
-					call sub$62B0(ERR79);
+					call sub$62B0(ERR79);	/* ILLEGAL PARAMETER TYPE, NOT BYTE OR ADDRESS */
 				else
 					call setType(dclType);
 				if declaringBase <> 0 then
 				do;
-					call sub$62B0(ERR77);
+					call sub$62B0(ERR77);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
 					declaringBase = 0;
 				end;
 			end;
 			else
 			do;
-			    call sub$62B0(ERR78);
+			    call sub$62B0(ERR78);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
 			    return;
 			end;
 		end;
@@ -665,14 +676,14 @@ parseDcl: PROCEDURE public;
 		if dclType = 0 then
 		do;
 			if declaringBase <> 0 then
-			    call sub$62B0(ERR81);
+			    call sub$62B0(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
 			call setLitaddr(lastLit);
 			return;
 		end;
 		else if dclType = 1 then
 		do;
 			if declaringBase <> 0 then
-			    call sub$62B0(ERR80);
+			    call sub$62B0(ERR80);	/* INVALID DECLARATION, LABEL MAY NOT BE BASED */
 			if testInfoFlag(F$EXTERNAL) then
 			    call setInfoFlag(F$LABEL);
 			return;
@@ -685,7 +696,7 @@ parseDcl: PROCEDURE public;
 				    or testInfoFlag(F$AT) or testInfoFlag(F$INITIAL)
 				    or testInfoFlag(F$DATA) then
 				do;
-				    call sub$62B0(ERR81);
+				    call sub$62B0(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
 				    declaringBase = 0;
 				end;
 				else
@@ -723,11 +734,14 @@ parseDcl: PROCEDURE public;
 		end;
 	end;
 
+	/*
+		parse AT, DATA or INITIAL argument
+	*/
 	sub$65FA: PROCEDURE(lexItem, locflag);
 		DECLARE (lexitem, locflag) BYTE;
 
 		if testFlag(.dclFlags, F$EXTERNAL) then
-			call tokenErrorAt(ERR41);
+			call tokenErrorAt(ERR41);	/* CONFLICTING ATTRIBUTE */
 		if yylexMatch(T$LPAREN) then
 		do;
 			call wrByte(lexItem);
@@ -739,7 +753,7 @@ parseDcl: PROCEDURE public;
 			call sub$60F9;
 		end;
 		else
-			call tokenErrorAt(ERR75);
+			call tokenErrorAt(ERR75)	/* MISSING ARGUMENT OF 'AT' , 'DATA' , OR 'INITIAL' */
 	end;
 
 
@@ -754,7 +768,7 @@ parseDcl: PROCEDURE public;
 			call sub$65FA(L$DATA, F$DATA);
 		else if testFlag(.dclFlags, F$STARDIM) then
 		do;
-			call tokenErrorAt(ERR74);
+			call tokenErrorAt(ERR74);	/* INVALID STAR DIMENSION, NOT WITH 'DATA' OR 'INITIAL' */
 			call clrFlag(.dclFlags, F$STARDIM);
 			arrayDim = 1;
 		end;
@@ -791,7 +805,7 @@ parseDcl: PROCEDURE public;
 			type = 2;
 			if yylexMatch(T$STRUCTURE) then
 			do;
-				call tokenErrorAt(ERR70);
+				call tokenErrorAt(ERR70);	/* INVALID MEMBER TYPE, 'STRUCTURE' ILLEGAL */
 				if yylexMatch(T$LPAREN) then
 				do;
 					call sub$61CF;
@@ -799,9 +813,9 @@ parseDcl: PROCEDURE public;
 				end;
 			end;
 			else if yylexMatch(T$LABEL) then
-				call tokenErrorAt(ERR71);
+				call tokenErrorAt(ERR71);	/* INVALID MEMBER TYPE, 'LABEL' ILLEGAL */
 			else
-				call tokenErrorAt(ERR72);
+				call tokenErrorAt(ERR72);	/* MISSING TYPE FOR STRUCTURE MEMBER */
 		end;
 		structMemType(structMCnt) = type;
 	end;
@@ -816,21 +830,21 @@ parseDcl: PROCEDURE public;
 			else if yylexMatch(T$STAR) then
 			do;
 				dim = 1;
-				call tokenErrorAt(ERR69);
+				call tokenErrorAt(ERR69);	/* INVALID STAR DIMENSION WITH STRUCTURE MEMBER */
 			end;
 			else
 			do;
 				dim = 1;
-				call tokenErrorAt(ERR59);
+				call tokenErrorAt(ERR59);	/* ILLEGAL DIMENSION ATTRIBUTE */
 			end;
 			if dim = 0 then
 			do;
 				dim = 1;
-				call tokenErrorAt(ERR57);
+				call tokenErrorAt(ERR57);	/* ILLEGAL DIMENSION ATTRIBUTE */
 			end;
 			if yylexNotMatch(T$RPAREN) then
 			do;
-				call tokenErrorAt(ERR60);
+				call tokenErrorAt(ERR60);	/* MISSING ') ' AT END OF DIMENSION */
 				call sub$61CF;
 				call yylex;
 			end;
@@ -843,15 +857,15 @@ parseDcl: PROCEDURE public;
 		DECLARE mcnt BYTE;
 
 		if yylexNotMatch(T$VARIABLE) then
-			call tokenErrorAt(ERR66);
+			call tokenErrorAt(ERR66);	/* INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER */
 		else
 		do;
 			do mcnt = 1 to structMCnt;
 				if curSymbol$p = structMembers(mcnt) then
-					call tokenErrorAt(ERR67);
+					call tokenErrorAt(ERR67);	/* DUPLICATE STRUCTURE MEMBER NAME */
 			end;
 			if structMCnt = 32 then
-				call tokenErrorAt(ERR68);
+				call tokenErrorAt(ERR68);	/* LIMIT EXCEEDED: NUMBER OF STRUCTURE MEMBERS */
 			else
 				structMCnt = structMCnt + 1;
 			structMembers(structMCnt) = curSymbol$p;
@@ -865,7 +879,7 @@ parseDcl: PROCEDURE public;
 	parseStructMem: PROCEDURE;
 		structMCnt = 0;
 		if yylexNotMatch(T$LPAREN) then
-			call tokenErrorAt(ERR64);
+			call tokenErrorAt(ERR64);	/* MISSING STRUCTURE MEMBERS */
 		else
 		do;
 			do while 1;
@@ -876,7 +890,7 @@ parseDcl: PROCEDURE public;
 			exit:
 			if yylexNotMatch(T$RPAREN) then
 			do;
-				call tokenErrorAt(ERR65);
+				call tokenErrorAt(ERR65);	/* MISSING ') ' AT END OF STRUCTURE MEMBER LIST */
 				call sub$61CF;
 				call yylex;
 			end;
@@ -901,7 +915,7 @@ parseDcl: PROCEDURE public;
 		end;
 		else
 		do;
-			call tokenErrorAt(ERR61);
+			call tokenErrorAt(ERR61);	/* MISSING TYPE */
 			dclType = 2;
 		end;
 	end;
@@ -914,7 +928,7 @@ parseDcl: PROCEDURE public;
 			do;
 				if tokenVal = 0 then
 				do;
-					call tokenErrorAt(ERR57);
+					call tokenErrorAt(ERR57);	/* INVALID DIMENSION, ZERO ILLEGAL */
 					arrayDim = 1;
 				end;
 				else
@@ -924,7 +938,7 @@ parseDcl: PROCEDURE public;
 			do;
 				if declNameCnt > 1 then
 				do;
-					call tokenErrorAt(ERR58);
+					call tokenErrorAt(ERR58);	/* INVALID STAR DIMENSION IN FACTORED DECLARATION */
 					arrayDim = 1;
 				end;
 				else
@@ -932,12 +946,12 @@ parseDcl: PROCEDURE public;
 			end;
 			else
 			do;
-				call tokenErrorAt(ERR59);
+				call tokenErrorAt(ERR59);	/* ILLEGAL DIMENSION ATTRIBUTE */
 				arrayDim = 1;
 			end;
 			if yylexNotMatch(T$RPAREN) then
 			do;
-				call tokenErrorAt(ERR60);
+				call tokenErrorAt(ERR60);	/* MISSING ') ' AT END OF DIMENSION */
 				call sub$61CF;
 				call yylex;
 			end;
@@ -956,7 +970,7 @@ parseDcl: PROCEDURE public;
 	parseLiterally: PROCEDURE;
 		if yylexNotMatch(T$STRING) then
 		do;
-			call tokenErrorAt(ERR56);
+			call tokenErrorAt(ERR56);	/* INVALID MACRO TEXT, NOT A STRING CONSTANT */
 			tokenStr(0) = 1;
 			tokenStr(1) = ' ';
 		end;
@@ -981,7 +995,7 @@ parseDcl: PROCEDURE public;
 
 		basedInfo = 0;
 		if yylexNotMatch(T$VARIABLE) then
-			call tokenErrorAt(ERR52);
+			call tokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES */
 		else 
 		do;
 			base1Name = curSymbol$p;
@@ -990,7 +1004,7 @@ parseDcl: PROCEDURE public;
 					base2Name = curSymbol$p;
 				else 
 				do;
-					call tokenErrorAt(ERR53);
+					call tokenErrorAt(ERR53);	/* INVALID STRUCTURE MEMBER IN BASE */
 					return;
 				end;
 			else
@@ -999,7 +1013,7 @@ parseDcl: PROCEDURE public;
 			call findInfo;
 			if curInfo$p = 0 then
 			do;
-				call tokenErrorAt(ERR54);
+				call tokenErrorAt(ERR54);	/* UNDECLARED BASE */
 				return;
 			end;
 			call wrXrefUse;
@@ -1011,7 +1025,7 @@ parseDcl: PROCEDURE public;
 				call findMemberInfo;
 				if curInfo$p = 0 then
 				do;
-					call tokenErrorAt(ERR55);
+					call tokenErrorAt(ERR55);	/* UNDECLARED STRUCTURE MEMBER IN BASE */
 					return;
 				end;
 				call wrXrefUse;
@@ -1023,11 +1037,11 @@ parseDcl: PROCEDURE public;
 
 	sub$6A68: PROCEDURE;
 		if yylexNotMatch(T$VARIABLE) then
-			call tokenErrorAt(ERR48);
+			call tokenErrorAt(ERR48);	/* ILLEGAL DECLARATION STATEMENT SYNTAX */
 		else
 		do;
 			if declNameCnt = 32 then
-				call tokenErrorAt(ERR49);
+				call tokenErrorAt(ERR49);	/* LIMIT EXCEEDED: NUMBER OF ITEMS IN FACTORED DECLARE */
 			else
 				declNameCnt = declNameCnt + 1;
 
@@ -1047,7 +1061,7 @@ parseDcl: PROCEDURE public;
 					curInfo$p = basedInfo;
 					if testInfoFlag(F$BASED) or testInfoFlag(F$ARRAY) or getType <> ADDRESS$T then
 					do; 
-						call tokenErrorAt(ERR50);
+						call tokenErrorAt(ERR50);	/* INVALID ATTRIBUTES FOR BASE */
 						basedInfo = 0;
 					end;
 					else if testInfoFlag(F$MEMBER) then
@@ -1055,7 +1069,7 @@ parseDcl: PROCEDURE public;
 						curInfo$p = getParentOffset;
 						if testInfoFlag(F$ARRAY) or testInfoFlag(F$BASED) then
 						do;
-							call tokenErrorAt(ERR52);
+							call tokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES */
 							basedInfo = 0;
 						end;
 					end;
@@ -1080,7 +1094,7 @@ parseDcl: PROCEDURE public;
 			exit:
 			if yylexNotMatch(T$RPAREN) then
 			do;
-				call tokenErrorAt(ERR47);
+				call tokenErrorAt(ERR47);	/* MISSING ') ' AT END OF FACTORED DECLARATION */
 				call sub$61CF;
 				call yylex;
 			end;
@@ -1089,7 +1103,7 @@ parseDcl: PROCEDURE public;
 			call sub$6A68;
 	end;
 	if stmtLabelCnt <> 0 then
-		call syntaxError(ERR46);
+		call syntaxError(ERR46);	/* ILLEGAL USE OF LABEL */
 	do while 1;
 		call getDclNames;
 		if declNameCnt <> 0 then
@@ -1107,11 +1121,11 @@ parseProcDcl: PROCEDURE public;
 
 	setPublic: PROCEDURE;
 		if getScope <> 100h then
-			call tokenErrorAt(ERR39);
+			call tokenErrorAt(ERR39);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 		else if testInfoFlag(F$PUBLIC) then
-			call tokenErrorAt(ERR40);
+			call tokenErrorAt(ERR40);	/* DUPLICATE ATTRIBUTE */
 		else if testInfoFlag(F$EXTERNAL) then
-			call tokenErrorAt(ERR41);
+			call tokenErrorAt(ERR41);	/* CONFLICTING ATTRIBUTE */
 		else
 			call setInfoFlag(F$PUBLIC);
 	end;
@@ -1120,11 +1134,11 @@ parseProcDcl: PROCEDURE public;
 	setExternal: PROCEDURE;
 
 		if getScope <> 100H then
-			call tokenErrorAt(ERR39);
+			call tokenErrorAt(ERR39);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 		else if testInfoFlag(F$EXTERNAL) then
-			call tokenErrorAt(ERR40);	
+			call tokenErrorAt(ERR40);	/* DUPLICATE ATTRIBUTE */
 		else if testInfoFlag(F$REENTRANT) or testInfoFlag(F$PUBLIC) then
-			call tokenErrorAt(ERR41);
+			call tokenErrorAt(ERR41);	/* CONFLICTING ATTRIBUTE */
 		else
 			call setInfoFlag(F$EXTERNAL);
 	end;
@@ -1132,11 +1146,11 @@ parseProcDcl: PROCEDURE public;
 	setReentrant: PROCEDURE;
 
 		if getScope <> 100h then
-			call tokenErrorAt(ERR39);
+			call tokenErrorAt(ERR39);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 		else if testInfoFlag(F$REENTRANT) then
-			call tokenErrorAt(ERR40);
+			call tokenErrorAt(ERR40);	/* DUPLICATE ATTRIBUTE */
 		else if testInfoFlag(F$EXTERNAL) then
-			call tokenErrorAt(ERR41);
+			call tokenErrorAt(ERR41);	/* CONFLICTING ATTRIBUTE */
 		else
 			call setInfoFlag(F$REENTRANT);
 	end;
@@ -1147,25 +1161,25 @@ parseProcDcl: PROCEDURE public;
 		do;
 			if tokenVal > 255 then
 			do;
-				call tokenErrorAt(ERR42);
+				call tokenErrorAt(ERR42);	/* INVALID INTERRUPT VALUE */
 				tokenVal = 0;
 			end;
 		end;
 		else 
 		do;
-			call tokenErrorAt(ERR43);
+			call tokenErrorAt(ERR43);	/* MISSING INTERRUPT VALUE */
 			tokenVal = 0;
 		end;
 		if getScope <> 100h then
-			call tokenErrorAt(ERR39);
+			call tokenErrorAt(ERR39);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 		else if testInfoFlag(F$INTERRUPT) then
-			call tokenErrorAt(ERR40);
+			call tokenErrorAt(ERR40);	/* DUPLICATE ATTRIBUTE */
 		else if hasParams then
-			call tokenErrorAt(ERR44);
+			call tokenErrorAt(ERR44);	/* ILLEGAL ATTRIBUTE, 'INTERRUPT' WITH PARAMETERS */
 		else if getDataType <> 0 then
-			call tokenErrorAt(ERR45);
+			call tokenErrorAt(ERR45);	/* ILLEGAL ATTRIBUTE, 'INTERRUPT' WITH TYPED PROCEDURE */
 		else if testInfoFlag(F$EXTERNAL) then
-			call tokenErrorAt(ERR41);
+			call tokenErrorAt(ERR41);	/* CONFLICTING ATTRIBUTE */
 		else
 		do;
 			call setInfoFlag(F$INTERRUPT);
@@ -1207,7 +1221,7 @@ parseProcDcl: PROCEDURE public;
 
 	    call findScopedInfo(scope);
 	    if curInfo$p <> 0 then
-			call tokenErrorAt(ERR38);
+			call tokenErrorAt(ERR38);	/* DUPLICATE PARAMETER NAME */
 	    call createInfo(scope, BYTE$T);
 	    call wrXrefDef;
 	    call setInfoFlag(F$PARAMETER);
@@ -1225,7 +1239,7 @@ parseProcDcl: PROCEDURE public;
 					call sub$6E4B;
 				else
 				do;
-					call tokenErrorAt(ERR36);
+					call tokenErrorAt(ERR36);	/* MISSING PARAMETER */
 					call sub$621A;
 				end;
 				if yylexNotMatch(T$COMMA) then
@@ -1234,7 +1248,7 @@ parseProcDcl: PROCEDURE public;
 		exit:	
 			if yylexNotMatch(T$RPAREN) then
 			do;
-				call tokenErrorAt(ERR37);
+				call tokenErrorAt(ERR37);	/* MISSING ') ' AT END OF PARAMETER LIST */
 				call sub$61CF;
 				call yylex;
 			end;
@@ -1250,12 +1264,12 @@ parseProcDcl: PROCEDURE public;
 	curSymbol$p = stmtLabels(1);
 	call findScopedInfo(scope);
 	if curInfo$p <> 0 then
-		call syntaxError(ERR34);
+		call syntaxError(ERR34);	/* DUPLICATE PROCEDURE DECLARATION */
 	call createInfo(scope, PROC$T);
 	call setInfoFlag(F$LABEL);
 	call wrXrefDef;
 	if procCnt = 254 then
-		call fatalError(ERR35);
+		call fatalError(ERR35);	/* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
 	procInfo(procCnt := procCnt + 1) = curInfo$p;
 	curProcId = procCnt;
 	curProcInfo$p = curInfo$p;
@@ -1283,7 +1297,7 @@ parseProcDcl: PROCEDURE public;
 	do;
 		curInfo$p = tmp;
 		if testInfoFlag(F$REENTRANT) then
-			call syntaxError(ERR88);
+			call syntaxError(ERR88);	/* INVALID PROCEDURE NESTING, ILLEGAL IN REENTRANT PROCEDURE */
 		curInfo$p = curProcInfo$p;
 	end;
 end;
