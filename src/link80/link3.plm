@@ -8,8 +8,8 @@ DECLARE
 	doMap BYTE EXTERNAL,
 	moduleName(32) BYTE EXTERNAL,
 	isMain BYTE EXTERNAL,
-	type2b1 BYTE EXTERNAL,
-	type2b2 BYTE EXTERNAL,
+	type2x1 BYTE EXTERNAL,
+	type2x2 BYTE EXTERNAL,
 	entrySeg BYTE EXTERNAL,
 	entryAddr ADDRESS EXTERNAL,
 	segSizes(6) ADDRESS EXTERNAL,
@@ -65,7 +65,7 @@ DECLARE	a$types(*) BYTE INITIAL(' AIPB');
 DECLARE byte$6238(6) BYTE,
 	segToUse BYTE INITIAL(254),
 	byte$623F BYTE INITIAL(0FFH),
-	b1b2notset BYTE INITIAL(0FFH),
+	x1b2notset BYTE INITIAL(0FFH),
 	segInfo$p ADDRESS INITIAL(0),
 	segLists(6) ADDRESS,
 	block$p ADDRESS,
@@ -95,8 +95,8 @@ DECLARE	pageTab2 BASED pageTab2$p (1) STRUCTURE (state BYTE, fpage BYTE);
 DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
 /*DECLARE	sout BASED sout$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE); */
 DECLARE t02arec BASED rec$p STRUCTURE (name(1) BYTE);
-DECLARE t02brec BASED rec$p STRUCTURE (b1 BYTE, b2 BYTE);
-DECLARE t02crec BASED rec$p STRUCTURE (seg BYTE, size ADDRESS, align BYTE);
+DECLARE t02brec BASED rec$p STRUCTURE (x1 BYTE, x2 BYTE);
+DECLARE t02crec BASED rec$p STRUCTURE (seg BYTE, segsize ADDRESS, align BYTE);
 DECLARE	t4rec BASED rec$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS);
 /* DECLARE	t4out BASED out$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS); */
 DECLARE	t6rec BASED rec$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
@@ -132,7 +132,7 @@ DECLARE t2Arec BASED rec$p STRUCTURE (pubname(1) BYTE);	/* repeated 0 length end
 DECLARE t2Crec BASED rec$p STRUCTURE (unk ADDRESS, blk ADDRESS, byt ADDRESS);
 DECLARE	t2Erec BASED rec$p STRUCTURE (seg BYTE, name(1) BYTE);
 
-DECLARE segInfo BASED segInfo$p(1) STRUCTURE (flag BYTE, size ADDRESS);
+DECLARE segInfo BASED segInfo$p(1) STRUCTURE (flag BYTE, segsize ADDRESS);
 DECLARE symbol BASED symbol$p
 	STRUCTURE (link ADDRESS, flag BYTE, seg BYTE, offset ADDRESS, nxtUnres ADDRESS, name(1) BYTE);
 DECLARE citem BASED citem$p
@@ -495,7 +495,7 @@ sub$4F65: PROCEDURE PUBLIC;
 		IF segInfo(curseg).flag <> 0 THEN
 			CALL illegalRecord;
 		segInfo(curseg).flag = byte$625E;
-		segInfo(curseg).size = word$6261;
+		segInfo(curseg).segsize = word$6261;
 	END;
 END sub$4F65;
 
@@ -577,7 +577,7 @@ sub$52A9: PROCEDURE(arg1b) BYTE PUBLIC;
 		IF byte$623F THEN
 			CALL illegalRecord;
 		IF segInfo(arg1b).flag = 255 THEN
-			RETURN segInfo(arg1b).size;
+			RETURN segInfo(arg1b).segsize;
 		IF segInfo(arg1b).flag <> 0 THEN
 			CALL badRecordSeq;
 		CALL illegalRecord;
@@ -594,16 +594,16 @@ procrec02: PROCEDURE PUBLIC;
 		RETURN;
 
 	rec$p = rec$p + t02arec.name(0) + 1;	/* past module name */
-	IF b1b2notset THEN
+	IF x1b2notset THEN
 	DO;
-		b1b2notset = 0;
-		type2b1 = t02brec.b1;
-		type2b2 = t02brec.b2;
+		x1b2notset = 0;
+		type2x1 = t02brec.x1;
+		type2x2 = t02brec.x2;
 	END;
-	IF t02brec.b1 <> type2b1 THEN
-		type2b1 = 0;
-	IF t02brec.b2 <> type2b2 THEN
-		type2b2 = 0;
+	IF t02brec.x1 <> type2x1 THEN
+		type2x1 = 0;
+	IF t02brec.x2 <> type2x2 THEN
+		type2x2 = 0;
 	rec$p = rec$p + 2;
 	module.scode = segSizes(1);
 	module.sdata = segSizes(2);
@@ -615,7 +615,7 @@ procrec02: PROCEDURE PUBLIC;
 	DO WHILE rec$p < .erec;
 		IF (byte$625E := t02crec.align) - 1 > 2 THEN
 			CALL illegalRecord;
-		word$6261 = t02crec.size;
+		word$6261 = t02crec.segsize;
 		IF (curseg := t02crec.seg) >= 6 THEN
 			CALL sub$4F65;
 		ELSE
@@ -699,10 +699,10 @@ procrec2E: PROCEDURE PUBLIC;
 		DO;
 			IF citem.align <> 3 OR segInfo(curSeg).flag <> 3 THEN
 				citem.align = 2;
-			IF citem.csize <> segInfo(curseg).size THEN
+			IF citem.csize <> segInfo(curseg).segsize THEN
 			DO;
-				IF segInfo(curseg).size > citem.csize THEN
-					citem.csize = segInfo(curseg).size;
+				IF segInfo(curseg).segsize > citem.csize THEN
+					citem.csize = segInfo(curseg).segsize;
 				CALL writeAndEcho(.slash2, 1);
 				CALL writeAndEcho(.citem.name(1), citem.name(0));
 				CALL sub$3918(.msgbadcom, 27H);
@@ -719,13 +719,13 @@ procrec2E: PROCEDURE PUBLIC;
 			citem.seg = segToUse;
 			segToUse = segToUse - 1;
 			CALL pstrcpy(.t2Erec.name, .citem.name);
-			citem.csize = segInfo(curseg).size;
+			citem.csize = segInfo(curseg).segsize;
 			citem.link2 = wrd;
 			wrd = .citem.link;
 			word$6255 = .citem.link2;
 		END; /* ELSE */
 		segInfo(curseg).flag = 0FFH;
-		segInfo(curseg).size = citem.seg;
+		segInfo(curseg).segsize = citem.seg;
 		rec$p = rec$p + 2 + t2Erec.name(0);
 	END;	/* DO WHILE */
 END procrec2E;

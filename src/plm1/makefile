@@ -21,61 +21,55 @@ OBJ =	main1.obj plm1a.obj plm1b.obj plm1c.obj plm1d.obj plm1e.obj plm1f.obj\
 
 
 # common makefile info
-ISIS=..\..\isis
+ISIS=..\..\thames
 PLMDIR=..\..\plm80v4
 ASMDIR=..\..\plm80v4
 OLDPLMDIR=..\..\plm80v3
 
 .SUFFIXES: .plm .pl3
 .plm.obj:
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	@SET :F3:=..\common
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	@SET ISIS_F3=..\common
 	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
-	@SET :F0:=.
-	@SET :F1:=$(OLDPLMDIR)
-	@SET :F3:=..\common
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(OLDPLMDIR)
+	@SET ISIS_F3=..\common
 	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .asm.obj:
-	@SET :F0:=.
-	@SET :F1:=$(ASMDIR)
-	@SET :F3:=..\common
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(ASMDIR)
+	@SET ISIS_F3=..\common
 	$(ISIS) :F1:ASM80 $(<:../common/=:F3:) 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
 
 $(TARGET): ../common/data.abs $(OBJ::f3:=../common/)
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	@SET :F3:=..\common
-	$(ISIS) < <<
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	@SET ISIS_F3=..\common
 !IF "$(TARGET)" == "plm80"
-:F1:LINK :f3:data.abs,&
+	$(ISIS) :F1:LINK :f3:data.abs, "&" < <<
 !ELSE
-:F1:LINK publics(:f3:data.abs),&
+	$(ISIS) :F1:LINK publics(:f3:data.abs), "&" < <<
 !ENDIF
 $(OBJ: =,&
 ),:f1:plm80.lib TO $*.rel
-:F1:LOCATE $*.rel to $@ print($*.map) code(3EA0H) name($(NAME))&
-stacksize($(STACK)) map symbols publics purge
-exit
 <<NOKEEP
+	$(ISIS) :F1:LOCATE $*.rel to $@ print($*.map) code(3EA0H) name($(NAME)) stacksize($(STACK)) map symbols publics purge
 	@del $*.rel
 	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
 
 ../common/data.abs: ../common/data.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	@SET :F3:=..\common
-	$(ISIS) < <<
-:F1:locate :f3:data.obj to :f3:data.abs SYMBOLS PUBLICS DATA(3800H) print(:f3:data.map)
-exit
-<<NOKEEP
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	@SET ISIS_F3=..\common
+	$(ISIS) :F1:locate :f3:data.obj to :f3:data.abs SYMBOLS PUBLICS DATA(3800H) print(:f3:data.map)
 	@if not exist $@ exit /b 1
 
 clean:

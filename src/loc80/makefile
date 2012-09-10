@@ -1,4 +1,4 @@
-ISIS=..\..\isis
+ISIS=..\..\thames
 PLMDIR=..\..\plm80v4
 ASMDIR=..\..\plm80v4
 OLDPLMDIR=..\..\plm80v3
@@ -6,20 +6,20 @@ OLDPLMDIR=..\..\plm80v3
 # compilation and assembly rules
 .SUFFIXES: .plm .pl3
 .plm.obj:
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
 	$(ISIS) :F1:PLM80 $< code
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
-	@SET :F0:=.
-	@SET :F1:=$(OLDPLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(OLDPLMDIR)
 	$(ISIS) :F1:PLM80 $< code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .asm.obj:
-	@SET :F0:=.
-	@SET :F1:=$(ASMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(ASMDIR)
 	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
@@ -34,28 +34,26 @@ HICODE=6656H
 # locate build rules
 # default target
 locate: loctmp.abs $(HIGHOBJ)
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link $(**: =,&
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link "&" < <<
+$(**: =,&
 ),:f1:system.lib,:f1:plm80.lib to $*.rel
-:F1:locate $*.rel to locate MAP PRINT($*.map) SYMBOLS PUBLICS STACKSIZE(0) CODE($(HICODE)) PURGE
-exit
 <<NOKEEP
+	$(ISIS) :F1:locate $*.rel to locate MAP PRINT($*.map) SYMBOLS PUBLICS STACKSIZE(0) CODE($(HICODE)) PURGE
 	@del $*.rel $*.abs
 	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
 
 # intermediate target - note will have unsatisfied externals see also HICODE above
 loctmp.abs: $(LOWOBJ)
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
 	echo $(**: =,)
-	$(ISIS) < <<
-:F1:link $(**: =,&
+	$(ISIS) :F1:link "&" < <<
+$(**: =,&
 ),:f1:plm80.lib to $*.rel 
-:F1:locate $*.rel to $@ STACKSIZE(6CH) map print(loctmp.map)
-exit
 <<NOKEEP
+	$(ISIS) :F1:locate $*.rel to $@ STACKSIZE(6CH) map print(loctmp.map)
 	@del $*.rel
 	@if not exist $@ exit /b 1
 
