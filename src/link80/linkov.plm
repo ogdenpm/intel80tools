@@ -46,7 +46,7 @@ DECLARE readfd ADDRESS EXTERNAL,
 	entryAddr ADDRESS EXTERNAL,
 	segSizes(6) ADDRESS EXTERNAL,
 	alignType(6) BYTE EXTERNAL,
-	byte$45F6(256) BYTE EXTERNAL,
+	segmap(256) BYTE EXTERNAL,
 	baseHeap ADDRESS EXTERNAL,
 	topHeap ADDRESS EXTERNAL,
 	srec$p ADDRESS EXTERNAL,
@@ -180,7 +180,7 @@ DECLARE t02arec BASED rec$p STRUCTURE (name(1) BYTE);
 DECLARE t02aout BASED out$p STRUCTURE (name(1) BYTE);
 DECLARE t02bout BASED out$p STRUCTURE (x1 BYTE, x2 BYTE);
 DECLARE t02cout BASED out$p STRUCTURE (seg BYTE, size ADDRESS, align BYTE, nxt BYTE);
-DECLARE	t4out BASED out$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS);
+DECLARE	t4out BASED out$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS);
 DECLARE	t6out BASED out$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
 DECLARE	t8arec BASED rec$p STRUCTURE (seg BYTE);
 DECLARE	t8brec BASED rec$p STRUCTURE (addr ADDRESS, line ADDRESS);
@@ -329,8 +329,8 @@ extendRec: PROCEDURE(cnt) BYTE PUBLIC;
 END extendRec;
 
 
-emit02: PROCEDURE PUBLIC;
-	emit02seginfo: PROCEDURE(seg, size, align);
+emit$MODHDR: PROCEDURE PUBLIC;
+	emit$MODHDR$seginfo: PROCEDURE(seg, size, align);
 		DECLARE (seg, align) BYTE, size ADDRESS;
 
 		IF extendRec(4) THEN
@@ -339,7 +339,7 @@ emit02: PROCEDURE PUBLIC;
 		t02cout.size = size;
 		t02cout.align = align;
 		out$p = .t02cout.nxt;
-	END emit02seginfo;
+	END emit$MODHDR$seginfo;
 
 	CALL initRecord(2);
 	CALL pstrcpy(.moduleName, .t02aout.name);
@@ -349,40 +349,40 @@ emit02: PROCEDURE PUBLIC;
 	out$p = out$p + 2;
 	DO segIdx = 1 TO 4;
 		IF segSizes(segIdx) > 0 THEN
-			CALL emit02seginfo(segIdx, segSizes(segIdx), alignType(segIdx));
+			CALL emit$MODHDR$seginfo(segIdx, segSizes(segIdx), alignType(segIdx));
 	END;
 	IF segSizes(0) > 0 THEN
-		CALL emit02seginfo(0FFH, segSizes(0), alignType(0));
+		CALL emit$MODHDR$seginfo(0FFH, segSizes(0), alignType(0));
 
 	citem$p = headCitem;
 	DO WHILE citem$p > 0;
-		CALL emit02seginfo(citem.seg, citem.csize, citem.align);
+		CALL emit$MODHDR$seginfo(citem.seg, citem.csize, citem.align);
 		citem$p = citem.link2;
 	END;
 	CALL endRecord;
-END emit02;
+END emit$MODHDR;
 
 
 
 
 
-emit04: PROCEDURE PUBLIC;
+emit$MODEND: PROCEDURE PUBLIC;
 	CALL initRecord(4);
-	t4out.subtype = isMain;
-	t4out.segtype = entrySeg;
-	t4out.addr = entryAddr;
+	t4out.modtype = isMain;
+	t4out.segid = entrySeg;
+	t4out.offset = entryAddr;
 	out$p = out$p + 4;
 	CALL endRecord;
-	CALL initRecord(0EH);
+	CALL initRecord(R$EOF);
 	CALL endRecord;
 	CALL flushTo;
-END emit04;
+END emit$MODEND;
 
 
-emit2E: PROCEDURE PUBLIC;
+emit$COMDEF: PROCEDURE PUBLIC;
 	IF headCitem = 0 THEN
 		RETURN;
-	CALL initRecord(2EH);
+	CALL initRecord(R$COMDEF);
 	citem$p = headCitem;
 	DO WHILE citem$p > 0;
 		IF extendRec(DOUBLE(2) + citem.name(0)) THEN
@@ -393,15 +393,15 @@ emit2E: PROCEDURE PUBLIC;
 		citem$p = citem.link2;
 	END;
 	CALL endRecord;
-END emit2E;
+END emit$COMDEF;
 
 
-emit16: PROCEDURE PUBLIC;
+emit$PUBLICS: PROCEDURE PUBLIC;
 	DECLARE obuf BASED out$p (1) BYTE;
 	DO segIdx = 0 TO 255;
-		IF byte$45F6(segIdx) THEN
+		IF segmap(segIdx) THEN		/* seg used */
 		DO;
-			CALL initRecord(16H);
+			CALL initRecord(R$PUBLICS);
 			t16aout.seg = segIdx;
 			out$p = out$p + 1;
 			curObjFile = objFileHead;
@@ -431,15 +431,15 @@ emit16: PROCEDURE PUBLIC;
 			CALL endRecord;
 		END;
 	END;
-END emit16;
+END emit$PUBLICS;
 
 
-emit18: PROCEDURE PUBLIC;
+emit$EXTNAMES: PROCEDURE PUBLIC;
 	DECLARE buf BASED out$p(1) BYTE;
 
 	IF headunres = 0 THEN
 		RETURN;
-	CALL initRecord(18H);
+	CALL initRecord(R$EXTNAMES);
 	unresolved = 0;
 	symbol$p = headunres;
 	DO WHILE symbol$p > 0;
@@ -453,54 +453,54 @@ emit18: PROCEDURE PUBLIC;
 		symbol$p = symbol.nxtUnres;
 	END;
 	CALL endRecord;
-END emit18;
+END emit$EXTNAMES;
 
 
-emit10: PROCEDURE PUBLIC;
+emit$ANCESTOR: PROCEDURE PUBLIC;
 	IF modNameValid THEN
 	DO;
-		CALL initRecord(10H);
+		CALL initRecord(R$ANCESTOR);
 		CALL pstrcpy(.modName, .t10out.name);
 		out$p = out$p + modName(0) + 1;
 		CALL endRecord;
 		modNameValid = 0;
 	END;
-END emit10;
+END emit$ANCESTOR;
 
 
 sub$4F99: PROCEDURE(seg) BYTE PUBLIC;
 	DECLARE seg BYTE;
-	relocOffset = 0;
+	relocOffset = 0;		/* only code and data modules are relative to module location */
 	IF seg = 1 THEN
 		relocOffset = module.scode;
 	ELSE IF seg = 2 THEN
 		relocOffset = module.sdata;
-	return byte$45F6(seg);
+	return segmap(seg);		/* return seg mapping */
 END sub$4F99;
 
 
-pass2$02: PROCEDURE PUBLIC;
+pass2$MODHDR: PROCEDURE PUBLIC;
 	CALL pstrcpy(.t02arec.name, .modName);
 	modNameValid = 0FFH;
 	DO segId = 0 TO 255;
-		byte$45F6(segId) = segId;
+		segmap(segId) = segId;
 	END;
 	CALL getRecord;
-END pass2$02;
+END pass2$MODHDR;
 
 
-pass2$2E: PROCEDURE PUBLIC;
+pass2$COMDEF: PROCEDURE PUBLIC;
 	DO WHILE rec$p < .erec;
 		IF NOT find(.t2Erec.name, .citem$p, 0FH) THEN
 			CALL fatalErr(ERR219);	/* Phase error */
-		byte$45F6(t2Erec.seg) = citem.seg;
+		segmap(t2Erec.seg) = citem.seg;
 		rec$p = rec$p + 2 + t2Erec.name(0);
 	END;
 	CALL getRecord;
-END pass2$2E;
+END pass2$COMDEF;
 
 
-pass2$18: PROCEDURE PUBLIC;
+pass2$EXTNAMES: PROCEDURE PUBLIC;
 	DO WHILE rec$p < .erec;
 		IF NOT find(rec$p, .symbol$p, 0F0H) THEN
 			CALL fatalErr(ERR219);	/* phase error */
@@ -514,10 +514,10 @@ pass2$18: PROCEDURE PUBLIC;
 		rec$p = rec$p + 2 + t18rec.name(0);
 	END;
 	CALL getRecord;
-END pass2$18;
+END pass2$EXTNAMES;
 
 
-pass2$06: PROCEDURE PUBLIC;
+pass2$CONTENT: PROCEDURE PUBLIC;
 	DECLARE (newseg, crc) BYTE;
 	DECLARE (savedOut$p, savedRecLen, segModBase, t6saddr, t6eaddr, bytes2Read, p) ADDRESS;
 	DECLARE (headextern$p, headfixup$p, fixup$p, symfixup$p, markheap) ADDRESS;
@@ -598,8 +598,8 @@ pass2$06: PROCEDURE PUBLIC;
 	t6out.addr = t6saddr + segModBase;
 	markheap = allocUp(0);
 
-	DO WHILE srec.type = 20H OR srec.type = 22H OR srec.type = 24H;
-		IF srec.type = 20H THEN
+	DO WHILE srec.type = R$EXTREF OR srec.type = R$RELOC OR srec.type = R$INTERSEG;
+		IF srec.type = R$EXTREF THEN
 		DO;
 			IF (fixType := t20arec.fixtype) - 1 > 2 THEN
 				CALL illegalRecord;
@@ -636,7 +636,7 @@ pass2$06: PROCEDURE PUBLIC;
 		DO;
 			segIdx = newseg;
 			relocOffset = segModBase;
-			IF srec.type = 24H THEN
+			IF srec.type = R$INTERSEG THEN
 			DO;
 				segIdx = sub$4F99(t24arec.seg);
 				rec$p = rec$p + 1;
@@ -666,7 +666,7 @@ pass2$06: PROCEDURE PUBLIC;
 	CALL endRecord;
 	fixup$p = headextern$p;
 	DO WHILE fixup$p > 0;
-		CALL initRecord(20H);
+		CALL initRecord(R$EXTREF);
 		t20aout.fixtype = LOW(fixup.typeAndSeg);
 		out$p = out$p + 1;
 		symfixup$p = fixup.symlist;
@@ -686,7 +686,7 @@ pass2$06: PROCEDURE PUBLIC;
 	END;
 	fixup$p = headfixup$p;
 	DO WHILE fixup$p > 0;
-		CALL initRecord(24H);
+		CALL initRecord(R$INTERSEG);
 		t24aout.seg = HIGH(fixup.typeAndSeg);
 		t24aout.fixtype = LOW(fixup.typeAndSeg);
 		out$p = out$p + 2;
@@ -710,11 +710,11 @@ pass2$06: PROCEDURE PUBLIC;
 
 
 
-END pass2$06;
+END pass2$CONTENT;
 
 
-pass2$08: PROCEDURE PUBLIC;
-	CALL emit10;
+pass2$LINENO: PROCEDURE PUBLIC;
+	CALL emit$ANCESTOR;
 	CALL initRecord(8);
 	t8aout.seg = sub$4F99(t8arec.seg);
 	out$p = out$p + 1;
@@ -727,19 +727,19 @@ pass2$08: PROCEDURE PUBLIC;
 	END;
 	CALL endRecord;
 	CALL getRecord;
-END pass2$08;
+END pass2$LINENO;
 
 
-pass2$10: PROCEDURE PUBLIC;
+pass2$ANCESTOR: PROCEDURE PUBLIC;
 	CALL pstrcpy(.t10rec.name, .modName);
 	modNameValid = 0FFH;
 	CALL getRecord;
-END pass2$10;
+END pass2$ANCESTOR;
 
 
-pass2$12: PROCEDURE PUBLIC;
-	CALL emit10;
-	CALL initRecord(12H);
+pass2$LOCALS: PROCEDURE PUBLIC;
+	CALL emit$ANCESTOR;
+	CALL initRecord(R$LOCALS);
 	t12aout.seg = sub$4F99(t12arec.seg);
 	out$p = out$p + 1;
 	rec$p = rec$p + 1;
@@ -752,7 +752,7 @@ pass2$12: PROCEDURE PUBLIC;
 	END;
 	CALL endRecord;
 	CALL getRecord;
-END pass2$12;
+END pass2$LOCALS;
 
 
 phase2: PROCEDURE PUBLIC;
@@ -763,10 +763,10 @@ phase2: PROCEDURE PUBLIC;
 	CALL sub$4A81;
 	CALL open(.tofilefd, .toFileName(1), 2, 0, .statusIO);
 	CALL errChkReport(statusIO, .toFileName(1), 0FFH);
-	CALL emit02;
-	CALL emit2E;
-	CALL emit16;
-	CALL emit18;
+	CALL emit$MODHDR;
+	CALL emit$COMDEF;
+	CALL emit$PUBLICS;
+	CALL emit$EXTNAMES;
 	curObjFile = objFileHead;
 
 	DO WHILE curObjFile > 0;
@@ -783,24 +783,24 @@ phase2: PROCEDURE PUBLIC;
 					CALL iseek(module.blk, module.byt);
 					CALL getRecord;
 				END;
-				IF srec.type <> 2 THEN
+				IF srec.type <> R$MODHDR THEN
 					CALL fatalErr(ERR219); /* phase error */
 				CALL sub$4A81;
-				DO WHILE srec.type <> 4;
+				DO WHILE srec.type <> R$MODEND;
 					DO CASE SHR(srec.type, 1);
 					CALL illegalRelo;
-					CALL pass2$02;
+					CALL pass2$MODHDR;
 					;
-					CALL pass2$06;
-					CALL pass2$08;
+					CALL pass2$CONTENT;
+					CALL pass2$LINENO;
 					CALL illegalRelo;
 					CALL illegalRelo;
 					CALL errChkReport(ERR204, .inFileName(1), 0FFH); /* 0E Premature EOF */
-					CALL pass2$10;
-					CALL pass2$12;
+					CALL pass2$ANCESTOR;
+					CALL pass2$LOCALS;
 					CALL illegalRelo;
 					CALL getRecord;
-					CALL pass2$18;
+					CALL pass2$EXTNAMES;
 					CALL illegalRelo;
 					CALL illegalRelo;
 					CALL illegalRelo;
@@ -811,7 +811,7 @@ phase2: PROCEDURE PUBLIC;
 					CALL badRecordSeq;
 					CALL badRecordSeq;
 					CALL badRecordSeq;
-					CALL pass2$2E;		/* 2E */
+					CALL pass2$COMDEF;		/* 2E */
 					END;
 				END;
 				curModule = module.link;
@@ -821,7 +821,7 @@ phase2: PROCEDURE PUBLIC;
 	END;	/* of do while */
 
 loc$59FF:
-	CALL emit04;
+	CALL emit$MODEND;
 	CALL close(tofilefd, .statusIO);
 	CALL errChkReport(statusIO, .toFileName(1), 0FFH);
 	IF haveTmpFile THEN

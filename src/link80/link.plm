@@ -39,7 +39,7 @@ DECLARE
 	entryAddr ADDRESS PUBLIC,
 	segSizes(6) ADDRESS PUBLIC,
 	alignType(6) BYTE PUBLIC,
-	byte$45F6(256) BYTE PUBLIC,
+	segmap(256) BYTE PUBLIC,
 	baseHeap ADDRESS PUBLIC,
 	topHeap ADDRESS PUBLIC,
 	srec$p ADDRESS PUBLIC,
@@ -111,11 +111,11 @@ errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
 	DECLARE errExit BYTE;
 END errChkReport;
 
-sub6774: PROCEDURE EXTERNAL;
-END sub6774;
+parse$cmd$line: PROCEDURE EXTERNAL;
+END parse$cmd$line;
 
-sub5F5A: PROCEDURE EXTERNAL;
-END sub5F5A;
+phase1: PROCEDURE EXTERNAL;
+END phase1;
 
 phase2: PROCEDURE EXTERNAL;
 END phase2;
@@ -194,7 +194,7 @@ find: PROCEDURE(pstr, ppitem, arg3b) BYTE PUBLIC;
 
 	DECLARE str BASED pstr(1) BYTE;
 	DECLARE pitem BASED ppitem ADDRESS;
-	DECLARE item BASED p STRUCTURE (link ADDRESS, b2 BYTE, b3 BYTE, csize ADDRESS, link2 ADDRESS, name(8) BYTE);
+	DECLARE item BASED p STRUCTURE (link ADDRESS, flag BYTE, b3 BYTE, csize ADDRESS, link2 ADDRESS, name(8) BYTE);
 
 	i = str(0) + 1;
 	pitem = (p := .hashChains(hash(pstr)));
@@ -202,7 +202,7 @@ find: PROCEDURE(pstr, ppitem, arg3b) BYTE PUBLIC;
 
 	DO WHILE p > 0;
 		pitem = p;
-		IF (item.b2 AND arg3b) <> 0 THEN
+		IF (item.flag AND arg3b) <> 0 THEN
 			IF strequ(pstr, .item.name, i) THEN
 				RETURN 0FFH;
 		p = item.link;
@@ -247,11 +247,11 @@ END sub$3918;
 
 
 
-CALL sub6774;
-CALL sub5F5A;
-CALL load(.filePath(1), 0, 0, .actRead, .statusIO);
+CALL parse$cmd$line;
+CALL phase1;
+CALL load(.filePath(1), 0, 0, .actRead, .statusIO);	/* load the overlay */
 CALL errChkReport(statusIO, .filePath(1), 0FFH);
-IF NOT strequ(.VERSION, .overlayVersion, 4) THEN
+IF NOT strequ(.VERSION, .overlayVersion, 4) THEN	/* make sure it is valid */
 	CALL errChkReport(ERR219, .filePath(1), 0FFH);	/* phase error */
 CALL phase2;
 CALL close(printFileNo, .statusIO);

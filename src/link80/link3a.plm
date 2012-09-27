@@ -63,7 +63,7 @@ DECLARE	CRLF (2) BYTE EXTERNAL,
 	linkPath(16) BYTE EXTERNAL,
 	hashChains(128) ADDRESS EXTERNAL,
 	alignType(6) BYTE EXTERNAL,
-	byte$45F6(256) BYTE EXTERNAL,
+	segmap(256) BYTE EXTERNAL,
 	type2x1 BYTE EXTERNAL,
 	type2x2 BYTE EXTERNAL,
 	segSizes(6) ADDRESS EXTERNAL,
@@ -340,7 +340,7 @@ readCmdLine: PROCEDURE PUBLIC;
 END readCmdLine;
 
 
-sub6774: PROCEDURE PUBLIC;
+parse$cmd$line: PROCEDURE PUBLIC;
 	DECLARE scmdch BASED scmd$p BYTE;
 	DECLARE (p, q) ADDRESS;
 
@@ -443,7 +443,7 @@ sub6774: PROCEDURE PUBLIC;
 		alignType(p) = 0;
 	END;
 	DO p = 0 TO 255;
-		byte45F6(p) = 0;
+		segmap(p) = 0;		/* mark seg as unused */
 	END;
 	type2x1 = 0;
 	type2x2 = 0;
@@ -459,5 +459,5 @@ sub6774: PROCEDURE PUBLIC;
 		CALL writeBytes(.msgInvoked, 14);
 		CALL writeBytes(.scmdch, cmd$p - .scmdch + 2);
 	END;
-END sub$6774;
+END parse$cmd$line;
 END;

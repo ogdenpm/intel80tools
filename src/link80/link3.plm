@@ -14,7 +14,7 @@ DECLARE
 	entryAddr ADDRESS EXTERNAL,
 	segSizes(6) ADDRESS EXTERNAL,
 	alignType(6) BYTE EXTERNAL,
-	byte$45F6(256) BYTE EXTERNAL,
+	segmap(256) BYTE EXTERNAL,
 	baseHeap ADDRESS EXTERNAL,
 	topHeap ADDRESS EXTERNAL,
 	srec$p ADDRESS EXTERNAL,
@@ -74,14 +74,14 @@ DECLARE byte$6238(6) BYTE,
 	word$6257 ADDRESS,
 	hmodule$p ADDRESS,
 	byte$625B BYTE,
-	byte$625C BYTE,
-	type2Seen BYTE,
+	more$records BYTE,
+	have$module$hdr BYTE,
 	byte$625E BYTE,
 	curseg BYTE,
 	dummyrec BYTE,
 	word$6261 ADDRESS,
-	word$6263 ADDRESS,
-	word$6265 ADDRESS,
+	seg$i ADDRESS,
+	symcnt ADDRESS,
 	word$6267 ADDRESS,
 	word$6269 ADDRESS,
 	word$626B ADDRESS;
@@ -97,8 +97,8 @@ DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
 DECLARE t02arec BASED rec$p STRUCTURE (name(1) BYTE);
 DECLARE t02brec BASED rec$p STRUCTURE (x1 BYTE, x2 BYTE);
 DECLARE t02crec BASED rec$p STRUCTURE (seg BYTE, segsize ADDRESS, align BYTE);
-DECLARE	t4rec BASED rec$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS);
-/* DECLARE	t4out BASED out$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS); */
+DECLARE	t4rec BASED rec$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS);
+/* DECLARE	t4out BASED out$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS); */
 DECLARE	t6rec BASED rec$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
 /* DECLARE	t6out BASED out$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE); */
 DECLARE	t8arec BASED rec$p STRUCTURE (seg BYTE);
@@ -372,15 +372,15 @@ sub$4A73: PROCEDURE PUBLIC;
 			CALL writeBytes(.aInpageSegment, 30);	/* inpage segment > 256 bytes */
 	END;
 
-	word$6263 = 0;
+	seg$i = 0;
 	block$p = segLists(0);
 	DO WHILE block$p > 0;
 		CALL sub$49EB(block.bot, block.top - block.bot + 1, 0);
 		CALL writeBytes(.aAbsolute, 8);
-		IF block.bot < word$6263 THEN
+		IF block.bot < seg$i THEN
 			CALL writeBytes(.msgOverlap, 11);
-		IF block.top >= word$6263 THEN
-			word$6263 = block.top + 1;
+		IF block.top >= seg$i THEN
+			seg$i = block.top + 1;
 		block$p = block.link;
 	END;	/* do while */
 
@@ -417,8 +417,8 @@ sub$4DE0: PROCEDURE PUBLIC;
 	CALl writeAndEcho(.msgunresolved, 30);
 
 	q = unresolved;
-	DO word$6263 = 0 TO 127;
-		symbol$p = hashChains(word$6263);
+	DO seg$i = 0 TO 127;
+		symbol$p = hashChains(seg$i);
 		DO WHILE symbol$p > 0;
 			IF symbol.flag = 40h THEN
 			DO;
@@ -487,8 +487,8 @@ sub$4F65: PROCEDURE PUBLIC;
 		DO;
 			IF seginfo$p = 0 THEN
 				segInfo$p = allocUp(300H);
-			DO word$6263 = 0 TO 255;
-				segInfo(word$6263).flag = 0;
+			DO seg$i = 0 TO 255;
+				segInfo(seg$i).flag = 0;
 			END;
 			byte$623F = 0;
 		END;
@@ -585,10 +585,10 @@ sub$52A9: PROCEDURE(arg1b) BYTE PUBLIC;
 	RETURN arg1b;
 END sub$52A9;
 
-procrec02: PROCEDURE PUBLIC;
-	IF type2Seen THEN
+do$module$hdr: PROCEDURE PUBLIC;
+	IF have$module$hdr THEN
 		CALL badRecordSeq;
-	type2Seen = 0FFH;
+	have$module$hdr = 0FFH;
 	word$6257 = .module.symlist;
 	IF byte$625B THEN
 		RETURN;
@@ -608,8 +608,8 @@ procrec02: PROCEDURE PUBLIC;
 	module.scode = segSizes(1);
 	module.sdata = segSizes(2);
 	byte$623F = 0FFH;
-	DO word$6263 = 0 TO 5;
-		byte$6238(word$6263) = 0;
+	DO seg$i = 0 TO 5;
+		byte$6238(seg$i) = 0;
 	END;
 
 	DO WHILE rec$p < .erec;
@@ -623,32 +623,32 @@ procrec02: PROCEDURE PUBLIC;
 		rec$p = rec$p + 4;
 	END;
 
-END procrec02;
+END do$module$hdr;
 
 
-procrec04: PROCEDURE PUBLIC;
-	byte625C = 0;
+do$module$end: PROCEDURE PUBLIC;
+	more$records = 0;
 	IF byte625B THEN
 		RETURN;
-	IF t4rec.subtype = 1 THEN
+	IF t4rec.modtype = 1 THEN
 		IF ismain <> 0 THEN
 			CALL sub3918(.msgmore1main, 25H);
 		ELSE
 		DO;
 			isMain = 1;
-			entrySeg = sub52A9(t4rec.segtype);
-			entryAddr = word626B + t4rec.addr;
+			entrySeg = sub52A9(t4rec.segid);
+			entryAddr = word626B + t4rec.offset;
 		END;
 
 	IF NOT byte623F THEN
-		DO word6263 = 0 TO 255;
-			IF seginfo(word6263).flag + 1 > 1 THEN
+		DO seg$i = 0 TO 255;
+			IF seginfo(seg$i).flag + 1 > 1 THEN
 				CALL badRecordSeq;
 		END;
-END procrec04;
+END do$module$end;
 
 
-procrec06: PROCEDURE PUBLIC;		/* type 6 data */
+do$content: PROCEDURE PUBLIC;		/* type 6 data */
 	CALL sub$48E1;
 	CALL chkRead(3);
 	rec$p = ibuf$p;
@@ -681,10 +681,10 @@ procrec06: PROCEDURE PUBLIC;		/* type 6 data */
 		END;
 	END;
 	CALL sub$48F5;
-END procrec06;
+END do$content;
 
 
-procrec2E: PROCEDURE PUBLIC;
+do$common$def: PROCEDURE PUBLIC;
 	DECLARE wrd BASED word$6255 ADDRESS;
 	IF byte$625B THEN
 		RETURN;
@@ -728,16 +728,16 @@ procrec2E: PROCEDURE PUBLIC;
 		segInfo(curseg).segsize = citem.seg;
 		rec$p = rec$p + 2 + t2Erec.name(0);
 	END;	/* DO WHILE */
-END procrec2E;
+END do$common$def;
 
 
-procrec16: PROCEDURE PUBLIC;
+do$public$decl: PROCEDURE PUBLIC;
 	sub$58C2: PROCEDURE;
 		DECLARE wrd BASED word$6257 ADDRESS;
 		symbol.flag = 80H;
 		symbol.seg = curseg;
 		symbol.offset = word$626B + t16brec.offset;
-		byte$45F6(curseg) = 0FFH;
+		segmap(curseg) = 0FFH;		/* flag as used seg */
 		symbol.nxtUnres = wrd;
 		wrd = .symbol.link;
 		word$6257 = .symbol.nxtUnres;
@@ -774,13 +774,13 @@ procrec16: PROCEDURE PUBLIC;
 		END;
 		rec$p = rec$p + 4 + t16brec.name(0);
 	END;	/* do while */
-END procrec16;
+END do$public$decl;
 
 
 
 
 
-procrec18: PROCEDURE PUBLIC;
+do$external$names: PROCEDURE PUBLIC;
 	IF byte$625B THEN
 		RETURN;
 	DO WHILE .erec > rec$p;
@@ -791,14 +791,14 @@ procrec18: PROCEDURE PUBLIC;
 			symbol$p = symbol.link;
 			symbol.link = 0;
 			symbol.flag = 40H;
-			symbol.offset = (word$6265 := word$6265 + 1);
+			symbol.offset = (symcnt := symcnt + 1);
 			CALL pstrcpy(.t18rec.name, .symbol.name);
 			unresolved = unresolved + 1;
 			word$6267 = word$6267 + 1;
 		END;
 		rec$p = rec$p + 2 + t18rec.name(0);
 	END;
-END procrec18;
+END do$external$names;
 
 
 sub$59BC: PROCEDURE(arg1b) PUBLIC;
@@ -812,15 +812,15 @@ sub$59BC: PROCEDURE(arg1b) PUBLIC;
 	END;
 	word$6269 = 0;
 	recNum = 1;
-	type2Seen = 0;
-	byte$625C = 0FFH;
+	have$module$hdr = 0;
+	more$records = 0FFH;
 
-	DO WHILE byte$625C;
+	DO WHILE more$records;
 		DO CASE SHR(srec.type, 1);
 			CALL illegalRelo;	/* 0 */
-			CALL procrec02;		/* 2 */
-			CALL procrec04;		/* 4 */
-			CALL procrec06;		/* 6 */
+			CALL do$module$hdr;	/* 2 */
+			CALL do$module$end;	/* 4 */
+			CALL do$content;	/* 6 */
 			;			/* 8 */
 			CALL illegalRelo;	/* 0A */
 			CALL illegalRelo;	/* 0C */
@@ -828,8 +828,8 @@ sub$59BC: PROCEDURE(arg1b) PUBLIC;
 			;			/* 10 */
 			;			/* 12 */
 			CALL illegalRelo;	/* 14 */
-			CALL procrec16;		/* 16 */
-			CALL procrec18;		/* 18 */
+			CALL do$public$decl;	/* 16 */
+			CALL do$external$names;	/* 18 */
 			CALL illegalRelo;	/* 1A */
 			CALL illegalRelo;	/* 1C */
 			CALL illegalRelo;	/* 1E */
@@ -840,14 +840,14 @@ sub$59BC: PROCEDURE(arg1b) PUBLIC;
 			CALL badRecordSeq;	/* 28 */
 			CALL badRecordSeq;	/* 2A */
 			CALL badRecordSeq;	/* 2C */
-			CALL procrec2E;		/* 2E */
+			CALL do$common$def;	/* 2E */
 		END;
 		CALL getRecord;
 	END;
 
 	IF word$6269 > word$4820 THEN
 		word$4820 = word$6269;
-	IF srec.type <> 0EH AND srec.type <> 2 AND srec.type <> 28H THEN
+	IF srec.type <> R$EOF AND srec.type <> R$MODHDR AND srec.type <> R$LIBNAMES THEN
 		CALL fatalErr(ERR220);	/* no EOF */
 END sub$59BC;
 
@@ -864,12 +864,12 @@ sub$5B2F: PROCEDURE PUBLIC;
 		blk = t2Crec.blk;
 		byt = t2Crec.byt;
 		CALL iseek(blk, byt);
-		CALL expectType(28H);
+		CALL expectType(R$LIBNAMES);
 		CALL sub$48E1;
 		blk = (byt + recLen + 3) / 128 + blk;
 		byt = (byt + recLen + 3) MOD 128;
 		CALL sub$48F5;
-		CALL expectType(26H);
+		CALL expectType(R$LIBLOCS);
 		blk2A = blk + (byt + recLen + 3) / 128;
 		byt2A = (byt + recLen + 3) MOD 128;
 		word$6267 = unresolved;
@@ -877,7 +877,7 @@ sub$5B2F: PROCEDURE PUBLIC;
 			modcnt = 0;
 			modlocs$p = allocUp(0);
 			CALL iseek(blk2A, byt2A);
-			CALL expectType(2AH);
+			CALL expectType(R$LIBDICT);
 			CALL sub$48E1;
 			modId = 1;
 			toResolve = word$6267;
@@ -899,7 +899,7 @@ sub$5B2F: PROCEDURE PUBLIC;
 			IF modcnt > 0 THEN	/* found a module to load */
 			DO;
 				CALL iseek(blk, byt);
-				CALL expectType(26H);
+				CALL expectType(R$LIBLOCS);
 				CALL sub$48E1;
 				modId = 0;
 				DO i = 0 TO modcnt - 1;
@@ -927,7 +927,7 @@ sub$5DA8: PROCEDURE PUBLIC;
 	DECLARE (p, q) ADDRESS, i BYTE;
 
 	CALL iseek(t2Crec.blk, t2Crec.byt);
-	CALL expectType(28H);
+	CALL expectType(R$LIBNAMES);
 	CALL sub$48E1;
 	p = 0;
 	i = 0FFH;
@@ -948,7 +948,7 @@ sub$5DA8: PROCEDURE PUBLIC;
 	END;
 
 	CALL sub$48F5;
-	CALL expectType(26H);
+	CALL expectType(R$LIBLOCS);
 	CALL sub$48E1;
 	DO q = 1 TO p;	
 		CALL sub$49A1;
@@ -983,19 +983,19 @@ END sub$5DA8;
 
 DECLARE controls BYTE EXTERNAL;
 
-sub$5F5A: PROCEDURE PUBLIC;
+phase1: PROCEDURE PUBLIC;
 	baseHeap = .controls;
-	DO word6263 = 0 TO 5;
-		segLists(word6263) = 0;
+	DO seg$i = 0 TO 5;
+		segLists(seg$i) = 0;
 	END;
-	word6265 = 0;
+	symcnt = 0;
 	word6255 = .headcitem;
 	curObjFile = objFileHead;
 	DO WHILE curObjFile > 0;
 		CALL sub3C5B;
 		byte625B = objFile.ispublics;
 		CALL getRecord;
-		IF srec.type = 2CH THEN	/* library */	
+		IF srec.type = R$LIBHDR THEN	/* library */	
 		DO;
 			IF objFile.hasModules THEN
 				CALL sub5DA8;
@@ -1012,7 +1012,7 @@ sub$5F5A: PROCEDURE PUBLIC;
 				DO WHILE srec.type = 2;
 					CALL sub59BC(0FFH);
 				END;
-				IF srec.type <> 0EH THEN
+				IF srec.type <> R$EOF THEN
 					CALL fatalErr(ERR220);	/* no EOF */
 			END;
 			ELSE
@@ -1022,7 +1022,7 @@ sub$5F5A: PROCEDURE PUBLIC;
 	END;
 	CALL sub$4A73;
 	CALL sub$4DE0;
-END sub$5F5A;
+END phase1;
 
 
 
