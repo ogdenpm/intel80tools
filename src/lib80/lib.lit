@@ -1,0 +1,133 @@
+
+DECLARE LIT LITERALLY 'LITERALLY';
+
+DECLARE HASH$T LIT 'link ADDRESS, curCmd ADDRESS, moduleCnt ADDRESS, symLen BYTE, symbol(1) BYTE',
+	TYPE2C$T LIT 'STRUCTURE(modCnt ADDRESS, idxBlk ADDRESS, idxByte ADDRESS)',
+	LIBREC$T1 LIT 'crc BYTE, type BYTE, len ADDRESS, bytesLeft ADDRESS',
+	LIBREC$T2 LIT 'curBlk ADDRESS, curByte ADDRESS, posBlk ADDRESS, posByte ADDRESS',
+	CMD$T LIT 'STRUCTURE(link ADDRESS, modules ADDRESS, name ADDRESS)',
+	MODULE$T1 LIT 'link ADDRESS, blk ADDRESS, byt ADDRESS',
+	MODULE$T2 LIT 'isPublic BYTE, nameLen BYTE, name(1) BYTE',
+	LIST$T LIT 'STRUCTURE(link ADDRESS, path$p ADDRESS, isopen BYTE, conn BYTE)',
+	LINE$T LIT 'STRUCTURE(link ADDRESS, len ADDRESS, text(1) BYTE)',
+/* ERRORCODES */
+	ERR2 LIT '2',	/* ILLEGAL AFTN ARGUMENT */
+	ERR4 LIT '4',	/* INCORRECTLY SPECIFIED FILE */
+	ERR5 LIT '5',	/* UNRECOGNIZED DEVICE NAME */
+	ERR6 LIT '6',	/* ATTEMPT TO WRITE TO INPUT DEVICE */
+	ERR8 LIT '8',	/* ATTEMPT TO READ FROM OUTPUT DEVICE */
+	ERR10 LIT '10',	/* NOT ON SAME DISK */
+	ERR11 LIT '11',	/* FILE ALREADY EXISTS */
+	ERR12 LIT '12',	/* FILE IS ALREADY OPEN */
+	ERR13 LIT '13',	/* NO SUCH FILE */
+	ERR14 LIT '14',	/* WRITE PROTECTED */
+	ERR17 LIT '17',	/* NOT A DISK FILE */
+	ERR18 LIT '18',	/* ILLEGAL ISIS COMMAND */
+	ERR19 LIT '19',	/* ATTEMPTED SEEK ON NON-DISK FILE */
+	ERR20 LIT '20',	/* ATTEMPTED BACK SEEK TOO FAR */
+	ERR21 LIT '21',	/* CAN'T RESCAN */
+	ERR22 LIT '22',	/* ILLEGAL ACCESS MODE TO OPEN */
+	ERR23 LIT '23',	/* MISSING FILENAME */
+	ERR25 LIT '25',	/* ILLEGAL ECHO FILE */
+	ERR26 LIT '26',	/* ILLEGAL ATTRIBUTE IDENTIFIER */
+	ERR27 LIT '27',	/* ILLEGAL SEEK COMMAND */
+	ERR28 LIT '28',	/* MISSING EXTENSION */
+	ERR31 LIT '31',	/* CAN'T SEEK ON WRITE ONLY FILE */
+	ERR32 LIT '32',	/* CAN'T DELETE OPEN FILE */
+	ERR35 LIT '35',	/* SEEK PAST EOF */
+	ERR201 LIT '201',	/* UNRECOGNIZED CONTROL */
+	ERR202 LIT '202',	/* UNRECOGNIZED DELIMITER */
+	ERR203 LIT '203',	/* INVALID SYNTAX */
+	ERR204 LIT '204',	/* PREMATURE EOF */
+	ERR206 LIT '206',	/* ILLEGAL DISKETTE LABEL */
+	ERR208 LIT '208',	/* CHECKSUM ERROR */
+	ERR209 LIT '209',	/* RELO FILE SEQUENCE ERROR */
+	ERR210 LIT '210',	/* INSUFFICIENT MEMORY */
+	ERR211 LIT '211',	/* RECORD TOO LONG */
+	ERR212 LIT '212',	/* ILLEGAL RELO RECORD */
+	ERR213 LIT '213',	/* FIXUP BOUNDS ERROR */
+	ERR214 LIT '214',	/* ILLEGAL SUBMIT PARAMETER */
+	ERR215 LIT '215',	/* ARGUMENT TOO LONG */
+	ERR216 LIT '216',	/* TOO MANY PARAMETERS */
+	ERR217 LIT '217',	/* OBJECT RECORD TOO SHORT */
+	ERR218 LIT '218',	/* ILLEGAL RECORD FORMAT */
+	ERR219 LIT '219',	/* PHASE ERROR */
+	ERR220 LIT '220',	/* NO EOF */
+	ERR221 LIT '221',	/* SEGMENT TOO LARGE */
+	ERR222 LIT '222',	/* UNRECOGNIZED RECORD TYPE */
+	ERR223 LIT '223',	/* BAD FIXUP RECORD */
+	ERR224 LIT '224',	/* BAD RECORD SEQUENCE */
+	ERR225 LIT '225',	/* INVALID MODULE NAME */
+	ERR226 LIT '226',	/* MODULE NAME TOO LONG */
+	ERR227 LIT '227',	/* LEFT PARENTHESIS EXPECTED */
+	ERR228 LIT '228',	/* RIGHT PARENTHESIS EXPECTED */
+	ERR229 LIT '229',	/* UNRECOGNIZED CONTROL */
+	ERR230 LIT '230',	/* DUPLICATE SYMBOL IN INPUT */
+	ERR232 LIT '232',	/* UNRECOGNIZED COMMAND */
+	ERR233 LIT '233',	/* 'TO' EXPECTED */
+	ERR235 LIT '235',	/* NOT LIBRARY */
+	ERR238 LIT '238',	/* ILLEGAL STACK CONTENT RECORD */
+	ERR239 LIT '239',	/* NO MODULE HEADER RECORD */
+	ERR240 LIT '240',	/* PROGRAM EXCEEDS 64K */
+
+/* enum FILEIO */
+	readOnly	LIT '1',
+	writeOnly	LIT '2',
+	readWrite	LIT '3',
+/* omf records */
+	OBJHDR	LIT '2',
+	OBJEND	LIT '4',
+	OBJDATA	LIT '6',
+	ENDFILE	LIT '0Eh',
+	PUBLICS	LIT '16h',
+	NAMES	LIT '28h',
+	LIBDICT	LIT '2Ah',
+	LIBHDR	LIT '2Ch',
+
+/* MISC */
+	CR	LIT '0dh',
+	LF	LIT '0ah';
+
+open: procedure (conn$p, path$p, access, echo, status$p) external;
+    declare (conn$p, path$p, access, echo, status$p) address;
+end open;
+
+close: procedure (conn, status$p) external;
+    declare (conn, status$p) address;
+end close;
+
+read: procedure (conn, buff$p, count, actual$p, status$p) external;
+    declare (conn, buff$p, count, actual$p, status$p) address;
+end read;
+
+write: procedure (conn, buff$p, count, status$p) external;
+    declare (conn, buff$p, count, status$p) address;
+end write;
+
+seek: procedure (conn, mode, block$p, byte$p, status$p) external;
+    declare (conn, mode, block$p, byte$p, status$p) address;
+end seek;
+
+delete: procedure (path$p, status$p) external;
+    declare (path$p, status$p) address;
+end delete;
+
+rename: procedure (old$p, new$p, status$p) external;
+    declare (old$p, new$p, status$p) address;
+end rename;
+
+error: procedure (error$num) external;
+    declare (error$num) address;
+end error;
+
+exit: procedure external;
+end exit;
+
+memck: procedure address external;
+end memck;
+
+$list
+
+
+
+

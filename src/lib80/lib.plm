@@ -1,0 +1,1047 @@
+
+LIB: DO;
+
+$INCLUDE(lib.lit)
+
+DECLARE
+	actual		ADDRESS PUBLIC,
+	status		ADDRESS PUBLIC,
+	libOutConn	ADDRESS,
+	libOutFile	ADDRESS,
+	curConn		ADDRESS PUBLIC,
+	curCmdArg	ADDRESS PUBLIC,
+	argHead		ADDRESS,
+	cmdTokChain	ADDRESS,
+	moduleHead	ADDRESS,
+	curModuleList	ADDRESS;
+
+DECLARE hashTable(128) ADDRESS PUBLIC,
+	hashptr	ADDRESS,	/* probably hash item */
+	junk1 ADDRESS INITIAL(0),
+	junk2(4)	BYTE,
+	libModuleCnt ADDRESS,
+	addCnt BYTE,
+	moduleName(33) BYTE,
+	zeroBlk ADDRESS INITIAL(0),
+	zeroByte ADDRESS INITIAL(0),
+	junk3 ADDRESS INITIAL(10),
+	word$5FA5 ADDRESS INITIAL(1),
+	copyBuf(1028) BYTE,
+	blockno ADDRESS,
+	byteno	ADDRESS,
+	outCRC	BYTE,
+	outRecLen ADDRESS;
+
+DECLARE
+	copyright(*) BYTE DATA ('(C) 1976, 1977 INTEL CORP'),
+	aIsisIiLibraria(*) BYTE DATA ('ISIS-II LIBRARIAN V2.1', 0dh, 0ah),
+	aNotFound(*) BYTE DATA ('): NOT FOUND'),
+	aPublicSymbolAl(*) BYTE DATA (' - PUBLIC SYMBOL ALREADY IN LIBRARY'),
+	initLibContent(*) BYTE DATA (2Ch, 7, 0, 0, 0, 0, 0, 0Ah, 0, 0C3h,
+				     28h, 1, 0, 0D7h, 26h, 1, 0, 0D9h,
+				     2Ah, 1, 0, 0D5h, 0Eh, 1, 0, 0F1h);
+
+
+/* EXTERNALS */
+DECLARE ptrPrevToken ADDRESS EXTERNAL,
+	headPtr ADDRESS EXTERNAL,
+	curPtr	ADDRESS EXTERNAL,
+	curRec STRUCTURE(LIBREC$T1, LIBREC$T2) EXTERNAL,
+	ptrToken ADDRESS EXTERNAL,
+	preTokLen BYTE EXTERNAL,
+	inModuleLIst BYTE EXTERNAL,
+	memTop ADDRESS EXTERNAL,
+	heapTop ADDRESS EXTERNAL;
+
+writeFile: PROCEDURE(conn, buff$p, count, status$p) EXTERNAL;
+	DECLARE (conn, buff$p, count, status$p) ADDRESS;
+end;
+
+readFile: PROCEDURE(conn, buff$p, count, actual$p, status$p) EXTERNAL;
+	DECLARE (conn, buff$p, count, actual$p, status$p) ADDRESS;
+end;
+
+seekFile: PROCEDURE (conn, mode, block$p, byte$p, status$p) EXTERNAL;
+	DECLARE (conn, mode, block$p, byte$p, status$p) ADDRESS;
+end;
+
+skipSpc: PROCEDURE(pch) ADDRESS EXTERNAL;
+	DECLARE pch ADDRESS;
+end;
+
+closeFile: PROCEDURE(conn, status$p) EXTERNAL;
+	DECLARE (conn, status$p) ADDRESS;
+end;
+openFile: PROCEDURE(conn$p, path$p, access, echo, status$p) EXTERNAL;
+	DECLARE (conn$p, path$p, access, echo, status$p) ADDRESS;
+end;
+
+renameFile: PROCEDURE(old$p, new$p, status$p) EXTERNAL;
+	DECLARE (old$p, new$p, status$p) ADDRESS;
+end;
+
+deleteFile: PROCEDURE(path$p, status$p) EXTERNAL;
+	DECLARE (path$p, status$p) ADDRESS;
+end;
+
+sub$5097: PROCEDURE(buf, cnt) EXTERNAL;
+	DECLARE (buf, cnt) ADDRESS;
+end;
+
+sub$50DC: PROCEDURE(buf, cnt) EXTERNAL;
+	DECLARE (buf, cnt) ADDRESS;
+end;
+pastFileName: PROCEDURE(pch) ADDRESS EXTERNAL;
+	DECLARE pch ADDRESS;
+end;
+allocUp: PROCEDURE(cnt) ADDRESS EXTERNAL;
+	DECLARE cnt address;
+end;
+getToken: PROCEDURE EXTERNAL; end;
+
+liberror: PROCEDURE(err) EXTERNAL;
+	DECLARE err BYTE;
+end;
+getRecordBytes: PROCEDURE(count, buf$p) EXTERNAL;
+	DECLARE  (count, buf$p) ADDRESS;
+end;
+
+readChkCRC: PROCEDURE EXTERNAL; end;
+
+getName: PROCEDURE(buf) EXTERNAL;
+	DECLARE buf ADDRESS;
+end;
+
+sub$56D3: PROCEDURE(modName$p, hash$p) BYTE EXTERNAL;
+	DECLARE (modName$p, hash$p) ADDRESS;
+end;
+
+fatal: PROCEDURE(err) EXTERNAL;
+	DECLARE err BYTE;
+end;
+
+prepRecord: PROCEDURE EXTERNAL; end;
+
+libSeek: PROCEDURE(mode$b, blkByte$p) EXTERNAL;
+	DECLARE mode$b BYTE, blkByte$p ADDRESS;
+end;
+
+tokenEqu: PROCEDURE(str, len) BYTE EXTERNAL;
+	DECLARE str ADDRESS, len BYTE;
+end;
+
+acceptRecord: PROCEDURE(type) EXTERNAL;
+	DECLARE type BYTE;
+end;
+
+openLib: PROCEDURE EXTERNAL; end;
+
+preTokenEqu: PROCEDURE(str, len) BYTE EXTERNAL;
+	DECLARE str ADDRESS, len BYTE;
+end;
+getCmd: PROCEDURE EXTERNAL; end;
+
+sub$5566: PROCEDURE EXTERNAL; end;
+saveCurPos: PROCEDURE EXTERNAL; end;
+restoreCurPos: PROCEDURE EXTERNAL; end;
+swapCurSavedRec: PROCEDURE EXTERNAL; end;
+writeErrStr: PROCEDURE(errCode) EXTERNAL;
+	DECLARE errCode BYTE;	/* note inconsistent but code expects this */
+end;
+
+fileStatusChk: PROCEDURE(errCode, path$p, isFatal) EXTERNAL;
+	DECLARE (errCode, path$p) ADDRESS, isFatal BYTE;
+end;
+
+skipCurRec: PROCEDURE EXTERNAL; end;
+
+
+
+DECLARE prevToken based ptrPrevToken(1) BYTE;
+DECLARE curFile BASED curPtr LIST$T;
+DECLARE cmd BASED cmdTokChain CMD$T;
+DECLARE module BASED curModuleList STRUCTURE(MODULE$T1, MODULE$T2);
+DECLARE reset LABEL PUBLIC;
+
+
+writeBuf: PROCEDURE(count, buf$p);
+	DECLARE (count, buf$p) ADDRESS;
+	DECLARE i ADDRESS;
+	DECLARE buf BASED buf$p(1) BYTE;
+	call writeFile(libOutConn, buf$p, count, .status);
+	count = count - 1;	/* adjust for 0 based offset */
+	do i = 0 to count;
+		outCRC = outCRC + buf(i);
+	end;
+	outRecLen = outRecLen + 1 + count;
+end writeBuf;
+
+outRecInit: PROCEDURE(recLen);
+	DECLARE recLen ADDRESS;
+	outCRC = 0;
+	call SeekFile(libOutConn, 0, .blockno, .byteno, .status);
+	call writeBuf(1, .curRec.type);
+	call writeBuf(2, .recLen);
+	outRecLen = 1;
+end;
+
+
+writeName: PROCEDURE(name$p);
+	DECLARE name$p address;
+	DECLARE name BASED name$p(1) BYTE;
+
+	call writeBuf(name(0) + 1, name$p);
+end;
+
+writeCRC: PROCEDURE;
+	outCRC = -outCRC;
+	call writeFile(libOutConn, .outCRC, 1, .status);
+end;
+
+
+sub$3967: PROCEDURE;
+	DECLARE (savblk, savbyt) ADDRESS;
+	call seekFile(libOutConn, 0, .savblk, .savbyt, .status);
+	call seekFile(libOutConn, 2, .blockno, .byteno, .status);
+	call seekFile(libOutConn, 3, .zeroByte, .word$5FA5, .status);
+	call writeBuf(2, .outRecLen);
+	call seekFile(libOutConn, 2, .savblk, .savbyt, .status);
+end;
+
+DECLARE lib$tmp(*) BYTE INITIAL(':  :LIB.TMP ');
+
+createTmpFile: PROCEDURE(path$p);
+	DECLARE path$p ADDRESS;
+	DECLARE path BASED path$p(1) BYTE;
+
+	lib$tmp(1) = 'F';	/* assume temp is on F0 */
+	lib$tmp(2) = '0';
+	path$p = skipspc(path$p);
+	if path(0) = ':' then
+	do;
+		lib$tmp(1) = path(1);
+		lib$tmp(2) = path(2);
+	end;
+	libOutFile = .lib$tmp;
+	call delete(.lib$tmp, .status);
+	call openFile(.libOutConn, .lib$tmp, 3, 0, .status);
+end;
+
+
+
+sub$3A1D: PROCEDURE(path$p);
+	DECLARE path$p ADDRESS;
+	
+	call closeFile(libOutConn, .status);
+	call closeFile(curConn, .status);
+	call deleteFile(path$p, .status);
+	call renameFile(libOutFile, path$p, .status);
+end;
+
+
+sub$3A54: PROCEDURE;
+	DECLARE s ADDRESS;
+	DECLARE module BASED curModuleList STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE cmd BASED cmdTokChain CMD$T;
+
+	s = cmd.name;
+	call sub$5097(.('  '), 2);	/* "  " */
+	call sub$5097(s, pastFileName(skipspc(s)) - s);	/* emit the white space */
+	call sub$5097(.('('), 1);	/* ( */
+	call sub$5097(.module.name, module.nameLen);
+	call sub$50DC(.aNotFound, 12); /* ): NOT FOUND */
+end;
+
+
+lookupModule: PROCEDURE BYTE PUBLIC;
+	DECLARE (i, found) BYTE;
+	DECLARE module BASED curModuleList STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE cmd BASED cmdTokChain CMD$T;
+	DECLARE moda BASED curModuleList(1) BYTE;
+
+	found = 0;
+	curModuleList = .cmd.modules;
+	do while module.link <> 0;
+ 
+		curModuleList = module.link;
+		found = 0FFH;		/* assume found */
+		
+		do i = 0 to moduleName(0);
+			if moduleName(i) <> moda((i + 8) - 1) THEN
+				found = 0;
+		end;
+		if found then
+			return found;
+	end;
+	return found;
+end;
+
+
+
+
+sub$3B1F: PROCEDURE;
+	moduleHead = 0;
+	curModuleList = .moduleHead;
+	cmdTokChain = .argHead;
+
+	do while cmd.link <> 0;
+		cmdTokChain = cmd.link;
+		module.link = cmd.modules;
+		do while module.link <> 0;
+			curModuleList = module.link;
+		end;
+	end;
+end;
+
+
+getCmdArg: PROCEDURE;
+	DECLARE CMD BASED cmdTokChain CMD$T;
+	DECLARE tokenCH BASED ptrToken BYTE;
+	DECLARE prevToken BASED ptrPrevToken(1) BYTE;
+	DECLARE module BASED curModuleList STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE moda BASED curModuleList(1) BYTE;
+	DECLARE i BYTE;
+
+	call getToken;
+	cmd.link = allocUp(6);
+	cmdTokChain = cmd.link;
+	cmd.link = 0;
+	curModuleList = .cmd.modules;
+	cmd.name = ptrPrevToken;
+	if tokenCH = '(' then	
+	do;
+		inModuleList = 0FFH;
+		call getToken;
+
+		do while prevToken(0) = '(' or prevToken(0) = ',';
+			inModuleList = 0;	/* already seen the module name, so we should get ( , or ) */
+			call getToken;
+			inModuleList = 0FFH;	/* assume we are going to get another module */
+			module.link = allocUp(preTokLen + 8);
+			curModuleList = module.link;
+			module.link = 0;
+			module.isPublic = 0;
+			module.nameLen = preTokLen;
+			do i = 0 to preTokLen - 1;
+				moda(8+i) = prevToken(i); 	
+			end;
+			call getToken;
+		end;
+		if prevToken(0) <> ')' then
+			call libError(ERR228);	/* RIGHT PARENTHESIS EXPECTED */
+	end;
+	module.link = 0;	
+	inModuleList = 0;
+end;
+
+
+getflag2: PROCEDURE ADDRESS;
+	DECLARE b BYTE;
+	call getRecordBytes(1, .b);
+	return .b;
+end;	
+
+
+sub$3C76: PROCEDURE(arg1) ADDRESS;
+	DECLARE arg1 ADDRESS;
+	return 1;
+end;
+
+
+sub$3C80: PROCEDURE(arg1w, arg2w) BYTE;
+	DECLARE (arg1w, arg2w) ADDRESS;
+	DECLARE b1 BASED arg1w BYTE;
+	DECLARE b2 BASED arg2w BYTE;
+
+	return b1 = b2;
+end;
+
+
+
+sub$3C98: PROCEDURE(arg1w, arg2w);
+	DECLARE (arg1w, arg2w) ADDRESS;
+	DECLARE b1 BASED arg1w BYTE;
+	DECLARE b2 BASED arg2w BYTE;
+	b2 = b1;
+end;
+
+
+sub$3CAD: PROCEDURE(arg1w);
+	DECLARE arg1w ADDRESS;
+	call writeBuf(1, arg1w);
+end;
+
+copyRestRec: PROCEDURE;
+	DECLARE cnt ADDRESS;
+	do while curRec.bytesLeft > 1;
+		if curRec.bytesLeft > 1028 then
+			cnt = 1028;
+		else
+			cnt = curRec.bytesLeft - 1;
+		call getRecordBytes(cnt, .copyBuf);
+		call writeBuf(cnt, .copyBuf);
+	end;
+	call readChkCRC;
+	call writeCRC;
+end;
+
+
+sub$3D05: PROCEDURE(arg1b);
+	DECLARE arg1b BYTE;
+	DECLARE module BASED curModuleList STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE pflag2 ADDRESS, offset ADDRESS, tmpByte BYTE, objNameLen BYTE;
+	DECLARE junk(4) BYTE;	/* safety net for getRecordBytes */
+	DECLARE tok BASED hashptr STRUCTURE(HASH$T);
+	DECLARE toka BASED hashptr(1) BYTE;
+
+	addCnt = addCnt + 1;
+	call outRecInit(curRec.len);
+	call getRecordBytes(1, .objNameLen);
+	if arg1b then
+	do;
+		do while module.link <> 0;
+			curModuleList = module.link;
+		end;
+
+		module.link = allocUp(objNameLen + 8);
+		curModuleList = module.link;
+		module.link = 0;
+		module.ispublic = 0FFh;
+	end;
+
+	module.blk = blockno;
+	module.byt = byteno;
+	module.nameLen = objNameLen;
+	call getRecordBytes(objNameLen, .module.name);
+	call writeBuf(objNameLen + 1, .module.nameLen);
+	call copyRestRec;
+	call prepRecord;
+
+	do while curRec.type <> OBJEND;
+		call outRecInit(curRec.len);
+		if  curRec.Type = PUBLICS  then
+		do;
+			call getRecordBytes(1, .tmpByte);
+			call writeBuf(1, .tmpByte);
+
+			do while curRec.bytesLeft > 1;
+				call getRecordBytes(2, .offset);
+				call getName(.moduleName);
+				pflag2 = getflag2;
+				if sub$56D3(.moduleName, .hashptr) then
+					call fatal(ERR230);	/* DUPLICATE SYMBOL IN INPUT */
+
+				tok.link =  allocUp(moduleName(0) + 7);	/* sizeof symbol entry */
+				hashPtr = tok.link;
+				tok.link = 0;
+				tok.curCmd = curCmdArg;
+				tok.moduleCnt = libModuleCnt;
+				do objNameLen = 0 to moduleName(0);
+					toka(6+objNameLen) = moduleName(objNameLen);	
+				end;
+
+				call writeBuf(2, .offset);
+				call writeBuf(moduleName(0)+1, .moduleName);
+				call writeBuf(sub$3C76(pflag2), pflag2);
+			end;
+		end;
+		call copyRestRec;
+		call prepRecord;
+	end;	/* of while */
+	
+	call outRecInit(curRec.len);
+	call copyRestRec;
+	libModuleCnt = libModuleCnt + 1;
+end;
+
+
+sub$3ECE: PROCEDURE(buf) PUBLIC;
+	DECLARE buf ADDRESS;
+
+	curRec.type = 0EH;
+	call outRecInit(1);
+	call writeCRC;
+	call seekFile(libOutConn, 2, .zeroByte, .zeroByte, .status);
+	call libSeek(2, .zeroBlk);
+	call prepRecord;
+	call outRecInit(curRec.len);
+	call writeBuf(2, .libModuleCnt);
+	call writeBuf(4, buf);
+	call writeCRC;
+end;
+
+
+addCmd:	PROCEDURE;
+	DECLARE tokenCH BASED ptrToken BYTE;
+	DECLARE hashItem BASED hashptr STRUCTURE(HASH$T);
+	DECLARE moda BASED curModuleList(1) BYTE;
+
+	DECLARE blkIdx		ADDRESS,
+		byteIdx		ADDRESS,
+		addLib2CData	TYPE2C$T,
+		src2CData 	TYPE2C$T,
+		inLibConn 	ADDRESS,
+		junk1		ADDRESS,
+		word$6405 	ADDRESS,
+		inLibFileName	ADDRESS,
+		junk2		ADDRESS,
+		i		BYTE,
+		byte$640C	BYTE;
+
+	copyFileBytes: PROCEDURE(cnt);
+		DECLARE cnt ADDRESS;
+
+		call readFile(curConn, .copyBuf, cnt, .actual, .status);
+		if actual < cnt then
+			call fatal(ERR204);	/* PREMATURE EOF */
+
+		call writeFile(libOutConn, .copyBuf, cnt, .status);
+	end;
+
+	DECLARE byte$640F	BYTE,
+		word$6410	ADDRESS,
+		word$6412	ADDRESS,
+		word$6414	ADDRESS,
+		junk3(4)	BYTE,
+		unk$641A(4)	BYTE,
+		word$641E	ADDRESS,
+		unk$6420	BYTE,
+		unk$6421	ADDRESS;
+
+
+
+	call getCmdArg;
+
+	do while tokenCH = ',';
+		call getToken;
+		call getCmdArg;
+	end;
+
+	if not tokenEqu(.('TO'),2) THEN	/* "TO" */
+		call libError(ERR233);	/* 'TO' EXPECTED */
+
+	call getToken;
+	inLibFileName = ptrToken;
+	call getToken;
+	if tokenCH <> 0DH then
+		call libError(ERR203);	/* INVALID SYNTAX */
+
+	call createTmpFile(inLibFileName);
+	call openFile(.inLibConn, inLibFileName, readOnly, 0, .status);
+	curConn = inLibConn;
+	curCmdArg = inLibFileName;
+	curRec.bytesLeft = 0;
+	call acceptRecord(2CH);
+	call getRecordBytes(6, .src2CData);
+	call readChkCRC;
+	libModuleCnt = src2CData.modCnt;
+	blkIdx, byteIdx = 0;
+	call libSeek(2, .zeroBlk);	/* rewind */
+	i = 8;
+	do while i > 0;		/* continue while there are blocks */
+		if src2CData.idxBlk - blkIdx >= i then
+		do;
+			call copyFileBytes(i * 128);
+			blkIdx = blkIdx + i;
+		end;
+		else
+			i = shr(i,1);	/* shrink the chunk size */
+	end;
+
+	call copyFileBytes(src2CData.idxByte); /* copy remaining bytes */
+	call acceptRecord(28H);
+	addCnt = 0;
+	cmdTokChain = .argHead;
+
+	do while cmd.link <> 0;
+		cmdTokChain = cmd.link;
+		curCmdArg = cmd.name;
+		call openLib;
+		call prepRecord;
+		if curRec.type = LIBHDR then	/* library to add? */
+		do;
+			call getRecordBytes(6, .addLib2CData);
+			call readChkCRC;
+			if cmd.modules = 0 then
+			do;
+				curModuleList = .cmd.modules;
+				call prepRecord;
+				do while curRec.type = OBJHDR;
+					call sub$3D05(0FFh);
+					call prepRecord;
+				end;
+			end;
+			else
+			do;
+				word$6410 = 0;
+				call libSeek(2, .addLib2CData.idxBlk);
+				call acceptRecord(NAMES);
+
+				do while curRec.bytesLeft > 1;
+					call getName(.moduleName);
+					
+					byte$640C = 0;
+					curModuleList = .cmd.modules;
+					do while module.link <> 0 and not byte$640C;
+						byte$640C = 0FFh;
+						curModuleList = module.link;
+						do byte$640F = 0 to moduleName(0);
+							if moduleName(byte$640F) <> moda(8 + byte$640F - 1) then
+								byte$640C = 0;
+						end;
+						module.ispublic = module.ispublic or byte$640C;
+					end;
+
+					if byte$640C then
+						module.blk = word$6410;
+					word$6410 = word$6410 + 1;
+				end;
+
+				call acceptRecord(26h);
+				call saveCurPos;
+				curModuleList = .cmd.modules;
+
+				do while module.link <> 0;
+					curModuleList = module.link;
+					if not module.isPublic then
+						call sub$3A54;
+					else
+					do;
+						word$6414 = module.blk * 4;
+						word$6412 = shl(shr(module.blk, 14), 9);
+						call restoreCurPos;
+						call libSeek(3, .word$6412);
+						call getRecordBytes(4, .module.blk);
+					end;
+				end;
+				curModuleList = .cmd.modules;
+
+				do while module.link <> 0;
+					curModuleList = module.link;
+					if module.isPublic then
+					do;
+						call libSeek(2, .module.blk);
+						call acceptRecord(2);
+						call sub$3D05(0);
+					end;
+				end;
+			end;
+		end;
+		else if curRec.type = OBJHDR then
+		do;
+			if cmd.modules <> 0 then
+				call fatal(ERR235);	/* NOT LIBRARY */
+
+			curModuleList = .cmd.modules;
+
+			do while curRec.type = OBJHDR;
+				call sub$3D05(0FFh);
+				call prepRecord;
+			end;
+			if curRec.type <> ENDFILE then
+				call fatal(ERR224);	/* BAD RECORD SEQUENCE */
+		end;
+		else
+			call fatal(ERR224);	/* BAD RECORD SEQUENCE */
+
+		call closeFile(curConn, .status);
+	end;
+
+	call sub$3B1F;
+	curConn = inLibConn;
+	curCmdArg = inLibFileName;
+	curRec.bytesLeft = 0;
+	call libSeek(2, .src2CData.idxBlk);
+	call acceptRecord(NAMES);
+	call outRecInit(0);
+
+	do while curRec.bytesLeft > 1;
+		call getName(.moduleName);
+		call writeBuf(moduleName(0) + 1, .moduleName);
+		curModuleList = .moduleHead;
+		do while module.link <> 0;
+			curModuleList = module.link;
+			do word$6405 = 0 to moduleName(0);
+				if moduleName(word$6405) <> moda((word$6405 + 8) - 1) then
+					goto outerloop;
+			end;
+			call sub$5097(.moduleName(1), moduleName(0));
+			call sub$50DC(.(' - ATTEMPT TO ADD DUPLICATE MODULE NAME'), 22h);
+			goto reset;
+	outerloop:
+		end;
+	end;
+
+	curModuleList = .moduleHead;
+
+	do while module.link <> 0;
+		curModuleList = module.link;
+		if module.isPublic then
+			call writeBuf(module.nameLen + 1, .module.nameLen);
+	end;
+
+	call sub$3967;
+	call writeCRC;
+	src2CData.idxBlk = blockno;
+	src2CData.idxByte = byteno;
+	call acceptRecord(26h);
+	call outRecInit(libModuleCnt * 4 + 1);
+
+	do while curRec.bytesLeft > 1;
+		call getRecordBytes(4, .unk$641A);
+		call writeBuf(4, .unk$641A);
+	end;
+
+	curModuleList = .moduleHead;
+
+	do while module.link <> 0;
+		curModuleList = module.link;
+		if module.isPublic then
+			call writeBuf(4, .module.blk);
+
+	end;
+
+	call writeCRC;
+	call acceptRecord(2Ah);
+	call outRecInit(0);
+
+	do while curRec.bytesLeft > 1;
+		call getName(.moduleName);
+		if moduleName(0) = 0 then
+			word$641E = word$641E + 1;
+		else if sub$56D3(.moduleName, .hashptr) then
+		do;
+			call sub$5097(.moduleName(1), moduleName(0));
+			call sub$50DC(.aPublicSymbolAl, 23h);
+			goto reset;
+		end;
+
+		call writeName(.moduleName);
+	end;
+
+	if libModuleCnt <> 0 then
+		do unk$6421 = src2CData.modCnt to libModuleCnt - 1;
+			do unk$6420 = 0 to 127;
+				hashptr = .hashTable(unk$6420);
+
+
+				do while hashItem.link <> 0;
+					hashptr = hashItem.link;
+					if hashItem.moduleCnt = unk$6421 then
+						call writeBuf(hashItem.symLen + 1, .hashItem.symLen);
+				end;
+			end;
+			call writeBuf(1, .zeroByte);
+		end;
+
+	call skipCurRec;
+	call sub$3967;
+	call writeCRC;
+	call sub$3ECE(.src2CData.idxBlk);
+	call sub$3A1D(inLibFileName);
+end;
+
+
+
+
+deleteCmd: PROCEDURE;
+	DECLARE tokenCH BASED ptrToken BYTE;
+	DECLARE tmp2c type2C$T, junk$6429 ADDRESS,
+		byte$642B BYTE, (junk$642C, word$642E) ADDRESS;
+	DECLARE modules BASED curModuleList STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE s642E BASED word$642E STRUCTURE(MODULE$T1, MODULE$T2);	/* actually on start of structure */
+
+
+	call getCmdArg;
+	if tokenCH <> 0dh then
+		call libError(ERR203);	/* INVALID SYNTAX */
+
+	if cmd.modules = 0 then
+		call libError(ERR203);	/* INVALID SYNTAX */
+
+	curCmdArg = cmd.name;
+	call openLib;
+	call acceptRecord(2CH);
+	call getRecordBytes(6, .tmp2c);
+	call readChkCRC;
+	call libSeek(2, .tmp2c.idxBlk);
+	call acceptRecord(28h);
+	word$642E = .moduleHead;
+
+	do while curRec.bytesLeft > 1;
+		call getName(.moduleName);
+		s642E.link = allocUp(7);
+		word$642E = s642E.link;
+		if (s642E.isPublic := lookupModule) then
+			module.isPublic = 0FFH;
+		else
+			libModuleCnt = libModuleCnt + 1;
+
+	end;
+	s642E.link = 0;
+	call readChkCRC;
+	byte$642B = 0FFh;
+	curModuleList = .cmd.modules;
+
+	do while modules.link <> 0;
+		curModuleList = module.link;
+		if not modules.isPublic then
+			call sub$3A54;
+		else
+			byte$642B = 0;
+	end;
+
+	if byte$642B then
+		goto reset;
+
+	call createTmpFile(curCmdArg);
+	call libSeek(2, .zeroBlk);
+	call acceptRecord(2Ch);
+	call outRecInit(curRec.len);
+	call copyRestRec;
+	word$642E = .moduleHead;
+
+	do while s642E.link <> 0;
+		word$642E = s642E.link;
+		call acceptRecord(2);
+		if s642E.isPublic then
+			call sub$5566;
+		else
+		do;
+			call seekFile(libOutConn, 0, .s642E.blk, .s642E.byt, .status);
+
+			do while curRec.type <> 4;
+				call outRecInit(curRec.len);
+				call copyRestRec;
+				call prepRecord;
+			end;
+
+			call outRecInit(curRec.len);
+			call copyRestRec;
+		end;
+	end;
+
+	word$642E = .moduleHead;
+	call acceptRecord(28h);
+	call outRecInit(0);
+
+	do while s642E.link <> 0;
+		word$642E = s642E.link;
+		call getName(.moduleName);
+		if not s642E.isPublic then
+			call writeName(.moduleName);
+	end;
+
+	call sub$3967;
+	call writeCRC;
+	tmp2c.idxBlk = blockno;
+	tmp2c.idxByte = byteno;
+	word$642E = .moduleHead;
+	call acceptRecord(26H);
+	call outRecInit(0);
+
+	do while s642E.link <> 0;
+		word$642E = s642E.link;
+		if not s642E.isPublic then
+			call writeBuf(4, .s642E.blk);
+	end;
+
+	call sub$3967;
+	call writeCRC;
+	word$642E = .moduleHead;
+	call acceptRecord(2Ah);
+	call outRecInit(0);
+
+	do while s642E.link <> 0;
+		word$642E = s642E.link;
+		call getName(.moduleName);
+		
+		do while moduleName(0) <> 0;
+			if not s642E.isPublic then
+				call writeName(.moduleName);
+
+			call getName(.moduleName);
+		end;
+
+		if not s642E.isPublic then
+			call writeBuf(1, .zeroByte);
+
+	end;
+
+	call sub$3967;
+	call writeCRC;
+	call sub$3ECE(.tmp2c.idxBlk);
+	call sub$3A1D(curCmdArg);
+end;
+
+
+createCmd: PROCEDURE;
+	DECLARE tokenCH BASED ptrToken BYTE;
+
+	call getToken;
+	if tokenCH <> 0dh then		/* should have no other data */
+		call libError(ERR203);	/* INVALID SYNTAX */
+
+	curCmdArg = ptrPrevToken;	/* try to open library */
+	call Open(.curConn, curCmdArg, readOnly, 0, .status);
+	if status = 0 then	/* if error then assume doesn't exist */
+	do;
+		call closeFile(curConn, .status);
+		call fileStatusChk(0E7h, curCmdArg, 0FFh);	/* error 231 not defined !!! */
+	end;
+	call closeFile(curConn, .status);
+	call openFile(.libOutConn, curCmdArg, writeOnly, 0, .status);
+	call writeFile(libOutConn, .initLibContent, 26, .status);
+	call closeFile(libOutCOnn, .status);
+end;
+
+
+
+listCmd: PROCEDURE;
+	DECLARE cmd BASED cmdTokChain CMD$T;
+	DECLARE prevTokenCH BASED ptrPrevToken BYTE;
+	DECLARE tokenCH BASED ptrToken BYTE;
+
+	DECLARE listPublics	BYTE,
+		listThisModule	BYTE,
+		dest2CData	TYPE2C$T;
+
+	outName: PROCEDURE(leadSpaces,name$p);
+		DECLARE leadSpaces BYTE, name$p ADDRESS;
+		DECLARE len BASED name$p BYTE;
+
+		call writeFile(libOutConn, .('      '), leadSpaces, .status);
+		call writeFile(libOutConn, name$p + 1, len, .status);
+		call writeFile(libOutConn, .(0dh, 0ah), 2, .status);	/* crlf */
+	end;
+
+
+
+
+	call getCmdArg;
+	do while tokenCH = ',';
+		call getToken;
+		call getCmdArg;
+	end;
+
+	libOutFile = .(':CO: ');
+	if tokenEqu(.('TO'), 2) then
+	do;
+		call getToken; 	/* get the filename */
+		call getToken; 	/* and pre read the next token */
+		libOutFile = ptrPrevToken;
+	end;
+
+	call getToken;
+	if (listPublics := preTokenEqu(.('PUBLICS'), 7)) then
+		call getToken;
+
+	if prevTokenCH <> 0DH then
+		call libError(ERR203);	/* INVALID SYNTAX */
+
+	call openFile(.libOutConn, libOutFile, 2, 0, .status);
+	cmdTokChain = .argHead;
+
+	do while ((cmdTokChain := cmd.link) <> 0);
+		curCmdArg = cmd.name;
+		call openLib;
+		call writeFile(libOutConn, .('  '), 2, .status);
+		call writeFile(libOutConn, curCmdArg, pastFileName(curCmdArg) - curCmdArg, .status);
+		call writeFile(liboutConn, .(0DH, 0AH), 2, .status);
+		call acceptRecord(2CH);
+		call getRecordBytes(6, .dest2CData);
+		call readChkCRC;
+		call libSeek(2, .dest2CData.idxBlk);
+		call acceptRecord(28H);
+		if listPublics then
+		do;
+			call saveCurPos;
+			call acceptRecord(26H);
+			call acceptRecord(2AH);
+			call swapCurSavedRec;
+		end;
+
+		do while curRec.bytesLeft > 1;
+			call getName(.moduleName);
+			if cmd.modules = 0 then
+				listThisModule = 0FFH;
+			else
+				listThisModule = lookupModule;
+
+			if listThisModule then
+				call outName(4, .moduleName);
+
+			if listPublics then
+			do;
+				call swapCurSavedRec;
+				call getName(.moduleName);
+
+				do while moduleName(0) <> 0;
+					if listThisModule then
+						call outName(6, .moduleName);
+
+					call getName(.moduleName);
+				end;
+				call swapCurSavedRec;
+			end;
+		end;
+
+		call closeFile(curConn, .status);
+	end;
+	call closeFile(libOutConn, .status);
+end;
+
+
+
+DECLARE i BYTE;
+
+start:
+		call Write(0, .aIsisIiLibraria, 24, .status);
+		call Read(1, .MEMORY, 122, .actual, .status); 	/* read standard in */
+
+		goto main;
+
+
+reset:	
+		curPtr = .headPtr;
+
+		do while ((curPtr := curFile.link) <> 0);
+			if curFile.isopen then
+				call Close(curFIle.conn, .status);
+		end;
+
+main:
+	do while(1);
+		libModuleCnt = 0;
+		heapTop = .MEMORY;
+		memTop = memCk;
+		curPtr = .headPtr;
+		curFile.link = 0;
+		cmdTokChain = .argHead;
+		cmd.link = 0;
+		moduleHead = 0;
+		curModuleList = .moduleHead;
+		do i = 0 to 127;
+			hashTable(i) = 0;
+		end;
+
+		call Write(0, .('*'), 1, .status);
+		call getCmd;
+		if preTokenEqu(.('EXIT'), 4) then
+			call Exit;
+		else if preTokenEqu(.('ADD'), 3) then
+			call addCmd;
+		else if preTokenEqu(.('CREATE'), 6) then
+			call createCmd;
+		else if preTokenEqu(.('LIST'), 4) then
+			call listCmd;
+		else if preTokenEqu(.('DELETE'), 6) then
+			call deleteCmd;
+		else if prevToken(0) = 0DH then
+			;
+		else
+			call writeErrStr(ERR232);	/* UNRECOGNIZED COMMAND */
+	end;
+
+end;
+
