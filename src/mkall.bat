@@ -9,6 +9,7 @@ cd ..\plm6 & ..\..\nmake
 cd ..\link80 & ..\..\nmake
 cd ..\loc80 & ..\..\nmake
 cd ..\asm80 & ..\..\nmake
+cd ..\lib80 & ..\..\nmake
 rem check the builds
 cd ..\plm & ..\..\nmake verify
 cd ..\plm0 & ..\..\nmake verify
@@ -21,4 +22,5 @@ cd ..\plm6 & ..\..\nmake verify
 cd ..\link80 & ..\..\nmake verify
 cd ..\loc80 & ..\..\nmake verify
 cd ..\asm80 & ..\..\nmake verify
+cd ..\lib80 & ..\..\nmake verify
 cd ..
