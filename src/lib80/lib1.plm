@@ -12,8 +12,8 @@ end;
 
 DECLARE reset LABEL EXTERNAL,
 	status ADDRESS EXTERNAL,
-	curCmdArg ADDRESS EXTERNAL,
-	curConn ADDRESS EXTERNAL,
+	argFilename ADDRESS EXTERNAL,
+	inConn ADDRESS EXTERNAL,
 	actual	ADDRESS EXTERNAL,
 	hashTable(1) ADDRESS EXTERNAL;
 
@@ -80,8 +80,8 @@ DECLARE errstrs(*) BYTE DATA(
 	239,'NO MODULE HEADER RECORD',0,
 	240,'PROGRAM EXCEEDS 64K',0);
 
-DECLARE unk$643C BYTE INITIAL (0FFh);
-DECLARE word$643D ADDRESS INITIAL(0);
+DECLARE debugLog BYTE INITIAL (0FFh);
+DECLARE debugConn ADDRESS INITIAL(0);
 
 skipAFN: PROCEDURE(path$p) ADDRESS;
 	DECLARE path$p ADDRESS;
@@ -114,7 +114,7 @@ writeErrStr: PROCEDURE(errCode) PUBLIC;
 				CALL write(0, .errStrs(i), 1, .status);
 				i = i + 1;
 			END;
-			CALL write(0, .(0DH, 0AH), 2, .status);
+			CALL write(0, .(CR, LF), 2, .status);
 			RETURN;
 		END;
 		ELSE DO;
@@ -146,30 +146,34 @@ fileStatusChk: PROCEDURE(errCode, path$p, isFatal) PUBLIC;
 	end;
 end;
 
-sub$5097: PROCEDURE(buf, cnt) PUBLIC;
+log: PROCEDURE(buf, cnt) PUBLIC;
 	DECLARE (buf, cnt) ADDRESS;
 
 	call Write(0, buf, cnt, .status);
-	if word$643D <> 0 and unk$643C then
-		call Write(word$643D, buf, cnt, .status);
+	/* code cannot be reached as nothing modifies debugConn
+	   looks like debug code to log the data into another file
+           debugConn is the fileid and debugLog is the log on /off
+	*/
+	if debugConn <> 0 and debugLog then
+		call Write(debugConn, buf, cnt, .status);
 end;
 
-sub$50DC: PROCEDURE(buf, cnt) PUBLIC;
+logCRLF: PROCEDURE(buf, cnt) PUBLIC;
 	DECLARE (buf, cnt) ADDRESS;
 
-	call sub$5097(buf, cnt);
-	call sub$5097(.(0dh, 0ah), 2);
+	call log(buf, cnt);
+	call log(.(CR, LF), 2);
 end;
 
 
 fatal: PROCEDURE(err) PUBLIC;
 	DECLARE err BYTE;
-	call fileStatusChk(err, curCmdArg, 0FFH);
+	call fileStatusChk(err, argFilename, 0FFH);
 	call exit;
 end;
 
 illegalRecord: PROCEDURE PUBLIC;
-	call fileStatusChk(ERR218, curCmdArg, 0FFH);	/* ILLEGAL RECORD FORMAT */
+	call fileStatusChk(ERR218, argFilename, 0FFH);	/* ILLEGAL RECORD FORMAT */
 end;
 
 
@@ -201,20 +205,20 @@ allocDown: PROCEDURE(cnt) ADDRESS PUBLIC;
 	goto reset;
 end;
 
-DECLARE headPtr ADDRESS PUBLIC,
-	curPtr ADDRESS PUBLIC;
+DECLARE fileHead ADDRESS PUBLIC,
+	file$p ADDRESS PUBLIC;
 
 
 statusChk: PROCEDURE(conn$b, status$p);
 	DECLARE conn$b BYTE, status$p ADDRESS;
 	DECLARE status BASED status$p ADDRESS;
-	DECLARE file BASED curPtr LIST$T;
+	DECLARE file BASED file$p FILE$T;
 
 	if status = 0 then
 		return;
 
-	curPtr = .headPtr;
-	do while (curPtr := file.link) <> 0;
+	file$p = .fileHead;
+	do while (file$p := file.link) <> 0;
 		if file.conn = conn$b and file.isopen then
 		do;
 			call fileStatusChk(status, file.path$p, 0);
@@ -230,8 +234,8 @@ end;
 openFile: PROCEDURE(conn$p, path$p, access, echo, status$p) PUBLIC;
 	DECLARE (conn$p, path$p, access, echo, status$p) ADDRESS;
 	DECLARE status BASED status$p ADDRESS;
-	DECLARE head BASED headPtr LIST$T;
-	DECLARE entry BASED curPtr LIST$T;
+	DECLARE head BASED fileHead FILE$T;
+	DECLARE file BASED file$p FILE$T;
 	DECLARE conn BASED conn$p BYTE;
 
 	call open(conn$p, path$p, access, echo, status$p);
@@ -241,27 +245,28 @@ openFile: PROCEDURE(conn$p, path$p, access, echo, status$p) PUBLIC;
 		goto reset;
 	end;
 
-	curPtr = allocUp(6);
-	entry.link = headPtr;
-	headPtr = curPtr;
-	entry.path$p = path$p;	
-	entry.isopen = 0FFH;
-	entry.conn = conn;
+	file$p = allocUp(6);
+	file.link = fileHead;
+	fileHead = file$p;
+	file.path$p = path$p;	
+	file.isopen = 0FFH;
+	file.conn = conn;
 end;
 
 closeFile: PROCEDURE(conn, status$p) PUBLIC;
 	DECLARE (conn, status$p) ADDRESS;
 	DECLARE status BASED status$p ADDRESS;
-	DECLARE entry BASED curPtr LIST$T;
+	DECLARE file BASED file$p FILE$T;
 
-	call close(conn, status$p);
-	curPtr = .headPtr;
+	call close(conn, status$p);	/* close on ISIS */
 
-	do while (curPtr := entry.link) <> 0;
-		if entry.conn = conn then	/* found the file */
+	/* clear down the connection on the file list */
+	file$p = .fileHead;
+	do while (file$p := file.link) <> 0;
+		if file.conn = conn then	/* found the file */
 		do;
-			entry.isopen = 0;
-			call fileStatusChk(status, entry.path$p, 0FFH);	
+			file.isopen = 0;
+			call fileStatusChk(status, file.path$p, 0FFH);	
 		end;
 	end;
 end;
@@ -319,7 +324,7 @@ DECLARE curRec STRUCTURE(LIBREC$T1, LIBREC$T2) PUBLIC,
 /* EXTERNALS */
 
 openLib: PROCEDURE PUBLIC;
-	call openFIle(.curConn, curCmdArg, 1, 0, .status);
+	call openFIle(.inConn, argFilename, 1, 0, .status);
 	curRec.bytesLeft = 0;
 end;
 
@@ -327,9 +332,9 @@ getRecordBytes: PROCEDURE(count, buf$p) PUBLIC;
 	DECLARE  (count, buf$p) ADDRESS;
 	DECLARE buf BASED buf$p(1) BYTE;
 
-	call readFile(curConn, buf$p, count, .actual, .status);
+	call readFile(inConn, buf$p, count, .actual, .status);
 	if actual <> count or count > curRec.bytesLeft then
-		call fileStatusChk(ERR217, curCmdArg, 0FFH);
+		call fileStatusChk(ERR217, argFilename, 0FFH);
 	
 	curRec.bytesLeft = curRec.bytesLeft - count;
 	do while count <> 0;
@@ -343,7 +348,7 @@ readChkCRC: PROCEDURE PUBLIC;
 
 	call getRecordBytes(1, .recByte);
 	if curRec.crc <> 0 then
-		call fileStatusCHk(ERR208, curCmdArg, 0FFH);	/* CHECKSUM ERROR */
+		call fileStatusCHk(ERR208, argFilename, 0FFH);	/* CHECKSUM ERROR */
 end;
 
 
@@ -353,18 +358,18 @@ skipCurRec: PROCEDURE PUBLIC;
 	if curRec.bytesLeft = 1 then
 		call readChkCRC;
 	else
-		call seekFile(curConn, 3, .(0, 0), .curRec.bytesLeft, .status);
+		call seekFile(inConn, 3, .(0, 0), .curRec.bytesLeft, .status);
 	curRec.bytesLeft = 0;
 end;
 
 
 prepRecord: PROCEDURE PUBLIC;
 	call skipCurRec; 	/* skip current record if one being processed */
-	call seekFile(curConn, 0, .curRec.curBlk, .curRec.curByte, .status);
-	curRec.bytesLeft = 3;
-	curRec.crc = 0;
+	call seekFile(inConn, 0, .curRec.curBlk, .curRec.curByte, .status);
+	curRec.bytesLeft = 3;	/* 3 bytes for rectype and record length */
+	curRec.crc = 0;		/* reset crc */
 	call getRecordBytes(3, .curRec.type);
-	curRec.bytesLeft = curRec.len;
+	curRec.bytesLeft = curRec.len;	/* correct the length using the record length */
 end;
 
 acceptRecord: PROCEDURE(type) PUBLIC;
@@ -388,17 +393,17 @@ getName: PROCEDURE(buf) PUBLIC;
 end;
 
 
-sub$5566: PROCEDURE PUBLIC;
-	do while curRec.type <> 4;
+skipModule: PROCEDURE PUBLIC;
+	do while curRec.type <> OBJEND;
 		call prepRecord;
 	end;
-	call skipCurRec;
+	call skipCurRec;	/* skip the OBJ end as well */
 end;
 
 libSeek: PROCEDURE(mode$b, blkByte$p) PUBLIC;
 	DECLARE mode$b BYTE, blkByte$p ADDRESS;
 
-	call seekFile(curConn, mode$b, blkByte$p, blkByte$p + 2, .status);
+	call seekFile(inConn, mode$b, blkByte$p, blkByte$p + 2, .status);
 	if mode$b = 2 then
 		curRec.bytesLeft = 0;
 	return;
@@ -458,65 +463,74 @@ hash: PROCEDURE(pstr) BYTE PUBLIC;
 	RETURN j mod 128;
 END hash;
 
-sub$56D3: PROCEDURE(modName$p, hash$p) BYTE PUBLIC;
+lookupSymbol: PROCEDURE(modName$p, hash$p) BYTE PUBLIC;
 	DECLARE (modName$p, hash$p) ADDRESS;
-	DECLARE curHashPtr ADDRESS,
+	DECLARE curSym$p ADDRESS,
 		symbol ADDRESS,
 		i BYTE;
-	DECLARE curHash BASED curHashPtr STRUCTURE(HASH$T);
+	DECLARE curSym BASED curSym$p STRUCTURE(SYMBOL$T);
 	DECLARE name BASED modName$p(1) BYTE;
 	DECLARE symName BASED symbol(1) BYTE;
 	DECLARE rethash based hash$p ADDRESS;
 
-	curHashPtr = .hashTable(hash(modName$p));
+	/* using hashing find the start of the symbol chain */
+	curSym$p = .hashTable(hash(modName$p));
 
-	do while curHash.link <> 0;
-		curHashPtr = curHash.link;
-		symbol = .curHash.symLen;
+	/* scan the chain looking for a match */
+	do while curSym.link <> 0;
+		curSym$p = curSym.link;
+		symbol = .curSym.symLen;
 
 		do i = 0 to name(0);
 			if symName(i) <> name(i) then
 				goto outerloop;
 		end;
-		rethash = curHashPtr;	
-		return 0ffh;
+		rethash = curSym$p;	
+		return 0ffh;	/* found it */
 outerloop:
 	end;
-	rethash = curHashPtr;
-	return 0;
+	rethash = curSym$p;
+	return 0;		/* not found */
 end;
 
-DECLARE word$64D6	ADDRESS,
-	lineChain	ADDRESS PUBLIC,
-	ptrToken	ADDRESS PUBLIC,
-	tokLen		BYTE PUBLIC,
-	ptrPrevToken	ADDRESS PUBLIC,
-	preTokLen	BYTE PUBLIC,
+DECLARE lineHead	ADDRESS,
+	curLine$p	ADDRESS PUBLIC,
+	lookAhead$p		ADDRESS PUBLIC,
+	lookAheadLen		BYTE PUBLIC,
+	token$p	ADDRESS PUBLIC,
+	tokLen	BYTE PUBLIC,
 	junk1		BYTE,
 	inModuleList	BYTE PUBLIC;
 
 
 libError: PROCEDURE(err) PUBLIC;
 	DECLARE err BYTE;
-	DECLARE word$64E3 ADDRESS;
-	DECLARE word$64E5 ADDRESS;
-	DECLARE line BASED lineChain LINE$T;
-	DECLARE s64E3 BASED word$64E3 LINE$T;
+	DECLARE line$p ADDRESS;
+	DECLARE s ADDRESS;
+	DECLARE curLine BASED curLine$p LINE$T;
+	DECLARE line BASED line$p LINE$T;
 
-	WORD$64E5 = ptrPrevToken + preTokLen;
+	s = token$p + tokLen;	/* assumes these are set up correctly, doesn't always seem to be correct */
 	call writeErrStr(err);
-	word$64E3 = word$64D6;
+	line$p = lineHead;
 
-	do while word$64E5 < word$64E3 or word$64E3 + s64E3.len + 4 < word$64E5;
-		call Write(0, .s64E3.text, s64E3.len, .status);
-		word$64E3 = s64E3.link;
+	/*
+		print out lines that are in the chain before this one
+		basically s will not be in the range of the line pointed
+		to by line$p
+	*/
+	do while s < line$p or line$p + line.len + 4 < s;
+		call Write(0, .line.text, line.len, .status);
+		line$p = line.next;
 	end;
-	if word$64E5 > lineChain  and lineChain + 5 + line.link > word$64E5 then
-		call Write(0, .line.text, word$64E5 - .line.text, .status);
+	/* this logic looks flawed I suspect the else clause is generally taken */
+	/* would be reasonable if curLine.len was used */
+	if s > curLine$p  and curLine$p + 5 + curLine.next > s then
+		call Write(0, .curLine.text, s - .curLine.text, .status);
 	else
-		call Write(0, .s64E3.text, word$64E5 - .s64E3.text, .status);
+		call Write(0, .line.text, s - .line.text, .status);
 
-	call Write(0, .('#', 0dh, 0ah), 3, .status);
+	call Write(0, .('#', CR, LF), 3, .status);
 	goto reset;
 end;
 
@@ -526,7 +540,7 @@ getTokenLen: PROCEDURE(str) ADDRESS;
 	DECLARE tmp ADDRESS;
 	DECLARE ch BASED str BYTE;
 
-	if ch = 0Dh then
+	if ch = CR then
 		return 0;
 
 	if inModuleList then
@@ -562,82 +576,73 @@ end;
 
 
 getline: PROCEDURE;
-	DECLARE line BASED lineChain LINE$T;
-	DECLARE lineA BASED lineChain(1) BYTE;
-	DECLARE tokenCH BASED ptrToken BYTE;
+	DECLARE curLine BASED curLine$p LINE$T;
+	DECLARE curLine$a BASED curLine$p(1) BYTE;
+	DECLARE lookAhead BASED lookAhead$p(1) BYTE;
 	DECLARE i BYTE;
 
 loop:
-	line.link = allocDown(126);
-	lineChain = line.link;
-	line.link = 0;
-	call Read(1, .line.text, 122, .line.len, .status);
+	/* allocate a line buffer and insert into the chain */
+	curLine.next = allocDown(126);
+	curLine$p = curLine.next;
+	curLine.next = 0;
+	/* read line and convert to upper case */
+	call Read(1, .curLine.text, 122, .curLine.len, .status);
 	do i = 4 to 125;	/* 4 is offset of text in line structure */
-		if lineA(i) >= 'a' AND lineA(i) <= 'z' then
-			lineA(i) = lineA(i) - 20H;	/* convert to upper case */
+		if curLine$a(i) >= 'a' AND curLine$a(i) <= 'z' then
+			curLine$a(i) = curLine$a(i) - 20H;	/* convert to upper case */
 	end;
 
-	if preTokLen = 0 then
-		ptrPrevToken = .line.text;
-	ptrToken = skipspc(.line.text);
-	if tokenCH = '&' then
+	if tokLen = 0 then			/* initialise token if first one */
+		token$p = .curLine.text;
+	lookAhead$p = skipspc(.curLine.text);
+	/* check line with just & on it */
+	if lookAhead(0) = '&' then
 	do;
-		ptrToken = skipspc(ptrToken + 1);
-		if tokenCH <> 0dh THEN
+		/* make sure nothing after the & */
+		lookAhead$p = skipspc(lookAhead$p + 1);
+		if lookAhead(0) <> CR THEN
 			call libError(ERR203);	/* INVALID SYNTAX */
+		/* prompt user and get another line */
 		call Write(0, .('**'), 2, .status);
+		/* note potentially wasteful on memory as this line buffer could be reused */
+		/* loop could be to the read call */
 		goto loop;
 	end;
-	toklen = getTokenLen(ptrToken);
+	lookAheadLen = getTokenLen(lookAhead$p);
 end;
 
 getToken: PROCEDURE PUBLIC;
-	DECLARE tokenCH BASED ptrToken BYTE;
-	ptrPrevToken = ptrToken;
-	preTokLen = tokLen;
-	if tokenCH = ')' then
+	DECLARE lookAhead BASED lookAhead$p(1) BYTE;
+	token$p = lookAhead$p;		/* record latest token */
+	tokLen = lookAheadLen;
+	/* track in / out of module list */
+	if lookAhead(0) = ')' then
 		inModuleList = 0;	/* no longer in module list */
-	ptrToken = skipspc(ptrToken + tokLen);
-	if tokenCH = '&' then
+	lookAhead$p = skipspc(lookAhead$p + lookAheadLen);
+	/* continuation line ? */
+	if lookAhead(0) = '&' then
 	do;
-		ptrToken = skipspc(ptrToken + 1);
-		if tokenCH <> CR then
+		lookAhead$p = skipspc(lookAhead$p + 1);
+		/* can't be anything other than blanks after the & */
+		if lookAhead(0) <> CR then
 		do;
-			ptrPrevToken = ptrToken;
+			token$p = lookAhead$p;	/* point to the error character */
+			/* this code is flawed as tokLen will be wrong for libError */
 			call libError(ERR203);	/* INVALID SYNTAX */
 		end;
-
+		/* get another line */
 		call Write(0, .('**'), 2, .status);
 		call getline;
 	end;
-	tokLen = getTokenLen(ptrToken);
+	lookAheadLen = getTokenLen(lookAhead$p);
 end;
 
 
-preTokenEqu: PROCEDURE(str, len) BYTE PUBLIC;
-	DECLARE str ADDRESS, len BYTE;
-	DECLARE stra BASED str(1) BYTE;
-	DECLARE prea BASED ptrPrevToken(1) BYTE;
-
-	DECLARE i BYTE;
-
-	if preTokLen <> len then
-		return 0;
-	if len = 0 then
-		return 0FFh;
-
-	do i = 0 to len - 1;
-		if stra(i) <> prea(i) then
-			return 0;
-	end;
-	return 0FFh;
-end; 	
-
-
-tokenEqu: PROCEDURE(str, len) BYTE PUBLIC;
-	DECLARE str ADDRESS, len BYTE;
-	DECLARE stra BASED str(1) BYTE;
-	DECLARE toka BASED ptrToken(1) BYTE;
+matchToken: PROCEDURE(cha$p, len) BYTE PUBLIC;
+	DECLARE cha$p ADDRESS, len BYTE;
+	DECLARE cha BASED cha$p(1) BYTE;
+	DECLARE token BASED token$p(1) BYTE;
 
 	DECLARE i BYTE;
 
@@ -645,18 +650,38 @@ tokenEqu: PROCEDURE(str, len) BYTE PUBLIC;
 		return 0;
 	if len = 0 then
 		return 0FFh;
+
 	do i = 0 to len - 1;
-		if stra(i) <> toka(i) then
+		if cha(i) <> token(i) then
+			return 0;
+	end;
+	return 0FFh;
+end; 	
+
+
+matchLookAhead: PROCEDURE(cha$p, len) BYTE PUBLIC;
+	DECLARE cha$p ADDRESS, len BYTE;
+	DECLARE cha BASED cha$p(1) BYTE;
+	DECLARE lookAhead BASED lookAhead$p(1) BYTE;
+
+	DECLARE i BYTE;
+
+	if lookAheadLen <> len then
+		return 0;
+	if len = 0 then
+		return 0FFh;
+	do i = 0 to len - 1;
+		if cha(i) <> lookAhead(i) then
 			return 0;
 	end;
 	return 0FFh;
 end;
 
 getCmd: PROCEDURE PUBLIC;
-		inModuleList, junk1, preTokLen = 0;
-		word$64D6 = 0;		/* no line chain */
-		lineChain = .word$64D6;
-		call getline;		/* get first line and token */
+		inModuleList, junk1, tokLen = 0;
+		lineHead = 0;		/* no line chain */
+		curLine$p = .lineHead;
+		call getline;		/* get first line token and lookAhead token */
 		call getToken;
 end;
 
