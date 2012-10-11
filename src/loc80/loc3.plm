@@ -23,33 +23,33 @@ fixupBoundsChk: PROCEDURE(addr) PUBLIC;
 END fixupBoundsChk;
 
 
-sub$5041: PROCEDURE PUBLIC;
+procLINNUM: PROCEDURE PUBLIC;
 	DECLARE rdata BASED rec$p BYTE;
 	DECLARE buf BASED out$p (1) BYTE;
 	DECLARE wbuf BASED out$p (1) ADDRESS;
 
 	IF NOT PurgeSeen OR LinesSeen THEN
 	DO;
-		outSegType(0) =  setWorkingSeg(t8arec.seg);
+		outSegType(0) =  setWorkingSeg(linnumARec.seg);
 		IF NOT PurgeSeen THEN
 		DO;
-			CALL initRecOut(8);
-			t8aout.seg = outSegType(0);
+			CALL initRecOut(R$LINNUM);
+			linnumAOut.seg = outSegType(0);
 			out$p = out$p + 1;
 		END;
 		rec$p = rec$p + 1;
 		DO WHILE rec$p < .erec;
 			IF NOT PurgeSeen THEN
 			DO;
-				t8bout.addr = workingSegBase + t8brec.addr;
-				t8bout.line = t8brec.line;
+				linnumBOut.addr = workingSegBase + linnumBRec.addr;
+				linnumBOut.line = linnumBRec.line;
 				out$p = out$p + 4;
 				
 			END;
 			IF LinesSeen THEN
 			DO;
-				CALL binasc(workingSegBase + t8brec.addr, 16, '0', .alin, 4);
-				CALL binasc(t8brec.line, 10, ' ', .x5(1), 5);
+				CALL binasc(workingSegBase + linnumBRec.addr, 16, '0', .alin, 4);
+				CALL binasc(linnumBRec.line, 10, ' ', .x5(1), 5);
 				CALL sub$4B3A(.alin, .x5);
 			END;
 			rec$p = rec$p + 4;
@@ -58,10 +58,10 @@ sub$5041: PROCEDURE PUBLIC;
 			CALL endRecord;
 	END;
 	CALL getRecord;
-END sub$5041;
+END procLINNUM;
 
 
-sub$5113: PROCEDURE PUBLIC;
+procAncestor: PROCEDURE PUBLIC;
 	DECLARE str BASED rec$p (1) BYTE;
 	IF LinesSeen OR SymbolsSeen THEN
 	DO;
@@ -70,15 +70,15 @@ sub$5113: PROCEDURE PUBLIC;
 	END;
 	IF NOT PurgeSeen THEN
 	DO;
-		CALL initRecOut(16);
+		CALL initRecOut(R$ANCEST);
 		CALL writeBytes(.str(0), str(0) + 1);
 		CALL endRecord;
 	END;
 	CALL getRecord;
-END sub$5113;
+END procAncestor;
 
 
-proc12$16: PROCEDURE(arg1b, arg2w) PUBLIC;
+procDefs: PROCEDURE(arg1b, arg2w) PUBLIC;
 	DECLARE arg1b BYTE;
 	DECLARE arg2w ADDRESS;
 	DECLARE ritem BASED rec$p STRUCTURE (len ADDRESS, name (1) BYTE);
@@ -87,62 +87,62 @@ proc12$16: PROCEDURE(arg1b, arg2w) PUBLIC;
 
 	IF NOT purgeseen OR arg1b THEN
 	DO;
-		IF t12arec.seg = 3 THEN	/* stack ? */
+		IF defsARec.seg = SSTACK THEN	/* stack ? */
 		DO;
 			outSegType(0) = 3;
 			workingSegBase = 0;
 		END;
 		ELSE
-			outSegType(0)= setWorkingSeg(t12arec.seg);	
+			outSegType(0)= setWorkingSeg(defsARec.seg);	
 		IF NOT PurgeSeen THEN
 		DO;
 			CALL initRecOut(srec.type);
-			t12aout.seg = outSegType(0);
+			defsAOut.seg = outSegType(0);
 			out$p = out$p + 1;
 		END;
 		rec$p = rec$p + 1;
 		DO WHILE rec$p < .erec;
 			IF NOT PurgeSeen THEN
 			DO;
-				t12bout.offset = workingSegBase + t12brec.offset;
-				CALL pstrcpy(.t12brec.name, .t12bout.name);
-				t12bout.name(t12brec.name(0) + 1) = 0;
-				out$p = out$p + 4 + t12brec.name(0);
+				defsBOut.offset = workingSegBase + defsBRec.offset;
+				CALL pstrcpy(.defsBRec.name, .defsBOut.name);
+				defsBOut.name(defsBRec.name(0) + 1) = 0;
+				out$p = out$p + 4 + defsBRec.name(0);
 			END;
 			IF arg1b THEN
 			DO;
-				CALL binasc(workingSegBase + t12brec.offset, 16, '0', arg2w, 4);
-				CALL sub$4B3A(arg2w, .t12brec.name);
+				CALL binasc(workingSegBase + defsBRec.offset, 16, '0', arg2w, 4);
+				CALL sub$4B3A(arg2w, .defsBRec.name);
 			END;
-			rec$p = rec$p + 4 + t12brec.name(0);
+			rec$p = rec$p + 4 + defsBRec.name(0);
 		END;
 		IF NOT PurgeSeen THEN
 			CALL endRecord;
 	END;
 	CALL getRecord;
-END proc12$16;
+END procDefs;
 
 
-sub$5257: PROCEDURE PUBLIC;
+procEXTNAM: PROCEDURE PUBLIC;
 	DECLARE ch BASED rec$p BYTE;
 	DECLARE buf BASED out$p (1) BYTE;
 
-	CALL initRecOut(18H);
+	CALL initRecOut(R$EXTNAM);
 	DO WHILE rec$p < .erec;
 		CALL forceSOL;
 		CALL binasc((unsatisfiedCnt := unsatisfiedCnt + 1) - 1, 10, ' ', .aUnsatisfiedExt(21), 5);
 			CALL conAndPrint(.aUnsatisfiedExt, 21);
 			CALL conAndPrint(curColumn := skipSpc(.aUnsatisfiedExt(21)), 7 - (curColumn - .aUnsatisfiedExt(21)));
-			CALL conAndPrint(.t18rec.name(1), t18rec.name(0));
+			CALL conAndPrint(.extnamRec.name(1), extnamRec.name(0));
 			CALL conAndPrint(.crlf, 2);
-			CALL pstrcpy(.t18rec.name, .t18out.name);
-			t18out.name(DOUBLE(t18rec.name(0)) + 1) = 0;
-			out$p = out$p + 2 + t18rec.name(0);
-			rec$p = rec$p + 2 + t18rec.name(0);
+			CALL pstrcpy(.extnamRec.name, .extnamOut.name);
+			extnamOut.name(DOUBLE(extnamRec.name(0)) + 1) = 0;
+			out$p = out$p + 2 + extnamRec.name(0);
+			rec$p = rec$p + 2 + extnamRec.name(0);
 	END;
 	CALL endRecord;
 	CALL getRecord;
-END sub$5257;
+END procEXTNAM;
 
 
 sub$5309: PROCEDURE(buf, len) PUBLIC;
@@ -161,10 +161,10 @@ END sub$5309;
 sub$5359: PROCEDURE PUBLIC;
 	DECLARE buf BASED out$p (1) BYTE;
 	CALL procHeader;
-	CALL initRecOut(2);	/* create header record */
+	CALL initRecOut(R$MODHDR);	/* create header record */
 	CALL writeBytes(.nameArg, nameArg(0)+1);	/* write the name */
-	buf(0) = type2$b1;	/* copy the passed in data */
-	buf(1) = type2$b2;
+	buf(0) = modhdr$x1;	/* copy the passed in data */
+	buf(1) = modhdr$x2;
 	out$p = out$p + 2;
 	CALL endRecord;
 	IF PublicsSeen  OR SymbolsSeen OR LinesSeen THEN
@@ -176,21 +176,21 @@ sub$5359: PROCEDURE PUBLIC;
 		END;
 		CALL printcrlf;
 	END;
-	DO WHILE srec.type <> 4;
+	DO WHILE srec.type <> R$MODEND;
 	    DO CASE SHR(srec.type, 1);
 		CALL illegalReloc;	/* 0 */
 		CALL badRecordSeq;	/* 2 */
 		;			/* 4 */
-		CALL sub$4CAA;		/* 6 */
-		CALL sub$5041;		/* 8 */
+		CALL procMODDAT;		/* 6 */
+		CALL procLINNUM;		/* 8 */
 		CALL illegalReloc;	/* 0A */
 		CALL illegalReloc;	/* 0C */
 		CALL errChkReport(ERR204, .inFileName(1), 0FFH); /* 0E - Premature EOF */
-		CALL sub$5113;		/* 10 */
-		CALL proc12$16(SymbolsSeen, .aSym);	/* 12 */
+		CALL procAncestor;		/* 10 */
+		CALL procDefs(SymbolsSeen, .aSym);	/* 12 */
 		CALL illegalReloc;	/* 14 */
-		CALL proc12$16(PublicsSeen, .aPub);	/* 16 */
-		call sub$5257;		/* 18 - undefined externals */
+		CALL procDefs(PublicsSeen, .aPub);	/* 16 */
+		call procEXTNAM;		/* 18 - undefined externals */
 		CALL illegalReloc;	/* 1A */
 		CALL illegalReloc;	/* 1C */
 		CALL illegalReloc;	/* 1E */
@@ -204,7 +204,7 @@ sub$5359: PROCEDURE PUBLIC;
 		CALL badRecordSeq;	/* 2E */
 	    END;
 	END;
-	CALL procType4;
+	CALL procMODEND;
 	CALL close(outputfd, .statusIO);
 	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
 	IF havePagingFile THEN

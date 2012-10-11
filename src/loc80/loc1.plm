@@ -30,8 +30,8 @@ DECLARE (readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS PUBLIC,
 	seen(9) BYTE PUBLIC,	/* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
 	nameArg(32) BYTE PUBLIC,
 	type4SubType BYTE PUBLIC,
-	type2$b1 BYTE PUBLIC,
-	type2$b2 BYTE PUBLIC,
+	modhdr$x1 BYTE PUBLIC,
+	modhdr$x2 BYTE PUBLIC,
 	startAddr ADDRESS PUBLIC,
 	segOrder(255) BYTE PUBLIC,
 	segBases (3) ADDRESS PUBLIC,	/* abs, code, data */
@@ -235,9 +235,9 @@ getRecord: PROCEDURE PUBLIC;
 	rec$p = srec$p + 3;
 	ibuf$p = erec$p + 1;	/* update for next record */
 	recNum = recNum + 1;
-	IF srec.type > 2EH OR srec.type THEN	/* > 2EH or odd */
+	IF srec.type > R$COMDEF OR srec.type THEN	/* > 2EH or odd */
 		CALL illegalReloc;
-	IF srec.type = 6 THEN
+	IF srec.type = R$MODDAT THEN
 		RETURN;
 	IF recLen > 1025 THEN
 		CALL fatalErr(ERR211);	/* Record too long */
@@ -507,7 +507,7 @@ insert4Desc: PROCEDURE(saddr, eaddr) PUBLIC;
 END insert4Desc;
 
 
-loadtype6Data: PROCEDURE(arg1b) PUBLIC;
+loadMODDAT: PROCEDURE(arg1b) PUBLIC;
 	DECLARE arg1b BYTE;
 	DECLARE rdata BASED rec$p (1) BYTE;
 	DECLARE (dataLen, bytes2Read, curLoadAddr) ADDRESS;
@@ -562,7 +562,7 @@ loadtype6Data: PROCEDURE(arg1b) PUBLIC;
 	ibuf$p = (inb$p := ibuf$p) + 1;
 	IF inCRC + ch <> 0 THEN
 		CALL fatalErr(ERR208);	/* Checksum error */
-END loadtype6Data;
+END loadMODDAT;
 
 
 baseMemImage, pageTab2$p = .controls;	/* once we have processed args overwrite area */

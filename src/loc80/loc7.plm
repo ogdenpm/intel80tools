@@ -51,12 +51,12 @@ getCommonTypeID: PROCEDURE BYTE PUBLIC;
 
 	DO WHILE 1;
 		CALL getRecord;
-		IF srec.type <> 2EH THEN
+		IF srec.type <> R$COMDEF THEN
 			CALL errChkReport(ERR237, .name(1), 0FFH);	/* common not found */
 		DO WHILE rec$p < .erec;
-			IF strequ(.name, .t2Erec.name, name(0)+1) THEN
-				RETURN t2Erec.seg;
-			rec$p = rec$p + 2 + t2Erec.name(0);
+			IF strequ(.name, .comdefRec.name, name(0)+1) THEN
+				RETURN comdefRec.seg;
+			rec$p = rec$p + 2 + comdefRec.name(0);
 		END;
 	END;
 END getCommonTypeID;
@@ -175,7 +175,7 @@ procArgs$Init: PROCEDURE PUBLIC;
 	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
 	recNum = 0;
 	CALL getRecord;
-	IF srec.type <> 2 THEN
+	IF srec.type <> R$MODHDR THEN
 		CALL errChkReport(ERR239, .inFileName(1), 0FFH);	/* no module header record */
 	CALL pstrcpy(.cout, .printFileName);
 	columns = 1;
@@ -189,8 +189,8 @@ procArgs$Init: PROCEDURE PUBLIC;
 	PurgeSeen = 0;
 	nameArgSeen = 0;
 	type4SubType = 0;
-	type2$b1 = 0;
-	type2$b2 = 0;
+	modhdr$x1 = 0;
+	modhdr$x2 = 0;
 	startAddr = 0;
 	CALL initSegOrder;
 	DO p = 0 TO 255;
@@ -254,23 +254,23 @@ alignAddress: PROCEDURE(align, size, laddr) ADDRESS PUBLIC;
 END alignAddress;
 
 
-procRec2: PROCEDURE PUBLIC;
+procMODHDR: PROCEDURE PUBLIC;
 	DECLARE rbyt BASED rec$p (1) BYTE;
-	DECLARE sdef BASED rec$p STRUCTURE (segId BYTE, len ADDRESS, combine BYTE, next BYTE);
+	DECLARE sdef BASED rec$p STRUCTURE (segId BYTE, len ADDRESS, combine BYTE); 
 	DECLARE (loadAddress, segSize, segOrderId) ADDRESS;
 	DECLARE (atTopOfMem, loadHasSize) BYTE;
 
 	IF NOT nameArgSeen THEN
 		CALL pstrcpy(rec$p, .nameArg);
 	rec$p = rec$p + rbyt(0) + 1;	/* past name */
-	type2$b1 = rbyt(0);
-	type2$b2 = rbyt(1);
+	modhdr$x1 = rbyt(0);
+	modhdr$x2 = rbyt(1);
 	rec$p = rec$p + 2;
 	loadHasSize = 0;
 	DO WHILE rec$p < .erec;
 		IF (segFlags(segId := sdef.segId) AND 0FH) <> 0 THEN
 			CALL illegalRecord;
-		IF segId <> 3 THEN
+		IF segId <> SSTACK THEN
 			segSizes(segId) = sdef.len;
 		ELSE IF NOT stackSizeSet THEN
 			stackSize = sdef.len;
@@ -279,12 +279,12 @@ procRec2: PROCEDURE PUBLIC;
 		IF sdef.combine - 1 > 2 THEN
 			CALL illegalRecord;
 		segFlags(segId) = segFlags(segId) + sdef.combine;
-		rec$p = .sdef.next;
+		rec$p = .sdef + size(sdef);
 	END;
-	IF (segFlags(3) AND 0FH) = 0 THEN
-		segFlags(3) = segFlags(3) + 3;	/* set low bits to 3 */
-	IF (segFlags(4) AND 0FH) = 0 THEN
-		segFlags(4) = segFlags(4) + 3;	/* set low bits to 3 */
+	IF (segFlags(SSTACK) AND 0FH) = 0 THEN
+		segFlags(SSTACK) = segFlags(SSTACK) + 3;	/* set low bits to 3 */
+	IF (segFlags(SMEMORY) AND 0FH) = 0 THEN
+		segFlags(SMEMORY) = segFlags(SMEMORY) + 3;	/* set low bits to 3 */
 	IF NOT stackSizeSet AND loadHasSize THEN
 		stackSize = stackSize + 12;
 	loadAddress = 3680H;				/* ISIS load address */
@@ -321,31 +321,32 @@ procRec2: PROCEDURE PUBLIC;
 	END; 
 	stackAddr = stackAddr + stackSize;	/* stack goes down so update top */
 	CALL getRecord;
-END procRec2;
+END procMODHDR;
 
 
-procRec2E: PROCEDURE PUBLIC;
+procCOMDEF: PROCEDURE PUBLIC;
 	DO WHILE rec$p < .erec;
-		IF (segId := t2Erec.seg) < 6 OR segId = 0FFH THEN
+		IF (segId := comdefRec.seg) < SNAMED OR segId = SBLANK THEN
 			CALL illegalRecord;
+		/* check if combine value not appropriate for common or if this one already seen */
 		IF ((segFlags(segId) AND 0FH) = 0) OR ((segFlags(segId) AND 10H) <> 0)THEN
 			CALL illegalRecord;
-		segFlags(segId) = segFlags(segId) OR 10H;
-		rec$p = rec$p + 2 + t2Erec.name(0);		/* past byte, len, string */
+		segFlags(segId) = segFlags(segId) OR 10H;	/* flag as seen */
+		rec$p = rec$p + 2 + comdefRec.name(0);		/* past byte, len, string */
 	END;
 	CALL getRecord;
-END procRec2E;
+END procCOMDEF;
 
 
 procHeader: PROCEDURE PUBLIC;
 	CALL iseek(0, 0);
 	CALL getRecord;
-	CALL procRec2;
+	CALL procMODHDR;
 
-	DO WHILE srec.type = 2EH;
-		CALL procRec2E;
+	DO WHILE srec.type = R$COMDEF;
+		CALL procCOMDEF;
 	END;
-	DO segId = 6 TO 254;	
+	DO segId = SNAMED TO SBLANK - 1;	
 		IF ((segFlags(segId) AND 0FH) <> 0) AND ((segFlags(segId) AND 10H) = 0) THEN
 			CALL badRecordSeq;
 	END;

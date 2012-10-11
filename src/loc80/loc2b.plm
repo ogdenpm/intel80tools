@@ -97,19 +97,19 @@ endRecord: PROCEDURE PUBLIC;
 END endRecord;
 
 
-writeType6Block: PROCEDURE(pdesc4) PUBLIC;
+emitMODDAT: PROCEDURE(pdesc4) PUBLIC;
 	DECLARE pdesc4 ADDRESS;
 	DECLARE desc4 BASED pdesc4 DESC4$T;
 	DECLARE (i, bcnt, pmem, curPC, j) ADDRESS;
 	DECLARE crc BYTE;
 	DECLARE mem BASED pmem (1) BYTE;
 
-	CALL initRecOut(6);
+	CALL initRecOut(R$MODDAT);
 	i = desc4.eaddr - desc4.saddr + 1;	/* last - first + 1 */
 	lsout.len = i + 4;
-	t6out.seg = 0;		/* abs seg */
-	curPC = (t6out.addr := desc4.saddr);		/* load address */	
-	crc = HIGH(lsout.len) + 6 + LOW(lsout.len) + HIGH(t6out.addr) + LOW(t6out.addr);
+	moddatOut.seg = SABS;		/* abs seg */
+	curPC = (moddatOut.addr := desc4.saddr);		/* load address */	
+	crc = HIGH(lsout.len) + 6 + LOW(lsout.len) + HIGH(moddatOut.addr) + LOW(moddatOut.addr);
 	out$p = out$p + 3;
 
 	DO WHILE i > 0;
@@ -134,7 +134,7 @@ writeType6Block: PROCEDURE(pdesc4) PUBLIC;
 
 	crc = -crc;
 	CALL writeBytes(.crc, 1);
-END writeType6Block;
+END emitMODDAT;
 
 
 forceSOL: PROCEDURE PUBLIC;
@@ -171,16 +171,16 @@ setWorkingSeg: PROCEDURE(seg) BYTE PUBLIC;	/* always returns 0 */
 END setWorkingSeg;
 
 
-procType4: PROCEDURE PUBLIC;
+procMODEND: PROCEDURE PUBLIC;
 	DECLARE rst0$p ADDRESS;
 	DECLARE jmp BASED rst0$p STRUCTURE (inst BYTE, addr ADDRESS);
 
-	IF t4rec.subtype = 1 THEN
+	IF modendRec.subtype = 1 THEN
 	DO;
 		type4SubType = 1;
-		outSegType(0) = setWorkingSeg(t4rec.segtype);
+		outSegType(0) = setWorkingSeg(modendRec.segtype);
 		IF NOT startSeen THEN
-			startAddr = workingSegBase + t4rec.addr;
+			startAddr = workingSegBase + modendRec.addr;
 		IF restart0Seen THEN
 		DO;
 			rst0$p = RAddr2LAddr(0);
@@ -196,25 +196,25 @@ procType4: PROCEDURE PUBLIC;
 	curDescriptor = topDescriptor;
 	DO WHILE curDescriptor <> botHeap;
 		curDescriptor = curDescriptor - DOUBLE(4);
-		CALL writeType6Block(curDescriptor);
+		CALL emitMODDAT(curDescriptor);
 	END;
 
-	CALL initRecOut(4);	/* generate the type 4 record */
-	t4out.subtype = type4SubType;
-	t4out.segtype = 0;
-	t4out.addr = startAddr;
+	CALL initRecOut(R$MODEND);	/* generate the type 4 record */
+	modendOut.subtype = type4SubType;
+	modendOut.segtype = 0;
+	modendOut.addr = startAddr;
 	out$p = out$p + 4;
 	CALL writeBytes(rec$p + DOUBLE(4), recLen - DOUBLE(4) - 1);	/* copy type 4 tail over */
 	CALL endRecord;					/* insert length and CRC */
-	CALL initRecOut(0EH);				/* EOF record */
+	CALL initRecOut(R$MODEOF);				/* EOF record */
 	CALL endRecord;
 	CALL flushOut;
-END procType4;
+END procMODEND;
 
 
-sub$4CAA: PROCEDURE PUBLIC;
+procMODDAT: PROCEDURE PUBLIC;
 	DECLARE (mark, backup) STRUCTURE (blk ADDRESS, byt ADDRESS);
-	DECLARE type20primed BYTE;
+	DECLARE fixextPrimed BYTE;
 	DECLARE (fixRAddr, pad) ADDRESS;
 	DECLARE (locRecLen, lasttype6base) ADDRESS;
 	DECLARE (fixLoc, fixLoc2) ADDRESS;
@@ -230,35 +230,35 @@ sub$4CAA: PROCEDURE PUBLIC;
 	ibuf$p = rec$p;
 	CALL chkRead(3);
 	rec$p = ibuf$p;
-	IF t6rec.seg = 3 THEN
+	IF moddatRec.seg = SSTACK THEN
 		CALL fatalErr(ERR238);	/* ILLEGAL STACK CONTENT RECORD */
 
-	outSegType(0) = setWorkingSeg(t6rec.seg);
+	outSegType(0) = setWorkingSeg(moddatRec.seg);
 	lasttype6Base = workingSegBase;
-	t6desc4.saddr = lasttype6base + t6rec.addr;
+	t6desc4.saddr = lasttype6base + moddatRec.addr;
 	IF (t6desc4.eaddr := t6desc4.saddr + recLen - 5) < t6desc4.saddr THEN
 		CALL illegalRecord;	/* oops over 64k */
-	IF t6rec.seg = 0 THEN
+	IF moddatRec.seg = SABS THEN
 		CALL insert6Desc(0, 0, t6desc4.saddr, recLen - 4);
-	ELSE IF (segFlags(t6rec.seg) AND 0FH) = 0 THEN
+	ELSE IF (segFlags(moddatRec.seg) AND 0FH) = 0 THEN
 		CALL illegalRecord;	/* align 0 is invalid */
 	IF (locRecLen := recLen) > 1025 THEN
 	DO;
-		IF t6rec.seg <> 0 THEN
+		IF moddatRec.seg <> 0 THEN
 			CALL fatalErr(ERR211);	/* RECORD TOO LONG */
 		CALL insert4Desc(t6desc4.saddr, t6desc4.eaddr);
 	END;
-	CALL loadtype6Data(t6rec.seg);
+	CALL loadMODDAT(moddatRec.seg);
 	CALL getRecord;
 	IF locRecLen > 1025 THEN
 		RETURN;
 
-	type20primed = 0;
+	fixextPrimed = 0;
 
-	DO WHILE srec.type = 20H OR srec.type = 22H OR srec.type = 24H;
-		IF srec.type = 20H THEN
+	DO WHILE srec.type = R$FIXEXT OR srec.type = R$FIXLOC OR srec.type = R$FIXSEG;
+		IF srec.type = R$FIXEXT THEN
 		DO;
-			IF NOT type20primed THEN
+			IF NOT fixextPrimed THEN
 			DO;
 				CALL flushOut;
 				CALL seekOutFile(0, .mark.blk, .mark.byt);
@@ -266,24 +266,24 @@ sub$4CAA: PROCEDURE PUBLIC;
 				backup.byt = locRecLen + 3;
 				CALL seekOutFile(3, .backup.blk, .backup.byt);
 			END;
-			type20primed = 0FFH;
-			CALL initRecOut(20H);
-			IF (fixType := t20arec.fixType) - 1 > 2 THEN
+			fixextPrimed = 0FFH;
+			CALL initRecOut(R$FIXEXT);
+			IF (fixType := fixextARec.fixType) - 1 > 2 THEN
 				CALL illegalRecord;
 
-			t20aout.fixType = fixType;
+			fixextAOut.fixType = fixType;
 			out$p = out$p + 1;
 			rec$p = rec$p + 1;
 
 			DO WHILE rec$p < .erec;
-				CALL fixupBoundsChk(t20bout.addr := lasttype6base + t20brec.addr);
+				CALL fixupBoundsChk(fixextBOut.addr := lasttype6base + fixextBRec.addr);
 				IF fixType = 3 THEN
-					CALL fixupBoundsChk(t20bout.addr + 1);	/* check 2nd byte in range */
-				IF (t20bout.sym := t20brec.sym) >= unsatisfiedCnt THEN
+					CALL fixupBoundsChk(fixextBOut.addr + 1);	/* check 2nd byte in range */
+				IF (fixextBOut.sym := fixextBRec.sym) >= unsatisfiedCnt THEN
 					CALL badRecordSeq;
 				CALL forceSOL;
-				CALL binasc(t20bout.sym, 10, ' ', .aReferenceToUns(34), 5);
-				CALL binasc(t20bout.addr, 16, '0', .aReferenceToUns(44), 4);
+				CALL binasc(fixextBOut.sym, 10, ' ', .aReferenceToUns(34), 5);
+				CALL binasc(fixextBOut.addr, 16, '0', .aReferenceToUns(44), 4);
 				CALL conAndPrint(.aReferenceToUns, 34);
 				
 				CALL conAndPrint((curColumn := skipspc(.aReferenceToUns(34))),
@@ -297,17 +297,17 @@ sub$4CAA: PROCEDURE PUBLIC;
 		ELSE
 		DO;
 			workingSegBase = lasttype6base;
-			IF srec.type = 24H THEN
+			IF srec.type = R$FIXSEG THEN
 			DO;
-				outSegType(0) = setWorkingSeg(t24arec.seg);
-				rec$p = rec$p + 1;				/* rest treat as type 22H */
+				outSegType(0) = setWorkingSeg(fixsegARec.seg);
+				rec$p = rec$p + 1;				/* rest treat as type FIXLOC */
 			END;
-			IF (fixType := t22arec.fixtype) - 1 > 2 THEN
+			IF (fixType := fixlocARec.fixtype) - 1 > 2 THEN
 				CALL illegalRecord;
 			rec$p = rec$p + 1;
 
 			DO WHILE rec$p < .erec;
-				CALL fixupBoundsChk(fixRaddr := lasttype6base + t22brec.addr);
+				CALL fixupBoundsChk(fixRaddr := lasttype6base + fixlocBRec.addr);
 				IF fixType = 3 THEN
 					CALL fixupBoundsChk(fixRaddr + 1);
 				fixLoc = RAddr2LAddr(fixRaddr);
@@ -331,18 +331,18 @@ sub$4CAA: PROCEDURE PUBLIC;
 		   END;
 		CALL getRecord;
 	END;
-	IF type20primed THEN
+	IF fixextPrimed THEN
 	DO;
 		CALL flushOut;
 		CALL seekOutFile(2, .mark.blk, .mark.byt);
-		CALL writeType6Block(.t6desc4.saddr);
+		CALL emitMODDAT(.t6desc4.saddr);
 		CALL flushOut;
 		CALL seekOutFile(4, .backup.blk, .backup.byt);
 	END;
 	ELSE
 		CALL insert4Desc(t6desc4.saddr, t6desc4.eaddr);
 
-END sub$4CAA;
+END procMODDAT;
 
 END locate2;
 
