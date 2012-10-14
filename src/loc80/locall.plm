@@ -47,6 +47,7 @@ end spath;
 memck: procedure address external;
 end memck;
 
+
 $list
 isis.plm
 isissub:
@@ -68,8 +69,9 @@ DECLARE LIT LITERALLY 'LITERALLY',
 	IWHOCON LIT	'13',
 	ISPATH LIT	'14';
 
-isis: procedure (type, parameter$ptr) external;
-    declare type byte,
+
+isis: procedure (rectyp, parameter$ptr) external;
+    declare rectyp byte,
             parameter$ptr address;
 end isis;
 
@@ -124,37 +126,23 @@ END;
 loc.bas
 DECLARE	cmdch BASED cmd$p BYTE;
 DECLARE	cmdbuf BASED cmd$p (1) BYTE;
-DECLARE	pageTab1 BASED pageTab1$p (1) STRUCTURE (state BYTE, mpage BYTE);
-DECLARE	pageTab2 BASED pageTab2$p (1) STRUCTURE (state BYTE, fpage BYTE);
-DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
-DECLARE	sout BASED sout$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
-DECLARE	modendRec BASED rec$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS);
-DECLARE	modendOut BASED out$p STRUCTURE (subtype BYTE, segtype BYTE, addr ADDRESS);
-DECLARE	moddatRec BASED rec$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
-DECLARE	moddatOut BASED out$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
-DECLARE	linnumARec BASED rec$p STRUCTURE (seg BYTE);
-DECLARE	linnumBRec BASED rec$p STRUCTURE (addr ADDRESS, line ADDRESS);
-DECLARE	linnumAOut BASED out$p STRUCTURE (seg BYTE);
-DECLARE	linnumBOut BASED out$p STRUCTURE (addr ADDRESS, line ADDRESS);
-DECLARE defsARec BASED rec$p STRUCTURE (seg BYTE);
-DECLARE defsBRec BASED rec$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
-DECLARE defsAOut BASED out$p STRUCTURE (seg BYTE);
-DECLARE defsBOut BASED out$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
-DECLARE extnamRec BASED rec$p STRUCTURE (name(1) BYTE /*, 0 */);
-DECLARE extnamOut BASED out$p STRUCTURE (name(1) BYTE /*, 0 */);
-DECLARE	fixextARec BASED rec$p STRUCTURE (fixType BYTE);
-DECLARE	fixextAOut BASED out$p STRUCTURE (fixType BYTE);
-DECLARE	fixextBRec BASED rec$p STRUCTURE (sym ADDRESS, addr ADDRESS);
-DECLARE	fixextBOut BASED out$p STRUCTURE (sym ADDRESS, addr ADDRESS);
-DECLARE	fixlocARec BASED rec$p STRUCTURE (fixType BYTE);
-DECLARE	fixlocBRec BASED rec$p STRUCTURE (addr ADDRESS);
-DECLARE	fixsegARec BASED rec$p STRUCTURE (seg BYTE);
-DECLARE	comdefRec BASED rec$p STRUCTURE (seg BYTE, name(1) BYTE);
+DECLARE	pageTab1 BASED pageTab1$p (256) STRUCTURE (state BYTE, mpage BYTE);
+DECLARE	pageTab2 BASED pageTab2$p (256) STRUCTURE (pageIdx BYTE, fileIdx BYTE);
+DECLARE	inRecord BASED inRecord$p STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE);
+DECLARE	outRecord BASED outRecord$p STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE);
 loc.lit
 DECLARE	LIT LITERALLY 'LITERALLY';
+
+/* seek modes */
+DECLARE	SEEKTELL LIT	'0',
+	SEEKBCK LIT	'1',
+	SEEKABS	LIT	'2',
+	SEEKFWD LIT	'3',
+	SEEKEND	LIT	'4';
+
 DECLARE	SPATH$T LIT 'STRUCTURE (deviceId BYTE, name(6) BYTE, ext(3) BYTE, deviceType BYTE, driveType BYTE)',
-        DESC4$T LIT 'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)',
-	DESC6$T LIT 'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)';
+        DATAFRAG$T LIT 'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)',
+	SEGFRAG$T LIT 'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)';
 DECLARE	ERR2 LIT '2', /* ILLEGAL AFTN ARGUMENT */
 	ERR3 LIT '3', /* TOO MANY OPEN FILES */
 	ERR4 LIT '4', /* INCORRECTLY SPECIFIED FILE */
@@ -194,6 +182,7 @@ DECLARE	ERR2 LIT '2', /* ILLEGAL AFTN ARGUMENT */
 	ERR239 LIT '239', /* NO MODULE HEADER RECORD */
 	ERR240 LIT '240'; /* PROGRAM EXCEEDS 64K */
 
+/* Record types */
 DECLARE	R$MODHDR	LIT	'2',
 	R$MODEND	LIT	'4',
 	R$MODDAT	LIT	'6',
@@ -212,24 +201,44 @@ DECLARE	R$MODHDR	LIT	'2',
 	R$LIBHDR	LIT	'2CH',
 	R$COMDEF	LIT	'2EH';
 
+/* Segments */
 DECLARE	SABS	LIT	'0',
 	SCODE	LIT	'1',
 	SDATA	LIT	'2',
 	SSTACK	LIT	'3',
 	SMEMORY	LIT	'4',
 	SRESERVED LIT	'5',
-	SNAMED	LIT	'6',
+	SNAMED	LIT	'6',	/* through 254 */
 	SBLANK	LIT	'255';
 
+/* Alignments  & Flags*/
+DECLARE AMASK	LIT	'0FH',
+	AABS	LIT	'0',
+	AUNKNOWN LIT	'0',
+	AINPAGE	LIT	'1',
+	APAGE	LIT	'2',
+	ABYTE	LIT	'3',
+	FHASADDR LIT	'080H',
+	FWRAP0	LIT	'40H',
+	FSEGSEEN LIT	'10H';
+
+/* Fixup type */
+DECLARE	FLOW	LIT	'1',
+	FHIGH	LIT	'2',
+	FBOTH	LIT	'3';
+
+DECLARE	TRUE	LIT	'0FFH',
+	FALSE	LIT	'0';
+
 DECLARE	startSeen LIT 'seen(0)',
-	stackSizeSet LIT 'seen(1)',
+	stackSizeSeen LIT 'seen(1)',
 	restart0Seen LIT 'seen(2)',
 	MapSeen LIT 'seen(3)',
 	PublicsSeen LIT 'seen(4)',
 	SymbolsSeen LIT 'seen(5)',
 	LinesSeen LIT 'seen(6)',
 	PurgeSeen LIT 'seen(7)',
-	nameArgSeen LIT 'seen(8)';
+	moduleNameSeen LIT 'seen(8)';
 
 mem$mov: PROCEDURE(cnt, src, dst) EXTERNAL;
 	DECLARE cnt ADDRESS, src ADDRESS, dst ADDRESS;
@@ -241,44 +250,40 @@ DECLARE	(readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS EXTERNAL,
 	printFileName (16) BYTE EXTERNAL, tmpFileName (16) BYTE EXTERNAL,
 	columns BYTE EXTERNAL,
 	seen(9) BYTE EXTERNAL,	/* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
-	nameArg(32) BYTE EXTERNAL,
-	type4SubType BYTE EXTERNAL,
+	moduleName(32) BYTE EXTERNAL,
+	isMain BYTE EXTERNAL,
 	modhdr$x1 BYTE EXTERNAL,
 	modhdr$x2 BYTE EXTERNAL,
 	startAddr ADDRESS EXTERNAL,
 	segOrder(255) BYTE EXTERNAL,
-	segBases (3) ADDRESS EXTERNAL,	/* abs, code, data */
-	stackAddr ADDRESS EXTERNAL,
-	MemoryBase(252) ADDRESS EXTERNAL,
-	segSizes(3) ADDRESS EXTERNAL,
-	stackSize ADDRESS EXTERNAL,
-	MemorySize(252) ADDRESS EXTERNAL,
+	segBases(256) ADDRESS EXTERNAL,	/* abs, code, data */
+	segSizes(256) ADDRESS EXTERNAL,
 	segFlags(256) BYTE EXTERNAL,
-	srec$p ADDRESS EXTERNAL,
+	inRecord$p ADDRESS EXTERNAL,
 	erec$p ADDRESS EXTERNAL,
-	rec$p ADDRESS EXTERNAL,
+	in$p ADDRESS EXTERNAL,
 	recNum ADDRESS EXTERNAL,
 	recLen ADDRESS EXTERNAL,
 	npbuf ADDRESS EXTERNAL,
 	sibuf$p ADDRESS EXTERNAL,
 	ibuf$p ADDRESS EXTERNAL,
 	eibuf$p ADDRESS EXTERNAL,
-	sout$p ADDRESS EXTERNAL,
+	outRecord$p ADDRESS EXTERNAL,
 	out$p ADDRESS EXTERNAL,
 	eout$p ADDRESS EXTERNAL,
 	spbuf$p ADDRESS EXTERNAL,
 	pbuf$p ADDRESS EXTERNAL,
 	epbuf$p ADDRESS EXTERNAL,
 	topHeap ADDRESS EXTERNAL,
-	topDescriptor ADDRESS EXTERNAL,
-	curDescriptor62F ADDRESS EXTERNAL,
-	desc6a$p ADDRESS EXTERNAL,
+	topDataFrags ADDRESS EXTERNAL,
+	curSegFrag$p ADDRESS EXTERNAL,
+	nextSegFrag$p ADDRESS EXTERNAL,
 	botHeap ADDRESS EXTERNAL,
-	curDescriptor ADDRESS EXTERNAL,
-	desc4a$p ADDRESS EXTERNAL,
-	t6desc4 DESC4$T EXTERNAL,
+	curDataFrag$p ADDRESS EXTERNAL,
+	nextDataFrag$p ADDRESS EXTERNAL,
+	inFragment DATAFRAG$T EXTERNAL,
 	usePrintBuf BYTE EXTERNAL,
-	isNotBB BYTE EXTERNAL,
+	outRealFile BYTE EXTERNAL,
 	baseMemImage ADDRESS EXTERNAL,
 	havePagingFile BYTE EXTERNAL,
 	pageCacheSize BYTE EXTERNAL,
@@ -287,6 +292,7 @@ DECLARE	(readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS EXTERNAL,
 	pageIndexTmpFil BYTE EXTERNAL,
 	pageTab1$p ADDRESS EXTERNAL,
 	pageTab2$p ADDRESS EXTERNAL;
+
 DECLARE	crlf(2) BYTE EXTERNAL,
 	aRecordType(1) BYTE EXTERNAL,
 	(inBlk, inByt) ADDRESS EXTERNAL,
@@ -338,20 +344,20 @@ iseek: PROCEDURE(blk, byt) EXTERNAL;
 END iseek;
 
 
-RAddr2LAddr: PROCEDURE(addr) ADDRESS EXTERNAL;
+addrInCache: PROCEDURE(addr) ADDRESS EXTERNAL;
 	DECLARE addr ADDRESS;
-END RAddr2LAddr;
+END addrInCache;
 
 
-insert6Desc: PROCEDURE(flags, seg, start, len) EXTERNAL;
+addSegFrag: PROCEDURE(flags, seg, start, len) EXTERNAL;
 	DECLARE (flags, seg) BYTE;
 	DECLARE (start, len) ADDRESS;
-END insert6Desc;
+END addSegFrag;
 
-insert4Desc: PROCEDURE(arg1w, arg2w) EXTERNAL;
+addDataFrag: PROCEDURE(arg1w, arg2w) EXTERNAL;
 	DECLARE arg1w ADDRESS;
 	DECLARE arg2w ADDRESS;
-END insert4Desc;
+END addDataFrag;
 
 loadMODDAT: PROCEDURE(arg1b) EXTERNAL;
 	DECLARE arg1b BYTE;
@@ -377,10 +383,10 @@ $list
 DECLARE COPYRIGHT (*) BYTE DATA ('(C) 1976, 1977, 1979 INTEL CORP');
 DECLARE VERSION (*) BYTE PUBLIC DATA ('V3.0');
 DECLARE NULLREC (*) BYTE DATA (0,0,0);
-DECLARE addr1 ADDRESS DATA (0);
-DECLARE addr1byts STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.addr1);
-DECLARE addr0 ADDRESS DATA (0);
-DECLARE addr0byts STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.addr0);
+DECLARE pageoutOffset ADDRESS DATA (0);
+DECLARE pageoutOffset$b STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.pageoutOffset);
+DECLARE cachePageOffset ADDRESS DATA (0);
+DECLARE cachePageOffset$b STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.cachePageOffset);
 
 
 DECLARE (readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS PUBLIC,
@@ -388,44 +394,40 @@ DECLARE (readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS PUBLIC,
 	printFileName (16) BYTE PUBLIC, tmpFileName (16) BYTE PUBLIC,
 	columns BYTE PUBLIC,
 	seen(9) BYTE PUBLIC,	/* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
-	nameArg(32) BYTE PUBLIC,
-	type4SubType BYTE PUBLIC,
+	moduleName(32) BYTE PUBLIC,
+	isMain BYTE PUBLIC,
 	modhdr$x1 BYTE PUBLIC,
 	modhdr$x2 BYTE PUBLIC,
 	startAddr ADDRESS PUBLIC,
 	segOrder(255) BYTE PUBLIC,
-	segBases (3) ADDRESS PUBLIC,	/* abs, code, data */
-	stackAddr ADDRESS PUBLIC,
-	MemoryBase(252) ADDRESS PUBLIC,
-	segSizes(3) ADDRESS PUBLIC,
-	stackSize ADDRESS PUBLIC,
-	MemorySize(252) ADDRESS PUBLIC,
+	segBases(256) ADDRESS PUBLIC,	/* abs, code, data */
+	segSizes(256) ADDRESS PUBLIC,
 	segFlags(256) BYTE PUBLIC,
-	srec$p ADDRESS PUBLIC,
+	inRecord$p ADDRESS PUBLIC,
 	erec$p ADDRESS PUBLIC,
-	rec$p ADDRESS PUBLIC,
+	in$p ADDRESS PUBLIC,
 	recNum ADDRESS PUBLIC,
 	recLen ADDRESS PUBLIC,
 	npbuf ADDRESS PUBLIC,
 	sibuf$p ADDRESS PUBLIC,
 	ibuf$p ADDRESS PUBLIC,
 	eibuf$p ADDRESS PUBLIC,
-	sout$p ADDRESS PUBLIC,
+	outRecord$p ADDRESS PUBLIC,
 	out$p ADDRESS PUBLIC,
 	eout$p ADDRESS PUBLIC,
 	spbuf$p ADDRESS PUBLIC,
 	pbuf$p ADDRESS PUBLIC,
 	epbuf$p ADDRESS PUBLIC,
 	topHeap ADDRESS PUBLIC,
-	topDescriptor ADDRESS PUBLIC,
-	curDescriptor62F ADDRESS PUBLIC,
-	desc6a$p ADDRESS PUBLIC,
+	topDataFrags ADDRESS PUBLIC,
+	curSegFrag$p ADDRESS PUBLIC,
+	nextSegFrag$p ADDRESS PUBLIC,
 	botHeap ADDRESS PUBLIC,
-	curDescriptor ADDRESS PUBLIC,
-	desc4a$p ADDRESS PUBLIC,
-	t6desc4 DESC4$T PUBLIC,
+	curDataFrag$p ADDRESS PUBLIC,
+	nextDataFrag$p ADDRESS PUBLIC,
+	inFragment DATAFRAG$T PUBLIC,
 	usePrintBuf BYTE PUBLIC,
-	isNotBB BYTE PUBLIC,
+	outRealFile BYTE PUBLIC,
 	baseMemImage ADDRESS PUBLIC,
 	havePagingFile BYTE PUBLIC,
 	pageCacheSize BYTE PUBLIC,
@@ -443,16 +445,6 @@ DECLARE	crlf(2) BYTE PUBLIC INITIAL(0DH, 0AH),
 
 $INCLUDE(LOC.BAS)
 
-/* seek modes
-	0-> current pos in blk/byte format
-	1-> -ve
-	2-> abs
-	3-> +ve
-	4-> to end
-*/
-
-
-
 
 conStrOut: PROCEDURE(buf, cnt) PUBLIC;
 	DECLARE (buf, cnt) ADDRESS;
@@ -460,25 +452,25 @@ conStrOut: PROCEDURE(buf, cnt) PUBLIC;
 END conStrOut;
 
 
-writePrintBuf: PROCEDURE PUBLIC;
+flushPrintBuf: PROCEDURE PUBLIC;
 	IF usePrintBuf THEN	/* only process if buffered print */
 	DO;
 		CALL write(printfd, spbuf$p, pbuf$p - spbuf$p, .statusIO);
-		CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+		CALL errChkReport(statusIO, .printFileName(1), TRUE);
 	END;
 	pbuf$p = spbuf$p;	/* rest buffer pointer */
-END writePrintBuf;
+END flushPrintBuf;
 
 
 fatalErr: PROCEDURE(errCode) PUBLIC;
 	DECLARE errCode BYTE;
 
-	CALL writePrintBuf;
+	CALL flushPrintBuf;
 	CALL conStrOut(.(' '), 1);
 	CALL conStrOut(.inFileName(1), inFileName(0));
 	CALL conStrOut(.(','), 1);
 	CALL errmsg(errCode);
-	CALL binasc(srec.type, 16, '0', .aRecordType(13), 2);
+	CALL binasc(inRecord.rectyp, 16, '0', .aRecordType(13), 2);
 	IF recNum > 0 THEN
 		CALL binasc(recNum, 10, ' ', .aRecordType(32), 5);
 	CALL conStrOut(.aRecordType, 39); 
@@ -501,7 +493,7 @@ badRecordSeq: PROCEDURE PUBLIC;
 END badRecordSeq;
 
 
-pstrcpy: PROCEDURE(psrc, pdst) PUBLIC;
+pstrcpy: PROCEDURE(psrc, pdst) PUBLIC;	/* copy pascal style string */
 	DECLARE (psrc, pdst) ADDRESS;
 	DECLARE src BASED psrc (1) BYTE;
 	
@@ -514,24 +506,24 @@ printString: PROCEDURE(bufp, cnt) PUBLIC;
 	DECLARE cnt ADDRESS;
 	DECLARE bcnt ADDRESS;
 
-	IF usePrintBuf THEN
+	IF usePrintBuf THEN	/* using buffer ? */
 	DO;
-		bcnt = epbuf$p - pbuf$p; 
-		DO WHILE cnt > bcnt;
-			CALL mem$mov(bcnt, bufp, pbuf$p);
-			cnt = cnt - bcnt;
-			bufp = bufp + bcnt;
-			pbuf$p = pbuf$p + bcnt;
-			CALL writePrintBuf;
-			bcnt = npbuf;
+		bcnt = epbuf$p - pbuf$p; 	/* space in buffer */
+		DO WHILE cnt > bcnt;		/* not enough room for all chars */
+			CALL mem$mov(bcnt, bufp, pbuf$p);	/* copy what we can */
+			cnt = cnt - bcnt;	/* adjust what is left */
+			bufp = bufp + bcnt;	/* advance position in the src string */
+			pbuf$p = pbuf$p + bcnt;	/* and the print buffer position */
+			CALL flushPrintBuf;	/* write the buffer */
+			bcnt = npbuf;		/* reset to the buffer size */
 		END;
-		CALL mem$mov(cnt, bufp, pbuf$p);
-		pbuf$p = pbuf$p + cnt;
+		CALL mem$mov(cnt, bufp, pbuf$p); /* copy the remaining chars */
+		pbuf$p = pbuf$p + cnt;		/* advance the print buf ptr */
 	END;
 	ELSE
-	DO;
+	DO;	/* just use the operating system functions */
 		CALL write(printfd, bufp, cnt, .statusIO);
-		CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+		CALL errChkReport(statusIO, .printFileName(1), TRUE);
 	END;
 END printString;
 
@@ -557,11 +549,11 @@ chkRead: PROCEDURE(cnt) PUBLIC;
 	DO;
 		CALL mem$mov(bcnt, ibuf$p, sibuf$p);	/* move down bytes in buffer */
 		CALL read(readfd, sibuf$p + bcnt, npbuf - bcnt, .actRead, .statusIO);
-		CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+		CALL errChkReport(statusIO, .inFileName(1), TRUE);
 		inBlk = inBlk + (inByt + ibuf$p - sibuf$p) / 128;
 		inByt = (inByt + ibuf$p - sibuf$p) MOD 128;
 		IF (bcnt := bcnt + actRead) < cnt THEN
-			CALL errChkReport(ERR204, .inFileName(1), 0FFH);  /* Premature EOF */
+			CALL errChkReport(ERR204, .inFileName(1), TRUE);  /* Premature EOF */
 		eibuf$p = (ibuf$p := sibuf$p) + bcnt;
 	END;
 END chkRead;
@@ -573,36 +565,36 @@ getRecord: PROCEDURE PUBLIC;
 
 	IF (bcnt := eibuf$p - ibuf$p) >= 4 THEN
 	DO;
-		srec$p = ibuf$p;
-		erec$p = srec$p + srec.len + 2;
+		inRecord$p = ibuf$p;
+		erec$p = inRecord$p + inRecord.reclen + 2;
 	END;
 	ELSE
 	DO;
-		srec$p = .NULLREC;	/* scratch area */
+		inRecord$p = .NULLREC;	/* scratch area */
 		erec$p = 0FFFFH;
 	END;
 	IF erec$p >= eibuf$p THEN
 	DO;
-		IF srec.len <= 1025 THEN
+		IF inRecord.reclen <= 1025 THEN
 		DO;
 			CALL chkRead(bcnt + 1);
-			srec$p = ibuf$p;
-			IF (erec$p := srec$p + srec.len + 2) >= eibuf$p THEN
-				CALL errChkReport(ERR204, .inFileName(1), 0FFH);	/* premature EOF */
+			inRecord$p = ibuf$p;
+			IF (erec$p := inRecord$p + inRecord.reclen + 2) >= eibuf$p THEN
+				CALL errChkReport(ERR204, .inFileName(1), TRUE);	/* premature EOF */
 		END;
 	END;
-	recLen = srec.len;
-	rec$p = srec$p + 3;
+	recLen = inRecord.reclen;
+	in$p = inRecord$p + 3;
 	ibuf$p = erec$p + 1;	/* update for next record */
 	recNum = recNum + 1;
-	IF srec.type > R$COMDEF OR srec.type THEN	/* > 2EH or odd */
+	IF inRecord.rectyp > R$COMDEF OR inRecord.rectyp THEN	/* > 2EH or odd */
 		CALL illegalReloc;
-	IF srec.type = R$MODDAT THEN
+	IF inRecord.rectyp = R$MODDAT THEN
 		RETURN;
 	IF recLen > 1025 THEN
 		CALL fatalErr(ERR211);	/* Record too long */
 	inCRC = 0;
-	DO inb$p = srec$p TO .erec;
+	DO inb$p = inRecord$p TO .erec;
 		inCRC = inCRC + ch;
 	END;
 	IF inCRC <> 0 THEN
@@ -618,8 +610,8 @@ iseek: PROCEDURE(blk, byt) PUBLIC;
 		IF (ibuf$p := sibuf$p + (blk - inBlk) * 128 + (byt - inByt)) >= sibuf$p
 		    AND ibuf$p < eibuf$p THEN
 			RETURN;
-	CALL seek(readfd, 2, .blk, .byt, .statusIO);
-	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+	CALL seek(readfd, SEEKABS, .blk, .byt, .statusIO);
+	CALL errChkReport(statusIO, .inFileName(1), TRUE);
 	ibufp = eibufp;
 	CALL chkRead(1);	/* read the buffer */
 	inBlk = blk;
@@ -628,31 +620,31 @@ END iseek;
 
 
 
-seekPageTmpFile: PROCEDURE(para) PUBLIC;
+seekPagingFile: PROCEDURE(para) PUBLIC;
 	DECLARE para BYTE;
 	DECLARE blk ADDRESS;
 	
 	blk = DOUBLE(para) + DOUBLE(para);
-	CALL seek(tmpfd, 2, .blk, .(0,0), .statusIO);
-	CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
-END seekPageTmpFile;
+	CALL seek(tmpfd, SEEKABS, .blk, .(0,0), .statusIO);
+	CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
+END seekPagingFile;
 
 
 pageout: PROCEDURE(page, bufp) PUBLIC;
 	DECLARE page BYTE;
 	DECLARE bufp ADDRESS;
-	DECLARE pt ADDRESS, t BASED pt STRUCTURE (state BYTE, fpage BYTE);
+	DECLARE pt ADDRESS, t BASED pt STRUCTURE (pageIdx BYTE, fileIdx BYTE);
 
 	pt = .pageTab2(page);
-	IF t.fpage = 0FFH THEN
+	IF t.fileIdx = 0FFH THEN	/* not used */
 	DO;
-		t.fpage = pageIndexTmpFil;	/* record location in tmp file */
+		t.fileIdx = pageIndexTmpFil;	/* record location in tmp file */
 		pageIndexTmpFil = pageIndexTmpFil + 1;
 	END;
-	CALL seekPageTmpFile(t.fpage);
+	CALL seekPagingFile(t.fileIdx);
 	CALL write(tmpfd, bufp, 256, .statusIO);	/* write the page out */
-	CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
-	t.state = 0FEH;	/* flag as paged out */
+	CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
+	t.pageIdx = 0FEH;	/* flag as paged out */
 END pageout;
 
 
@@ -663,213 +655,221 @@ anotherPage: PROCEDURE(page) PUBLIC;
 
 	IF usePrintBuf THEN	/* use print buffer space */
 	DO;
-		CALL writePrintBuf;	/* flush the buffer */
-		usePrintBuf = 0;	/* no longer available */
+		CALL flushPrintBuf;	/* flush the buffer */
+		usePrintBuf = FALSE;	/* no longer available */
+		/* move the heap up */
 		CALL mem$mov(topHeap - botHeap, botHeap, botHeap + npbuf);
+		/* adjust the topheap and the start/cur print buf addresses */
 		spbuf$p, pbuf$p, topheap = epbuf$p;
-		topDescriptor = topDescriptor + npbuf;
-		curDescriptor62F = curDescriptor62F + npbuf;
-		curDescriptor = curDescriptor + npbuf;
+		/* adjust the descriptor pointers */
+		topDataFrags = topDataFrags + npbuf;
+		curSegFrag$p = curSegFrag$p + npbuf;
+		curDataFrag$p = curDataFrag$p + npbuf;
+		/* page allocated is first after the current max pageCacheSize */
 		nxtPageNo = pageCacheSize + 1;
+		/* increase the pageCacheSize available */
 		pageCacheSize = HIGH((botHeap := botHeap + npbuf) - baseMemImage) - 1;
 		RETURN;
 	END;
-	IF NOT havePagingFile THEN
+	IF NOT havePagingFile THEN	/* have to page, create file if not done */
 	DO;
-		havePagingFile = 0FFH;
+		havePagingFile = TRUE;
 		CALL delete(.tmpFileName(1), .statusIO);
-		CALL open(.tmpfd, .tmpFileName(1), 3, 0, .statusIO);
-		CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
+		CALL open(.tmpfd, .tmpFileName(1), 3, FALSE, .statusIO);
+		CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
 	END;
 
-	pageTab1(page).state = 0FFH;
-	i = pageTab1(page).mpage;
-	addr1byts.hibyt = page;
-	CALL pageout(i, baseMemImage + addr1);
+	pageTab1(page).state = 0FFH;	/* mark this page as now free */
+	i = pageTab1(page).mpage;	/* get the current target page stored here */
+	pageoutOffset$b.hibyt = page;
+	CALL pageout(i, baseMemImage + pageoutOffset);
 END anotherPage;
 
 
 allocNewPage: PROCEDURE(page) ADDRESS PUBLIC;
 	DECLARE page BYTE;
 
-	DO nxtPageNo = 0 TO pageCacheSize;
+	DO nxtPageNo = 0 TO pageCacheSize;		/* see if free page */
 		IF pageTab1(nxtPageNo).state THEN	/* one is free */
 			GOTO found;
 	END;
-	IF roundRobinIndex > pageCacheSize THEN
+	IF roundRobinIndex > pageCacheSize THEN		/* manage roundRobin for paging to disk */
 		roundRobinIndex = 0;
 	nxtPageNo = roundRobinIndex;
-	CALL anotherPage(roundRobinIndex);
-	IF nxtPageNo = roundRobinIndex  THEN	/* we got more pages so don't need to round robin pages to free */
-		roundRobinIndex = roundRobinIndex + 1;
+	CALL anotherPage(roundRobinIndex);		/* get a page */
+	IF nxtPageNo = roundRobinIndex  THEN	/* if the roundRobin page then we didn't get from printbuf reuse */
+		roundRobinIndex = roundRobinIndex + 1;	/* so manage the roundRobin counter */
 found:
 	pageTab1(nxtPageNo).state = 0;	/* no longer free */
-	pageTab1(nxtPageNo).mpage = page;
-	pageTab2(page).state = nxtPageNo;
-	addr0byts.hibyt = nxtPageNo;
-	RETURN baseMemImage + addr0;
+	pageTab1(nxtPageNo).mpage = page;	/* record the memory page located here */
+	pageTab2(page).pageIdx = nxtPageNo;	/* save the mapping */
+	cachePageOffset$b.hibyt = nxtPageNo;
+	RETURN baseMemImage + cachePageOffset;		/* return the pointer in memory */
 END allocNewPage;
 
 
-RAddr2LAddr: PROCEDURE(addr) ADDRESS PUBLIC;
+/* convert a target address into its current location in cache */
+addrInCache: PROCEDURE(addr) ADDRESS PUBLIC;
 	DECLARE addr ADDRESS;
 	DECLARE baddr ADDRESS;
 	DECLARE (lobyt, hibyt) BYTE AT(.baddr);
 	DECLARE pt ADDRESS;
-	DECLARE t BASED pt STRUCTURE (state BYTE, fpage BYTE);
+	DECLARE t BASED pt STRUCTURE (pageIdx BYTE, fileIdx BYTE);
 
 	pt = .pageTab2(HIGH(addr));
-	IF t.state = 0FFH THEN	/* needs allocating */
+	IF t.pageIdx = 0FFH THEN	/* needs allocating */
 		RETURN allocNewPage(HIGH(addr)) + LOW(addr);
-	IF t.state = 0FEH THEN	/* on disk */
+	IF t.pageIdx = 0FEH THEN	/* on disk */
 	DO;
-		baddr = allocNewPage(HIGH(addr));
-		CALL seekPageTmpFile(t.fpage);
-		CALL read(tmpfd, baddr, 256, .actRead, .StatusIO);
-		CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
-		IF actRead <> 256 THEN
-			IF isNotBB THEN
-				CALL errChkReport(ERR204, .tmpFileName(1), 0FFH);    /* premature EOF */
-		RETURN baddr + LOW(addr);
+		baddr = allocNewPage(HIGH(addr));	/* alloc page in cache */
+		CALL seekPagingFile(t.fileIdx);		/* seek to its place in the paging file */
+		CALL read(tmpfd, baddr, 256, .actRead, .StatusIO);	/* read in */
+		CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
+		IF actRead <> 256 THEN			/* if problems and not :BB: out file then error */
+			IF outRealFile THEN
+				CALL errChkReport(ERR204, .tmpFileName(1), TRUE);    /* premature EOF */
+		RETURN baddr + LOW(addr);		/* return the mapped address */
 	END;
-	hibyt = t.state;
-	lobyt = LOW(addr);
-	RETURN baseMemImage + baddr;
-END RAddr2LAddr;
+	hibyt = t.pageIdx;		/* page offset in cache */
+	lobyt = LOW(addr);		/* offset in page */
+	RETURN baseMemImage + baddr;	/* mapped address */
+END addrInCache;
 
 
-sub$3DB9: PROCEDURE(arg1w) PUBLIC;
-	DECLARE arg1w ADDRESS;
+alloc: PROCEDURE(cnt) PUBLIC;
+	DECLARE cnt ADDRESS;
 
-	IF HIGH(botHeap - baseMemImage) <> HIGH((botHeap := botHeap - arg1w) - baseMemImage) THEN
+	/* allocate but check whether we have crossed a page boundary */
+	IF HIGH(botHeap - baseMemImage) <> HIGH((botHeap := botHeap - cnt) - baseMemImage) THEN
 	DO;
-		IF NOT pageTab1(pageCacheSize).state THEN
-			CALL anotherPage(PageCacheSize);
+		IF NOT pageTab1(pageCacheSize).state THEN	/* if current cache all used, try forcing using print buf */
+			CALL anotherPage(PageCacheSize);	/* or paging the last page to disk */
 
-		IF (pageCacheSize := HIGH(botHeap - baseMemImage) - 1) = 0FFH THEN
-			CALL errChkReport(ERR210, .inFileName(1), 0FFH);	/* Insufficient memory */
+		IF (pageCacheSize := HIGH(botHeap - baseMemImage) - 1) = 0FFH THEN	/* check we haven't eliminated all cache */
+			CALL errChkReport(ERR210, .inFileName(1), TRUE);	/* Insufficient memory */
 	END;
-END sub$3DB9;
+END alloc;
 
 
-insert6Desc: PROCEDURE(flags, seg, start, len) PUBLIC;
+addSegFrag: PROCEDURE(flags, seg, start, len) PUBLIC;
 	DECLARE (flags, seg) BYTE;
 	DECLARE (start, len) ADDRESS;
-	DECLARE desc6 BASED curDescriptor62F DESC6$T;
-	DECLARE desc6a BASED desc6a$p DESC6$T;
+	DECLARE curSegFrag BASED curSegFrag$p SEGFRAG$T;
+	DECLARE nextSegFrag BASED nextSegFrag$p SEGFRAG$T;
 
-	curDescriptor62F = topHeap;
+	curSegFrag$p = topHeap;
 
-	DO WHILE curDescriptor62F <> topDescriptor;
-		curDescriptor62F = curDescriptor62F - DOUBLE(6);
-		IF desc6.start > start THEN
-			IF start + len = desc6.start AND desc6.seg = seg THEN /* does end address = start of this block */
+	DO WHILE curSegFrag$p <> topDataFrags;
+		curSegFrag$p = curSegFrag$p - size(curSegFrag);
+		IF curSegFrag.start > start THEN
+			IF start + len = curSegFrag.start AND curSegFrag.seg = seg THEN /* does the new frag join the curfrag */
 			DO;	/* merge the blocks */
-				desc6.start = start;
-				desc6.len = desc6.len + len;
+				curSegFrag.start = start;
+				curSegFrag.len = curSegFrag.len + len;
 				RETURN;
 			END;
 			ELSE
-				GOTO loc$3F87;
-		ELSE IF desc6.start + desc6.len = start THEN
-			IF desc6.seg = seg THEN
+				GOTO break;
+		ELSE IF curSegFrag.start + curSegFrag.len = start THEN	/* does the curFrag join the new frag */
+			IF curSegFrag.seg = seg THEN			/* segs must be same */
 			DO;
-				desc6.len = desc6.len + len;
-				IF curDescriptor62F <> topDescriptor THEN
+				curSegFrag.len = curSegFrag.len + len;	/* merge the lengths */
+				IF curSegFrag$p <> topDataFrags THEN	/* if not at the end of list see if this joins the next one */
 				DO;
-					desc6a$p = curDescriptor62F - DOUBLE(6);
-					IF desc6a.start = desc6.start + desc6.len AND desc6a.seg = desc6.seg THEN
+					nextSegFrag$p = curSegFrag$p - size(nextSegFrag);
+					IF nextSegFrag.start = curSegFrag.start + curSegFrag.len AND nextSegFrag.seg = curSegFrag.seg THEN
 					DO;
-						desc6.len = desc6.len + desc6a.len;
-						CALL mem$mov(desc6a$p - botHeap, botHeap, botHeap + DOUBLE(6));
-						topDescriptor = topDescriptor + DOUBLE(6);
-						botHeap = botHeap + DOUBLE(6);
+						curSegFrag.len = curSegFrag.len + nextSegFrag.len;	/* join and delete extra frag */
+						CALL mem$mov(nextSegFrag$p - botHeap, botHeap, botHeap + size(nextSegFrag));
+						topDataFrags = topDataFrags + size(curSegFrag);
+						botHeap = botHeap + size(curSegFrag);
 					END;
 				END;
 				RETURN;
 			END;
 	END;
-	curDescriptor62F = curDescriptor62F - DOUBLE(6);
-loc$3F87:
-	CALL sub$3DB9(6);
-	topDescriptor = topDescriptor - DOUBLE(6);
-	CALL mem$mov(curDescriptor62F - botHeap, botHeap + DOUBLE(6), botHeap);
-	desc6.flags = flags;
-	desc6.seg = seg;
-	desc6.start = start;
-	desc6.len = len;
-END insert6Desc;
+	curSegFrag$p = curSegFrag$p - size(curSegFrag);	/* will insert at end of list */
+break:
+	CALL alloc(6);	/* reserve space for the segFrag */
+	topDataFrags = topDataFrags - size(curSegFrag);
+	CALL mem$mov(curSegFrag$p - botHeap, botHeap + size(curSegFrag), botHeap);	/* create the space in the list */
+	curSegFrag.flags = flags;	/* set all of the values */
+	curSegFrag.seg = seg;
+	curSegFrag.start = start;
+	curSegFrag.len = len;
+END addSegFrag;
 
 
-insert4Desc: PROCEDURE(saddr, eaddr) PUBLIC;
+addDataFrag: PROCEDURE(saddr, eaddr) PUBLIC;
 	DECLARE saddr ADDRESS;
 	DECLARE eaddr ADDRESS;
-	DECLARE desc4 BASED curDescriptor DESC4$T;
-	DECLARE desc4a BASED desc4a$p DESC4$T;
+	DECLARE curDataFrag BASED curDataFrag$p DATAFRAG$T;
+	DECLARE nextDataFrag BASED nextDataFrag$p DATAFRAG$T;
 
-	curDescriptor = topDescriptor;
-	DO WHILE curDescriptor <> botHeap;
-		curDescriptor = curDescriptor - DOUBLE(4);
-		IF desc4.saddr > saddr THEN
+	curDataFrag$p = topDataFrags;
+	DO WHILE curDataFrag$p <> botHeap;
+		curDataFrag$p = curDataFrag$p - size(curDataFrag);
+		IF curDataFrag.saddr > saddr THEN	/* the curfrag starts above this one */
 		DO;
-			IF eaddr >= desc4.saddr - 1 THEN
+			IF eaddr >= curDataFrag.saddr - 1 THEN	/* does the new frag join or overlap the curent one */
 			DO;
-				desc4.saddr = saddr;
-				IF eaddr > desc4.eaddr THEN
+				curDataFrag.saddr = saddr;		/* update the start */
+				IF eaddr > curDataFrag.eaddr THEN	/* it overlaps */
 				DO;
-					desc4.eaddr = eaddr;
-					desc4a$p = curDescriptor - DOUBLE(4);
-					DO WHILE curDescriptor <> botHeap;
-						IF eaddr + 1 < desc4a.saddr THEN
+					curDataFrag.eaddr = eaddr;	/* extend the existing */
+					nextDataFrag$p = curDataFrag$p - size(curDataFrag);	/* check if more are overlapped */
+					DO WHILE curDataFrag$p <> botHeap;
+						IF eaddr + 1 < nextDataFrag.saddr THEN	/* no there is a gap all done */
 							RETURN;
-						IF eaddr + 1 = desc4a.saddr THEN
-							desc4.eaddr = desc4a.eaddr;
-						CALL mem$mov(desc4a$p - botHeap, botHeap, botHeap + DOUBLE(4));
-						botHeap = botHeap + DOUBLE(4);
+						IF eaddr + 1 = nextDataFrag.saddr THEN	/* joins so update the end address */
+							curDataFrag.eaddr = nextDataFrag.eaddr;
+						/* remove the other descriptor if either joined or was overlapped */
+						CALL mem$mov(nextDataFrag$p - botHeap, botHeap, botHeap + size(curDataFrag));
+						botHeap = botHeap + size(nextDataFrag);
 					END;
 				END;
 				RETURN;
 			END;
-			ELSE
+			ELSE	/* we have a new fragment */
 			DO;
-				CALL sub3DB9(4);
-				CALL mem$mov(curDescriptor - botHeap, botHeap + DOUBLE(4), botHeap);
-				desc4.saddr = saddr;
-				desc4.eaddr = eaddr;
+				CALL alloc(4);	/* alloc more space and insert descriptor above this one */
+				CALL mem$mov(curDataFrag$p - botHeap, botHeap + size(curDataFrag), botHeap);
+				curDataFrag.saddr = saddr;
+				curDataFrag.eaddr = eaddr;
 				RETURN;
 			END;
 		END;
-		ELSE
+		ELSE	/* check if candidate frag to join / overlap */
 		DO;
-			IF desc4.saddr = saddr OR saddr - 1 <= desc4.eaddr THEN
+			IF curDataFrag.saddr = saddr OR saddr - 1 <= curDataFrag.eaddr THEN
 			DO;
-				IF desc4.eaddr >= eaddr THEN
+				IF curDataFrag.eaddr >= eaddr THEN	/* already overlapped */
 					RETURN;
-				desc4.eaddr = eaddr;
-				desc4a$p = curDescriptor - DOUBLE(4);
-				DO WHILE curDescriptor <> botHeap;
-					IF desc4a.saddr - 1 > eaddr THEN
+				curDataFrag.eaddr = eaddr;		/* set new end address */
+				nextDataFrag$p = curDataFrag$p - size(curDataFrag);	/* delete other join/overlapping frags */
+				DO WHILE curDataFrag$p <> botHeap;
+					IF nextDataFrag.saddr - 1 > eaddr THEN
 						RETURN;
-					IF desc4a.saddr - 1 = eaddr THEN
-						desc4.eaddr = desc4a.eaddr;
-					CALL mem$mov(desc4a$p - botHeap, botHeap, botHeap + DOUBLE(4));
-					botHeap = botHeap + DOUBLE(4);
+					IF nextDataFrag.saddr - 1 = eaddr THEN
+						curDataFrag.eaddr = nextDataFrag.eaddr;
+					CALL mem$mov(nextDataFrag$p - botHeap, botHeap, botHeap + size(curDataFrag));
+					botHeap = botHeap + size(curDataFrag);
 				END;
 				RETURN;
 			END;
 		END;	/* IF ELSE */
 	END;	/* DO WHILE */
 
-	CALL sub3DB9(4);
-	curDescriptor = botHeap;
-	desc4.saddr = saddr;
-	desc4.eaddr = eaddr;
-END insert4Desc;
+	CALL alloc(4);
+	curDataFrag$p = botHeap;	/* allocated at new botHeap */
+	curDataFrag.saddr = saddr;	/* record the start and end address */
+	curDataFrag.eaddr = eaddr;
+END addDataFrag;
 
 
-loadMODDAT: PROCEDURE(arg1b) PUBLIC;
-	DECLARE arg1b BYTE;
-	DECLARE rdata BASED rec$p (1) BYTE;
+loadMODDAT: PROCEDURE(segId) PUBLIC;
+	DECLARE segId BYTE;
+	DECLARE rdata BASED in$p (1) BYTE;
 	DECLARE (dataLen, bytes2Read, curLoadAddr) ADDRESS;
 	DECLARE curLoadPage BYTE;
 
@@ -878,59 +878,61 @@ loadMODDAT: PROCEDURE(arg1b) PUBLIC;
 	dataLen = recLen - 4;
 	inCRC = HIGH(recLen) + 6 + LOW(recLen) + rdata(0) + rdata(1) + rdata(2);
 	ibuf$p = ibuf$p + 3;
-	IF LOW(curLoadAddr := t6desc4.saddr) <> 0 THEN
+	IF LOW(curLoadAddr := inFragment.saddr) <> 0 THEN
 	DO;
 		IF HIGH(curLoadAddr + (bytes2Read := dataLen) - 1) <> HIGH(curLoadAddr) THEN
 			bytes2Read = 256 - LOW(curLoadAddr);	/* don't go over page boundary */
-		CALL chkRead(bytes2Read);
-		DO inb$p = ibuf$p TO ibuf$p + bytes2Read - 1;
+		CALL chkRead(bytes2Read);			/* make sure data is in the buffer */
+		DO inb$p = ibuf$p TO ibuf$p + bytes2Read - 1;	/* add the data to the crc */
 			inCRC = inCRC + ch;
 		END;
-		CALL mem$mov(bytes2Read, ibuf$p, RAddr2LAddr(curLoadAddr));
-		dataLen = dataLen - bytes2Read;
+		CALL mem$mov(bytes2Read, ibuf$p, addrInCache(curLoadAddr));	/* copy to the pagecache location */
+		dataLen = dataLen - bytes2Read;			/* adjust bytes read */
 		curLoadAddr = curLoadAddr + bytes2Read;
 		ibuf$p = ibuf$p + bytes2Read;
 	END;
-	DO WHILE dataLen >= 256;
-		CALL chkRead(256);
-		DO inb$p = ibuf$p TO ibuf$p + 255;
+	DO WHILE dataLen >= 256;				/* read in whole pages */
+		CALL chkRead(256);				/* make sure data in buffer */
+		DO inb$p = ibuf$p TO ibuf$p + 255;		/* add to crc */
 			inCRC = inCRC + ch;
 		END;
-		IF arg1b = 0 AND havePagingFile THEN
+		IF segId = SABS AND havePagingFile THEN		/* if abs and paging write it out to paging file */
+								/* there is no fixup involved */
 		DO;
-			IF pageTab2(curLoadPage := HIGH(curLoadAddr)).state <= 0FDH THEN
-				pageTab1(pageTab2(curLoadPage).state).state = 0FFH;
+			/* if a page cache entry exists then this would be trashed anyway so free up */
+			IF pageTab2(curLoadPage := HIGH(curLoadAddr)).pageIdx <= 0FDH THEN
+				pageTab1(pageTab2(curLoadPage).pageIdx).state = 0FFH;
 			CALL pageout(curLoadPage, ibuf$p);
 		END;
-		ELSE
-			CALL mem$mov(256, ibuf$p, RAddr2Laddr(curLoadAddr));
+		ELSE						/* copy to the page cache */
+			CALL mem$mov(256, ibuf$p, addrInCache(curLoadAddr));
 
-		dataLen = dataLen - 256;
+		dataLen = dataLen - 256;			/* adjust and continue */
 		curLoadAddr = curLoadAddr + 256;
 		ibuf$p = ibuf$p + 256;
 	END;
-	IF dataLen > 0 THEN
+	IF dataLen > 0 THEN					/* load an remaining into the page cache */
 	DO;
 		CALL chkRead(dataLen);
 		DO inb$p = ibuf$p TO ibuf$p + dataLen - 1;
 			inCRC = inCRC + ch;
 		END;
-		CALL mem$mov(dataLen, ibuf$p, RAddr2LAddr(curLoadAddr));
+		CALL mem$mov(dataLen, ibuf$p, addrInCache(curLoadAddr));
 		ibuf$p = ibuf$p + dataLen;
 	END;
 	CALL chkRead(1);
 	ibuf$p = (inb$p := ibuf$p) + 1;
-	IF inCRC + ch <> 0 THEN
+	IF inCRC + ch <> 0 THEN					/* sanity check */
 		CALL fatalErr(ERR208);	/* Checksum error */
 END loadMODDAT;
 
-
-baseMemImage, pageTab2$p = .controls;	/* once we have processed args overwrite area */
-CALL procArgs$Init;
-CALL sub$5359;
-CALL writePrintBuf;
-CALL close(printfd, .statusIO);
-CALL exit;
+main:
+	baseMemImage, pageTab2$p = .controls;	/* once we have processed args overwrite area */
+	CALL procArgs$Init;
+	CALL locateFile;
+	CALL flushPrintBuf;
+	CALL close(printfd, .statusIO);
+	CALL exit;
 
 END;
 loc2a.ext
@@ -992,7 +994,7 @@ errmsg: PROCEDURE(errCode) PUBLIC;
 	IF LOW(errCode) <> 0 THEN
 	DO;
 		i = 0;
-		DO WHILE i < LENGTH(errTab);	/* 328h */
+		DO WHILE i < LENGTH(errTab);
 			IF LOW(errCode) = errTab(i) THEN
 			DO;
 				CALL write(0, .(' '), 1, .status);
@@ -1027,7 +1029,7 @@ DECLARE	aUnsatisfiedExt(1) BYTE EXTERNAL,
 	aMod(1) BYTE EXTERNAL,
 	x5(1) BYTE EXTERNAL;
 DECLARE
-	outSegType(3) BYTE EXTERNAL,
+	outSegType BYTE EXTERNAL,
 	curColumn ADDRESS EXTERNAL,
 	workingSegBase ADDRESS EXTERNAL,
 	unsatisfiedCnt ADDRESS EXTERNAL;
@@ -1037,8 +1039,8 @@ writeBytes: PROCEDURE(arg1w, arg2w) EXTERNAL;
 	DECLARE arg2w ADDRESS;
 END writeBytes;
 
-initRecOut: PROCEDURE(type) EXTERNAL;
-	DECLARE type BYTE;
+initRecOut: PROCEDURE(rectyp) EXTERNAL;
+	DECLARE rectyp BYTE;
 END initRecOut;
 
 endRecord: PROCEDURE EXTERNAL;
@@ -1048,12 +1050,12 @@ END endRecord;
 forceSOL: PROCEDURE EXTERNAL;
 END forceSOL;
 
-sub$4B3A: PROCEDURE(arg1w, pstr) EXTERNAL;
+printColumn: PROCEDURE(arg1w, pstr) EXTERNAL;
 	DECLARE arg1w ADDRESS;
 	DECLARE pstr ADDRESS;
-END sub$4B3A;
+END printColumn;
 
-setWorkingSeg: PROCEDURE(arg1b) BYTE EXTERNAL;	/* always returns 0 */
+setWorkingSeg: PROCEDURE(arg1b) BYTE EXTERNAL;	/* always returns SABS */
 	DECLARE arg1b BYTE;
 END setWorkingSeg;
 
@@ -1091,29 +1093,30 @@ DECLARE aUnsatisfiedExt(*) BYTE PUBLIC INITIAL('UNSATISFIED EXTERNAL(XXXXX) '),
 	x5(*) BYTE PUBLIC INITIAL(5, 'XXXXX'),
 	spc32(*) BYTE PUBLIC INITIAL('                                ');
 
-DECLARE	fixType BYTE PUBLIC,
-	outSegType(3) BYTE PUBLIC,
+DECLARE	loHiBoth BYTE PUBLIC,
+	outSegType BYTE PUBLIC,
+	unused(2) BYTE,
 	curColumn ADDRESS PUBLIC,
 	workingSegBase ADDRESS PUBLIC,
 	unsatisfiedCnt ADDRESS PUBLIC INITIAL(0),
 	curcol BYTE PUBLIC INITIAL(0),
-	word$6483 ADDRESS PUBLIC INITIAL(0),
-	LabelLen BYTE PUBLIC INITIAL(0),
+	curListField ADDRESS PUBLIC INITIAL(0),
+	nameLen BYTE PUBLIC INITIAL(0),
 	lsout$p ADDRESS PUBLIC,
-	lsout BASED lsout$p STRUCTURE (type BYTE, len ADDRESS, bytes(1) BYTE);
+	lsout BASED lsout$p STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE);
 
 
 seekOutFile: PROCEDURE(mode, pblk, pbyt) PUBLIC;
 	DECLARE (mode, pblk, pbyt) ADDRESS;
 	CALL seek(outputfd, mode, pblk, pbyt, .statusIO);
-	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
+	CALL errChkReport(statusIO, .outFileName(1), TRUE);
 END seekOutFile;
 
 
 flushOut: PROCEDURE PUBLIC;
-	CALL write(outputfd, sout$p, out$p - sout$p, .statusIO);
-	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
-	out$p = sout$p;
+	CALL write(outputfd, outRecord$p, out$p - outRecord$p, .statusIO);
+	CALL errChkReport(statusIO, .outFileName(1), TRUE);
+	out$p = outRecord$p;
 END flushOut;
 
 writeBytes: PROCEDURE(buf$p, cnt) PUBLIC;
@@ -1134,15 +1137,15 @@ writeBytes: PROCEDURE(buf$p, cnt) PUBLIC;
 END writeBytes;
 
 
-initRecOut: PROCEDURE(type) PUBLIC;
-	DECLARE type BYTE;
-	DECLARE lsout BASED lsout$p STRUCTURE(type BYTE);
+initRecOut: PROCEDURE(rectyp) PUBLIC;
+	DECLARE rectyp BYTE;
+	DECLARE lsout BASED lsout$p STRUCTURE(rectyp BYTE, reclen ADDRESS);
 
 	IF eout$p - out$p < 1028 THEN
 		CALL flushout;
 	lsout$p = out$p;
-	lsout.type = type;
-	out$p = out$p + 3;	/* type + length */
+	lsout.rectyp = rectyp;
+	out$p = out$p + size(lsout);	/* rectyp + length */
 END initRecOut;
 
 
@@ -1152,8 +1155,10 @@ endRecord: PROCEDURE PUBLIC;
 	DECLARE ch BASED pch BYTE;
 	DECLARE outch BASED out$p BYTE;
 
-	IF (lsout.len := out$p - .lsout.type - 2) > 1025 THEN
-		CALL errChkReport(ERR211, .outFileName(1), 0FFH);	/* RECORD TOO LONG */
+	/* check record not too long */
+	IF (lsout.reclen := out$p - .lsout.rectyp - 2) > 1025 THEN
+		CALL errChkReport(ERR211, .outFileName(1), TRUE);	/* RECORD TOO LONG */
+	/* for what is there generate the CRC */
 	crc = 0;
 	DO pch = .lsout TO out$p - 1;
 		crc = crc + ch;
@@ -1163,42 +1168,44 @@ endRecord: PROCEDURE PUBLIC;
 END endRecord;
 
 
-emitMODDAT: PROCEDURE(pdesc4) PUBLIC;
-	DECLARE pdesc4 ADDRESS;
-	DECLARE desc4 BASED pdesc4 DESC4$T;
-	DECLARE (i, bcnt, pmem, curPC, j) ADDRESS;
+emitMODDAT: PROCEDURE(curDataFrag$p) PUBLIC;
+	DECLARE curDataFrag$p ADDRESS;
+	DECLARE curDataFrag BASED curDataFrag$p DATAFRAG$T;
+	DECLARE (len, bcnt, pmem, curPC, j) ADDRESS;
 	DECLARE crc BYTE;
 	DECLARE mem BASED pmem (1) BYTE;
+	DECLARE	moddatOut BASED out$p STRUCTURE (segid BYTE, offset ADDRESS, dat(1) BYTE);
 
 	CALL initRecOut(R$MODDAT);
-	i = desc4.eaddr - desc4.saddr + 1;	/* last - first + 1 */
-	lsout.len = i + 4;
-	moddatOut.seg = SABS;		/* abs seg */
-	curPC = (moddatOut.addr := desc4.saddr);		/* load address */	
-	crc = HIGH(lsout.len) + 6 + LOW(lsout.len) + HIGH(moddatOut.addr) + LOW(moddatOut.addr);
+	len = curDataFrag.eaddr - curDataFrag.saddr + 1;
+	lsout.reclen = len + 4;
+	moddatOut.segid = SABS;		/* abs seg */
+	curPC = (moddatOut.offset := curDataFrag.saddr);		/* load address */	
+					/* initialise the CRC */
+	crc = HIGH(lsout.reclen) + 6 + LOW(lsout.reclen) + HIGH(moddatOut.offset) + LOW(moddatOut.offset);
 	out$p = out$p + 3;
 
-	DO WHILE i > 0;
-		bcnt = 256;
+	DO WHILE len > 0;
+		bcnt = 256;	/* write 256, or less if no page boundary or less bytes available */
 		IF LOW(curPC) <> 0 THEN
 			bcnt = 256 - LOW(curPC);
-		IF bcnt > i THEN
-			bcnt = i;
-		pmem =  RAddr2LAddr(curPC);
-		DO j = 0 TO bcnt - 1;
+		IF bcnt > len THEN
+			bcnt = len;
+		pmem =  addrInCache(curPC);	/* get a pointer to where the data is now */
+		DO j = 0 TO bcnt - 1;		/* include the data in the CRC check */
 			crc = crc + mem(j);
 		END;
-		CALL writeBytes(pmem, bcnt);
-		IF bcnt = 256 THEN
+		CALL writeBytes(pmem, bcnt);	/* add the bytes to the output record */
+		IF bcnt = 256 THEN		/* if was a whole page then free it */
 		DO;
-			pageTab1(pageTab2(HIGH(curPC)).state).state = 0FFH;
-			pageTab2(HIGH(curPC)).state = 0FFH;	/* mark page as free */
+			pageTab1(pageTab2(HIGH(curPC)).pageIdx).state = 0FFH;
+			pageTab2(HIGH(curPC)).pageIdx = 0FFH;	/* mark page as free */
 		END;
-		curPC = curPC + bcnt;
-		i = i - bcnt;
+		curPC = curPC + bcnt;		/* account for written data */
+		len = len - bcnt;
 	END;	/* DO WHILE */
 
-	crc = -crc;
+	crc = -crc;			/* close off the record */
 	CALL writeBytes(.crc, 1);
 END emitMODDAT;
 
@@ -1211,66 +1218,75 @@ END forceSOL;
 
 
 
-sub$4B3A: PROCEDURE(arg1w, pstr) PUBLIC;
-	DECLARE arg1w ADDRESS;
+printColumn: PROCEDURE(field, pstr) PUBLIC;
+	DECLARE field ADDRESS;
 	DECLARE pstr ADDRESS;
 	DECLARE str BASED pstr (1) BYTE;
 
-	IF arg1w <> word$6483 THEN
+	/* change of field type then force new line */
+	IF field <> curListField THEN
 		CALL forceSOL;
-	word$6483 = arg1w;
+	curListField = field;
+	/* reached max of columns then force new line */
 	IF curcol = columns THEN
 		CALL forceSOL;
+	/* space to next column: 32 chars - length of previous name */
 	IF curcol <> 0 THEN
-		CALL printString(.spc32, 32 - LabelLen);
+		CALL printString(.spc32, 32 - nameLen);
 	curcol = curcol + 1;
-	LabelLen = str(0);
-	CALL printString(arg1w, 11);
-	CALL printString(pstr + 1, LabelLen);
-END sub$4B3A;
+	nameLen = str(0);
+	/* print out field lead */
+	CALL printString(field, 11);
+	/* and the name */
+	CALL printString(.str(1), nameLen);
+END printColumn;
 
 
 setWorkingSeg: PROCEDURE(seg) BYTE PUBLIC;	/* always returns 0 */
 	DECLARE seg BYTE;
 	workingSegBase = segBases(seg);
-	RETURN 0;
+	RETURN SABS;
 END setWorkingSeg;
 
 
 procMODEND: PROCEDURE PUBLIC;
 	DECLARE rst0$p ADDRESS;
 	DECLARE jmp BASED rst0$p STRUCTURE (inst BYTE, addr ADDRESS);
+	DECLARE	inModend BASED in$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS);
+	DECLARE	outModend BASED out$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS);
 
-	IF modendRec.subtype = 1 THEN
+	DECLARE curDataFrag BASED curDataFrag$p DATAFRAG$T;	/* used for size below */
+
+	IF inModend.modtype = 1 THEN	/* is main module */
 	DO;
-		type4SubType = 1;
-		outSegType(0) = setWorkingSeg(modendRec.segtype);
-		IF NOT startSeen THEN
-			startAddr = workingSegBase + modendRec.addr;
-		IF restart0Seen THEN
+		isMain = 1;	/* flag as main module */
+		outSegType = setWorkingSeg(inModend.segid);
+		IF NOT startSeen THEN	/* use the main module's address */
+			startAddr = workingSegBase + inModend.offset;
+		IF restart0Seen THEN	/* restart0 the put jump to startAddr */
 		DO;
-			rst0$p = RAddr2LAddr(0);
-			jmp.inst = 0C3H;
+			rst0$p = addrInCache(0);	/* location of address 0 in cache */
+			jmp.inst = 0C3H;		/* insert the jump */
 			jmp.addr = startAddr;
-			CALL insert6Desc(0, 0, 0, 3);
-			CALL insert4Desc(0, 2);
+			CALL addSegFrag(AABS, SABS, 0, 3);/* add to the frags */
+			CALL addDataFrag(0, 2);
 		END;
 	END;
 	ELSE
-		startAddr = 0;	/* 0 start address if type4 input does not have one */
-	CALL flushOut;
-	curDescriptor = topDescriptor;
-	DO WHILE curDescriptor <> botHeap;
-		curDescriptor = curDescriptor - DOUBLE(4);
-		CALL emitMODDAT(curDescriptor);
+		startAddr = 0;	/* 0 start address if not a main module */
+	CALL flushOut;			/* flush any data in the buffers */
+	curDataFrag$p = topDataFrags;
+	DO WHILE curDataFrag$p <> botHeap;	/* emit all of the data frags */
+		curDataFrag$p = curDataFrag$p - size(curDataFrag);
+		CALL emitMODDAT(curDataFrag$p);
 	END;
 
-	CALL initRecOut(R$MODEND);	/* generate the type 4 record */
-	modendOut.subtype = type4SubType;
-	modendOut.segtype = 0;
-	modendOut.addr = startAddr;
+	CALL initRecOut(R$MODEND);	/* generate the rectyp 4 record */
+	outModend.modtype = isMain;
+	outModend.segid = 0;
+	outModend.offset = startAddr;
 	out$p = out$p + 4;
-	CALL writeBytes(rec$p + DOUBLE(4), recLen - DOUBLE(4) - 1);	/* copy type 4 tail over */
+	CALL writeBytes(in$p + DOUBLE(4), recLen - DOUBLE(4) - 1);	/* copy rectyp 4 tail over */
 	CALL endRecord;					/* insert length and CRC */
 	CALL initRecOut(R$MODEOF);				/* EOF record */
 	CALL endRecord;
@@ -1279,134 +1295,146 @@ END procMODEND;
 
 
 procMODDAT: PROCEDURE PUBLIC;
-	DECLARE (mark, backup) STRUCTURE (blk ADDRESS, byt ADDRESS);
-	DECLARE fixextPrimed BYTE;
+	DECLARE (mark, endrec) STRUCTURE (blk ADDRESS, byt ADDRESS);
+	DECLARE fixextUsed BYTE;
 	DECLARE (fixRAddr, pad) ADDRESS;
-	DECLARE (locRecLen, lasttype6base) ADDRESS;
+	DECLARE (locRecLen, recSegBaseAddr) ADDRESS;
 	DECLARE (fixLoc, fixLoc2) ADDRESS;
-	DECLARE (loByt, hiByt) BYTE, bothByt ADDRESS AT (.loByt);
+	DECLARE (loByt, hiByt) BYTE, bothByt ADDRESS AT (.loByt);	/* used to handle cross page fixup */
 
-	DECLARE bfix BASED fixLoc BYTE;
-	DECLARE bfix2 BASED fixLoc2 BYTE;
+	DECLARE bfix BASED fixLoc BYTE;		/* fixup location of byte */
+	DECLARE bfix2 BASED fixLoc2 BYTE;	/* fixup location of 2nd byte if cross page boundary */
 	DECLARE wfix BASED fixLoc ADDRESS;
 	DECLARE erec BASED erec$p(1) BYTE;
+	DECLARE	moddatRec BASED in$p STRUCTURE (segid BYTE, offset ADDRESS, dat(1) BYTE);
+	DECLARE	inLoHiBoth BASED in$p BYTE;
+	DECLARE	outLoHiBoth BASED out$p BYTE;
+	DECLARE	inExtfix BASED in$p STRUCTURE (namidx ADDRESS, offset ADDRESS);
+	DECLARE	outExtfix BASED out$p STRUCTURE (namidx ADDRESS, offset ADDRESS);
+	DECLARE	inFixOffset BASED in$p ADDRESS;
+	DECLARE	inSegId BASED in$p BYTE;
 
-
-	srec$p = .(6);
-	ibuf$p = rec$p;
-	CALL chkRead(3);
-	rec$p = ibuf$p;
-	IF moddatRec.seg = SSTACK THEN
+	inRecord$p = .(R$MODDAT);		/* initialise to appear as a MODDAT record */
+	ibuf$p = in$p;
+	CALL chkRead(3);		/* make sure the record and length are in the buffer */
+	in$p = ibuf$p;
+	IF moddatRec.segid = SSTACK THEN
 		CALL fatalErr(ERR238);	/* ILLEGAL STACK CONTENT RECORD */
 
-	outSegType(0) = setWorkingSeg(moddatRec.seg);
-	lasttype6Base = workingSegBase;
-	t6desc4.saddr = lasttype6base + moddatRec.addr;
-	IF (t6desc4.eaddr := t6desc4.saddr + recLen - 5) < t6desc4.saddr THEN
+	outSegType = setWorkingSeg(moddatRec.segid);	/* set to ABS and get working base address */
+	recSegBaseAddr = workingSegBase;
+	/* set the bounds for this moddat record checking for wrap round */
+	inFragment.saddr = recSegBaseAddr + moddatRec.offset;
+	IF (inFragment.eaddr := inFragment.saddr + recLen - 5) < inFragment.saddr THEN
 		CALL illegalRecord;	/* oops over 64k */
-	IF moddatRec.seg = SABS THEN
-		CALL insert6Desc(0, 0, t6desc4.saddr, recLen - 4);
-	ELSE IF (segFlags(moddatRec.seg) AND 0FH) = 0 THEN
-		CALL illegalRecord;	/* align 0 is invalid */
-	IF (locRecLen := recLen) > 1025 THEN
+	IF moddatRec.segid = SABS THEN	/* add this as a new frag */
+		CALL addSegFrag(0, 0, inFragment.saddr, recLen - 4);
+	ELSE IF (segFlags(moddatRec.segid) AND AMASK) = AUNKNOWN THEN
+		CALL illegalRecord;	/* align is invalid */
+	IF (locRecLen := recLen) > 1025 THEN	/* long records only ok if ABS */
 	DO;
-		IF moddatRec.seg <> 0 THEN
+		IF moddatRec.segid <> 0 THEN
 			CALL fatalErr(ERR211);	/* RECORD TOO LONG */
-		CALL insert4Desc(t6desc4.saddr, t6desc4.eaddr);
+		CALL addDataFrag(inFragment.saddr, inFragment.eaddr);
 	END;
-	CALL loadMODDAT(moddatRec.seg);
+	CALL loadMODDAT(moddatRec.segid);	/* suck the data in */
 	CALL getRecord;
-	IF locRecLen > 1025 THEN
+	IF locRecLen > 1025 THEN	/* can only happen for ABS blocks so no fixup */
 		RETURN;
 
-	fixextPrimed = 0;
+	fixextUsed = 0;
 
-	DO WHILE srec.type = R$FIXEXT OR srec.type = R$FIXLOC OR srec.type = R$FIXSEG;
-		IF srec.type = R$FIXEXT THEN
+	DO WHILE inRecord.rectyp = R$FIXEXT OR inRecord.rectyp = R$FIXLOC OR inRecord.rectyp = R$FIXSEG;
+		IF inRecord.rectyp = R$FIXEXT THEN
 		DO;
-			IF NOT fixextPrimed THEN
+			IF NOT fixextUsed THEN
 			DO;
-				CALL flushOut;
-				CALL seekOutFile(0, .mark.blk, .mark.byt);
-				backup.blk = 0;
-				backup.byt = locRecLen + 3;
-				CALL seekOutFile(3, .backup.blk, .backup.byt);
+				CALL flushOut;	/* make sure written to disk and record current location */
+				CALL seekOutFile(SEEKTELL, .mark.blk, .mark.byt);
+				endrec.blk = 0;
+				endrec.byt = locRecLen + 3;
+				CALL seekOutFile(SEEKFWD, .endrec.blk, .endrec.byt);	/* past where data will go */
 			END;
-			fixextPrimed = 0FFH;
-			CALL initRecOut(R$FIXEXT);
-			IF (fixType := fixextARec.fixType) - 1 > 2 THEN
+			fixextUsed = TRUE;	/* note we have fixext record(s) */
+			CALL initRecOut(R$FIXEXT);	/* initialise the fixext record */
+			IF (loHiBoth := inLoHiBoth) - 1 > FBOTH - 1 THEN	/* check fixup type valid */
 				CALL illegalRecord;
 
-			fixextAOut.fixType = fixType;
+			outLoHiBoth = loHiBoth;	/* copy to the output */
 			out$p = out$p + 1;
-			rec$p = rec$p + 1;
+			in$p = in$p + 1;
 
-			DO WHILE rec$p < .erec;
-				CALL fixupBoundsChk(fixextBOut.addr := lasttype6base + fixextBRec.addr);
-				IF fixType = 3 THEN
-					CALL fixupBoundsChk(fixextBOut.addr + 1);	/* check 2nd byte in range */
-				IF (fixextBOut.sym := fixextBRec.sym) >= unsatisfiedCnt THEN
-					CALL badRecordSeq;
-				CALL forceSOL;
-				CALL binasc(fixextBOut.sym, 10, ' ', .aReferenceToUns(34), 5);
-				CALL binasc(fixextBOut.addr, 16, '0', .aReferenceToUns(44), 4);
+			DO WHILE in$p < .erec;
+				/* set the new offset but do bounds check also */
+				CALL fixupBoundsChk(outExtfix.offset := recSegBaseAddr + inExtfix.offset);
+				IF loHiBoth = FBOTH THEN
+					CALL fixupBoundsChk(outExtfix.offset + 1);	/* check 2nd byte in range */
+				IF (outExtfix.namidx := inExtfix.namidx) >= unsatisfiedCnt THEN
+					CALL badRecordSeq;	/* name index out of range */
+				CALL forceSOL;			/* make sure on new line to record the problem */
+				CALL binasc(outExtfix.namidx, 10, ' ', .aReferenceToUns(34), 5);
+				CALL binasc(outExtfix.offset, 16, '0', .aReferenceToUns(44), 4);
+				/* print 'REFERENCE TO UNSATISFIED EXTERNAL(' */
 				CALL conAndPrint(.aReferenceToUns, 34);
-				
+				/* print the 'XXXXX) AT XXXXH\r\n' skipping leading spaces */
 				CALL conAndPrint((curColumn := skipspc(.aReferenceToUns(34))),
 						17 - (curColumn - .aReferenceToUns(34)));
-				out$p = out$p +  4;
-				rec$p = rec$p + 4;
+				out$p = out$p + 4;	/* advance out and in position */
+				in$p = in$p + 4;
 			END;	/* DO WHILE */
 
-			CALL endRecord;
+			CALL endRecord;	/* finish off the record */
 		END;
 		ELSE
 		DO;
-			workingSegBase = lasttype6base;
-			IF srec.type = R$FIXSEG THEN
+			workingSegBase = recSegBaseAddr;			/* restore fixup seg base to the moddat's own */
+			IF inRecord.rectyp = R$FIXSEG THEN				/* if different seg the set it up */
 			DO;
-				outSegType(0) = setWorkingSeg(fixsegARec.seg);
-				rec$p = rec$p + 1;				/* rest treat as type FIXLOC */
+				outSegType = setWorkingSeg(inSegid);
+				in$p = in$p + 1;				/* rest treat as rectyp FIXLOC */
 			END;
-			IF (fixType := fixlocARec.fixtype) - 1 > 2 THEN
+			IF (loHiBoth := inLoHiBoth) - 1 > FBOTH - 1 THEN	/* is fixup valid */
 				CALL illegalRecord;
-			rec$p = rec$p + 1;
+			in$p = in$p + 1;
 
-			DO WHILE rec$p < .erec;
-				CALL fixupBoundsChk(fixRaddr := lasttype6base + fixlocBRec.addr);
-				IF fixType = 3 THEN
+			DO WHILE in$p < .erec;					/* process the record */
+				/* set the fixup real address and check in range, both bytes for BOTH fixup type */
+				CALL fixupBoundsChk(fixRaddr := recSegBaseAddr + inFixOffset);
+				IF loHiBoth = FBOTH THEN
 					CALL fixupBoundsChk(fixRaddr + 1);
-				fixLoc = RAddr2LAddr(fixRaddr);
-				DO CASE fixType - 1;
-					bfix = bfix + LOW(workingSegBase);
-					bfix = bfix + HIGH(workingSegBase);
+				/* find the fixup location in memory */
+				fixLoc = addrInCache(fixRaddr);
+				DO CASE loHiBoth - 1;
+					bfix = bfix + LOW(workingSegBase);	/* LO add in low of target base address */
+					bfix = bfix + HIGH(workingSegBase);	/* HI add in high of target base address */
+										/* BOTH */
 					IF LOW(fixRaddr) <> 0FFH THEN	/* doesn't span pages */
-						wfix = wfix + workingSegBase;	
+						wfix = wfix + workingSegBase;	/* simple add in to existing word value */
 					ELSE
 					DO;
-						lobyt = bfix;
-						fixLoc2 = RAddr2Laddr(fixRaddr + 1);
+						lobyt = bfix;			/* get the low byte */
+						fixLoc2 = addrInCache(fixRaddr + 1);	/* find address of high byte */
 						hibyt = bfix2;
-						bothbyt = bothbyt + workingSegBase;
-						bfix = lobyt;
+						bothbyt = bothbyt + workingSegBase;	/* add in the target base address */
+						bfix = lobyt;			/* and put back in place */
 						bfix2 = hibyt;
 					END;
 				END;
-				rec$p = rec$p + 2;
+				in$p = in$p + 2;
 			END;
 		   END;
 		CALL getRecord;
 	END;
-	IF fixextPrimed THEN
+	IF fixextUsed THEN
 	DO;
+		CALL flushOut;	/* flush the extdef data */
+		CALL seekOutFile(SEEKABS, .mark.blk, .mark.byt);	/* backup to the data record */
+		CALL emitMODDAT(.inFragment.saddr);			/* emit the data record fragment as it needs fixup */
 		CALL flushOut;
-		CALL seekOutFile(2, .mark.blk, .mark.byt);
-		CALL emitMODDAT(.t6desc4.saddr);
-		CALL flushOut;
-		CALL seekOutFile(4, .backup.blk, .backup.byt);
+		CALL seekOutFile(SEEKEND, .endrec.blk, .endrec.byt);	/* back to end of file */
 	END;
 	ELSE
-		CALL insert4Desc(t6desc4.saddr, t6desc4.eaddr);
+		CALL addDataFrag(inFragment.saddr, inFragment.eaddr);	/* record the fragment */
 
 END procMODDAT;
 
@@ -1420,8 +1448,8 @@ END fixupBoundsChk;
 procLINNUM: PROCEDURE EXTERNAL;
 END procLINNUM;
 
-procAncestor: PROCEDURE EXTERNAL;
-END procAncestor;
+procANCEST: PROCEDURE EXTERNAL;
+END procANCEST;
 
 procDefs: PROCEDURE(arg1b, arg2w) EXTERNAL;
 	DECLARE arg1b BYTE;
@@ -1431,13 +1459,13 @@ END procDefs;
 procEXTNAM: PROCEDURE EXTERNAL;
 END procEXTNAM;
 
-sub$5309: PROCEDURE(buf, len) EXTERNAL;
+printListingHeader: PROCEDURE(buf, len) EXTERNAL;
 	DECLARE buf ADDRESS;
 	DECLARE len ADDRESS;
-END sub$5309;
+END printListingHeader;
 
-sub$5359: PROCEDURE EXTERNAL;
-END sub$5359;
+locateFile: PROCEDURE EXTERNAL;
+END locateFile;
 
 loc3.plm
 locate3: DO;
@@ -1460,210 +1488,227 @@ DECLARE erec BASED erec$p BYTE;
 
 fixupBoundsChk: PROCEDURE(addr) PUBLIC;
 	DECLARE addr ADDRESS;
-	IF addr < t6desc4.saddr OR t6desc4.eaddr < addr THEN
+	IF addr < inFragment.saddr OR inFragment.eaddr < addr THEN
 		CALL fatalErr(ERR213);	/* Fixup Bounds Error */
 END fixupBoundsChk;
 
 
 procLINNUM: PROCEDURE PUBLIC;
-	DECLARE rdata BASED rec$p BYTE;
-	DECLARE buf BASED out$p (1) BYTE;
-	DECLARE wbuf BASED out$p (1) ADDRESS;
+	DECLARE	inSeg BASED in$p BYTE;
+	DECLARE	inLinDef BASED in$p STRUCTURE (offset ADDRESS, linnum ADDRESS);
+	DECLARE	outSeg BASED out$p BYTE;
+	DECLARE	outLinDef BASED out$p STRUCTURE (offset ADDRESS, linnum ADDRESS);
 
-	IF NOT PurgeSeen OR LinesSeen THEN
+	IF NOT PurgeSeen OR LinesSeen THEN	/* only process if not purge or lines requested */
 	DO;
-		outSegType(0) =  setWorkingSeg(linnumARec.seg);
-		IF NOT PurgeSeen THEN
+		outSegType =  setWorkingSeg(inSeg);	/* get ABS seg and set working base address */
+		IF NOT PurgeSeen THEN		/* need to create output record */
 		DO;
 			CALL initRecOut(R$LINNUM);
-			linnumAOut.seg = outSegType(0);
+			outSeg = outSegType;
 			out$p = out$p + 1;
 		END;
-		rec$p = rec$p + 1;
-		DO WHILE rec$p < .erec;
-			IF NOT PurgeSeen THEN
+		in$p = in$p + 1;		/* past segid */
+		DO WHILE in$p < .erec;		/* loop over all entries */
+			IF NOT PurgeSeen THEN	/* emit to output record */
 			DO;
-				linnumBOut.addr = workingSegBase + linnumBRec.addr;
-				linnumBOut.line = linnumBRec.line;
-				out$p = out$p + 4;
+				outLinDef.offset = workingSegBase + inLinDef.offset;	/* final location */
+				outLinDef.linnum = inLinDef.linnum;	/* copy the line number */
+				out$p = out$p + size(outLinDef);	/* past this entry */
 				
 			END;
-			IF LinesSeen THEN
+			IF LinesSeen THEN	/* if required list the mapping */
 			DO;
-				CALL binasc(workingSegBase + linnumBRec.addr, 16, '0', .alin, 4);
-				CALL binasc(linnumBRec.line, 10, ' ', .x5(1), 5);
-				CALL sub$4B3A(.alin, .x5);
+				CALL binasc(workingSegBase + inLinDef.offset, 16, '0', .alin, 4);
+				CALL binasc(inLinDef.linnum, 10, ' ', .x5(1), 5);
+				CALL printColumn(.alin, .x5);
 			END;
-			rec$p = rec$p + 4;
+			in$p = in$p + size(inLinDef);			/* to next entry */
 		END;
-		IF NOT PurgeSeen THEN
+		IF NOT PurgeSeen THEN		/* finish off output record */
 			CALL endRecord;
 	END;
-	CALL getRecord;
+	CALL getRecord;	/* prep next record */
 END procLINNUM;
 
 
-procAncestor: PROCEDURE PUBLIC;
-	DECLARE str BASED rec$p (1) BYTE;
-	IF LinesSeen OR SymbolsSeen THEN
+procANCEST: PROCEDURE PUBLIC;
+	DECLARE str BASED in$p (1) BYTE;
+	IF LinesSeen OR SymbolsSeen THEN	/* if lines or symbols */
 	DO;
-		CALL sub$4B3A(.aMod, rec$p);
+		CALL printColumn(.aMod, in$p);	/* print the ancestor */
 		CALL forceSOL;
 	END;
-	IF NOT PurgeSeen THEN
+	IF NOT PurgeSeen THEN			/* if needed in output */
 	DO;
-		CALL initRecOut(R$ANCEST);
+		CALL initRecOut(R$ANCEST);	/* init record, copy the name and finalise */
 		CALL writeBytes(.str(0), str(0) + 1);
 		CALL endRecord;
 	END;
-	CALL getRecord;
-END procAncestor;
+	CALL getRecord;	/* prep next record */
+END procANCEST;
 
 
-procDefs: PROCEDURE(arg1b, arg2w) PUBLIC;
-	DECLARE arg1b BYTE;
-	DECLARE arg2w ADDRESS;
-	DECLARE ritem BASED rec$p STRUCTURE (len ADDRESS, name (1) BYTE);
+procDefs: PROCEDURE(list, template) PUBLIC;
+	DECLARE list BYTE;
+	DECLARE template ADDRESS;
+	DECLARE ritem BASED in$p STRUCTURE (len ADDRESS, name (1) BYTE);
 	DECLARE owd BASED out$p ADDRESS;
 	DECLARE buf BASED out$p (1) BYTE;
+	DECLARE inSeg BASED in$p BYTE;
+	DECLARE inDef BASED in$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
+	DECLARE outSeg BASED out$p BYTE;
+	DECLARE outDef BASED out$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
 
-	IF NOT purgeseen OR arg1b THEN
+	IF NOT purgeseen OR list THEN	/* only process if not purged or list requested for these symbols */
 	DO;
-		IF defsARec.seg = SSTACK THEN	/* stack ? */
+		IF inSeg = SSTACK THEN	/* stack ? */
 		DO;
-			outSegType(0) = 3;
-			workingSegBase = 0;
+			outSegType = SSTACK;
+			workingSegBase = 0;			/* stack base is 0 */
 		END;
 		ELSE
-			outSegType(0)= setWorkingSeg(defsARec.seg);	
+			outSegType = setWorkingSeg(inSeg);	/* sets working base address * returns ABS Seg */
 		IF NOT PurgeSeen THEN
 		DO;
-			CALL initRecOut(srec.type);
-			defsAOut.seg = outSegType(0);
+			CALL initRecOut(inRecord.rectyp);	/* initialise the output record */
+			outSeg = outSegType;
 			out$p = out$p + 1;
 		END;
-		rec$p = rec$p + 1;
-		DO WHILE rec$p < .erec;
+		in$p = in$p + 1;			/* past segId */
+		DO WHILE in$p < .erec;
 			IF NOT PurgeSeen THEN
 			DO;
-				defsBOut.offset = workingSegBase + defsBRec.offset;
-				CALL pstrcpy(.defsBRec.name, .defsBOut.name);
-				defsBOut.name(defsBRec.name(0) + 1) = 0;
-				out$p = out$p + 4 + defsBRec.name(0);
+				outDef.offset = workingSegBase + inDef.offset;	/* add in the base address */
+				CALL pstrcpy(.inDef.name, .outDef.name);	/* copy the name over */
+				outDef.name(inDef.name(0) + 1) = 0;		/* add the trailing 0 */
+				out$p = out$p + 4 + inDef.name(0);		/* update output record past offset, name and extra 0 */
 			END;
-			IF arg1b THEN
+			IF list THEN			/* if required list the location */
 			DO;
-				CALL binasc(workingSegBase + defsBRec.offset, 16, '0', arg2w, 4);
-				CALL sub$4B3A(arg2w, .defsBRec.name);
+				CALL binasc(workingSegBase + inDef.offset, 16, '0', template, 4);
+				CALL printColumn(template, .inDef.name);
 			END;
-			rec$p = rec$p + 4 + defsBRec.name(0);
+			in$p = in$p + 4 + inDef.name(0);			/* to the next entry - past offset, name and extra 0 */
 		END;
-		IF NOT PurgeSeen THEN
+		IF NOT PurgeSeen THEN		/* if not purged finish off the output record */
 			CALL endRecord;
 	END;
-	CALL getRecord;
+	CALL getRecord;	/* prep for next record */
 END procDefs;
 
 
 procEXTNAM: PROCEDURE PUBLIC;
-	DECLARE ch BASED rec$p BYTE;
+	DECLARE ch BASED in$p BYTE;
 	DECLARE buf BASED out$p (1) BYTE;
+	DECLARE inName BASED in$p STRUCTURE (len BYTE, name(1) BYTE /*, 0 */);
+	DECLARE outName BASED out$p STRUCTURE (len BYTE, name(1) BYTE /*, 0 */);
 
-	CALL initRecOut(R$EXTNAM);
-	DO WHILE rec$p < .erec;
+	CALL initRecOut(R$EXTNAM);	/* initialise the EXTNAM in the located file */
+	DO WHILE in$p < .erec;		/* process each item in the input EXTNAM record */
 		CALL forceSOL;
+		/* insert the index number of the unsatisfied external & print the error message */
 		CALL binasc((unsatisfiedCnt := unsatisfiedCnt + 1) - 1, 10, ' ', .aUnsatisfiedExt(21), 5);
-			CALL conAndPrint(.aUnsatisfiedExt, 21);
-			CALL conAndPrint(curColumn := skipSpc(.aUnsatisfiedExt(21)), 7 - (curColumn - .aUnsatisfiedExt(21)));
-			CALL conAndPrint(.extnamRec.name(1), extnamRec.name(0));
-			CALL conAndPrint(.crlf, 2);
-			CALL pstrcpy(.extnamRec.name, .extnamOut.name);
-			extnamOut.name(DOUBLE(extnamRec.name(0)) + 1) = 0;
-			out$p = out$p + 2 + extnamRec.name(0);
-			rec$p = rec$p + 2 + extnamRec.name(0);
+		/* print to the start of the number */
+		CALL conAndPrint(.aUnsatisfiedExt, 21);
+		/* print the rest of the message omitting leading spaces in the number */
+		CALL conAndPrint(curColumn := skipSpc(.aUnsatisfiedExt(21)), 7 - (curColumn - .aUnsatisfiedExt(21)));
+		/* print the name */
+		CALL conAndPrint(.inName.name, inName.len);
+		CALL conAndPrint(.crlf, 2);
+		/* copy the name to the output record */
+		CALL pstrcpy(.inName, .outName);
+		outName.name(inName.len) = 0;	/* add the zero */
+		out$p = out$p + 2 + inName.len;			/* skip past the name in out and in records */
+		in$p = in$p + 2 + inName.len;
 	END;
-	CALL endRecord;
-	CALL getRecord;
+	CALL endRecord;	/* finish off the record */
+	CALL getRecord; /* prep the next record */
 END procEXTNAM;
 
 
-sub$5309: PROCEDURE(buf, len) PUBLIC;
+printListingHeader: PROCEDURE(buf, len) PUBLIC;
 	DECLARE buf ADDRESS;
 	DECLARE len ADDRESS;
 	CALL printString(buf, len);
-	CALL printString(.nameArg(1), nameArg(0));
-	CALL printString(.aReadFromFile, 17);
+	CALL printString(.moduleName(1), moduleName(0));
+	CALL printString(.aReadFromFile, 17);	/* '\r\nREAD FROM FILE ' */
 	CALL printString(.inFileName(1), inFileName(0));
-	CALL printString(.aWrittenToFile, 18);
+	CALL printString(.aWrittenToFile, 18); /* '\r\nWRITTEN TO FILE ' */
 	CALL printString(.outFileName(1), outFileName(0));
 	CALL printcrlf;
-END sub$5309;
+END printListingHeader;
 
 
-sub$5359: PROCEDURE PUBLIC;
+/* main procedure to locate the file */
+locateFile: PROCEDURE PUBLIC;
 	DECLARE buf BASED out$p (1) BYTE;
-	CALL procHeader;
+	CALL procHdrAndComDef;		/* determine all of the segment base addresses */
 	CALL initRecOut(R$MODHDR);	/* create header record */
-	CALL writeBytes(.nameArg, nameArg(0)+1);	/* write the name */
-	buf(0) = modhdr$x1;	/* copy the passed in data */
+	CALL writeBytes(.moduleName, moduleName(0)+1);	/* write the name */
+	buf(0) = modhdr$x1;	/* copy the passed in x field data */
 	buf(1) = modhdr$x2;
 	out$p = out$p + 2;
-	CALL endRecord;
+	CALL endRecord;		/* located modhdrs don't have seg size info */
+	/* print symbol table header message if required */
 	IF PublicsSeen  OR SymbolsSeen OR LinesSeen THEN
 	DO;
-		CALL sub$5309(.aSymbolTableOfM, 25);
+		CALL printListingHeader(.aSymbolTableOfM, 25);
 		CALL printcrlf;
+		/* print the column headings */
 		DO curColumn = 1 TO columns;
-			CALL sub$4B3A(.aValueType, .aSymbol);
+			CALL printColumn(.aValueType, .aSymbol);
 		END;
 		CALL printcrlf;
 	END;
-	DO WHILE srec.type <> R$MODEND;
-	    DO CASE SHR(srec.type, 1);
+
+	/* process the link file */
+	DO WHILE inRecord.rectyp <> R$MODEND;
+	    DO CASE SHR(inRecord.rectyp, 1);
 		CALL illegalReloc;	/* 0 */
-		CALL badRecordSeq;	/* 2 */
-		;			/* 4 */
-		CALL procMODDAT;		/* 6 */
-		CALL procLINNUM;		/* 8 */
+		CALL badRecordSeq;	/* 2 - modhdr already processed */
+		;			/* 4 - modend exited while already */
+		CALL procMODDAT;		/* 6 - moddat */
+		CALL procLINNUM;		/* 8 - linnum */
 		CALL illegalReloc;	/* 0A */
 		CALL illegalReloc;	/* 0C */
-		CALL errChkReport(ERR204, .inFileName(1), 0FFH); /* 0E - Premature EOF */
-		CALL procAncestor;		/* 10 */
-		CALL procDefs(SymbolsSeen, .aSym);	/* 12 */
+		CALL errChkReport(ERR204, .inFileName(1), TRUE); /* 0E - modeof Premature EOF */
+		CALL procANCEST;		/* 10 - ancest */
+		CALL procDefs(SymbolsSeen, .aSym);	/* 12 - locdef */
 		CALL illegalReloc;	/* 14 */
-		CALL procDefs(PublicsSeen, .aPub);	/* 16 */
-		call procEXTNAM;		/* 18 - undefined externals */
+		CALL procDefs(PublicsSeen, .aPub);	/* 16 - pubdef */
+		call procEXTNAM;		/* 18 - extnam - externals */
 		CALL illegalReloc;	/* 1A */
 		CALL illegalReloc;	/* 1C */
 		CALL illegalReloc;	/* 1E */
-		CALL badRecordSeq;	/* 20 */
-		CALL badRecordSeq;	/* 22 */
-		CALL badRecordSeq;	/* 24 */
-		CALL badRecordSeq;	/* 26 */
-		CALL badRecordSeq;	/* 28 */
-		CALL badRecordSeq;	/* 2A */
-		CALL badRecordSeq;	/* 2C */
-		CALL badRecordSeq;	/* 2E */
+		CALL badRecordSeq;	/* 20 - fixext link should have processed these */
+		CALL badRecordSeq;	/* 22 - fixloc link should have processed these */
+		CALL badRecordSeq;	/* 24 - fixseg link should have processed these */
+		CALL badRecordSeq;	/* 26 - libloc attempting to locate a library */
+		CALL badRecordSeq;	/* 28 - libnam attempting to locate a library */
+		CALL badRecordSeq;	/* 2A - libdic attempting to locate a library */
+		CALL badRecordSeq;	/* 2C - libhdr attempting to locate a library */
+		CALL badRecordSeq;	/* 2E - processed comdef already */
 	    END;
 	END;
-	CALL procMODEND;
+	CALL procMODEND;		/* read the modend and generate the rest of the located file */
 	CALL close(outputfd, .statusIO);
-	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
-	IF havePagingFile THEN
+	CALL errChkReport(statusIO, .outFileName(1), TRUE);
+	IF havePagingFile THEN		/* get rid of any paging file */
 	DO;
 		CALL close(tmpfd, .statusIO);
 		CALL delete(.tmpFileName(1), .statusIO);
 	END;
-	CALL forceSOL;
-	CALL sub$5576;
+	CALL forceSOL;		/* make sure at start of line if symbols listed */
+	CALL printMemoryMap;	/* print the final memory map + any overlay errors */
 	CALL close(readfd, .statusIO);
-	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
-END sub$5359;
+	CALL errChkReport(statusIO, .inFileName(1), TRUE);
+END locateFile;
 
 END locate3;
 loc4.ext
-sub$5576: PROCEDURE EXTERNAL;
-END sub$5576;
+printMemoryMap: PROCEDURE EXTERNAL;
+END printMemoryMap;
 
 skipspc: PROCEDURE(pch) ADDRESS EXTERNAL;
 	DECLARE pch ADDRESS;
@@ -1701,118 +1746,124 @@ DECLARE	aMemoryMapOfMod(*) BYTE PUBLIC INITIAL(0DH, 0AH, 'MEMORY MAP OF MODULE '
 	segNames(*) BYTE PUBLIC INITIAL('ABSOLUTE', 'CODE    ', 'DATA    ', 'STACK   ', 'MEMORY  '),
 	alignNames(*) BYTE PUBLIC INITIAL('AIPB');
 
-sub$5517: PROCEDURE(seg) ADDRESS PUBLIC;
-	DECLARE seg BYTE;
-	DECLARE rdata BASED rec$p (1) BYTE;
+getCommonName: PROCEDURE(segid) ADDRESS PUBLIC;
+	DECLARE segid BYTE;
+	DECLARE cdef BASED in$p STRUCTURE (segid BYTE, name(1) BYTE);
 
-	IF seg = 255 THEN
-		RETURN .(0);
-	CALL iseek(0,0);
-	CALL getRecord;
+	IF segid = SBLANK THEN
+		RETURN .(0);	/* blank name */
+	CALL iseek(0,0);	/* seek start of file */
+	CALL getRecord;		/* junk the modhdr record */
 	DO WHILE 1;
-		CALL getRecord;
-		IF srec.type <> R$COMDEF THEN
+		CALL getRecord;	/* scan comdef records */
+		IF inRecord.rectyp <> R$COMDEF THEN
 			CALL badRecordSeq;
-		DO WHILE rec$p < .erec;
-			IF seg = rdata(0) THEN
-				RETURN rec$p + 1;
-			rec$p = rec$p + 2 + rdata(1);
+		DO WHILE in$p < .erec;	/* look for the seg */
+			IF segid = cdef.segid THEN
+				RETURN .cdef.name(0);	/* return pointer to name */
+			in$p = in$p + size(cdef) + cdef.name(0);	/* skip to next seg/name */
 		END;
 	END;
-END sub$5517;
+END getCommonName;
 
-sub$5576: PROCEDURE PUBLIC;
-	DECLARE (p, q) ADDRESS;
-	DECLARE (i, j, k) BYTE;
-	DECLARE desc6 BASED curDescriptor62F DESC6$T;
-	DECLARE rdata BASED rec$p (1) BYTE;
+printMemoryMap: PROCEDURE PUBLIC;
+	DECLARE (minStart, q) ADDRESS;
+	DECLARE (i, wrapped, addCRLF) BYTE;
+	DECLARE curSegFrag BASED curSegFrag$p SEGFRAG$T;
+	DECLARE omfName BASED in$p STRUCTURE(len BYTE, name(1) BYTE);
 
-	IF MapSeen THEN
+	IF MapSeen THEN		/* print map header info if asked for */
 	DO;
-		CALL sub$5309(.aMemoryMapOfMod, 23);
-		IF type4SubType THEN
+		CALL printListingHeader(.aMemoryMapOfMod, size(aMemoryMapOfMod)); /* '\r\nMEMORY MAP OF MODULE ' */
+		IF isMain THEN
 		DO;
-			CALL binasc(startAddr, 16, '0', .aModuleStartAdd(21), 4);
-			CALL printString(.aModuleStartAdd, 26);
+			CALL binasc(startAddr, 16, '0', .aModuleStartAdd(21), 4);  /* insert start address in string */
+			CALL printString(.aModuleStartAdd, size(aModuleStartAdd)); /* 'MODULE START ADDRESS XXXXH' */
 		END;
 		ELSE
 		DO;
-			CALL printString(.aModuleIsNotAMa, 27);
+			CALL printString(.aModuleIsNotAMa, size(aModuleIsNotAMa)); /* 'MODULE IS NOT A MAIN MODULE' */
 			IF startSeen THEN
-				CALL printString(.aStartControlIg, 23);
+				CALL printString(.aStartControlIg, size(aStartControLIg)); /* ', START CONTROL IGNORED' */
 			IF restart0Seen THEN
-				CALL printString(.aRestartControl, 25);
+				CALL printString(.aRestartControl, size(aRestartControl)); /* ', RESTART CONTROL IGNORED' */
 		END;
-		CALL printString(.aStartStopLengt, 34);
-	END;
-	stackAddr = stackAddr - stackSize;
-	DO q = 1 TO 254;
-		IF segSizes(i := segOrder(q)) > 0 OR (segFlags(i) AND 20H) <> 0 THEN
-			CALL insert6Desc(segFlags(i), i, segBases(i), segSizes(i));
+		CALL printString(.aStartStopLengt, 34);	/* '\r\nSTART   STOP LENGTH REL NAME\r\n\n' */
 	END;
 
-	p, j = 0;
-	curDescriptor62F = topHeap;
-	DO WHILE curDescriptor62F <> topDescriptor ; 
-		curDescriptor62F = curDescriptor62F - DOUBLE(6);
-		CALL binasc(desc6.start, 16, '0', .aAddresses, 4);
-		aAddresses(7) = '*';
+	segBases(SSTACK) = segBases(SSTACK) - segSizes(SSTACK);
+	DO q = 1 TO 254;
+		IF segSizes(i := segOrder(q)) > SABS  OR (segFlags(i) AND 20H) <> 0 THEN
+			CALL addSegFrag(segFlags(i), i, segBases(i), segSizes(i));
+	END;
+
+	minStart, wrapped = 0;
+	/* emit information on all of the blocks */
+	curSegFrag$p = topHeap;
+	DO WHILE curSegFrag$p <> topDataFrags; 	/* done ? */
+		curSegFrag$p = curSegFrag$p - size(curSegFrag);	/* point to start of block info */
+		CALL binasc(curSegFrag.start, 16, '0', .aAddresses, 4);	/* start address */
+		aAddresses(7) = '*';		/* assume no length so show **** for stop address */
 		aAddresses(8) = '*';
 		aAddresses(9) = '*';
 		aAddresses(10) = '*';
-		IF desc6.len > 0 THEN
-			CALL binasc(desc6.start + desc6.len - 1, 16, '0', .aAddresses(7), 4);
-		CALL binasc(desc6.len, 16, ' ', .aAddresses(14), 4);
+		IF curSegFrag.len > 0 THEN		/* we have length so fill stop address */
+			CALL binasc(curSegFrag.start + curSegFrag.len - 1, 16, '0', .aAddresses(7), 4);
+		CALL binasc(curSegFrag.len, 16, ' ', .aAddresses(14), 4);	/* length */
+		/* copy the start and stop into the memory overlap message */
 		CALL mem$mov(4, .aAddresses, .aMemOverlap(23));
 		CALL mem$mov(4, .aAddresses(7), .aMemOverlap(37));
-		IF desc6.start + desc6.len > p THEN
+		IF curSegFrag.start + curSegFrag.len > minStart THEN	/* none or not total overlap */
 		DO;
-			aMemOverlap(37) = '*';
+			aMemOverlap(37) = '*';		/* clear out the through address */
 			aMemOverlap(38) = '*';
 			aMemOverlap(39) = '*';
 			aMemOverlap(40) = '*';
-			IF desc6.len > 0 AND (p > 0  OR j <> 0) THEN
-				CALL binasc(p - 1, 16, '0', .aMemOverlap(37), 4);
+			/* if we are overlap put in the end of the last block */
+			IF curSegFrag.len > 0 AND (minStart > 0  OR wrapped <> 0) THEN
+				CALL binasc(minStart - 1, 16, '0', .aMemOverlap(37), 4);
 		END;
-		k = 0;
-		IF mapSeen THEN
+		addCRLF = 0;
+		IF mapSeen THEN	/* if MAP is being produced */
 		DO;
-			aAddresses(21) = alignNames(desc6.flags AND 0FH);
-			CALL printString(.aAddresses, 24);
-			IF desc6.seg >= 6 THEN
+			aAddresses(21) = alignNames(curSegFrag.flags AND AMASK);	/* add the align type */
+			CALL printString(.aAddresses, size(aAddresses));	/* and print the address info */
+			IF curSegFrag.seg >= SNAMED THEN				/* seg is named common */
 			DO;
-				CALL printString(.('/'), 1);
-				rec$p = sub$5517(desc6.seg);
-				CALL printString(rec$p+1, rdata(0));	
+				CALL printString(.('/'), 1);			/* print the / */
+				in$p = getCommonName(curSegFrag.seg);		/* look up the common name in the input file */
+				CALL printString(.omfName.name, omfName.len);	/* print it and the closing / */
 				CALL printString(.('/'), 1);
 			END;
-			ELSE
-				CALL printString(.segNames(SHL(desc6.seg, 3)), 8);
+			ELSE							/* standard so used the canned names */
+				CALL printString(.segNames(SHL(curSegFrag.seg, 3)), 8);	/* shl 3 is *8 */
 		END;
-		IF desc6.start < p OR j <> 0 THEN
+		IF curSegFrag.start < minStart OR wrapped <> 0 THEN			/* emit any overlap notification */
 		DO;
-			k = 0FFH;
-			CALL conAndPrint(.aMemOverlap, 43);
+			addCRLF = TRUE;
+			/* '  (MEMORY OVERLAP FROM XXXXH THROUGH XXXXH)'  values filled in above */
+			CALL conAndPrint(.aMemOverlap, size(aMemOverlap));
 		END;
-		IF (desc6.flags AND 40H) <> 0 THEN
+		IF (curSegFrag.flags AND FWRAP0) <> 0 THEN				/* and if wrapped to 0 */
 		DO;
-			k = 0FFH;
-			CALL conAndPrint(.a0LengthSegment, 44);
+			addCRLF = TRUE;
+			/* '  (0 LENGTH SEGMENT WRAPPED AROUND TO 0000H)' */
+			CALL conAndPrint(.a0LengthSegment, size(a0LengthSegment));
 		END;
-		IF k THEN
+		IF addCRLF THEN							/* finish of any started line */
 			CALL conAndPrint(.crlf, 2);
 		ELSE IF MapSeen THEN
 			CALL printcrlf;
-		IF desc6.start + desc6.len = 0 AND desc6.len > 0 THEN
+		IF curSegFrag.start + curSegFrag.len = 0 AND curSegFrag.len > 0 THEN		/* we wrapped to 0 */
 		DO;
-			p = 0;
-			j = 40H;
+			minStart = 0;
+			wrapped = FWRAP0;
 		END;
-		ELSE IF j = 0 THEN
-			IF desc6.start + desc6.len > p THEN
-				p = desc6.start + desc6.len;
+		ELSE IF wrapped = 0 THEN
+			IF curSegFrag.start + curSegFrag.len > minStart THEN		/* update the minStart */
+				minStart = curSegFrag.start + curSegFrag.len;
 	END;	/* DO WHILE */
-END sub$5576;
+END printMemoryMap;
 
 
 
@@ -1950,9 +2001,9 @@ cmdErr: PROCEDURE(err) EXTERNAL;
 	DECLARE err ADDRESS;
 END cmdErr;
 
-skipWhiteSpc: PROCEDURE(pch) EXTERNAL;
+skipNonArgChars: PROCEDURE(pch) EXTERNAL;
 	DECLARE pch ADDRESS;
-END skipWhiteSpc;
+END skipNonArgChars;
 
 expectLP: PROCEDURE EXTERNAL;
 END expectLP;
@@ -1960,8 +2011,8 @@ END expectLP;
 expectRP: PROCEDURE EXTERNAL;
 END expectRP;
 
-checkFile: PROCEDURE EXTERNAL;
-END checkFile;
+getFile: PROCEDURE EXTERNAL;
+END getFile;
 
 initSegOrder: PROCEDURE EXTERNAL;
 END initSegOrder;
@@ -2056,20 +2107,21 @@ cmdErr: PROCEDURE(err) PUBLIC;
 END cmdErr;
 
 
-skipWhiteSpc: PROCEDURE(pch) PUBLIC;
+skipNonArgChars: PROCEDURE(pch) PUBLIC;
 	DECLARE pch ADDRESS;
 	cmd$p = skipspc(pch);
+	/* skip any continuation bits and leading space */
 	DO WHILE cmdch = '&';
 		cmd$p = skipspc(cmd$p + 5);
 	END;
-END skipWhiteSpc;
+END skipNonArgChars;
 
 
 expectChar: PROCEDURE(ch, err) PUBLIC;
 	DECLARE (ch, err) BYTE;
-	CALL skipWhiteSpc(cmd$p);
+	CALL skipNonArgChars(cmd$p);
 	IF ch = cmdch THEN
-		CALL skipWhiteSpc(cmd$p + 1);
+		CALL skipNonArgChars(cmd$p + 1);
 	ELSE
 		CALL cmdErr(err);
 END expectChar;
@@ -2090,30 +2142,32 @@ expectSlash: PROCEDURE PUBLIC;
 END expectSlash;
 
 
-checkFile: PROCEDURE PUBLIC;
+getFile: PROCEDURE PUBLIC;
 	CALL spath(cmd$p, .spathInfo, .statusIO);	/* try to parse file */
 	IF statusIO > 0 THEN
 		CALL cmdERR(statusIO);
-	CALL skipWhiteSpc(pastFileName(cmd$p));
-END checkFile;
+	CALL skipNonArgChars(pastFileName(cmd$p));
+END getFile;
 
 
 initSegOrder: PROCEDURE PUBLIC;
 	DECLARE i BYTE;
-	segOrder(0) = 0;
-	segOrder(1) = 1;
-	segOrder(2) = 3;
+	segOrder(0) = SABS;
+	segOrder(1) = SCODE;
+	segOrder(2) = SSTACK;
+	/* next come the common segs in order */
 	DO i = 3 TO 252;
 		segOrder(i) = i + 3;
 	END;
-	segOrder(253) = 2;
-	segOrder(254) = 4;
+	/* DATA is after these and MEMORY is last */
+	segOrder(253) = SDATA;
+	segOrder(254) = SMEMORY;
 END initSegOrder;
 
 
 errNotADisk: PROCEDURE PUBLIC;
 	CALL makeFullName(.spathInfo, .inFileName(1));
-	CALL errChkReport(ERR17, .inFileName(1), 0FFH);	/* not a disk file */
+	CALL errChkReport(ERR17, .inFileName(1), TRUE);	/* not a disk file */
 END errNotADisk;
 
 
@@ -2137,63 +2191,64 @@ END getpstrName;
 processControls: PROCEDURE PUBLIC;
 	DECLARE (p, q, cwindex) ADDRESS;
 	DECLARE cindex BYTE AT(.cwindex);
-	DECLARE (cid, caux, clen, ctype) BYTE;
+	DECLARE (cid, caux, clen, cSegId) BYTE;
 
+	/* find the command length */
 	clen = pastFileName(cmd$p) - cmd$p;
 	cindex = 3;
 	cid = 0;
-	IF cmdch = '/' THEN
+	IF cmdch = '/' THEN	/* common seg address */
 	DO;
-		clen = 1;
+		clen = 1;	/* treat specially */
 		cid = 9;
 	END;
-	ELSE IF clen > 0 THEN
+	ELSE IF clen > 0 THEN	/* look up the control */
 		DO WHILE cindex < length(controls);
 			IF controls(cindex+2) = clen AND strequ(cmd$p, .controls(cindex+3), clen) THEN
 			DO;
 				cid = controls(cindex);	
 				caux = controls(cindex+1);
-				cindex = 140;
+				cindex = length(controls);
 			END;
 			ELSE
 				cindex = cindex + controls(cindex + 2) + 3;
 		END;
-	IF cid = 0 THEN
+	IF cid = 0 THEN		/* check we have a valid command */
 		CALL cmdERR(ERR229);	/* unrecognised control */
-	CALL skipWhiteSpc(cmd$p + clen);
+	CALL skipNonArgChars(cmd$p + clen);
 	DO CASE cid - 1;
 	    DO;		/* CODE, DATA, STACK, MEMORY */
-		segFlags(caux) = 80H;
-		segBases(caux) = parseLPNumRP;
+		segFlags(caux) = FHASADDR;	/* note that the address is specified */
+		segBases(caux) = parseLPNumRP;	/* and its value */
 	    END;
 	    DO;		/* START */
-	    	startSeen = 0FFH;
-		startAddr = parseLPNumRP;
+	    	startSeen = TRUE;		/* got a start address */
+		startAddr = parseLPNumRP;	/* and its value */
 	    END;
 	    DO;		/* STACKSIZE */
-	        stackSizeSet = 0FFH;
-		stackSize = parseLPNumRP;
+	        stackSizeSeen = TRUE;		/* got a stack size */
+		segSizes(SSTACK) = parseLPNumRP;/* and its value */
 	    END;
-	    seen(caux) = 0FFH; 		/* RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE */
+	    seen(caux) = TRUE; 		/* simple command seen - RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE */
 	    DO;		/* NAME */
-	    	nameArgSeen = 0FFH;
+	    	moduleNameSeen = TRUE;		/* got a module name */
 		CALL expectLP;
-		CALL getpstrName(.nameArg);
+		CALL getpstrName(.moduleName);	/* getand its value */
 		CALL expectRP;
 	    END;
-	    DO;		/* PRINT */
+	    DO;		/* PRINT */		/* get the print file */
 		CALL expectLP;
-		CALL checkFile;
+		CALL getFile;
 		CALL makeFullName(.spathInfo, .printFileName(1));
 		printFileName(0) = pastFileName(.printFileName(1)) - .printFileName(1);
 		CALL expectRP;
 	    END;
-	    DO;		/* ORDER */
+	    DO;		/* ORDER */		/* process the order list */
 	    	CALL initSegOrder;
 		nxtSegOrder = 0;
 		CALL expectLP;
 		DO WHILE cmdch <> ')';
-			cindex = 3;
+			cindex = 3;			/* skip seg 0 */
 			DO WHILE controls(cindex) = 1;	/* CODE DATA STACK MEMORY */
 				IF strequ(cmd$p, .controls(cindex + 3), controls(cindex + 2)) THEN
 				DO;
@@ -2201,39 +2256,40 @@ processControls: PROCEDURE PUBLIC;
 					cmd$p = cmd$p + controls(cindex + 2);
 					cindex = 0;
 				END;
-				/* note if cindex = 0 then this keeps where we are & will termiante loop */
+				/* note if cindex = 0 then this keeps where we are & will terminate loop */
 				cindex = cindex + controls(cindex + 2) + 3;
 			END;
 			IF cindex <> 0 THEN	/* check we haven't already processed */
-			DO;
+			DO;			/* if not scan for /common/ names */
 				CALL expectSlash;
-				ctype = getCommonTypeId;
+				cSegId = getCommonSegId;
 				CALL expectSlash;
-				CALL insSegIdOrder(ctype);
+				CALL insSegIdOrder(cSegId);
 			END;
-			CALL skipWhiteSpc(cmd$p);
+			CALL skipNonArgChars(cmd$p);
+			/* look for list of names */
 			IF cmdch = ',' THEN
 				CALL expectChar(',', ERR203); /* invalid syntax */
 		END;
 		CALL expectRP;
 	    END;
-	    DO;		/* COLUMNS */
-	    	p = cmd$p;
-		CALL expectLP;
-		q = cmd$p;
-		cmd$p = p;
+	    DO;		/* COLUMNS */		/* get the number of columns */
+	    	p = cmd$p;	/* mark where we are */
+		CALL expectLP;	/* look for the ( */
+		q = cmd$p;	/* mark start of number */
+		cmd$p = p;	/* reset to start of (n) */
 		columns = parseLPNumRP;
-		IF columns < 1 OR columns > 3 THEN
+		IF columns < 1 OR columns > 3 THEN	/* must be 1-3 */
 		DO;
 			cmd$p = q;	/* for error reporting */
 			CALL cmdErr(ERR203);	/* invalid syntax */
 		END;
 	    END;
-	    DO;		/* / -> common */
-	    	ctype = getCommonTypeID;
-		CALL expectSlash;
-		segFlags(ctype) = 80H;
-		segBases(ctype) = parseLPNumRP;
+	    DO;		/* / -> common */	/* find the common name or blank */
+	    	cSegId = getCommonSegId;	/* look up seg */
+		CALL expectSlash;		/* end with a slash */
+		segFlags(cSegId) = FHASADDR;	/* note we have an address */
+		segBases(cSegId) = parseLPNumRP; /* and its value */
 	    END;
 	END;
 END processControls;
@@ -2242,8 +2298,8 @@ END locate6;
 parseLPNumRP: PROCEDURE ADDRESS EXTERNAL;
 END parseLPNumRP;
 
-getCommonTypeID: PROCEDURE BYTE EXTERNAL;
-END getCommonTypeID;
+getCommonSegId: PROCEDURE BYTE EXTERNAL;
+END getCommonSegId;
 
 insSegIdOrder: PROCEDURE(seg) EXTERNAL;
 	DECLARE seg BYTE;
@@ -2252,8 +2308,8 @@ END insSegIdOrder;
 procArgs$Init: PROCEDURE EXTERNAL;
 END procArgs$Init;
 
-procHeader: PROCEDURE EXTERNAL;
-END procHeader;
+procHdrAndComDef: PROCEDURE EXTERNAL;
+END procHdrAndComDef;
 loc7.plm
 locate7: DO;
 $INCLUDE(ISIS.EXT)
@@ -2296,27 +2352,28 @@ parseLPNumRP: PROCEDURE ADDRESS PUBLIC;
 END parseLPNumRP;
 
 
-getCommonTypeID: PROCEDURE BYTE PUBLIC;
+getCommonSegId: PROCEDURE BYTE PUBLIC;
 	DECLARE name(32) BYTE;
+	DECLARE	comdefRec BASED in$p STRUCTURE (segid BYTE, name(1) BYTE);
 
 	IF cmdch = '/' THEN
-		RETURN 0FFH;	/* blank common */
+		RETURN SBLANK;	/* blank common */
 	CALL getpstrName(.name);
 	name(name(0) + 1) = ' ';	/* space at end */
 	CALL iseek(0, 0);
-	CALL getRecord;		/* skip type 2 record */
+	CALL getRecord;		/* skip modhdr record */
 
 	DO WHILE 1;
 		CALL getRecord;
-		IF srec.type <> R$COMDEF THEN
-			CALL errChkReport(ERR237, .name(1), 0FFH);	/* common not found */
-		DO WHILE rec$p < .erec;
+		IF inRecord.rectyp <> R$COMDEF THEN
+			CALL errChkReport(ERR237, .name(1), TRUE);	/* common not found */
+		DO WHILE in$p < .erec;
 			IF strequ(.name, .comdefRec.name, name(0)+1) THEN
-				RETURN comdefRec.seg;
-			rec$p = rec$p + 2 + comdefRec.name(0);
+				RETURN comdefRec.segid;
+			in$p = in$p + 2 + comdefRec.name(0);
 		END;
 	END;
-END getCommonTypeID;
+END getCommonSegId;
 
 
 insSegIdOrder: PROCEDURE(seg) PUBLIC;
@@ -2329,7 +2386,7 @@ insSegIdOrder: PROCEDURE(seg) PUBLIC;
 		IF segOrder(i) = seg THEN	/* already allocated ? */
 			CALL cmdErr(ERR203);	/* invalid syntax */
 	END;
-	DO i = nxtSegOrder + 1 TO 254;
+	DO i = nxtSegOrder + 1 TO SBLANK - 1;	/* find the current location of seg */
 		IF segOrder(i) = seg THEN
 			goto L6C93;
 	END;
@@ -2338,14 +2395,14 @@ L6C93:
 		segOrder(i) = segOrder(i - 1);	/* make room for this seg */
 		i = i - 1;
 	END;
-	segOrder(nxtSegOrder) = seg;
+	segOrder(nxtSegOrder) = seg;		/* insert it */
 END insSegIdOrder;
 
 
 readCmdLine: PROCEDURE PUBLIC;
 
 	CALL read(1, cmd$p, 128, .actRead, .statusIO);
-	CALL errChkReport(statusIO, .cin, 0FFH);
+	CALL errChkReport(statusIO, .cin, TRUE);
 	cmdbuf(actRead) = 0DH;
 	call strupr(cmd$p);
 END readCmdLine;
@@ -2353,8 +2410,10 @@ END readCmdLine;
 
 procArgs$Init: PROCEDURE PUBLIC;
 	DECLARE scmdch BASED scmd$p BYTE;
-	DECLARE (p, q) ADDRESS;
+	DECLARE (p, args$p) ADDRESS;
 
+	/* work out a good io buf size */
+	/* checks are for >= 32k of space, >= 16k of space */
 	IF (pageCacheSize := HIGH(memck - baseMemImage) - 1) >= 128 THEN
 		npbuf = 4096;
 	ELSE IF pageCacheSize >= 64 THEN
@@ -2362,122 +2421,152 @@ procArgs$Init: PROCEDURE PUBLIC;
 	ELSE
 		npbuf = 1056;
 
-	eibuf$p, ibuf$p = memck;
-	sibuf$p, eout$p = eibuf$p - npbuf;
-	sout$p, out$p, spbuf$p, pbuf$p, epbuf$p = eout$p - npbuf;
-	scmd$p = .MEMORY;
+	eibuf$p, ibuf$p = memck;	/* in buffer at top of memory */
+	sibuf$p, eout$p = eibuf$p - npbuf;	/* output buffer is below this */
+						/* and for now now print buffer */
+	outRecord$p, out$p, spbuf$p, pbuf$p, epbuf$p = eout$p - npbuf;
+	scmd$p = .MEMORY;		/* command line buffer */
+	/* if >= 32k then also use a print buffer */
 	IF (usePrintBuf := pageCacheSize >= 64) THEN
-		scmd$p = sout$p;
+		scmd$p = outRecord$p;	/* seems odd to share output buf */
 	scmdch = '-';
-	CALL rescan(1, .statusIO);
+	CALL rescan(1, .statusIO);	/* rewind to get command line args */
 	cmd$p = scmd$p + 1;
-	CALL readCmdLine;
-	cmd$p = skipspc(cmd$p);
+	CALL readCmdLine;		/* read the command line args */
+	cmd$p = skipspc(cmd$p);		/* skip leading space, DEBUG if present and loc command */
 	IF strequ(cmd$p, .mdebug, 6) THEN
 		cmd$p = skipspc(cmd$p + 6);
-	cmd$p, q = skipspc(pastFileName(cmd$p));
-	DO WHILE cmdch <> 0DH;
-		IF cmdch = '&' THEN
+	cmd$p, args$p = skipspc(pastFileName(cmd$p));	/* args$p marks start of real args */
+	DO WHILE cmdch <> 0DH;		/* read until end of args */
+		IF cmdch = '&' THEN	/* handle continuation line */
 		DO;
-			p = cmd$p;
-			cmd$p = skipspc(cmd$p + 1);
+			p = cmd$p;	/* mark the & */
+			cmd$p = skipspc(cmd$p + 1);	/* check we didn't have anything after */
 			IF cmdch <> 0DH THEN
 				CALL cmdErr(ERR203);	/* invalid syntax */
-			cmd$p = p;
-			CALL conStrOut(.mstar2, 2);
-			cmdbuf(1) = 0DH;
+			cmd$p = p;	/* reset to & */
+			CALL conStrOut(.mstar2, 2);	/* emit ** to user */
+			cmdbuf(1) = 0DH;	/* put the cr lf ** after the & */
 			cmdbuf(2) = 0AH;
 			cmdbuf(3) = '*';
 			cmdbuf(4) = '*';
-			cmd$p = cmd$p + 5;
-			CALL readCmdLine;
+			cmd$p = cmd$p + 5;	/* position to read the next line */
+			CALL readCmdLine;	/* read another line */
 		END;
-		ELSE
+		ELSE	/* skip char */
 			cmd$p = cmd$p + 1;
 	END;	/* DO WHILE */
 
+	/* display the sign on message skipping the form feed */
 	CALL constrOut(.signonMsg + 1, 23);
 	CALL constrOut(.VERSION, 4);
 	CALL constrOut(.crlf, 2);
+	/* if we have run into the in buffer then we have a problem */
 	IF cmd$p > sibuf$p THEN
 		CALL cmdErr(ERR210);	/* insufficient memory */
-	CALL skipWhiteSpc(q);
-	CALL checkFile;
+	/* skip the leading space of the command args */
+	CALL skipNonArgChars(args$p);
+	/* get the file we are locating */
+	CALL getFile;
+	/* can only locate a disk file */
 	IF spathInfo.deviceType <> 3 THEN
 		CALL errNotADisk;
 	CALL makeFullName(.spathInfo, .inFileName(1));
+	/* convert to a omf style string by putting the length in at the front */
 	inFileName(0) = pastFileName(.inFileName(1)) - .inFileName(1);
+	/* check for TO (followed by space or & */
 	IF strequ(cmd$p, .mto, 3) OR strequ(cmd$p, .mtoand, 3) THEN
 	DO;
-		CALL skipWhiteSpc(cmd$p + 2);
-		CALL checkFile;
+		CALL skipNonArgChars(cmd$p + 2);
+		CALL getFile;	/* get the output file */
 	END;
 	ELSE
-	DO;
+	DO;	/* handle the case of TO missing unless the input did not have an extension */
 		IF spathInfo.ext(0) = 0 THEN
 			CALL cmdErr(ERR233);	/* TO expected */
-		spathInfo.ext(0) = 0;
+		spathInfo.ext(0) = 0;	/* assume TO would be input file name without extension */
 		spathInfo.ext(1) = 0;
 		spathInfo.ext(2) = 0;
 	END;
+	/* get the output file name in standard format */
 	CALL makeFullName(.spathInfo, .outFileName(1));
 	outFileName(0) = pastFileName(.outFileName(1)) - .outFileName(1);
+	/* only accept a disk file or the bit bucket */
 	IF spathInfo.deviceType <> 3 and spathInfo.deviceId <> 22 THEN	/* 22 -> :BB: */
 		CALL errNotADisk;
+	/* copy the disk name over and create the tmp file name */
 	tmpFileInfo(0) = spathInfo.deviceId;
 	CALL makefullName(.tmpFileInfo, .tmpFileName(1));
 	tmpFileName(0) = pastFileName(.tmpFileName(1)) - .tmpFileName(1);
-	isNotBB = spathInfo.deviceId <> 22;
+	/* record if we are creating a real file */
+	outRealFile = spathInfo.deviceId <> 22;
+	/* open the file to locate */
 	CALL open(.readfd, .InFileName(1), 1, 0, .statusIO);
-	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+	CALL errChkReport(statusIO, .inFileName(1), TRUE);
 	recNum = 0;
+	/* check we have a relocation file */
 	CALL getRecord;
-	IF srec.type <> R$MODHDR THEN
-		CALL errChkReport(ERR239, .inFileName(1), 0FFH);	/* no module header record */
+	IF inRecord.rectyp <> R$MODHDR THEN
+		CALL errChkReport(ERR239, .inFileName(1), TRUE);	/* no module header record */
+	/* assume listing to :CO: */
 	CALL pstrcpy(.cout, .printFileName);
+	/* set other defaults and record that we haven't seen the commands */
 	columns = 1;
 	startSeen = 0;
-	stackSizeSet = 0;
+	stackSizeSeen = 0;
 	restart0Seen = 0;
 	MapSeen = 0;
 	PublicsSeen = 0;
 	SymbolsSeen = 0;
 	LinesSeen = 0;
 	PurgeSeen = 0;
-	nameArgSeen = 0;
-	type4SubType = 0;
+	moduleNameSeen = 0;
+	isMain = 0;		/* assume not main module */
 	modhdr$x1 = 0;
 	modhdr$x2 = 0;
 	startAddr = 0;
+	/* initialise the segment order */
 	CALL initSegOrder;
+	/* and set all as not yet seen with 0 size and location */
 	DO p = 0 TO 255;
-		segFlags(p) = 0;
+		segFlags(p) = AUNKNOWN;
 		segBases(p), segSizes(p) = 0;
 	END;
+	/* process the rest of the command args */
 	DO WHILE cmdch <> 0DH;
 		CALL processControls;
 	END;
+	/* no paging file yet and no allocated pages */
 	havePagingFile = 0;
 	roundRobinIndex = 0;
 	pageIndexTmpFil = 0;
-	pageCacheSize = HIGH(sout$p - (pageTab1$p := pageTab2$p + 512)) - 1;
+	/* recalculate pageCache size */
+	pageCacheSize = HIGH(outRecord$p - (pageTab1$p := pageTab2$p + size(pageTab2))) - 1;
+	/* set a new baseMemImage after allocting pageTab1 slots - one for each page */
 	baseMemImage =  pageTab1$p + (pageCacheSize + 1) * 2 ;
+	/* initialise the paging table control information */
 	DO p = 0 TO 255;
+		/* we have only allocated space for up to pageCacheSize entries in pageTab1 */
 		IF p <= pageCacheSize THEN
-			pageTab1(p).state = 0FFH;
-		pageTab2(p).state = 0FFH;
-		pageTab2(p).fpage = 0FFH;
+			pageTab1(p).state = 0FFH; /* not used */
+		pageTab2(p).pageIdx = 0FFH;	/* not used */
+		pageTab2(p).fileIdx = 0FFH;	/* not used */
 	END;
-
+	/* allocate the print buffer below the output buffer if we have one */
 	IF usePrintBuf THEN
 		spbuf$p, pbuf$p = epbuf$p - npbuf;
-	topHeap, topDescriptor, botHeap = spbuf$p;
+	/* set up the heap locations below the print buffer */
+	topHeap, topDataFrags, botHeap = spbuf$p;
+	/* recalculate the pageCacheSize now available */
 	pageCacheSize = HIGH(botHeap - baseMemImage) - 1;
+	/* create the output file*/
 	CALL delete(.outFileName(1), .statusIO);
 	CALL open(.outputfd, .outFilename(1), 3, 0, .statusIO);
-	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
+	CALL errChkReport(statusIO, .outFileName(1), TRUE);
+	/* and the print file (or console) */
 	CALL open(.printfd, .printFileName(1), 2, 0, .statusIO);
-	CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+	CALL errChkReport(statusIO, .printFileName(1), TRUE);
+	/* if not console then emit the signon and command line to the print file */
 	IF printfd > 0 THEN
 	DO;
 		CALL printString(.signonMsg, 24);
@@ -2494,13 +2583,13 @@ DECLARE aInpageSegment2(*) BYTE PUBLIC INITIAL('INPAGE SEGMENT > 256 BYTES COERC
 alignAddress: PROCEDURE(align, size, laddr) ADDRESS PUBLIC;
 	DECLARE align BYTE;
 	DECLARE (size, laddr) ADDRESS;
-	IF size = 0 THEN
+	IF size = 0 THEN	/* no size to no alignment needed */
 		RETURN laddr;
 
-	IF align = 3 THEN
-		RETURN laddr;
-	IF align = 1 THEN
-		IF size <= 256 THEN
+	IF align = ABYTE THEN
+		RETURN laddr;	/* no alignment needed */
+	IF align = AINPAGE THEN
+		IF size <= 256 THEN	/* check if fits in page */
 		DO;
 			IF HIGH(laddr) = HIGH(laddr + size - 1) THEN
 				RETURN laddr;
@@ -2512,102 +2601,107 @@ END alignAddress;
 
 
 procMODHDR: PROCEDURE PUBLIC;
-	DECLARE rbyt BASED rec$p (1) BYTE;
-	DECLARE sdef BASED rec$p STRUCTURE (segId BYTE, len ADDRESS, combine BYTE); 
+	DECLARE rbyt BASED in$p (1) BYTE;
+	DECLARE sdef BASED in$p STRUCTURE (segId BYTE, len ADDRESS, combine BYTE); 
 	DECLARE (loadAddress, segSize, segOrderId) ADDRESS;
 	DECLARE (atTopOfMem, loadHasSize) BYTE;
 
-	IF NOT nameArgSeen THEN
-		CALL pstrcpy(rec$p, .nameArg);
-	rec$p = rec$p + rbyt(0) + 1;	/* past name */
-	modhdr$x1 = rbyt(0);
+	IF NOT moduleNameSeen THEN	/* copy over the module name if not user overridden */
+		CALL pstrcpy(in$p, .moduleName);
+	in$p = in$p + rbyt(0) + 1;	/* past name */
+	modhdr$x1 = rbyt(0);		/* copy the reserved bytes */
 	modhdr$x2 = rbyt(1);
-	rec$p = rec$p + 2;
+	in$p = in$p + 2;
 	loadHasSize = 0;
-	DO WHILE rec$p < .erec;
-		IF (segFlags(segId := sdef.segId) AND 0FH) <> 0 THEN
-			CALL illegalRecord;
-		IF segId <> SSTACK THEN
+	DO WHILE in$p < .erec;		/* process all of the seg info */
+		IF (segFlags(segId := sdef.segId) AND AMASK) <> AUNKNOWN THEN
+			CALL illegalRecord;	/* oops seen twice */
+		IF segId <> SSTACK THEN		/* by default copy the length */
 			segSizes(segId) = sdef.len;
-		ELSE IF NOT stackSizeSet THEN
-			stackSize = sdef.len;
-		IF segSizes(segId) > 0 THEN
-			loadHasSize = 0FFH;
-		IF sdef.combine - 1 > 2 THEN
+		ELSE IF NOT stackSizeSeen THEN	/* for stack copy if not user overridden */
+			segSizes(SSTACK) = sdef.len;
+		IF segSizes(segId) > 0 THEN	/* check we have some data */
+			loadHasSize = TRUE;
+		IF sdef.combine - 1 > ABYTE - 1 THEN	/* check valid alignment */
 			CALL illegalRecord;
-		segFlags(segId) = segFlags(segId) + sdef.combine;
-		rec$p = .sdef + size(sdef);
+		segFlags(segId) = segFlags(segId) + sdef.combine;	/* set the combine info */
+		in$p = .sdef + size(sdef);	/* skip to next seg info */
 	END;
-	IF (segFlags(SSTACK) AND 0FH) = 0 THEN
-		segFlags(SSTACK) = segFlags(SSTACK) + 3;	/* set low bits to 3 */
-	IF (segFlags(SMEMORY) AND 0FH) = 0 THEN
-		segFlags(SMEMORY) = segFlags(SMEMORY) + 3;	/* set low bits to 3 */
-	IF NOT stackSizeSet AND loadHasSize THEN
-		stackSize = stackSize + 12;
+	IF (segFlags(SSTACK) AND AMASK) = AUNKNOWN THEN		/* if STACK not specified put default */
+		segFlags(SSTACK) = segFlags(SSTACK) + ABYTE;	/* set to byte align */
+	IF (segFlags(SMEMORY) AND AMASK) = AUNKNOWN THEN	/* if MEMORY not specified put default */
+		segFlags(SMEMORY) = segFlags(SMEMORY) + ABYTE;	/* set to byte align */
+	IF NOT stackSizeSeen AND loadHasSize THEN		/* it STACK not specified by user and we have data */
+		segSizes(SSTACK) = segSizes(SSTACK) + 12;	/* reserve an additional 12 bytes */
 	loadAddress = 3680H;				/* ISIS load address */
 	atTopOfMem = 0;
 
-	DO segOrderId = 1 TO 254;
+	DO segOrderId = 1 TO 254;	/* process the segs taking account of user specified order */
 		segid = segOrder(segOrderId);
 		segSize = segSizes(segId);	/* pick up seg to process */
-		IF (segFlags(segId) AND 80H) = 0 THEN
+		IF (segFlags(segId) AND FHASADDR) = 0 THEN	/* no address specified */
 		DO;
-			IF atTopOfMem <> 0 THEN
+			IF atTopOfMem <> 0 THEN	/* check for going over 64k */
 			DO;
 				IF segSize > 0 THEN	/* program exceeds 64k */
-					CALL errChkReport(ERR240, .inFileName(1), 0FFH);
-				segFlags(segId) = segFlags(segId) OR 40H;
+					CALL errChkReport(ERR240, .inFileName(1), TRUE);
+				segFlags(segId) = segFlags(segId) OR FWRAP0;
 			END;
 		END;
 		ELSE
-		DO;					/* common */
-			IF segSize > 0 THEN
+		DO;	/* user specified address */
+			IF segSize > 0 THEN	/* reset topOfMemflag */
 				atTopOfMem = 0;
-			loadAddress = segBases(segId);
+			loadAddress = segBases(segId);	/* set the loadAddress to user specified */
 		END;
-		segBases(segId) = alignAddress(segFlags(segId) AND 0FH, segSize, loadAddress);
-		IF segId = 4 THEN
-			IF segSize = 0 AND loadHasSize THEN
-				IF atTopOfMem = 0 AND memck > MemoryBase(0) THEN
-					MemorySize(0), segSize = memck - MemoryBase(0);
+		/* update this segments base address allowing for alignment */
+		segBases(segId) = alignAddress(segFlags(segId) AND AMASK, segSize, loadAddress);
+		IF segId = SMEMORY THEN
+			IF segSize = 0 AND loadHasSize THEN	/* if not specified and program has size */
+								/* calcualte a MEMORY size */
+				IF atTopOfMem = 0 AND memck > segBases(SMEMORY) THEN
+					segSizes(SMEMORY), segSize = memck - segBases(SMEMORY);
+		/* advance loadAddress and check for memory wrap around */
 		IF (loadAddress := segBases(segId) + segSize) < segBases(segId) THEN
-			IF loadAddress = 0 THEN
-				atTopOfMem = 40H;
+			IF loadAddress = 0 THEN		/* at 64k ok else error */
+				atTopOfMem = FWRAP0;
 			ELSE
-				CALL errChkReport(ERR240, .inFileName(1), 0FFH);  /* exceeds 64k */
+				CALL errChkReport(ERR240, .inFileName(1), TRUE);  /* exceeds 64k */
 	END; 
-	stackAddr = stackAddr + stackSize;	/* stack goes down so update top */
-	CALL getRecord;
+	segBases(SSTACK) = segBases(SSTACK) + segSizes(SSTACK);	/* stack goes down so update to top */
+	CALL getRecord;	/* preload next record */
 END procMODHDR;
 
 
 procCOMDEF: PROCEDURE PUBLIC;
-	DO WHILE rec$p < .erec;
-		IF (segId := comdefRec.seg) < SNAMED OR segId = SBLANK THEN
+	DECLARE	comdefRec BASED in$p STRUCTURE (segid BYTE, name(1) BYTE);
+
+	DO WHILE in$p < .erec;
+		IF (segId := comdefRec.segid) < SNAMED OR segId = SBLANK THEN
 			CALL illegalRecord;
 		/* check if combine value not appropriate for common or if this one already seen */
-		IF ((segFlags(segId) AND 0FH) = 0) OR ((segFlags(segId) AND 10H) <> 0)THEN
+		IF ((segFlags(segId) AND AMASK) = AUNKNOWN) OR ((segFlags(segId) AND FSEGSEEN) <> 0)THEN
 			CALL illegalRecord;
-		segFlags(segId) = segFlags(segId) OR 10H;	/* flag as seen */
-		rec$p = rec$p + 2 + comdefRec.name(0);		/* past byte, len, string */
+		segFlags(segId) = segFlags(segId) OR FSEGSEEN;	/* flag as seen */
+		in$p = in$p + 2 + comdefRec.name(0);		/* past byte, len, string */
 	END;
 	CALL getRecord;
 END procCOMDEF;
 
 
-procHeader: PROCEDURE PUBLIC;
-	CALL iseek(0, 0);
-	CALL getRecord;
-	CALL procMODHDR;
+procHdrAndComDef: PROCEDURE PUBLIC;
+	CALL iseek(0, 0);	/* rewind */
+	CALL getRecord;		/* get modhdr */
+	CALL procMODHDR;	/* load the modhdr and set the segment bases */
 
-	DO WHILE srec.type = R$COMDEF;
+	DO WHILE inRecord.rectyp = R$COMDEF;	/* process any comdefs */
 		CALL procCOMDEF;
 	END;
-	DO segId = SNAMED TO SBLANK - 1;	
-		IF ((segFlags(segId) AND 0FH) <> 0) AND ((segFlags(segId) AND 10H) = 0) THEN
+	DO segId = SNAMED TO SBLANK - 1;	/* check commons in modhdr have comdef entries */
+		IF ((segFlags(segId) AND AMASK) <> AUNKNOWN) AND ((segFlags(segId) AND FSEGSEEN) = 0) THEN
 			CALL badRecordSeq;
 	END;
-END procHeader;
+END procHdrAndComDef;
 
 END locate7;
 loc8.ext
@@ -2640,6 +2734,7 @@ DECLARE devices (*) BYTE DATA('F0F1F2F3F4F5TITO',
 		      'TPHPP1P2LPL1BBCI',
 		      'COF6F7F8F9');
 
+/* convert the spath info into a standard file name :xx:file.ext */
 makeFullName: PROCEDURE(pinfo, pstr) PUBLIC;
 	DECLARE pinfo ADDRESS;
 	DECLARE pstr ADDRESS;
@@ -2649,20 +2744,24 @@ makeFullName: PROCEDURE(pinfo, pstr) PUBLIC;
 
 	DECLARE i BYTE;
 
+	/* put the :xx: */
 	str(0) = ':';
 	str(1) = devices(info.deviceId + info.deviceId);
 	str(2) = devices(info.deviceId + info.deviceId + 1);
 	str(3) = ':';
 	pstr = pstr + 4;	/* past the :xx: inserted */
+	/* put the file */
 	DO i = 0 TO 5;
 		IF (ch := info.name(i)) <> 0 THEN
 			pstr = pstr + 1;
 	END;
+	/* only put .ext if it exists */
 	IF info.ext(0) <> 0 THEN
 	DO;
 		ch = '.';
 		pstr = pstr + 1;
 	END;
+	/* put the ext - could have been in the if clause above */
 	DO i = 0 TO 2;
 		IF (ch := info.ext(i)) <> 0 THEN
 			pstr = pstr + 1;
@@ -2750,9 +2849,9 @@ strequ: PROCEDURE(pstr1, pstr2, len) BYTE PUBLIC;
 	len = len - 1;
 	DO i = 0 TO len;
 		IF str1(i) <> str2(i) THEN
-			RETURN 0;
+			RETURN FALSE;
 	END;
-	RETURN 0FFH;
+	RETURN TRUE;
 END strequ;
 
 

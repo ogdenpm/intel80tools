@@ -17,10 +17,10 @@ $list
 DECLARE COPYRIGHT (*) BYTE DATA ('(C) 1976, 1977, 1979 INTEL CORP');
 DECLARE VERSION (*) BYTE PUBLIC DATA ('V3.0');
 DECLARE NULLREC (*) BYTE DATA (0,0,0);
-DECLARE addr1 ADDRESS DATA (0);
-DECLARE addr1byts STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.addr1);
-DECLARE addr0 ADDRESS DATA (0);
-DECLARE addr0byts STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.addr0);
+DECLARE pageoutOffset ADDRESS DATA (0);
+DECLARE pageoutOffset$b STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.pageoutOffset);
+DECLARE cachePageOffset ADDRESS DATA (0);
+DECLARE cachePageOffset$b STRUCTURE (lobyt BYTE, hibyt BYTE) AT (.cachePageOffset);
 
 
 DECLARE (readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS PUBLIC,
@@ -28,44 +28,40 @@ DECLARE (readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS PUBLIC,
 	printFileName (16) BYTE PUBLIC, tmpFileName (16) BYTE PUBLIC,
 	columns BYTE PUBLIC,
 	seen(9) BYTE PUBLIC,	/* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
-	nameArg(32) BYTE PUBLIC,
-	type4SubType BYTE PUBLIC,
+	moduleName(32) BYTE PUBLIC,
+	isMain BYTE PUBLIC,
 	modhdr$x1 BYTE PUBLIC,
 	modhdr$x2 BYTE PUBLIC,
 	startAddr ADDRESS PUBLIC,
 	segOrder(255) BYTE PUBLIC,
-	segBases (3) ADDRESS PUBLIC,	/* abs, code, data */
-	stackAddr ADDRESS PUBLIC,
-	MemoryBase(252) ADDRESS PUBLIC,
-	segSizes(3) ADDRESS PUBLIC,
-	stackSize ADDRESS PUBLIC,
-	MemorySize(252) ADDRESS PUBLIC,
+	segBases(256) ADDRESS PUBLIC,	/* abs, code, data */
+	segSizes(256) ADDRESS PUBLIC,
 	segFlags(256) BYTE PUBLIC,
-	srec$p ADDRESS PUBLIC,
+	inRecord$p ADDRESS PUBLIC,
 	erec$p ADDRESS PUBLIC,
-	rec$p ADDRESS PUBLIC,
+	in$p ADDRESS PUBLIC,
 	recNum ADDRESS PUBLIC,
 	recLen ADDRESS PUBLIC,
 	npbuf ADDRESS PUBLIC,
 	sibuf$p ADDRESS PUBLIC,
 	ibuf$p ADDRESS PUBLIC,
 	eibuf$p ADDRESS PUBLIC,
-	sout$p ADDRESS PUBLIC,
+	outRecord$p ADDRESS PUBLIC,
 	out$p ADDRESS PUBLIC,
 	eout$p ADDRESS PUBLIC,
 	spbuf$p ADDRESS PUBLIC,
 	pbuf$p ADDRESS PUBLIC,
 	epbuf$p ADDRESS PUBLIC,
 	topHeap ADDRESS PUBLIC,
-	topDescriptor ADDRESS PUBLIC,
-	curDescriptor62F ADDRESS PUBLIC,
-	desc6a$p ADDRESS PUBLIC,
+	topDataFrags ADDRESS PUBLIC,
+	curSegFrag$p ADDRESS PUBLIC,
+	nextSegFrag$p ADDRESS PUBLIC,
 	botHeap ADDRESS PUBLIC,
-	curDescriptor ADDRESS PUBLIC,
-	desc4a$p ADDRESS PUBLIC,
-	t6desc4 DESC4$T PUBLIC,
+	curDataFrag$p ADDRESS PUBLIC,
+	nextDataFrag$p ADDRESS PUBLIC,
+	inFragment DATAFRAG$T PUBLIC,
 	usePrintBuf BYTE PUBLIC,
-	isNotBB BYTE PUBLIC,
+	outRealFile BYTE PUBLIC,
 	baseMemImage ADDRESS PUBLIC,
 	havePagingFile BYTE PUBLIC,
 	pageCacheSize BYTE PUBLIC,
@@ -83,16 +79,6 @@ DECLARE	crlf(2) BYTE PUBLIC INITIAL(0DH, 0AH),
 
 $INCLUDE(LOC.BAS)
 
-/* seek modes
-	0-> current pos in blk/byte format
-	1-> -ve
-	2-> abs
-	3-> +ve
-	4-> to end
-*/
-
-
-
 
 conStrOut: PROCEDURE(buf, cnt) PUBLIC;
 	DECLARE (buf, cnt) ADDRESS;
@@ -100,25 +86,25 @@ conStrOut: PROCEDURE(buf, cnt) PUBLIC;
 END conStrOut;
 
 
-writePrintBuf: PROCEDURE PUBLIC;
+flushPrintBuf: PROCEDURE PUBLIC;
 	IF usePrintBuf THEN	/* only process if buffered print */
 	DO;
 		CALL write(printfd, spbuf$p, pbuf$p - spbuf$p, .statusIO);
-		CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+		CALL errChkReport(statusIO, .printFileName(1), TRUE);
 	END;
 	pbuf$p = spbuf$p;	/* rest buffer pointer */
-END writePrintBuf;
+END flushPrintBuf;
 
 
 fatalErr: PROCEDURE(errCode) PUBLIC;
 	DECLARE errCode BYTE;
 
-	CALL writePrintBuf;
+	CALL flushPrintBuf;
 	CALL conStrOut(.(' '), 1);
 	CALL conStrOut(.inFileName(1), inFileName(0));
 	CALL conStrOut(.(','), 1);
 	CALL errmsg(errCode);
-	CALL binasc(srec.type, 16, '0', .aRecordType(13), 2);
+	CALL binasc(inRecord.rectyp, 16, '0', .aRecordType(13), 2);
 	IF recNum > 0 THEN
 		CALL binasc(recNum, 10, ' ', .aRecordType(32), 5);
 	CALL conStrOut(.aRecordType, 39); 
@@ -141,7 +127,7 @@ badRecordSeq: PROCEDURE PUBLIC;
 END badRecordSeq;
 
 
-pstrcpy: PROCEDURE(psrc, pdst) PUBLIC;
+pstrcpy: PROCEDURE(psrc, pdst) PUBLIC;	/* copy pascal style string */
 	DECLARE (psrc, pdst) ADDRESS;
 	DECLARE src BASED psrc (1) BYTE;
 	
@@ -154,24 +140,24 @@ printString: PROCEDURE(bufp, cnt) PUBLIC;
 	DECLARE cnt ADDRESS;
 	DECLARE bcnt ADDRESS;
 
-	IF usePrintBuf THEN
+	IF usePrintBuf THEN	/* using buffer ? */
 	DO;
-		bcnt = epbuf$p - pbuf$p; 
-		DO WHILE cnt > bcnt;
-			CALL mem$mov(bcnt, bufp, pbuf$p);
-			cnt = cnt - bcnt;
-			bufp = bufp + bcnt;
-			pbuf$p = pbuf$p + bcnt;
-			CALL writePrintBuf;
-			bcnt = npbuf;
+		bcnt = epbuf$p - pbuf$p; 	/* space in buffer */
+		DO WHILE cnt > bcnt;		/* not enough room for all chars */
+			CALL mem$mov(bcnt, bufp, pbuf$p);	/* copy what we can */
+			cnt = cnt - bcnt;	/* adjust what is left */
+			bufp = bufp + bcnt;	/* advance position in the src string */
+			pbuf$p = pbuf$p + bcnt;	/* and the print buffer position */
+			CALL flushPrintBuf;	/* write the buffer */
+			bcnt = npbuf;		/* reset to the buffer size */
 		END;
-		CALL mem$mov(cnt, bufp, pbuf$p);
-		pbuf$p = pbuf$p + cnt;
+		CALL mem$mov(cnt, bufp, pbuf$p); /* copy the remaining chars */
+		pbuf$p = pbuf$p + cnt;		/* advance the print buf ptr */
 	END;
 	ELSE
-	DO;
+	DO;	/* just use the operating system functions */
 		CALL write(printfd, bufp, cnt, .statusIO);
-		CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+		CALL errChkReport(statusIO, .printFileName(1), TRUE);
 	END;
 END printString;
 
@@ -197,11 +183,11 @@ chkRead: PROCEDURE(cnt) PUBLIC;
 	DO;
 		CALL mem$mov(bcnt, ibuf$p, sibuf$p);	/* move down bytes in buffer */
 		CALL read(readfd, sibuf$p + bcnt, npbuf - bcnt, .actRead, .statusIO);
-		CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+		CALL errChkReport(statusIO, .inFileName(1), TRUE);
 		inBlk = inBlk + (inByt + ibuf$p - sibuf$p) / 128;
 		inByt = (inByt + ibuf$p - sibuf$p) MOD 128;
 		IF (bcnt := bcnt + actRead) < cnt THEN
-			CALL errChkReport(ERR204, .inFileName(1), 0FFH);  /* Premature EOF */
+			CALL errChkReport(ERR204, .inFileName(1), TRUE);  /* Premature EOF */
 		eibuf$p = (ibuf$p := sibuf$p) + bcnt;
 	END;
 END chkRead;
@@ -213,36 +199,36 @@ getRecord: PROCEDURE PUBLIC;
 
 	IF (bcnt := eibuf$p - ibuf$p) >= 4 THEN
 	DO;
-		srec$p = ibuf$p;
-		erec$p = srec$p + srec.len + 2;
+		inRecord$p = ibuf$p;
+		erec$p = inRecord$p + inRecord.reclen + 2;
 	END;
 	ELSE
 	DO;
-		srec$p = .NULLREC;	/* scratch area */
+		inRecord$p = .NULLREC;	/* scratch area */
 		erec$p = 0FFFFH;
 	END;
 	IF erec$p >= eibuf$p THEN
 	DO;
-		IF srec.len <= 1025 THEN
+		IF inRecord.reclen <= 1025 THEN
 		DO;
 			CALL chkRead(bcnt + 1);
-			srec$p = ibuf$p;
-			IF (erec$p := srec$p + srec.len + 2) >= eibuf$p THEN
-				CALL errChkReport(ERR204, .inFileName(1), 0FFH);	/* premature EOF */
+			inRecord$p = ibuf$p;
+			IF (erec$p := inRecord$p + inRecord.reclen + 2) >= eibuf$p THEN
+				CALL errChkReport(ERR204, .inFileName(1), TRUE);	/* premature EOF */
 		END;
 	END;
-	recLen = srec.len;
-	rec$p = srec$p + 3;
+	recLen = inRecord.reclen;
+	in$p = inRecord$p + 3;
 	ibuf$p = erec$p + 1;	/* update for next record */
 	recNum = recNum + 1;
-	IF srec.type > R$COMDEF OR srec.type THEN	/* > 2EH or odd */
+	IF inRecord.rectyp > R$COMDEF OR inRecord.rectyp THEN	/* > 2EH or odd */
 		CALL illegalReloc;
-	IF srec.type = R$MODDAT THEN
+	IF inRecord.rectyp = R$MODDAT THEN
 		RETURN;
 	IF recLen > 1025 THEN
 		CALL fatalErr(ERR211);	/* Record too long */
 	inCRC = 0;
-	DO inb$p = srec$p TO .erec;
+	DO inb$p = inRecord$p TO .erec;
 		inCRC = inCRC + ch;
 	END;
 	IF inCRC <> 0 THEN
@@ -258,8 +244,8 @@ iseek: PROCEDURE(blk, byt) PUBLIC;
 		IF (ibuf$p := sibuf$p + (blk - inBlk) * 128 + (byt - inByt)) >= sibuf$p
 		    AND ibuf$p < eibuf$p THEN
 			RETURN;
-	CALL seek(readfd, 2, .blk, .byt, .statusIO);
-	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
+	CALL seek(readfd, SEEKABS, .blk, .byt, .statusIO);
+	CALL errChkReport(statusIO, .inFileName(1), TRUE);
 	ibufp = eibufp;
 	CALL chkRead(1);	/* read the buffer */
 	inBlk = blk;
@@ -268,31 +254,31 @@ END iseek;
 
 
 
-seekPageTmpFile: PROCEDURE(para) PUBLIC;
+seekPagingFile: PROCEDURE(para) PUBLIC;
 	DECLARE para BYTE;
 	DECLARE blk ADDRESS;
 	
 	blk = DOUBLE(para) + DOUBLE(para);
-	CALL seek(tmpfd, 2, .blk, .(0,0), .statusIO);
-	CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
-END seekPageTmpFile;
+	CALL seek(tmpfd, SEEKABS, .blk, .(0,0), .statusIO);
+	CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
+END seekPagingFile;
 
 
 pageout: PROCEDURE(page, bufp) PUBLIC;
 	DECLARE page BYTE;
 	DECLARE bufp ADDRESS;
-	DECLARE pt ADDRESS, t BASED pt STRUCTURE (state BYTE, fpage BYTE);
+	DECLARE pt ADDRESS, t BASED pt STRUCTURE (pageIdx BYTE, fileIdx BYTE);
 
 	pt = .pageTab2(page);
-	IF t.fpage = 0FFH THEN
+	IF t.fileIdx = 0FFH THEN	/* not used */
 	DO;
-		t.fpage = pageIndexTmpFil;	/* record location in tmp file */
+		t.fileIdx = pageIndexTmpFil;	/* record location in tmp file */
 		pageIndexTmpFil = pageIndexTmpFil + 1;
 	END;
-	CALL seekPageTmpFile(t.fpage);
+	CALL seekPagingFile(t.fileIdx);
 	CALL write(tmpfd, bufp, 256, .statusIO);	/* write the page out */
-	CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
-	t.state = 0FEH;	/* flag as paged out */
+	CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
+	t.pageIdx = 0FEH;	/* flag as paged out */
 END pageout;
 
 
@@ -303,213 +289,221 @@ anotherPage: PROCEDURE(page) PUBLIC;
 
 	IF usePrintBuf THEN	/* use print buffer space */
 	DO;
-		CALL writePrintBuf;	/* flush the buffer */
-		usePrintBuf = 0;	/* no longer available */
+		CALL flushPrintBuf;	/* flush the buffer */
+		usePrintBuf = FALSE;	/* no longer available */
+		/* move the heap up */
 		CALL mem$mov(topHeap - botHeap, botHeap, botHeap + npbuf);
+		/* adjust the topheap and the start/cur print buf addresses */
 		spbuf$p, pbuf$p, topheap = epbuf$p;
-		topDescriptor = topDescriptor + npbuf;
-		curDescriptor62F = curDescriptor62F + npbuf;
-		curDescriptor = curDescriptor + npbuf;
+		/* adjust the descriptor pointers */
+		topDataFrags = topDataFrags + npbuf;
+		curSegFrag$p = curSegFrag$p + npbuf;
+		curDataFrag$p = curDataFrag$p + npbuf;
+		/* page allocated is first after the current max pageCacheSize */
 		nxtPageNo = pageCacheSize + 1;
+		/* increase the pageCacheSize available */
 		pageCacheSize = HIGH((botHeap := botHeap + npbuf) - baseMemImage) - 1;
 		RETURN;
 	END;
-	IF NOT havePagingFile THEN
+	IF NOT havePagingFile THEN	/* have to page, create file if not done */
 	DO;
-		havePagingFile = 0FFH;
+		havePagingFile = TRUE;
 		CALL delete(.tmpFileName(1), .statusIO);
-		CALL open(.tmpfd, .tmpFileName(1), 3, 0, .statusIO);
-		CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
+		CALL open(.tmpfd, .tmpFileName(1), 3, FALSE, .statusIO);
+		CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
 	END;
 
-	pageTab1(page).state = 0FFH;
-	i = pageTab1(page).mpage;
-	addr1byts.hibyt = page;
-	CALL pageout(i, baseMemImage + addr1);
+	pageTab1(page).state = 0FFH;	/* mark this page as now free */
+	i = pageTab1(page).mpage;	/* get the current target page stored here */
+	pageoutOffset$b.hibyt = page;
+	CALL pageout(i, baseMemImage + pageoutOffset);
 END anotherPage;
 
 
 allocNewPage: PROCEDURE(page) ADDRESS PUBLIC;
 	DECLARE page BYTE;
 
-	DO nxtPageNo = 0 TO pageCacheSize;
+	DO nxtPageNo = 0 TO pageCacheSize;		/* see if free page */
 		IF pageTab1(nxtPageNo).state THEN	/* one is free */
 			GOTO found;
 	END;
-	IF roundRobinIndex > pageCacheSize THEN
+	IF roundRobinIndex > pageCacheSize THEN		/* manage roundRobin for paging to disk */
 		roundRobinIndex = 0;
 	nxtPageNo = roundRobinIndex;
-	CALL anotherPage(roundRobinIndex);
-	IF nxtPageNo = roundRobinIndex  THEN	/* we got more pages so don't need to round robin pages to free */
-		roundRobinIndex = roundRobinIndex + 1;
+	CALL anotherPage(roundRobinIndex);		/* get a page */
+	IF nxtPageNo = roundRobinIndex  THEN	/* if the roundRobin page then we didn't get from printbuf reuse */
+		roundRobinIndex = roundRobinIndex + 1;	/* so manage the roundRobin counter */
 found:
 	pageTab1(nxtPageNo).state = 0;	/* no longer free */
-	pageTab1(nxtPageNo).mpage = page;
-	pageTab2(page).state = nxtPageNo;
-	addr0byts.hibyt = nxtPageNo;
-	RETURN baseMemImage + addr0;
+	pageTab1(nxtPageNo).mpage = page;	/* record the memory page located here */
+	pageTab2(page).pageIdx = nxtPageNo;	/* save the mapping */
+	cachePageOffset$b.hibyt = nxtPageNo;
+	RETURN baseMemImage + cachePageOffset;		/* return the pointer in memory */
 END allocNewPage;
 
 
-RAddr2LAddr: PROCEDURE(addr) ADDRESS PUBLIC;
+/* convert a target address into its current location in cache */
+addrInCache: PROCEDURE(addr) ADDRESS PUBLIC;
 	DECLARE addr ADDRESS;
 	DECLARE baddr ADDRESS;
 	DECLARE (lobyt, hibyt) BYTE AT(.baddr);
 	DECLARE pt ADDRESS;
-	DECLARE t BASED pt STRUCTURE (state BYTE, fpage BYTE);
+	DECLARE t BASED pt STRUCTURE (pageIdx BYTE, fileIdx BYTE);
 
 	pt = .pageTab2(HIGH(addr));
-	IF t.state = 0FFH THEN	/* needs allocating */
+	IF t.pageIdx = 0FFH THEN	/* needs allocating */
 		RETURN allocNewPage(HIGH(addr)) + LOW(addr);
-	IF t.state = 0FEH THEN	/* on disk */
+	IF t.pageIdx = 0FEH THEN	/* on disk */
 	DO;
-		baddr = allocNewPage(HIGH(addr));
-		CALL seekPageTmpFile(t.fpage);
-		CALL read(tmpfd, baddr, 256, .actRead, .StatusIO);
-		CALL errChkReport(statusIO, .tmpFileName(1), 0FFH);
-		IF actRead <> 256 THEN
-			IF isNotBB THEN
-				CALL errChkReport(ERR204, .tmpFileName(1), 0FFH);    /* premature EOF */
-		RETURN baddr + LOW(addr);
+		baddr = allocNewPage(HIGH(addr));	/* alloc page in cache */
+		CALL seekPagingFile(t.fileIdx);		/* seek to its place in the paging file */
+		CALL read(tmpfd, baddr, 256, .actRead, .StatusIO);	/* read in */
+		CALL errChkReport(statusIO, .tmpFileName(1), TRUE);
+		IF actRead <> 256 THEN			/* if problems and not :BB: out file then error */
+			IF outRealFile THEN
+				CALL errChkReport(ERR204, .tmpFileName(1), TRUE);    /* premature EOF */
+		RETURN baddr + LOW(addr);		/* return the mapped address */
 	END;
-	hibyt = t.state;
-	lobyt = LOW(addr);
-	RETURN baseMemImage + baddr;
-END RAddr2LAddr;
+	hibyt = t.pageIdx;		/* page offset in cache */
+	lobyt = LOW(addr);		/* offset in page */
+	RETURN baseMemImage + baddr;	/* mapped address */
+END addrInCache;
 
 
-sub$3DB9: PROCEDURE(arg1w) PUBLIC;
-	DECLARE arg1w ADDRESS;
+alloc: PROCEDURE(cnt) PUBLIC;
+	DECLARE cnt ADDRESS;
 
-	IF HIGH(botHeap - baseMemImage) <> HIGH((botHeap := botHeap - arg1w) - baseMemImage) THEN
+	/* allocate but check whether we have crossed a page boundary */
+	IF HIGH(botHeap - baseMemImage) <> HIGH((botHeap := botHeap - cnt) - baseMemImage) THEN
 	DO;
-		IF NOT pageTab1(pageCacheSize).state THEN
-			CALL anotherPage(PageCacheSize);
+		IF NOT pageTab1(pageCacheSize).state THEN	/* if current cache all used, try forcing using print buf */
+			CALL anotherPage(PageCacheSize);	/* or paging the last page to disk */
 
-		IF (pageCacheSize := HIGH(botHeap - baseMemImage) - 1) = 0FFH THEN
-			CALL errChkReport(ERR210, .inFileName(1), 0FFH);	/* Insufficient memory */
+		IF (pageCacheSize := HIGH(botHeap - baseMemImage) - 1) = 0FFH THEN	/* check we haven't eliminated all cache */
+			CALL errChkReport(ERR210, .inFileName(1), TRUE);	/* Insufficient memory */
 	END;
-END sub$3DB9;
+END alloc;
 
 
-insert6Desc: PROCEDURE(flags, seg, start, len) PUBLIC;
+addSegFrag: PROCEDURE(flags, seg, start, len) PUBLIC;
 	DECLARE (flags, seg) BYTE;
 	DECLARE (start, len) ADDRESS;
-	DECLARE desc6 BASED curDescriptor62F DESC6$T;
-	DECLARE desc6a BASED desc6a$p DESC6$T;
+	DECLARE curSegFrag BASED curSegFrag$p SEGFRAG$T;
+	DECLARE nextSegFrag BASED nextSegFrag$p SEGFRAG$T;
 
-	curDescriptor62F = topHeap;
+	curSegFrag$p = topHeap;
 
-	DO WHILE curDescriptor62F <> topDescriptor;
-		curDescriptor62F = curDescriptor62F - DOUBLE(6);
-		IF desc6.start > start THEN
-			IF start + len = desc6.start AND desc6.seg = seg THEN /* does end address = start of this block */
+	DO WHILE curSegFrag$p <> topDataFrags;
+		curSegFrag$p = curSegFrag$p - size(curSegFrag);
+		IF curSegFrag.start > start THEN
+			IF start + len = curSegFrag.start AND curSegFrag.seg = seg THEN /* does the new frag join the curfrag */
 			DO;	/* merge the blocks */
-				desc6.start = start;
-				desc6.len = desc6.len + len;
+				curSegFrag.start = start;
+				curSegFrag.len = curSegFrag.len + len;
 				RETURN;
 			END;
 			ELSE
-				GOTO loc$3F87;
-		ELSE IF desc6.start + desc6.len = start THEN
-			IF desc6.seg = seg THEN
+				GOTO break;
+		ELSE IF curSegFrag.start + curSegFrag.len = start THEN	/* does the curFrag join the new frag */
+			IF curSegFrag.seg = seg THEN			/* segs must be same */
 			DO;
-				desc6.len = desc6.len + len;
-				IF curDescriptor62F <> topDescriptor THEN
+				curSegFrag.len = curSegFrag.len + len;	/* merge the lengths */
+				IF curSegFrag$p <> topDataFrags THEN	/* if not at the end of list see if this joins the next one */
 				DO;
-					desc6a$p = curDescriptor62F - DOUBLE(6);
-					IF desc6a.start = desc6.start + desc6.len AND desc6a.seg = desc6.seg THEN
+					nextSegFrag$p = curSegFrag$p - size(nextSegFrag);
+					IF nextSegFrag.start = curSegFrag.start + curSegFrag.len AND nextSegFrag.seg = curSegFrag.seg THEN
 					DO;
-						desc6.len = desc6.len + desc6a.len;
-						CALL mem$mov(desc6a$p - botHeap, botHeap, botHeap + DOUBLE(6));
-						topDescriptor = topDescriptor + DOUBLE(6);
-						botHeap = botHeap + DOUBLE(6);
+						curSegFrag.len = curSegFrag.len + nextSegFrag.len;	/* join and delete extra frag */
+						CALL mem$mov(nextSegFrag$p - botHeap, botHeap, botHeap + size(nextSegFrag));
+						topDataFrags = topDataFrags + size(curSegFrag);
+						botHeap = botHeap + size(curSegFrag);
 					END;
 				END;
 				RETURN;
 			END;
 	END;
-	curDescriptor62F = curDescriptor62F - DOUBLE(6);
-loc$3F87:
-	CALL sub$3DB9(6);
-	topDescriptor = topDescriptor - DOUBLE(6);
-	CALL mem$mov(curDescriptor62F - botHeap, botHeap + DOUBLE(6), botHeap);
-	desc6.flags = flags;
-	desc6.seg = seg;
-	desc6.start = start;
-	desc6.len = len;
-END insert6Desc;
+	curSegFrag$p = curSegFrag$p - size(curSegFrag);	/* will insert at end of list */
+break:
+	CALL alloc(6);	/* reserve space for the segFrag */
+	topDataFrags = topDataFrags - size(curSegFrag);
+	CALL mem$mov(curSegFrag$p - botHeap, botHeap + size(curSegFrag), botHeap);	/* create the space in the list */
+	curSegFrag.flags = flags;	/* set all of the values */
+	curSegFrag.seg = seg;
+	curSegFrag.start = start;
+	curSegFrag.len = len;
+END addSegFrag;
 
 
-insert4Desc: PROCEDURE(saddr, eaddr) PUBLIC;
+addDataFrag: PROCEDURE(saddr, eaddr) PUBLIC;
 	DECLARE saddr ADDRESS;
 	DECLARE eaddr ADDRESS;
-	DECLARE desc4 BASED curDescriptor DESC4$T;
-	DECLARE desc4a BASED desc4a$p DESC4$T;
+	DECLARE curDataFrag BASED curDataFrag$p DATAFRAG$T;
+	DECLARE nextDataFrag BASED nextDataFrag$p DATAFRAG$T;
 
-	curDescriptor = topDescriptor;
-	DO WHILE curDescriptor <> botHeap;
-		curDescriptor = curDescriptor - DOUBLE(4);
-		IF desc4.saddr > saddr THEN
+	curDataFrag$p = topDataFrags;
+	DO WHILE curDataFrag$p <> botHeap;
+		curDataFrag$p = curDataFrag$p - size(curDataFrag);
+		IF curDataFrag.saddr > saddr THEN	/* the curfrag starts above this one */
 		DO;
-			IF eaddr >= desc4.saddr - 1 THEN
+			IF eaddr >= curDataFrag.saddr - 1 THEN	/* does the new frag join or overlap the curent one */
 			DO;
-				desc4.saddr = saddr;
-				IF eaddr > desc4.eaddr THEN
+				curDataFrag.saddr = saddr;		/* update the start */
+				IF eaddr > curDataFrag.eaddr THEN	/* it overlaps */
 				DO;
-					desc4.eaddr = eaddr;
-					desc4a$p = curDescriptor - DOUBLE(4);
-					DO WHILE curDescriptor <> botHeap;
-						IF eaddr + 1 < desc4a.saddr THEN
+					curDataFrag.eaddr = eaddr;	/* extend the existing */
+					nextDataFrag$p = curDataFrag$p - size(curDataFrag);	/* check if more are overlapped */
+					DO WHILE curDataFrag$p <> botHeap;
+						IF eaddr + 1 < nextDataFrag.saddr THEN	/* no there is a gap all done */
 							RETURN;
-						IF eaddr + 1 = desc4a.saddr THEN
-							desc4.eaddr = desc4a.eaddr;
-						CALL mem$mov(desc4a$p - botHeap, botHeap, botHeap + DOUBLE(4));
-						botHeap = botHeap + DOUBLE(4);
+						IF eaddr + 1 = nextDataFrag.saddr THEN	/* joins so update the end address */
+							curDataFrag.eaddr = nextDataFrag.eaddr;
+						/* remove the other descriptor if either joined or was overlapped */
+						CALL mem$mov(nextDataFrag$p - botHeap, botHeap, botHeap + size(curDataFrag));
+						botHeap = botHeap + size(nextDataFrag);
 					END;
 				END;
 				RETURN;
 			END;
-			ELSE
+			ELSE	/* we have a new fragment */
 			DO;
-				CALL sub3DB9(4);
-				CALL mem$mov(curDescriptor - botHeap, botHeap + DOUBLE(4), botHeap);
-				desc4.saddr = saddr;
-				desc4.eaddr = eaddr;
+				CALL alloc(4);	/* alloc more space and insert descriptor above this one */
+				CALL mem$mov(curDataFrag$p - botHeap, botHeap + size(curDataFrag), botHeap);
+				curDataFrag.saddr = saddr;
+				curDataFrag.eaddr = eaddr;
 				RETURN;
 			END;
 		END;
-		ELSE
+		ELSE	/* check if candidate frag to join / overlap */
 		DO;
-			IF desc4.saddr = saddr OR saddr - 1 <= desc4.eaddr THEN
+			IF curDataFrag.saddr = saddr OR saddr - 1 <= curDataFrag.eaddr THEN
 			DO;
-				IF desc4.eaddr >= eaddr THEN
+				IF curDataFrag.eaddr >= eaddr THEN	/* already overlapped */
 					RETURN;
-				desc4.eaddr = eaddr;
-				desc4a$p = curDescriptor - DOUBLE(4);
-				DO WHILE curDescriptor <> botHeap;
-					IF desc4a.saddr - 1 > eaddr THEN
+				curDataFrag.eaddr = eaddr;		/* set new end address */
+				nextDataFrag$p = curDataFrag$p - size(curDataFrag);	/* delete other join/overlapping frags */
+				DO WHILE curDataFrag$p <> botHeap;
+					IF nextDataFrag.saddr - 1 > eaddr THEN
 						RETURN;
-					IF desc4a.saddr - 1 = eaddr THEN
-						desc4.eaddr = desc4a.eaddr;
-					CALL mem$mov(desc4a$p - botHeap, botHeap, botHeap + DOUBLE(4));
-					botHeap = botHeap + DOUBLE(4);
+					IF nextDataFrag.saddr - 1 = eaddr THEN
+						curDataFrag.eaddr = nextDataFrag.eaddr;
+					CALL mem$mov(nextDataFrag$p - botHeap, botHeap, botHeap + size(curDataFrag));
+					botHeap = botHeap + size(curDataFrag);
 				END;
 				RETURN;
 			END;
 		END;	/* IF ELSE */
 	END;	/* DO WHILE */
 
-	CALL sub3DB9(4);
-	curDescriptor = botHeap;
-	desc4.saddr = saddr;
-	desc4.eaddr = eaddr;
-END insert4Desc;
+	CALL alloc(4);
+	curDataFrag$p = botHeap;	/* allocated at new botHeap */
+	curDataFrag.saddr = saddr;	/* record the start and end address */
+	curDataFrag.eaddr = eaddr;
+END addDataFrag;
 
 
-loadMODDAT: PROCEDURE(arg1b) PUBLIC;
-	DECLARE arg1b BYTE;
-	DECLARE rdata BASED rec$p (1) BYTE;
+loadMODDAT: PROCEDURE(segId) PUBLIC;
+	DECLARE segId BYTE;
+	DECLARE rdata BASED in$p (1) BYTE;
 	DECLARE (dataLen, bytes2Read, curLoadAddr) ADDRESS;
 	DECLARE curLoadPage BYTE;
 
@@ -518,58 +512,60 @@ loadMODDAT: PROCEDURE(arg1b) PUBLIC;
 	dataLen = recLen - 4;
 	inCRC = HIGH(recLen) + 6 + LOW(recLen) + rdata(0) + rdata(1) + rdata(2);
 	ibuf$p = ibuf$p + 3;
-	IF LOW(curLoadAddr := t6desc4.saddr) <> 0 THEN
+	IF LOW(curLoadAddr := inFragment.saddr) <> 0 THEN
 	DO;
 		IF HIGH(curLoadAddr + (bytes2Read := dataLen) - 1) <> HIGH(curLoadAddr) THEN
 			bytes2Read = 256 - LOW(curLoadAddr);	/* don't go over page boundary */
-		CALL chkRead(bytes2Read);
-		DO inb$p = ibuf$p TO ibuf$p + bytes2Read - 1;
+		CALL chkRead(bytes2Read);			/* make sure data is in the buffer */
+		DO inb$p = ibuf$p TO ibuf$p + bytes2Read - 1;	/* add the data to the crc */
 			inCRC = inCRC + ch;
 		END;
-		CALL mem$mov(bytes2Read, ibuf$p, RAddr2LAddr(curLoadAddr));
-		dataLen = dataLen - bytes2Read;
+		CALL mem$mov(bytes2Read, ibuf$p, addrInCache(curLoadAddr));	/* copy to the pagecache location */
+		dataLen = dataLen - bytes2Read;			/* adjust bytes read */
 		curLoadAddr = curLoadAddr + bytes2Read;
 		ibuf$p = ibuf$p + bytes2Read;
 	END;
-	DO WHILE dataLen >= 256;
-		CALL chkRead(256);
-		DO inb$p = ibuf$p TO ibuf$p + 255;
+	DO WHILE dataLen >= 256;				/* read in whole pages */
+		CALL chkRead(256);				/* make sure data in buffer */
+		DO inb$p = ibuf$p TO ibuf$p + 255;		/* add to crc */
 			inCRC = inCRC + ch;
 		END;
-		IF arg1b = 0 AND havePagingFile THEN
+		IF segId = SABS AND havePagingFile THEN		/* if abs and paging write it out to paging file */
+								/* there is no fixup involved */
 		DO;
-			IF pageTab2(curLoadPage := HIGH(curLoadAddr)).state <= 0FDH THEN
-				pageTab1(pageTab2(curLoadPage).state).state = 0FFH;
+			/* if a page cache entry exists then this would be trashed anyway so free up */
+			IF pageTab2(curLoadPage := HIGH(curLoadAddr)).pageIdx <= 0FDH THEN
+				pageTab1(pageTab2(curLoadPage).pageIdx).state = 0FFH;
 			CALL pageout(curLoadPage, ibuf$p);
 		END;
-		ELSE
-			CALL mem$mov(256, ibuf$p, RAddr2Laddr(curLoadAddr));
+		ELSE						/* copy to the page cache */
+			CALL mem$mov(256, ibuf$p, addrInCache(curLoadAddr));
 
-		dataLen = dataLen - 256;
+		dataLen = dataLen - 256;			/* adjust and continue */
 		curLoadAddr = curLoadAddr + 256;
 		ibuf$p = ibuf$p + 256;
 	END;
-	IF dataLen > 0 THEN
+	IF dataLen > 0 THEN					/* load an remaining into the page cache */
 	DO;
 		CALL chkRead(dataLen);
 		DO inb$p = ibuf$p TO ibuf$p + dataLen - 1;
 			inCRC = inCRC + ch;
 		END;
-		CALL mem$mov(dataLen, ibuf$p, RAddr2LAddr(curLoadAddr));
+		CALL mem$mov(dataLen, ibuf$p, addrInCache(curLoadAddr));
 		ibuf$p = ibuf$p + dataLen;
 	END;
 	CALL chkRead(1);
 	ibuf$p = (inb$p := ibuf$p) + 1;
-	IF inCRC + ch <> 0 THEN
+	IF inCRC + ch <> 0 THEN					/* sanity check */
 		CALL fatalErr(ERR208);	/* Checksum error */
 END loadMODDAT;
 
-
-baseMemImage, pageTab2$p = .controls;	/* once we have processed args overwrite area */
-CALL procArgs$Init;
-CALL sub$5359;
-CALL writePrintBuf;
-CALL close(printfd, .statusIO);
-CALL exit;
+main:
+	baseMemImage, pageTab2$p = .controls;	/* once we have processed args overwrite area */
+	CALL procArgs$Init;
+	CALL locateFile;
+	CALL flushPrintBuf;
+	CALL close(printfd, .statusIO);
+	CALL exit;
 
 END;

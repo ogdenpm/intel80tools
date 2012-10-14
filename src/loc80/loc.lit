@@ -1,7 +1,15 @@
 DECLARE	LIT LITERALLY 'LITERALLY';
+
+/* seek modes */
+DECLARE	SEEKTELL LIT	'0',
+	SEEKBCK LIT	'1',
+	SEEKABS	LIT	'2',
+	SEEKFWD LIT	'3',
+	SEEKEND	LIT	'4';
+
 DECLARE	SPATH$T LIT 'STRUCTURE (deviceId BYTE, name(6) BYTE, ext(3) BYTE, deviceType BYTE, driveType BYTE)',
-        DESC4$T LIT 'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)',
-	DESC6$T LIT 'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)';
+        DATAFRAG$T LIT 'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)',
+	SEGFRAG$T LIT 'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)';
 DECLARE	ERR2 LIT '2', /* ILLEGAL AFTN ARGUMENT */
 	ERR3 LIT '3', /* TOO MANY OPEN FILES */
 	ERR4 LIT '4', /* INCORRECTLY SPECIFIED FILE */
@@ -41,6 +49,7 @@ DECLARE	ERR2 LIT '2', /* ILLEGAL AFTN ARGUMENT */
 	ERR239 LIT '239', /* NO MODULE HEADER RECORD */
 	ERR240 LIT '240'; /* PROGRAM EXCEEDS 64K */
 
+/* Record types */
 DECLARE	R$MODHDR	LIT	'2',
 	R$MODEND	LIT	'4',
 	R$MODDAT	LIT	'6',
@@ -59,24 +68,44 @@ DECLARE	R$MODHDR	LIT	'2',
 	R$LIBHDR	LIT	'2CH',
 	R$COMDEF	LIT	'2EH';
 
+/* Segments */
 DECLARE	SABS	LIT	'0',
 	SCODE	LIT	'1',
 	SDATA	LIT	'2',
 	SSTACK	LIT	'3',
 	SMEMORY	LIT	'4',
 	SRESERVED LIT	'5',
-	SNAMED	LIT	'6',
+	SNAMED	LIT	'6',	/* through 254 */
 	SBLANK	LIT	'255';
 
+/* Alignments  & Flags*/
+DECLARE AMASK	LIT	'0FH',
+	AABS	LIT	'0',
+	AUNKNOWN LIT	'0',
+	AINPAGE	LIT	'1',
+	APAGE	LIT	'2',
+	ABYTE	LIT	'3',
+	FHASADDR LIT	'080H',
+	FWRAP0	LIT	'40H',
+	FSEGSEEN LIT	'10H';
+
+/* Fixup type */
+DECLARE	FLOW	LIT	'1',
+	FHIGH	LIT	'2',
+	FBOTH	LIT	'3';
+
+DECLARE	TRUE	LIT	'0FFH',
+	FALSE	LIT	'0';
+
 DECLARE	startSeen LIT 'seen(0)',
-	stackSizeSet LIT 'seen(1)',
+	stackSizeSeen LIT 'seen(1)',
 	restart0Seen LIT 'seen(2)',
 	MapSeen LIT 'seen(3)',
 	PublicsSeen LIT 'seen(4)',
 	SymbolsSeen LIT 'seen(5)',
 	LinesSeen LIT 'seen(6)',
 	PurgeSeen LIT 'seen(7)',
-	nameArgSeen LIT 'seen(8)';
+	moduleNameSeen LIT 'seen(8)';
 
 mem$mov: PROCEDURE(cnt, src, dst) EXTERNAL;
 	DECLARE cnt ADDRESS, src ADDRESS, dst ADDRESS;

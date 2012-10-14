@@ -18,204 +18,221 @@ DECLARE erec BASED erec$p BYTE;
 
 fixupBoundsChk: PROCEDURE(addr) PUBLIC;
 	DECLARE addr ADDRESS;
-	IF addr < t6desc4.saddr OR t6desc4.eaddr < addr THEN
+	IF addr < inFragment.saddr OR inFragment.eaddr < addr THEN
 		CALL fatalErr(ERR213);	/* Fixup Bounds Error */
 END fixupBoundsChk;
 
 
 procLINNUM: PROCEDURE PUBLIC;
-	DECLARE rdata BASED rec$p BYTE;
-	DECLARE buf BASED out$p (1) BYTE;
-	DECLARE wbuf BASED out$p (1) ADDRESS;
+	DECLARE	inSeg BASED in$p BYTE;
+	DECLARE	inLinDef BASED in$p STRUCTURE (offset ADDRESS, linnum ADDRESS);
+	DECLARE	outSeg BASED out$p BYTE;
+	DECLARE	outLinDef BASED out$p STRUCTURE (offset ADDRESS, linnum ADDRESS);
 
-	IF NOT PurgeSeen OR LinesSeen THEN
+	IF NOT PurgeSeen OR LinesSeen THEN	/* only process if not purge or lines requested */
 	DO;
-		outSegType(0) =  setWorkingSeg(linnumARec.seg);
-		IF NOT PurgeSeen THEN
+		outSegType =  setWorkingSeg(inSeg);	/* get ABS seg and set working base address */
+		IF NOT PurgeSeen THEN		/* need to create output record */
 		DO;
 			CALL initRecOut(R$LINNUM);
-			linnumAOut.seg = outSegType(0);
+			outSeg = outSegType;
 			out$p = out$p + 1;
 		END;
-		rec$p = rec$p + 1;
-		DO WHILE rec$p < .erec;
-			IF NOT PurgeSeen THEN
+		in$p = in$p + 1;		/* past segid */
+		DO WHILE in$p < .erec;		/* loop over all entries */
+			IF NOT PurgeSeen THEN	/* emit to output record */
 			DO;
-				linnumBOut.addr = workingSegBase + linnumBRec.addr;
-				linnumBOut.line = linnumBRec.line;
-				out$p = out$p + 4;
+				outLinDef.offset = workingSegBase + inLinDef.offset;	/* final location */
+				outLinDef.linnum = inLinDef.linnum;	/* copy the line number */
+				out$p = out$p + size(outLinDef);	/* past this entry */
 				
 			END;
-			IF LinesSeen THEN
+			IF LinesSeen THEN	/* if required list the mapping */
 			DO;
-				CALL binasc(workingSegBase + linnumBRec.addr, 16, '0', .alin, 4);
-				CALL binasc(linnumBRec.line, 10, ' ', .x5(1), 5);
-				CALL sub$4B3A(.alin, .x5);
+				CALL binasc(workingSegBase + inLinDef.offset, 16, '0', .alin, 4);
+				CALL binasc(inLinDef.linnum, 10, ' ', .x5(1), 5);
+				CALL printColumn(.alin, .x5);
 			END;
-			rec$p = rec$p + 4;
+			in$p = in$p + size(inLinDef);			/* to next entry */
 		END;
-		IF NOT PurgeSeen THEN
+		IF NOT PurgeSeen THEN		/* finish off output record */
 			CALL endRecord;
 	END;
-	CALL getRecord;
+	CALL getRecord;	/* prep next record */
 END procLINNUM;
 
 
-procAncestor: PROCEDURE PUBLIC;
-	DECLARE str BASED rec$p (1) BYTE;
-	IF LinesSeen OR SymbolsSeen THEN
+procANCEST: PROCEDURE PUBLIC;
+	DECLARE str BASED in$p (1) BYTE;
+	IF LinesSeen OR SymbolsSeen THEN	/* if lines or symbols */
 	DO;
-		CALL sub$4B3A(.aMod, rec$p);
+		CALL printColumn(.aMod, in$p);	/* print the ancestor */
 		CALL forceSOL;
 	END;
-	IF NOT PurgeSeen THEN
+	IF NOT PurgeSeen THEN			/* if needed in output */
 	DO;
-		CALL initRecOut(R$ANCEST);
+		CALL initRecOut(R$ANCEST);	/* init record, copy the name and finalise */
 		CALL writeBytes(.str(0), str(0) + 1);
 		CALL endRecord;
 	END;
-	CALL getRecord;
-END procAncestor;
+	CALL getRecord;	/* prep next record */
+END procANCEST;
 
 
-procDefs: PROCEDURE(arg1b, arg2w) PUBLIC;
-	DECLARE arg1b BYTE;
-	DECLARE arg2w ADDRESS;
-	DECLARE ritem BASED rec$p STRUCTURE (len ADDRESS, name (1) BYTE);
+procDefs: PROCEDURE(list, template) PUBLIC;
+	DECLARE list BYTE;
+	DECLARE template ADDRESS;
+	DECLARE ritem BASED in$p STRUCTURE (len ADDRESS, name (1) BYTE);
 	DECLARE owd BASED out$p ADDRESS;
 	DECLARE buf BASED out$p (1) BYTE;
+	DECLARE inSeg BASED in$p BYTE;
+	DECLARE inDef BASED in$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
+	DECLARE outSeg BASED out$p BYTE;
+	DECLARE outDef BASED out$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
 
-	IF NOT purgeseen OR arg1b THEN
+	IF NOT purgeseen OR list THEN	/* only process if not purged or list requested for these symbols */
 	DO;
-		IF defsARec.seg = SSTACK THEN	/* stack ? */
+		IF inSeg = SSTACK THEN	/* stack ? */
 		DO;
-			outSegType(0) = 3;
-			workingSegBase = 0;
+			outSegType = SSTACK;
+			workingSegBase = 0;			/* stack base is 0 */
 		END;
 		ELSE
-			outSegType(0)= setWorkingSeg(defsARec.seg);	
+			outSegType = setWorkingSeg(inSeg);	/* sets working base address * returns ABS Seg */
 		IF NOT PurgeSeen THEN
 		DO;
-			CALL initRecOut(srec.type);
-			defsAOut.seg = outSegType(0);
+			CALL initRecOut(inRecord.rectyp);	/* initialise the output record */
+			outSeg = outSegType;
 			out$p = out$p + 1;
 		END;
-		rec$p = rec$p + 1;
-		DO WHILE rec$p < .erec;
+		in$p = in$p + 1;			/* past segId */
+		DO WHILE in$p < .erec;
 			IF NOT PurgeSeen THEN
 			DO;
-				defsBOut.offset = workingSegBase + defsBRec.offset;
-				CALL pstrcpy(.defsBRec.name, .defsBOut.name);
-				defsBOut.name(defsBRec.name(0) + 1) = 0;
-				out$p = out$p + 4 + defsBRec.name(0);
+				outDef.offset = workingSegBase + inDef.offset;	/* add in the base address */
+				CALL pstrcpy(.inDef.name, .outDef.name);	/* copy the name over */
+				outDef.name(inDef.name(0) + 1) = 0;		/* add the trailing 0 */
+				out$p = out$p + 4 + inDef.name(0);		/* update output record past offset, name and extra 0 */
 			END;
-			IF arg1b THEN
+			IF list THEN			/* if required list the location */
 			DO;
-				CALL binasc(workingSegBase + defsBRec.offset, 16, '0', arg2w, 4);
-				CALL sub$4B3A(arg2w, .defsBRec.name);
+				CALL binasc(workingSegBase + inDef.offset, 16, '0', template, 4);
+				CALL printColumn(template, .inDef.name);
 			END;
-			rec$p = rec$p + 4 + defsBRec.name(0);
+			in$p = in$p + 4 + inDef.name(0);			/* to the next entry - past offset, name and extra 0 */
 		END;
-		IF NOT PurgeSeen THEN
+		IF NOT PurgeSeen THEN		/* if not purged finish off the output record */
 			CALL endRecord;
 	END;
-	CALL getRecord;
+	CALL getRecord;	/* prep for next record */
 END procDefs;
 
 
 procEXTNAM: PROCEDURE PUBLIC;
-	DECLARE ch BASED rec$p BYTE;
+	DECLARE ch BASED in$p BYTE;
 	DECLARE buf BASED out$p (1) BYTE;
+	DECLARE inName BASED in$p STRUCTURE (len BYTE, name(1) BYTE /*, 0 */);
+	DECLARE outName BASED out$p STRUCTURE (len BYTE, name(1) BYTE /*, 0 */);
 
-	CALL initRecOut(R$EXTNAM);
-	DO WHILE rec$p < .erec;
+	CALL initRecOut(R$EXTNAM);	/* initialise the EXTNAM in the located file */
+	DO WHILE in$p < .erec;		/* process each item in the input EXTNAM record */
 		CALL forceSOL;
+		/* insert the index number of the unsatisfied external & print the error message */
 		CALL binasc((unsatisfiedCnt := unsatisfiedCnt + 1) - 1, 10, ' ', .aUnsatisfiedExt(21), 5);
-			CALL conAndPrint(.aUnsatisfiedExt, 21);
-			CALL conAndPrint(curColumn := skipSpc(.aUnsatisfiedExt(21)), 7 - (curColumn - .aUnsatisfiedExt(21)));
-			CALL conAndPrint(.extnamRec.name(1), extnamRec.name(0));
-			CALL conAndPrint(.crlf, 2);
-			CALL pstrcpy(.extnamRec.name, .extnamOut.name);
-			extnamOut.name(DOUBLE(extnamRec.name(0)) + 1) = 0;
-			out$p = out$p + 2 + extnamRec.name(0);
-			rec$p = rec$p + 2 + extnamRec.name(0);
+		/* print to the start of the number */
+		CALL conAndPrint(.aUnsatisfiedExt, 21);
+		/* print the rest of the message omitting leading spaces in the number */
+		CALL conAndPrint(curColumn := skipSpc(.aUnsatisfiedExt(21)), 7 - (curColumn - .aUnsatisfiedExt(21)));
+		/* print the name */
+		CALL conAndPrint(.inName.name, inName.len);
+		CALL conAndPrint(.crlf, 2);
+		/* copy the name to the output record */
+		CALL pstrcpy(.inName, .outName);
+		outName.name(inName.len) = 0;	/* add the zero */
+		out$p = out$p + 2 + inName.len;			/* skip past the name in out and in records */
+		in$p = in$p + 2 + inName.len;
 	END;
-	CALL endRecord;
-	CALL getRecord;
+	CALL endRecord;	/* finish off the record */
+	CALL getRecord; /* prep the next record */
 END procEXTNAM;
 
 
-sub$5309: PROCEDURE(buf, len) PUBLIC;
+printListingHeader: PROCEDURE(buf, len) PUBLIC;
 	DECLARE buf ADDRESS;
 	DECLARE len ADDRESS;
 	CALL printString(buf, len);
-	CALL printString(.nameArg(1), nameArg(0));
-	CALL printString(.aReadFromFile, 17);
+	CALL printString(.moduleName(1), moduleName(0));
+	CALL printString(.aReadFromFile, 17);	/* '\r\nREAD FROM FILE ' */
 	CALL printString(.inFileName(1), inFileName(0));
-	CALL printString(.aWrittenToFile, 18);
+	CALL printString(.aWrittenToFile, 18); /* '\r\nWRITTEN TO FILE ' */
 	CALL printString(.outFileName(1), outFileName(0));
 	CALL printcrlf;
-END sub$5309;
+END printListingHeader;
 
 
-sub$5359: PROCEDURE PUBLIC;
+/* main procedure to locate the file */
+locateFile: PROCEDURE PUBLIC;
 	DECLARE buf BASED out$p (1) BYTE;
-	CALL procHeader;
+	CALL procHdrAndComDef;		/* determine all of the segment base addresses */
 	CALL initRecOut(R$MODHDR);	/* create header record */
-	CALL writeBytes(.nameArg, nameArg(0)+1);	/* write the name */
-	buf(0) = modhdr$x1;	/* copy the passed in data */
+	CALL writeBytes(.moduleName, moduleName(0)+1);	/* write the name */
+	buf(0) = modhdr$x1;	/* copy the passed in x field data */
 	buf(1) = modhdr$x2;
 	out$p = out$p + 2;
-	CALL endRecord;
+	CALL endRecord;		/* located modhdrs don't have seg size info */
+	/* print symbol table header message if required */
 	IF PublicsSeen  OR SymbolsSeen OR LinesSeen THEN
 	DO;
-		CALL sub$5309(.aSymbolTableOfM, 25);
+		CALL printListingHeader(.aSymbolTableOfM, 25);
 		CALL printcrlf;
+		/* print the column headings */
 		DO curColumn = 1 TO columns;
-			CALL sub$4B3A(.aValueType, .aSymbol);
+			CALL printColumn(.aValueType, .aSymbol);
 		END;
 		CALL printcrlf;
 	END;
-	DO WHILE srec.type <> R$MODEND;
-	    DO CASE SHR(srec.type, 1);
+
+	/* process the link file */
+	DO WHILE inRecord.rectyp <> R$MODEND;
+	    DO CASE SHR(inRecord.rectyp, 1);
 		CALL illegalReloc;	/* 0 */
-		CALL badRecordSeq;	/* 2 */
-		;			/* 4 */
-		CALL procMODDAT;		/* 6 */
-		CALL procLINNUM;		/* 8 */
+		CALL badRecordSeq;	/* 2 - modhdr already processed */
+		;			/* 4 - modend exited while already */
+		CALL procMODDAT;		/* 6 - moddat */
+		CALL procLINNUM;		/* 8 - linnum */
 		CALL illegalReloc;	/* 0A */
 		CALL illegalReloc;	/* 0C */
-		CALL errChkReport(ERR204, .inFileName(1), 0FFH); /* 0E - Premature EOF */
-		CALL procAncestor;		/* 10 */
-		CALL procDefs(SymbolsSeen, .aSym);	/* 12 */
+		CALL errChkReport(ERR204, .inFileName(1), TRUE); /* 0E - modeof Premature EOF */
+		CALL procANCEST;		/* 10 - ancest */
+		CALL procDefs(SymbolsSeen, .aSym);	/* 12 - locdef */
 		CALL illegalReloc;	/* 14 */
-		CALL procDefs(PublicsSeen, .aPub);	/* 16 */
-		call procEXTNAM;		/* 18 - undefined externals */
+		CALL procDefs(PublicsSeen, .aPub);	/* 16 - pubdef */
+		call procEXTNAM;		/* 18 - extnam - externals */
 		CALL illegalReloc;	/* 1A */
 		CALL illegalReloc;	/* 1C */
 		CALL illegalReloc;	/* 1E */
-		CALL badRecordSeq;	/* 20 */
-		CALL badRecordSeq;	/* 22 */
-		CALL badRecordSeq;	/* 24 */
-		CALL badRecordSeq;	/* 26 */
-		CALL badRecordSeq;	/* 28 */
-		CALL badRecordSeq;	/* 2A */
-		CALL badRecordSeq;	/* 2C */
-		CALL badRecordSeq;	/* 2E */
+		CALL badRecordSeq;	/* 20 - fixext link should have processed these */
+		CALL badRecordSeq;	/* 22 - fixloc link should have processed these */
+		CALL badRecordSeq;	/* 24 - fixseg link should have processed these */
+		CALL badRecordSeq;	/* 26 - libloc attempting to locate a library */
+		CALL badRecordSeq;	/* 28 - libnam attempting to locate a library */
+		CALL badRecordSeq;	/* 2A - libdic attempting to locate a library */
+		CALL badRecordSeq;	/* 2C - libhdr attempting to locate a library */
+		CALL badRecordSeq;	/* 2E - processed comdef already */
 	    END;
 	END;
-	CALL procMODEND;
+	CALL procMODEND;		/* read the modend and generate the rest of the located file */
 	CALL close(outputfd, .statusIO);
-	CALL errChkReport(statusIO, .outFileName(1), 0FFH);
-	IF havePagingFile THEN
+	CALL errChkReport(statusIO, .outFileName(1), TRUE);
+	IF havePagingFile THEN		/* get rid of any paging file */
 	DO;
 		CALL close(tmpfd, .statusIO);
 		CALL delete(.tmpFileName(1), .statusIO);
 	END;
-	CALL forceSOL;
-	CALL sub$5576;
+	CALL forceSOL;		/* make sure at start of line if symbols listed */
+	CALL printMemoryMap;	/* print the final memory map + any overlay errors */
 	CALL close(readfd, .statusIO);
-	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
-END sub$5359;
+	CALL errChkReport(statusIO, .inFileName(1), TRUE);
+END locateFile;
 
 END locate3;

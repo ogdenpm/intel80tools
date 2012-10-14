@@ -7,6 +7,7 @@ DECLARE devices (*) BYTE DATA('F0F1F2F3F4F5TITO',
 		      'TPHPP1P2LPL1BBCI',
 		      'COF6F7F8F9');
 
+/* convert the spath info into a standard file name :xx:file.ext */
 makeFullName: PROCEDURE(pinfo, pstr) PUBLIC;
 	DECLARE pinfo ADDRESS;
 	DECLARE pstr ADDRESS;
@@ -16,20 +17,24 @@ makeFullName: PROCEDURE(pinfo, pstr) PUBLIC;
 
 	DECLARE i BYTE;
 
+	/* put the :xx: */
 	str(0) = ':';
 	str(1) = devices(info.deviceId + info.deviceId);
 	str(2) = devices(info.deviceId + info.deviceId + 1);
 	str(3) = ':';
 	pstr = pstr + 4;	/* past the :xx: inserted */
+	/* put the file */
 	DO i = 0 TO 5;
 		IF (ch := info.name(i)) <> 0 THEN
 			pstr = pstr + 1;
 	END;
+	/* only put .ext if it exists */
 	IF info.ext(0) <> 0 THEN
 	DO;
 		ch = '.';
 		pstr = pstr + 1;
 	END;
+	/* put the ext - could have been in the if clause above */
 	DO i = 0 TO 2;
 		IF (ch := info.ext(i)) <> 0 THEN
 			pstr = pstr + 1;
