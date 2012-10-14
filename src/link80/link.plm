@@ -1,3 +1,7 @@
+$xref
+/*	Copyright (c) 2012 by Mark Ogden
+	Released into the public domain for academic historic interest
+	only and not for commercial gain. */
 link:
 DO;
 $INCLUDE(LINK.EXT)
@@ -66,23 +70,19 @@ DECLARE
 	headunres ADDRESS PUBLIC,
 	CRLF (2) BYTE PUBLIC INITIAL (0DH, 0AH),
 	recErrMsg(*) BYTE PUBLIC INITIAL (' RECORD TYPE XXH, RECORD NUMBER *****', 0DH, 0AH),
-			          /*	      13-^		 32-^		    */
+										/*	      13-^					32-^		    */
 	inBlk ADDRESS PUBLIC,
 	inByt ADDRESS PUBLIC,
 	inb$p ADDRESS PUBLIC,
 	inCRC BYTE PUBLIC;
 
-
-
 DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
 DECLARE objFile BASED curObjFile LIBRARY$T;
 DECLARE module BASED curModule MODULE$T;
 
-
 DECLARE COPYRIGHT(*) BYTE DATA('(C) 1976, 1977, 1979 INTEL CORP'),
 	VERSION(*) BYTE PUBLIC DATA('V3.0'),
 	DUMMYREC(*) BYTE PUBLIC DATA(0,0,0);
-
 
 /* EXTERNALS */
 DECLARE overlayVersion(4) BYTE EXTERNAL;
@@ -104,21 +104,20 @@ strequ: PROCEDURE(str1p, str2p, cnt) BYTE EXTERNAL;
 	DECLARE cnt BYTE;
 END strequ;
 
-
 errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
 	DECLARE errCode ADDRESS;
 	DECLARE file ADDRESS;
 	DECLARE errExit BYTE;
 END errChkReport;
 
-parse$cmd$line: PROCEDURE EXTERNAL;
-END parse$cmd$line;
+parseCmdLine: PROCEDURE EXTERNAL;
+END parseCmdLine;
 
 phase1: PROCEDURE EXTERNAL;
 END phase1;
 
-phase2: PROCEDURE EXTERNAL;
-END phase2;
+procPas2Recs: PROCEDURE EXTERNAL;
+END procPas2Recs;
 
 conOutStr: PROCEDURE(pstr, count) PUBLIC;
 	DECLARE pstr ADDRESS;
@@ -126,7 +125,6 @@ conOutStr: PROCEDURE(pstr, count) PUBLIC;
 	
 	CALL write(0, pstr, count, .statusIO);
 END conOutStr;
-
 
 fatalErr: PROCEDURE(errCode) PUBLIC;
 	DECLARE errCode BYTE;
@@ -148,21 +146,17 @@ fatalErr: PROCEDURE(errCode) PUBLIC;
 	CALL exit;
 END fatalErr;
 
-
 illegalRecord: PROCEDURE PUBLIC;
 	CALL fatalErr(ERR218);	/* Illegal record format */
 END illegalRecord;
-
 
 illegalRelo: PROCEDURE PUBLIC;
 	CALL fatalErr(ERR212);	/* Illegal relo record */
 END illegalRelo;
 
-
 badRecordSeq: PROCEDURE PUBLIC;
 	CALL fatalErr(ERR224);	/* Bad record sequence */
 END badRecordSeq;
-
 
 pstrcpy: PROCEDURE(psrc, pdst) PUBLIC;
 	DECLARE psrc ADDRESS;
@@ -171,7 +165,6 @@ pstrcpy: PROCEDURE(psrc, pdst) PUBLIC;
 
 	CALL memmov(str(0) + 1, psrc, pdst);
 END pstrcpy;
-
 
 hash: PROCEDURE(pstr) BYTE PUBLIC;
 	DECLARE pstr ADDRESS;
@@ -185,13 +178,10 @@ hash: PROCEDURE(pstr) BYTE PUBLIC;
 	RETURN j AND 07FH;
 END hash;
 
-
 find: PROCEDURE(pstr, ppitem, arg3b) BYTE PUBLIC;
 	DECLARE (pstr, ppitem) ADDRESS, arg3b BYTE;
-
 	DECLARE p ADDRESS;
 	DECLARE i BYTE;
-
 	DECLARE str BASED pstr(1) BYTE;
 	DECLARE pitem BASED ppitem ADDRESS;
 	DECLARE item BASED p STRUCTURE (link ADDRESS, flag BYTE, b3 BYTE, csize ADDRESS, link2 ADDRESS, name(8) BYTE);
@@ -199,7 +189,6 @@ find: PROCEDURE(pstr, ppitem, arg3b) BYTE PUBLIC;
 	i = str(0) + 1;
 	pitem = (p := .hashChains(hash(pstr)));
 	p = item.link;
-
 	DO WHILE p > 0;
 		pitem = p;
 		IF (item.flag AND arg3b) <> 0 THEN
@@ -210,7 +199,6 @@ find: PROCEDURE(pstr, ppitem, arg3b) BYTE PUBLIC;
 	RETURN 0;
 END find;
 
-
 writeBytes: PROCEDURE(buf$p, count) PUBLIC;
 	DECLARE buf$p ADDRESS;
 	DECLARE count ADDRESS;
@@ -219,11 +207,9 @@ writeBytes: PROCEDURE(buf$p, count) PUBLIC;
 	CALL errChkReport(statusIO, .printFileName(1), 0FFH);
 END writeBytes;
 
-
 writeCRLF: PROCEDURE PUBLIC;
 	CALL writeBytes(.CRLF, 2);
 END writeCRLF;
-
 
 writeAndEcho: PROCEDURE(buff$p, count) PUBLIC;
 	DECLARE buff$p ADDRESS;
@@ -234,7 +220,7 @@ writeAndEcho: PROCEDURE(buff$p, count) PUBLIC;
 		CALL conOutStr(buff$p, count);
 END writeAndEcho;
 
-sub$3918: PROCEDURE(buff$p, count) PUBLIC;
+wAEFnAndMod: PROCEDURE(buff$p, count) PUBLIC;
 	DECLARE buff$p ADDRESS;
 	DECLARE count ADDRESS;
 
@@ -243,17 +229,15 @@ sub$3918: PROCEDURE(buff$p, count) PUBLIC;
 	CALL writeAndEcho(.('('), 1);
 	CALL writeAndEcho(.module.name(1), module.name(0));
 	CALL writeAndEcho(.(')',0DH, 0AH), 3);
-END sub$3918;
+END wAEFnAndMod;
 
-
-
-CALL parse$cmd$line;
+CALL parseCmdLine;
 CALL phase1;
 CALL load(.filePath(1), 0, 0, .actRead, .statusIO);	/* load the overlay */
 CALL errChkReport(statusIO, .filePath(1), 0FFH);
 IF NOT strequ(.VERSION, .overlayVersion, 4) THEN	/* make sure it is valid */
 	CALL errChkReport(ERR219, .filePath(1), 0FFH);	/* phase error */
-CALL phase2;
+CALL procPas2Recs;
 CALL close(printFileNo, .statusIO);
 CALL exit;
 

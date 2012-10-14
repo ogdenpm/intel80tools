@@ -1,3 +1,7 @@
+$xref
+/*	Copyright (c) 2012 by Mark Ogden
+	Released into the public domain for academic historic interest
+	only and not for commercial gain. */
 link1a:
 DO;
 $INCLUDE(LINK.EXT)
@@ -43,7 +47,6 @@ DECLARE readfd ADDRESS EXTERNAL,
 
 DECLARE DUMMYREC(1) BYTE EXTERNAL;
 
-
 DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
 DECLARE objFile BASED curObjFile LIBRARY$T;
 
@@ -69,7 +72,6 @@ pstrcpy: PROCEDURE(psrc, pdst) EXTERNAL;
 	DECLARE pdst ADDRESS;
 END pstrcpy;
 
-
 allocUp: PROCEDURE(count) ADDRESS PUBLIC;
 	DECLARE count ADDRESS;
 
@@ -78,14 +80,12 @@ allocUp: PROCEDURE(count) ADDRESS PUBLIC;
 	CALL errChkReport(ERR210, .toFilename(1), 0FFH);	/* Insufficient memory */
 END allocUp;
 
-
 allocdown: PROCEDURE(count) ADDRESS PUBLIC;
 	DECLARE count ADDRESS;
 	IF topHeap - baseHeap >= count THEN
 		RETURN (topHeap := topHeap - count);
 	CALL errChkReport(ERR210, .toFilename(1), 0FFH);	/* Insufficient memory */
 END allocdown;
-
 
 chkRead: PROCEDURE(cnt) PUBLIC;
 	DECLARE cnt ADDRESS;
@@ -100,11 +100,9 @@ chkRead: PROCEDURE(cnt) PUBLIC;
 		inByt = (inByt + ibuf$p - sibuf$p) MOD 128;
 		IF (bcnt := bcnt + actRead) < cnt THEN
 			CALL errChkReport(ERR204, .inFileName(1), 0FFH);    /* Premature EOF */
-
 		eibuf$p = (ibuf$p := sibuf$p) + bcnt;
 	END;
 END chkRead;
-
 
 getRecord: PROCEDURE PUBLIC;
 	DECLARE ch BASED inb$p BYTE;
@@ -128,7 +126,7 @@ getRecord: PROCEDURE PUBLIC;
 		DO;
 			CALL chkRead(bcnt + 1);
 			srec$p = ibuf$p;
-			IF (e := s + srec.len + 2) >= eibuf$p THEN
+			IF (e := s + srec.len + 2) >= eibuf$p THEN /* redundant - done in chkRead */
 				CALL errChkReport(ERR204, .inFileName(1), 0FFH);	/* premature EOF */
 		END;
 	recLen = srec.len;
@@ -143,15 +141,13 @@ getRecord: PROCEDURE PUBLIC;
 		return;
 	IF recLen > 1025 THEN
 		CALL fatalErr(ERR211);	/* record too long */
-	
-	inCRC = 0;
+	inCRC = 0;					/* test checksum */
 	DO inb$p = .srec.type TO .erec;
 		inCRC = inCRC + ch;
 	END;
 	IF inCRC <> 0 THEN
 		CALL fatalErr(ERR208);	/* checksum error */
 END getRecord;
-
 
 iseek: PROCEDURE(blk, byt) PUBLIC;
 	DECLARE (blk, byt) ADDRESS;
@@ -171,8 +167,7 @@ iseek: PROCEDURE(blk, byt) PUBLIC;
 	inByt = byt;
 END iseek;
 
-
-sub$3C5B: PROCEDURE PUBLIC;
+openObjFile: PROCEDURE PUBLIC;
 	CALL pstrcpy(.objfile.name(0), .inFilename(0));
 	inFileName(inFileName(0)+1) = ' ';
 	CALL open(.readfd, .inFileName(1), 1, 0, .statusIO);
@@ -181,8 +176,7 @@ sub$3C5B: PROCEDURE PUBLIC;
 	ibuf$p = eibuf$p;
 	CALL chkRead(1);
 	inBlk, inByt = 0;
-END sub$3C5B;
-
+END openObjFile;
 
 closeObjFile: PROCEDURE PUBLIC;
 	CALL close(readfd, .statusIO);
@@ -190,4 +184,4 @@ closeObjFile: PROCEDURE PUBLIC;
 	curObjFile = objFile.link;
 END closeObjFile;
 
-END;
+END link1a;
