@@ -40,12 +40,12 @@ DECLARE readfd ADDRESS EXTERNAL,
 	toFileName(16) BYTE EXTERNAL,
 	printFileName(16) BYTE EXTERNAL,
 	filePath(16) BYTE EXTERNAL,
-	linkPath(16) BYTE EXTERNAL,
+	linkTmpFile(16) BYTE EXTERNAL,
 	doMap BYTE EXTERNAL,
 	moduleName(32) BYTE EXTERNAL,
 	isMain BYTE EXTERNAL,
-	type2x1 BYTE EXTERNAL,
-	type2x2 BYTE EXTERNAL,
+	modhdr$x1 BYTE EXTERNAL,
+	modhdr$x2 BYTE EXTERNAL,
 	entrySeg BYTE EXTERNAL,
 	entryAddr ADDRESS EXTERNAL,
 	segSizes(6) ADDRESS EXTERNAL,
@@ -53,9 +53,9 @@ DECLARE readfd ADDRESS EXTERNAL,
 	segmap(256) BYTE EXTERNAL,
 	baseHeap ADDRESS EXTERNAL,
 	topHeap ADDRESS EXTERNAL,
-	srec$p ADDRESS EXTERNAL,
+	inRecord$p ADDRESS EXTERNAL,
 	erec$p ADDRESS EXTERNAL,
-	rec$p ADDRESS EXTERNAL,
+	in$p ADDRESS EXTERNAL,
 	recNum ADDRESS EXTERNAL,
 	recLen ADDRESS EXTERNAL,
 	npbuf ADDRESS EXTERNAL,
@@ -73,7 +73,7 @@ DECLARE readfd ADDRESS EXTERNAL,
 	citem$p ADDRESS EXTERNAL,
 	symbol$p ADDRESS EXTERNAL,
 	unresolved ADDRESS EXTERNAL,
-	word$4820 ADDRESS EXTERNAL,
+	maxExternCnt ADDRESS EXTERNAL,
 	headunres ADDRESS EXTERNAL;
 
 
@@ -176,48 +176,22 @@ DECLARE modName(32) BYTE PUBLIC,
 	blk64Base ADDRESS INITIAL(0),
 	blk64End ADDRESS INITIAL(0),
 	haveTmpFile BYTE INITIAL(0),
-	stout$p ADDRESS PUBLIC;
+	outRecord$p ADDRESS PUBLIC;
 
-DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
-DECLARE stout BASED stout$p STRUCTURE(type BYTE, len ADDRESS, rec(1) BYTE);
-DECLARE t02arec BASED rec$p STRUCTURE (name(1) BYTE);
-DECLARE t02aout BASED out$p STRUCTURE (name(1) BYTE);
-DECLARE t02bout BASED out$p STRUCTURE (x1 BYTE, x2 BYTE);
-DECLARE t02cout BASED out$p STRUCTURE (seg BYTE, size ADDRESS, align BYTE, nxt BYTE);
-DECLARE	t4out BASED out$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS);
-DECLARE	t6out BASED out$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
-DECLARE	t8arec BASED rec$p STRUCTURE (seg BYTE);
-DECLARE	t8brec BASED rec$p STRUCTURE (addr ADDRESS, line ADDRESS);
-DECLARE	t8aout BASED out$p STRUCTURE (seg BYTE);
-DECLARE	t8bout BASED out$p STRUCTURE (addr ADDRESS, line ADDRESS);
-DECLARE t10rec BASED rec$p STRUCTURE (name(1) BYTE);
-DECLARE t10out BASED out$p STRUCTURE (name(1) BYTE);
-DECLARE t12arec BASED rec$p STRUCTURE (seg BYTE);
-DECLARE t12brec BASED rec$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
-DECLARE t12aout BASED out$p STRUCTURE (seg BYTE);
-DECLARE t12bout BASED out$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
-DECLARE t16aout LITERALLY 't12aout';
-DECLARE t16bout LITERALLY 't12bout';
-DECLARE t18rec BASED rec$p STRUCTURE (name(1) BYTE /*, 0 */);
-DECLARE t18out BASED out$p STRUCTURE (name(1) BYTE /*, 0 */);
-DECLARE	t20arec BASED rec$p STRUCTURE (fixType BYTE);
-DECLARE	t20aout BASED out$p STRUCTURE (fixType BYTE);
-DECLARE	t20brec BASED rec$p STRUCTURE (sym ADDRESS, addr ADDRESS);
-DECLARE	t20bout BASED out$p STRUCTURE (sym ADDRESS, addr ADDRESS);
-DECLARE	t22arec BASED rec$p STRUCTURE (fixType BYTE);
-DECLARE	t22brec BASED rec$p STRUCTURE (addr ADDRESS);
-DECLARE	t24arec BASED rec$p STRUCTURE (seg BYTE);
-DECLARE	t24aout BASED out$p STRUCTURE (seg BYTE, fixType BYTE); 
-DECLARE	t24bout BASED out$p STRUCTURE (addr ADDRESS);
-DECLARE	t2Erec BASED rec$p STRUCTURE (seg BYTE, name(1) BYTE);
-DECLARE	t2Eout BASED out$p STRUCTURE (seg BYTE, name(1) BYTE);
+/* based types to get to input and output record start info */
+DECLARE	inRecord BASED inRecord$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
+DECLARE outRecord BASED outRecord$p STRUCTURE(type BYTE, len ADDRESS, rec(1) BYTE);
+/* generic based type to map to OMF style name at current location in input and output records */
+DECLARE inOMFName BASED in$p STRUCTURE (len BYTE, name(1) BYTE);
+DECLARE outOMFName BASED out$p STRUCTURE (len BYTE, name(1) BYTE);
+
 
 sub$4905: PROCEDURE PUBLIC;
 	DECLARE blk ADDRESS;
 
 	blk = SHR(blk64Base, 6);
 	CALL seek(tmpfilefd, 2, .blk, .zero, .statusIO);
-	CALL errChkReport(statusIO, .linkpath(1), 0FFH);
+	CALL errChkReport(statusIO, .linkTmpFile(1), 0FFH);
 END sub$4905;
 
 sub$4932: PROCEDURE PUBLIC;
@@ -225,15 +199,15 @@ sub$4932: PROCEDURE PUBLIC;
 		blk64End = blk64End + 128;
 	CALL sub$4905;
 	CALL write(tmpfilefd, tbuf$p, 100H, .statusIO);
-	CALL errChkReport(statusIO, .linkpath(1), 0FFH);
+	CALL errChkReport(statusIO, .linkTmpFile(1), 0FFH);
 END sub$4932;
 
 sub$4969: PROCEDURE PUBLIC;
 	CALL sub$4905;
 	CALL read(tmpfilefd, tbuf$p, 100H, .actRead, .statusIO);
-	CALL errChkReport(statusIO, .linkpath(1), 0FFH);
+	CALL errChkReport(statusIO, .linkTmpFile(1), 0FFH);
 	IF actRead <> 100H THEN
-		CALL errChkReport(ERR204, .linkpath(1), 0FFH);
+		CALL errChkReport(ERR204, .linkTmpFile(1), 0FFH);
 END sub$4969;
 
 sub$49A7: PROCEDURE(arg1w) PUBLIC;
@@ -244,9 +218,9 @@ sub$49A7: PROCEDURE(arg1w) PUBLIC;
 	DO;
 		IF NOT haveTmpFile THEN
 		DO;
-			CALL delete(.linkpath(1), .statusIO);
-			CALL open(.tmpfilefd, .linkpath(1), 3, 0, .statusIO);
-			CALL errChkReport(statusIO, .linkpath(1), 0FFH);
+			CALL delete(.linkTmpFile(1), .statusIO);
+			CALL open(.tmpfilefd, .linkTmpFile(1), 3, 0, .statusIO);
+			CALL errChkReport(statusIO, .linkTmpFile(1), 0FFH);
 			haveTmpFile = 0FFH;
 		END;
 		CALL sub$4932;
@@ -275,10 +249,10 @@ END sub$4A33;
 sub$4A81: PROCEDURE PUBLIC;
 	IF tbuf$p = 0 THEN
 	DO;
-		IF word$4820 > 128 THEN
+		IF maxExternCnt > 128 THEN
 			tbuf$p = allocdown(100H);
 		ELSE
-			tbuf$p = allocdown(word$4820 * 2);
+			tbuf$p = allocdown(maxExternCnt * 2);
 	END;
 	blk64Addr, blk64Base, blk64End = 0;
 END sub$4A81;
@@ -294,8 +268,8 @@ initRecord: PROCEDURE(arg1b) PUBLIC;
 
 	IF eout$p - out$p < 1028 THEN
 		CALL flushTo;
-	stout$p = out$p;
-	stout.type = arg1b;
+	outRecord$p = out$p;
+	outRecord.type = arg1b;
 	out$p = out$p + 3;
 END initRecord;
 
@@ -305,10 +279,10 @@ endRecord: PROCEDURE PUBLIC;
 	DECLARE ch BASED pch BYTE;
 	DECLARE crcCH BASED out$p BYTE;
 
-	IF (stout.len := out$p - .stout.type - 2) > 1025 THEN
+	IF (outRecord.len := out$p - .outRecord.type - 2) > 1025 THEN
 		CALL errChkReport(ERR211, .toFileName(1), 0FFH);	/* Record to long */
 	crc = 0;
-	DO pch = .stout.type TO out$p - 1;
+	DO pch = .outRecord.type TO out$p - 1;
 		crc = crc + ch;
 	END;
 	crcCH = -crc;
@@ -319,32 +293,34 @@ extendRec: PROCEDURE(cnt) BYTE PUBLIC;
 	DECLARE cnt ADDRESS;
 	DECLARE type BYTE;
 
-	IF out$p + cnt - .stout.type < 1028 THEN
+	IF out$p + cnt - .outRecord.type < 1028 THEN
 		RETURN 0;
-	type = stout.type;
+	type = outRecord.type;
 	CALL endRecord;
 	CALL initRecord(type);
 	RETURN 0FFH;
 END extendRec;
 
 emit$MODHDR: PROCEDURE PUBLIC;
+	DECLARE reserved BASED out$p STRUCTURE (x1 BYTE, x2 BYTE);
+	DECLARE sdef BASED out$p STRUCTURE (segid BYTE, len ADDRESS, combine BYTE);
 
-	emit$MODHDR$seginfo: PROCEDURE(seg, size, align);
-		DECLARE (seg, align) BYTE, size ADDRESS;
+	emit$MODHDR$seginfo: PROCEDURE(segid, len, combine);
+		DECLARE (segid, combine) BYTE, len ADDRESS;
 
 		IF extendRec(4) THEN
 			CALL errChkReport(ERR226, .toFileName(1), 0FFH);	/* Name too long */
-		t02cout.seg = seg;
-		t02cout.size = size;
-		t02cout.align = align;
-		out$p = .t02cout.nxt;
+		sdef.segid = segid;
+		sdef.len = len;
+		sdef.combine = combine;
+		out$p = out$p + size(sdef);
 	END emit$MODHDR$seginfo;
 
 	CALL initRecord(2);
-	CALL pstrcpy(.moduleName, .t02aout.name);
+	CALL pstrcpy(.moduleName, .outOMFName);
 	out$p = out$p + moduleName(0) + 1;
-	t02bout.x1 = type2x1;
-	t02bout.x2 = type2x2;
+	reserved.x1 = modhdr$x1;
+	reserved.x2 = modhdr$x2;
 	out$p = out$p + 2;
 	DO segIdx = SEG$CODE TO SEG$MEMORY;	/* regular segments */
 		IF segSizes(segIdx) > 0 THEN
@@ -361,6 +337,7 @@ emit$MODHDR: PROCEDURE PUBLIC;
 END emit$MODHDR;
 
 emit$MODEND: PROCEDURE PUBLIC;
+	DECLARE	t4out BASED out$p STRUCTURE (modtype BYTE, segid BYTE, offset ADDRESS);
 	CALL initRecord(R$MODEND);
 	t4out.modtype = isMain;
 	t4out.segid = entrySeg;
@@ -373,6 +350,7 @@ emit$MODEND: PROCEDURE PUBLIC;
 END emit$MODEND;
 
 emit$COMDEF: PROCEDURE PUBLIC;
+	DECLARE	t2Eout BASED out$p STRUCTURE (seg BYTE, name(1) BYTE);
 	IF headCitem = 0 THEN
 		RETURN;
 	CALL initRecord(R$COMDEF);
@@ -390,6 +368,8 @@ END emit$COMDEF;
 
 emit$PUBLICS: PROCEDURE PUBLIC;
 	DECLARE obuf BASED out$p (1) BYTE;
+	DECLARE t16aout BASED out$p STRUCTURE (seg BYTE);
+	DECLARE t16bout  BASED out$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
 	DO segIdx = 0 TO 255;
 		IF segmap(segIdx) THEN		/* seg used */
 		DO;
@@ -436,7 +416,7 @@ emit$EXTNAMES: PROCEDURE PUBLIC;
 	DO WHILE symbol$p > 0;
 		IF extendRec(DOUBLE(2) + symbol.name(0)) THEN
 			;
-		CALL pstrcpy(.symbol.name, .t18out.name);
+		CALL pstrcpy(.symbol.name, .outOMFName);
 		buf(symbol.name(0) + 1) = 0;
 		out$p = out$p + 2 + symbol.name(0);
 		symbol.offset = unresolved;
@@ -450,7 +430,7 @@ emit$ANCESTOR: PROCEDURE PUBLIC;
 	IF modNameValid THEN
 	DO;
 		CALL initRecord(R$ANCESTOR);
-		CALL pstrcpy(.modName, .t10out.name);
+		CALL pstrcpy(.modName, .outOMFName);
 		out$p = out$p + modName(0) + 1;
 		CALL endRecord;
 		modNameValid = 0;
@@ -468,7 +448,7 @@ sub$4F99: PROCEDURE(seg) BYTE PUBLIC;
 END sub$4F99;
 
 pass2MODHDR: PROCEDURE PUBLIC;
-	CALL pstrcpy(.t02arec.name, .modName);
+	CALL pstrcpy(.inOMFName, .modName);
 	modNameValid = 0FFH;
 	DO segId = 0 TO 255;
 		segmap(segId) = segId;
@@ -477,18 +457,19 @@ pass2MODHDR: PROCEDURE PUBLIC;
 END pass2MODHDR;
 
 pass2COMDEF: PROCEDURE PUBLIC;
-	DO WHILE rec$p < .erec;		/* while more common definitions */
+	DECLARE	t2Erec BASED in$p STRUCTURE (seg BYTE, name(1) BYTE);
+	DO WHILE in$p < .erec;		/* while more common definitions */
 		IF NOT find(.t2Erec.name, .citem$p, 0FH) THEN
 			CALL fatalErr(ERR219);	/* Phase error */
 		segmap(t2Erec.seg) = citem.seg;
-		rec$p = rec$p + 2 + t2Erec.name(0);
+		in$p = in$p + 2 + t2Erec.name(0);
 	END;
 	CALL getRecord;
 END pass2COMDEF;
 
 pass2EXTNAMES: PROCEDURE PUBLIC;
-	DO WHILE rec$p < .erec;		/* while more external definitions */
-		IF NOT find(rec$p, .symbol$p, 0F0H) THEN
+	DO WHILE in$p < .erec;		/* while more external definitions */
+		IF NOT find(in$p, .symbol$p, 0F0H) THEN
 			CALL fatalErr(ERR219);	/* phase error */
 		CALL sub$49A7(symbol$p);
 		IF symbol.flag = 40H THEN
@@ -497,7 +478,7 @@ pass2EXTNAMES: PROCEDURE PUBLIC;
 			CALL writeAndEcho(.symbol.name(1), symbol.name(0));
 			CALL wAEFnAndMod(.msgrefin, 17);
 		END;
-		rec$p = rec$p + 2 + t18rec.name(0);
+		in$p = in$p + 2 + inOMFName.len;	/* 2 for len and extra 0 */
 	END;
 	CALL getRecord;
 END pass2EXTNAMES;
@@ -511,6 +492,16 @@ pass2CONTENT: PROCEDURE PUBLIC;
 	DECLARE ch BASED p BYTE;
 	DECLARE fixup BASED fixup$p STRUCTURE(link ADDRESS, typeAndSeg ADDRESS, symlist ADDRESS);
 	DECLARE symfixup BASED symfixup$p STRUCTURE(link ADDRESS, addr ADDRESS, sym ADDRESS);
+	DECLARE	t6out BASED out$p STRUCTURE (seg BYTE, addr ADDRESS, bytes(1) BYTE);
+	DECLARE	t20arec BASED in$p STRUCTURE (fixType BYTE);
+	DECLARE	t20brec BASED in$p STRUCTURE (sym ADDRESS, addr ADDRESS);
+	DECLARE	t20aout BASED out$p STRUCTURE (fixType BYTE);
+	DECLARE	t20bout BASED out$p STRUCTURE (sym ADDRESS, addr ADDRESS);
+	DECLARE	t22arec BASED in$p STRUCTURE (fixType BYTE);
+	DECLARE	t22brec BASED in$p STRUCTURE (addr ADDRESS);
+	DECLARE	t24arec BASED in$p STRUCTURE (seg BYTE);
+	DECLARE	t24aout BASED out$p STRUCTURE (seg BYTE, fixType BYTE); 
+	DECLARE	t24bout BASED out$p STRUCTURE (addr ADDRESS);
 
 	boundsChk: PROCEDURE(addr);
 		DECLARE addr ADDRESS;
@@ -547,12 +538,12 @@ pass2CONTENT: PROCEDURE PUBLIC;
 		symfixup.addr = addr + segModBase;
 	END addFixup;
 
-	srec$p = .dummrec6;
+	inRecord$p = .dummrec6;
 	CALL initRecord(6);
-	stout.len, savedRecLen = recLen;
+	outRecord.len, savedRecLen = recLen;
 	savedOut$p = out$p;
 	crc = HIGH(recLen) + 6 + LOW(recLen);
-	ibuf$p = rec$p;
+	ibuf$p = in$p;
 
 	DO WHILE recLen > 0;
 		IF savedRecLen > 1025 THEN
@@ -583,13 +574,13 @@ pass2CONTENT: PROCEDURE PUBLIC;
 	t6out.addr = t6saddr + segModBase;
 	markheap = allocUp(0);
 
-	DO WHILE srec.type = R$EXTREF OR srec.type = R$RELOC OR srec.type = R$INTERSEG;
-		IF srec.type = R$EXTREF THEN
+	DO WHILE inRecord.type = R$EXTREF OR inRecord.type = R$RELOC OR inRecord.type = R$INTERSEG;
+		IF inRecord.type = R$EXTREF THEN
 		DO;
 			IF (fixType := t20arec.fixtype) - 1 > 2 THEN
 				CALL illegalRecord;
-			rec$p = rec$p + 1;
-			DO WHILE rec$p < .erec;
+			in$p = in$p + 1;
+			DO WHILE in$p < .erec;
 				CALL boundsChk(t20brec.addr);
 				IF fixType = 3 THEN
 					CALL boundsChk(t20brec.addr + 1);
@@ -614,24 +605,24 @@ pass2CONTENT: PROCEDURE PUBLIC;
 					symfixup.addr = t20brec.addr + segModBase;
 					symfixup.sym = symbol.offset;
 				END;
-				rec$p = rec$p + 4;
+				in$p = in$p + 4;
 			END;
 		END;
 		ELSE
 		DO;
 			segIdx = newseg;
 			relocOffset = segModBase;
-			IF srec.type = R$INTERSEG THEN
+			IF inRecord.type = R$INTERSEG THEN
 			DO;
 				segIdx = sub$4F99(t24arec.seg);
-				rec$p = rec$p + 1;
+				in$p = in$p + 1;
 			END;
 			IF segIdx = 0 THEN
 				CALL illegalRecord;
 			IF (fixType := t22arec.fixtype) - 1 > 2 THEN
 				CALL illegalRecord;
-			rec$p = rec$p + 1;
-			DO WHILE rec$p < .erec;
+			in$p = in$p + 1;
+			DO WHILE in$p < .erec;
 				CALL boundsChk(t22brec.addr);
 				IF fixType = 3 THEN
 					CALL boundsChk(t22brec.addr + 1);
@@ -642,7 +633,7 @@ pass2CONTENT: PROCEDURE PUBLIC;
 				wfixup = wfixup + relocOffset;
 				END;
 				CALL addFixup(segIdx, t22brec.addr);
-				rec$p = rec$p + 2;
+				in$p = in$p + 2;
 			END;
 		END;
 		CALL getRecord;
@@ -695,39 +686,49 @@ pass2CONTENT: PROCEDURE PUBLIC;
 END pass2CONTENT;
 
 pass2LINENO: PROCEDURE PUBLIC;
+	DECLARE	t8arec BASED in$p STRUCTURE (seg BYTE);
+	DECLARE	t8brec BASED in$p STRUCTURE (addr ADDRESS, line ADDRESS);
+	DECLARE	t8aout BASED out$p STRUCTURE (seg BYTE);
+	DECLARE	t8bout BASED out$p STRUCTURE (addr ADDRESS, line ADDRESS);
+
 	CALL emit$ANCESTOR;
 	CALL initRecord(8);
 	t8aout.seg = sub$4F99(t8arec.seg);
 	out$p = out$p + 1;
-	rec$p = rec$p + 1;
-	DO WHILE rec$p < .erec;		/* while more public definitions */
+	in$p = in$p + 1;
+	DO WHILE in$p < .erec;		/* while more public definitions */
 		t8bout.addr = relocOffset + t8brec.addr;
 		t8bout.line = t8brec.line;
 		out$p = out$p + 4;
-		rec$p = rec$p + 4;
+		in$p = in$p + 4;
 	END;
 	CALL endRecord;
 	CALL getRecord;
 END pass2LINENO;
 
 pass2ANCESTOR: PROCEDURE PUBLIC;
-	CALL pstrcpy(.t10rec.name, .modName);
+	CALL pstrcpy(.inOMFName, .modName);
 	modNameValid = 0FFH;
 	CALL getRecord;
 END pass2ANCESTOR;
 
 pass2LOCALS: PROCEDURE PUBLIC;
+	DECLARE t12arec BASED in$p STRUCTURE (seg BYTE);
+	DECLARE t12brec BASED in$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
+	DECLARE t12aout BASED out$p STRUCTURE (seg BYTE);
+	DECLARE t12bout BASED out$p STRUCTURE (offset ADDRESS, name(1) BYTE /*, 0 */);
+
 	CALL emit$ANCESTOR;
 	CALL initRecord(R$LOCALS);
 	t12aout.seg = sub$4F99(t12arec.seg);
 	out$p = out$p + 1;
-	rec$p = rec$p + 1;
-	DO WHILE rec$p < .erec;		/* while more local definitions */
+	in$p = in$p + 1;
+	DO WHILE in$p < .erec;		/* while more local definitions */
 		t12bout.offset = relocOffset + t12brec.offset;	
 		CALL pstrcpy(.t12brec.name, .t12bout.name);
 		t12bout.name(t12brec.name(0) + 1) = 0;
 		out$p = out$p + 4 + t12brec.name(0);
-		rec$p = rec$p + 4 + t12brec.name(0);
+		in$p = in$p + 4 + t12brec.name(0);
 	END;
 	CALL endRecord;
 	CALL getRecord;
@@ -748,7 +749,7 @@ procPas2Recs: PROCEDURE PUBLIC;
 	CALL emit$EXTNAMES;
 	curObjFile = objFileHead;
 	DO WHILE curObjFile > 0;
-		IF objfile.ispublics THEN
+		IF objfile.publicsOnly THEN
 			curObjFile = objfile.link;
 		ELSE
 		DO;
@@ -761,11 +762,11 @@ procPas2Recs: PROCEDURE PUBLIC;
 					CALL iseek(module.blk, module.byt);
 					CALL getRecord;
 				END;
-				IF srec.type <> R$MODHDR THEN
+				IF inRecord.type <> R$MODHDR THEN
 					CALL fatalErr(ERR219); /* phase error */
 				CALL sub$4A81;
-				DO WHILE srec.type <> R$MODEND;
-					DO CASE SHR(srec.type, 1);
+				DO WHILE inRecord.type <> R$MODEND;
+					DO CASE SHR(inRecord.type, 1);
 					CALL illegalRelo;
 					CALL pass2MODHDR;	/* R$MODHDR */
 					;					/* R$MODEND */
@@ -803,8 +804,8 @@ procPas2Recs: PROCEDURE PUBLIC;
 	IF haveTmpFile THEN
 	DO;
 		CALL close(tmpfilefd, .statusIO);
-		CALL errChkReport(statusIO, .linkpath(1), 0FFH);
-		CALL delete(.linkpath(1), .statusIO);
+		CALL errChkReport(statusIO, .linkTmpFile(1), 0FFH);
+		CALL delete(.linkTmpFile(1), .statusIO);
 	END;
 END procPas2Recs;
 

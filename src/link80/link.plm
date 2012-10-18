@@ -33,12 +33,12 @@ DECLARE
 	toFileName(16) BYTE PUBLIC,
 	printFileName(16) BYTE PUBLIC,
 	filePath(16) BYTE PUBLIC,
-	linkPath(16) BYTE PUBLIC,
+	linkTmpFile(16) BYTE PUBLIC,
 	doMap BYTE PUBLIC,
 	moduleName(32) BYTE PUBLIC,
 	isMain BYTE PUBLIC,
-	type2x1 BYTE PUBLIC,
-	type2x2 BYTE PUBLIC,
+	modhdr$x1 BYTE PUBLIC,
+	modhdr$x2 BYTE PUBLIC,
 	entrySeg BYTE PUBLIC,
 	entryAddr ADDRESS PUBLIC,
 	segSizes(6) ADDRESS PUBLIC,
@@ -46,9 +46,9 @@ DECLARE
 	segmap(256) BYTE PUBLIC,
 	baseHeap ADDRESS PUBLIC,
 	topHeap ADDRESS PUBLIC,
-	srec$p ADDRESS PUBLIC,
+	inRecord$p ADDRESS PUBLIC,
 	erec$p ADDRESS PUBLIC,
-	rec$p ADDRESS PUBLIC,
+	in$p ADDRESS PUBLIC,
 	recNum ADDRESS PUBLIC,
 	recLen ADDRESS PUBLIC,	
 	npbuf ADDRESS PUBLIC,
@@ -66,17 +66,17 @@ DECLARE
 	citem$p ADDRESS PUBLIC,
 	symbol$p ADDRESS PUBLIC,
 	unresolved ADDRESS PUBLIC,
-	word$4820 ADDRESS PUBLIC,
+	maxExternCnt ADDRESS PUBLIC,
 	headunres ADDRESS PUBLIC,
 	CRLF (2) BYTE PUBLIC INITIAL (0DH, 0AH),
 	recErrMsg(*) BYTE PUBLIC INITIAL (' RECORD TYPE XXH, RECORD NUMBER *****', 0DH, 0AH),
-										/*	      13-^					32-^		    */
+					/*	     13-^		32-^	    */
 	inBlk ADDRESS PUBLIC,
 	inByt ADDRESS PUBLIC,
 	inb$p ADDRESS PUBLIC,
 	inCRC BYTE PUBLIC;
 
-DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
+DECLARE	inRecord BASED inRecord$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
 DECLARE objFile BASED curObjFile LIBRARY$T;
 DECLARE module BASED curModule MODULE$T;
 
@@ -139,7 +139,7 @@ fatalErr: PROCEDURE(errCode) PUBLIC;
 	END;
 	CALL conOutStr(.(','), 1);
 	CALL writeErrStr(errCode);
-	CALL binasc(srec.type, 16, '0', .recErrMsg(13), 2);
+	CALL binasc(inRecord.type, 16, '0', .recErrMsg(13), 2);
 	IF recNum > 0 THEN
 		CALL binasc(recNum, 10, ' ', .recErrMsg(32), 5);
 	CALL conOutStr(.recErrMsg, LENGTH(recErrMsg));
@@ -231,15 +231,16 @@ wAEFnAndMod: PROCEDURE(buff$p, count) PUBLIC;
 	CALL writeAndEcho(.(')',0DH, 0AH), 3);
 END wAEFnAndMod;
 
-CALL parseCmdLine;
-CALL phase1;
-CALL load(.filePath(1), 0, 0, .actRead, .statusIO);	/* load the overlay */
-CALL errChkReport(statusIO, .filePath(1), 0FFH);
-IF NOT strequ(.VERSION, .overlayVersion, 4) THEN	/* make sure it is valid */
-	CALL errChkReport(ERR219, .filePath(1), 0FFH);	/* phase error */
-CALL procPas2Recs;
-CALL close(printFileNo, .statusIO);
-CALL exit;
+main:
+	CALL parseCmdLine;
+	CALL phase1;
+	CALL load(.filePath(1), 0, 0, .actRead, .statusIO);	/* load the overlay */
+	CALL errChkReport(statusIO, .filePath(1), 0FFH);
+	IF NOT strequ(.VERSION, .overlayVersion, 4) THEN	/* make sure it is valid */
+		CALL errChkReport(ERR219, .filePath(1), 0FFH);	/* phase error */
+	CALL procPas2Recs;
+	CALL close(printFileNo, .statusIO);
+	CALL exit;
 
 END link;
 

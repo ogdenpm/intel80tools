@@ -29,8 +29,8 @@ DECLARE readfd ADDRESS EXTERNAL,
 	toFileName(16) BYTE EXTERNAL,
 	baseHeap ADDRESS EXTERNAL,
 	topHeap ADDRESS EXTERNAL,
-	(srec$p, erec$p) ADDRESS EXTERNAL,
-	rec$p ADDRESS EXTERNAL,
+	(inRecord$p, erec$p) ADDRESS EXTERNAL,
+	in$p ADDRESS EXTERNAL,
 	recNum ADDRESS EXTERNAL,
 	recLen ADDRESS EXTERNAL,	
 	npbuf ADDRESS EXTERNAL,
@@ -47,7 +47,7 @@ DECLARE readfd ADDRESS EXTERNAL,
 
 DECLARE DUMMYREC(1) BYTE EXTERNAL;
 
-DECLARE	srec BASED srec$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
+DECLARE	inRecord BASED inRecord$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
 DECLARE objFile BASED curObjFile LIBRARY$T;
 
 errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
@@ -108,41 +108,41 @@ getRecord: PROCEDURE PUBLIC;
 	DECLARE ch BASED inb$p BYTE;
 	DECLARE bcnt ADDRESS;
 	DECLARE erec BASED erec$p BYTE;
-	DECLARE (s, e) ADDRESS AT(.srec$p);
+	DECLARE (s, e) ADDRESS AT(.inRecord$p);
 
 	IF (bcnt := eibuf$p - ibuf$p) >= 4 THEN
 	DO;
-		srec$p = ibuf$p;
-		/*erec$p = srec$p + srec.len + 2;	/* type + data + crc */
-		e = s + srec.len + 2;	/* type + data + crc */
+		inRecord$p = ibuf$p;
+		/*erec$p = inRecord$p + inRecord.len + 2;	/* type + data + crc */
+		e = s + inRecord.len + 2;	/* type + data + crc */
 	END;
 	ELSE
 	DO;
-		srec$p = .DUMMYREC;
+		inRecord$p = .DUMMYREC;
 		erec$p = 0FFFFH;
 	END;
 	IF erec$p >= eibuf$p THEN
-		IF srec.len <= 1025 THEN	/* should be able to get all of record in buffer */
+		IF inRecord.len <= 1025 THEN	/* should be able to get all of record in buffer */
 		DO;
 			CALL chkRead(bcnt + 1);
-			srec$p = ibuf$p;
-			IF (e := s + srec.len + 2) >= eibuf$p THEN /* redundant - done in chkRead */
+			inRecord$p = ibuf$p;
+			IF (e := s + inRecord.len + 2) >= eibuf$p THEN /* redundant - done in chkRead */
 				CALL errChkReport(ERR204, .inFileName(1), 0FFH);	/* premature EOF */
 		END;
-	recLen = srec.len;
-	rec$p =  srec$p + 3;
+	recLen = inRecord.len;
+	in$p =  inRecord$p + 3;
 	ibuf$p = erec$p + 1;
 	recNum = recNum + 1;
-	IF srec.type > R$COMDEF OR srec.type THEN	/* > 2EH or odd */
+	IF inRecord.type > R$COMDEF OR inRecord.type THEN	/* > 2EH or odd */
 		CALL illegalRelo;
-	IF srec.type = R$CONTENT THEN
+	IF inRecord.type = R$CONTENT THEN
 		RETURN;
-	IF srec.type >= R$LIBLOCS  AND srec.type <= R$LIBDICT THEN
+	IF inRecord.type >= R$LIBLOCS  AND inRecord.type <= R$LIBDICT THEN
 		return;
 	IF recLen > 1025 THEN
 		CALL fatalErr(ERR211);	/* record too long */
 	inCRC = 0;					/* test checksum */
-	DO inb$p = .srec.type TO .erec;
+	DO inb$p = .inRecord.type TO .erec;
 		inCRC = inCRC + ch;
 	END;
 	IF inCRC <> 0 THEN
@@ -174,7 +174,7 @@ openObjFile: PROCEDURE PUBLIC;
 	CALL errChkReport(statusIO, .inFileName(1), 0FFH);
 	recNum, curModule = 0;
 	ibuf$p = eibuf$p;
-	CALL chkRead(1);
+	CALL chkRead(1);	/* make sure the type is loaded */
 	inBlk, inByt = 0;
 END openObjFile;
 
