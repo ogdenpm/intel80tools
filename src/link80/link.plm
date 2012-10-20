@@ -36,12 +36,12 @@ DECLARE
 	linkTmpFile(16) BYTE PUBLIC,
 	doMap BYTE PUBLIC,
 	moduleName(32) BYTE PUBLIC,
-	isMain BYTE PUBLIC,
+	modtype BYTE PUBLIC,
 	modhdr$x1 BYTE PUBLIC,
 	modhdr$x2 BYTE PUBLIC,
 	entrySeg BYTE PUBLIC,
 	entryAddr ADDRESS PUBLIC,
-	segSizes(6) ADDRESS PUBLIC,
+	segLen(6) ADDRESS PUBLIC,
 	alignType(6) BYTE PUBLIC,
 	segmap(256) BYTE PUBLIC,
 	baseHeap ADDRESS PUBLIC,
@@ -52,9 +52,9 @@ DECLARE
 	recNum ADDRESS PUBLIC,
 	recLen ADDRESS PUBLIC,	
 	npbuf ADDRESS PUBLIC,
-	sibuf$p ADDRESS PUBLIC,
-	ibuf$p ADDRESS PUBLIC,
-	eibuf$p ADDRESS PUBLIC,
+	sbuf$p ADDRESS PUBLIC,
+	buf$p ADDRESS PUBLIC,
+	ebuf$p ADDRESS PUBLIC,
 	sout$p ADDRESS PUBLIC,
 	out$p ADDRESS PUBLIC,
 	eout$p ADDRESS PUBLIC,
@@ -62,12 +62,12 @@ DECLARE
 	curObjFile ADDRESS PUBLIC,
 	curModule ADDRESS PUBLIC,
 	hashChains(128) ADDRESS PUBLIC,
-	headcitem ADDRESS PUBLIC,
-	citem$p ADDRESS PUBLIC,
+	headSegOrderLink ADDRESS PUBLIC,
+	comdefInfo$p ADDRESS PUBLIC,
 	symbol$p ADDRESS PUBLIC,
 	unresolved ADDRESS PUBLIC,
 	maxExternCnt ADDRESS PUBLIC,
-	headunres ADDRESS PUBLIC,
+	headUnresolved ADDRESS PUBLIC,
 	CRLF (2) BYTE PUBLIC INITIAL (0DH, 0AH),
 	recErrMsg(*) BYTE PUBLIC INITIAL (' RECORD TYPE XXH, RECORD NUMBER *****', 0DH, 0AH),
 					/*	     13-^		32-^	    */
@@ -116,8 +116,8 @@ END parseCmdLine;
 phase1: PROCEDURE EXTERNAL;
 END phase1;
 
-procPas2Recs: PROCEDURE EXTERNAL;
-END procPas2Recs;
+phase2: PROCEDURE EXTERNAL;
+END phase2;
 
 conOutStr: PROCEDURE(pstr, count) PUBLIC;
 	DECLARE pstr ADDRESS;
@@ -178,25 +178,25 @@ hash: PROCEDURE(pstr) BYTE PUBLIC;
 	RETURN j AND 07FH;
 END hash;
 
-find: PROCEDURE(pstr, ppitem, arg3b) BYTE PUBLIC;
-	DECLARE (pstr, ppitem) ADDRESS, arg3b BYTE;
+find: PROCEDURE(pstr, pitem$ref, mask) BYTE PUBLIC;
+	DECLARE (pstr, pitem$ref) ADDRESS, mask BYTE;
 	DECLARE p ADDRESS;
 	DECLARE i BYTE;
 	DECLARE str BASED pstr(1) BYTE;
-	DECLARE pitem BASED ppitem ADDRESS;
-	DECLARE item BASED p STRUCTURE (link ADDRESS, flag BYTE, b3 BYTE, csize ADDRESS, link2 ADDRESS, name(8) BYTE);
+	DECLARE pitem BASED pitem$ref ADDRESS;	/* dereferenced out param */
+	DECLARE item BASED p HASH$T;
 
-	i = str(0) + 1;
+	i = str(0) + 1;		/* size of string including length byte */
 	pitem = (p := .hashChains(hash(pstr)));
-	p = item.link;
-	DO WHILE p > 0;
+	p = item.hashLink;
+	DO WHILE p > 0;		/* chase down the list to look for the name */
 		pitem = p;
-		IF (item.flag AND arg3b) <> 0 THEN
+		IF (item.flags AND mask) <> ALN$UNDEF THEN	/* ignore undef entries */
 			IF strequ(pstr, .item.name, i) THEN
-				RETURN 0FFH;
-		p = item.link;
+				RETURN TRUE;
+		p = item.hashLink;	/* next */
 	END;
-	RETURN 0;
+	RETURN FALSE;
 END find;
 
 writeBytes: PROCEDURE(buf$p, count) PUBLIC;
@@ -204,7 +204,7 @@ writeBytes: PROCEDURE(buf$p, count) PUBLIC;
 	DECLARE count ADDRESS;
 	
 	CALL write(printFileNo, buf$p, count, .statusIO);
-	CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+	CALL errChkReport(statusIO, .printFileName(1), TRUE);
 END writeBytes;
 
 writeCRLF: PROCEDURE PUBLIC;
@@ -235,10 +235,10 @@ main:
 	CALL parseCmdLine;
 	CALL phase1;
 	CALL load(.filePath(1), 0, 0, .actRead, .statusIO);	/* load the overlay */
-	CALL errChkReport(statusIO, .filePath(1), 0FFH);
+	CALL errChkReport(statusIO, .filePath(1), TRUE);
 	IF NOT strequ(.VERSION, .overlayVersion, 4) THEN	/* make sure it is valid */
-		CALL errChkReport(ERR219, .filePath(1), 0FFH);	/* phase error */
-	CALL procPas2Recs;
+		CALL errChkReport(ERR219, .filePath(1), TRUE);	/* phase error */
+	CALL phase2;
 	CALL close(printFileNo, .statusIO);
 	CALL exit;
 

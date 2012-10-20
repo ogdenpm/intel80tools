@@ -52,6 +52,18 @@ DECLARE LIBRARY$T LITERALLY
 DECLARE SPATH$T LITERALLY
 'STRUCTURE (deviceId BYTE, name(6) BYTE, ext(3) BYTE, deviceType BYTE, driveType BYTE)';
 
+/* common hashed item based type for find */
+DECLARE HASH$T LITERALLY
+'STRUCTURE (hashLink ADDRESS, flags BYTE, linkedSeg BYTE, val ADDRESS, link ADDRESS, name(1) BYTE)';
+
+/* specific versions of above for comdef info and for symbol info */
+DECLARE COMINFO$T LITERALLY
+'STRUCTURE (hashLink ADDRESS, flags BYTE, linkedSeg BYTE, len ADDRESS, segOrderLink ADDRESS, name(1) BYTE)';
+DECLARE SYMBOL$T LITERALLY
+'STRUCTURE (hashLink ADDRESS, flags BYTE, linkedSeg BYTE, offsetOrSym ADDRESS, nxtSymbol ADDRESS, name(1) BYTE)';
+
+
+
 /* relocatable record types */
 DECLARE	R$MODHDR	LIT	'2',
 	R$MODEND	LIT	'4',
@@ -79,7 +91,7 @@ DECLARE SEG$ABS LIT	'0',
 	SEG$MEMORY	LIT	'4',
 	SEG$RESERVE	LIT '5',	/* reserved for future Intel use */
 	SEG$NAMCOM	LIT	'6',
-	SEG$UNACOM	LIT	'255';
+	SEG$BLANK	LIT	'255';
 
 /* fixup types */
 DECLARE FIX$UNDEF LIT '0',
@@ -91,9 +103,20 @@ DECLARE FIX$UNDEF LIT '0',
 DECLARE ALN$UNDEF LIT '0',
 	ALN$INPAGE	LIT	'1',
 	ALN$PAGE	LIT	'2',
-	ALN$BYTE	LIT	'3';
+	ALN$BYTE	LIT	'3',
+	ALN$NONE	LIT	'255';	/* special value used to indicate named common procssed or gap */
 
 /* module type */
 DECLARE	MT$NOTMAIN	LIT	'0',
 	MT$MAIN		LIT '1';
+
+/* flags */
+DECLARE	F$ALNMASK	LIT	'0FH',
+	F$SCOPEMASK	LIT	'0F0H',
+	F$EXTERN	LIT	'40H',
+	F$PUBLIC	LIT	'80H';
+
+/* misc */
+DECLARE	TRUE	LIT	'0FFH',
+	FALSE	LIT	'0';
 

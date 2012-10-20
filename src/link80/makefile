@@ -66,7 +66,7 @@ $(**: =,&
 link1.abs: link0.abs link3.obj
 	@SET ISIS_F0=.
 	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:link publics(link0.abs),link3.obj,:F1:plm80.lib to $*.rel
+	$(ISIS) :F1:link publics(link0.abs),link3.obj,:F1:plm80.lib to $*.rel MAP
 	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS PUBLICS CODE(48DEH) STACKSIZE(0)
 #	@del $*.rel
 	@if not exist $@ exit /b 1
@@ -76,7 +76,7 @@ link2.abs: link0.abs link1.abs link3a.obj mkfnam.obj lineuc.obj
 	@SET ISIS_F1=$(PLMDIR)
 	$(ISIS) :F1:link "&" < <<
 publics(link0.abs,link1.abs),link3a.obj,mkfnam.obj,lineuc.obj,&
-:F1:system.lib(delete),:f1:system.lib to $*.rel
+:F1:system.lib(delete),:f1:system.lib to $*.rel MAP
 <<NOKEEP
 	$(ISIS) :f1:locate $*.rel to $@ SYMBOLS PUBLICS CODE(629DH) STACKSIZE(0)
 	@del $*.rel

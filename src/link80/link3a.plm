@@ -59,9 +59,9 @@ DECLARE	CRLF (2) BYTE EXTERNAL,
 	baseHeap ADDRESS EXTERNAL,
 	topHeap ADDRESS EXTERNAL,
 	npbuf ADDRESS EXTERNAL,
-	sibuf$p ADDRESS EXTERNAL,
-	ibuf$p ADDRESS EXTERNAL,
-	eibuf$p ADDRESS EXTERNAL,
+	sbuf$p ADDRESS EXTERNAL,
+	buf$p ADDRESS EXTERNAL,
+	ebuf$p ADDRESS EXTERNAL,
 	filePath(16) BYTE EXTERNAL,
 	toFileName(16) BYTE EXTERNAL,
 	linkTmpFile(16) BYTE EXTERNAL,
@@ -70,13 +70,13 @@ DECLARE	CRLF (2) BYTE EXTERNAL,
 	segmap(256) BYTE EXTERNAL,
 	modhdr$x1 BYTE EXTERNAL,
 	modhdr$x2 BYTE EXTERNAL,
-	segSizes(6) ADDRESS EXTERNAL,
+	segLen(6) ADDRESS EXTERNAL,
 	entrySeg BYTE EXTERNAL,
 	entryAddr ADDRESS EXTERNAL,
 	maxExternCnt ADDRESS EXTERNAL,
-	headunres ADDRESS EXTERNAL,
-	headcitem ADDRESS EXTERNAL,
-	isMain BYTE EXTERNAL,
+	headUnresolved ADDRESS EXTERNAL,
+	headSegOrderLink ADDRESS EXTERNAL,
+	modtype BYTE EXTERNAL,
 	unresolved ADDRESS EXTERNAL,
 	statusIO ADDRESS EXTERNAL;
 
@@ -209,7 +209,7 @@ END checkFile;
 
 errNotDiscFile: PROCEDURE PUBLIC;
 	CALL makeFullName(.info, .inFileName(1));
-	CALL errChkReport(ERR17, .inFileName(1), 0FFH);	/* not a disk file */
+	CALL errChkReport(ERR17, .inFileName(1), TRUE);	/* not a disk file */
 END errNotDiscFile;
 
 
@@ -258,14 +258,14 @@ getInputListItem: PROCEDURE PUBLIC;
 		IF info.deviceType <> 3 THEN	/* must be disk file */
 			CALL errNotDiscFile;
 		CALL addFileToInputList;
-		objFile.publicsOnly = 0FFH;	/* record PUBLICS */
+		objFile.publicsOnly = TRUE;	/* record PUBLICS */
 		DO WHILE cmdCh = ',';		/* process any more PUBLICS files */
 			CALL expectComma;
 			CALL checkFile;
 			IF info.deviceType <> 3 THEN
 				CALL errNotDiscFile;
 			CALL addFileToInputList;
-			objFile.publicsOnly = 0FFH;
+			objFile.publicsOnly = TRUE;
 		END;
 		CALL chkRP;			/* close with ) */
 	END;
@@ -278,7 +278,7 @@ getInputListItem: PROCEDURE PUBLIC;
 		IF cmdCh = '(' THEN		/* check if we have a module list */
 		DO;
 			CALL chkLP;		/* gobble up the ( */
-			objFile.hasModules = 0FFH;	/* note have module list */
+			objFile.hasModules = TRUE;	/* note have module list */
 			CALL getModuleName(.curModuleName);
 			curModule = (objFile.modList := allocDown(size(module) + curModuleName(0)));
 			module.link, module.symlist, module.scode = 0;
@@ -322,7 +322,7 @@ parseControl: PROCEDURE PUBLIC;
 		CALL fatalCmdLineErr(ERR229);	/* Unrecognised control */
 	CALL skipNonArgChars(cmd$p + k);	/* past the control */
 	DO CASE j - 1;
-		doMap = 0FFH;	/* MAP */
+		doMap = TRUE;	/* MAP */
 		DO;		/* NAME(modulename) */
 			CALL chkLP;
 			CALL getModuleName(.moduleName);
@@ -341,7 +341,7 @@ END parseControl;
 
 readCmdLine: PROCEDURE PUBLIC;
 	CALL read(1, cmd$p, 128, .actRead, .statusIO);
-	CALL errChkReport(statusIO, .cin, 0FFH);
+	CALL errChkReport(statusIO, .cin, TRUE);
 	cmdbuf(actRead) = 0DH;
 	CALL crStrUpper(cmd$p);
 END readCmdLine;
@@ -357,8 +357,8 @@ parseCmdLine: PROCEDURE PUBLIC;
 		npbuf = 3072;
 	ELSE
 		npbuf = 1056;
-	sibuf$p = allocdown(npbuf);
-	eibuf$p, ibuf$p = sibuf$p + npbuf;
+	sbuf$p = allocdown(npbuf);
+	ebuf$p, buf$p = sbuf$p + npbuf;
 	scmd$p = allocUp(0);	/* alloc 0 length buffer below heap. Will fix later */
 	scmdch = '-';		/* put - at start of command buf */
 	CALL rescan(1, .statusIO);	/* rescan the command line */
@@ -450,7 +450,7 @@ parseCmdLine: PROCEDURE PUBLIC;
 		hashChains(p) = 0;
 	END;
 	DO p = SEG$ABS TO SEG$RESERVE;
-		segSizes(p) = 0;
+		segLen(p) = 0;
 		alignType(p) = 0;
 	END;
 	DO p = 0 TO 255;
@@ -458,12 +458,12 @@ parseCmdLine: PROCEDURE PUBLIC;
 	END;
 	modhdr$x1 = 0;
 	modhdr$x2 = 0;
-	isMain = 0;
+	modtype = 0;
 	entrySeg = 0;
-	entryAddr, headcitem, unresolved, maxExternCnt, headunres = 0;
+	entryAddr, headSegOrderLink, unresolved, maxExternCnt, headUnresolved = 0;
 	/* open print file (could be console) */
 	CALL open(.printFileNo, .printFileName(1), 2, 0, .statusIO);
-	CALL errChkReport(statusIO, .printFileName(1), 0FFH);
+	CALL errChkReport(statusIO, .printFileName(1), TRUE);
 	/* if printing to other than console, log the login & command line */
 	IF printFileNo > 0 THEN
 	DO;
