@@ -44,7 +44,7 @@ sub$770B: procedure external; end;
 sub$7844: procedure external; end;
 sub$787A: procedure external; end;
 sub$78CE: procedure external; end;
-ovl2: procedure external; end;
+writeExtName: procedure external; end;
 writeRec02: procedure external; end;
 haveTokens: procedure byte external; end;
 isPhase1: procedure byte external; end;
@@ -65,10 +65,10 @@ declare (moduleNameLen, b6745, activeSeg, b6754) byte external,
 	(b6B2E, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, b6BDB) byte external,
 	(b6BDD, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
 	(inElse, macroCondSP, opSP, b9C3A) byte external,
-	(b3692, aModulePage, b4181, tokenSize, b674C, tokenType, tokenAttr, accum1byt, accum2byt)(1) byte external,
+	(b3692, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr, accum1byt, accum2byt)(1) byte external,
 	(macroCondStk, b6873, b674A, skipping, opStack)(1) byte external,
 	(w6750, startAddr, accum1, accum2, w685A, w685C, w68A6) address external,
-	(w6818, segSize, w6B41)(1) address external,
+	(tokenSymId, segSize, w6B41)(1) address external,
 	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
 			     w4 address, buf$p address, blk address, w10 address,
 			     w12 address, w14 address) external;
@@ -86,10 +86,10 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if b674C(arg1b) <> accum1byt(0) then
+			if alignTypes(arg1b) <> accum1byt(0) then
 				call sub$5EE3;
 		end;
-		else if b674C(arg1b) <> 3 then
+		else if alignTypes(arg1b) <> 3 then
 			call sub$5EE3;
 	end;
 	else
@@ -99,7 +99,7 @@ sub$4AAA: procedure(arg1b) public;
 		do;
 			accum1 = sub$43DD;
 			if accum1 = 1 or accum1 = 2 then
-				b674C(arg1b) = low(accum1);
+				alignTypes(arg1b) = low(accum1);
 			else
 				call sub$5EE3;
 		end;
@@ -359,7 +359,7 @@ sub$516F: procedure;
 			b$9C3A = 0;
 			call sub$5CE8(w6750, 2);
 			if isPhase1 and optOBJECT and not b6754 then
-				call ovl2;
+				call writeExtName;
 			
 			if not b6754 then
 				w6750 = w6750 + 1;
@@ -515,7 +515,7 @@ sub$518F: procedure;
 	end;
 
 	tokenAttr(0) = b6855;
-	w6818(0) = w685A;
+	tokenSymId(0) = w685A;
 	if ror(b6B28,1) then
 		if opType = 6 then
 		do;

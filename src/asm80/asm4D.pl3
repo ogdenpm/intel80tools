@@ -27,7 +27,7 @@ declare rec18a structure(type byte, len address, dta(1) byte) external,
 	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
 	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
 	rec18 structure(type byte, len address, dta(1) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
@@ -58,7 +58,7 @@ declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte external,
 	(b3694, b3696, b3689, b3692, objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
-	(b68B8, b6A52, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf)(1) byte external,
+	(b68B8, asciiLineNo, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf)(1) byte external,
 	(cZERO, c255, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
 	(b6896, b6898, b689B, curCol, b68AB, b68AD, b6A56, optDEBUG, optMACRODEBUG) byte external,
 	(optXREF, optSYMBOLS, optPAGING, optTTY, optPRINT, optOBJECT, optPAGEWIDTH, optPAGELENGTH, optTITLE) byte external,
@@ -72,7 +72,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
 	(w6750, w686E, w6870, objfd) address external,
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E,  errCnt, w6BD3) address external,
+	(w6A4E,  errCnt, zero) address external,
 	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
 	(w6868, w6B41, segSize, symTab, tokStart)(1) address external,
 	CR literally '0Dh';
@@ -313,7 +313,7 @@ sub$8447: procedure public;
         call printCRLF;
 end;
 
-ovl1: procedure public;
+printCmdLine: procedure public;
     declare ch based actRead byte;
 
     call outch(0Ch);
@@ -395,7 +395,7 @@ sub$72D8: procedure public;
     call printNStr(4, .b6A57);
     call printStr(.asc$6DC6);    /* ")" */
     call printCRLF;
-    call move(4, .b6A52, .b6A57);
+    call move(4, .asciiLineNo, .b6A57);
 end;
 
 
@@ -445,7 +445,7 @@ loop:
     else
     do;
         b68AD = 0FFh;
-        call outNStr(4, .b6A52);
+        call outNStr(4, .asciiLineNo);
         if b$905B > 1 then
             call outch(2Bh);
         else

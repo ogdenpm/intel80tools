@@ -2,10 +2,10 @@ asm4C:
 do;
 
 declare rec18a structure(type byte, len address, dta(1) byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
-	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
+	rec16 structure(type byte, len address, seg byte, dta(1) byte) external,
+	rec22 structure(type byte, len address, hilo byte, dta(1) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
 	rec18 structure(type byte, len address, dta(1) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
@@ -16,8 +16,8 @@ declare	b6D6E(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	rec02 structure(type byte, len address, b0 byte, dta(25) byte) initial(2),
-	(w758B$p, w758D$p) address;
+declare	rec02 structure(type byte, len address, dta(26) byte) initial(2),
+	(recData$p, recSym$p) address;
 
 
 
@@ -33,16 +33,17 @@ isSkipping: procedure byte external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare	(b6521, b6524, b6525, b652A, b652F) byte external,
+declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
 	(moduleNameLen, b6744, b6745, activeSeg, b6755, b689A, b6A56, optDEBUG) byte external,
 	(b6B23, b6B24, b6B33, b6B34, b6BDB) byte external,
 	curTokenSym$p address external,
 	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
 	symb based curTokenSym$p(1) byte,
 	(statusIO, w651F, w6522, w6750, w6752, startAddr, objfd) address external,
-	(w68A0, w68A2, w6BD3) address external,
-	(rec0E, b6526, b652B, b674C, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
-	(w6868, w6B41, symTab, tokStart, w6818, segSize)(1) address external;
+	(w68A0, w68A2, zero) address external,
+	(rec0E, b6526, b652B, alignTypes, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
+	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
+	(w6868, w6B41, symTab, tokStart, tokenSymId, segSize)(1) address external;
 
 
 
@@ -81,12 +82,12 @@ end;
 
 sub$6E32: procedure public;
 	declare b7598 byte;
-	declare wrd based w758B$p address;
+	declare wrd based recData$p address;
 	do b7598 = 0 to 3;
 		b6BDB = (b7598 - 1) and 3;
-		w758B$p = off$6D72(b6BDB);
+		recData$p = off$6D72(b6BDB);
 		if wrd > b6D6E(b6BDB) then
-			call writeRec(w758B$p - 1);
+			call writeRec(recData$p - 1);
 
 		wrd = b6D6E(b6BDB);
 		b6526(b6BDB) = 0;
@@ -104,9 +105,9 @@ end;
 sub$6EE1: procedure;
 	declare w7599 address;
 
-	declare wrd based w758B$p address;
+	declare wrd based recData$p address;
 
-	w758B$p = off$6D72(b6525 := sub$6DF1);
+	recData$p = off$6D72(b6525 := sub$6DF1);
 	if wrd > b6D7A(b6525) or rec06.len + tokenSize(b6A56) > 7Ch then
 		call sub$6E32;
 
@@ -115,7 +116,7 @@ sub$6EE1: procedure;
 		b652F = 0;
 		rec06.addr = segSize(rec06.seg := activeSeg) + w6752;
 	end;
-	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + b6526(3)) <> segSize(activeSeg) + w6752
+	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + fix6Idx) <> segSize(activeSeg) + w6752
 	  or w7599 < rec06.addr then
 		call sub$6E32;
 
@@ -160,8 +161,8 @@ sub$704D: procedure;
 
 	declare ch based w651F byte;
 	do b759B = 1 to tokenSize(b6A56);
-		rec06.dta(b6526(3)) = ch;
-		b6526(3) = b6526(3) + 1;
+		rec06.dta(fix6Idx) = ch;
+		fix6Idx = fix6Idx + 1;
 		w651F = w651F + 1;
 	end;
 	rec06.len = rec06.len + tokenSize(b6A56);
@@ -170,23 +171,23 @@ end;
 
 
 sub$709D: procedure;
-	rec16.len = rec16.len + 2;
-	rec16.dta(b6526(0)) = w6522;
-	b6526(0) = b6526(0) + 1;
+	rec22.len = rec22.len + 2;
+	rec22.dta(fix22Idx) = w6522;
+	fix22Idx = fix22Idx + 1;
 end;
 
 
 sub$70C1: procedure;
 	rec24.len = rec24.len + 2;
-	rec24.dta(b6526(1)) = w6522;
-	b6526(1) = b6526(1) + 1;
+	rec24.dta(fix24Idx) = w6522;
+	fix24Idx = fix24Idx + 1;
 end;
 
 sub$70E5: procedure;
-	rec20.dta(b6526(2)) = w6818(b6A56);
-	rec20.dta(b6526(2) + 1) = w6522;
+	rec20.dta(fix20Idx) = tokenSymId(b6A56);
+	rec20.dta(fix20Idx + 1) = w6522;
 	rec20.len = rec20.len + 4;
-	b6526(2) = b6526(2) + 2;
+	fix20Idx = fix20Idx + 2;
 end;
 
 sub$7131: procedure;
@@ -206,104 +207,103 @@ sub$7131: procedure;
 end;
 
 
-ovl2: procedure public;
-	declare b759C byte;
+writeExtName: procedure public;
+	declare i byte;
 
-	if rec18a.len + 9 > 7Dh then
+	if rec18a.len + 9 > 125 then	/* check room for extName */
 	do;
-		call writeRec(.rec18a);
+		call writeRec(.rec18a);	/* flush existing extNam record */
 		rec18a.type = 18h;
 		rec18a.len = 0;
-		b652A = 0;
+		extNamIdx = 0;
 	end;
-	rec18a.len = rec18a.len + b6744 + 2;
-	rec18a.dta(b652A) = b6744;
-	b652A = b652A + 1;
-	do b759C = 0 to b6744;
-		rec18a.dta(b652A + b759C) = b6873(b759C);
+	rec18a.len = rec18a.len + b6744 + 2;	/* update length for this ref */
+	rec18a.dta(extNamIdx) = b6744;		/* write len */
+	extNamIdx = extNamIdx + 1;
+	do i = 0 to b6744;			/* and name */
+		rec18a.dta(extNamIdx + i) = b6873(i);
 	end;
 
-	rec18a.dta(b652A + b6744) = 0;
-	b652A = b652A + b6744 + 1;
+	rec18a.dta(extNamIdx + b6744) = 0;	/* and terminating 0 */
+	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
 
-sub$725E: procedure(arg1b);
+sub$725E: procedure(arg1b);	/* arg1b = 0FFH -> PUBLIC else LOCAL */
 	declare arg1b byte;
-	declare b759E byte;
+	declare theSegId byte;
 
-	sub$72EC: procedure;
-		declare w759F address;
-		declare b758B based w758B$p(6) byte;
-		declare b758D based w758D$p(1) byte;
-		declare w758D based w758D$p address;
-		declare wrd based w759F address;
-		declare ch based w758D$p byte;
+	writePubLocSym: procedure;
+		declare offsetInSeg$p address;
+		declare symNam based recData$p(6) byte;
+		declare len based recSym$p byte;
+		declare symOffset based recSym$p address;
+		declare offsetInSeg based offsetInSeg$p address;
 
 		if (symb(1) and 40h) <> 0 then
 			return;
-		w759F = curTokenSym$p - 2;
-		w758D = wrd; 
-		call unpackToken(curTokenSym$p - 6, (w758B$p := (w758D$p := w758D$p + 2) + 1));
-		b758B(6) = ' ';
-		ch = 0;
+		offsetInSeg$p = curTokenSym$p - 2;
+		symOffset = offsetInSeg; 
+		call unpackToken(curTokenSym$p - 6, (recData$p := (recSym$p := recSym$p + 2) + 1));
+		symNam(6) = ' ';	/* trailing space to ensure end */
 
-		do while b758B(0) <> ' ';
-			b758D(0) = b758D(0) + 1;
-			w758B$p = w758B$p + 1;
+		len = 0;
+		do while symNam(0) <> ' ';	/* find length of name */
+			len = len + 1;
+			recData$p = recData$p + 1;
 		end;
-		b758B(0) = 0;
-		w758D$p = w758B$p + 1;
+		symNam(0) = 0;			/* terminate name with 0 */
+		recSym$p = recData$p + 1;
 	end;
 
-	sub$7359: procedure;
-		if (rec16.len := w758D$p - .rec16.seg) > 1 then
+	flushSymRec: procedure;
+		if (rec16.len := recSym$p - .rec16.seg) > 1 then	/* something to write */
 			call writeRec(.rec16);
-		rec16.type = (arg1b and 4) or 12h;
-		rec16.seg = b759E;
-		w758D$p = .rec16.dta;
+		rec16.type = (arg1b and 4) or 12h;	/* PUBLIC or LOCAL */
+		rec16.seg = theSegId;
+		recSym$p = .rec16.dta;
 	end;
 
-	w758D$p = .rec16.dta;
-	do b759E = 0 to 4;
-		call sub$7359;
+	recSym$p = .rec16.dta;
+	do theSegId = 0 to 4;
+		call flushSymRec;
 		curTokenSym$p = symTab(1) - 2;
 	
 		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-			if w758D$p > .rec16.dta(57) then
-				call sub$7359;
+			if recSym$p > .rec16.dta(114) then		/* make sure there is room */
+				call flushSymRec;
 
-			if (symb(1) and 7) = b759E and symb(0) <> 3Ah and sub$3FA9
+			if (symb(1) and 7) = theSegId and symb(0) <> 3Ah and sub$3FA9
 			  and not testBit(symb(0), .b6D7E) and (not arg1b or (symb(1) and 20h) <> 0) then
-				call sub$72EC;
+				call writePubLocSym;
 		end;
-		call sub$7359;
+		call flushSymRec;
 	end;
 end;
 
 writeRec02: procedure public;
-	declare wrd based w758B$p address;
-	declare ch based w758B$p byte;
-	declare b75A1 byte;
+	declare w based recData$p address;
+	declare b based recData$p byte;
+	declare i byte;
 
-	call move((rec02.b0 := moduleNameLen), .aModulePage, .rec02.dta);
-	w758B$p = .rec02 + moduleNameLen + 4;
-	wrd = 0;
-	w758B$p = w758B$p + 1;
+	call move((rec02.dta(0) := moduleNameLen), .aModulePage, .rec02.dta(1));
+	recData$p = .rec02 + moduleNameLen + 4;
+	w = 0;
+	recData$p = recData$p + 1;
 	if segSize(1) < w6B41(1) then
 		segSize(1) = w6B41(1);
 	if segSize(2) < w6B41(2) then
 		segSize(2) = w6B41(2);
 
-	do b75A1 = 1 to 4;
-		w758B$p = w758B$p + 1;
-		ch = b75A1;
-		w758B$p = w758B$p + 1;
-		wrd = segSize(b75A1);
-		w758B$p = w758B$p + 2;
-		ch = b674C(b75A1 - 1);
+	do i = 1 to 4;
+		recData$p = recData$p + 1;
+		b = i;
+		recData$p = recData$p + 1;
+		w = segSize(i);
+		recData$p = recData$p + 2;
+		b = alignTypes(i - 1);
 	end;
-	rec02.len = moduleNameLen + 13h;
+	rec02.len = moduleNameLen + 19;
 	call writeRec(.rec02);
 end;
 
@@ -342,20 +342,19 @@ end;
 
 
 ovl11: procedure public;
-	declare myrec16 structure(type byte, len address, seg byte, b1 byte) at (.rec16);
 	if w6750 <> 0 then
 	do;
-		call seek(objfd, 2, .w6BD3, .w6BD3, .statusIO);		/* SEEKABS */
+		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
 		call writeRec02;
-		call seek(objfd, 4, .w6BD3, .w6BD3, .statusIO);		/* SEEKEND */
+		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
 	end;
-	rec22.type = 16h;
-	rec22.len = 1;
-	rec22.seg = 0;
-	rec22.fixtype = 0;
-	call sub$725E(0FFh);
+	rec16.type = 16h;
+	rec16.len = 1;
+	rec16.seg = 0;
+	rec16.dta(0) = 0;
+	call sub$725E(0FFh);	  /* EMIT PUBLICS */
 	if optDEBUG then
-		call sub$725E(0);
+		call sub$725E(0); /* EMIT LOCALS */
 end;
 
 end;

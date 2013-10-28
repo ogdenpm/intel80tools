@@ -12,7 +12,7 @@ isPhase1: procedure byte external; end;
 physmem: procedure address external; end;
 ioErrChk: procedure external; end;
 sub$3DCE: procedure external; end;
-sub$3AAB: procedure(b) external; declare b byte; end;
+wrError: procedure(b) external; declare b byte; end;
 closeF: procedure(w) external; declare w address; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -92,7 +92,7 @@ getAsmFileX: procedure public;		/* extended to include overlay file initialisati
 
 	call cmdSkipWhite;
 	if cmdch = CR then
-		call sub$3AAB(4);	/* file error */
+		call wrError(4);	/* file error */
 
 	infd = inOpen(cmdch$p, 1);
 	rootfd, includefd = infd;
@@ -152,7 +152,7 @@ resetData: procedure public;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
-		call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+		call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
 		call ioErrChk;
 	end;
 	w6870 = physmem + 0BFh;
@@ -163,8 +163,8 @@ end;
 sub$70EE: procedure public;
 	rec06.type = 6;
 	rec06.len = 3;
-	rec16.type = 22h;
-	rec16.len = 1;
+	rec22.type = 22h;
+	rec22.len = 1;
 	rec24.type = 24h;
 	rec24.len = 2;
 	rec20.type = 20h;

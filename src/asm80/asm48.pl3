@@ -16,7 +16,7 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);
 
 
-sub$3AAB: procedure(b) external; declare b byte; end;
+wrError: procedure(b) external; declare b byte; end;
 sub$3CDF: procedure(b) external; declare b byte; end;
 sub$3D55: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
@@ -37,7 +37,7 @@ isSkipping: procedure byte external; end;
 
 declare (activeSeg, tokenSP, b6855, b6857, b6858) byte external,
 	(curChar, reget, lookAhead, b6882, b6883, b6884, b6885, optMOD85, scanOptions) byte external,
-	(needAddrOperand, opType, b6BDB, b6BDD, b$9059, b$905B, b$905C, b$905D) byte external,
+	(has16bitOperand, opType, b6BDB, b6BDD, b$9059, b$905B, b$905C, b$905D) byte external,
 	(b$905E, b$9062, b$9067, b$91A1, b$91A2) byte external,
 	(b6742, b6748, b6749) byte external,
 	(tokenType, b$91A4, mem, macroBuf)(1) byte external,
@@ -96,7 +96,7 @@ sub$5C08: procedure;
 
 	w686E, w$9C32 = (w$9C34 := w686E) + 8;
 	if w6870 < w$9C32 then
-		call sub$3AAB(1);
+		call wrError(1);
 
 	do while w$9C34 > curTokenSym$p;
 		w$9C32 = w$9C32 - 1;
@@ -307,7 +307,7 @@ lookup: procedure(arg1b) byte public;
 					tokenType(0) = curTokenSym.type;
 					if tokenType(0) < 2Dh then
 						if b5672(tokenType(0)) then
-							needAddrOperand = 0FFh;
+							has16bitOperand = 0FFh;
 					if curTokenSym.b7 = 2 and not optMOD85 then
 						call sub$3CDF(4Fh);
 

@@ -16,20 +16,21 @@ declare (cmdch$p, actRead) address external,
 	(w673F, w6750, w686E, w6870) address external,
 	(lineCnt, w68A6, pageCnt, w6A4E) address external,
 	(errCnt, options$p, includefd, rootfd, w75C4, statusIO, infd, off6C25) address external,
-	(off6C2C, off6C2E, w6BD3, endOutBuf) address external,
+	(off6C2C, off6C2E, zero, endOutBuf) address external,
 	(w6868, w6B41, segSize, symTab)(1) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
 	rec06 structure(type byte, len address, dta(125) byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(125) byte) external,
-	rec24 structure(type byte, len address, dta(61) byte) external,
-	rec20 structure(type byte, len address, dta(70) byte) external;
+	rec16 structure(type byte, len address, seg byte, dta(124) byte) external,
+	rec22 structure(type byte, len address, hilo byte, dta(1) address) external,
+	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address) external,
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external;
 
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
 isPhase1: procedure byte external; end;
 physmem: procedure address external; end;
 ioErrChk: procedure external; end;
 sub$3DCE: procedure external; end;
-sub$3AAB: procedure(b) external; declare b byte; end;
+wrError: procedure(b) external; declare b byte; end;
 closeF: procedure(w) external; declare w address; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -105,7 +106,7 @@ getAsmFile: procedure public;
 
 	call cmdSkipWhite;
 	if cmdch = CR then
-		call sub$3AAB(4);
+		call wrError(4);
 
 	infd = inOpen(cmdch$p, 1);
 	rootfd, includefd = infd;
@@ -165,7 +166,7 @@ resetData: procedure public;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
-		call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+		call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
 		call ioErrChk;
 	end;
 	w6870 = physmem + 0BFh;
@@ -176,8 +177,8 @@ end;
 sub$70EE: procedure public;
 	rec06.type = 6;
 	rec06.len = 3;
-	rec16.type = 22h;
-	rec16.len = 1;
+	rec22.type = 22h;
+	rec22.len = 1;
 	rec24.type = 24h;
 	rec24.len = 2;
 	rec20.type = 20h;

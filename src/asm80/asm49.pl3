@@ -3,7 +3,7 @@ do;
 
 
 sub$3CDF: procedure(b) external; declare b byte; end;
-sub$3AAB: procedure(b) external; declare b byte; end;
+wrError: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
 physmem: procedure address external; end;
 getChX: procedure byte external; end;
@@ -15,7 +15,7 @@ declare (cZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byt
 	(b9062, b9063) byte external,
 	(tokenType, tokenSize, tokenAttr, skipping, inElse, macroCondStk)(1) byte external,
 	(off$682A, curTokStart, w6870, w673F) address external,
-	(w6818, tokenSym, tokStart)(1) address external,
+	(tokenSymId, tokenSym, tokStart)(1) address external,
 	s906CStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
 			     w4 address, buf$p address, blk address, w10 address,
 			     w12 address, w14 address) external,
@@ -65,11 +65,11 @@ sub$5F0D: procedure public;
 end;
 
 sub$5F13: procedure public;
-	call sub$3AAB(0);
+	call wrError(0);
 end;
 
 sub$5F19: procedure public;
-	call sub$3AAB(4);
+	call wrError(4);
 end;
 
 sub$5F1F: procedure public;
@@ -103,7 +103,7 @@ popToken: procedure public;
 	tokenType(0) = tokenType(tokenSP);
 	tokenAttr(0) = tokenAttr(tokenSP);
 	tokenSize(0) = tokenSize(tokenSP);
-	w6818(0) = w6818(tokenSP);
+	tokenSymId(0) = tokenSymId(tokenSP);
 	if haveTokens then
 		tokenSP = tokenSP - 1;
 end;
@@ -191,12 +191,12 @@ pushToken: procedure(arg1b) public;
 		tokenType(tokenSP) = tokenType(0);
 		tokenAttr(tokenSP) = tokenAttr(0);
 		tokenSize(tokenSP) = tokenSize(0);
-		w6818(tokenSP) = w6818(0);	
+		tokenSymId(tokenSP) = tokenSymId(0);	
 		tokStart(0) = tokStart(0) + tokenSize(0);
 		tokenType(0) = arg1b;
 		tokenAttr(0), tokenSize(0) = cZERO;
 		tokenSym(0) = w673F;
-		w6818(0) = w673F;
+		tokenSymId(0) = w673F;
 	end;
 end;
 

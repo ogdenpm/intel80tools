@@ -5,26 +5,26 @@ $include(global.inc)
 declare cZERO byte external;
 
 sub$3CDF: procedure(b) external; declare b byte; end;
-sub$3AAB: procedure(b) external; declare b byte; end;
+wrError: procedure(b) external; declare b byte; end;
 getChClass: procedure byte external; end;
 getCh: procedure byte external; end;
 
 
 
 sub$5ED7: procedure public;
-	call sub$3CDF('Q');
+	call sub$3CDF('Q');	/* questionable */
 end;
 
 sub$5EDD: procedure public;
-	call sub$3CDF('D');
+	call sub$3CDF('D');	/* double defined symbol */
 end;
 
 sub$5EE3: procedure public;
-	call sub$3CDF('E');
+	call sub$3CDF('E');	/* external error */
 end;
 
 sub$5EE9: procedure public;
-	call sub$3CDF('C');
+	call sub$3CDF('C');	/* command error */
 end;
 
 sub$5EEF: procedure public;
@@ -36,27 +36,27 @@ sub$5EF5: procedure public;
 end;
 
 sub$5EFB: procedure public;
-	call sub$3CDF('M');
+	call sub$3CDF('M');	/* multiply defined symbol */
 end;
 
 sub$5F01: procedure public;
-	call sub$3CDF('V');
+	call sub$3CDF('V');	/* value error */
 end;
 
 sub$5F07: procedure public;
-	call sub$3CDF('N');
+	call sub$3CDF('N');	/* nesting error */
 end;
 
 sub$5F0D: procedure public;
-	call sub$3CDF('P');
+	call sub$3CDF('P');	/* phase error */
 end;
 
 sub$5F13: procedure public;
-	call sub$3AAB(0);	/* stack error */
+	call wrError(0);	/* stack error */
 end;
 
 sub$5F19: procedure public;
-	call sub$3AAB(4);	/* file error */
+	call wrError(4);	/* file error */
 end;
 
 sub$5F1F: procedure public;
@@ -68,7 +68,7 @@ sub$5F25: procedure public;
 end;
 
 sub$5F2B: procedure public;
-	call sub$3CDF('U');
+	call sub$3CDF('U');	/* undefined symbol */
 end;
 
 sub$5F31: procedure public;
@@ -90,7 +90,7 @@ popToken: procedure public;
 	tokenType(0) = tokenType(tokenSP);
 	tokenAttr(0) = tokenAttr(tokenSP);
 	tokenSize(0) = tokenSize(tokenSP);
-	w6818(0) = w6818(tokenSP);
+	tokenSymId(0) = tokenSymId(tokenSP);
 	if haveTokens then
 		tokenSP = tokenSP - 1;
 end;
@@ -136,12 +136,12 @@ pushToken: procedure(arg1b) public;
 		tokenType(tokenSP) = tokenType(0);
 		tokenAttr(tokenSP) = tokenAttr(0);
 		tokenSize(tokenSP) = tokenSize(0);
-		w6818(tokenSP) = w6818(0);
+		tokenSymId(tokenSP) = tokenSymId(0);
 		tokStart(0) = tokStart(0) + tokenSize(0);
 		tokenType(0) = arg1b;
 		tokenAttr(0), tokenSize(0) = cZERO;
 		tokenSym(0) = w673F;
-		w6818(0) = tokenSym(0);
+		tokenSymId(0) = tokenSym(0);
 	end;
 end;
 

@@ -20,7 +20,7 @@ declare pad byte;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b674A, b674C, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, aModulePage)(1) byte external,
+declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, aModulePage)(1) byte external,
 	(tokenType, opStack, b4181, accum1byt, accum2byt)(1) byte external,
 	(b6855, opType, b6B2B, b6B2C, b6B2F, b6B35, b6B36) byte external,
 	(activeSeg, b6B28, b6858, b68AB, b6B23, b6B24, b6B2D, b6B30, b6CE4) byte external,
@@ -28,12 +28,12 @@ declare (b674A, b674C, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, 
 	(b6754, b6743, moduleNameLen, b6B29, b6885, b6B25, phase, b6B34, opSP, b6856, b6859) byte external,
 	(b6857, b6BDB, b6B2E, optOBJECT, b6744) byte external,
 	(accum1, accum2, startAddr, w6750, w685A, w685C, w68A6) address external,
-	(segSize, w6818, w6B41)(1) address external;
+	(segSize, tokenSymId, w6B41)(1) address external;
 
 exit: procedure external; end;
 flushout: procedure external; end;
-sub2$6E32: procedure external; end;
-ovl2: procedure external; end;
+sub$6E32: procedure external; end;
+writeExtName: procedure external; end;
 ovl3: procedure external; end;
 writeRec02: procedure external; end;
 ovl8: procedure external; end;
@@ -77,10 +77,10 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if b674C(arg1b) <> accum1byt(0) then
+			if alignTypes(arg1b) <> accum1byt(0) then
 				call sub$5EE3;
 		end;
-		else if b674C(arg1b) <> 3 then
+		else if alignTypes(arg1b) <> 3 then
 			call sub$5EE3;
 	end;
 	else
@@ -90,7 +90,7 @@ sub$4AAA: procedure(arg1b) public;
 		do;
 			accum1 = sub$43DD;
 			if accum1 = 1 or accum1 = 2 then
-				b674C(arg1b) = low(accum1);
+				alignTypes(arg1b) = low(accum1);
 			else
 				call sub$5EE3;
 		end;
@@ -343,7 +343,7 @@ sub$4B72: procedure public;
 			call sub$5819(w6750, 2);
 			if isPhase1 and optOBJECT and not b6754 then
 			do;
-				call ovl2;
+				call writeExtName;
 			end;
 			if not b6754 then
 				w6750 = w6750 + 1;
@@ -479,7 +479,7 @@ sub$518F: procedure public;
 		end;
 
 		tokenAttr(0) = b6855;
-		w6818(0) = w685A;
+		tokenSymId(0) = w685A;
 		if ror(b6B28, 1) then
 			if opType = 6 then
 			do;

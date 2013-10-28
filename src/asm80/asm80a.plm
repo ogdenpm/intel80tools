@@ -15,7 +15,8 @@ declare w651F address external,
 	b6524 byte external,
 	b6525 byte external,
 	b6526(4) byte external,
-	b652A byte external,
+	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
+	extNamIdx byte external,
 	b652B(4) byte external,
 	b652F byte external,
 	rec0E(4) byte external,
@@ -23,8 +24,8 @@ declare w651F address external,
 	moduleNameLen byte external,
 	rec18 structure(type byte, len address, dta(125) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(122) byte, crc byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(62) address, crc byte) external,
-	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(62) address) external,
+	rec16 structure(type byte, len address, seg byte, dta(124) byte, crc byte) external,
+	rec22 structure(type byte, len address, fixtype byte, dta(62) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address, crc byte) external,
 	rec20 structure(type byte, len address, fixtype byte, dta(30) address, crc byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
@@ -39,7 +40,7 @@ declare w651F address external,
 	b6748 byte external,
 	b6749 byte external,
 	b674A(2) byte external,
-	b674C(4) byte external,
+	alignTypes(4) byte external,
 	w6750 address external,
 	w6752 address external,
 	b6754 byte external,
@@ -212,7 +213,7 @@ declare w651F address external,
 /*	padw6BCB(2) byte, */
 	w6BCE address external,
 /*	pad6BD0(3) byte initial(0), */
-	w6BD3 address external,
+	zero address external,
 	cmdch$p address external,
 	options$p address external,
 	b6BD9 byte external,
@@ -307,7 +308,8 @@ $ENDIF
 	b6524 byte public,
 	b6525 byte public,
 	b6526(4) byte public initial(0, 0, 0, 0),
-	b652A byte public initial(0),
+	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte public at (.b6526),
+	extNamIdx byte public initial(0),
 	b652B(4) byte public initial(0FFh, 0FFh, 0FFh, 0FFh),
 	b652F byte public initial(0FFh),
 	rec0E(4) byte public initial(0Eh, 0, 0),
@@ -315,8 +317,8 @@ $ENDIF
 	moduleNameLen byte public initial(6),
 	rec18 structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
 	rec06 structure(type byte, len address, seg byte, addr address, dta(122) byte, crc byte) public at(.rec18),
-	rec16 structure(type byte, len address, seg byte, dta(62) address, crc byte) public initial (16h, 1, 0, 0),
-	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(62) address) public at(.rec16),
+	rec16 structure(type byte, len address, seg byte, dta(124) byte, crc byte) public initial (16h, 1, 0, 0, 0),
+	rec22 structure(type byte, len address, fixtype byte, dta(62) address) public at(.rec16),
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address, crc byte) public,
 	rec20 structure(type byte, len address, fixtype byte, dta(30) address, crc byte) public,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) public initial( 4, 4, 0),
@@ -331,7 +333,7 @@ $ENDIF
 	b6748 byte public initial(0),
 	b6749 byte public initial(0),
 	b674A(2) byte public,
-	b674C(4) byte public initial(3, 3, 3, 3),
+	alignTypes(4) byte public initial(3, 3, 3, 3),
 	w6750 address public,
 	w6752 address public,
 	b6754 byte public initial(0),
@@ -515,7 +517,7 @@ $ENDIF
 	padw6BCB(2) byte,
 	w6BCE address public,
 	pad6BD0(3) byte initial(0),
-	w6BD3 address public initial(0),
+	zero address public initial(0),
 	cmdch$p address public initial(.cmdLineBuf),
 	options$p address public,
 	b6BD9 byte public initial(0),
@@ -1667,8 +1669,8 @@ declare	(asc$3692, aModulePage)(1) byte external,
 
 exit: procedure external; end;
 flushout: procedure external; end;
-sub2$6E32: procedure external; end;
-ovl2: procedure external; end;
+sub$6E32: procedure external; end;
+writeExtName: procedure external; end;
 ovl3: procedure external; end;
 writeRec02: procedure external; end;
 ovl8: procedure external; end;
@@ -1713,10 +1715,10 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if b674C(arg1b) <> accum1byt(0) then
+			if alignTypes(arg1b) <> accum1byt(0) then
 				call sub$5EE3;
 		end;
-		else if b674C(arg1b) <> 3 then
+		else if alignTypes(arg1b) <> 3 then
 			call sub$5EE3;
 	end;
 	else
@@ -1726,7 +1728,7 @@ sub$4AAA: procedure(arg1b) public;
 		do;
 			accum1 = sub$43DD;
 			if accum1 = 1 or accum1 = 2 then
-				b674C(arg1b) = low(accum1);
+				alignTypes(arg1b) = low(accum1);
 			else
 				call sub$5EE3;
 		end;
@@ -1986,7 +1988,7 @@ sub$4B72: procedure public;
 			if isPhase1 and optOBJECT and not b6754 then
 			do;
 				call ovlMgr(2);
-				call ovl2;
+				call writeExtName;
 			end;
 			if not b6754 then
 				w6750 = w6750 + 1;
@@ -2160,7 +2162,7 @@ sub$3DCE: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$5ED7: procedure external; end;
 sub$7041: procedure external; end;			/* in overlay 1 */
-sub2$6E32: procedure external; end;
+sub$6E32: procedure external; end;
 sub$4646: procedure byte external; end;
 haveTokens: procedure byte external; end;
 xisSpace: procedure byte external; end;
@@ -2290,7 +2292,7 @@ sub$54FD: procedure public;
 		if sub$3A71 then
 		do;
 			call ovlMgr(2);
-			call sub2$6E32;
+			call sub$6E32;
 		end;
 	end;
 end;
@@ -3803,8 +3805,8 @@ declare	b6D6E(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	rec02 structure(type byte, len address, b0 byte, dta(25) byte) initial(2),
-	(w758B$p, w758D$p) address;
+declare	rec02 structure(type byte, len address, dta(26) byte) initial(2),
+	(recData$p, recSym$p) address;
 
 
 
@@ -3851,14 +3853,14 @@ sub$6DF1: procedure byte;
 end;
 
 
-sub2$6E32: procedure public;
+sub$6E32: procedure public;
 	declare b7598 byte;
-	declare wrd based w758B$p address;
+	declare wrd based recData$p address;
 	do b7598 = 0 to 3;
 		b6BDB = (b7598 - 1) and 3;
-		w758B$p = off$6D72(b6BDB);
+		recData$p = off$6D72(b6BDB);
 		if wrd > b6D6E(b6BDB) then
-			call writeRec(w758B$p - 1);
+			call writeRec(recData$p - 1);
 
 		wrd = b6D6E(b6BDB);
 		b6526(b6BDB) = 0;
@@ -3876,20 +3878,20 @@ end;
 sub$6EE1: procedure;
 	declare w7599 address;
 
-	declare wrd based w758B$p address;
+	declare wrd based recData$p address;
 
-	w758B$p = off$6D72(b6525 := sub$6DF1);
+	recData$p = off$6D72(b6525 := sub$6DF1);
 	if wrd > b6D7A(b6525) or rec06.len + tokenSize(b6A56) > 7Ch then
-		call sub2$6E32;
+		call sub$6E32;
 
 	if b652F then
 	do;
 		b652F = 0;
 		rec06.addr = segSize(rec06.seg := activeSeg) + w6752;
 	end;
-	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + b6526(3)) <> segSize(activeSeg) + w6752
+	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + fix6Idx) <> segSize(activeSeg) + w6752
 	  or w7599 < rec06.addr then
-		call sub2$6E32;
+		call sub$6E32;
 
 
 	do case b6525;
@@ -3900,7 +3902,7 @@ sub$6EE1: procedure;
 				rec16.seg = b6524;
 			end;
 			else if rec16.seg <> b6524 then
-				call sub2$6E32;
+				call sub$6E32;
 		end;
 /* 1 */		do;
 			if b652B(1) then
@@ -3910,7 +3912,7 @@ sub$6EE1: procedure;
 				rec24.fixtype = b6524;
 			end;
 			else if rec24.fixtype <> b6524 or (tokenAttr(b6A56) and 7) <> rec24.seg then
-				call sub2$6E32;
+				call sub$6E32;
 		end;
 /* 2 */		do;
 			if b652B(2) then
@@ -3919,7 +3921,7 @@ sub$6EE1: procedure;
 				rec20.fixtype = b6524;
 			end;
 			else if rec20.fixtype <> b6524 then
-				call sub2$6E32;
+				call sub$6E32;
 
 		end;
 /* 4 */		;
@@ -3932,8 +3934,8 @@ sub$704D: procedure;
 
 	declare ch based w651F byte;
 	do b759B = 1 to tokenSize(b6A56);
-		rec06.dta(b6526(3)) = ch;
-		b6526(3) = b6526(3) + 1;
+		rec06.dta(fix6Idx) = ch;
+		fix6Idx = fix6Idx + 1;
 		w651F = w651F + 1;
 	end;
 	rec06.len = rec06.len + tokenSize(b6A56);
@@ -3942,23 +3944,23 @@ end;
 
 
 sub$709D: procedure;
-	rec16.len = rec16.len + 2;
-	rec16.dta(b6526(0)) = w6522;
-	b6526(0) = b6526(0) + 1;
+	rec22.len = rec22.len + 2;
+	rec22.dta(fix22Idx) = w6522;
+	fix22Idx = fix22Idx + 1;
 end;
 
 
 sub$70C1: procedure;
 	rec24.len = rec24.len + 2;
-	rec24.dta(b6526(1)) = w6522;
-	b6526(1) = b6526(1) + 1;
+	rec24.dta(fix24Idx) = w6522;
+	fix24Idx = fix24Idx + 1;
 end;
 
 sub$70E5: procedure;
-	rec20.dta(b6526(2)) = tokenSymId(b6A56);
-	rec20.dta(b6526(2) + 1) = w6522;
+	rec20.dta(fix20Idx) = tokenSymId(b6A56);
+	rec20.dta(fix20Idx + 1) = w6522;
 	rec20.len = rec20.len + 4;
-	b6526(2) = b6526(2) + 2;
+	fix20Idx = fix20Idx + 2;
 end;
 
 sub$7131: procedure;
@@ -3978,77 +3980,77 @@ sub$7131: procedure;
 end;
 
 
-ovl2: procedure public;
-	declare b759C byte;
+writeExtName: procedure public;
+	declare i byte;
 
-	if rec18a.len + 9 > 7Dh then
+	if rec18a.len + 9 > 125 then	/* check room for extName */
 	do;
-		call writeRec(.rec18a);
+		call writeRec(.rec18a);	/* flush existing extNam Record */
 		rec18a.type = 18h;
 		rec18a.len = 0;
-		b652A = 0;
+		extNamIdx = 0;
 	end;
-	rec18a.len = rec18a.len + b6744 + 2;
-	rec18a.dta(b652A) = b6744;
-	b652A = b652A + 1;
-	do b759C = 0 to b6744;
-		rec18a.dta(b652A + b759C) = b6873(b759C);
+	rec18a.len = rec18a.len + b6744 + 2;	/* update length for this ref */
+	rec18a.dta(extNamIdx) = b6744;		/* write len */
+	extNamIdx = extNamIdx + 1;
+	do i = 0 to b6744;			/* and name */
+		rec18a.dta(extNamIdx + i) = b6873(i);
 	end;
 
-	rec18a.dta(b652A + b6744) = 0;
-	b652A = b652A + b6744 + 1;
+	rec18a.dta(extNamIdx + b6744) = 0;	/* and terminating 0 */
+	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
-sub$725E: procedure(arg1b);
+sub$725E: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
 	declare arg1b byte;
-	declare b759E byte,
-	b67EB based curTokenSym$p(1) byte;	/* TO CLEANUP */
+	declare theSegId byte,
+	symb based curTokenSym$p(1) byte;	/* TO CLEANUP */
 
-	sub$72EC: procedure;
-		declare w759F address;
-		declare b758B based w758B$p(6) byte;
-		declare b758D based w758D$p(1) byte;
-		declare w758D based w758D$p address;
-		declare wrd based w759F address;
-		declare ch based w758D$p byte;
-		if (b67EB(1) and 40h) <> 0 then
+	writePubLocSym: procedure;
+		declare offsetInSeg$p address;
+		declare symNam based recData$p(6) byte;
+		declare len based recSym$p byte;
+		declare symOffset based recSym$p address;
+		declare offsetInSeg based offsetInSeg$p address;
+
+		if (symb(1) and 40h) <> 0 then
 			return;
-		w759F = curTokenSym$p - 2;
-		w758D = wrd; 
-		call unpackToken(curTokenSym$p - 6, (w758B$p := (w758D$p := w758D$p + 2) + 1));
-		b758B(6) = ' ';
-		ch = 0;
+		offsetInSeg$p = curTokenSym$p - 2;
+		symOffset = offsetInSeg; 
+		call unpackToken(curTokenSym$p - 6, (recData$p := (recSym$p := recSym$p + 2) + 1));
+		symNam(6) = ' ';	/* trailing space to ensure end */
+		len = 0;
 
-		do while b758B(0) <> ' ';
-			b758D(0) = b758D(0) + 1;
-			w758B$p = w758B$p + 1;
+		do while symNam(0) <> ' ';	/* find length of name */
+			len = len + 1;
+			recData$p = recData$p + 1;
 		end;
-		b758B(0) = 0;
-		w758D$p = w758B$p + 1;
+		symNam(0) = 0;			/* terminate name with 0 */
+		recSym$p = recData$p + 1;
 	end;
 
-	sub$7359: procedure;
-		if (rec16.len := w758D$p - .rec16.seg) > 1 then
+	flushSymRec: procedure;
+		if (rec16.len := recSym$p - .rec16.seg) > 1 then	/* something to write */
 			call writeRec(.rec16);
-		rec16.type = (arg1b and 4) or 12h;
-		rec16.seg = b759E;
-		w758D$p = .rec16.dta;
+		rec16.type = (arg1b and 4) or 12h;			/* PUBLIC or LOCAL */
+		rec16.seg = theSegId;
+		recSym$p = .rec16.dta;
 	end;
 
-	w758D$p = .rec16.dta;
-	do b759E = 0 to 4;
-		call sub$7359;
+	recSym$p = .rec16.dta;
+	do theSegId = 0 to 4;
+		call flushSymRec;
 		curTokenSym$p = symTab(1) - 2;
 
 		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-			if w758D$p > .rec16.dta(57) then
-				call sub$7359;
+			if recSym$p > .rec16.dta(114) then		/* make sure there is room */
+				call flushSymRec;
 
-			if (b67EB(1) and 7) = b759E and not testBit(b67EB(0), .b6D7E) and
-			  (not arg1b or (b67EB(1) and 20h) <> 0) then
-				call sub$72EC;
+			if (symb(1) and 7) = theSegId and not testBit(symb(0), .b6D7E) and
+			  (not arg1b or (symb(1) and 20h) <> 0) then
+				call writePubLocSym;
 		end;
-		call sub$7359;
+		call flushSymRec;
 	end;
 end;
 
@@ -4060,29 +4062,29 @@ end;
 
 
 writeRec02: procedure public;
-	declare wrd based w758B$p address;
-	declare ch based w758B$p byte;
-	declare b75A1 byte;
+	declare w based recData$p address;
+	declare b based recData$p byte;
+	declare i byte;
 
 
-	call move((rec02.b0 := moduleNameLen), .aModulePage, .rec02.dta);
-	w758B$p = .rec02 + moduleNameLen + 4;
-	wrd = 0;
-	w758B$p = w758B$p + 1;
+	call move((rec02.dta(0) := moduleNameLen), .aModulePage, .rec02.dta(1));
+	recData$p = .rec02 + moduleNameLen + 4;
+	w = 0;
+	recData$p = recData$p + 1;
 	if segSize(1) < w6B41(1) then
 		segSize(1) = w6B41(1);
 	if segSize(2) < w6B41(2) then
 		segSize(2) = w6B41(2);
 
-	do b75A1 = 1 to 4;
-		w758B$p = w758B$p + 1;
-		ch = b75A1;
-		w758B$p = w758B$p + 1;
-		wrd = segSize(b75A1);
-		w758B$p = w758B$p + 2;
-		ch = b674C(b75A1 - 1);
+	do i = 1 to 4;
+		recData$p = recData$p + 1;
+		b = i;
+		recData$p = recData$p + 1;
+		w = segSize(i);
+		recData$p = recData$p + 2;
+		b = alignTypes(i - 1);
 	end;
-	rec02.len = moduleNameLen + 13h;
+	rec02.len = moduleNameLen + 19;
 	call writeRec(.rec02);
 end;
 
@@ -4120,20 +4122,19 @@ end;
 
 
 ovl11: procedure public;
-	declare myrec16 structure(type byte, len address, seg byte, b1 byte) at (.rec16);
 	if w6750 <> 0 then
 	do;
-		call seek(objfd, 2, .w6BD3, .w6BD3, .statusIO);		/* SEEKABS */
+		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
 		call writeRec02;
-		call seek(objfd, 4, .w6BD3, .w6BD3, .statusIO);		/* SEEKEND */
+		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
 	end;
-	rec22.type = 16h;
-	rec22.len = 1;
-	rec22.seg = 0;
-	rec22.fixtype = 0;
-	call sub$725E(0FFh);
+	rec16.type = 16h;
+	rec16.len = 1;
+	rec16.seg = 0;
+	rec16.dta(0) = 0;
+	call sub$725E(0FFh);	  /* EMIT PUBLICS */
 	if optDEBUG then
-		call sub$725E(0);
+		call sub$725E(0); /* EMIT LOCALS */
 end;
 end;
 asmov3.plm
@@ -4291,7 +4292,7 @@ resetData: procedure public;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
-		call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+		call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
 		call ioErrChk;
 	end;
 	w6870 = physmem + 0BFh;
@@ -4302,8 +4303,8 @@ end;
 sub$70EE: procedure public;
 	rec06.type = 6;
 	rec06.len = 3;
-	rec16.type = 22h;
-	rec16.len = 1;
+	rec22.type = 22h;
+	rec22.len = 1;
 	rec24.type = 24h;
 	rec24.len = 2;
 	rec20.type = 20h;
@@ -4939,7 +4940,7 @@ sub$3DCE: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$5ED7: procedure external; end;
 sub$7041: procedure external; end;			/* in overlay 1 */
-sub2$6E32: procedure external; end;
+sub$6E32: procedure external; end;
 sub$4646: procedure byte external; end;
 haveTokens: procedure byte external; end;
 xisSpace: procedure byte external; end;
@@ -5065,7 +5066,7 @@ sub$54FD: procedure public;
 		call sub$467F(2, .b6873);
 		if sub4$3A6A then
 		do;
-			call sub2$6E32;
+			call sub$6E32;
 		end;
 	end;
 end;
@@ -5093,7 +5094,7 @@ declare pad byte;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b674A, b674C, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, aModulePage)(1) byte external,
+declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, aModulePage)(1) byte external,
 	(tokenType, opStack, b4181, accum1byt, accum2byt)(1) byte external,
 	(b6855, opType, b6B2B, b6B2C, b6B2F, b6B35, b6B36) byte external,
 	(activeSeg, b6B28, b6858, b68AB, b6B23, b6B24, b6B2D, b6B30, b6CE4) byte external,
@@ -5105,8 +5106,8 @@ declare (b674A, b674C, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, 
 
 exit: procedure external; end;
 flushout: procedure external; end;
-sub2$6E32: procedure external; end;
-ovl2: procedure external; end;
+sub$6E32: procedure external; end;
+writeExtName: procedure external; end;
 ovl3: procedure external; end;
 writeRec02: procedure external; end;
 ovl8: procedure external; end;
@@ -5150,10 +5151,10 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if b674C(arg1b) <> accum1byt(0) then
+			if alignTypes(arg1b) <> accum1byt(0) then
 				call sub$5EE3;
 		end;
-		else if b674C(arg1b) <> 3 then
+		else if alignTypes(arg1b) <> 3 then
 			call sub$5EE3;
 	end;
 	else
@@ -5163,7 +5164,7 @@ sub$4AAA: procedure(arg1b) public;
 		do;
 			accum1 = sub$43DD;
 			if accum1 = 1 or accum1 = 2 then
-				b674C(arg1b) = low(accum1);
+				alignTypes(arg1b) = low(accum1);
 			else
 				call sub$5EE3;
 		end;
@@ -5416,7 +5417,7 @@ sub$4B72: procedure public;
 			call sub$5819(w6750, 2);
 			if isPhase1 and optOBJECT and not b6754 then
 			do;
-				call ovl2;
+				call writeExtName;
 			end;
 			if not b6754 then
 				w6750 = w6750 + 1;
@@ -5591,13 +5592,14 @@ declare (cmdch$p, actRead) address external,
 	(w673F, w6750, w686E, w6870) address external,
 	(lineCnt, w68A6, pageCnt, w6A4E) address external,
 	(errCnt, options$p, includefd, rootfd, w75C4, statusIO, infd, off6C25) address external,
-	(off6C2C, off6C2E, w6BD3, endOutBuf) address external,
+	(off6C2C, off6C2E, zero, endOutBuf) address external,
 	(w6868, w6B41, segSize, symTab)(1) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
 	rec06 structure(type byte, len address, dta(125) byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(125) byte) external,
-	rec24 structure(type byte, len address, dta(61) byte) external,
-	rec20 structure(type byte, len address, dta(70) byte) external;
+	rec16 structure(type byte, len address, seg byte, dta(124) byte) external,
+	rec22 structure(type byte, len address, hilo byte, dta(1) address) external,
+	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address) external,
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external;
 
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
 isPhase1: procedure byte external; end;
@@ -5740,7 +5742,7 @@ resetData: procedure public;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
-		call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+		call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
 		call ioErrChk;
 	end;
 	w6870 = physmem + 0BFh;
@@ -5751,8 +5753,8 @@ end;
 sub$70EE: procedure public;
 	rec06.type = 6;
 	rec06.len = 3;
-	rec16.type = 22h;
-	rec16.len = 1;
+	rec22.type = 22h;
+	rec22.len = 1;
 	rec24.type = 24h;
 	rec24.len = 2;
 	rec20.type = 20h;
@@ -7329,7 +7331,7 @@ sub$770B: procedure external; end;
 sub$7844: procedure external; end;
 sub$787A: procedure external; end;
 sub$78CE: procedure external; end;
-ovl2: procedure external; end;
+writeExtName: procedure external; end;
 writeRec02: procedure external; end;
 haveTokens: procedure byte external; end;
 isPhase1: procedure byte external; end;
@@ -7350,7 +7352,7 @@ declare (moduleNameLen, b6745, activeSeg, b6754) byte external,
 	(b6B2E, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, b6BDB) byte external,
 	(b6BDD, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
 	(inElse, macroCondSP, opSP, b9C3A) byte external,
-	(b3692, aModulePage, b4181, tokenSize, b674C, tokenType, tokenAttr, accum1byt, accum2byt)(1) byte external,
+	(b3692, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr, accum1byt, accum2byt)(1) byte external,
 	(macroCondStk, b6873, b674A, skipping, opStack)(1) byte external,
 	(w6750, startAddr, accum1, accum2, w685A, w685C, w68A6) address external,
 	(tokenSymId, segSize, w6B41)(1) address external,
@@ -7371,10 +7373,10 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if b674C(arg1b) <> accum1byt(0) then
+			if alignTypes(arg1b) <> accum1byt(0) then
 				call sub$5EE3;
 		end;
-		else if b674C(arg1b) <> 3 then
+		else if alignTypes(arg1b) <> 3 then
 			call sub$5EE3;
 	end;
 	else
@@ -7384,7 +7386,7 @@ sub$4AAA: procedure(arg1b) public;
 		do;
 			accum1 = sub$43DD;
 			if accum1 = 1 or accum1 = 2 then
-				b674C(arg1b) = low(accum1);
+				alignTypes(arg1b) = low(accum1);
 			else
 				call sub$5EE3;
 		end;
@@ -7644,7 +7646,7 @@ sub$516F: procedure;
 			b$9C3A = 0;
 			call sub$5CE8(w6750, 2);
 			if isPhase1 and optOBJECT and not b6754 then
-				call ovl2;
+				call writeExtName;
 			
 			if not b6754 then
 				w6750 = w6750 + 1;
@@ -9619,10 +9621,10 @@ asm4C:
 do;
 
 declare rec18a structure(type byte, len address, dta(1) byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
-	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
+	rec16 structure(type byte, len address, seg byte, dta(1) byte) external,
+	rec22 structure(type byte, len address, hilo byte, dta(1) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
 	rec18 structure(type byte, len address, dta(1) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
@@ -9633,8 +9635,8 @@ declare	b6D6E(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	rec02 structure(type byte, len address, b0 byte, dta(25) byte) initial(2),
-	(w758B$p, w758D$p) address;
+declare	rec02 structure(type byte, len address, dta(26) byte) initial(2),
+	(recData$p, recSym$p) address;
 
 
 
@@ -9650,15 +9652,16 @@ isSkipping: procedure byte external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare	(b6521, b6524, b6525, b652A, b652F) byte external,
+declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
 	(moduleNameLen, b6744, b6745, activeSeg, b6755, b689A, b6A56, optDEBUG) byte external,
 	(b6B23, b6B24, b6B33, b6B34, b6BDB) byte external,
 	curTokenSym$p address external,
 	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
 	symb based curTokenSym$p(1) byte,
 	(statusIO, w651F, w6522, w6750, w6752, startAddr, objfd) address external,
-	(w68A0, w68A2, w6BD3) address external,
-	(rec0E, b6526, b652B, b674C, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
+	(w68A0, w68A2, zero) address external,
+	(rec0E, b6526, b652B, alignTypes, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
+	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
 	(w6868, w6B41, symTab, tokStart, tokenSymId, segSize)(1) address external;
 
 
@@ -9698,12 +9701,12 @@ end;
 
 sub$6E32: procedure public;
 	declare b7598 byte;
-	declare wrd based w758B$p address;
+	declare wrd based recData$p address;
 	do b7598 = 0 to 3;
 		b6BDB = (b7598 - 1) and 3;
-		w758B$p = off$6D72(b6BDB);
+		recData$p = off$6D72(b6BDB);
 		if wrd > b6D6E(b6BDB) then
-			call writeRec(w758B$p - 1);
+			call writeRec(recData$p - 1);
 
 		wrd = b6D6E(b6BDB);
 		b6526(b6BDB) = 0;
@@ -9721,9 +9724,9 @@ end;
 sub$6EE1: procedure;
 	declare w7599 address;
 
-	declare wrd based w758B$p address;
+	declare wrd based recData$p address;
 
-	w758B$p = off$6D72(b6525 := sub$6DF1);
+	recData$p = off$6D72(b6525 := sub$6DF1);
 	if wrd > b6D7A(b6525) or rec06.len + tokenSize(b6A56) > 7Ch then
 		call sub$6E32;
 
@@ -9732,7 +9735,7 @@ sub$6EE1: procedure;
 		b652F = 0;
 		rec06.addr = segSize(rec06.seg := activeSeg) + w6752;
 	end;
-	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + b6526(3)) <> segSize(activeSeg) + w6752
+	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + fix6Idx) <> segSize(activeSeg) + w6752
 	  or w7599 < rec06.addr then
 		call sub$6E32;
 
@@ -9777,8 +9780,8 @@ sub$704D: procedure;
 
 	declare ch based w651F byte;
 	do b759B = 1 to tokenSize(b6A56);
-		rec06.dta(b6526(3)) = ch;
-		b6526(3) = b6526(3) + 1;
+		rec06.dta(fix6Idx) = ch;
+		fix6Idx = fix6Idx + 1;
 		w651F = w651F + 1;
 	end;
 	rec06.len = rec06.len + tokenSize(b6A56);
@@ -9787,23 +9790,23 @@ end;
 
 
 sub$709D: procedure;
-	rec16.len = rec16.len + 2;
-	rec16.dta(b6526(0)) = w6522;
-	b6526(0) = b6526(0) + 1;
+	rec22.len = rec22.len + 2;
+	rec22.dta(fix22Idx) = w6522;
+	fix22Idx = fix22Idx + 1;
 end;
 
 
 sub$70C1: procedure;
 	rec24.len = rec24.len + 2;
-	rec24.dta(b6526(1)) = w6522;
-	b6526(1) = b6526(1) + 1;
+	rec24.dta(fix24Idx) = w6522;
+	fix24Idx = fix24Idx + 1;
 end;
 
 sub$70E5: procedure;
-	rec20.dta(b6526(2)) = tokenSymId(b6A56);
-	rec20.dta(b6526(2) + 1) = w6522;
+	rec20.dta(fix20Idx) = tokenSymId(b6A56);
+	rec20.dta(fix20Idx + 1) = w6522;
 	rec20.len = rec20.len + 4;
-	b6526(2) = b6526(2) + 2;
+	fix20Idx = fix20Idx + 2;
 end;
 
 sub$7131: procedure;
@@ -9823,104 +9826,103 @@ sub$7131: procedure;
 end;
 
 
-ovl2: procedure public;
-	declare b759C byte;
+writeExtName: procedure public;
+	declare i byte;
 
-	if rec18a.len + 9 > 7Dh then
+	if rec18a.len + 9 > 125 then	/* check room for extName */
 	do;
-		call writeRec(.rec18a);
+		call writeRec(.rec18a);	/* flush existing extNam record */
 		rec18a.type = 18h;
 		rec18a.len = 0;
-		b652A = 0;
+		extNamIdx = 0;
 	end;
-	rec18a.len = rec18a.len + b6744 + 2;
-	rec18a.dta(b652A) = b6744;
-	b652A = b652A + 1;
-	do b759C = 0 to b6744;
-		rec18a.dta(b652A + b759C) = b6873(b759C);
+	rec18a.len = rec18a.len + b6744 + 2;	/* update length for this ref */
+	rec18a.dta(extNamIdx) = b6744;		/* write len */
+	extNamIdx = extNamIdx + 1;
+	do i = 0 to b6744;			/* and name */
+		rec18a.dta(extNamIdx + i) = b6873(i);
 	end;
 
-	rec18a.dta(b652A + b6744) = 0;
-	b652A = b652A + b6744 + 1;
+	rec18a.dta(extNamIdx + b6744) = 0;	/* and terminating 0 */
+	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
 
-sub$725E: procedure(arg1b);
+sub$725E: procedure(arg1b);	/* arg1b = 0FFH -> PUBLIC else LOCAL */
 	declare arg1b byte;
-	declare b759E byte;
+	declare theSegId byte;
 
-	sub$72EC: procedure;
-		declare w759F address;
-		declare b758B based w758B$p(6) byte;
-		declare b758D based w758D$p(1) byte;
-		declare w758D based w758D$p address;
-		declare wrd based w759F address;
-		declare ch based w758D$p byte;
+	writePubLocSym: procedure;
+		declare offsetInSeg$p address;
+		declare symNam based recData$p(6) byte;
+		declare len based recSym$p byte;
+		declare symOffset based recSym$p address;
+		declare offsetInSeg based offsetInSeg$p address;
 
 		if (symb(1) and 40h) <> 0 then
 			return;
-		w759F = curTokenSym$p - 2;
-		w758D = wrd; 
-		call unpackToken(curTokenSym$p - 6, (w758B$p := (w758D$p := w758D$p + 2) + 1));
-		b758B(6) = ' ';
-		ch = 0;
+		offsetInSeg$p = curTokenSym$p - 2;
+		symOffset = offsetInSeg; 
+		call unpackToken(curTokenSym$p - 6, (recData$p := (recSym$p := recSym$p + 2) + 1));
+		symNam(6) = ' ';	/* trailing space to ensure end */
 
-		do while b758B(0) <> ' ';
-			b758D(0) = b758D(0) + 1;
-			w758B$p = w758B$p + 1;
+		len = 0;
+		do while symNam(0) <> ' ';	/* find length of name */
+			len = len + 1;
+			recData$p = recData$p + 1;
 		end;
-		b758B(0) = 0;
-		w758D$p = w758B$p + 1;
+		symNam(0) = 0;			/* terminate name with 0 */
+		recSym$p = recData$p + 1;
 	end;
 
-	sub$7359: procedure;
-		if (rec16.len := w758D$p - .rec16.seg) > 1 then
+	flushSymRec: procedure;
+		if (rec16.len := recSym$p - .rec16.seg) > 1 then	/* something to write */
 			call writeRec(.rec16);
-		rec16.type = (arg1b and 4) or 12h;
-		rec16.seg = b759E;
-		w758D$p = .rec16.dta;
+		rec16.type = (arg1b and 4) or 12h;	/* PUBLIC or LOCAL */
+		rec16.seg = theSegId;
+		recSym$p = .rec16.dta;
 	end;
 
-	w758D$p = .rec16.dta;
-	do b759E = 0 to 4;
-		call sub$7359;
+	recSym$p = .rec16.dta;
+	do theSegId = 0 to 4;
+		call flushSymRec;
 		curTokenSym$p = symTab(1) - 2;
 	
 		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-			if w758D$p > .rec16.dta(57) then
-				call sub$7359;
+			if recSym$p > .rec16.dta(114) then		/* make sure there is room */
+				call flushSymRec;
 
-			if (symb(1) and 7) = b759E and symb(0) <> 3Ah and sub$3FA9
+			if (symb(1) and 7) = theSegId and symb(0) <> 3Ah and sub$3FA9
 			  and not testBit(symb(0), .b6D7E) and (not arg1b or (symb(1) and 20h) <> 0) then
-				call sub$72EC;
+				call writePubLocSym;
 		end;
-		call sub$7359;
+		call flushSymRec;
 	end;
 end;
 
 writeRec02: procedure public;
-	declare wrd based w758B$p address;
-	declare ch based w758B$p byte;
-	declare b75A1 byte;
+	declare w based recData$p address;
+	declare b based recData$p byte;
+	declare i byte;
 
-	call move((rec02.b0 := moduleNameLen), .aModulePage, .rec02.dta);
-	w758B$p = .rec02 + moduleNameLen + 4;
-	wrd = 0;
-	w758B$p = w758B$p + 1;
+	call move((rec02.dta(0) := moduleNameLen), .aModulePage, .rec02.dta(1));
+	recData$p = .rec02 + moduleNameLen + 4;
+	w = 0;
+	recData$p = recData$p + 1;
 	if segSize(1) < w6B41(1) then
 		segSize(1) = w6B41(1);
 	if segSize(2) < w6B41(2) then
 		segSize(2) = w6B41(2);
 
-	do b75A1 = 1 to 4;
-		w758B$p = w758B$p + 1;
-		ch = b75A1;
-		w758B$p = w758B$p + 1;
-		wrd = segSize(b75A1);
-		w758B$p = w758B$p + 2;
-		ch = b674C(b75A1 - 1);
+	do i = 1 to 4;
+		recData$p = recData$p + 1;
+		b = i;
+		recData$p = recData$p + 1;
+		w = segSize(i);
+		recData$p = recData$p + 2;
+		b = alignTypes(i - 1);
 	end;
-	rec02.len = moduleNameLen + 13h;
+	rec02.len = moduleNameLen + 19;
 	call writeRec(.rec02);
 end;
 
@@ -9959,20 +9961,19 @@ end;
 
 
 ovl11: procedure public;
-	declare myrec16 structure(type byte, len address, seg byte, b1 byte) at (.rec16);
 	if w6750 <> 0 then
 	do;
-		call seek(objfd, 2, .w6BD3, .w6BD3, .statusIO);		/* SEEKABS */
+		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
 		call writeRec02;
-		call seek(objfd, 4, .w6BD3, .w6BD3, .statusIO);		/* SEEKEND */
+		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
 	end;
-	rec22.type = 16h;
-	rec22.len = 1;
-	rec22.seg = 0;
-	rec22.fixtype = 0;
-	call sub$725E(0FFh);
+	rec16.type = 16h;
+	rec16.len = 1;
+	rec16.seg = 0;
+	rec16.dta(0) = 0;
+	call sub$725E(0FFh);	  /* EMIT PUBLICS */
 	if optDEBUG then
-		call sub$725E(0);
+		call sub$725E(0); /* EMIT LOCALS */
 end;
 
 end;
@@ -10006,7 +10007,7 @@ declare rec18a structure(type byte, len address, dta(1) byte) external,
 	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
 	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
 	rec18 structure(type byte, len address, dta(1) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
@@ -10051,7 +10052,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
 	(w6750, w686E, w6870, objfd) address external,
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E,  errCnt, w6BD3) address external,
+	(w6A4E,  errCnt, zero) address external,
 	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
 	(w6868, w6B41, segSize, symTab, tokStart)(1) address external,
 	CR literally '0Dh';
@@ -10522,7 +10523,7 @@ declare rec18a structure(type byte, len address, dta(1) byte) external,
 	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
 	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
 	rec18 structure(type byte, len address, dta(1) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
@@ -10547,7 +10548,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
 	(w6750, w686E, w6870, objfd) address external,
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E, errCnt, w6BD3) address external,
+	(w6A4E, errCnt, zero) address external,
 	w6868(3) address external,
 	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
 	(w6B41, segSize, symTab, tokStart, w9D71)(1) address external,
@@ -10703,7 +10704,7 @@ resetDataX: procedure public;	/* extended initialisation */
         off$6C25 = .b68B8;
         off$6C2C = off$6C25 - 1;
         off$6C2E = .b68B8;
-        call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+        call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
         call ioErrChk;
     end;
 
@@ -10899,7 +10900,7 @@ $SET(OVL=5)
 $include(global.cmn)
 end;
 makefile
-ISIS=..\..\isis
+ISIS=..\..\thames
 PLMDIR=..\..\plm80v4
 ASMDIR=..\..\plm80v4
 OLDPLMDIR=..\..\plm80v3
@@ -10908,33 +10909,33 @@ OVERLAY=6D4Ch
 # compilation and assembly rules
 .SUFFIXES: .plm .pl3
 .plm.obj:
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
 	$(ISIS) :F1:PLM80 $< code
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
-	@SET :F0:=.
-	@SET :F1:=$(OLDPLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(OLDPLMDIR)
 	$(ISIS) :F1:PLM80 $< code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .asm.obj:
-	@SET :F0:=.
-	@SET :F1:=$(ASMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(ASMDIR)
 	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
 all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
 asm80: base.abs asmov0.abs asmov1.abs asmov2.abs asmov3.abs keywrd.abs 
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:link base.abs,publics(asmov0.abs,asmov1.abs,asmov2.abs),&
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link base.abs,publics(asmov0.abs,asmov1.abs,asmov2.abs), "&" < <<
 asmov3.abs,keywrd.abs to $*.rel &
 map print($*.lin)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS print($*.map)&
+<<NOKEEP
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS print($*.map) "&" < <<
 STACKSIZE(0) PURGE NAME(ASM80)
 exit
 <<NOKEEP
@@ -10945,43 +10946,35 @@ exit
 
 
 asm80.ov0: asmov0.abs 
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo0) &
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo0) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O0)
-exit
 <<NOKEEP
 	@(find $*.mo0 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 asm80.ov1: asmov1.abs 
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo1) &
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo1) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O1)
-exit
 <<NOKEEP	
 	@(find $*.mo1 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 
 asm80.ov2: asmov2.abs 
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo2) &
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo2) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O2)
-exit
 <<NOKEEP	
 	@(find $*.mo2 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 asm80.ov3: asmov3.abs
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo3) &
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print($*.mo3) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O3)
-exit
 <<NOKEEP
 	@(find $*.mo3 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
@@ -10993,77 +10986,63 @@ OBJS1 =	glb.obj asm801.obj asm82.obj asm83.obj asm84.obj asm85.obj\
        	exit.obj load.obj open.obj read.obj rescan.obj seek.obj write.obj
 
 base.abs: $(OBJS1)
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link $(OBJS1: =,&
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link "&" < <<
+$(OBJS1: =, & 
 ),:f1:plm80.lib to $*.rel print($*.lin)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS STACKSIZE(120) print($*.map)
-exit
-<<NOKEEP	
+<<NOKEEP
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS STACKSIZE(120) print($*.map)
 	del $*.rel
 	@find $*.lin "UNRESOLVED EXTERNAL" >nul || (del $@ & exit /b 1)
 
 
 keywrd.abs: keywrd.obj memory.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link $(**: =,) to $*.rel map print($*.lin)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE(075A2h) STACKSIZE(0) print($*.map)
-exit
-<<NOKEEP
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link $(**: =,) to $*.rel map print($*.lin)
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE(075A2h) STACKSIZE(0) print($*.map)
 	del $*.rel
 	@find $*.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $*.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 asmov0.abs: base.abs cprite.obj asmov0.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link publics(base.abs),cprite.obj,asmov0.obj to $*.rel map print($*.la0)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma0)
-exit
-<<NOKEEP
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov0.obj to $*.rel map print($*.la0)
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma0)
 	del $*.rel
 	@find $*.la0 "LINK MAP" >nul || (del $@ & exit /b 1)
 
 
 asmov1.abs: base.abs cprite.obj asmov1.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link publics(base.abs),cprite.obj,asmov1.obj,:F1:plm80.lib &
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov1.obj,:F1:plm80.lib "&" < <<
 to $*.rel map print($*.la1)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma1)
-exit
 <<NOKEEP
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma1)
 	del $*.rel
 	@find $*.la1 "LINK MAP" >nul || (del $@ & exit /b 1)
 
 
 
 asmov2.abs: base.abs cprite.obj asmov2.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link publics(base.abs),cprite.obj,asmov2.obj to $*.rel map print($*.la2)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma2)
-exit
-<<NOKEEP
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov2.obj to $*.rel map print($*.la2)
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma2)
 	del $*.rel
 	@find $*.la2 "LINK MAP" >nul || (del $@ & exit /b 1)
 
 
 asmov3.abs: base.abs cprite.obj asmov3.obj keywrd.abs
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<
-:F1:link publics(base.abs),cprite.obj,asmov3.obj,publics(keywrd.abs) &
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov3.obj,publics(keywrd.abs) "&" < <<
 to $*.rel map print($*.la3)
-:F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma3)
-exit
 <<NOKEEP
+	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma3)
 	del $*.rel
 	@find $*.la3 "LINK MAP" >nul || (del $@ & exit /b 1)
 
@@ -11089,12 +11068,13 @@ OBJS4 =	glb4.obj asm41.obj asm42.obj asm87.obj asm43.obj asm44.obj asm45.obj asm
 	seek.obj write.obj
 
 asm80.ov4: $(OBJS4) key4.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:link $(OBJS4: =,&
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link "&" < <<
+$(OBJS4: =, & 
 ),:f1:plm80.lib,key4.obj to asmov4.rel map print(asmov4.lin)
-:F1:locate asmov4.rel to $@ SYMBOLS NAME(A80O4) PURGE &
+<<NOKEEP
+	$(ISIS) :F1:locate asmov4.rel to $@ SYMBOLS NAME(A80O4) PURGE "&" < <<
 MAP PUBLICS code(3780h) STACKSIZE(144) print(asmov4.map)
 exit
 <<NOKEEP
@@ -11110,12 +11090,13 @@ OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm
 	seek.obj write.obj
 
 asm80.ov5: $(OBJS5) keywrd.obj
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
-	$(ISIS) < <<	
-:F1:link $(OBJS5: =,&
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:link "&" < <<
+$(OBJS5: =, &
 ),:f1:plm80.lib,keywrd.obj to asmov5.rel map print(asmov5.lin)
-:F1:locate asmov5.rel to $@ SYMBOLS NAME(A80O5) PURGE &
+<<NOKEEP
+	$(ISIS) :F1:locate asmov5.rel to $@ SYMBOLS NAME(A80O5) PURGE "&" < <<
 MAP PUBLICS code(3780h) STACKSIZE(144) print(asmov5.map)
 exit
 <<NOKEEP
@@ -11124,20 +11105,20 @@ exit
 
 
 glb5.obj: glb5.plm global.cmn
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
 	$(ISIS) :F1:PLM80 glb5.plm code
 	@if not exist $*.obj exit /b 1
 
 glb.obj: glb.plm global.cmn
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
 	$(ISIS) :F1:PLM80 glb.plm code
 	@if not exist $*.obj exit /b 1
 
 glb4.obj: glb4.plm global.cmn
-	@SET :F0:=.
-	@SET :F1:=$(PLMDIR)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
 	$(ISIS) :F1:PLM80 glb4.plm code
 	@if not exist $*.obj exit /b 1
 close.plm

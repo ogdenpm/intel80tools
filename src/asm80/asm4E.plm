@@ -5,7 +5,7 @@ declare rec18a structure(type byte, len address, dta(1) byte) external,
 	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
 	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(1) address) external, 
+	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
 	rec18 structure(type byte, len address, dta(1) byte) external,
 	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
@@ -15,7 +15,7 @@ declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte external,
 	(b3694, b3696, b3689, b3692, objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
-	(b68B8, b6A52, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf,
+	(b68B8, asciiLineNo, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf,
 	 macroCondStk, opStack, b674A)(1) byte external,
 	(cZERO, c255, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
 	(b6896, b6898, b689B, curCol, b68AB, b68AD, b6A56, optDEBUG, optMACRODEBUG) byte external,
@@ -30,7 +30,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
 	(w6750, w686E, w6870, objfd) address external,
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E, errCnt, w6BD3) address external,
+	(w6A4E, errCnt, zero) address external,
 	w6868(3) address external,
 	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
 	(w6B41, segSize, symTab, tokStart, w9D71)(1) address external,
@@ -47,7 +47,7 @@ read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) addre
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 isPhase1: procedure byte external; end;
-sub$3AAB: procedure(b) external; declare b byte; end;
+wrError: procedure(b) external; declare b byte; end;
 sub$3DFB: procedure external; end;
 inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
 
@@ -118,7 +118,7 @@ getAsmFile: procedure public;
 
     call cmdSkipWhite;
     if cmdch = 0Dh then
-        call sub$3AAB(4);
+        call wrError(4);
 
     infd = inOpen(cmdch$p, 1);
     rootfd, includefd = infd;
@@ -186,7 +186,7 @@ resetDataX: procedure public;	/* extended initialisation */
         off$6C25 = .b68B8;
         off$6C2C = off$6C25 - 1;
         off$6C2E = .b68B8;
-        call seek(infd, 2, .w6BD3, .w6BD3, .statusIO);	/* SEEKABS */
+        call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
         call ioErrChk;
     end;
 
