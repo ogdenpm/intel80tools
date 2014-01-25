@@ -20,14 +20,16 @@ declare pad byte;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, aModulePage)(1) byte external,
-	(tokenType, opStack, b4181, accum1byt, accum2byt)(1) byte external,
+declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, spaces24, aModulePage)(1) byte external,
+	(tokenType, opStack, b4181)(1) byte external,
+	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
 	(b6855, opType, b6B2B, b6B2C, b6B2F, b6B35, b6B36) byte external,
 	(activeSeg, b6B28, b6858, b68AB, b6B23, b6B24, b6B2D, b6B30, b6CE4) byte external,
 	(tokenSP, b6745, b6755, ifDepth, b6B32, b6B33, b6881, b6748, b6749) byte external,
 	(b6754, b6743, moduleNameLen, b6B29, b6885, b6B25, phase, b6B34, opSP, b6856, b6859) byte external,
 	(b6857, b6BDB, b6B2E, optOBJECT, b6744) byte external,
 	(accum1, accum2, startAddr, w6750, w685A, w685C, w68A6) address external,
+	accum(4) byte at(.accum1),
 	(segSize, tokenSymId, w6B41)(1) address external;
 
 exit: procedure external; end;
@@ -39,7 +41,7 @@ writeRec02: procedure external; end;
 ovl8: procedure external; end;
 popToken: procedure external; end;
 pushToken: procedure(b1) external; declare b1 byte; end;
-sub$3CDF: procedure(b1) external; declare b1 byte; end;
+sourceError: procedure(b1) external; declare b1 byte; end;
 sub$3DCE: procedure external; end;
 sub$3F19: procedure external; end;
 sub$4274: procedure external; end;
@@ -49,13 +51,13 @@ sub$450F: procedure(b1) external; declare b1 byte; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$54FD: procedure external; end;
 sub$5819: procedure(w, b) external; declare w address, b byte; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F07: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F25: procedure external; end;
-sub$5F37: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+nestingError: procedure external; end;
+stackError: procedure external; end;
+balanceError: procedure external; end;
+operandError: procedure external; end;
 nestIF: procedure(b) external; declare b byte; end;
 unnestIF: procedure(b) external; declare b byte; end;
 addByte2Tok: procedure(b) external; declare b byte; end;
@@ -77,11 +79,11 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1byt(0) then
-				call sub$5EE3;
+			if alignTypes(arg1b) <> accum1$lb then
+				call expressionError;
 		end;
 		else if alignTypes(arg1b) <> 3 then
-			call sub$5EE3;
+			call expressionError;
 	end;
 	else
 	do;
@@ -92,16 +94,16 @@ sub$4AAA: procedure(arg1b) public;
 			if accum1 = 1 or accum1 = 2 then
 				alignTypes(arg1b) = low(accum1);
 			else
-				call sub$5EE3;
+				call expressionError;
 		end;
 	end;
 end;
 
 
-sub$4B3F: procedure(arg1b) public;
-	declare arg1b byte;
+cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
+	declare cond byte;		/* 0 or 0ffffh */
 
-	accum1 = arg1b;
+	accum1 = cond;
 	if accum1 then
 		accum1 = 0FFFFh;
 end;
@@ -120,7 +122,7 @@ sub$4B72: procedure public;
 /* 2 */		goto case3;
 /* 3 */ case3:	do;
 			if not (b6B2B = 2 and opType = 3) then
-				call sub$5F25;
+				call balanceError;
 
 			if tokenType(0) = 11 then
 			do;
@@ -136,39 +138,39 @@ sub$4B72: procedure public;
 /* 4 */		accum1 = accum1 * accum2;
 /* 5 */		accum1 = accum1 + accum2;
 /* 6 */		do;
-			call sub$5ED7;
+			call syntaxError;
 			call popToken;
 		end;
 /* 7 */		accum1 = accum1 - accum2;
 /* 8 */		;
 /* 9 */		do;
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 
 			accum1 = accum1 / accum2;
 		end;
 /* 10 */	accum1 = -accum1;
-/* 11 */	call sub$4B3F(accum1 = accum2);
-/* 12 */	call sub$4B3F(accum1 < accum2);
-/* 13 */	call sub$4B3F(accum1 <= accum2);
-/* 14 */	call sub$4B3F(accum1 > accum2);
-/* 15 */	call sub$4B3F(accum1 >= accum2);
-/* 16 */	call sub$4B3F(accum1 <> accum2);
+/* 11 */	call cond2Acc(accum1 = accum2);
+/* 12 */	call cond2Acc(accum1 < accum2);
+/* 13 */	call cond2Acc(accum1 <= accum2);
+/* 14 */	call cond2Acc(accum1 > accum2);
+/* 15 */	call cond2Acc(accum1 >= accum2);
+/* 16 */	call cond2Acc(accum1 <> accum2);
 /* 17 */	accum1 = not accum1;
 /* 18 */	accum1 = accum1 and accum2;
 /* 19 */	accum1 = accum1 or accum2;
 /* 20 */	accum1 = accum1 xor accum2;
 /* 21 */	do;
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 			accum1 = accum1 mod accum2;
 		end;
 /* 22 */	do;
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shl(accum1, accum2);
 		end;
 /* 23 */	do;
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shr(accum1, accum2);
 		end;
 /* 24 */	do;
@@ -183,12 +185,12 @@ sub$4B72: procedure public;
 			if tokenType(0) <> 10 then
 			do;
 				accum1 = sub$43DD;
-				if accum1byt(1) - 1 < 0FEh then
-					call sub$5F01;
+				if accum1$hb - 1 < 0FEh then
+					call valueError;
 				b6B28 = 22h;
 				if (b6855 and 18h) = 18h then
 				do;
-					call sub$5F01;
+					call valueError;
 					b6855 = b6855 and 0E7h or 8;
 				end;
 			end;
@@ -199,7 +201,7 @@ sub$4B72: procedure public;
 			end;
 
 			if sub$425B(b6858) then
-				call sub$5F37;
+				call operandError;
 			b6B2D = 0Bh;
 			b6B23 = 0FFh;
 		end;
@@ -216,7 +218,7 @@ sub$4B72: procedure public;
 			b68AB = 0FFh;
 			if (b6855 and 40h) = 40h then
 			do;
-				call sub$5EE3;
+				call expressionError;
 				b6855 = 0;
 			end;
 			b6CE4 = 1;
@@ -230,10 +232,10 @@ sub$4B72: procedure public;
 			do;
 				if (b6855 and 18h) <> 0 then
 					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
-						call sub$5EE3;
+						call expressionError;
 			end;
 			else
-				call sub$5EE3;
+				call expressionError;
 
 			if optOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
@@ -247,21 +249,21 @@ sub$4B72: procedure public;
 				b6755 = 1;
 				b6745 = b6855 and 7;
 				if (b6855 and 40h) = 40h then
-					call sub$5EE3;
+					call expressionError;
 				if sub$425B(b6858) then
-					call sub$5F37;
+					call operandError;
 
 				b68AB = 0FFh;
 			end;
 
 			if ifDepth > 0 then
-				call sub$5F07;
+				call nestingError;
 			if opType <> 1 then
-				call sub$5ED7;
+				call syntaxError;
 			if b6B35 then
 				b6B33 = 0FFh;
 			else
-				call sub$5ED7;
+				call syntaxError;
 
 		end;
 /* 33 */	do;
@@ -278,7 +280,7 @@ sub$4B72: procedure public;
 /* 34 */	do;
 			b6B32 = 0FFh;
 			if ifDepth = 0 then
-				call sub$5F07;
+				call nestingError;
 			else if not inElse(0) then
 			do;
 				if not skipping(0) then
@@ -288,7 +290,7 @@ sub$4B72: procedure public;
 				inElse(0) = 0FFh;
 			end;
 			else
-				call sub$5F07;
+				call nestingError;
 		end;
 /* 35 */	do;
 			if b6B35 then
@@ -300,13 +302,13 @@ sub$4B72: procedure public;
 /* 36 */	do;
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(5);
 		end;
 /* 38 */	call sub$450F(7);
@@ -352,11 +354,11 @@ sub$4B72: procedure public;
 /* 52 */	do;
 			if tokenSP <> 0 and b6743 then
 			do;
-				call move(6, .asc$3692, .aModulePage);
+				call move(6, .spaces24 + 18, .aModulePage);
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
-				call sub$3CDF('R');
+				call sourceError('R');
 
 			call popToken;
 		end;
@@ -403,14 +405,14 @@ sub$518F: procedure public;
 			if b6B25 then
 				if sub$53C0 then
 					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
-						call sub$5EE3;
+						call expressionError;
 
 		if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
 				opSP = 0;
-				call sub$5F13;
+				call stackError;
 			end;
 			else
 				opStack(opSP := opSP + 1) = opType;
@@ -426,7 +428,7 @@ sub$518F: procedure public;
 
 		b6B25 = 0;
 		if not b6B35 and b6B2B > 3 then
-			call sub$5ED7;
+			call syntaxError;
 
 		if b6B2B = 0 then
 			b6B2B = opType;
@@ -475,7 +477,7 @@ sub$518F: procedure public;
 
 		do b6BDB = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum1byt(b6BDB));
+				call addByte2Tok(accum(b6BDB));
 		end;
 
 		tokenAttr(0) = b6855;

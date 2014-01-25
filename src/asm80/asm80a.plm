@@ -5,6 +5,18 @@ declare lit literally 'literally',
 	CR lit '0Dh',
 	LF lit '0Ah';
 
+declare	CC$BAD	lit	'0',
+	CC$WS	lit	'1',
+	CC$SEMI	lit	'2',
+	CC$COLON lit	'3',
+	CC$CR	lit	'4',
+	CC$PUNCT lit	'5',
+	CC$DOLAR lit	'6',
+	CC$QUOTE lit	'7',
+	CC$DIGIT lit	'8',
+	CC$LET	lit	'9',
+	CC$ESC	lit	'0bh';
+
 declare tokenSize lit 'toksiz',
 	tokStart lit 'tokst',
 	packToken lit 'pckTkn';
@@ -29,7 +41,7 @@ declare w651F address external,
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address, crc byte) external,
 	rec20 structure(type byte, len address, fixtype byte, dta(30) address, crc byte) external,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
-	w673F address external,
+	wZERO address external,
 /*	pad6741 byte initial(0ah), */
 	b6742 byte external,
 	b6743 byte external,
@@ -47,7 +59,7 @@ declare w651F address external,
 	b6755 byte external,
 	startAddr address external,
 	tokenSP byte external,
-	b6759(128) byte external,
+	lineBuf(128) byte external,
 	tokStart(9) address external,
 	curTokStart address external,
 	tokenSym(9) address external,
@@ -58,17 +70,15 @@ declare w651F address external,
 	tokenAttr(9) byte external,
 	tokenSymId(9) address external,
 /* end */
-	off682A address external,
+	endLineBuf address external,
 	ifDepth byte external,
 	skipping(9) byte external,
 	inElse(9) byte external,
 	opSP byte external,
 	opStack(17) byte external,
 /* ov4 compat 2CA0 */
-	accum1 address external,
-	accum1byt(2) byte external,
-	accum2 address external,
-	accum2byt(2) byte external,
+	(accum1, accum2) address external,
+	(accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte external,
 	b6855 byte external,
 	b6856 byte external,
 	b6857 byte external,
@@ -322,7 +332,7 @@ $ENDIF
 	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address, crc byte) public,
 	rec20 structure(type byte, len address, fixtype byte, dta(30) address, crc byte) public,
 	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) public initial( 4, 4, 0),
-	w673F address public initial(0),
+	wZERO address public initial(0),
 	pad6741 byte initial(0ah),
 	b6742 byte public initial(0),
 	b6743 byte public initial(0),
@@ -340,8 +350,8 @@ $ENDIF
 	b6755 byte public initial(0),
 	startAddr address public initial(0),
 	tokenSP byte public initial(0),
-	b6759(128) byte public,
-	tokStart(9) address public initial(.b6759),
+	lineBuf(128) byte public,
+	tokStart(9) address public initial(.lineBuf),
 	curTokStart address public at(.tokStart),
 	tokenSym(9) address public initial(0),
 	curTokenSym$p address public at(.tokenSym(0)),
@@ -351,7 +361,7 @@ $ENDIF
 	tokenAttr(9) byte public,
 	tokenSymId(9) address public,
 /* end */
-	off682A address public initial(.tokStart),
+	endLineBuf address public initial(.tokStart),
 	ifDepth byte public initial(0),
 	skipping(9) byte public,
 	inElse(9) byte public,
@@ -363,10 +373,8 @@ $ENDIF
 	opSP byte public,
 	opStack(17) byte public,
 /* ov4 compat 2CA0 */
-	accum1 address public,
-	accum1byt(2) byte public at(.accum1),
-	accum2 address public,
-	accum2byt(2) byte public at(.accum2),
+	(accum1, accum2) address public,
+	(accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte public at(.accum1),
 	b6855 byte public,
 	b6856 byte public,
 	b6857 byte public,
@@ -575,14 +583,13 @@ getCh: procedure byte external; end;
 declare (b6C21, b6C27, b6C30) byte external,
 	(includefd, rootfd, off6C2C, off6C2E) address external;
 
-declare	asc$3680(*) byte public data('                  '),
-	asc$3692(*) byte public data('      ', 0),
+declare	spaces24(*) byte public data('                        ', 0),
 	asc$3699(*) byte public data(0Dh, 0Ah, 0),
 	signonMsg(*) byte public data(0Dh, 0Ah),
 	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
 	aModulePage(*) byte public data('MODULE ',9, ' PAGE ', 0),
-	cZERO byte public data(0),
-	c255 byte public data(0FFh),
+	bZERO byte public data(0),
+	bTRUE byte public data(0FFh),
 	aC19761977197$0(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
 	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
 	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
@@ -730,7 +737,7 @@ wrConsole: procedure(arg1w, arg2w) public;
 	call ioErrChk;
 end;
 
-wrError: procedure(arg1b) public;
+runtimeError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if b6BD9 then
@@ -781,7 +788,7 @@ wrError: procedure(arg1b) public;
 	call exit;
 end;
 
-fileError: procedure(arg1w) public;
+ioError: procedure(arg1w) public;
 	declare arg1w address;
 	declare ch based arg1w byte;
 
@@ -793,8 +800,8 @@ fileError: procedure(arg1w) public;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
-		call wrError(3);	/* EOF error */
-	call wrError(4);		/* file error */
+		call runtimeError(3);	/* EOF error */
+	call runtimeError(4);		/* file error */
 end;
 
 inOpen: procedure(arg1w, arg2w) address public;
@@ -803,7 +810,7 @@ inOpen: procedure(arg1w, arg2w) address public;
 
 	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
 	if openStatus <> 0 then
-		call fileError(arg1w);
+		call ioError(arg1w);
 	return open$infd;
 end;
 
@@ -844,7 +851,7 @@ getNibble: procedure(arg1w, arg2b) byte public;
 	return b6C11 and 0Fh;
 end;
 
-sub$3CDF: procedure(arg1b) public;
+sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if not isSkipping or b6B2B = 22h then	/* ELSE */
@@ -892,7 +899,7 @@ sub$3D6D: procedure public;
 	if b6C21 then
 		call sub$4904;
 
-	b6C21, b6B20, scanOptions = cZERO;
+	b6C21, b6B20, scanOptions = bZERO;
 	call parseDollarLines;
 	b6898 = 0;
 	optDEBUG = optDEBUG and optOBJECT;
@@ -910,9 +917,9 @@ sub$3DCE: procedure public;
 		call sub$4904;
 
 	b68AD, has16bitOperand, b6B20, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = cZERO;
-	b689C, b6B31, b6B34, b6B35 = c255;
-	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = cZERO;
+	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = bZERO;
+	b689C, b6B31, b6B34, b6B35 = bTRUE;
+	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	b6896 = 20h;
 	b689A = 1;
 	w6A4E = w6A4E + 1;
@@ -929,7 +936,7 @@ start:
 	if optMACROFILE then
 	do;
 		if physmem < 8001h then
-			call wrError(5);	 /* memory error */
+			call runtimeError(5);	 /* memory error */
 		if includefd <> rootfd then
 			call closeF(includefd);
 		call closeF(infd);
@@ -948,7 +955,7 @@ start:
 	end;
 
 	if MacroDebugOrGen then			/* error if no Macrofile */
-		call wrError(2);		/* command error */
+		call runtimeError(2);		/* command error */
 
 	if optOBJECT then
 	do;
@@ -1037,9 +1044,9 @@ sub$43D2: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$5819: procedure(w, b) external; declare w address, b byte; end;
 chkLF: procedure external; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F1F: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+illegalCharError: procedure external; end;
 addByte2Tok: procedure(b) external; declare b byte; end;
 collectIdent: procedure(b) external; declare b byte; end;
 collectString: procedure external; end;
@@ -1052,8 +1059,8 @@ lookup: procedure(b) byte external; declare b byte; end;
 testBit: procedure(b, w) byte external; declare b byte, w address; end;
 
 declare b6CE4 byte external,
-	c255 byte external,
-	asc$3692(1) byte external;
+	bTRUE byte external,
+	spaces24(1) byte external;
 
 skipWhite: procedure public;
 	do while isWhite;
@@ -1079,7 +1086,7 @@ sub$3F19: procedure public;
 
 	sub$416B: procedure;
 		if opType = 0 then
-			call sub$5EE3;
+			call expressionError;
 		b6B25 = 0;
 		opType = 0;
 	end;
@@ -1092,15 +1099,15 @@ sub$3F19: procedure public;
 		end;
 
 		do case getChClass;
-	/* 0 */		call sub$5F1F;
-	/* 1 */		;
-	/* 2 */		do;
+	/* 0 CC$BAD */	call illegalCharError;
+	/* 1 CC$WS  */	;
+	/* 2 CC$SEMI */	do;
 				b6742 = 0FFh;
 				call skip2NextLine;
 				b6B29 = 1;
 				return;
 			end;
-	/* 3 */		do;
+	/* 3 CC$COLON */do;
 				if not b6872 then
 				do;
 					if skipping(0) then
@@ -1112,11 +1119,11 @@ sub$3F19: procedure public;
 					end;
 
 					b6B30 = 0;
-					b6872, b6B31 = c255;
+					b6872, b6B31 = bTRUE;
 				end;
 				else
 				do;
-					call sub$5ED7;
+					call syntaxError;
 					call popToken;
 				end;
 
@@ -1124,19 +1131,19 @@ sub$3F19: procedure public;
 				b6880 = 0;
 				opType = 3;
 			end;
-	/* 4 */		do;
+	/* 4 CC$CR */	do;
 				call chkLF;
 				b6B29 = 1;
 				return;
 			end;
-	/* 5 */		do;
+	/* 5 CC$PUNCT */do;
 				if curChar = '+' or curChar = '-' then
 					if opType <> 0  and opType <> 3 then
 						curChar = curChar + 3;
 				b6B29 = (curChar - 28h) + 2;
 				return;
 			end;
-	/* 6 */		do;
+	/* 6 CC$DOLLAR */do;
 				call pushToken(0Ch);
 				call addByte2Tok(low(segSize(activeSeg)));
 				call addByte2Tok(high(segSize(activeSeg)));
@@ -1144,26 +1151,26 @@ sub$3F19: procedure public;
 					tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
 				call sub$416B;
 			end;
-	/* 7 */		do;
+	/* 7 CC$QUOTE */do;
 				call collectString;
 				if b6B31 then
 					call sub$43D2;
 				call sub$416B;
 			end;
-	/* 8 */		do;
+	/* 8 CC$DIGIT */do;
 				call ascii2Num;
 				if b6B31 then
 					call sub$43D2;
 				call sub$416B;
 			end;
-	/* 9 */		do;
+	/* 9 CC$LET*/	do;
 				call collectIdent(9);
 				if tokenSize(0) > 6 then
 					tokenSize(0) = 6;
 				if optXREF then
 				do;
 					call move(6, .b6873, .b6879);
-					call move(6, .asc$3692, .b6873);	/* blanks */
+					call move(6, .spaces24 + 18, .b6873);	/* blanks */
 				end;
 				call move(tokenSize(0), tokStart(0), .b6873);
 				b6744 = tokenSize(0);
@@ -1236,11 +1243,11 @@ outch: procedure(b) external; declare b byte; end;
 outStrN: procedure(w1, w2) external; declare w1 address, w2 address; end;
 popToken: procedure external; end;
 closeF: procedure(w) external; declare w address; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F2B: procedure external; end;
-sub$5F37: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+undefinedSymbolError: procedure external; end;
+operandError: procedure external; end;
 nibble2Ascii: procedure(b) byte external; declare b byte; end;
 
 
@@ -1268,16 +1275,16 @@ end;
 sub$4274: procedure public;
 	if testBit(b6B2B, .b41B7) then
 		if sub$425B(b6858) then
-			call sub$5F37;
+			call operandError;
 end;
 
 sub$4291: procedure public;
 	if sub$425B(b6858) then
-		call sub$5F37;
+		call operandError;
 	if (b4181(b6B2B) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
-		call sub$5F37;
+		call operandError;
 
 	b6858 = 0Ch;
 	bp6BE0(0) = (b6855 and 18h) <> 0;
@@ -1285,7 +1292,7 @@ sub$4291: procedure public;
 	if (b6855 and 7) <> 0 then
 		if (b6856 and 7) <> 0 then
 			if ((b6855 xor b6856) and 1Fh) <> 0 then
-				call sub$5EE3;
+				call expressionError;
 	if (b6BDB := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
 		if b6B2B = 5 then	/* +? (PAGE INPAGE)? */
@@ -1303,7 +1310,7 @@ sub$4291: procedure public;
 	b6BDD = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
 	if testBit(b6BDD, .b41C6) then
 L4394:	do;
-		call sub$5EE3;
+		call expressionError;
 		b6855 = 0;
 		return;
 	end;
@@ -1319,9 +1326,9 @@ end;
 
 swapAccBytes: procedure public;
 	declare b6C17 byte;
-	b6C17 = accum1byt(0);
-	accum1byt(0) = accum1byt(1);
-	accum1byt(1) = b6C17;
+	b6C17 = accum1$lb;
+	accum1$lb = accum1$hb;
+	accum1$hb = b6C17;
 end;
 
 
@@ -1343,11 +1350,11 @@ sub$43DD: procedure address public;
 	accum1 = 0;
 	b6858 = 9;
 	if tokenSP = 0 or (tokenType(0) = 0Bh and not b6B36) then
-		call sub$5ED7;
+		call syntaxError;
 	else
 	do;
 		if tokenType(0) = 9 or tokenType(0) = 6 then
-			call sub$5F2B;
+			call undefinedSymbolError;
 		else
 		do;
 			b6858 = tokenType(0);
@@ -1360,20 +1367,20 @@ sub$43DD: procedure address public;
 				tokenSize(0) = 2;
 			end;
 			else if tokenSize(0) = 0 then
-				call sub$5F01;
+				call valueError;
 			else
 			do;
 				if tokenSize(0) > 2 then
-					call sub$5F01;
+					call valueError;
 
 				b6855 = tokenAttr(0) and 0DFh;
 				w685A = tokenSymId(0);
 			end;
 
 			if tokenSize(0) > 0 then
-				accum1byt(0) = ch;
+				accum1$lb = ch;
 			if tokenSize(0) > 1 then
-				accum1byt(1) = cha(1) and tokenType(0) <> 7;
+				accum1$hb = cha(1) and tokenType(0) <> 7;
 		end;
 		if has16bitOperand then
 			if tokenSize(0) = 2 then
@@ -1403,31 +1410,31 @@ sub$450F: procedure(arg1b) public;
 
 	if (arg1b and 3) <> 0 then
 	do;
-		if accum2byt(1) <> 0
-		   or accum2byt(0) > 7
-		   or arg1b and accum2byt(0)
-		   or (arg1b and 3) = 3 and accum2byt(0) > 2
+		if accum2$hb <> 0
+		   or accum2$lb > 7
+		   or arg1b and accum2$lb
+		   or (arg1b and 3) = 3 and accum2$lb > 2
 		   or (not sub$425B(b6859) and b6B2B <> 2Eh) then	/* RST */
-			call sub$5F37;
+			call operandError;
 		else if sub$425B(b6859) and b6B2B = 2Eh then		/* RST */
-			call sub$5F37;
+			call operandError;
 		if ror(arg1b, 2) then
-			accum2byt(0) = rol(accum2byt(0), 3);
-		accum1byt(0) = accum1byt(0) or accum2byt(0);
+			accum2$lb = rol(accum2$lb, 3);
+		accum1$lb = accum1$lb or accum2$lb;
 	end;
 	else if b6B2B <> 2Dh then					/* single byte op */
 		if sub$425B(b6859) then
-			call sub$5F37;
+			call operandError;
 
 	if shr(arg1b, 3) then
 	do;
 		if (b6856 and 18h) = 18h then
 		do;
-			call sub$5F01;
+			call valueError;
 			b6856 = b6856 and 0E7h or 8;
 		end;
-		if accum2byt(1) + 1 > 1 then
-			call sub$5F01;
+		if accum2$hb + 1 > 1 then
+			call valueError;
 	end;
 	if b6B2B = 28h or b6B2B = 2Ch then		/* Imm8 or imm16 */
 	do;
@@ -1438,8 +1445,8 @@ sub$450F: procedure(arg1b) public;
 		b6855 = 0;
 
 	if b6B2B <> 2Dh then				/* single byte op */
-		if accum1byt(0) = 76h then
-			call sub$5F37;
+		if accum1$lb = 76h then
+			call operandError;
 	if (b6B2B := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
 		b6B2D = 0Bh;
 end;
@@ -1529,7 +1536,7 @@ declare	b6C21 byte public initial(0),
 
 
 close: procedure(w1, w2) external; declare (w1, w2) address; end;
-fileError: procedure(w1) external; declare w1 address; end;
+ioError: procedure(w1) external; declare w1 address; end;
 ioErrChk: procedure external; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -1565,7 +1572,7 @@ closeI: procedure public;
 	if fileIdx = 0 then
 	do;
 		b6C27 = 0FFh;
-		call fileError(.files(0).name);
+		call ioError(.files(0).name);
 		return;
 	end;
 	fileIdx = fileIdx - 1;
@@ -1663,9 +1670,10 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 
 declare pad byte;
 
-declare	(asc$3692, aModulePage)(1) byte external,
+declare	(spaces24, aModulePage)(1) byte external,
 	b6CE4 byte external,
-	b4181(1) byte external;
+	b4181(1) byte external,
+	accum(4) byte at(.accum1);
 
 exit: procedure external; end;
 flushout: procedure external; end;
@@ -1677,7 +1685,7 @@ ovl8: procedure external; end;
 ovlMgr: procedure(b1) external; declare b1 byte; end;
 popToken: procedure external; end;
 pushToken: procedure(b1) external; declare b1 byte; end;
-sub$3CDF: procedure(b1) external; declare b1 byte; end;
+sourceError: procedure(b1) external; declare b1 byte; end;
 sub$3DCE: procedure external; end;
 sub$3F19: procedure external; end;
 sub$4274: procedure external; end;
@@ -1687,13 +1695,13 @@ sub$450F: procedure(b1) external; declare b1 byte; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$54FD: procedure external; end;
 sub$5819: procedure(w, b) external; declare w address, b byte; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F07: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F25: procedure external; end;
-sub$5F37: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+nestingError: procedure external; end;
+stackError: procedure external; end;
+balanceError: procedure external; end;
+operandError: procedure external; end;
 nestIF: procedure(b) external; declare b byte; end;
 unnestIF: procedure(b) external; declare b byte; end;
 addByte2Tok: procedure(b) external; declare b byte; end;
@@ -1715,11 +1723,11 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1byt(0) then
-				call sub$5EE3;
+			if alignTypes(arg1b) <> accum1$lb then
+				call expressionError;
 		end;
 		else if alignTypes(arg1b) <> 3 then
-			call sub$5EE3;
+			call expressionError;
 	end;
 	else
 	do;
@@ -1730,13 +1738,13 @@ sub$4AAA: procedure(arg1b) public;
 			if accum1 = 1 or accum1 = 2 then
 				alignTypes(arg1b) = low(accum1);
 			else
-				call sub$5EE3;
+				call expressionError;
 		end;
 	end;
 end;
 
 
-sub$4B3F: procedure(arg1b) public;
+cond2Acc: procedure(arg1b) public;
 	declare arg1b byte;
 
 	accum1 = arg1b;
@@ -1758,7 +1766,7 @@ sub$4B72: procedure public;
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* : or ) */
 			if not (b6B2B = 2 and opType = 3) then
-				call sub$5F25;
+				call balanceError;
 
 			if tokenType(0) = 11 then
 			do;
@@ -1774,39 +1782,39 @@ sub$4B72: procedure public;
 /* 4 */		accum1 = accum1 * accum2;	/* * */
 /* 5 */		accum1 = accum1 + accum2;	/* + */
 /* 6 */		do;				/* , */
-			call sub$5ED7;
+			call syntaxError;
 			call popToken;
 		end;
 /* 7 */		accum1 = accum1 - accum2;	/* - */
 /* 8 */		;				/* unary + */
 /* 9 */		do;				/* / */
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 
 			accum1 = accum1 / accum2;
 		end;
 /* 10 */	accum1 = -accum1;		/* unary - */
-/* 11 */	call sub$4B3F(accum1 = accum2);		/* EQ */
-/* 12 */	call sub$4B3F(accum1 < accum2);		/* LT */
-/* 13 */	call sub$4B3F(accum1 <= accum2);	/* LE */
-/* 14 */	call sub$4B3F(accum1 > accum2);		/* GT */
-/* 15 */	call sub$4B3F(accum1 >= accum2);	/* GE */
-/* 16 */	call sub$4B3F(accum1 <> accum2);	/* NE */
+/* 11 */	call cond2Acc(accum1 = accum2);		/* EQ */
+/* 12 */	call cond2Acc(accum1 < accum2);		/* LT */
+/* 13 */	call cond2Acc(accum1 <= accum2);	/* LE */
+/* 14 */	call cond2Acc(accum1 > accum2);		/* GT */
+/* 15 */	call cond2Acc(accum1 >= accum2);	/* GE */
+/* 16 */	call cond2Acc(accum1 <> accum2);	/* NE */
 /* 17 */	accum1 = not accum1;			/* NOT */
 /* 18 */	accum1 = accum1 and accum2;		/* AND */
 /* 19 */	accum1 = accum1 or accum2;		/* OR */
 /* 20 */	accum1 = accum1 xor accum2;		/* XOR */
 /* 21 */	do;					/* MOD */
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 			accum1 = accum1 mod accum2;
 		end;
 /* 22 */	do;					/* SHL */
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shl(accum1, accum2);
 		end;
 /* 23 */	do;					/* SHR */
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shr(accum1, accum2);
 		end;
 /* 24 */	do;					/* HIGH */
@@ -1821,12 +1829,12 @@ sub$4B72: procedure public;
 			if tokenType(0) <> 10 then
 			do;
 				accum1 = sub$43DD;
-				if accum1byt(1) - 1 < 0FEh then
-					call sub$5F01;
+				if accum1$hb - 1 < 0FEh then
+					call valueError;
 				b6B28 = 22h;
 				if (b6855 and 18h) = 18h then
 				do;
-					call sub$5F01;
+					call valueError;
 					b6855 = b6855 and 0E7h or 8;
 				end;
 			end;
@@ -1837,7 +1845,7 @@ sub$4B72: procedure public;
 			end;
 
 			if sub$425B(b6858) then
-				call sub$5F37;
+				call operandError;
 			b6B2D = 0Bh;
 			b6B23 = 0FFh;
 		end;
@@ -1854,7 +1862,7 @@ sub$4B72: procedure public;
 			b68AB = 0FFh;
 			if (b6855 and 40h) = 40h then
 			do;
-				call sub$5EE3;
+				call expressionError;
 				b6855 = 0;
 			end;
 			b6CE4 = 1;
@@ -1868,10 +1876,10 @@ sub$4B72: procedure public;
 			do;
 				if (b6855 and 18h) <> 0 then
 					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
-						call sub$5EE3;
+						call expressionError;
 			end;
 			else
-				call sub$5EE3;
+				call expressionError;
 
 			if optOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
@@ -1885,21 +1893,21 @@ sub$4B72: procedure public;
 				b6755 = 1;
 				b6745 = b6855 and 7;
 				if (b6855 and 40h) = 40h then
-					call sub$5EE3;
+					call expressionError;
 				if sub$425B(b6858) then
-					call sub$5F37;
+					call operandError;
 
 				b68AB = 0FFh;
 			end;
 
 			if ifDepth > 0 then
-				call sub$5F07;
+				call nestingError;
 			if opType <> 1 then
-				call sub$5ED7;
+				call syntaxError;
 			if b6B35 then
 				b6B33 = 0FFh;
 			else
-				call sub$5ED7;
+				call syntaxError;
 
 		end;
 /* 33 */	do;					/* IF ? */
@@ -1916,7 +1924,7 @@ sub$4B72: procedure public;
 /* 34 */	do;					/* ELSE ? */
 			b6B32 = 0FFh;
 			if ifDepth = 0 then
-				call sub$5F07;
+				call nestingError;
 			else if not inElse(0) then
 			do;
 				if not skipping(0) then
@@ -1926,7 +1934,7 @@ sub$4B72: procedure public;
 				inElse(0) = 0FFh;
 			end;
 			else
-				call sub$5F07;
+				call nestingError;
 		end;
 /* 35 */	do;					/* ENDIF ? */
 			if b6B35 then
@@ -1938,13 +1946,13 @@ sub$4B72: procedure public;
 /* 36 */	do;					/* LXI ? */
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;				/* POP DAD PUSH INX DCX ? */
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(5);
 		end;
 /* 38 */	call sub$450F(7);		/* LDAX STAX ? */
@@ -1997,11 +2005,11 @@ sub$4B72: procedure public;
 /* 52 */	do;				/* NAME */
 			if tokenSP <> 0 and b6743 then
 			do;
-				call move(6, .asc$3692, .aModulePage);
+				call move(6, .spaces24 + 18, .aModulePage);
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
-				call sub$3CDF('R');
+				call sourceError('R');
 
 			call popToken;
 		end;
@@ -2047,14 +2055,14 @@ sub$518F: procedure public;
 			if b6B25 then
 				if sub$53C0 then
 					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
-						call sub$5EE3;
+						call expressionError;
 
 		if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
 				opSP = 0;
-				call sub$5F13;
+				call stackError;
 			end;
 			else
 				opStack(opSP := opSP + 1) = opType;
@@ -2070,7 +2078,7 @@ sub$518F: procedure public;
 
 		b6B25 = 0;
 		if not b6B35 and b6B2B > 3 then
-			call sub$5ED7;
+			call syntaxError;
 
 		if b6B2B = 0 then
 			b6B2B = opType;
@@ -2119,7 +2127,7 @@ sub$518F: procedure public;
 
 		do b6BDB = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum1byt(b6BDB));
+				call addByte2Tok(accum(b6BDB));
 		end;
 
 		tokenAttr(0) = b6855;
@@ -2160,7 +2168,7 @@ ovlMgr: procedure(b) external; declare b byte; end;
 popToken: procedure external; end;
 sub$3DCE: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$5ED7: procedure external; end;
+syntaxError: procedure external; end;
 sub$7041: procedure external; end;			/* in overlay 1 */
 sub$6E32: procedure external; end;
 sub$4646: procedure byte external; end;
@@ -2195,10 +2203,10 @@ end;
 sub$546F: procedure public;
 	b6A56 = sub$4646;
 	if b6B30 then
-		call sub$5ED7;
+		call syntaxError;
 	if haveTokens then
 		if not(tokenType(b6A56) = 0Bh or b68AD) then
-			call sub$5ED7;
+			call syntaxError;
 	if b6B23 or b6B24 then
 	do;
 		if tokenSP = 1 and not xisSpace and tokenSize(0) <> 1 then
@@ -2258,7 +2266,7 @@ sub$54FD: procedure public;
 
 		w6BCE = tokStart(b6BDB) + tokenSize(b6BDB);
 		if isSkipping or not b6B34 then
-			w6BCE = .b6759;
+			w6BCE = .lineBuf;
 
 		if sub$3A71 then
 		do;
@@ -2267,7 +2275,7 @@ sub$54FD: procedure public;
 		end;
 
 		b6B2C = 0FFh;
-		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .b6759);
+		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
 	if optXREF and b6880 then
@@ -2302,6 +2310,8 @@ asm80$6: do;
 
 $include(global.inc)
 
+
+
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
 			/* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
@@ -2321,18 +2331,18 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 
 popToken: procedure external; end;
 pushToken: procedure(b) external; declare b byte; end;
-wrError: procedure(b) external; declare b byte; end;
-sub$3CDF: procedure(b) external; declare b byte; end;
-sub$5ED7: procedure external; end;
-sub$5F31: procedure external; end;
-sub$5EFB: procedure external; end;
+runtimeError: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
+syntaxError: procedure external; end;
+locationError: procedure external; end;
+multipleDefError: procedure external; end;
 isPhase1: procedure byte external; end;
 isSkipping: procedure byte external; end;
 sub$4879: procedure byte external; end;
 nxtCmdCh: procedure byte external; end;
-sub$5F0D: procedure external; end;
-sub$5F2B: procedure external; end;
-sub$5F1F: procedure external; end;
+phaseError: procedure external; end;
+undefinedSymbolError: procedure external; end;
+illegalCharError: procedure external; end;
 xisSpace: procedure byte external; end;
 testBit: procedure(b, w) byte external; declare b byte, w address; end;
 
@@ -2372,14 +2382,14 @@ end;
 
 
 
-sub$57B8: procedure public;
+insertSym: procedure public;
 	declare (w6CE0, w6CE2) address;
 	declare ch1 based w6CE0 byte,
 		ch2 based w6CE2 byte;
 
 	w686E, w6CE0 = (w6CE2 := w686E) + 8;
 	if w6CE0 > w6870 then
-		call wrError(1);	/* table error */
+		call runtimeError(1);	/* table error */
 
 	do while w6CE2  > curTokenSym$p;
 		w6CE0 = w6CE0 - 1;
@@ -2411,12 +2421,12 @@ sub$5819: procedure(arg1w, arg2b) public;
 	b6CEA = 0;
 	if curTokenSym$p > w6868(1) or curTokenSym$p < symTab(1) then
 	do;
-		call sub$5ED7;
+		call syntaxError;
 		return;
 	end;
 
 	if tokenSP > 1 then
-		call sub$5ED7;
+		call syntaxError;
 
 	if isPhase1 then
 		if tokenType(0) = 9 then
@@ -2425,13 +2435,13 @@ sub$5819: procedure(arg1w, arg2b) public;
 			do;
 				if curTokenSym.type >= 80h then
 				do;
-					call sub$5F31;
+					call locationError;
 					b6CE9 = 80h;
 				end;
 			end;
 			else
 			do;
-				call sub$57B8;
+				call insertSym;
 				w6868(1) = w6868(1) + 8;
 				b6CE8 = 0;
 			end;
@@ -2508,7 +2518,7 @@ sub$5819: procedure(arg1w, arg2b) public;
 
 		if not(b6748 or b6749) then
 			if curTokenSym.w4 <> arg1w then
-				call sub$5F0D;
+				call phaseError;
 	end;
 
 L5A9B:
@@ -2518,10 +2528,10 @@ L5A9B:
 
 	b6BDD = curTokenSym.type;
 	if tokenType(0) = 3 or b6BDD = 3 then
-		call sub$5EFB;
+		call multipleDefError;
 
 	if b6BDD >= 80h then
-		call sub$5F31;
+		call locationError;
 
 	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7) or arg2b = 4 and xisSpace or b6CEA then
 		curTokenSym.w4 = arg1w;
@@ -2529,7 +2539,7 @@ L5A9B:
 	b6748 = 0;
 	b6749 = 0;
 	if curTokenSym.type = 6 then
-		call sub$5F2B;
+		call undefinedSymbolError;
 
 	b6857 = 0;
 	if b6883 then
@@ -2542,8 +2552,8 @@ lookup: procedure(arg1b) byte public;
 	declare arg1b byte;
 	declare (w6CEE, w6CF0, w6CF2, w6CF4, s6CF6$p, s6CF8$p) address,
 		x structure(b6CFA byte), b6CFB byte;
-	declare s6CF6 based s6CF6$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte),
-		s6CF8 based s6CF8$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte);
+	declare s6CF6 based s6CF6$p structure(tok(2) address, b4 byte, b5 byte, type byte, b7 byte),
+		s6CF8 based s6CF8$p (2) address; 
 	declare addr based w6BE0 address,
 		addrAlt based w6BE0 address;
 
@@ -2552,12 +2562,12 @@ lookup: procedure(arg1b) byte public;
 	if arg1b = 0 then
 	do;
 		s6CF6$p = 0;
-		w6CF4 = symTab(0) + ((s6CF8.w0 + s6CF8.w2) mod 151) * 8;
+		w6CF4 = symTab(0) + ((s6CF8(0) + s6CF8(1)) mod 151) * 8;
 
 		do while w6CF4 <> 0;
 			s6CF6$p = s6CF6$p + w6CF4;
-			if s6CF6.w0 = s6CF8.w0 then
-				if s6CF6.w2 = s6CF8.w2 then
+			if s6CF6.tok(0) = s6CF8(0) then
+				if s6CF6.tok(1) = s6CF8(1) then
 				do;
 					curTokenSym$p = s6CF6$p;
 					tokenType(0) = curTokenSym.type;
@@ -2566,12 +2576,12 @@ lookup: procedure(arg1b) byte public;
 							has16bitOperand = 0FFh;
 
 					if curTokenSym.b7 = 2 and not optMOD85 then
-						call sub$3CDF(4Fh);
+						call sourceError(4Fh);
 
 					if tokenType(0) = 8 then		/* SP */
 					do;
 						if not(opType = 24h or opType = 25h) then /* lxi or push/pop */
-							call sub$3CDF(58h);
+							call sourceError(58h);
 						tokenType(0) = 7;		/* reg */
 					end;
 					return tokenType(0) and 7Fh;
@@ -2586,9 +2596,9 @@ lookup: procedure(arg1b) byte public;
 
 	do while (w6CF2 := w6CEE + shr((w6CF0 - w6CEE) and 0FFF0h, 1)) <> s6CF6$p;
 		s6CF6$p = w6CF2;
-		if s6CF8.w0 = s6CF6.w0 then
+		if s6CF8(0) = s6CF6.tok(0) then
 		do;
-			if s6CF8.w2 = s6CF6.w2 then
+			if s6CF8(1) = s6CF6.tok(1) then
 			do;
 				curTokenSym$p = s6CF6$p;
 				tokenType(0) = curTokenSym.type;
@@ -2600,10 +2610,10 @@ lookup: procedure(arg1b) byte public;
 				return b6BDD;
 			end;
 			else
-				b6CFB = s6CF6.w2 > s6CF8.w2;
+				b6CFB = s6CF6.tok(1) > s6CF8(1);
 		end;
 		else
-			b6CFB = s6CF6.w0 > s6CF8.w0;
+			b6CFB = s6CF6.tok(0) > s6CF8(0);
 
 		s6CF6$p = w6CF2;
 		if b6CFB then
@@ -2630,24 +2640,24 @@ lookup: procedure(arg1b) byte public;
 end;
 
 getCh: procedure byte public;
-	declare (b6CFC, b6CFD) byte;
+	declare (curCH, prevCH) byte;
 
 	if not reget then
 	do;
-		b6CFD = b6CFC;
+		prevCH = curCH;
 	L5E54:
-		b6CFC = lookAhead;
+		curCH = lookAhead;
 		if scanOptions then
 			lookAhead = nxtCmdCh;
 		else
 			lookAhead = sub$4879;
 
-		if chClass(b6CFC) = 0 then
-			if b6CFC = 0 or b6CFC = 7Fh or b6CFC = 0Ch then
+		if chClass(curCH) = CC$BAD then
+			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
 				goto L5E54;
 	end;
 	reget = 0;
-	return (curChar := b6CFC);
+	return (curChar := curCH);
 end;
 
 getChClass: procedure byte public;
@@ -2660,7 +2670,7 @@ chkLF: procedure public;
 	if lookAhead = 0Ah then
 		lookAhead = 0;
 	else
-		call sub$5F1F;
+		call illegalCharError;
 end;
 end;
 asm861.plm
@@ -2668,81 +2678,81 @@ asm861: do;
 
 $include(global.inc)
 
-declare cZERO byte external;
+declare bZERO byte external;
 
-sub$3CDF: procedure(b) external; declare b byte; end;
-wrError: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 getChClass: procedure byte external; end;
 getCh: procedure byte external; end;
 
 
 
-sub$5ED7: procedure public;
-	call sub$3CDF('Q');	/* questionable */
+syntaxError: procedure public;
+	call sourceError('Q');	/* syntaxError */
 end;
 
-sub$5EDD: procedure public;
-	call sub$3CDF('D');	/* double defined symbol */
+doubleDefError: procedure public;
+	call sourceError('D');	/* double defined symbol */
 end;
 
-sub$5EE3: procedure public;
-	call sub$3CDF('E');	/* external error */
+expressionError: procedure public;
+	call sourceError('E');	/* external error */
 end;
 
-sub$5EE9: procedure public;
-	call sub$3CDF('C');	/* command error */
+commandError: procedure public;
+	call sourceError('C');	/* command error */
 end;
 
-sub$5EEF: procedure public;
-	call sub$3CDF('O');
+OpcodeOperandError: procedure public;
+	call sourceError('O');
 end;
 
-sub$5EF5: procedure public;
-	call sub$3CDF('R');
+nameError: procedure public;
+	call sourceError('R');
 end;
 
-sub$5EFB: procedure public;
-	call sub$3CDF('M');	/* multiply defined symbol */
+multipleDefError: procedure public;
+	call sourceError('M');	/* multiply defined symbol */
 end;
 
-sub$5F01: procedure public;
-	call sub$3CDF('V');	/* value error */
+valueError: procedure public;
+	call sourceError('V');	/* value error */
 end;
 
-sub$5F07: procedure public;
-	call sub$3CDF('N');	/* nesting error */
+nestingError: procedure public;
+	call sourceError('N');	/* nesting error */
 end;
 
-sub$5F0D: procedure public;
-	call sub$3CDF('P');	/* phase error */
+phaseError: procedure public;
+	call sourceError('P');	/* phase error */
 end;
 
-sub$5F13: procedure public;
-	call wrError(0);	/* stack error */
+stackError: procedure public;
+	call runtimeError(0);	/* stack error */
 end;
 
-sub$5F19: procedure public;
-	call wrError(4);	/* file error */
+fileError: procedure public;
+	call runtimeError(4);	/* file error */
 end;
 
-sub$5F1F: procedure public;
-	call sub$3CDF('I');
+illegalCharError: procedure public;
+	call sourceError('I');
 end;
 
-sub$5F25: procedure public;
-	call sub$3CDF('B');
+balanceError: procedure public;
+	call sourceError('B');
 end;
 
-sub$5F2B: procedure public;
-	call sub$3CDF('U');	/* undefined symbol */
+undefinedSymbolError: procedure public;
+	call sourceError('U');	/* undefined symbol */
 end;
 
-sub$5F31: procedure public;
-	call sub$3CDF('L');
+locationError: procedure public;
+	call sourceError('L');
 end;
 
-sub$5F37: procedure public;
-	call sub$3CDF('X');
+operandError: procedure public;
+	call sourceError('X');
 end;
 
 haveTokens: procedure byte public;
@@ -2767,7 +2777,7 @@ nestIF: procedure(arg1b) public;
 	
 	if (ifDepth := ifDepth + 1) > 8 then
 	do;
-		call sub$5F13;
+		call stackError;
 		ifDepth = 0;
 	end;
 	else
@@ -2781,7 +2791,7 @@ unnestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if ifDepth = 0 then
-		call sub$5F07;
+		call nestingError;
 	else
 	do;
 		skipping(0) = skipping(ifDepth);
@@ -2793,7 +2803,7 @@ end;
 pushToken: procedure(arg1b) public;
 	declare arg1b byte;
 	if tokenSP >= 8 then
-		call sub$5F13;
+		call stackError;
 	else
 	do;
 		tokenSP = tokenSP + 1;
@@ -2803,25 +2813,25 @@ pushToken: procedure(arg1b) public;
 		tokenAttr(tokenSP) = tokenAttr(0);
 		tokenSize(tokenSP) = tokenSize(0);
 		tokenSymId(tokenSP) = tokenSymId(0);
-		tokStart(0) = tokStart(0) + tokenSize(0);
+		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
 		tokenType(0) = arg1b;
-		tokenAttr(0), tokenSize(0) = cZERO;
-		tokenSym(0) = w673F;
+		tokenAttr(0), tokenSize(0) = bZERO;
+		tokenSym(0) = wZERO;
 		tokenSymId(0) = tokenSym(0);
 	end;
 end;
 
 addByte2Tok: procedure(arg1b) public;
-	declare arg1b byte, w6D02 address;
-	declare ch based w6D02 byte;
+	declare arg1b byte, s address;
+	declare ch based s byte;
 
-	if (w6D02 := tokStart(0) + tokenSize(0)) < off682A then
+	if (s := tokStart(0) + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
 		ch = arg1b;
 		tokenSize(0) = tokenSize(0) + 1;
 	end;
 	else
-		call sub$5F13;
+		call stackError;
 end;
 
 collectIdent: procedure(arg1b) public;
@@ -2830,8 +2840,8 @@ collectIdent: procedure(arg1b) public;
 	call pushToken(arg1b);
 	reget = 1;
 
-	do while (arg1b := getChClass) = 8 or arg1b = 9;	/* digit or letter */
-		if curChar > 60h then
+	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
+		if curChar > 60h then			/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call addByte2Tok(curChar);
 	end;
@@ -2868,7 +2878,7 @@ ascii2Num: procedure public;
 	do i = 0 to tokenSize(0);
 		if chrs(i) = '?' or chrs(i) = '@' then
 		do;
-			call sub$5F1F;
+			call illegalCharError;
 			digit = 0;
 		end;
 		else
@@ -2879,7 +2889,7 @@ ascii2Num: procedure public;
 			if digit >= radix then
 				if tokenType(2) <> 40h then
 				do;
-					call sub$5F1F;
+					call illegalCharError;
 					digit = 0;
 				end;
 		end;
@@ -2904,7 +2914,7 @@ collectString: procedure public;
 		call addByte2Tok(curChar);
 	end;
 
-	call sub$5F25;
+	call balanceError;
 
 L6268:
 	reget = 1;
@@ -2933,11 +2943,11 @@ declare (b7463, b7464, b7465, b7466) byte;
 skipWhite$2: procedure external; end;
 skipWhite: procedure external; end;
 skip2EOL: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 chkLF: procedure external; end;
-sub$5EE9: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F19: procedure external; end;
+commandError: procedure external; end;
+stackError: procedure external; end;
+fileError: procedure external; end;
 popToken: procedure external; end;
 collectIdent: procedure(b) external; declare b byte; end;
 ascii2Num: procedure external; end;
@@ -2957,7 +2967,7 @@ chkParen: procedure(arg1b) byte;
 	declare arg1b byte;
 	call skipWhite;
 	reget = 0;
-	return arg1b + 28h = curChar;
+	return arg1b + '(' = curChar;
 end;
 
 
@@ -2973,7 +2983,7 @@ collectBasicToken: procedure byte;
 	do;	/* is letter */
 		call collectIdent(1);
 		if xisSpace and tokenSize(0) < 14 then
-			call move(collectBufLen := tokenSize(0), .b6759, .collectBuf);
+			call move(collectBufLen := tokenSize(0), .lineBuf, .collectBuf);
 	end;
 	else if curChar > 2Fh  and  3Ah > curChar then
 	do;	/* is digit */
@@ -2995,7 +3005,7 @@ collectBasicToken: procedure byte;
 				collectBufLen = tokenSize(0);
 			b6ADB = 4;
 			if collectBufLen > 0 then
-				call move(collectBufLen, .b6759, .collectBuf);
+				call move(collectBufLen, .lineBuf, .collectBuf);
 		end;
 	end;
 	else
@@ -3044,20 +3054,20 @@ sub$6F39: procedure;
     end;
 done:
 	curFileName$p = .collectBuf;
-	call sub$5F19;
+	call fileError;
 end;
 
 
 getFileParam: procedure;
 	collectBufIdx = 0;
 	if not chkParen(0) then		/* ( */
-		call sub$5F19;
+		call fileError;
 	else
 	do;
 		call sub$6F39;
 		call move(collectBufIdx + 1, .collectBuf, curFileName$p);
 		if not chkParen(1) then	/* ) */
-			call sub$5F19;
+			call fileError;
 	end;
 end;
 
@@ -3078,7 +3088,7 @@ getMacroFileDrive: procedure;
 			return;
 	curFileName$p = .aF0Asmac$tmp;
 	collectBufIdx = 0;
-	call sub$5F19;
+	call fileError;
 end;
 
 
@@ -3235,7 +3245,7 @@ processCmd: procedure;
 			do;
 				w6BE2 = 1;
 				if fileIdx = 5 then
-					call sub$5F13;
+					call stackError;
 				else
 				do;
 					fileIdx = fileIdx + 1;
@@ -3269,7 +3279,7 @@ processCmd: procedure;
 		end;
 /* 9 */		do;				/* SAVE */
 			if saveIdx > 7 then
-				call sub$5F13;
+				call stackError;
 			else
 			do;
 				call move(3, .optLIST, .saveStack + saveIdx * 3);
@@ -3315,9 +3325,9 @@ parseCmds: procedure public;
 			call skip2EOL;
 		end;
 		if scanOptions then
-			call wrError(2);	/* command error */
+			call runtimeError(2);	/* command error */
 		else
-			call sub$5EE9;
+			call commandError;
 	end;
 
 	call chkLF;
@@ -3369,7 +3379,7 @@ xisSpace: procedure byte external; end;
 physmem: procedure address external; end;
 
 
-declare (asc$3692, aIsisIi80808085, asc$3680)(1) byte external,
+declare (aIsisIi80808085, spaces24)(1) byte external,
 	(b6C21, fileIdx, b6C30) byte external,
 	(off6C2C, off6C2E) address external;
 
@@ -3421,7 +3431,7 @@ itoa: procedure(arg1w, arg2w);
 	declare (arg1w, arg2w) address;
 	declare ch based arg2w byte;
 
-	call move(5, .asc$3692 + 1, arg2w);
+	call move(5, .spaces24 + 19, arg2w);
 	arg2w = arg2w + 4;
 
 	do while 1;
@@ -3523,7 +3533,7 @@ printChar: procedure(arg1b) reentrant;
 			if curCol > optPAGEWIDTH then
 			do;
 				call printCRLF;
-				call printStr(.asc$3680);
+				call printStr(.spaces24);
 				curCol = curCol + 1;
 			end;
 			call outch(arg1b);
@@ -3584,7 +3594,7 @@ sub$7041: procedure public;
 					call sub$718C(.print2Hex);
 					call sub$718C(.print2Hex);
 					curTokenSym$p = curTokenSym$p + 2;
-					call printStr(.asc$3692 + 2);
+					call printStr(.spaces24 + 20);
 				    end;
 				end;
 
@@ -3650,7 +3660,7 @@ sub$7229: procedure public;
 		call out2Hex(low(w68A6));
 	end;
 	else
-		call outStr(.asc$3692 + 2);
+		call outStr(.spaces24 + 20);
 
 	call outch(' ');
 	do  b7568 = 1 to 4;	/* may need structure access */
@@ -3660,7 +3670,7 @@ sub$7229: procedure public;
 			call out2Hex(ch);
 		end;
 		else
-			call outStr(.asc$3692 + 4);
+			call outStr(.spaces24 + 22);
 
 		w68A2 = w68A2 + 1;
 	end;
@@ -3702,7 +3712,7 @@ ovl3: procedure public;
 		b689B = 0FFh;
 	end;
 	if b6B20 then
-		call outStr(.asc$3680 + 9);
+		call outStr(.spaces24 + 9);
 	else
 		call sub$7229;
 	if fileIdx > 0 then
@@ -3714,11 +3724,11 @@ ovl3: procedure public;
 			call outch(' ');
 	end;
 	else
-		call outStr(.asc$3692 + 4);
+		call outStr(.spaces24 + 22);
 
 	if b68AD then
 	do;
-		call outStr(.asc$3692 + 2);
+		call outStr(.spaces24 + 20);
 		call printCRLF;
 	end;
 	else
@@ -3739,7 +3749,7 @@ ovl3: procedure public;
 	else
 	do;
 		do while sub$721E;
-			call outStr(.asc$3692 + 4);
+			call outStr(.spaces24 + 22);
 			call sub$7229;
 			call printCRLF;
 		end;
@@ -3820,23 +3830,23 @@ sub$4646: procedure byte external; end;
 isSkipping: procedure byte external; end;
 
 
-writeRec: procedure(arg1w) public;
-	declare arg1w address,
-		w7591 address, w7593 address,
-		b7595 byte, b7596 byte;
-	declare wrd based w7591 address;
-	declare ch based w7591 byte;
+writeRec: procedure(rec$p) public;
+	declare rec$p address,
+		len$p address, recLen address,
+		i byte, crc byte;
+	declare len based len$p address;
+	declare ch based len$p byte;
 
-	w7591 = arg1w + 1;
-	w7593 = (wrd := wrd + 1) + 3;	/* include crc byte + type + len word */
-	b7596 = 0;			/* crc */
-	w7591 = w7591 - 1;
-	do b7595 = 2 to w7593;
-		b7596 = b7596 - ch;
-		w7591 = w7591 + 1;
+	len$p = rec$p + 1;
+	recLen = (len := len + 1) + 3;	/* include crc byte + type + len word */
+	crc = 0;			/* crc */
+	len$p = len$p - 1;
+	do i = 2 to recLen;
+		crc = crc - ch;
+		len$p = len$p + 1;
 	end;
-	ch = b7596;			/* insert crc byte */
-	call write(objfd, arg1w, w7593, .statusIO);
+	ch = crc;			/* insert crc byte */
+	call write(objfd, rec$p, recLen, .statusIO);
 	call ioErrChk;
 end;
 
@@ -4143,8 +4153,8 @@ asm88: do;
 $include(global.inc)
 
 declare	(signonMsg, ovlFile)(1) byte external,
-	(cZERO, c255, b6C21, fileIdx) byte external,
-	(off6C25, off6C2C, off6C2E, w75C4, rootfd, includefd) address external,
+	(bZERO, bTRUE, b6C21, fileIdx) byte external,
+	(off6C25, off6C2C, off6C2E, stdKeywords, rootfd, includefd) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external;
 
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
@@ -4152,7 +4162,7 @@ isPhase1: procedure byte external; end;
 physmem: procedure address external; end;
 ioErrChk: procedure external; end;
 sub$3DCE: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 closeF: procedure(w) external; declare w address; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -4212,7 +4222,7 @@ getAsmFileX: procedure public;		/* extended to include overlay file initialisati
 		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
 	end;
 
-	symTab(0) = .w75C4;
+	symTab(0) = .stdKeywords;
 	w686E, w6868(0), symTab(1), w6868(1) = .EDATA;
 	call rescan(1, .statusIO);
 	call ioErrChk;
@@ -4232,7 +4242,7 @@ getAsmFileX: procedure public;		/* extended to include overlay file initialisati
 
 	call cmdSkipWhite;
 	if cmdch = CR then
-		call wrError(4);	/* file error */
+		call runtimeError(4);	/* file error */
 
 	infd = inOpen(cmdch$p, 1);
 	rootfd, includefd = infd;
@@ -4269,10 +4279,10 @@ end;
 
 resetData: procedure public;
 	call sub$3DCE;
-	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = cZERO;
-	b6743, b6898, optLIST, b6A6F, optCOND = c255;
-	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = cZERO;
-	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = w673F;
+	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
+	b6743, b6898, optLIST, b6A6F, optCOND = bTRUE;
+	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
+	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = wZERO;
 	b6882 = b6882 + 1;
 	w6A4E, opType, pageCnt, lineCnt = 1;
 	b68AE(0) = 0;
@@ -4288,7 +4298,7 @@ resetData: procedure public;
 			call ioErrChk;
 			includefd = rootfd;
 		end;
-		fileIdx = cZERO;
+		fileIdx = bZERO;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
@@ -4316,7 +4326,14 @@ end;
 keywords: do;
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
-declare w75C4(*) address public initial(
+declare stdKeywords(*) address public initial(
+/*
+	4 byte packed keyword
+	byte opcode base
+	byte offset to next entry or 0 if end
+	byte type
+	byte special location
+*/
 	0A528h,	0,	0,	10h,	/* NE */
 	63B0h,	0,	0CCh,	2Ch,	/* CZ */
 	0,	0,	0,	0,	/* */
@@ -4475,14 +4492,13 @@ end;
 asm51.plm
 asm51: do;
 
-declare	asc$3680(*) byte public data('                  '),
-	asc$3692(*) byte public data('      ', 0),
+declare	spaces24(*) byte public data('                        ', 0),
 	asc$3699(*) byte public data(0Dh, 0Ah, 0),
 	signonMsg(*) byte public data(0Dh, 0Ah),
 	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
 	aModulePage(*) byte public data('MODULE ',9, ' PAGE ', 0),
-	cZERO byte public data(0),
-	c255 byte public data(0FFh),
+	bZERO byte public data(0),
+	bTRUE byte public data(0FFh),
 	aC19761977197$0(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
 	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
 	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
@@ -4609,7 +4625,7 @@ declare (w6A4E, curFileName$p, w6BE0, cmdch$p, statusIO, outfd, out$p, endOutBuf
 	errStrs(1) address external,
 	(phase, optPRINT, optOBJECT, collectBufIdx, scanOptions, b6B33, b6BD9) byte external,
 	(b6C27, b6896, b6B2B, b6749, b6754, curChar, b6B20, reget) byte external,
-	(b6C21, cZERO, c255, b6898, optDEBUG, optXREF, optSYMBOLS, optPAGING, b6C30) byte external,
+	(b6C21, bZERO, bTRUE, b6898, optDEBUG, optXREF, optSYMBOLS, optPAGING, b6C30) byte external,
 	(b6742, b6855, b6857, b6858, b6859, b6872) byte external,
 	(b687F, b6880, b6881, b6884, b6885, b689A, b689B, b689C, b68AB) byte external,
 	(b68AD, optEJECT, b6B23, b6B24, b6B25, has16bitOperand, b6B30, b6B31, b6B32) byte external,
@@ -4727,7 +4743,7 @@ wrConsole: procedure(arg1w, arg2w) public;
 	call ioErrChk;
 end;
 
-wrError: procedure(arg1b) public;
+runtimeError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if b6BD9 then
@@ -4777,7 +4793,7 @@ wrError: procedure(arg1b) public;
 	call exit;
 end;
 
-fileError: procedure(arg1w) public;
+ioError: procedure(arg1w) public;
 	declare arg1w address;
 	declare ch based arg1w byte;
 
@@ -4789,8 +4805,8 @@ fileError: procedure(arg1w) public;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
-		call wrError(3);
-	call wrError(4);
+		call runtimeError(3);	/* eof */
+	call runtimeError(4);
 end;
 
 inOpen: procedure(arg1w, arg2w) address public;
@@ -4799,7 +4815,7 @@ inOpen: procedure(arg1w, arg2w) address public;
 
 	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
 	if openStatus <> 0 then
-		call fileError(arg1w);
+		call ioError(arg1w);
 	return open$infd;
 end;
 
@@ -4840,7 +4856,7 @@ getNibble: procedure(arg1w, arg2b) byte public;
 	return b6C11 and 0Fh;
 end;
 
-sub$3CDF: procedure(arg1b) public;
+sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if not isSkipping or b6B2B = 22h then		/* ELSE */
@@ -4885,7 +4901,7 @@ sub$3D6D: procedure public;
 	if b6C21 then
 		call sub$4904;
 
-	b6C21, b6B20, scanOptions = cZERO;
+	b6C21, b6B20, scanOptions = bZERO;
 	call parseDollarLines;
 	b6898 = 0;
 	optDEBUG = optDEBUG and optOBJECT;
@@ -4903,9 +4919,9 @@ sub$3DCE: procedure public;
 		call sub$4904;
 
 	b68AD, has16bitOperand, b6B20, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = cZERO;
-	b689C, b6B31, b6B34, b6B35 = c255;
-	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = cZERO;
+	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = bZERO;
+	b689C, b6B31, b6B34, b6B35 = bTRUE;
+	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	b6896 = 20h;
 	b689A = 1;
 	w6A4E = w6A4E + 1;
@@ -4924,7 +4940,7 @@ declare pad2 address;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (skipping, tokenType, tokenSize, b6759, asciiLineNo)(1) byte external,
+declare (skipping, tokenType, tokenSize, lineBuf, asciiLineNo)(1) byte external,
 	(b6A56, b6B30, b68AD, b6B23, b6B24, tokenSP, b6BD9) byte external,
 	(b6B20, b6BDB, b6B34, b6B2C, activeSeg, b6880, optXREF, phase, b6873) byte external,
 	(b6B33, b6B2E, optSYMBOLS) byte external,
@@ -4938,7 +4954,7 @@ ovl8: procedure external; end;
 popToken: procedure external; end;
 sub$3DCE: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$5ED7: procedure external; end;
+syntaxError: procedure external; end;
 sub$7041: procedure external; end;			/* in overlay 1 */
 sub$6E32: procedure external; end;
 sub$4646: procedure byte external; end;
@@ -4973,10 +4989,10 @@ end;
 sub$546F: procedure public;
 	b6A56 = sub$4646;
 	if b6B30 then
-		call sub$5ED7;
+		call syntaxError;
 	if haveTokens then
 		if not(tokenType(b6A56) = 0Bh or b68AD) then
-			call sub$5ED7;
+			call syntaxError;
 	if b6B23 or b6B24 then
 	do;
 		if tokenSP = 1 and not xisSpace and tokenSize(0) <> 1 then
@@ -5035,7 +5051,7 @@ sub$54FD: procedure public;
 
 		w6BCE = tokStart(b6BDB) + tokenSize(b6BDB);
 		if isSkipping or not b6B34 then
-			w6BCE = .b6759;
+			w6BCE = .lineBuf;
 
 		if sub4$3A6A then
 		do;
@@ -5043,7 +5059,7 @@ sub$54FD: procedure public;
 		end;
 
 		b6B2C = 0FFh;
-		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .b6759);
+		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
 	if optXREF and b6880 then
@@ -5094,14 +5110,16 @@ declare pad byte;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, asc$3692, aModulePage)(1) byte external,
-	(tokenType, opStack, b4181, accum1byt, accum2byt)(1) byte external,
+declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, spaces24, aModulePage)(1) byte external,
+	(tokenType, opStack, b4181)(1) byte external,
+	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
 	(b6855, opType, b6B2B, b6B2C, b6B2F, b6B35, b6B36) byte external,
 	(activeSeg, b6B28, b6858, b68AB, b6B23, b6B24, b6B2D, b6B30, b6CE4) byte external,
 	(tokenSP, b6745, b6755, ifDepth, b6B32, b6B33, b6881, b6748, b6749) byte external,
 	(b6754, b6743, moduleNameLen, b6B29, b6885, b6B25, phase, b6B34, opSP, b6856, b6859) byte external,
 	(b6857, b6BDB, b6B2E, optOBJECT, b6744) byte external,
 	(accum1, accum2, startAddr, w6750, w685A, w685C, w68A6) address external,
+	accum(4) byte at(.accum1),
 	(segSize, tokenSymId, w6B41)(1) address external;
 
 exit: procedure external; end;
@@ -5113,7 +5131,7 @@ writeRec02: procedure external; end;
 ovl8: procedure external; end;
 popToken: procedure external; end;
 pushToken: procedure(b1) external; declare b1 byte; end;
-sub$3CDF: procedure(b1) external; declare b1 byte; end;
+sourceError: procedure(b1) external; declare b1 byte; end;
 sub$3DCE: procedure external; end;
 sub$3F19: procedure external; end;
 sub$4274: procedure external; end;
@@ -5123,13 +5141,13 @@ sub$450F: procedure(b1) external; declare b1 byte; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$54FD: procedure external; end;
 sub$5819: procedure(w, b) external; declare w address, b byte; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F07: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F25: procedure external; end;
-sub$5F37: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+nestingError: procedure external; end;
+stackError: procedure external; end;
+balanceError: procedure external; end;
+operandError: procedure external; end;
 nestIF: procedure(b) external; declare b byte; end;
 unnestIF: procedure(b) external; declare b byte; end;
 addByte2Tok: procedure(b) external; declare b byte; end;
@@ -5151,11 +5169,11 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1byt(0) then
-				call sub$5EE3;
+			if alignTypes(arg1b) <> accum1$lb then
+				call expressionError;
 		end;
 		else if alignTypes(arg1b) <> 3 then
-			call sub$5EE3;
+			call expressionError;
 	end;
 	else
 	do;
@@ -5166,16 +5184,16 @@ sub$4AAA: procedure(arg1b) public;
 			if accum1 = 1 or accum1 = 2 then
 				alignTypes(arg1b) = low(accum1);
 			else
-				call sub$5EE3;
+				call expressionError;
 		end;
 	end;
 end;
 
 
-sub$4B3F: procedure(arg1b) public;
-	declare arg1b byte;
+cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
+	declare cond byte;		/* 0 or 0ffffh */
 
-	accum1 = arg1b;
+	accum1 = cond;
 	if accum1 then
 		accum1 = 0FFFFh;
 end;
@@ -5194,7 +5212,7 @@ sub$4B72: procedure public;
 /* 2 */		goto case3;
 /* 3 */ case3:	do;
 			if not (b6B2B = 2 and opType = 3) then
-				call sub$5F25;
+				call balanceError;
 
 			if tokenType(0) = 11 then
 			do;
@@ -5210,39 +5228,39 @@ sub$4B72: procedure public;
 /* 4 */		accum1 = accum1 * accum2;
 /* 5 */		accum1 = accum1 + accum2;
 /* 6 */		do;
-			call sub$5ED7;
+			call syntaxError;
 			call popToken;
 		end;
 /* 7 */		accum1 = accum1 - accum2;
 /* 8 */		;
 /* 9 */		do;
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 
 			accum1 = accum1 / accum2;
 		end;
 /* 10 */	accum1 = -accum1;
-/* 11 */	call sub$4B3F(accum1 = accum2);
-/* 12 */	call sub$4B3F(accum1 < accum2);
-/* 13 */	call sub$4B3F(accum1 <= accum2);
-/* 14 */	call sub$4B3F(accum1 > accum2);
-/* 15 */	call sub$4B3F(accum1 >= accum2);
-/* 16 */	call sub$4B3F(accum1 <> accum2);
+/* 11 */	call cond2Acc(accum1 = accum2);
+/* 12 */	call cond2Acc(accum1 < accum2);
+/* 13 */	call cond2Acc(accum1 <= accum2);
+/* 14 */	call cond2Acc(accum1 > accum2);
+/* 15 */	call cond2Acc(accum1 >= accum2);
+/* 16 */	call cond2Acc(accum1 <> accum2);
 /* 17 */	accum1 = not accum1;
 /* 18 */	accum1 = accum1 and accum2;
 /* 19 */	accum1 = accum1 or accum2;
 /* 20 */	accum1 = accum1 xor accum2;
 /* 21 */	do;
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 			accum1 = accum1 mod accum2;
 		end;
 /* 22 */	do;
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shl(accum1, accum2);
 		end;
 /* 23 */	do;
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shr(accum1, accum2);
 		end;
 /* 24 */	do;
@@ -5257,12 +5275,12 @@ sub$4B72: procedure public;
 			if tokenType(0) <> 10 then
 			do;
 				accum1 = sub$43DD;
-				if accum1byt(1) - 1 < 0FEh then
-					call sub$5F01;
+				if accum1$hb - 1 < 0FEh then
+					call valueError;
 				b6B28 = 22h;
 				if (b6855 and 18h) = 18h then
 				do;
-					call sub$5F01;
+					call valueError;
 					b6855 = b6855 and 0E7h or 8;
 				end;
 			end;
@@ -5273,7 +5291,7 @@ sub$4B72: procedure public;
 			end;
 
 			if sub$425B(b6858) then
-				call sub$5F37;
+				call operandError;
 			b6B2D = 0Bh;
 			b6B23 = 0FFh;
 		end;
@@ -5290,7 +5308,7 @@ sub$4B72: procedure public;
 			b68AB = 0FFh;
 			if (b6855 and 40h) = 40h then
 			do;
-				call sub$5EE3;
+				call expressionError;
 				b6855 = 0;
 			end;
 			b6CE4 = 1;
@@ -5304,10 +5322,10 @@ sub$4B72: procedure public;
 			do;
 				if (b6855 and 18h) <> 0 then
 					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
-						call sub$5EE3;
+						call expressionError;
 			end;
 			else
-				call sub$5EE3;
+				call expressionError;
 
 			if optOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
@@ -5321,21 +5339,21 @@ sub$4B72: procedure public;
 				b6755 = 1;
 				b6745 = b6855 and 7;
 				if (b6855 and 40h) = 40h then
-					call sub$5EE3;
+					call expressionError;
 				if sub$425B(b6858) then
-					call sub$5F37;
+					call operandError;
 
 				b68AB = 0FFh;
 			end;
 
 			if ifDepth > 0 then
-				call sub$5F07;
+				call nestingError;
 			if opType <> 1 then
-				call sub$5ED7;
+				call syntaxError;
 			if b6B35 then
 				b6B33 = 0FFh;
 			else
-				call sub$5ED7;
+				call syntaxError;
 
 		end;
 /* 33 */	do;
@@ -5352,7 +5370,7 @@ sub$4B72: procedure public;
 /* 34 */	do;
 			b6B32 = 0FFh;
 			if ifDepth = 0 then
-				call sub$5F07;
+				call nestingError;
 			else if not inElse(0) then
 			do;
 				if not skipping(0) then
@@ -5362,7 +5380,7 @@ sub$4B72: procedure public;
 				inElse(0) = 0FFh;
 			end;
 			else
-				call sub$5F07;
+				call nestingError;
 		end;
 /* 35 */	do;
 			if b6B35 then
@@ -5374,13 +5392,13 @@ sub$4B72: procedure public;
 /* 36 */	do;
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(5);
 		end;
 /* 38 */	call sub$450F(7);
@@ -5426,11 +5444,11 @@ sub$4B72: procedure public;
 /* 52 */	do;
 			if tokenSP <> 0 and b6743 then
 			do;
-				call move(6, .asc$3692, .aModulePage);
+				call move(6, .spaces24 + 18, .aModulePage);
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
-				call sub$3CDF('R');
+				call sourceError('R');
 
 			call popToken;
 		end;
@@ -5477,14 +5495,14 @@ sub$518F: procedure public;
 			if b6B25 then
 				if sub$53C0 then
 					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
-						call sub$5EE3;
+						call expressionError;
 
 		if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
 				opSP = 0;
-				call sub$5F13;
+				call stackError;
 			end;
 			else
 				opStack(opSP := opSP + 1) = opType;
@@ -5500,7 +5518,7 @@ sub$518F: procedure public;
 
 		b6B25 = 0;
 		if not b6B35 and b6B2B > 3 then
-			call sub$5ED7;
+			call syntaxError;
 
 		if b6B2B = 0 then
 			b6B2B = opType;
@@ -5549,7 +5567,7 @@ sub$518F: procedure public;
 
 		do b6BDB = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum1byt(b6BDB));
+				call addByte2Tok(accum(b6BDB));
 		end;
 
 		tokenAttr(0) = b6855;
@@ -5585,13 +5603,13 @@ declare (cmdch$p, actRead) address external,
 	(b6BDB, b6BDD) byte external,
 	(lstFile, objFile, cmdLineBuf, signonMsg, b674A, b68AE)(1) byte external,
 	(inElse, opStack, aF0Asxref, aF0Asxref$tmp, skipping, optionSeen)(1) byte external,
-	(cZERO, c255, b6742, b6743, activeSeg, ifDepth) byte external,
+	(bZERO, bTRUE, b6742, b6743, activeSeg, ifDepth) byte external,
 	(opSP, b6857, curChar, lookAhead, b6882, b6898) byte external,
 	(b68B8, b6A00, optLIST, optCOND, b6A6F, saveIdx, scanOptions) byte external,
 	(opType, b6B2C, b6B2E, b6B33, b6C21, fileIdx) byte external,
-	(w673F, w6750, w686E, w6870) address external,
+	(wZERO, w6750, w686E, w6870) address external,
 	(lineCnt, w68A6, pageCnt, w6A4E) address external,
-	(errCnt, options$p, includefd, rootfd, w75C4, statusIO, infd, off6C25) address external,
+	(errCnt, options$p, includefd, rootfd, stdKeywords, statusIO, infd, off6C25) address external,
 	(off6C2C, off6C2E, zero, endOutBuf) address external,
 	(w6868, w6B41, segSize, symTab)(1) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
@@ -5606,7 +5624,7 @@ isPhase1: procedure byte external; end;
 physmem: procedure address external; end;
 ioErrChk: procedure external; end;
 sub$3DCE: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 closeF: procedure(w) external; declare w address; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -5665,7 +5683,7 @@ getAsmFile: procedure public;
 		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
 	end;
 
-	symTab(0) = .w75C4;
+	symTab(0) = .stdKeywords;
 	w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
 	call rescan(1, .statusIO);
 	call ioErrChk;
@@ -5682,7 +5700,7 @@ getAsmFile: procedure public;
 
 	call cmdSkipWhite;
 	if cmdch = CR then
-		call wrError(4);
+		call runtimeError(4);
 
 	infd = inOpen(cmdch$p, 1);
 	rootfd, includefd = infd;
@@ -5719,10 +5737,10 @@ end;
 
 resetData: procedure public;
 	call sub$3DCE;
-	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = cZERO;
-	b6743, b6898, optLIST, b6A6F, optCOND = c255;
-	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = cZERO;
-	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = w673F;
+	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
+	b6743, b6898, optLIST, b6A6F, optCOND = bTRUE;
+	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
+	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = wZERO;
 	b6882 = b6882 + 1;
 	w6A4E, opType, pageCnt, lineCnt = 1;
 	b68AE(0) = 0;
@@ -5738,7 +5756,7 @@ resetData: procedure public;
 			call ioErrChk;
 			includefd = rootfd;
 		end;
-		fileIdx = cZERO;
+		fileIdx = bZERO;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
@@ -5779,8 +5797,8 @@ declare w$3780 address public data(0),
 	signonMsg(*) byte data(0Dh, 0Ah),
 	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
 	aModulePage(*) byte public data('MODULE ', 9, ' PAGE ', 0),
-	cZERO byte public data(0),
-	c255 byte public data(0FFh),
+	bZERO byte public data(0),
+	bTRUE byte public data(0FFh),
 	copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
 	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
 	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
@@ -5882,7 +5900,7 @@ declare TRUE literally '0FFh';
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (aBadSyntax, aError, asc$3699, aError$0, tokenSize)(1) byte external,
-	(cZERO, c255, b6749, b6754, tokenSP, tokenType) byte external,
+	(bZERO, bTRUE, b6749, b6754, tokenSP, tokenType) byte external,
 	(b6855, b6857, b6858, b6859, curChar, reget, b6872) byte external,
 	(b687F, b6880, b6881, b6884, b6885, b6896, b6897) byte external,
 	(b6898, b689A, b689B, b689C, b68AB, b68AD, optDEBUG) byte external,
@@ -6077,7 +6095,7 @@ wrConsole: procedure(arg1w, arg2w) public;
 end;
 
 
-wrError: procedure(arg1b) public;
+runtimeError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if b6BD9 then
@@ -6130,7 +6148,7 @@ wrError: procedure(arg1b) public;
 	call exit;
 end;
 
-fileError: procedure(arg1w) public;
+ioError: procedure(arg1w) public;
 	declare arg1w address;
 	declare ch based arg1w byte;
 
@@ -6142,8 +6160,8 @@ fileError: procedure(arg1w) public;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
-		call wrError(3);
-	call wrError(4);
+		call runtimeError(3);	/* eof */
+	call runtimeError(4);
 end;
 
 inOpen: procedure(arg1w, arg2w) address public;
@@ -6152,7 +6170,7 @@ inOpen: procedure(arg1w, arg2w) address public;
 
 	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
 	if openStatus <> 0 then
-		call fileError(arg1w);
+		call ioError(arg1w);
 	return open$infd;
 end;
 
@@ -6193,7 +6211,7 @@ getNibble: procedure(arg1w, arg2b) byte public;
 	return b6C11 and 0Fh;
 end;
 
-sub$3CDF: procedure(arg1b) public;
+sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if not isSkipping or b6B2B = 22h then
@@ -6215,7 +6233,7 @@ sub$3D34: procedure(arg1b) public;
 
 	ch = arg1b;
 	if (w$906A := w$906A + 1) > w6870 then
-		call wrError(1);
+		call runtimeError(1);	/* table error */
 end;
 
 
@@ -6257,7 +6275,7 @@ sub$3DA4: procedure public;
 	if b6C21 then
 		call sub$4904;
 
-	b6C21, b$9A77, scanOptions = cZERO;
+	b6C21, b$9A77, scanOptions = bZERO;
 	call sub$3D6E;
 	b6898 = 0;
 	optDEBUG = optDEBUG and optOBJECT;
@@ -6274,9 +6292,9 @@ sub$3DFB: procedure public;
 		call sub$4904;
 
 	b68AD, has16bitOperand, b$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = cZERO;
-	b689C, b6B31, b6B34, b6B35 = c255;
-	optEJECT, b6857, tokenSP, b$9058, b$9067, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = cZERO;
+	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = bZERO;
+	b689C, b6B31, b6B34, b6B35 = bTRUE;
+	optEJECT, b6857, tokenSP, b$9058, b$9067, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = bZERO;
 	b6896 = 20h;
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
@@ -6320,9 +6338,9 @@ sub$3D6E: procedure external; end;
 sub$43D2: procedure external; end;
 sub$467F: procedure(b1, w2) external; declare b1 byte, w2 address; end;
 sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F1F: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+illegalCharError: procedure external; end;
 popToken: procedure external; end;
 collectIdent: procedure(b1) external; declare b1 byte; end;
 collectString: procedure external; end;
@@ -6343,7 +6361,7 @@ isWhite: procedure byte external; end;
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (b3692, tokenSize, tokenAttr, mem, macroBuf)(1) byte external,
-	(c255, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
+	(bTRUE, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
 	(b6880, b6885, b6897, b689C, optMACRODEBUG, optXREF, b6B25, phase) byte external,
 	(b6B29, opType, b6B30, b6B31, b6BDA, b6BDD) byte external,
 	(b$9058, b$9059, b$905B, b$905E, skipping, b$9C3A) byte external,
@@ -6459,7 +6477,7 @@ sub$3F19: procedure public;
 
 	sub$416B: procedure;
 		if opType = 0 then
-			call sub$5EE3;
+			call expressionError;
 		b6B25 = 0;
 		opType = 0;
 	end;
@@ -6473,7 +6491,7 @@ sub$3F19: procedure public;
 	end;
 
 	do case sub$65BE;
-/* 0 */ case0:	call sub$5F1F;
+/* 0 */ case0:	call illegalCharError;
 /* 1 */		;
 /* 2 */		do;
 			if not b$9058 then
@@ -6501,11 +6519,11 @@ sub$3F19: procedure public;
 				end;
 
 				b6B30 = 0;
-				b6872, b6B31 = c255;
+				b6872, b6B31 = bTRUE;
 			end;
 			else
 			do;
-				call sub$5ED7;
+				call syntaxError;
 				call popToken;
 			end;
 
@@ -6537,7 +6555,7 @@ sub$3F19: procedure public;
 /* 7 */		do;
 			if b6B29 = 37h then
 			do;
-				call sub$5F1F;
+				call illegalCharError;
 				return;
 			end;
 			if b$905E then
@@ -6614,7 +6632,7 @@ sub$3F19: procedure public;
 				do;
 					b$905E = 2;
 					if b6897 then
-						call sub$5ED7;
+						call syntaxError;
 					b6897 = 0;
 				end;
 				else
@@ -6686,10 +6704,10 @@ flushout: procedure external; end;
 outch: procedure(b) external; declare b byte; end;
 outStrN: procedure(w1, w2) external; declare (w1, w2) address; end;
 closeF: procedure(w) external; declare w address; end;
-sub$3CDF: procedure(b) external; declare b byte; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F37: procedure external; end;
+sourceError: procedure(b) external; declare b byte; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+operandError: procedure external; end;
 popToken: procedure external; end;
 pushToken: procedure(b) external; declare b byte; end;
 nibble2Ascii: procedure(b) byte external; declare b byte; end; 
@@ -6699,7 +6717,8 @@ isSkipping: procedure byte external; end;
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (tokenSP, b6855, b6856, b6858) byte external,
-	(tokenType, tokenSize, tokenAttr, accum1byt, accum2byt, lstFile, bp6A4E, bp6BE0)(1) byte external,
+	(tokenType, tokenSize, tokenAttr, lstFile, bp6A4E, bp6BE0)(1) byte external,
+	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
 	(b6859, b6881, b689A, optXREF, optPAGING, optPAGEWIDTH) byte external,
 	(optPAGELENGTH, optLIST, optGEN, optCOND, b6A6F, has16bitOperand, b6B2B, b6B2D) byte external,
 	(b6B30, b6B31, b6B32, b6B36, b6BDB, b6BDC, b6BDD, b$905B) byte external,
@@ -6729,16 +6748,16 @@ end;
 sub$4274: procedure public;
 	if testBit(b6B2B, .b41B7) then
 		if sub$425B(b6858) then
-			call sub$5F37;
+			call operandError;
 end;
 
 sub$4291: procedure public;
 	if sub$425B(b6858) then
-		call sub$5F37;
+		call operandError;
 	if (b4181(b6B2B) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
-		call sub$5F37;
+		call operandError;
 
 	b6858 = 0Ch;
 	bp6BE0(0) = (b6855 and 18h) <> 0;
@@ -6746,7 +6765,7 @@ sub$4291: procedure public;
 	if (b6855 and 7) <> 0 then
 		if (b6856 and 7) <> 0 then
 			if ((b6855 xor b6856) and 1Fh) <> 0 then
-				call sub$5EE3;
+				call expressionError;
 	if (b6BDB := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
 		if b6B2B = 5 then
@@ -6764,7 +6783,7 @@ sub$4291: procedure public;
 	b6BDD = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
 	if testBit(b6BDD, .b41C6) then
 L4394:	do;
-		call sub$5EE3;
+		call expressionError;
 		b6855 = 0;
 		return;
 	end;
@@ -6780,9 +6799,9 @@ end;
 
 swapAccBytes: procedure public;
 	declare b6C17 byte;
-	b6C17 = accum1byt(0);
-	accum1byt(0) = accum1byt(1);
-	accum1byt(1) = b6C17;
+	b6C17 = accum1$lb;
+	accum1$lb = accum1$hb;
+	accum1$hb = b6C17;
 end;
 
 
@@ -6805,7 +6824,7 @@ sub$43DD: procedure address public;
 
 		if tokenType(tokenSP) <> 40h then
 		do;
-			call sub$3CDF(arg1b);
+			call sourceError(arg1b);
 			return;
 		end;
 		if tokenSize(0) = 0 then
@@ -6850,9 +6869,9 @@ sub$43DD: procedure address public;
 			end;
 
 			if tokenSize(0) > 0 then
-				accum1byt(0) = ch;
+				accum1$lb = ch;
 			if tokenSize(0) > 1 then
-				accum1byt(1) = s(1) and tokenType(0) <> 7;
+				accum1$hb = s(1) and tokenType(0) <> 7;
 		end;	
 
 		if has16bitOperand then
@@ -6885,31 +6904,31 @@ sub$450F: procedure(arg1b) public;
 
 	if (arg1b and 3) <> 0 then
 	do;
-		if accum2byt(1) <> 0
-		   or accum2byt(0) > 7
-		   or arg1b and accum2byt(0)
-		   or (arg1b and 3) = 3 and accum2byt(0) > 2
+		if accum2$hb <> 0
+		   or accum2$lb > 7
+		   or arg1b and accum2$lb
+		   or (arg1b and 3) = 3 and accum2$lb > 2
 		   or (not sub$425B(b6859) and b6B2B <> 2Eh) then
-			call sub$5F37;
+			call operandError;
 		else if sub$425B(b6859) and b6B2B = 2Eh then
-			call sub$5F37;
+			call operandError;
 		if ror(arg1b, 2) then
-			accum2byt(0) = rol(accum2byt(0), 3);
-		accum1byt(0) = accum1byt(0) or accum2byt(0);
+			accum2$lb = rol(accum2$lb, 3);
+		accum1$lb = accum1$lb or accum2$lb;
 	end;
 	else if b6B2B <> 2Dh then
 		if sub$425B(b6859) then
-			call sub$5F37;
+			call operandError;
 
 	if shr(arg1b, 3) then
 	do;
 		if (b6856 and 18h) = 18h then
 		do;
-			call sub$5F01;
+			call valueError;
 			b6856 = b6856 and 0E7h or 8;
 		end;
-		if accum2byt(1) + 1 > 1 then
-			call sub$5F01;
+		if accum2$hb + 1 > 1 then
+			call valueError;
 	end;
 	if b6B2B = 28h or b6B2B = 2Ch then
 	do;
@@ -6920,8 +6939,8 @@ sub$450F: procedure(arg1b) public;
 		b6855 = 0;
 
 	if b6B2B <> 2Dh then
-		if accum1byt(0) = 76h then
-			call sub$5F37;
+		if accum1$lb = 76h then
+			call operandError;
 	if (b6B2B := shr(arg1b, 4) + 24h) = 24h then
 		b6B2D = 0Bh;
 end;
@@ -7000,7 +7019,7 @@ flushout: procedure external; end;
 sub$3DFB: procedure external; end;
 sub$40B9: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$5ED7: procedure external; end;
+syntaxError: procedure external; end;
 popToken: procedure external; end;
 sub$8447: procedure external; end;
 sub$872E: procedure external; end;
@@ -7018,7 +7037,7 @@ declare tokenSize literally 'toksiz',
 
 declare (activeSeg, tokenSP, b6880, b68AD) byte external,
 	(b6A56, optXREF, optSYMBOLS, b6B23, b6B24, phase, b6B2C, b6B2E, b6B30) byte external,
-	(b6759, tokenType, tokenSize, b6873, asciiLineNo)(1) byte external,
+	(lineBuf, tokenType, tokenSize, b6873, asciiLineNo)(1) byte external,
 	(b6B33, b6B34, b6BD9, b6BDB, b905E, skipping, b9A77) byte external,
 	(out$p, w68A6, w6BCE) address external,
 	(tokStart, segSize)(1) address external;
@@ -7047,10 +7066,10 @@ end;
 sub$546F: procedure public;
 	b6A56 = sub$4646;
 	if b6B30 then
-		call sub$5ED7;
+		call syntaxError;
 	if haveTokens then
 		if not(tokenType(b6A56) = 0Bh or b68AD) then
-			call sub$5ED7;
+			call syntaxError;
 	if b6B23 or b6B24 then
 	do;
 		if tokenSP = 1 and not xisSpace and tokenSize(0) <> 1 then
@@ -7105,13 +7124,13 @@ sub$4C1E: procedure public;
 
 		w6BCE = tokStart(b6BDB) + tokenSize(b6BDB);
 		if isSkipping or not b6B34 then
-			w6BCE = .b6759;
+			w6BCE = .lineBuf;
 
 		if sub$3A6A then
 			call ovl8;
 
 		b6B2C = 0FFh;
-		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .b6759);
+		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
 	if optXREF and b6880 then
@@ -7168,7 +7187,7 @@ declare	b6C21 byte public initial(0),
 
 
 close: procedure(w1, w2) external; declare (w1, w2) address; end;
-fileError: procedure(w1) external; declare w1 address; end;
+ioError: procedure(w1) external; declare w1 address; end;
 ioErrChk: procedure external; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -7204,7 +7223,7 @@ closeI: procedure public;
 	if fileIdx = 0 then
 	do;
 		b6C27 = 0FFh;
-		call fileError(.files(0).name);
+		call ioError(.files(0).name);
 		return;
 	end;
 	fileIdx = fileIdx - 1;
@@ -7302,20 +7321,20 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 
 
 
-sub$3CDF: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
 sub$3F19: procedure external; end;
 sub$4274: procedure external; end;
 sub$4291: procedure external; end;
 sub$450F: procedure(b) external; declare b byte; end;
 sub$4C1E: procedure external; end;
 sub$5CE8: procedure(w, b) external; declare w address, b byte; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F07: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F25: procedure external; end;
-sub$5F37: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+nestingError: procedure external; end;
+stackError: procedure external; end;
+balanceError: procedure external; end;
+operandError: procedure external; end;
 popToken: procedure external; end;
 nestIFX: procedure(b) external; declare b byte; end;
 sub$676D: procedure(b) external; declare b byte; end;
@@ -7352,9 +7371,11 @@ declare (moduleNameLen, b6745, activeSeg, b6754) byte external,
 	(b6B2E, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, b6BDB) byte external,
 	(b6BDD, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
 	(inElse, macroCondSP, opSP, b9C3A) byte external,
-	(b3692, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr, accum1byt, accum2byt)(1) byte external,
+	(b3692, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr)(1) byte external,
+	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
 	(macroCondStk, b6873, b674A, skipping, opStack)(1) byte external,
 	(w6750, startAddr, accum1, accum2, w685A, w685C, w68A6) address external,
+	accum(4) byte at(.accum1),
 	(tokenSymId, segSize, w6B41)(1) address external,
 	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
 			     w4 address, buf$p address, blk address, w10 address,
@@ -7373,11 +7394,11 @@ sub$4AAA: procedure(arg1b) public;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1byt(0) then
-				call sub$5EE3;
+			if alignTypes(arg1b) <> accum1$lb then
+				call expressionError;
 		end;
 		else if alignTypes(arg1b) <> 3 then
-			call sub$5EE3;
+			call expressionError;
 	end;
 	else
 	do;
@@ -7388,13 +7409,13 @@ sub$4AAA: procedure(arg1b) public;
 			if accum1 = 1 or accum1 = 2 then
 				alignTypes(arg1b) = low(accum1);
 			else
-				call sub$5EE3;
+				call expressionError;
 		end;
 	end;
 end;
 
 
-sub$4B3F: procedure(arg1b) public;
+cond2Acc: procedure(arg1b) public;
 	declare arg1b byte;
 
 	accum1 = arg1b;
@@ -7419,7 +7440,7 @@ sub$516F: procedure;
 /* 2 */		goto case3;
 /* 3 */	case3:	do;
 			if not (b6B2B = 2 and opType = 3) then
-				call sub$5F25;
+				call balanceError;
 
 			if tokenType(0) = 11 then
 			do;
@@ -7434,38 +7455,38 @@ sub$516F: procedure;
 /* 4 */		accum1 = accum1 * accum2;
 /* 5 */		accum1 = accum1 + accum2;
 /* 6 */		do;
-			call sub$5ED7;
+			call syntaxError;
 			call popToken;
 		end;
 /* 7 */		accum1 = accum1 - accum2;
 /* 8 */		;
 /* 9 */		do;
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 			accum1 = accum1 / accum2;
 		end;
 /* 10 */	accum1 = -accum1;
-/* 11 */	call sub$4B3F(accum1 = accum2);
-/* 12 */	call sub$4B3F(accum1 < accum2);
-/* 13 */	call sub$4B3F(accum1 <= accum2);
-/* 14 */	call sub$4B3F(accum1 > accum2);
-/* 15 */	call sub$4B3F(accum1 >= accum2);
-/* 16 */	call sub$4B3F(accum1 <> accum2);
+/* 11 */	call cond2Acc(accum1 = accum2);
+/* 12 */	call cond2Acc(accum1 < accum2);
+/* 13 */	call cond2Acc(accum1 <= accum2);
+/* 14 */	call cond2Acc(accum1 > accum2);
+/* 15 */	call cond2Acc(accum1 >= accum2);
+/* 16 */	call cond2Acc(accum1 <> accum2);
 /* 17 */	accum1 = not accum1;
 /* 18 */	accum1 = accum1 and accum2;
 /* 19 */	accum1 = accum1 or accum2;
 /* 20 */	accum1 = accum1 xor accum2;
 /* 21 */	do;
 			if accum2 = 0 then
-				call sub$5F01;
+				call valueError;
 			accum1 = accum1 mod accum2;
 		end;
 /* 22 */	do;
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shl(accum1, accum2);
 		end;
 /* 23 */	do;
-			if accum2byt(0) <> 0 then
+			if accum2$lb <> 0 then
 				accum1 = shr(accum1, accum2);
 		end;
 /* 24 */	do;
@@ -7480,12 +7501,12 @@ sub$516F: procedure;
 			if tokenType(0) <> 10 then
 			do;
 				accum1 = sub$43DD;
-				if accum1byt(1) - 1 < 0FEh then
-					call sub$5F01;
+				if accum1$hb - 1 < 0FEh then
+					call valueError;
 				b6B28 = 22h;
 				if (b6855 and 18h) = 18h then
 				do;
-					call sub$5F01;
+					call valueError;
 					b6855 = b6855 and 0E7h or 8;
 				end;
 			end;
@@ -7496,7 +7517,7 @@ sub$516F: procedure;
 			end;
 
 			if sub$425B(b6858) then
-				call sub$5F37;
+				call operandError;
 			b6B2D = 0Bh;
 			b6B23 = 0FFh;
 		end;
@@ -7513,7 +7534,7 @@ sub$516F: procedure;
 			b68AB = 0FFh;
 			if (b6855 and 40h) = 40h then
 			do;
-				call sub$5EE3;
+				call expressionError;
 				b6855 = 0;
 			end;
 			b$9C3A = 1;
@@ -7527,10 +7548,10 @@ sub$516F: procedure;
 			do;
 				if (b6855 and 18h) <> 0 then
 					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
-						call sub$5EE3;
+						call expressionError;
 			end;
 			else
-				call sub$5EE3;
+				call expressionError;
 
 			if optOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
@@ -7546,10 +7567,10 @@ sub$516F: procedure;
 				b6745 = (b6855 and 7);
 
 				if (b6855 and 40h) = 40h then
-					call sub$5EE3;
+					call expressionError;
 
 				if sub$425B(b6858) then
-					call sub$5F37;
+					call operandError;
 
 				b68AB = 0FFh;
 			end;
@@ -7558,15 +7579,15 @@ sub$516F: procedure;
 			b$905E = 0;			/* code diff */
 
 			if macroCondSP > 0 or b6BDD then	/* code diff */
-				call sub$5F07;
+				call nestingError;
 
 			if opType <> 1 then
-				call sub$5ED7;
+				call syntaxError;
 
 			if b6B35 then
 				b6B33 = 0FFh;
 			else
-				call sub$5ED7;
+				call syntaxError;
 		end;
 /* 33 */	do;
 			if b6B35 then
@@ -7584,7 +7605,7 @@ sub$516F: procedure;
 /* 34 */	do;
 			b6B32 = 0FFh;
 			if macroCondStk(0) <> 2 then
-				call sub$5F07;
+				call nestingError;
 			else if not inElse then
 			do;
 				if not skipping(0) then
@@ -7594,7 +7615,7 @@ sub$516F: procedure;
 				inElse = 0FFh;
 			end;
 			else
-				call sub$5F07;
+				call nestingError;
 		end;
 /* 35 */	do;
 			if b6B35 then
@@ -7606,13 +7627,13 @@ sub$516F: procedure;
 /* 36 */	do;
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;
 			if b6744 = 1 then
 				if b6873(0) = 4Dh then
-					call sub$5ED7;
+					call syntaxError;
 			call sub$450F(5);
 		end;
 /* 38 */	call sub$450F(7);
@@ -7659,7 +7680,7 @@ sub$516F: procedure;
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
-				call sub$3CDF(52h);
+				call sourceError(52h);
 			call popToken;
 		end;
 /* 53 */	segSize(3) = accum1;
@@ -7678,7 +7699,7 @@ sub$516F: procedure;
 /* 63 */	call sub$787A;			/* LOCAL */
 /* 64 */	call sub$78CE;
 /* 65 */	do;				/* NUL */
-			call sub$4B3F(tokenType(0) = 41h);
+			call cond2Acc(tokenType(0) = 41h);
 			call popToken;
 			b6855 = 0;
 		end;
@@ -7724,14 +7745,14 @@ sub$518F: procedure;
 		if b6B25 then
 			if sub$53C0 then
 				if getPrec(b6B29) <= getPrec(opStack(opSP)) then
-					call sub$5EE3;
+					call expressionError;
 
 	if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
 	do;
 		if opSP >= 10h then
 		do;
 			opSP = 0;
-			call sub$5F13;
+			call stackError;
 		end;
 		else
 			opStack(opSP := opSP + 1) = opType;
@@ -7750,7 +7771,7 @@ sub$518F: procedure;
 
 	b6B25 = 0;
 	if not b6B35 and b6B2B > 3 then
-		call sub$5ED7;
+		call syntaxError;
 
 	if b6B2B = 0 then
 		b6B2B = opType;
@@ -7798,7 +7819,7 @@ sub$518F: procedure;
 
 	do b6BDB = 0 to 3;
 		if (b6B28 := ror(b6B28, 1)) then
-			call collectByte(accum1byt(b6BDB));
+			call collectByte(accum(b6BDB));
 	end;
 
 	tokenAttr(0) = b6855;
@@ -7822,6 +7843,18 @@ end;
 asm48.pl3
 asm48:
 do;
+declare	lit	literally 'literally',
+	CC$BAD	lit	'0',
+	CC$WS	lit	'1',
+	CC$SEMI	lit	'2',
+	CC$COLON lit	'3',
+	CC$CR	lit	'4',
+	CC$PUNCT lit	'5',
+	CC$DOLAR lit	'6',
+	CC$QUOTE lit	'7',
+	CC$DIGIT lit	'8',
+	CC$LET	lit	'9',
+	CC$ESC	lit	'0bh';
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
 	b5672(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -7838,16 +7871,16 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);
 
 
-wrError: procedure(b) external; declare b byte; end;
-sub$3CDF: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
 sub$3D55: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
-sub$5ED7: procedure external; end;
-sub$5EFB: procedure external; end;
-sub$5F0D: procedure external; end;
-sub$5F1F: procedure external; end;
-sub$5F2B: procedure external; end;
-sub$5F31: procedure external; end;
+syntaxError: procedure external; end;
+multipleDefError: procedure external; end;
+phaseError: procedure external; end;
+illegalCharError: procedure external; end;
+undefinedSymbolError: procedure external; end;
+locationError: procedure external; end;
 popToken: procedure external; end;
 nxtCmdCh: procedure byte external; end;
 xisSpace: procedure byte external; end;
@@ -7911,14 +7944,14 @@ unpackToken: procedure(arg1w, arg2w) public;
 end;
 
 
-sub$5C08: procedure;
+insertSymX: procedure;
 	declare (w$9C32, w$9C34) address;
 	declare ch1 based w$9C32 byte;
 	declare ch2 based w$9C34 byte;
 
 	w686E, w$9C32 = (w$9C34 := w686E) + 8;
 	if w6870 < w$9C32 then
-		call wrError(1);
+		call runtimeError(1);	/* table error */
 
 	do while w$9C34 > curTokenSym$p;
 		w$9C32 = w$9C32 - 1;
@@ -7938,7 +7971,7 @@ sub$5C73: procedure(arg1b) byte;
 	if w6868(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
 		return 0;
 
-	call sub$5ED7;
+	call syntaxError;
 	return 0FFh;
 end;
 
@@ -7948,7 +7981,7 @@ sub$5CAD: procedure(arg1w, arg2b) public;
 
 	if sub$5C73(2) then
 		return;
-	call sub$5C08;
+	call insertSymX;
 	curTokenSym.w4 = arg1w;
 	curTokenSym.type = arg2b;
 	curTokenSym.b7 = 0;
@@ -7976,7 +8009,7 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 		return;
 
 	if tokenSP > 1 then
-		call sub$5ED7;
+		call syntaxError;
 
 	if isPhase1 then
 		if tokenType(0) = 9 then
@@ -7985,13 +8018,13 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 			do;
 				if curTokenSym.type >= 80h or arg2b = 3Ah and curTokenSym.w4 <> w6A4E then
 				do;
-					call sub$5F31;
+					call locationError;
 					b6CE9 = 80h;
 				end;
 			end;
 			else
 			do;
-				call sub$5C08;
+				call insertSymX;
 				w6866 = w6866 + 8;
 				w6868(1) = w6868(1) + 8;
 				b6CE8 = 0;
@@ -8072,7 +8105,7 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 
 		if not (b6748 or b6749) then
 			if curTokenSym.w4 <> arg1w then
-				call sub$5F0D;
+				call phaseError;
 	end;
 
 L5F82:
@@ -8083,10 +8116,10 @@ L5F82:
 
 	b6BDD = curTokenSym.type;
 	if tokenType(0) = 3 or b6BDD = 3 then
-		call sub$5EFB;
+		call multipleDefError;
 
 	if b6BDD >= 80h then
-		call sub$5F31;
+		call locationError;
 
 	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7) or arg2b = 4 and xisSpace
 	   or b6CEA or arg2b = 3Ah then
@@ -8096,7 +8129,7 @@ L5F82:
 	b6748 = 0;
 	b6749 = 0;
 	if curTokenSym.type = 6 then
-		call sub$5F2B;
+		call undefinedSymbolError;
 
 	b6857 = 0;
 	if b6883 then
@@ -8110,20 +8143,20 @@ lookup: procedure(arg1b) byte public;
 	declare arg1b byte;
 	declare (w6CEE, w6CF0, s6CF2$p, w6CF4, s6CF6$p, s6CF8$p) address,
 		(b6CFA, b6CFB) byte;
-	declare s6CF6 based s6CF6$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte),
-		s6CF8 based s6CF8$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte);
+	declare s6CF6 based s6CF6$p structure(tok(2) address, b4 byte, b5 byte, type byte, b7 byte),
+		s6CF8 based s6CF8$p (2) address;
 	declare wrd based w6BE0 address;
 
 	s6CF8$p = curTokStart;
-	if arg1b = 0 then
+	if arg1b = 0 then		/* hash chain look up key word */
 	do;
 		s6CF6$p = 0;
-		w6CF4 = symTab(0) + (s6CF8.w0 + s6CF8.w2) mod 97h * 8;
+		w6CF4 = symTab(0) + (s6CF8(0) + s6CF8(1)) mod 97h * 8;
 
 		do while w6CF4 <> 0;
 			s6CF6$p = s6CF6$p + w6CF4;
-			if s6CF6.w0 = s6CF8.w0 then
-				if s6CF6.w2 = s6CF8.w2 then
+			if s6CF6.tok(0) = s6CF8(0) then
+				if s6CF6.tok(1) = s6CF8(1) then
 				do;
 					curTokenSym$p = s6CF6$p;
 					tokenType(0) = curTokenSym.type;
@@ -8131,12 +8164,12 @@ lookup: procedure(arg1b) byte public;
 						if b5672(tokenType(0)) then
 							has16bitOperand = 0FFh;
 					if curTokenSym.b7 = 2 and not optMOD85 then
-						call sub$3CDF(4Fh);
+						call sourceError(4Fh);
 
 					if tokenType(0) = 8 then	/* SP */
 					do;
 						if not (opType = 24h or opType = 25h) then /* lxi or push/pop */
-							call sub$3CDF(58h);
+							call sourceError(58h);
 						tokenType(0) = 7;	/* reg */
 					end;
 					return (tokenType(0) and 7Fh);
@@ -8149,11 +8182,13 @@ lookup: procedure(arg1b) byte public;
 	w6CEE = symTab(arg1b);
 	w6CF0, s6CF6$p = w6868(arg1b);
 
+	/* binary chop search for id */
+
 	do while (s6CF2$p := w6CEE + shr((w6CF0 - w6CEE) and 0FFF0h, 1)) <> s6CF6$p;
 		s6CF6$p = s6CF2$p;
-		if s6CF8.w0 = s6CF6.w0 then
+		if s6CF8(0) = s6CF6.tok(0) then
 		do;
-			if s6CF8.w2 = s6CF6.w2 then
+			if s6CF8(1) = s6CF6.tok(1) then
 			do;
 				curTokenSym$p = s6CF6$p;
 				tokenType(0) = curTokenSym.type;
@@ -8166,10 +8201,10 @@ lookup: procedure(arg1b) byte public;
 				return b6BDD;
 			end;
 			else
-				b6CFB = s6CF6.w2 > s6CF8.w2;
+				b6CFB = s6CF6.tok(1) > s6CF8(1);
 		end;
 		else
-			b6CFB = s6CF6.w0 > s6CF8.w0;
+			b6CFB = s6CF6.tok(0) > s6CF8(0);
 
 		s6CF6$p = s6CF2$p;
 		if b6CFB then
@@ -8199,17 +8234,17 @@ end;
 
 
 getChX: procedure byte public;
-	declare (b6CFC, b6CFD) byte;
+	declare (curCH, prevCH) byte;
 	declare ch based s906C.buf$p byte;
 	declare ch1 based off$9056 byte;
 
 L6339:
 	if not reget then
 	do;
-		b6CFD = b6CFC;
+		prevCH = curCH;
 
 	L6347:
-		b6CFC = lookAhead;
+		curCH = lookAhead;
 		if b$905B then
 		do;
 			do while (lookAhead := ch) = 0FEh;
@@ -8224,44 +8259,44 @@ L6339:
 		else
 			lookAhead = sub$4879;
 
-		if chClassX(b6CFC) = 0 then
-			if b6CFC = 0 or b6CFC = 7Fh or b6CFC = 0Ch then
+		if chClassX(curCH) = CC$BAD then
+			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
 				goto L6347;
 
 		if b$905B then
 		do;
-			if b6CFC = 1Bh then
+			if curCH = 1Bh then
 			do;
 				goto L65B2;
 			end;
-			else if b6CFC = 26h then
+			else if curCH = '&' then
 			do;
-				if not b6CFD < 80h or lookAhead = 80h then
+				if not prevCH < 80h or lookAhead = 80h then
 					goto L6339;
 			end;
-			else if b6CFC = 21h and b6CFD <> 0 then
+			else if curCH = '!' and prevCH <> 0 then
 			do;
 				if not (b$905D or b$905E) and b$905C then
 				do;
-					b6CFC = 0;
+					curCH = 0;
 					goto L6339;
 				end;
 			end;
-			else if b6CFC >= 128 then
+			else if curCH >= 128 then
 			do;
 				if not (b$905C := not b$905C) then
 					s906C.buf$p = w$9197;
 				else
 				do;
 					w$9197 = s906C.buf$p;
-					if b6CFC = 80h then
+					if curCH = 80h then
 					do;
 						s906C.buf$p = s906C.w12;
 						if b$9062 = 2 then
 						do;
 							b$91A2 = ch;
 							s906C.buf$p = .b$91A2;
-							if ch = 21h then
+							if ch = '!' then
 							do;
 								b$91A1 = 21h;
 								b$91A2 = mem(s906C.w12 + 1);
@@ -8297,26 +8332,26 @@ L6339:
 			if isPhase2Print then
 				if off$9056 < .w$9054 then
 				do;
-					ch1 = b6CFC;	
+					ch1 = curCH;	
 					off$9056 = off$9056 + 1;
 				end;
 
 		if b$905E then
-			if w$919D <> w$906A and b6CFC = 0Dh or not b$9059 then
-			call sub$3D55(b6CFC);
+			if w$919D <> w$906A and curCH = 0Dh or not b$9059 then
+			call sub$3D55(curCH);
 
-		if not(b6CFD = 21h or b6742) then
+		if not(prevCH = '!' or b6742) then
 		do;
-			if b6CFC = 3Eh then
+			if curCH = '>' then
 				b$9067 = b$9067 - 1;
 
-			if b6CFC = 3Ch then
+			if curCH = '<' then
 				b$9067 = b$9067 + 1;
 		end;
 	end;
 L65B2:
 	reget = 0;
-	return (curChar := b6CFC);
+	return (curChar := curCH);
 end;
 
 sub$65BE: procedure byte public;
@@ -8335,7 +8370,7 @@ sub$65D9: procedure public;
 	else
 	do;
 		b$905E = b$905E and 0FEh;
-		call sub$5F1F;
+		call illegalCharError;
 		b$905E = b$905E > 0;
 	end;
 end;
@@ -8347,8 +8382,8 @@ asm49:
 do;
 
 
-sub$3CDF: procedure(b) external; declare b byte; end;
-wrError: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
 physmem: procedure address external; end;
 getChX: procedure byte external; end;
@@ -8356,10 +8391,10 @@ sub$65BE: procedure byte external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (cZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byte external,
+declare (bZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byte external,
 	(b9062, b9063) byte external,
 	(tokenType, tokenSize, tokenAttr, skipping, inElse, macroCondStk)(1) byte external,
-	(off$682A, curTokStart, w6870, w673F) address external,
+	(endLineBuf, curTokStart, w6870, wZERO) address external,
 	(tokenSymId, tokenSym, tokStart)(1) address external,
 	s906CStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
 			     w4 address, buf$p address, blk address, w10 address,
@@ -8369,72 +8404,72 @@ declare (cZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byt
 			     w12 address, w14 address) external;
 
 
-sub$5ED7: procedure public;
-	call sub$3CDF('Q');
+syntaxError: procedure public;
+	call sourceError('Q');
 end;
 
-sub$5EDD: procedure public;
-	call sub$3CDF('D');
+doubleDefError: procedure public;
+	call sourceError('D');
 end;
 
-sub$5EE3: procedure public;
-	call sub$3CDF('E');
+expressionError: procedure public;
+	call sourceError('E');
 end;
 
-sub$5EE9: procedure public;
-	call sub$3CDF('C');
+commandError: procedure public;
+	call sourceError('C');
 end;
 
-sub$5EEF: procedure public;
-	call sub$3CDF('O');
+OpcodeOperandError: procedure public;
+	call sourceError('O');
 end;
 
-sub$5EF5: procedure public;
-	call sub$3CDF('R');
+nameError: procedure public;
+	call sourceError('R');
 end;
 
-sub$5EFB: procedure public;
-	call sub$3CDF('M');
+multipleDefError: procedure public;
+	call sourceError('M');
 end;
 
-sub$5F01: procedure public;
-	call sub$3CDF('V');
+valueError: procedure public;
+	call sourceError('V');
 end;
 
-sub$5F07: procedure public;
-	call sub$3CDF('N');
+nestingError: procedure public;
+	call sourceError('N');
 end;
 
-sub$5F0D: procedure public;
-	call sub$3CDF('P');
+phaseError: procedure public;
+	call sourceError('P');
 end;
 
-sub$5F13: procedure public;
-	call wrError(0);
+stackError: procedure public;
+	call runtimeError(0);
 end;
 
-sub$5F19: procedure public;
-	call wrError(4);
+fileError: procedure public;
+	call runtimeError(4);
 end;
 
-sub$5F1F: procedure public;
-	call sub$3CDF('I');
+illegalCharError: procedure public;
+	call sourceError('I');
 end;
 
-sub$5F25: procedure public;
-	call sub$3CDF('B');
+balanceError: procedure public;
+	call sourceError('B');
 end;
 
-sub$5F2B: procedure public;
-	call sub$3CDF('U');
+undefinedSymbolError: procedure public;
+	call sourceError('U');
 end;
 
-sub$5F31: procedure public;
-	call sub$3CDF('L');
+locationError: procedure public;
+	call sourceError('L');
 end;
 
-sub$5F37: procedure public;
-	call sub$3CDF('X');
+operandError: procedure public;
+	call sourceError('X');
 end;
 
 haveTokens: procedure byte public;
@@ -8463,7 +8498,7 @@ nestIFX: procedure(arg1b) public;
 	do;
 		if (b$9063 := b$9063 + 1) > 9 then
 		do;
-			call sub$5F13;
+			call stackError;
 			b$9063 = 0;
 		end;
 		else
@@ -8478,7 +8513,7 @@ nestIFX: procedure(arg1b) public;
 	do;
 		if (ifDepth := ifDepth + 1) > 8 then
 		do;
-			call sub$5F13;
+			call stackError;
 			ifDepth = 0;
 		end;
 		else
@@ -8495,7 +8530,7 @@ sub$676D: procedure(arg1b) public;
 
 	if arg1b <> macroCondStk(0) then
 	do;
-		call sub$5F07;
+		call nestingError;
 		if arg1b = 2 then
 			return;
 		macroCondSP = s906C.macroCondSP;
@@ -8527,7 +8562,7 @@ pushToken: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if tokenSP >= 8 then
-		call sub$5F13;
+		call stackError;
 	else
 	do;
 		tokenSP = tokenSP + 1;
@@ -8537,27 +8572,27 @@ pushToken: procedure(arg1b) public;
 		tokenAttr(tokenSP) = tokenAttr(0);
 		tokenSize(tokenSP) = tokenSize(0);
 		tokenSymId(tokenSP) = tokenSymId(0);	
-		tokStart(0) = tokStart(0) + tokenSize(0);
+		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
 		tokenType(0) = arg1b;
-		tokenAttr(0), tokenSize(0) = cZERO;
-		tokenSym(0) = w673F;
-		tokenSymId(0) = w673F;
+		tokenAttr(0), tokenSize(0) = bZERO;
+		tokenSym(0) = wZERO;
+		tokenSymId(0) = wZERO;
 	end;
 end;
 
 collectByte: procedure(arg1b) public;
 	declare arg1b byte;
-	declare w6D02 address;
-	declare ch based w6D02 byte;
+	declare s address;
+	declare ch based s byte;
 
 
-	if (w6D02 := curTokStart + tokenSize(0)) < off$682A then
+	if (s := curTokStart + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
 		ch = arg1b;
 		tokenSize(0)= tokenSize(0)+ 1;
 	end;
 	else
-		call sub$5F13;
+		call stackError;
 end;
 
 collectIdent: procedure(arg1b) public;
@@ -8566,8 +8601,8 @@ collectIdent: procedure(arg1b) public;
 	call pushToken(arg1b);
 	reget = 1;
 
-	do while (arg1b := sub$65BE) = 8 or arg1b = 9;
-		if curChar > 60h then
+	do while (arg1b := sub$65BE) = 8 or arg1b = 9;	/* digit or letter */
+		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
 	end;
@@ -8576,53 +8611,54 @@ end;
 
 
 ascii2Num: procedure public;
-	declare w$9C5B address,
-		(b$9C5D, b$9C5E, b$9C5F) byte;
-	declare cha based curTokStart(1) byte;
+	declare accum address,
+		(radix, digit, i) byte;
+	declare chrs based curTokStart(1) byte;
 
 	call collectIdent(0Ch);
-	b$9C5D = cha(tokenSize(0):= tokenSize(0)- 1);
-	if b$9C5D = 48h then
-		b$9C5D = 10h;
+	radix = chrs(tokenSize(0):= tokenSize(0)- 1);
+	if radix = 'H' then
+		radix = 16;
 
-	if b$9C5D = 44h then
-		b$9C5D = 0Ah;
+	if radix = 'D' then
+		radix = 10;
 
-	if b$9C5D = 4Fh or b$9C5D = 51h then
-		b$9C5D = 8;
+	if radix = 'O' or radix = 'Q' then
+		radix = 8;
 
-	if b$9C5D = 42h then
-		b$9C5D = 2;
+	if radix = 'B' then
+		radix = 2;
 
-	if b$9C5D > 10h then
-		b$9C5D = 0Ah;
+	if radix > 10h then
+		radix = 0Ah;
 	else
 		tokenSize(0)= tokenSize(0)- 1;
 
-	w$9C5B = 0;
-	do b$9C5F = 0 to tokenSize(0);
-		if cha(b$9C5F) = 3Fh or cha(b$9C5F) = 40h then
+	accum = 0;
+	do i = 0 to tokenSize(0);
+		if chrs(i) = '?' or chrs(i) = '@' then
 		do;
-			call sub$5F1F;
-			b$9C5E = 0;
+			call illegalCharError;
+			digit = 0;
 		end;
 		else
 		do;
-			if (b$9C5E := cha(b$9C5F) - '0') > 9 then
-				b$9C5E = b$9C5E - 7;
-			if b$9C5E >= b$9C5D then
+			if (digit := chrs(i) - '0') > 9 then
+				digit = digit - 7;
+			if digit >= radix then
 				if not (tokenType(2) = 40h) then
 				do;
-					call sub$5F1F;
-					b$9C5E = 0;
+					call illegalCharError;
+					digit = 0;
 				end;
 		end;
 
-		w$9C5B = w$9C5B * b$9C5D + b$9C5E;
+		accum = accum * radix + digit;
 	end;
+	/* replace with packed number */
 	tokenSize(0)= 0;
-	call collectByte(low(w$9C5B));
-	call collectByte(high(w$9C5B));
+	call collectByte(low(accum));
+	call collectByte(high(accum));
 end;
 
 collectString: procedure public;
@@ -8635,7 +8671,7 @@ collectString: procedure public;
 		call collectByte(curChar);
 	end;
 
-	call sub$5F25;
+	call balanceError;
 
 L6268:
 	reget = 1;
@@ -8663,10 +8699,10 @@ declare TRUE literally '0FFh',
 skipWhite$2: procedure external; end;
 skipWhite: procedure external; end;
 skip2EOL: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
-sub$5EE9: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F19: procedure external; end;
+runtimeError: procedure(b) external; declare b byte; end;
+commandError: procedure external; end;
+stackError: procedure external; end;
+fileError: procedure external; end;
 popToken: procedure external; end;
 collectIdent: procedure(b) external; declare b byte; end;
 ascii2Num: procedure external; end;
@@ -8683,7 +8719,7 @@ sub$65D9: procedure external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b6759, curChar, reget, b6898, objFile, lstFile, optTTY, optMOD85, optMACROFILE,
+declare (lineBuf, curChar, reget, b6898, objFile, lstFile, optTTY, optMOD85, optMACROFILE,
 	 optPAGEWIDTH, optPAGELENGTH, optTITLE, optEJECT, optGEN, b6A6F, optLIST, titleLen, saveStack,
 	 saveIdx, collectBufLen, b6ADB, b$905B, b$9A77, optDEBUG) byte external,
 	 (optionId, collectBufIdx, scanOptions, phase, b6BDB, b6C21, b6C22, fileIdx) byte external,
@@ -8711,7 +8747,7 @@ collectBasicToken: procedure byte;
 	do;
 		call collectIdent(1);
 		if xisSpace and tokenSize(0) < 14 then
-			call move(collectBufLen := tokenSize(0), .b6759, .collectBuf);
+			call move(collectBufLen := tokenSize(0), .lineBuf, .collectBuf);
 	end;
 	else if curChar > 2Fh  and  3Ah > curChar then
 	do;
@@ -8733,7 +8769,7 @@ collectBasicToken: procedure byte;
 				collectBufLen = tokenSize(0);
 			b6ADB = 4;
 			if collectBufLen > 0 then
-				call move(collectBufLen, .b6759, .collectBuf);
+				call move(collectBufLen, .lineBuf, .collectBuf);
 		end;
 	end;
 	else
@@ -8782,20 +8818,20 @@ sub$6F39: procedure;
     end;
 done:
 	curFileName$p = .collectBuf;
-	call sub$5F19;
+	call fileError;
 end;
 
 
 getFileParam: procedure;
 	collectBufIdx = 0;
 	if not chkParen(0) then
-		call sub$5F19;
+		call fileError;
 	else
 	do;
 		call sub$6F39;
 		call move(collectBufIdx + 1, .collectBuf, curFileName$p);
 		if not chkParen(1) then
-			call sub$5F19;
+			call fileError;
 	end;
 end;
 
@@ -8816,7 +8852,7 @@ getMacroFileDrive: procedure;
 			return;
 	curFileName$p = .aF0Asmac$tmp;
 	collectBufIdx = 0;
-	call sub$5F19;
+	call fileError;
 end;
 
 
@@ -8967,7 +9003,7 @@ processCmd: procedure;
 			do;
 				w6BE2 = 1;
 				if fileIdx = 5 then
-					call sub$5F13;
+					call stackError;
 				else
 				do;
 					fileIdx = fileIdx + 1;
@@ -9001,7 +9037,7 @@ processCmd: procedure;
 		end;
 /* 9 */		do;			/* SAVE */
 			if saveIdx > 7 then
-				call sub$5F13;
+				call stackError;
 			else
 			do;
 				call move(3, .optLIST, .saveStack + saveIdx * 3);
@@ -9049,9 +9085,9 @@ sub$70D7: procedure public;
 		end;
 
 		if scanOptions then
-			call wrError(2);
+			call runtimeError(2);	/* command error */
 		else
-			call sub$5EE9;
+			call commandError;
 	end;
 
 	call sub$65D9;
@@ -9078,20 +9114,20 @@ declare w$9C75 address,
 popToken: procedure external; end;
 skip2EOL: procedure external; end;
 skipWhite: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
 writeM: procedure external; end;
 sub$40B9: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$5CAD: procedure(w1, b2) external; declare w1 address, b2 byte; end;
 sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-sub$5ED7: procedure external; end;
-sub$5EFB: procedure external; end;
-sub$5F07: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F1F: procedure external; end;
-sub$5F25: procedure external; end;
-sub$5F31: procedure external; end;
+syntaxError: procedure external; end;
+multipleDefError: procedure external; end;
+nestingError: procedure external; end;
+stackError: procedure external; end;
+illegalCharError: procedure external; end;
+balanceError: procedure external; end;
+locationError: procedure external; end;
 nestIFX: procedure(b) external; declare b byte; end;
 sub$676D: procedure(b) external; declare b byte; end;
 pushToken: procedure(b) external; declare b byte; end;
@@ -9114,7 +9150,7 @@ declare TRUE literally '0FFh',
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (cZERO, c255, b$3782, b$3783, tokenSP, curChar, reget, lookAhead) byte external,
+declare (bZERO, bTRUE, b$3782, b$3783, tokenSP, curChar, reget, lookAhead) byte external,
 	(b6880, b6884, b6896, b689C, b6B29, opType, b6B2B, b6B2C, b6B30) byte external,
 	(b6B32, b6BDA, b6BDD, b905A, b905B, b905D, b905E, b9060, b9061) byte external,
 	(b9062, b9063, b9064, b9065, b9066, b9067) byte external,
@@ -9148,7 +9184,7 @@ sub$7192: procedure byte;
 
 	if isLT or (not (s906C.mtype = 1) and isGT) then
 	do;
-		call sub$5F1F;
+		call illegalCharError;
 		return TRUE;
 	end;
 
@@ -9159,7 +9195,7 @@ end;
 
 sub$71F2: procedure;
 	w6866, w6868(2) = w686E;
-	b$9065, s906C.b3 = cZERO;
+	b$9065, s906C.b3 = bZERO;
 	b6B29 = 37h;
 end;
 
@@ -9240,7 +9276,7 @@ sub$733D: procedure(arg1w, arg2w) address;
 
 	do while arg1w <= arg2w;
 		if w6870 <= w686E then
-			call wrError(1);
+			call runtimeError(1);	/* table error */
 		ch1 = ch2;
 		w6870 = w6870 - 1;
 		arg2w = arg2w - 1;
@@ -9261,7 +9297,7 @@ end;
 sub$739A: procedure;
 	if b6884 then
 		if b6896 <> 55h then
-			call sub$5F31;
+			call locationError;
 end;
 
 
@@ -9348,7 +9384,7 @@ sub$73AD: procedure public;
 		if not testBit(curChar, .b$7183) then
 		do;
 			call skip2EOL;
-			call sub$5ED7;
+			call syntaxError;
 			reget = 1;
 		end;
 end;
@@ -9372,12 +9408,12 @@ sub$753E: procedure public;
 	if haveTokens then
 	do;
 		if tokenType(0) = 0 then
-			call sub$5EFB;
+			call multipleDefError;
 
 		call sub$5CAD((b$9065 := b$9065 + 1), 0);
 	end;
 	else if not (s906C.mtype = 0) then
-		call sub$5ED7;
+		call syntaxError;
 
 	if not s906C.mtype = 0 then
 	do;
@@ -9393,14 +9429,14 @@ sub$753E: procedure public;
 				call skipWhite;
 				if not isLT then
 				do;
-					call sub$5ED7;
+					call syntaxError;
 					reget = 1;
 				end;
 			end;
 		end;
 		else
 		do;
-			call sub$5ED7;
+			call syntaxError;
 			call sub$7383;
 		end;
 	end;
@@ -9435,7 +9471,7 @@ sub$75FF: procedure public;
 				do w6BE0 = w$919D to w$919F - 1;
 					curChar = mem(w6BE0);
 					if not isWhite then
-						call sub$5ED7;
+						call syntaxError;
 				end;
 
 				w$906A = w$919D;
@@ -9460,7 +9496,7 @@ sub$75FF: procedure public;
 		end;
 	end;
 	else
-		call sub$5F07;
+		call nestingError;
 end;
 
 
@@ -9477,16 +9513,16 @@ sub$76CE: procedure public;
 			macroCondStk(0) = 1;
 		end;
 		else
-			call sub$5ED7;
+			call syntaxError;
 	end;
 	else
-		call sub$5F07;
+		call nestingError;
 end;
 
 
 sub$770B: procedure public;
 	if b$9C77 + 1 <> tokenSP then
-		call sub$5ED7;
+		call syntaxError;
 	else if not b$9060 then
 	do;
 		if tokenType(0) <> 0Dh then
@@ -9511,13 +9547,13 @@ sub$770B: procedure public;
 			s906C.w14 = s906C.w14 + 1;
 	end;
 	else
-		call sub$5ED7;
+		call syntaxError;
 
 	if opType = 1 then
 	do;
 		b$905D = 0;
 		if b$9067 > 0 then
-			call sub$5F25;
+			call balanceError;
 
 		if not sub$3C91 then
 		do;
@@ -9541,7 +9577,7 @@ sub$770B: procedure public;
 				call sub$720A;
 			end;
 			else if s906C.w14 = 0 then
-				call sub$5ED7;
+				call syntaxError;
 		end;
 
 		if not (s906C.mtype = 0) then
@@ -9554,7 +9590,7 @@ end;
 sub$7844: procedure public;
 	call sub$72A4(3);
 	if (b6B29 := opType) <> 1 then
-		call sub$5ED7;
+		call syntaxError;
 
 	if not b$905E then
 	do;
@@ -9576,10 +9612,10 @@ sub$787A: procedure public;
 		if haveTokens then
 		do;
 			if (s906C.b3 := s906C.b3 + 1) = 0 then
-				call sub$5F13;
+				call stackError;
 
 			if tokenType(0) <> 9 then
-				call sub$5EFB;
+				call multipleDefError;
 
 			call sub$5CAD(s906C.b3, 1);
 			w$906A = w686E;
@@ -9591,7 +9627,7 @@ sub$787A: procedure public;
 		end;
 	end;
 	else
-		call sub$5ED7;
+		call syntaxError;
 end;
 
 
@@ -9612,7 +9648,7 @@ sub$78CE: procedure public;
 		call sub$720A;
 	end;
 	lookAhead = 0;
-	b6B2C, b689C = c255;
+	b6B2C, b689C = bTRUE;
 end;
 
 end;
@@ -9666,23 +9702,23 @@ declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
 
 
 
-writeRec: procedure(arg1w) public;
-	declare arg1w address,
-		w7591 address, w7593 address,
-		b7595 byte, b7596 byte;
-	declare wrd based w7591 address;
-	declare ch based w7591 byte;
+writeRec: procedure(rec$p) public;
+	declare rec$p address,
+		len$p address, recLen address,
+		i byte, crc byte;
+	declare len based len$p address;
+	declare ch based len$p byte;
 
-	w7591 = arg1w + 1;
-	w7593 = (wrd := wrd + 1) + 3;	
-	b7596 = 0;
-	w7591 = w7591 - 1;
-	do b7595 = 2 to w7593;
-		b7596 = b7596 - ch;
-		w7591 = w7591 + 1;
+	len$p = rec$p + 1;
+	recLen = (len := len + 1) + 3;	
+	crc = 0;
+	len$p = len$p - 1;
+	do i = 2 to recLen;
+		crc = crc - ch;
+		len$p = len$p + 1;
 	end;
-	ch = b7596;
-	call write(objfd, arg1w, w7593, .statusIO);
+	ch = crc;
+	call write(objfd, rec$p, recLen, .statusIO);
 	call ioErrChk;
 end;
 
@@ -10039,7 +10075,7 @@ declare tokenSize literally 'toksiz',
 declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte external,
 	(b3694, b3696, b3689, b3692, objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
 	(b68B8, asciiLineNo, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf)(1) byte external,
-	(cZERO, c255, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
+	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
 	(b6896, b6898, b689B, curCol, b68AB, b68AD, b6A56, optDEBUG, optMACRODEBUG) byte external,
 	(optXREF, optSYMBOLS, optPAGING, optTTY, optPRINT, optOBJECT, optPAGEWIDTH, optPAGELENGTH, optTITLE) byte external,
 	(optEJECT, optLIST, optGEN, optCOND, b6A6F, titleLen, saveIdx, scanOptions, b6B23) byte external,
@@ -10053,7 +10089,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	(w6750, w686E, w6870, objfd) address external,
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
 	(w6A4E,  errCnt, zero) address external,
-	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
+	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
 	(w6868, w6B41, segSize, symTab, tokStart)(1) address external,
 	CR literally '0Dh';
 
@@ -10535,7 +10571,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	(b3694, b3696, b3689, b3692, objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
 	(b68B8, asciiLineNo, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf,
 	 macroCondStk, opStack, b674A)(1) byte external,
-	(cZERO, c255, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
+	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
 	(b6896, b6898, b689B, curCol, b68AB, b68AD, b6A56, optDEBUG, optMACRODEBUG) byte external,
 	(optXREF, optSYMBOLS, optPAGING, optTTY, optPRINT, optOBJECT, optPAGEWIDTH, optPAGELENGTH, optTITLE) byte external,
 	(optEJECT, optLIST, optGEN, optCOND, b6A6F, titleLen, saveIdx, scanOptions, b6B23) byte external,
@@ -10550,8 +10586,8 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
 	(w6A4E, errCnt, zero) address external,
 	w6868(3) address external,
-	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
-	(w6B41, segSize, symTab, tokStart, w9D71)(1) address external,
+	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
+	(w6B41, segSize, symTab, tokStart, extKeywords)(1) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
 	CR literally '0Dh';
 
@@ -10565,7 +10601,7 @@ read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) addre
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 isPhase1: procedure byte external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 sub$3DFB: procedure external; end;
 inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
 
@@ -10619,7 +10655,7 @@ getAsmFile: procedure public;
     end;
 
 
-    symTab(0) = .w9D71;
+    symTab(0) = .extKeywords;
     w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
     call rescan(1, .statusIO);
     call ioErrChk;
@@ -10636,7 +10672,7 @@ getAsmFile: procedure public;
 
     call cmdSkipWhite;
     if cmdch = 0Dh then
-        call wrError(4);
+        call runtimeError(4);	/* file */
 
     infd = inOpen(cmdch$p, 1);
     rootfd, includefd = infd;
@@ -10678,10 +10714,10 @@ resetDataX: procedure public;	/* extended initialisation */
     call sub$3DFB;
 
     b6B33, scanOptions, skipping, b6B2C, inElse, b6B2E, b674A(0), b674A(1), b6742,
-    b$905B, b$905C, b$905E, b6857, b6C21 = cZERO;
-    b6743, b6898, optLIST, b6A6F, optGEN, optCOND = c255;
-    b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = cZERO;
-    w$9114, segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w$919B, w6750, errCnt = w673F;
+    b$905B, b$905C, b$905E, b6857, b6C21 = bZERO;
+    b6743, b6898, optLIST, b6A6F, optGEN, optCOND = bTRUE;
+    b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
+    w$9114, segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w$919B, w6750, errCnt = wZERO;
     b6882 = b6882 + 1;
     w6A4E, opType, pageCnt, lineCnt = 1;
     b68AE(0) = 0;
@@ -10700,7 +10736,7 @@ resetDataX: procedure public;	/* extended initialisation */
             includefd = rootfd;
         end;
 
-        fileIdx = cZERO;
+        fileIdx = bZERO;
         off$6C25 = .b68B8;
         off$6C2C = off$6C25 - 1;
         off$6C2E = .b68B8;
@@ -10728,7 +10764,14 @@ end;
 keywords: do;
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
-declare w9D71(*) address public initial(
+declare extKeywords(*) address public initial(
+/*
+	4 byte packed keyword
+	byte opcode base
+	byte offset to next entry or 0 if end
+	byte type
+	byte special location
+*/
 	0A528h,	00000h,	00h,	010h,	/* NE */
 	063B0h,	00000h,	0CCh,	02Ch,	/* CZ */
 	06E60h,	09C40h,	00h,	038h,	/* ENDM */
@@ -11388,19 +11431,22 @@ end;
 	extrn tokst;
 
 	aseg
-ISIS	equ	40h
+ISIS	equ	40h	; definition of ISIS entry, here to avoid another asm file
+
+; pckTkn - packs the token pointed by tokst, with length toksiz into 4 bytes
+; packed version replaces original and toksize set to 4 bytes
 
 	CSEG
-pckTkn: lhld	tokst
+pckTkn: lhld	tokst	; pointer to the token to pack
 	xchg
 	lxi	h, toksiz
-	mov	c, m
-	mvi	m, 4
-	call pack3
+	mov	c, m	; unpacked length
+	mvi	m, 4	; new packed length is 4 bytes
+	call pack3	; pack 3 chars into hl
 	push	h
 	call pack3
 	pop	b
-	xchg
+	xchg		; put the packed data into the first 4 bytes
 	dcx	h
 	dcx	h
 	dcx	h
@@ -11413,12 +11459,12 @@ pckTkn: lhld	tokst
 	mov	m, c
 	ret
 pack3:
-	lxi	h, 0	
+	lxi	h, 0	; get 3 chars packed into 2 bytes
 	mvi	b, 3
 
 L6291:
-	push	d
-	mov	d, h	; x 40
+	push	d	; pointer to next char
+	mov	d, h	; hl x 40
 	mov	e, l
 	dad	h
 	dad	h
@@ -11426,32 +11472,32 @@ L6291:
 	dad	h
 	dad	h
 	dad	h
-	pop	d
-	call pack1
+	pop	d	
+	call pack1	; add in next char
 	add	l
 	mov	l, a
 	mvi	a, 0
 	adc	h
 	mov	h, a
-	dcr	b
+	dcr	b	; get the 3 chars
 	jnz	L6291
 	ret
 
-pack1:	ldax	d
-	inx	d
-	dcr	c
+pack1:	ldax	d		; pick up next character
+	inx	d		; advance for next time
+	dcr	c		; check it is valid
 	jm	L62B7
-	sui	2Fh		;  012345678  (0-9)
+	sui	2Fh		; /012345678  (0-9)
 				; 9?@ABCDEFG  (10-19)
 				; HIJKLMNOPQ  (20-29)
 				; RSTUVWXYZ[  (30-39)
-	cpi	10h
+	cpi	10h		; digit so return
 	rc
-	sui	5
+	sui	5		; exclude : ; < = >
 	ret
 
 L62B7:
-	sub	a
+	sub	a		; 0 no char
 	ret
 
 	end

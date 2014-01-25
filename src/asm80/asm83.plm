@@ -24,11 +24,11 @@ outch: procedure(b) external; declare b byte; end;
 outStrN: procedure(w1, w2) external; declare w1 address, w2 address; end;
 popToken: procedure external; end;
 closeF: procedure(w) external; declare w address; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F01: procedure external; end;
-sub$5F2B: procedure external; end;
-sub$5F37: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+valueError: procedure external; end;
+undefinedSymbolError: procedure external; end;
+operandError: procedure external; end;
 nibble2Ascii: procedure(b) byte external; declare b byte; end;
 
 
@@ -56,16 +56,16 @@ end;
 sub$4274: procedure public;
 	if testBit(b6B2B, .b41B7) then
 		if sub$425B(b6858) then
-			call sub$5F37;
+			call operandError;
 end;
 
 sub$4291: procedure public;
 	if sub$425B(b6858) then
-		call sub$5F37;
+		call operandError;
 	if (b4181(b6B2B) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
-		call sub$5F37;
+		call operandError;
 
 	b6858 = 0Ch;
 	bp6BE0(0) = (b6855 and 18h) <> 0;
@@ -73,7 +73,7 @@ sub$4291: procedure public;
 	if (b6855 and 7) <> 0 then
 		if (b6856 and 7) <> 0 then
 			if ((b6855 xor b6856) and 1Fh) <> 0 then
-				call sub$5EE3;
+				call expressionError;
 	if (b6BDB := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
 		if b6B2B = 5 then	/* +? (PAGE INPAGE)? */
@@ -91,7 +91,7 @@ sub$4291: procedure public;
 	b6BDD = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
 	if testBit(b6BDD, .b41C6) then
 L4394:	do;
-		call sub$5EE3;
+		call expressionError;
 		b6855 = 0;
 		return;
 	end;
@@ -107,9 +107,9 @@ end;
 
 swapAccBytes: procedure public;
 	declare b6C17 byte;
-	b6C17 = accum1byt(0);
-	accum1byt(0) = accum1byt(1);
-	accum1byt(1) = b6C17;
+	b6C17 = accum1$lb;
+	accum1$lb = accum1$hb;
+	accum1$hb = b6C17;
 end;
 
 
@@ -131,11 +131,11 @@ sub$43DD: procedure address public;
 	accum1 = 0;
 	b6858 = 9;
 	if tokenSP = 0 or (tokenType(0) = 0Bh and not b6B36) then
-		call sub$5ED7;
+		call syntaxError;
 	else
 	do;
 		if tokenType(0) = 9 or tokenType(0) = 6 then
-			call sub$5F2B;
+			call undefinedSymbolError;
 		else
 		do;
 			b6858 = tokenType(0);
@@ -148,20 +148,20 @@ sub$43DD: procedure address public;
 				tokenSize(0) = 2;
 			end;
 			else if tokenSize(0) = 0 then
-				call sub$5F01;
+				call valueError;
 			else
 			do;
 				if tokenSize(0) > 2 then
-					call sub$5F01;
+					call valueError;
 
 				b6855 = tokenAttr(0) and 0DFh;
 				w685A = tokenSymId(0);
 			end;
 
 			if tokenSize(0) > 0 then
-				accum1byt(0) = ch;
+				accum1$lb = ch;
 			if tokenSize(0) > 1 then
-				accum1byt(1) = cha(1) and tokenType(0) <> 7;
+				accum1$hb = cha(1) and tokenType(0) <> 7;
 		end;
 		if has16bitOperand then
 			if tokenSize(0) = 2 then
@@ -191,31 +191,31 @@ sub$450F: procedure(arg1b) public;
 
 	if (arg1b and 3) <> 0 then
 	do;
-		if accum2byt(1) <> 0
-		   or accum2byt(0) > 7
-		   or arg1b and accum2byt(0)
-		   or (arg1b and 3) = 3 and accum2byt(0) > 2
+		if accum2$hb <> 0
+		   or accum2$lb > 7
+		   or arg1b and accum2$lb
+		   or (arg1b and 3) = 3 and accum2$lb > 2
 		   or (not sub$425B(b6859) and b6B2B <> 2Eh) then	/* RST */
-			call sub$5F37;
+			call operandError;
 		else if sub$425B(b6859) and b6B2B = 2Eh then		/* RST */
-			call sub$5F37;
+			call operandError;
 		if ror(arg1b, 2) then
-			accum2byt(0) = rol(accum2byt(0), 3);
-		accum1byt(0) = accum1byt(0) or accum2byt(0);
+			accum2$lb = rol(accum2$lb, 3);
+		accum1$lb = accum1$lb or accum2$lb;
 	end;
 	else if b6B2B <> 2Dh then					/* single byte op */
 		if sub$425B(b6859) then
-			call sub$5F37;
+			call operandError;
 
 	if shr(arg1b, 3) then
 	do;
 		if (b6856 and 18h) = 18h then
 		do;
-			call sub$5F01;
+			call valueError;
 			b6856 = b6856 and 0E7h or 8;
 		end;
-		if accum2byt(1) + 1 > 1 then
-			call sub$5F01;
+		if accum2$hb + 1 > 1 then
+			call valueError;
 	end;
 	if b6B2B = 28h or b6B2B = 2Ch then		/* Imm8 or imm16 */
 	do;
@@ -226,8 +226,8 @@ sub$450F: procedure(arg1b) public;
 		b6855 = 0;
 
 	if b6B2B <> 2Dh then				/* single byte op */
-		if accum1byt(0) = 76h then
-			call sub$5F37;
+		if accum1$lb = 76h then
+			call operandError;
 	if (b6B2B := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
 		b6B2D = 0Bh;
 end;

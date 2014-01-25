@@ -47,23 +47,23 @@ declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
 
 
 
-writeRec: procedure(arg1w) public;
-	declare arg1w address,
-		w7591 address, w7593 address,
-		b7595 byte, b7596 byte;
-	declare wrd based w7591 address;
-	declare ch based w7591 byte;
+writeRec: procedure(rec$p) public;
+	declare rec$p address,
+		len$p address, recLen address,
+		i byte, crc byte;
+	declare len based len$p address;
+	declare ch based len$p byte;
 
-	w7591 = arg1w + 1;
-	w7593 = (wrd := wrd + 1) + 3;	
-	b7596 = 0;
-	w7591 = w7591 - 1;
-	do b7595 = 2 to w7593;
-		b7596 = b7596 - ch;
-		w7591 = w7591 + 1;
+	len$p = rec$p + 1;
+	recLen = (len := len + 1) + 3;	
+	crc = 0;
+	len$p = len$p - 1;
+	do i = 2 to recLen;
+		crc = crc - ch;
+		len$p = len$p + 1;
 	end;
-	ch = b7596;
-	call write(objfd, arg1w, w7593, .statusIO);
+	ch = crc;
+	call write(objfd, rec$p, recLen, .statusIO);
 	call ioErrChk;
 end;
 

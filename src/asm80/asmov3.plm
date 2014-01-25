@@ -3,8 +3,8 @@ asm88: do;
 $include(global.inc)
 
 declare	(signonMsg, ovlFile)(1) byte external,
-	(cZERO, c255, b6C21, fileIdx) byte external,
-	(off6C25, off6C2C, off6C2E, w75C4, rootfd, includefd) address external,
+	(bZERO, bTRUE, b6C21, fileIdx) byte external,
+	(off6C25, off6C2C, off6C2E, stdKeywords, rootfd, includefd) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external;
 
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
@@ -12,7 +12,7 @@ isPhase1: procedure byte external; end;
 physmem: procedure address external; end;
 ioErrChk: procedure external; end;
 sub$3DCE: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 closeF: procedure(w) external; declare w address; end;
 read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
@@ -72,7 +72,7 @@ getAsmFileX: procedure public;		/* extended to include overlay file initialisati
 		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
 	end;
 
-	symTab(0) = .w75C4;
+	symTab(0) = .stdKeywords;
 	w686E, w6868(0), symTab(1), w6868(1) = .EDATA;
 	call rescan(1, .statusIO);
 	call ioErrChk;
@@ -92,7 +92,7 @@ getAsmFileX: procedure public;		/* extended to include overlay file initialisati
 
 	call cmdSkipWhite;
 	if cmdch = CR then
-		call wrError(4);	/* file error */
+		call runtimeError(4);	/* file error */
 
 	infd = inOpen(cmdch$p, 1);
 	rootfd, includefd = infd;
@@ -129,10 +129,10 @@ end;
 
 resetData: procedure public;
 	call sub$3DCE;
-	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = cZERO;
-	b6743, b6898, optLIST, b6A6F, optCOND = c255;
-	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = cZERO;
-	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = w673F;
+	b6B33, scanOptions, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
+	b6743, b6898, optLIST, b6A6F, optCOND = bTRUE;
+	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
+	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = wZERO;
 	b6882 = b6882 + 1;
 	w6A4E, opType, pageCnt, lineCnt = 1;
 	b68AE(0) = 0;
@@ -148,7 +148,7 @@ resetData: procedure public;
 			call ioErrChk;
 			includefd = rootfd;
 		end;
-		fileIdx = cZERO;
+		fileIdx = bZERO;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;

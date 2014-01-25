@@ -4,19 +4,22 @@
 	extrn tokst;
 
 	aseg
-ISIS	equ	40h
+ISIS	equ	40h	; definition of ISIS entry, here to avoid another asm file
+
+; pckTkn - packs the token pointed by tokst, with length toksiz into 4 bytes
+; packed version replaces original and toksize set to 4 bytes
 
 	CSEG
-pckTkn: lhld	tokst
+pckTkn: lhld	tokst	; pointer to the token to pack
 	xchg
 	lxi	h, toksiz
-	mov	c, m
-	mvi	m, 4
-	call pack3
+	mov	c, m	; unpacked length
+	mvi	m, 4	; new packed length is 4 bytes
+	call pack3	; pack 3 chars into hl
 	push	h
 	call pack3
 	pop	b
-	xchg
+	xchg		; put the packed data into the first 4 bytes
 	dcx	h
 	dcx	h
 	dcx	h
@@ -29,12 +32,12 @@ pckTkn: lhld	tokst
 	mov	m, c
 	ret
 pack3:
-	lxi	h, 0	
+	lxi	h, 0	; get 3 chars packed into 2 bytes
 	mvi	b, 3
 
 L6291:
-	push	d
-	mov	d, h	; x 40
+	push	d	; pointer to next char
+	mov	d, h	; hl x 40
 	mov	e, l
 	dad	h
 	dad	h
@@ -42,32 +45,32 @@ L6291:
 	dad	h
 	dad	h
 	dad	h
-	pop	d
-	call pack1
+	pop	d	
+	call pack1	; add in next char
 	add	l
 	mov	l, a
 	mvi	a, 0
 	adc	h
 	mov	h, a
-	dcr	b
+	dcr	b	; get the 3 chars
 	jnz	L6291
 	ret
 
-pack1:	ldax	d
-	inx	d
-	dcr	c
+pack1:	ldax	d		; pick up next character
+	inx	d		; advance for next time
+	dcr	c		; check it is valid
 	jm	L62B7
-	sui	2Fh		;  012345678  (0-9)
+	sui	2Fh		; /012345678  (0-9)
 				; 9?@ABCDEFG  (10-19)
 				; HIJKLMNOPQ  (20-29)
 				; RSTUVWXYZ[  (30-39)
-	cpi	10h
+	cpi	10h		; digit so return
 	rc
-	sui	5
+	sui	5		; exclude : ; < = >
 	ret
 
 L62B7:
-	sub	a
+	sub	a		; 0 no char
 	ret
 
 	end

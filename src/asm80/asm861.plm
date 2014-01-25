@@ -2,81 +2,81 @@ asm861: do;
 
 $include(global.inc)
 
-declare cZERO byte external;
+declare bZERO byte external;
 
-sub$3CDF: procedure(b) external; declare b byte; end;
-wrError: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 getChClass: procedure byte external; end;
 getCh: procedure byte external; end;
 
 
 
-sub$5ED7: procedure public;
-	call sub$3CDF('Q');	/* questionable */
+syntaxError: procedure public;
+	call sourceError('Q');	/* syntaxError */
 end;
 
-sub$5EDD: procedure public;
-	call sub$3CDF('D');	/* double defined symbol */
+doubleDefError: procedure public;
+	call sourceError('D');	/* double defined symbol */
 end;
 
-sub$5EE3: procedure public;
-	call sub$3CDF('E');	/* external error */
+expressionError: procedure public;
+	call sourceError('E');	/* external error */
 end;
 
-sub$5EE9: procedure public;
-	call sub$3CDF('C');	/* command error */
+commandError: procedure public;
+	call sourceError('C');	/* command error */
 end;
 
-sub$5EEF: procedure public;
-	call sub$3CDF('O');
+OpcodeOperandError: procedure public;
+	call sourceError('O');
 end;
 
-sub$5EF5: procedure public;
-	call sub$3CDF('R');
+nameError: procedure public;
+	call sourceError('R');
 end;
 
-sub$5EFB: procedure public;
-	call sub$3CDF('M');	/* multiply defined symbol */
+multipleDefError: procedure public;
+	call sourceError('M');	/* multiply defined symbol */
 end;
 
-sub$5F01: procedure public;
-	call sub$3CDF('V');	/* value error */
+valueError: procedure public;
+	call sourceError('V');	/* value error */
 end;
 
-sub$5F07: procedure public;
-	call sub$3CDF('N');	/* nesting error */
+nestingError: procedure public;
+	call sourceError('N');	/* nesting error */
 end;
 
-sub$5F0D: procedure public;
-	call sub$3CDF('P');	/* phase error */
+phaseError: procedure public;
+	call sourceError('P');	/* phase error */
 end;
 
-sub$5F13: procedure public;
-	call wrError(0);	/* stack error */
+stackError: procedure public;
+	call runtimeError(0);	/* stack error */
 end;
 
-sub$5F19: procedure public;
-	call wrError(4);	/* file error */
+fileError: procedure public;
+	call runtimeError(4);	/* file error */
 end;
 
-sub$5F1F: procedure public;
-	call sub$3CDF('I');
+illegalCharError: procedure public;
+	call sourceError('I');
 end;
 
-sub$5F25: procedure public;
-	call sub$3CDF('B');
+balanceError: procedure public;
+	call sourceError('B');
 end;
 
-sub$5F2B: procedure public;
-	call sub$3CDF('U');	/* undefined symbol */
+undefinedSymbolError: procedure public;
+	call sourceError('U');	/* undefined symbol */
 end;
 
-sub$5F31: procedure public;
-	call sub$3CDF('L');
+locationError: procedure public;
+	call sourceError('L');
 end;
 
-sub$5F37: procedure public;
-	call sub$3CDF('X');
+operandError: procedure public;
+	call sourceError('X');
 end;
 
 haveTokens: procedure byte public;
@@ -101,7 +101,7 @@ nestIF: procedure(arg1b) public;
 	
 	if (ifDepth := ifDepth + 1) > 8 then
 	do;
-		call sub$5F13;
+		call stackError;
 		ifDepth = 0;
 	end;
 	else
@@ -115,7 +115,7 @@ unnestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if ifDepth = 0 then
-		call sub$5F07;
+		call nestingError;
 	else
 	do;
 		skipping(0) = skipping(ifDepth);
@@ -127,7 +127,7 @@ end;
 pushToken: procedure(arg1b) public;
 	declare arg1b byte;
 	if tokenSP >= 8 then
-		call sub$5F13;
+		call stackError;
 	else
 	do;
 		tokenSP = tokenSP + 1;
@@ -137,25 +137,25 @@ pushToken: procedure(arg1b) public;
 		tokenAttr(tokenSP) = tokenAttr(0);
 		tokenSize(tokenSP) = tokenSize(0);
 		tokenSymId(tokenSP) = tokenSymId(0);
-		tokStart(0) = tokStart(0) + tokenSize(0);
+		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
 		tokenType(0) = arg1b;
-		tokenAttr(0), tokenSize(0) = cZERO;
-		tokenSym(0) = w673F;
+		tokenAttr(0), tokenSize(0) = bZERO;
+		tokenSym(0) = wZERO;
 		tokenSymId(0) = tokenSym(0);
 	end;
 end;
 
 addByte2Tok: procedure(arg1b) public;
-	declare arg1b byte, w6D02 address;
-	declare ch based w6D02 byte;
+	declare arg1b byte, s address;
+	declare ch based s byte;
 
-	if (w6D02 := tokStart(0) + tokenSize(0)) < off682A then
+	if (s := tokStart(0) + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
 		ch = arg1b;
 		tokenSize(0) = tokenSize(0) + 1;
 	end;
 	else
-		call sub$5F13;
+		call stackError;
 end;
 
 collectIdent: procedure(arg1b) public;
@@ -164,8 +164,8 @@ collectIdent: procedure(arg1b) public;
 	call pushToken(arg1b);
 	reget = 1;
 
-	do while (arg1b := getChClass) = 8 or arg1b = 9;	/* digit or letter */
-		if curChar > 60h then
+	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
+		if curChar > 60h then			/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call addByte2Tok(curChar);
 	end;
@@ -202,7 +202,7 @@ ascii2Num: procedure public;
 	do i = 0 to tokenSize(0);
 		if chrs(i) = '?' or chrs(i) = '@' then
 		do;
-			call sub$5F1F;
+			call illegalCharError;
 			digit = 0;
 		end;
 		else
@@ -213,7 +213,7 @@ ascii2Num: procedure public;
 			if digit >= radix then
 				if tokenType(2) <> 40h then
 				do;
-					call sub$5F1F;
+					call illegalCharError;
 					digit = 0;
 				end;
 		end;
@@ -238,7 +238,7 @@ collectString: procedure public;
 		call addByte2Tok(curChar);
 	end;
 
-	call sub$5F25;
+	call balanceError;
 
 L6268:
 	reget = 1;

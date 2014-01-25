@@ -17,7 +17,7 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	(b3694, b3696, b3689, b3692, objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
 	(b68B8, asciiLineNo, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf,
 	 macroCondStk, opStack, b674A)(1) byte external,
-	(cZERO, c255, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
+	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
 	(b6896, b6898, b689B, curCol, b68AB, b68AD, b6A56, optDEBUG, optMACRODEBUG) byte external,
 	(optXREF, optSYMBOLS, optPAGING, optTTY, optPRINT, optOBJECT, optPAGEWIDTH, optPAGELENGTH, optTITLE) byte external,
 	(optEJECT, optLIST, optGEN, optCOND, b6A6F, titleLen, saveIdx, scanOptions, b6B23) byte external,
@@ -32,8 +32,8 @@ declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
 	(w6A4E, errCnt, zero) address external,
 	w6868(3) address external,
-	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, w673F) address external,
-	(w6B41, segSize, symTab, tokStart, w9D71)(1) address external,
+	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
+	(w6B41, segSize, symTab, tokStart, extKeywords)(1) address external,
 	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
 	CR literally '0Dh';
 
@@ -47,7 +47,7 @@ read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) addre
 rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
 seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
 isPhase1: procedure byte external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 sub$3DFB: procedure external; end;
 inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
 
@@ -101,7 +101,7 @@ getAsmFile: procedure public;
     end;
 
 
-    symTab(0) = .w9D71;
+    symTab(0) = .extKeywords;
     w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
     call rescan(1, .statusIO);
     call ioErrChk;
@@ -118,7 +118,7 @@ getAsmFile: procedure public;
 
     call cmdSkipWhite;
     if cmdch = 0Dh then
-        call wrError(4);
+        call runtimeError(4);	/* file */
 
     infd = inOpen(cmdch$p, 1);
     rootfd, includefd = infd;
@@ -160,10 +160,10 @@ resetDataX: procedure public;	/* extended initialisation */
     call sub$3DFB;
 
     b6B33, scanOptions, skipping, b6B2C, inElse, b6B2E, b674A(0), b674A(1), b6742,
-    b$905B, b$905C, b$905E, b6857, b6C21 = cZERO;
-    b6743, b6898, optLIST, b6A6F, optGEN, optCOND = c255;
-    b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = cZERO;
-    w$9114, segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w$919B, w6750, errCnt = w673F;
+    b$905B, b$905C, b$905E, b6857, b6C21 = bZERO;
+    b6743, b6898, optLIST, b6A6F, optGEN, optCOND = bTRUE;
+    b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
+    w$9114, segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w$919B, w6750, errCnt = wZERO;
     b6882 = b6882 + 1;
     w6A4E, opType, pageCnt, lineCnt = 1;
     b68AE(0) = 0;
@@ -182,7 +182,7 @@ resetDataX: procedure public;	/* extended initialisation */
             includefd = rootfd;
         end;
 
-        fileIdx = cZERO;
+        fileIdx = bZERO;
         off$6C25 = .b68B8;
         off$6C2C = off$6C25 - 1;
         off$6C2E = .b68B8;

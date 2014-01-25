@@ -24,9 +24,9 @@ sub$43D2: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$5819: procedure(w, b) external; declare w address, b byte; end;
 chkLF: procedure external; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F1F: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+illegalCharError: procedure external; end;
 addByte2Tok: procedure(b) external; declare b byte; end;
 collectIdent: procedure(b) external; declare b byte; end;
 collectString: procedure external; end;
@@ -39,8 +39,8 @@ lookup: procedure(b) byte external; declare b byte; end;
 testBit: procedure(b, w) byte external; declare b byte, w address; end;
 
 declare b6CE4 byte external,
-	c255 byte external,
-	asc$3692(1) byte external;
+	bTRUE byte external,
+	spaces24(1) byte external;
 
 skipWhite: procedure public;
 	do while isWhite;
@@ -66,7 +66,7 @@ sub$3F19: procedure public;
 
 	sub$416B: procedure;
 		if opType = 0 then
-			call sub$5EE3;
+			call expressionError;
 		b6B25 = 0;
 		opType = 0;
 	end;
@@ -79,15 +79,15 @@ sub$3F19: procedure public;
 		end;
 
 		do case getChClass;
-	/* 0 */		call sub$5F1F;
-	/* 1 */		;
-	/* 2 */		do;
+	/* 0 CC$BAD */	call illegalCharError;
+	/* 1 CC$WS  */	;
+	/* 2 CC$SEMI */	do;
 				b6742 = 0FFh;
 				call skip2NextLine;
 				b6B29 = 1;
 				return;
 			end;
-	/* 3 */		do;
+	/* 3 CC$COLON */do;
 				if not b6872 then
 				do;
 					if skipping(0) then
@@ -99,11 +99,11 @@ sub$3F19: procedure public;
 					end;
 
 					b6B30 = 0;
-					b6872, b6B31 = c255;
+					b6872, b6B31 = bTRUE;
 				end;
 				else
 				do;
-					call sub$5ED7;
+					call syntaxError;
 					call popToken;
 				end;
 
@@ -111,19 +111,19 @@ sub$3F19: procedure public;
 				b6880 = 0;
 				opType = 3;
 			end;
-	/* 4 */		do;
+	/* 4 CC$CR */	do;
 				call chkLF;
 				b6B29 = 1;
 				return;
 			end;
-	/* 5 */		do;
+	/* 5 CC$PUNCT */do;
 				if curChar = '+' or curChar = '-' then
 					if opType <> 0  and opType <> 3 then
 						curChar = curChar + 3;
 				b6B29 = (curChar - 28h) + 2;
 				return;
 			end;
-	/* 6 */		do;
+	/* 6 CC$DOLLAR */do;
 				call pushToken(0Ch);
 				call addByte2Tok(low(segSize(activeSeg)));
 				call addByte2Tok(high(segSize(activeSeg)));
@@ -131,26 +131,26 @@ sub$3F19: procedure public;
 					tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
 				call sub$416B;
 			end;
-	/* 7 */		do;
+	/* 7 CC$QUOTE */do;
 				call collectString;
 				if b6B31 then
 					call sub$43D2;
 				call sub$416B;
 			end;
-	/* 8 */		do;
+	/* 8 CC$DIGIT */do;
 				call ascii2Num;
 				if b6B31 then
 					call sub$43D2;
 				call sub$416B;
 			end;
-	/* 9 */		do;
+	/* 9 CC$LET*/	do;
 				call collectIdent(9);
 				if tokenSize(0) > 6 then
 					tokenSize(0) = 6;
 				if optXREF then
 				do;
 					call move(6, .b6873, .b6879);
-					call move(6, .asc$3692, .b6873);	/* blanks */
+					call move(6, .spaces24 + 18, .b6873);	/* blanks */
 				end;
 				call move(tokenSize(0), tokStart(0), .b6873);
 				b6744 = tokenSize(0);

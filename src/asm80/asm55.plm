@@ -8,7 +8,7 @@ declare pad2 address;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (skipping, tokenType, tokenSize, b6759, asciiLineNo)(1) byte external,
+declare (skipping, tokenType, tokenSize, lineBuf, asciiLineNo)(1) byte external,
 	(b6A56, b6B30, b68AD, b6B23, b6B24, tokenSP, b6BD9) byte external,
 	(b6B20, b6BDB, b6B34, b6B2C, activeSeg, b6880, optXREF, phase, b6873) byte external,
 	(b6B33, b6B2E, optSYMBOLS) byte external,
@@ -22,7 +22,7 @@ ovl8: procedure external; end;
 popToken: procedure external; end;
 sub$3DCE: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$5ED7: procedure external; end;
+syntaxError: procedure external; end;
 sub$7041: procedure external; end;			/* in overlay 1 */
 sub$6E32: procedure external; end;
 sub$4646: procedure byte external; end;
@@ -57,10 +57,10 @@ end;
 sub$546F: procedure public;
 	b6A56 = sub$4646;
 	if b6B30 then
-		call sub$5ED7;
+		call syntaxError;
 	if haveTokens then
 		if not(tokenType(b6A56) = 0Bh or b68AD) then
-			call sub$5ED7;
+			call syntaxError;
 	if b6B23 or b6B24 then
 	do;
 		if tokenSP = 1 and not xisSpace and tokenSize(0) <> 1 then
@@ -119,7 +119,7 @@ sub$54FD: procedure public;
 
 		w6BCE = tokStart(b6BDB) + tokenSize(b6BDB);
 		if isSkipping or not b6B34 then
-			w6BCE = .b6759;
+			w6BCE = .lineBuf;
 
 		if sub4$3A6A then
 		do;
@@ -127,7 +127,7 @@ sub$54FD: procedure public;
 		end;
 
 		b6B2C = 0FFh;
-		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .b6759);
+		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
 	if optXREF and b6880 then

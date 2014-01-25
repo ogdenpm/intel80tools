@@ -18,10 +18,10 @@ declare TRUE literally '0FFh',
 skipWhite$2: procedure external; end;
 skipWhite: procedure external; end;
 skip2EOL: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
-sub$5EE9: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F19: procedure external; end;
+runtimeError: procedure(b) external; declare b byte; end;
+commandError: procedure external; end;
+stackError: procedure external; end;
+fileError: procedure external; end;
 popToken: procedure external; end;
 collectIdent: procedure(b) external; declare b byte; end;
 ascii2Num: procedure external; end;
@@ -38,7 +38,7 @@ sub$65D9: procedure external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b6759, curChar, reget, b6898, objFile, lstFile, optTTY, optMOD85, optMACROFILE,
+declare (lineBuf, curChar, reget, b6898, objFile, lstFile, optTTY, optMOD85, optMACROFILE,
 	 optPAGEWIDTH, optPAGELENGTH, optTITLE, optEJECT, optGEN, b6A6F, optLIST, titleLen, saveStack,
 	 saveIdx, collectBufLen, b6ADB, b$905B, b$9A77, optDEBUG) byte external,
 	 (optionId, collectBufIdx, scanOptions, phase, b6BDB, b6C21, b6C22, fileIdx) byte external,
@@ -66,7 +66,7 @@ collectBasicToken: procedure byte;
 	do;
 		call collectIdent(1);
 		if xisSpace and tokenSize(0) < 14 then
-			call move(collectBufLen := tokenSize(0), .b6759, .collectBuf);
+			call move(collectBufLen := tokenSize(0), .lineBuf, .collectBuf);
 	end;
 	else if curChar > 2Fh  and  3Ah > curChar then
 	do;
@@ -88,7 +88,7 @@ collectBasicToken: procedure byte;
 				collectBufLen = tokenSize(0);
 			b6ADB = 4;
 			if collectBufLen > 0 then
-				call move(collectBufLen, .b6759, .collectBuf);
+				call move(collectBufLen, .lineBuf, .collectBuf);
 		end;
 	end;
 	else
@@ -137,20 +137,20 @@ sub$6F39: procedure;
     end;
 done:
 	curFileName$p = .collectBuf;
-	call sub$5F19;
+	call fileError;
 end;
 
 
 getFileParam: procedure;
 	collectBufIdx = 0;
 	if not chkParen(0) then
-		call sub$5F19;
+		call fileError;
 	else
 	do;
 		call sub$6F39;
 		call move(collectBufIdx + 1, .collectBuf, curFileName$p);
 		if not chkParen(1) then
-			call sub$5F19;
+			call fileError;
 	end;
 end;
 
@@ -171,7 +171,7 @@ getMacroFileDrive: procedure;
 			return;
 	curFileName$p = .aF0Asmac$tmp;
 	collectBufIdx = 0;
-	call sub$5F19;
+	call fileError;
 end;
 
 
@@ -322,7 +322,7 @@ processCmd: procedure;
 			do;
 				w6BE2 = 1;
 				if fileIdx = 5 then
-					call sub$5F13;
+					call stackError;
 				else
 				do;
 					fileIdx = fileIdx + 1;
@@ -356,7 +356,7 @@ processCmd: procedure;
 		end;
 /* 9 */		do;			/* SAVE */
 			if saveIdx > 7 then
-				call sub$5F13;
+				call stackError;
 			else
 			do;
 				call move(3, .optLIST, .saveStack + saveIdx * 3);
@@ -404,9 +404,9 @@ sub$70D7: procedure public;
 		end;
 
 		if scanOptions then
-			call wrError(2);
+			call runtimeError(2);	/* command error */
 		else
-			call sub$5EE9;
+			call commandError;
 	end;
 
 	call sub$65D9;

@@ -11,20 +11,20 @@ declare w$9C75 address,
 popToken: procedure external; end;
 skip2EOL: procedure external; end;
 skipWhite: procedure external; end;
-wrError: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
 writeM: procedure external; end;
 sub$40B9: procedure external; end;
 sub$467F: procedure(b, w) external; declare b byte, w address; end;
 sub$5CAD: procedure(w1, b2) external; declare w1 address, b2 byte; end;
 sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-sub$5ED7: procedure external; end;
-sub$5EFB: procedure external; end;
-sub$5F07: procedure external; end;
-sub$5F13: procedure external; end;
-sub$5F1F: procedure external; end;
-sub$5F25: procedure external; end;
-sub$5F31: procedure external; end;
+syntaxError: procedure external; end;
+multipleDefError: procedure external; end;
+nestingError: procedure external; end;
+stackError: procedure external; end;
+illegalCharError: procedure external; end;
+balanceError: procedure external; end;
+locationError: procedure external; end;
 nestIFX: procedure(b) external; declare b byte; end;
 sub$676D: procedure(b) external; declare b byte; end;
 pushToken: procedure(b) external; declare b byte; end;
@@ -47,7 +47,7 @@ declare TRUE literally '0FFh',
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (cZERO, c255, b$3782, b$3783, tokenSP, curChar, reget, lookAhead) byte external,
+declare (bZERO, bTRUE, b$3782, b$3783, tokenSP, curChar, reget, lookAhead) byte external,
 	(b6880, b6884, b6896, b689C, b6B29, opType, b6B2B, b6B2C, b6B30) byte external,
 	(b6B32, b6BDA, b6BDD, b905A, b905B, b905D, b905E, b9060, b9061) byte external,
 	(b9062, b9063, b9064, b9065, b9066, b9067) byte external,
@@ -81,7 +81,7 @@ sub$7192: procedure byte;
 
 	if isLT or (not (s906C.mtype = 1) and isGT) then
 	do;
-		call sub$5F1F;
+		call illegalCharError;
 		return TRUE;
 	end;
 
@@ -92,7 +92,7 @@ end;
 
 sub$71F2: procedure;
 	w6866, w6868(2) = w686E;
-	b$9065, s906C.b3 = cZERO;
+	b$9065, s906C.b3 = bZERO;
 	b6B29 = 37h;
 end;
 
@@ -173,7 +173,7 @@ sub$733D: procedure(arg1w, arg2w) address;
 
 	do while arg1w <= arg2w;
 		if w6870 <= w686E then
-			call wrError(1);
+			call runtimeError(1);	/* table error */
 		ch1 = ch2;
 		w6870 = w6870 - 1;
 		arg2w = arg2w - 1;
@@ -194,7 +194,7 @@ end;
 sub$739A: procedure;
 	if b6884 then
 		if b6896 <> 55h then
-			call sub$5F31;
+			call locationError;
 end;
 
 
@@ -281,7 +281,7 @@ sub$73AD: procedure public;
 		if not testBit(curChar, .b$7183) then
 		do;
 			call skip2EOL;
-			call sub$5ED7;
+			call syntaxError;
 			reget = 1;
 		end;
 end;
@@ -305,12 +305,12 @@ sub$753E: procedure public;
 	if haveTokens then
 	do;
 		if tokenType(0) = 0 then
-			call sub$5EFB;
+			call multipleDefError;
 
 		call sub$5CAD((b$9065 := b$9065 + 1), 0);
 	end;
 	else if not (s906C.mtype = 0) then
-		call sub$5ED7;
+		call syntaxError;
 
 	if not s906C.mtype = 0 then
 	do;
@@ -326,14 +326,14 @@ sub$753E: procedure public;
 				call skipWhite;
 				if not isLT then
 				do;
-					call sub$5ED7;
+					call syntaxError;
 					reget = 1;
 				end;
 			end;
 		end;
 		else
 		do;
-			call sub$5ED7;
+			call syntaxError;
 			call sub$7383;
 		end;
 	end;
@@ -368,7 +368,7 @@ sub$75FF: procedure public;
 				do w6BE0 = w$919D to w$919F - 1;
 					curChar = mem(w6BE0);
 					if not isWhite then
-						call sub$5ED7;
+						call syntaxError;
 				end;
 
 				w$906A = w$919D;
@@ -393,7 +393,7 @@ sub$75FF: procedure public;
 		end;
 	end;
 	else
-		call sub$5F07;
+		call nestingError;
 end;
 
 
@@ -410,16 +410,16 @@ sub$76CE: procedure public;
 			macroCondStk(0) = 1;
 		end;
 		else
-			call sub$5ED7;
+			call syntaxError;
 	end;
 	else
-		call sub$5F07;
+		call nestingError;
 end;
 
 
 sub$770B: procedure public;
 	if b$9C77 + 1 <> tokenSP then
-		call sub$5ED7;
+		call syntaxError;
 	else if not b$9060 then
 	do;
 		if tokenType(0) <> 0Dh then
@@ -444,13 +444,13 @@ sub$770B: procedure public;
 			s906C.w14 = s906C.w14 + 1;
 	end;
 	else
-		call sub$5ED7;
+		call syntaxError;
 
 	if opType = 1 then
 	do;
 		b$905D = 0;
 		if b$9067 > 0 then
-			call sub$5F25;
+			call balanceError;
 
 		if not sub$3C91 then
 		do;
@@ -474,7 +474,7 @@ sub$770B: procedure public;
 				call sub$720A;
 			end;
 			else if s906C.w14 = 0 then
-				call sub$5ED7;
+				call syntaxError;
 		end;
 
 		if not (s906C.mtype = 0) then
@@ -487,7 +487,7 @@ end;
 sub$7844: procedure public;
 	call sub$72A4(3);
 	if (b6B29 := opType) <> 1 then
-		call sub$5ED7;
+		call syntaxError;
 
 	if not b$905E then
 	do;
@@ -509,10 +509,10 @@ sub$787A: procedure public;
 		if haveTokens then
 		do;
 			if (s906C.b3 := s906C.b3 + 1) = 0 then
-				call sub$5F13;
+				call stackError;
 
 			if tokenType(0) <> 9 then
-				call sub$5EFB;
+				call multipleDefError;
 
 			call sub$5CAD(s906C.b3, 1);
 			w$906A = w686E;
@@ -524,7 +524,7 @@ sub$787A: procedure public;
 		end;
 	end;
 	else
-		call sub$5ED7;
+		call syntaxError;
 end;
 
 
@@ -545,7 +545,7 @@ sub$78CE: procedure public;
 		call sub$720A;
 	end;
 	lookAhead = 0;
-	b6B2C, b689C = c255;
+	b6B2C, b689C = bTRUE;
 end;
 
 end;

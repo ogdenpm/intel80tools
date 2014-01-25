@@ -1,5 +1,17 @@
 asm48:
 do;
+declare	lit	literally 'literally',
+	CC$BAD	lit	'0',
+	CC$WS	lit	'1',
+	CC$SEMI	lit	'2',
+	CC$COLON lit	'3',
+	CC$CR	lit	'4',
+	CC$PUNCT lit	'5',
+	CC$DOLAR lit	'6',
+	CC$QUOTE lit	'7',
+	CC$DIGIT lit	'8',
+	CC$LET	lit	'9',
+	CC$ESC	lit	'0bh';
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
 	b5672(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -16,16 +28,16 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);
 
 
-wrError: procedure(b) external; declare b byte; end;
-sub$3CDF: procedure(b) external; declare b byte; end;
+runtimeError: procedure(b) external; declare b byte; end;
+sourceError: procedure(b) external; declare b byte; end;
 sub$3D55: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
-sub$5ED7: procedure external; end;
-sub$5EFB: procedure external; end;
-sub$5F0D: procedure external; end;
-sub$5F1F: procedure external; end;
-sub$5F2B: procedure external; end;
-sub$5F31: procedure external; end;
+syntaxError: procedure external; end;
+multipleDefError: procedure external; end;
+phaseError: procedure external; end;
+illegalCharError: procedure external; end;
+undefinedSymbolError: procedure external; end;
+locationError: procedure external; end;
 popToken: procedure external; end;
 nxtCmdCh: procedure byte external; end;
 xisSpace: procedure byte external; end;
@@ -89,14 +101,14 @@ unpackToken: procedure(arg1w, arg2w) public;
 end;
 
 
-sub$5C08: procedure;
+insertSymX: procedure;
 	declare (w$9C32, w$9C34) address;
 	declare ch1 based w$9C32 byte;
 	declare ch2 based w$9C34 byte;
 
 	w686E, w$9C32 = (w$9C34 := w686E) + 8;
 	if w6870 < w$9C32 then
-		call wrError(1);
+		call runtimeError(1);	/* table error */
 
 	do while w$9C34 > curTokenSym$p;
 		w$9C32 = w$9C32 - 1;
@@ -116,7 +128,7 @@ sub$5C73: procedure(arg1b) byte;
 	if w6868(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
 		return 0;
 
-	call sub$5ED7;
+	call syntaxError;
 	return 0FFh;
 end;
 
@@ -126,7 +138,7 @@ sub$5CAD: procedure(arg1w, arg2b) public;
 
 	if sub$5C73(2) then
 		return;
-	call sub$5C08;
+	call insertSymX;
 	curTokenSym.w4 = arg1w;
 	curTokenSym.type = arg2b;
 	curTokenSym.b7 = 0;
@@ -154,7 +166,7 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 		return;
 
 	if tokenSP > 1 then
-		call sub$5ED7;
+		call syntaxError;
 
 	if isPhase1 then
 		if tokenType(0) = 9 then
@@ -163,13 +175,13 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 			do;
 				if curTokenSym.type >= 80h or arg2b = 3Ah and curTokenSym.w4 <> w6A4E then
 				do;
-					call sub$5F31;
+					call locationError;
 					b6CE9 = 80h;
 				end;
 			end;
 			else
 			do;
-				call sub$5C08;
+				call insertSymX;
 				w6866 = w6866 + 8;
 				w6868(1) = w6868(1) + 8;
 				b6CE8 = 0;
@@ -250,7 +262,7 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 
 		if not (b6748 or b6749) then
 			if curTokenSym.w4 <> arg1w then
-				call sub$5F0D;
+				call phaseError;
 	end;
 
 L5F82:
@@ -261,10 +273,10 @@ L5F82:
 
 	b6BDD = curTokenSym.type;
 	if tokenType(0) = 3 or b6BDD = 3 then
-		call sub$5EFB;
+		call multipleDefError;
 
 	if b6BDD >= 80h then
-		call sub$5F31;
+		call locationError;
 
 	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7) or arg2b = 4 and xisSpace
 	   or b6CEA or arg2b = 3Ah then
@@ -274,7 +286,7 @@ L5F82:
 	b6748 = 0;
 	b6749 = 0;
 	if curTokenSym.type = 6 then
-		call sub$5F2B;
+		call undefinedSymbolError;
 
 	b6857 = 0;
 	if b6883 then
@@ -288,20 +300,20 @@ lookup: procedure(arg1b) byte public;
 	declare arg1b byte;
 	declare (w6CEE, w6CF0, s6CF2$p, w6CF4, s6CF6$p, s6CF8$p) address,
 		(b6CFA, b6CFB) byte;
-	declare s6CF6 based s6CF6$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte),
-		s6CF8 based s6CF8$p structure(w0 address, w2 address, b4 byte, b5 byte, type byte, b7 byte);
+	declare s6CF6 based s6CF6$p structure(tok(2) address, b4 byte, b5 byte, type byte, b7 byte),
+		s6CF8 based s6CF8$p (2) address;
 	declare wrd based w6BE0 address;
 
 	s6CF8$p = curTokStart;
-	if arg1b = 0 then
+	if arg1b = 0 then		/* hash chain look up key word */
 	do;
 		s6CF6$p = 0;
-		w6CF4 = symTab(0) + (s6CF8.w0 + s6CF8.w2) mod 97h * 8;
+		w6CF4 = symTab(0) + (s6CF8(0) + s6CF8(1)) mod 97h * 8;
 
 		do while w6CF4 <> 0;
 			s6CF6$p = s6CF6$p + w6CF4;
-			if s6CF6.w0 = s6CF8.w0 then
-				if s6CF6.w2 = s6CF8.w2 then
+			if s6CF6.tok(0) = s6CF8(0) then
+				if s6CF6.tok(1) = s6CF8(1) then
 				do;
 					curTokenSym$p = s6CF6$p;
 					tokenType(0) = curTokenSym.type;
@@ -309,12 +321,12 @@ lookup: procedure(arg1b) byte public;
 						if b5672(tokenType(0)) then
 							has16bitOperand = 0FFh;
 					if curTokenSym.b7 = 2 and not optMOD85 then
-						call sub$3CDF(4Fh);
+						call sourceError(4Fh);
 
 					if tokenType(0) = 8 then	/* SP */
 					do;
 						if not (opType = 24h or opType = 25h) then /* lxi or push/pop */
-							call sub$3CDF(58h);
+							call sourceError(58h);
 						tokenType(0) = 7;	/* reg */
 					end;
 					return (tokenType(0) and 7Fh);
@@ -327,11 +339,13 @@ lookup: procedure(arg1b) byte public;
 	w6CEE = symTab(arg1b);
 	w6CF0, s6CF6$p = w6868(arg1b);
 
+	/* binary chop search for id */
+
 	do while (s6CF2$p := w6CEE + shr((w6CF0 - w6CEE) and 0FFF0h, 1)) <> s6CF6$p;
 		s6CF6$p = s6CF2$p;
-		if s6CF8.w0 = s6CF6.w0 then
+		if s6CF8(0) = s6CF6.tok(0) then
 		do;
-			if s6CF8.w2 = s6CF6.w2 then
+			if s6CF8(1) = s6CF6.tok(1) then
 			do;
 				curTokenSym$p = s6CF6$p;
 				tokenType(0) = curTokenSym.type;
@@ -344,10 +358,10 @@ lookup: procedure(arg1b) byte public;
 				return b6BDD;
 			end;
 			else
-				b6CFB = s6CF6.w2 > s6CF8.w2;
+				b6CFB = s6CF6.tok(1) > s6CF8(1);
 		end;
 		else
-			b6CFB = s6CF6.w0 > s6CF8.w0;
+			b6CFB = s6CF6.tok(0) > s6CF8(0);
 
 		s6CF6$p = s6CF2$p;
 		if b6CFB then
@@ -377,17 +391,17 @@ end;
 
 
 getChX: procedure byte public;
-	declare (b6CFC, b6CFD) byte;
+	declare (curCH, prevCH) byte;
 	declare ch based s906C.buf$p byte;
 	declare ch1 based off$9056 byte;
 
 L6339:
 	if not reget then
 	do;
-		b6CFD = b6CFC;
+		prevCH = curCH;
 
 	L6347:
-		b6CFC = lookAhead;
+		curCH = lookAhead;
 		if b$905B then
 		do;
 			do while (lookAhead := ch) = 0FEh;
@@ -402,44 +416,44 @@ L6339:
 		else
 			lookAhead = sub$4879;
 
-		if chClassX(b6CFC) = 0 then
-			if b6CFC = 0 or b6CFC = 7Fh or b6CFC = 0Ch then
+		if chClassX(curCH) = CC$BAD then
+			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
 				goto L6347;
 
 		if b$905B then
 		do;
-			if b6CFC = 1Bh then
+			if curCH = 1Bh then
 			do;
 				goto L65B2;
 			end;
-			else if b6CFC = 26h then
+			else if curCH = '&' then
 			do;
-				if not b6CFD < 80h or lookAhead = 80h then
+				if not prevCH < 80h or lookAhead = 80h then
 					goto L6339;
 			end;
-			else if b6CFC = 21h and b6CFD <> 0 then
+			else if curCH = '!' and prevCH <> 0 then
 			do;
 				if not (b$905D or b$905E) and b$905C then
 				do;
-					b6CFC = 0;
+					curCH = 0;
 					goto L6339;
 				end;
 			end;
-			else if b6CFC >= 128 then
+			else if curCH >= 128 then
 			do;
 				if not (b$905C := not b$905C) then
 					s906C.buf$p = w$9197;
 				else
 				do;
 					w$9197 = s906C.buf$p;
-					if b6CFC = 80h then
+					if curCH = 80h then
 					do;
 						s906C.buf$p = s906C.w12;
 						if b$9062 = 2 then
 						do;
 							b$91A2 = ch;
 							s906C.buf$p = .b$91A2;
-							if ch = 21h then
+							if ch = '!' then
 							do;
 								b$91A1 = 21h;
 								b$91A2 = mem(s906C.w12 + 1);
@@ -475,26 +489,26 @@ L6339:
 			if isPhase2Print then
 				if off$9056 < .w$9054 then
 				do;
-					ch1 = b6CFC;	
+					ch1 = curCH;	
 					off$9056 = off$9056 + 1;
 				end;
 
 		if b$905E then
-			if w$919D <> w$906A and b6CFC = 0Dh or not b$9059 then
-			call sub$3D55(b6CFC);
+			if w$919D <> w$906A and curCH = 0Dh or not b$9059 then
+			call sub$3D55(curCH);
 
-		if not(b6CFD = 21h or b6742) then
+		if not(prevCH = '!' or b6742) then
 		do;
-			if b6CFC = 3Eh then
+			if curCH = '>' then
 				b$9067 = b$9067 - 1;
 
-			if b6CFC = 3Ch then
+			if curCH = '<' then
 				b$9067 = b$9067 + 1;
 		end;
 	end;
 L65B2:
 	reget = 0;
-	return (curChar := b6CFC);
+	return (curChar := curCH);
 end;
 
 sub$65BE: procedure byte public;
@@ -513,7 +527,7 @@ sub$65D9: procedure public;
 	else
 	do;
 		b$905E = b$905E and 0FEh;
-		call sub$5F1F;
+		call illegalCharError;
 		b$905E = b$905E > 0;
 	end;
 end;

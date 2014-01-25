@@ -26,9 +26,9 @@ sub$3D6E: procedure external; end;
 sub$43D2: procedure external; end;
 sub$467F: procedure(b1, w2) external; declare b1 byte, w2 address; end;
 sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-sub$5ED7: procedure external; end;
-sub$5EE3: procedure external; end;
-sub$5F1F: procedure external; end;
+syntaxError: procedure external; end;
+expressionError: procedure external; end;
+illegalCharError: procedure external; end;
 popToken: procedure external; end;
 collectIdent: procedure(b1) external; declare b1 byte; end;
 collectString: procedure external; end;
@@ -49,7 +49,7 @@ isWhite: procedure byte external; end;
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (b3692, tokenSize, tokenAttr, mem, macroBuf)(1) byte external,
-	(c255, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
+	(bTRUE, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
 	(b6880, b6885, b6897, b689C, optMACRODEBUG, optXREF, b6B25, phase) byte external,
 	(b6B29, opType, b6B30, b6B31, b6BDA, b6BDD) byte external,
 	(b$9058, b$9059, b$905B, b$905E, skipping, b$9C3A) byte external,
@@ -165,7 +165,7 @@ sub$3F19: procedure public;
 
 	sub$416B: procedure;
 		if opType = 0 then
-			call sub$5EE3;
+			call expressionError;
 		b6B25 = 0;
 		opType = 0;
 	end;
@@ -179,7 +179,7 @@ sub$3F19: procedure public;
 	end;
 
 	do case sub$65BE;
-/* 0 */ case0:	call sub$5F1F;
+/* 0 */ case0:	call illegalCharError;
 /* 1 */		;
 /* 2 */		do;
 			if not b$9058 then
@@ -207,11 +207,11 @@ sub$3F19: procedure public;
 				end;
 
 				b6B30 = 0;
-				b6872, b6B31 = c255;
+				b6872, b6B31 = bTRUE;
 			end;
 			else
 			do;
-				call sub$5ED7;
+				call syntaxError;
 				call popToken;
 			end;
 
@@ -243,7 +243,7 @@ sub$3F19: procedure public;
 /* 7 */		do;
 			if b6B29 = 37h then
 			do;
-				call sub$5F1F;
+				call illegalCharError;
 				return;
 			end;
 			if b$905E then
@@ -320,7 +320,7 @@ sub$3F19: procedure public;
 				do;
 					b$905E = 2;
 					if b6897 then
-						call sub$5ED7;
+						call syntaxError;
 					b6897 = 0;
 				end;
 				else

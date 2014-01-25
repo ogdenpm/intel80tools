@@ -37,14 +37,13 @@ getCh: procedure byte external; end;
 declare (b6C21, b6C27, b6C30) byte external,
 	(includefd, rootfd, off6C2C, off6C2E) address external;
 
-declare	asc$3680(*) byte public data('                  '),
-	asc$3692(*) byte public data('      ', 0),
+declare	spaces24(*) byte public data('                        ', 0),
 	asc$3699(*) byte public data(0Dh, 0Ah, 0),
 	signonMsg(*) byte public data(0Dh, 0Ah),
 	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
 	aModulePage(*) byte public data('MODULE ',9, ' PAGE ', 0),
-	cZERO byte public data(0),
-	c255 byte public data(0FFh),
+	bZERO byte public data(0),
+	bTRUE byte public data(0FFh),
 	aC19761977197$0(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
 	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
 	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
@@ -192,7 +191,7 @@ wrConsole: procedure(arg1w, arg2w) public;
 	call ioErrChk;
 end;
 
-wrError: procedure(arg1b) public;
+runtimeError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if b6BD9 then
@@ -243,7 +242,7 @@ wrError: procedure(arg1b) public;
 	call exit;
 end;
 
-fileError: procedure(arg1w) public;
+ioError: procedure(arg1w) public;
 	declare arg1w address;
 	declare ch based arg1w byte;
 
@@ -255,8 +254,8 @@ fileError: procedure(arg1w) public;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
-		call wrError(3);	/* EOF error */
-	call wrError(4);		/* file error */
+		call runtimeError(3);	/* EOF error */
+	call runtimeError(4);		/* file error */
 end;
 
 inOpen: procedure(arg1w, arg2w) address public;
@@ -265,7 +264,7 @@ inOpen: procedure(arg1w, arg2w) address public;
 
 	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
 	if openStatus <> 0 then
-		call fileError(arg1w);
+		call ioError(arg1w);
 	return open$infd;
 end;
 
@@ -306,7 +305,7 @@ getNibble: procedure(arg1w, arg2b) byte public;
 	return b6C11 and 0Fh;
 end;
 
-sub$3CDF: procedure(arg1b) public;
+sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if not isSkipping or b6B2B = 22h then	/* ELSE */
@@ -354,7 +353,7 @@ sub$3D6D: procedure public;
 	if b6C21 then
 		call sub$4904;
 
-	b6C21, b6B20, scanOptions = cZERO;
+	b6C21, b6B20, scanOptions = bZERO;
 	call parseDollarLines;
 	b6898 = 0;
 	optDEBUG = optDEBUG and optOBJECT;
@@ -372,9 +371,9 @@ sub$3DCE: procedure public;
 		call sub$4904;
 
 	b68AD, has16bitOperand, b6B20, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = cZERO;
-	b689C, b6B31, b6B34, b6B35 = c255;
-	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = cZERO;
+	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = bZERO;
+	b689C, b6B31, b6B34, b6B35 = bTRUE;
+	optEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	b6896 = 20h;
 	b689A = 1;
 	w6A4E = w6A4E + 1;
@@ -391,7 +390,7 @@ start:
 	if optMACROFILE then
 	do;
 		if physmem < 8001h then
-			call wrError(5);	 /* memory error */
+			call runtimeError(5);	 /* memory error */
 		if includefd <> rootfd then
 			call closeF(includefd);
 		call closeF(infd);
@@ -410,7 +409,7 @@ start:
 	end;
 
 	if MacroDebugOrGen then			/* error if no Macrofile */
-		call wrError(2);		/* command error */
+		call runtimeError(2);		/* command error */
 
 	if optOBJECT then
 	do;

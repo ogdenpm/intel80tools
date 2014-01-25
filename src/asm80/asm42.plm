@@ -6,7 +6,7 @@ declare TRUE literally '0FFh';
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare (aBadSyntax, aError, asc$3699, aError$0, tokenSize)(1) byte external,
-	(cZERO, c255, b6749, b6754, tokenSP, tokenType) byte external,
+	(bZERO, bTRUE, b6749, b6754, tokenSP, tokenType) byte external,
 	(b6855, b6857, b6858, b6859, curChar, reget, b6872) byte external,
 	(b687F, b6880, b6881, b6884, b6885, b6896, b6897) byte external,
 	(b6898, b689A, b689B, b689C, b68AB, b68AD, optDEBUG) byte external,
@@ -201,7 +201,7 @@ wrConsole: procedure(arg1w, arg2w) public;
 end;
 
 
-wrError: procedure(arg1b) public;
+runtimeError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if b6BD9 then
@@ -254,7 +254,7 @@ wrError: procedure(arg1b) public;
 	call exit;
 end;
 
-fileError: procedure(arg1w) public;
+ioError: procedure(arg1w) public;
 	declare arg1w address;
 	declare ch based arg1w byte;
 
@@ -266,8 +266,8 @@ fileError: procedure(arg1w) public;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
-		call wrError(3);
-	call wrError(4);
+		call runtimeError(3);	/* eof */
+	call runtimeError(4);
 end;
 
 inOpen: procedure(arg1w, arg2w) address public;
@@ -276,7 +276,7 @@ inOpen: procedure(arg1w, arg2w) address public;
 
 	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
 	if openStatus <> 0 then
-		call fileError(arg1w);
+		call ioError(arg1w);
 	return open$infd;
 end;
 
@@ -317,7 +317,7 @@ getNibble: procedure(arg1w, arg2b) byte public;
 	return b6C11 and 0Fh;
 end;
 
-sub$3CDF: procedure(arg1b) public;
+sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if not isSkipping or b6B2B = 22h then
@@ -339,7 +339,7 @@ sub$3D34: procedure(arg1b) public;
 
 	ch = arg1b;
 	if (w$906A := w$906A + 1) > w6870 then
-		call wrError(1);
+		call runtimeError(1);	/* table error */
 end;
 
 
@@ -381,7 +381,7 @@ sub$3DA4: procedure public;
 	if b6C21 then
 		call sub$4904;
 
-	b6C21, b$9A77, scanOptions = cZERO;
+	b6C21, b$9A77, scanOptions = bZERO;
 	call sub$3D6E;
 	b6898 = 0;
 	optDEBUG = optDEBUG and optOBJECT;
@@ -398,9 +398,9 @@ sub$3DFB: procedure public;
 		call sub$4904;
 
 	b68AD, has16bitOperand, b$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = cZERO;
-	b689C, b6B31, b6B34, b6B35 = c255;
-	optEJECT, b6857, tokenSP, b$9058, b$9067, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = cZERO;
+	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = bZERO;
+	b689C, b6B31, b6B34, b6B35 = bTRUE;
+	optEJECT, b6857, tokenSP, b$9058, b$9067, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = bZERO;
 	b6896 = 20h;
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
