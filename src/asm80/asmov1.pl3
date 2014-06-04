@@ -17,8 +17,8 @@ declare	aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
 	asc$6DBC(*) byte data(0Dh),
 	asc$6DBD(*) byte data(0Ah, 0Ah, 0Ah, 0),
 	b6DC1(2) byte data(20h, 40h),
-	asc$6DC3(*) byte data(' (', 0),
-	asc$6DC6(*) byte data(')', 0),
+	ascLParen(*) byte data(' (', 0),
+	ascRParen(*) byte data(')', 0),
 	a1234(*) byte data('  1234');	
 
 
@@ -35,7 +35,7 @@ unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
 sub$465B: procedure byte external; end;
 isPhase2Print: procedure byte external; end;
 isSkipping: procedure byte external; end;
-xisSpace: procedure byte external; end;
+blankAsmErrCode: procedure byte external; end;
 physmem: procedure address external; end;
 
 
@@ -110,7 +110,7 @@ printDecimal: procedure(arg1w) reentrant public;
 end;
 
 skipToEOP: procedure public;
-	do while lineCnt <= optPAGELENGTH;
+	do while lineCnt <= ctlPAGELENGTH;
 		call outch(0Ah);
 		lineCnt = lineCnt + 1;
 	end;
@@ -122,8 +122,8 @@ newPageHeader: procedure public;
 	call printStr(.aIsisIi80808085);
 	call printDecimal(pageCnt);
 	call printCRLF;
-	if optTITLE then
-		call printNStr(titleLen, .optTITLESTR);
+	if ctlTITLE then
+		call printNStr(titleLen, .ctlTITLESTR);
 
 	call printCRLF;
 	call printCRLF;
@@ -134,22 +134,22 @@ end;
 
 
 newPage: procedure public;
-	if optTTY then
+	if ctlTTY then
 		call skipToEOP;
 	else
 		call outch(0Ch);
 
 	lineCnt = 1;
-	if not scanOptions then
+	if not scanCmdLine then
 		call newPageHeader;
 end;
 
 
 sub$6F4D: procedure public;
 	if sub$465B then
-	do while optEJECT > 0;
+	do while ctlEJECT > 0;
 		call newPage;
-		optEJECT = optEJECT - 1;
+		ctlEJECT = ctlEJECT - 1;
 	end;
 end;
 
@@ -165,14 +165,14 @@ printChar: procedure(arg1b) reentrant;
 		return;
 	end;
 	if arg1b = 0Ah then
-		if optPAGING then
+		if ctlPAGING then
 		do;
-			if (lineCnt := lineCnt + 1) >= optPAGELENGTH - 2 then
+			if (lineCnt := lineCnt + 1) >= ctlPAGELENGTH - 2 then
 			do;
-				if optTTY then
+				if ctlTTY then
 					call outch(0Ah);
-				if optEJECT > 0 then
-					optEJECT = optEJECT - 1;
+				if ctlEJECT > 0 then
+					ctlEJECT = ctlEJECT - 1;
 				call newPage;
 				return;
 			end;
@@ -190,7 +190,7 @@ printChar: procedure(arg1b) reentrant;
 		do;
 			if arg1b >= ' ' then
 				curCol = curCol + 1;
-			if curCol > optPAGEWIDTH then
+			if curCol > ctlPAGEWIDTH then
 			do;
 				call printCRLF;
 				call printStr(.spaces24);
@@ -207,8 +207,7 @@ declare b755C(*) byte initial(' CDSME');
 sub$7041: procedure public;
 	declare b7562 byte,
 		w7563 address,
-		b7563 byte at(.w7563),
-		b7564 byte at(.w7563 + 1),
+		(b7563, b7564) byte at(.w7563),
 		b7565 byte;
 
 	sub$718C: procedure(arg1w);
@@ -222,11 +221,11 @@ sub$7041: procedure public;
 
 
 	b68AE(0) = 0FFh;
-	if not optSYMBOLS then
+	if not ctlSYMBOLS then
 		return;
 	b755C(0) = 'A';
 	do b7562 = 0 to 2;
-		b6BDD = isPhase2Print and optSYMBOLS;
+		jj = isPhase2Print and ctlSYMBOLS;
 		curTokenSym$p = symTab(1) - 2;
 		call printCRLF;
 		call printStr(wa6DB2(b7562));
@@ -239,9 +238,9 @@ sub$7041: procedure public;
 				if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
 				do;
 				    call unpackToken(curTokenSym$p - 6, .b68AE + 1);
-				    if b6BDD then
+				    if jj then
 				    do;
-					if optPAGEWIDTH - curCol < 11h then
+					if ctlPAGEWIDTH - curCol < 11h then
 						call printCRLF;
 					call printStr(.b68AE + 1);
 					call printChar(' ');
@@ -261,9 +260,9 @@ sub$7041: procedure public;
 		end;
 
 	end;
-	if optDEBUG then
+	if ctlDEBUG then
 		b68AE(0) = 0;
-	if b6BDD then
+	if jj then
 		call printCRLF;
 end;
 
@@ -336,12 +335,12 @@ sub$7229: procedure public;
 	end;
 
 	call outch(' ');
-	if shr(b6BDD := tokenAttr(b6A56), 6) then
+	if shr(jj := tokenAttr(b6A56), 6) then
 		call outch('E');
 	else if not b68AB then
 		call outch(' ');
 	else
-		call outch(b755C(b6BDD and 7));
+		call outch(b755C(jj and 7));
 end;
 
 
@@ -349,9 +348,9 @@ sub$72D8: procedure public;
 	if not b689B then
 		return;
 
-	call printStr(.asc$6DC3);	/* " (" */
+	call printStr(.ascLParen);	/* " (" */
 	call printNStr(4, .b6A57);
-	call printStr(.asc$6DC6);	/* ")" */
+	call printStr(.ascRParen);	/* ")" */
 	call printCRLF;
 	call move(4, .asciiLineNo, .b6A57);
 end;
@@ -364,11 +363,11 @@ ovl3: procedure public;
 	if isSkipping then
 		w68A0 = w68A2;
 
-	call outch(b6896);
+	call outch(asmErrCode);
 	call outch(' ');
-	if not xisSpace then
+	if not blankAsmErrCode then
 	do;
-		b6896 = ' ';
+		asmErrCode = ' ';
 		b689B = 0FFh;
 	end;
 	if b6B20 then
@@ -377,8 +376,8 @@ ovl3: procedure public;
 		call sub$7229;
 	if fileIdx > 0 then
 	do;
-		call outch(a1234(b6BDB := b6C21 + fileIdx));
-		if b6BDB > 0 then
+		call outch(a1234(ii := b6C21 + fileIdx));
+		if ii > 0 then
 			call outch('=');
 		else
 			call outch(' ');
@@ -403,7 +402,7 @@ ovl3: procedure public;
 	end;
 	if b6B20 then
 	do;
-		if optPAGING then
+		if ctlPAGING then
 			call sub$6F4D;
 	end;
 	else
@@ -436,7 +435,7 @@ asmComplete: procedure public;
 end;
 
 ovl9: procedure public;
-	if optPRINT then
+	if ctlPRINT then
 		call closeF(outfd);
 	outfd = 0;
 	lineCnt = 1;
@@ -448,7 +447,7 @@ end;
 ovl10: procedure public;
 	declare ch based w68A6 byte;
 	call closeF(infd);
-	if optXREF then
+	if ctlXREF then
 	do;
 		w68A6 = physmem - 1;
 		ch = '0';

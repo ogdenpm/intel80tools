@@ -22,7 +22,7 @@ seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) addre
 skip2EOL: procedure external; end;
 sub$3D34: procedure(b1) external; declare b1 byte; end;
 sub$3D55: procedure(b1) external; declare b1 byte; end;
-sub$3D6E: procedure external; end;
+preStatementControls: procedure external; end;
 sub$43D2: procedure external; end;
 sub$467F: procedure(b1, w2) external; declare b1 byte, w2 address; end;
 sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
@@ -30,42 +30,42 @@ syntaxError: procedure external; end;
 expressionError: procedure external; end;
 illegalCharError: procedure external; end;
 popToken: procedure external; end;
-collectIdent: procedure(b1) external; declare b1 byte; end;
-collectString: procedure external; end;
+getId: procedure(b1) external; declare b1 byte; end;
+getStr: procedure external; end;
 sub$65D9: procedure external; end;
 pushToken: procedure(b1) external; declare b1 byte; end;
 collectByte: procedure(b1) external; declare b1 byte; end;
-ascii2Num: procedure external; end;
+getNum: procedure external; end;
 sub$73AD: procedure external; end;
 write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
 testBit: procedure(b1, w2) byte external; declare b1 byte, w2 address; end;
 sub$43DD: procedure address external; end;
-getChX: procedure byte external; end;
+getCh: procedure byte external; end;
 lookup: procedure(b1) byte external; declare b1 byte; end;
-sub$65BE: procedure byte external; end;
+getChClass: procedure byte external; end;
 isTab: procedure byte external; end;
 isWhite: procedure byte external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (b3692, tokenSize, tokenAttr, mem, macroBuf)(1) byte external,
+declare (spaces24, tokenSize, tokenAttr, mem, macroBuf)(1) byte external,
 	(bTRUE, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
-	(b6880, b6885, b6897, b689C, optMACRODEBUG, optXREF, b6B25, phase) byte external,
-	(b6B29, opType, b6B30, b6B31, b6BDA, b6BDD) byte external,
+	(b6880, b6885, b6897, b689C, ctlMACRODEBUG, ctlXREF, b6B25, phase) byte external,
+	(b6B29, opType, b6B30, b6B31, b6BDA, jj) byte external,
 	(b$9058, b$9059, b$905B, b$905E, skipping, b$9C3A) byte external,
 	(curTokenSym$p, statusIO, w$3780, w686E) address external,
 	(w6868, curTokStart, segSize)(1) address external,
 	(macrofd, w6BE0, w$906A, curMacroBlk, nxtMacroBlk) address external,
 	(maxMacroBlk, w$9114, w$919F) address external,
-	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) external;
+
+	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
+	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
 
 
 
 
 skipWhite$2: procedure public;
-	do while getChX = ' ' or isTab;
+	do while getCh = ' ' or isTab;
 	end;
 end;
 
@@ -75,7 +75,7 @@ sub$3FA9: procedure byte public;
 		wrd based w$9B5A address;
 
 	w$9B5A = curTokenSym$p - 6;
-	return (wrd < 4679h) or optMACRODEBUG or (4682h < wrd);
+	return (wrd < 4679h) or ctlMACRODEBUG or (4682h < wrd);
 end;
 
 
@@ -85,14 +85,14 @@ seekM: procedure(arg1w);
 
 	if (w6BE0 := arg1w - nxtMacroBlk) <> 0 then
 	do;
-		b6BDD = 3;			/* SEEKFWD */
+		jj = 3;			/* SEEKFWD */
 		if arg1w < nxtMacroBlk then
 		do;
 			w6BE0 = - w6BE0;
-			b6BDD = 1;		/* SEEKBACK */
+			jj = 1;		/* SEEKBACK */
 		end;
 
-		call seek(macrofd, b6BDD, .w6BE0, .w$3780, .statusIO);
+		call seek(macrofd, jj, .w6BE0, .w$3780, .statusIO);
 		call ioErrChk;
 	end;
 	nxtMacroBlk = arg1w + 1;
@@ -115,7 +115,7 @@ readM: procedure(arg1w) public;
 		call ioErrChk;
 	end;
 
-	s906C.blk, curMacroBlk = arg1w;
+	tmac$blk, curMacroBlk = arg1w;
 	macroBuf(w$9B60) = 0FEh;	/* flag end of macro buffer */
 end;
 
@@ -150,7 +150,7 @@ end;
 
 skipWhite: procedure public;
 	do while isWhite;
-		curChar = getChX;
+		curChar = getCh;
 	end;
 end;
 
@@ -174,18 +174,18 @@ sub$3F19: procedure public;
     do while 1;
 	if b689C then
 	do;
-		call sub$3D6E;
+		call preStatementControls;
 		b689C = 0;
 	end;
 
-	do case sub$65BE;
+	do case getChClass;
 /* 0 */ case0:	call illegalCharError;
 /* 1 */		;
 /* 2 */		do;
 			if not b$9058 then
 			do;
 				b6742 = 0FFh;
-				if sub$65BE = 2 and b$905E then
+				if getChClass = 2 and b$905E then
 				do;
 					b$9059 = 0FFh;
 					w$906A = w$906A - 2;
@@ -250,28 +250,28 @@ sub$3F19: procedure public;
 				b$9058 = not b$9058;
 			else
 			do;
-				call collectString;
+				call getStr;
 				if b6B31 then
 					call sub$43D2;
 				call sub$416B;
 			end;
 		end;
 /* 8 */		do;
-			call ascii2Num;
+			call getNum;
 			if b6B31 then
 				call sub$43D2;
 			call sub$416B;
 		end;
 /* 9 */		do;
 			w$919F = w$906A - 1;
-			call collectIdent(9);
+			call getId(9);
 			if tokenSize(0) > 6 then
 				tokenSize(0) = 6;
 
-			if optXREF then
+			if ctlXREF then
 			do;
 				call move(6, .b6873, .b6879);
-				call move(6, .b3692, .b6873);
+				call move(6, .spaces24 + 18, .b6873);
 			end;
 
 			call move(tokenSize(0), curTokStart(0), .b6873);
@@ -285,10 +285,10 @@ sub$3F19: procedure public;
 
 			if lookup(2) <> 9 and b$905E then
 			do;
-				if not b$9058 or (b6BDD := tokenType = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
+				if not b$9058 or (jj := tokenType = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
 				do;
 					w$906A = w$919F;
-					call sub$3D55(b6BDD + 81h);
+					call sub$3D55(jj + 81h);
 					call sub$3D34(sub$43DD);
 					call sub$3D55(curChar);
 					b6B29 = 9;

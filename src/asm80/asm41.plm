@@ -4,13 +4,8 @@ do;
 declare w$3780 address public data(0),
 	b$3782 byte public data(80h),
 	b$3783 byte public data(81h),
-	b3680(*) byte public data('         '),
-	b3689(*) byte public data('         '),
-	b3692(*) byte public data(' '),
-	b3693(*) byte public data(' '),
-	b3694(*) byte public data('  '),
-	b3696(*) byte public data('  ', 0),
-	asc$3699(*) byte public data(0Dh, 0Ah, 0),
+	spaces24(*) byte public data('                        ', 0),
+	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
 	signonMsg(*) byte data(0Dh, 0Ah),
 	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
 	aModulePage(*) byte public data('MODULE ', 9, ' PAGE ', 0),
@@ -31,9 +26,9 @@ declare w$3780 address public data(0),
 	aCo(*) byte public data(':CO:', 0);
 
 declare (aF0Asmac$tmp, aF0Asxref$tmp, objFile, lstFile)(1) byte external,
-	(optXREF, optPRINT, optOBJECT, phase) byte external,
+	(ctlXREF, ctlPRINT, ctlOBJECT, phase) byte external,
 	(outfd, statusIO, w6750, objfd, xreffd, macrofd) address external,
-	rec18a structure(type byte, len address, dta(1) byte) external;
+	r$extnames1 structure(type byte, len address, dta(1) byte) external;
 
 
 delete: procedure(w1, w2) external; declare (w1, w2) address; end;
@@ -43,12 +38,12 @@ sub$540D: procedure external; end;
 sub$70EE: procedure external; end;
 sub$8915: procedure external; end;
 getAsmFile: procedure external; end;
-resetDataX: procedure external; end;
+resetData: procedure external; end;
 asmComplete: procedure external; end;
 ovl9: procedure external; end;
 writeRec: procedure(arg1w) external; declare arg1w address; end;
-writeRec02: procedure external; end;
-writeRec040E: procedure external; end;
+writeModhdr: procedure external; end;
+writeModend: procedure external; end;
 ovl11: procedure external; end;
 inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
 strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
@@ -57,16 +52,16 @@ strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
 mainov4:
 	call getAsmFile;
 	phase = 1;
-	call resetDataX;
+	call resetData;
 	call sub$3DA4;
 	macrofd = inOpen(.aF0Asmac$tmp, 3);
-	if optOBJECT then
+	if ctlOBJECT then
 	do;
 		call delete(.objFile, .statusIO);
 		objfd = inOpen(.objFile, 3);
 	end;
 
-	if optXREF then
+	if ctlXREF then
 	do;
 		xreffd = inOpen(.aF0Asxref$tmp, 2);
 		outfd = xreffd;
@@ -74,33 +69,33 @@ mainov4:
 
 	call sub$540D;
 	phase = 2;
-	if optOBJECT then
+	if ctlOBJECT then
 	do;
-		if rec18a.len > 0 then
-			call writeRec(.rec18a);
+		if r$extnames1.len > 0 then
+			call writeRec(.r$extnames1);
 
 		if w6750 = 0 then
-			call writeRec02;
+			call writeModhdr;
 
 		call sub$70EE;
 	end;
 
-	if optPRINT then
+	if ctlPRINT then
 		outfd = inOpen(.lstFile, 2);
 
-	call resetDataX;
+	call resetData;
 	call sub$3DA4;
 	call sub$540D;
-	if optPRINT then
+	if ctlPRINT then
 	do;
 		call asmComplete;
 		call flushout;
 	end;
 
-	if optOBJECT then
+	if ctlOBJECT then
 	do;
 		call ovl11;
-		call writeRec040E;
+		call writeModend;
 	end;
 
 	if not strUCequ(.aCo, .lstFile) then

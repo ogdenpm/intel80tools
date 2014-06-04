@@ -13,7 +13,7 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 	b41C6(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
 	b41D2(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
-	b41E7(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
+	precedence(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1);
@@ -74,10 +74,10 @@ sub$4291: procedure public;
 		if (b6856 and 7) <> 0 then
 			if ((b6855 xor b6856) and 1Fh) <> 0 then
 				call expressionError;
-	if (b6BDB := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
+	if (ii := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
 		if b6B2B = 5 then	/* +? (PAGE INPAGE)? */
-			if not (b6BDB or bp6BE0(0)) then
+			if not (ii or bp6BE0(0)) then
 			do;
 				w685A = w685C;
 				b6855 = b6856;
@@ -88,14 +88,14 @@ sub$4291: procedure public;
 		else
 			return;
 	end;
-	b6BDD = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
-	if testBit(b6BDD, .b41C6) then
+	jj = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
+	if testBit(jj, .b41C6) then
 L4394:	do;
 		call expressionError;
 		b6855 = 0;
 		return;
 	end;
-	if testBit(b6BDD, .b41D2) then
+	if testBit(jj, .b41D2) then
 	do;
 		if not bp6BE0(0) then
 			b6855 = b6856;
@@ -122,8 +122,7 @@ end;
 
 
 sub$43DD: procedure address public;
-	declare ch based curTokStart byte;
-	declare cha based curTokStart(1) byte;
+	declare s based curTokStart(1) byte;
 	declare w6C18 address;
 	declare wrd based w6C18 address;
 
@@ -142,7 +141,7 @@ sub$43DD: procedure address public;
 			if testBit(b6858, .b41DE) then
 			do;
 				curTokStart = curTokenSym$p + 7;
-				b6855 = ch and 0DFh;
+				b6855 = s(0) and 0DFh;
 				curTokStart, w6C18 = curTokenSym$p + 4;
 				w685A = wrd;
 				tokenSize(0) = 2;
@@ -159,9 +158,9 @@ sub$43DD: procedure address public;
 			end;
 
 			if tokenSize(0) > 0 then
-				accum1$lb = ch;
+				accum1$lb = s(0);
 			if tokenSize(0) > 1 then
-				accum1$hb = cha(1) and tokenType(0) <> 7;
+				accum1$hb = s(1) and tokenType(0) <> 7;
 		end;
 		if has16bitOperand then
 			if tokenSize(0) = 2 then
@@ -182,7 +181,7 @@ end;
 
 getPrec: procedure(arg1b) byte public;
 	declare arg1b byte;
-	return b41E7(arg1b);
+	return precedence(arg1b);
 end;
 
 
@@ -240,7 +239,7 @@ end;
 
 
 sub$465B: procedure byte public;
-	return (((not b6B20) and optLIST) or (b6A6F and b6B20)) and ((not (b6B32 or skipping(0))) or optCOND);
+	return (((not b6B20) and ctlLIST) or (b6A6F and b6B20)) and ((not (b6B32 or skipping(0))) or ctlCOND);
 end;
 
 
@@ -248,7 +247,7 @@ sub$467F: procedure(arg1b, arg2w) public;
 	declare arg1b byte, arg2w address;
 	declare (b6C1F, b6C20) byte;
 
-	if not isPhase1 or not optXREF or isSkipping and not b6881 then
+	if not isPhase1 or not ctlXREF or isSkipping and not b6881 then
 		return;
 
 	call outch(arg1b + '0');
@@ -273,15 +272,15 @@ sub$467F: procedure(arg1b, arg2w) public;
 	else
 	do;
 		call outStrN(.lstFile, 15);
-		if optPAGING then
+		if ctlPAGING then
 			call outch('1');
 		else
 			call outch('0');
 
-		call outch(nibble2Ascii(ror(optPAGELENGTH, 4)));
-		call outch(nibble2Ascii(optPAGELENGTH));
-		call outch(nibble2Ascii(ror(optPAGEWIDTH, 4)));
-		call outch(nibble2Ascii(optPAGEWIDTH));
+		call outch(nibble2Ascii(ror(ctlPAGELENGTH, 4)));
+		call outch(nibble2Ascii(ctlPAGELENGTH));
+		call outch(nibble2Ascii(ror(ctlPAGEWIDTH, 4)));
+		call outch(nibble2Ascii(ctlPAGEWIDTH));
 		call outch('3');
 		call flushout;
 		call closeF(xreffd);

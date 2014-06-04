@@ -34,7 +34,7 @@ $IF OVL=4
 	b$9064 byte public,
 	b$9065 byte public,
 	b$9066 byte public,
-	b$9067 byte public initial(0),
+	argNestCnt byte public initial(0),
 	w$9068 address public,
 	w$906A address public,
 	/*
@@ -46,13 +46,13 @@ $IF OVL=4
 		5 -> ???
 	*/
 		
-	s906CStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
+	macroStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
 			     w4 address, buf$p address, blk address, w10 address,
 			     w12 address, w14 address) public,
-	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) public at(.s906CStk(0)),
-	s906C$blk address at(.s906C.blk) initial(0FFFFh),
+	(tmac$macroCondSP, tmac$ifDepth,  tmac$mtype, tmac$b3) byte public at (.macroStk(0)),
+	(tmac$w4, tmac$buf$p) address public at (.macroStk(0).w4),
+	tmac$blk address public  at (.macroStk(0).blk) initial(0FFFFh),
+	(tmac$w10, tmac$w12, tmac$w14) address public at (.macroStk(0).w10),
 	w$910C address,
 	curMacroBlk address public initial(0FFFFh),
 	nxtMacroBlk address public initial(0),
@@ -81,22 +81,22 @@ $ENDIF
 	extNamIdx byte public initial(0),
 	b652B(4) byte public initial(0FFh, 0FFh, 0FFh, 0FFh),
 	b652F byte public initial(0FFh),
-	rec0E(4) byte public initial(0Eh, 0, 0),
-	rec18a structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
+	r$eof structure(type byte, len address, crc byte) public initial(0Eh, 0),
+	r$extnames1 structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
 	moduleNameLen byte public initial(6),
-	rec18 structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
-	rec06 structure(type byte, len address, seg byte, addr address, dta(122) byte, crc byte) public at(.rec18),
-	rec16 structure(type byte, len address, seg byte, dta(124) byte, crc byte) public initial (16h, 1, 0, 0, 0),
-	rec22 structure(type byte, len address, fixtype byte, dta(62) address) public at(.rec16),
-	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(29) address, crc byte) public,
-	rec20 structure(type byte, len address, fixtype byte, dta(30) address, crc byte) public,
-	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) public initial( 4, 4, 0),
+	r$extnames2 structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
+	r$content structure(type byte, len address, segid byte, offset address, dta(122) byte, crc byte) public at(.r$extnames2),
+	r$publics structure(type byte, len address, segid byte, dta(124) byte, crc byte) public initial (16h, 1, 0, 0, 0),
+	r$reloc structure(type byte, len address, hilo byte, dta(62) address) public at(.r$publics),
+	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(29) address, crc byte) public,
+	r$extref structure(type byte, len address, hilo byte, dta(30) address, crc byte) public,
+	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) public initial( 4, 4, 0),
 	wZERO address public initial(0),
 	pad6741 byte initial(0ah),
 	b6742 byte public initial(0),
 	b6743 byte public initial(0),
 	b6744 byte public,
-	b6745 byte public initial(1),
+	startSeg byte public initial(1),
 	padb6746 byte,
 	activeSeg byte public,
 	b6748 byte public initial(0),
@@ -106,15 +106,15 @@ $ENDIF
 	w6750 address public,
 	w6752 address public,
 	b6754 byte public initial(0),
-	b6755 byte public initial(0),
-	startAddr address public initial(0),
+	startDefined byte public initial(0),
+	startOffset address public initial(0),
 	tokenSP byte public initial(0),
 	lineBuf(128) byte public,
 	tokStart(9) address public initial(.lineBuf),
 	curTokStart address public at(.tokStart),
 	tokenSym(9) address public initial(0),
 	curTokenSym$p address public at(.tokenSym(0)),
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
+	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
 	tokenType(9) byte public,
 	tokenSize(9) byte public initial(0),
 	tokenAttr(9) byte public,
@@ -168,9 +168,9 @@ $ENDIF
 	statusIO address public,
 	openStatus address public,
 	pad6894 address initial(0FFFFh),
-	b6896 byte public initial(20h),	
+	asmErrCode byte public initial(20h),	
 	b6897 byte public initial(0),
-	b6898 byte public initial(TRUE),
+	primaryValid byte public initial(TRUE),
 /* end */
 $IF OVL=0
 	pad6899 byte initial(0),
@@ -212,39 +212,39 @@ $ENDIF
 	asciiLineNo(4) byte public initial('   0'),
 	b6A56 byte public,
 	b6A57(4) byte public initial('   0'),
-	optDEBUG byte public initial(0),	/* DEBUG */
-	options(1) byte public at(.optDEBUG),
-	optMACRODEBUG byte public initial(0),		/* MACRODEBUG */
-	optXREF byte public initial(0),		/* XREF */
-	optSYMBOLS byte public initial(0FFh),	/* SYMBOLS */
-	optPAGING byte public initial(0FFh),	/* PAGING */
-	optTTY byte public initial(0),		/* TTY */
-	optMOD85 byte public initial(0),	/* MOD85 */
-	optPRINT byte public initial(0FFh),	/* PRINT */
-	optOBJECT byte public initial(0FFh),	/* OBJECT */
-	optMACROFILE byte public initial(0),		/* MACROFILE */
-	optPAGEWIDTH byte public initial(78h),		/* PAGEWIDTH */
-	optPAGELENGTH byte public initial(42h),		/* PAGELENGTH */
+	ctlDEBUG byte public initial(0),	/* DEBUG */
+	controls(1) byte public at(.ctlDEBUG),
+	ctlMACRODEBUG byte public initial(0),		/* MACRODEBUG */
+	ctlXREF byte public initial(0),		/* XREF */
+	ctlSYMBOLS byte public initial(0FFh),	/* SYMBOLS */
+	ctlPAGING byte public initial(0FFh),	/* PAGING */
+	ctlTTY byte public initial(0),		/* TTY */
+	ctlMOD85 byte public initial(0),	/* MOD85 */
+	ctlPRINT byte public initial(0FFh),	/* PRINT */
+	ctlOBJECT byte public initial(0FFh),	/* OBJECT */
+	ctlMACROFILE byte public initial(0),		/* MACROFILE */
+	ctlPAGEWIDTH byte public initial(78h),		/* PAGEWIDTH */
+	ctlPAGELENGTH byte public initial(42h),		/* PAGELENGTH */
 	pad6A67 byte initial(0),		/* INCLUDE */
-	optTITLE byte public initial(0),		/* TITLE */
+	ctlTITLE byte public initial(0),		/* TITLE */
 	pad6A69(2) byte,			/* SAVE, RESTORE */
-	optEJECT byte public initial(0),		/* EJECT */
-	optLIST byte public initial(0FFh),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
-	optGEN byte public initial(0FFh),	/* GEN */
-	optCOND byte public initial(0FFh),	/* COND */
+	ctlEJECT byte public initial(0),		/* EJECT */
+	ctlLIST byte public initial(0FFh),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
+	ctlGEN byte public initial(0FFh),	/* GEN */
+	ctlCOND byte public initial(0FFh),	/* COND */
 	b6A6F byte public initial(0FFh),
 	titleLen byte public initial(0),
 	b6A71 byte public,
 	pad6A72(3) byte initial(78h, 0FFh),
-	optionSeen(12) byte public initial(0,0,0,0,0,0,0,0,0,0,0,0),
+	controlSeen(12) byte public initial(0,0,0,0,0,0,0,0,0,0,0,0),
 	saveStack(24) byte public,
 	saveIdx byte public initial(0),
-	optTITLESTR(64) byte public,
-	collectBufLen byte public,
-	b6ADB byte public,
-	optionId byte public,
-	collectBuf(64) byte public,
-	collectBufIdx byte public initial(0),
+	ctlTITLESTR(64) byte public,
+	tokBufLen byte public,
+	tokType byte public,
+	controlId byte public,
+	tokBuf(64) byte public,
+	tokBufIdx byte public initial(0),
 	w6B1E address public,
 /* end */
 $IF OVL=4
@@ -254,7 +254,7 @@ $ELSE
 	MacroDebugOrGen byte public initial(0),
 $ENDIF
 /* ov4 compat 2F56 */
-	scanOptions byte public,
+	scanCmdLine byte public,
 	b6B23 byte public,
 	b6B24 byte public,
 	b6B25 byte public,
@@ -286,12 +286,12 @@ $ENDIF
 	pad6BD0(3) byte initial(0),
 	zero address public initial(0),
 	cmdch$p address public initial(.cmdLineBuf),
-	options$p address public,
+	controls$p address public,
 	b6BD9 byte public initial(0),
 	b6BDA byte public,
-	b6BDB byte public,
+	ii byte public,
 	b6BDC byte public,
-	b6BDD byte public,
+	jj byte public,
 /* end */
 $IF OVL=4
 	b$9B34 byte initial(0),

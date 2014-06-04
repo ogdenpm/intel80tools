@@ -1,23 +1,23 @@
 asm4C:
 do;
 
-declare rec18a structure(type byte, len address, dta(1) byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(1) byte) external,
-	rec22 structure(type byte, len address, hilo byte, dta(1) address) external,
-	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
-	rec18 structure(type byte, len address, dta(1) byte) external,
-	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
-	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
+declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
+	r$publics structure(type byte, len address, segid byte, dta(1) byte) external,
+	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
+	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
+	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
+	r$extnames2 structure(type byte, len address, dta(1) byte) external,
+	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
+	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
 
-declare	b6D6E(*) byte data(1, 2, 1, 3),
-	off$6D72(*) address data(.rec16.len, .rec24.len, .rec20.len, .rec06.len),
+declare	controlTable(*) byte data(1, 2, 1, 3),
+	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
 	b6D7A(*) byte data(7Bh, 3Ah, 39h, 7Ch),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	rec02 structure(type byte, len address, dta(26) byte) initial(2),
-	(recData$p, recSym$p) address;
+declare	r$modhdr structure(type byte, len address, dta(26) byte) initial(2),
+	(dta$p, recSym$p) address;
 
 
 
@@ -34,14 +34,15 @@ isSkipping: procedure byte external; end;
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
 declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
-	(moduleNameLen, b6744, b6745, activeSeg, b6755, b689A, b6A56, optDEBUG) byte external,
-	(b6B23, b6B24, b6B33, b6B34, b6BDB) byte external,
+	(moduleNameLen, b6744, startSeg, activeSeg, startDefined, b689A, b6A56, ctlDEBUG) byte external,
+	(b6B23, b6B24, b6B33, b6B34, ii) byte external,
 	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
+	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
 	symb based curTokenSym$p(1) byte,
-	(statusIO, w651F, w6522, w6750, w6752, startAddr, objfd) address external,
+	(statusIO, w651F, w6522, w6750, w6752, startOffset, objfd) address external,
 	(w68A0, w68A2, zero) address external,
-	(rec0E, b6526, b652B, alignTypes, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
+	r$eof structure(type byte, len address, crc byte) external,
+	(b6526, b652B, alignTypes, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
 	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
 	(w6868, w6B41, symTab, tokStart, tokenSymId, segSize)(1) address external;
 
@@ -82,22 +83,22 @@ end;
 
 sub$6E32: procedure public;
 	declare b7598 byte;
-	declare wrd based recData$p address;
+	declare wrd based dta$p address;
 	do b7598 = 0 to 3;
-		b6BDB = (b7598 - 1) and 3;
-		recData$p = off$6D72(b6BDB);
-		if wrd > b6D6E(b6BDB) then
-			call writeRec(recData$p - 1);
+		ii = (b7598 - 1) and 3;
+		dta$p = off$6D72(ii);
+		if wrd > controlTable(ii) then
+			call writeRec(dta$p - 1);
 
-		wrd = b6D6E(b6BDB);
-		b6526(b6BDB) = 0;
-		if b6525 <>  b6BDB then
-			b652B(b6BDB) = 0FFh;
+		wrd = controlTable(ii);
+		b6526(ii) = 0;
+		if b6525 <>  ii then
+			b652B(ii) = 0FFh;
 	end;
-	rec06.addr = w6752 + segSize(rec06.seg := activeSeg);
-	rec16.seg = b6524;
-	rec24.seg = tokenAttr(b6A56) and 7;
-	rec24.fixtype, rec20.fixtype = b6524;
+	r$content.offset = w6752 + segSize(r$content.segid := activeSeg);
+	r$publics.segid = b6524;
+	r$interseg.segid = tokenAttr(b6A56) and 7;
+	r$interseg.hilo, r$extref.hilo = b6524;
 end;
 
 
@@ -105,19 +106,19 @@ end;
 sub$6EE1: procedure;
 	declare w7599 address;
 
-	declare wrd based recData$p address;
+	declare wrd based dta$p address;
 
-	recData$p = off$6D72(b6525 := sub$6DF1);
-	if wrd > b6D7A(b6525) or rec06.len + tokenSize(b6A56) > 7Ch then
+	dta$p = off$6D72(b6525 := sub$6DF1);
+	if wrd > b6D7A(b6525) or r$content.len + tokenSize(b6A56) > 7Ch then
 		call sub$6E32;
 
 	if b652F then
 	do;
 		b652F = 0;
-		rec06.addr = segSize(rec06.seg := activeSeg) + w6752;
+		r$content.offset = segSize(r$content.segid := activeSeg) + w6752;
 	end;
-	else if rec06.seg <> activeSeg or (w7599 := rec06.addr + fix6Idx) <> segSize(activeSeg) + w6752
-	  or w7599 < rec06.addr then
+	else if r$content.segid <> activeSeg or (w7599 := r$content.offset + fix6Idx) <> segSize(activeSeg) + w6752
+	  or w7599 < r$content.offset then
 		call sub$6E32;
 
 
@@ -126,28 +127,28 @@ sub$6EE1: procedure;
 			if b652B(0) then
 			do;
 				b652B(0) = 0;
-				rec16.seg = b6524;
+				r$publics.segid = b6524;
 			end;
-			else if rec16.seg <> b6524 then
+			else if r$publics.segid <> b6524 then
 				call sub$6E32;
 		end;
 /* 1 */		do;
 			if b652B(1) then
 			do;
 				b652B(1) = 0;
-				rec24.seg = tokenAttr(b6A56) and 7;
-				rec24.fixtype = b6524;
+				r$interseg.segid = tokenAttr(b6A56) and 7;
+				r$interseg.hilo = b6524;
 			end;
-			else if rec24.fixtype <> b6524 or (tokenAttr(b6A56) and 7) <> rec24.seg then
+			else if r$interseg.hilo <> b6524 or (tokenAttr(b6A56) and 7) <> r$interseg.segid then
 				call sub$6E32;
 		end;
 /* 2 */		do;
 			if b652B(2) then
 			do;
 				b652B(2) = 0;
-				rec20.fixtype = b6524;
+				r$extref.hilo = b6524;
 			end;
-			else if rec20.fixtype <> b6524 then
+			else if r$extref.hilo <> b6524 then
 				call sub$6E32;
 
 		end;
@@ -161,32 +162,32 @@ sub$704D: procedure;
 
 	declare ch based w651F byte;
 	do b759B = 1 to tokenSize(b6A56);
-		rec06.dta(fix6Idx) = ch;
+		r$content.dta(fix6Idx) = ch;
 		fix6Idx = fix6Idx + 1;
 		w651F = w651F + 1;
 	end;
-	rec06.len = rec06.len + tokenSize(b6A56);
+	r$content.len = r$content.len + tokenSize(b6A56);
 end;
 
 
 
 sub$709D: procedure;
-	rec22.len = rec22.len + 2;
-	rec22.dta(fix22Idx) = w6522;
+	r$reloc.len = r$reloc.len + 2;
+	r$reloc.dta(fix22Idx) = w6522;
 	fix22Idx = fix22Idx + 1;
 end;
 
 
 sub$70C1: procedure;
-	rec24.len = rec24.len + 2;
-	rec24.dta(fix24Idx) = w6522;
+	r$interseg.len = r$interseg.len + 2;
+	r$interseg.dta(fix24Idx) = w6522;
 	fix24Idx = fix24Idx + 1;
 end;
 
 sub$70E5: procedure;
-	rec20.dta(fix20Idx) = tokenSymId(b6A56);
-	rec20.dta(fix20Idx + 1) = w6522;
-	rec20.len = rec20.len + 4;
+	r$extref.dta(fix20Idx) = tokenSymId(b6A56);
+	r$extref.dta(fix20Idx + 1) = w6522;
+	r$extref.len = r$extref.len + 4;
 	fix20Idx = fix20Idx + 2;
 end;
 
@@ -210,32 +211,32 @@ end;
 writeExtName: procedure public;
 	declare i byte;
 
-	if rec18a.len + 9 > 125 then	/* check room for extName */
+	if r$extnames1.len + 9 > 125 then	/* check room for extName */
 	do;
-		call writeRec(.rec18a);	/* flush existing extNam record */
-		rec18a.type = 18h;
-		rec18a.len = 0;
+		call writeRec(.r$extnames1);	/* flush existing extNam record */
+		r$extnames1.type = 18h;
+		r$extnames1.len = 0;
 		extNamIdx = 0;
 	end;
-	rec18a.len = rec18a.len + b6744 + 2;	/* update length for this ref */
-	rec18a.dta(extNamIdx) = b6744;		/* write len */
+	r$extnames1.len = r$extnames1.len + b6744 + 2;	/* update length for this ref */
+	r$extnames1.dta(extNamIdx) = b6744;		/* write len */
 	extNamIdx = extNamIdx + 1;
 	do i = 0 to b6744;			/* and name */
-		rec18a.dta(extNamIdx + i) = b6873(i);
+		r$extnames1.dta(extNamIdx + i) = b6873(i);
 	end;
 
-	rec18a.dta(extNamIdx + b6744) = 0;	/* and terminating 0 */
+	r$extnames1.dta(extNamIdx + b6744) = 0;	/* and terminating 0 */
 	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
 
-sub$725E: procedure(arg1b);	/* arg1b = 0FFH -> PUBLIC else LOCAL */
+writeSymbols: procedure(arg1b);	/* arg1b = 0FFH -> PUBLIC else LOCAL */
 	declare arg1b byte;
-	declare theSegId byte;
+	declare segId byte;
 
-	writePubLocSym: procedure;
+	addSymbol: procedure;
 		declare offsetInSeg$p address;
-		declare symNam based recData$p(6) byte;
+		declare symNam based dta$p(6) byte;
 		declare len based recSym$p byte;
 		declare symOffset based recSym$p address;
 		declare offsetInSeg based offsetInSeg$p address;
@@ -244,77 +245,78 @@ sub$725E: procedure(arg1b);	/* arg1b = 0FFH -> PUBLIC else LOCAL */
 			return;
 		offsetInSeg$p = curTokenSym$p - 2;
 		symOffset = offsetInSeg; 
-		call unpackToken(curTokenSym$p - 6, (recData$p := (recSym$p := recSym$p + 2) + 1));
+		call unpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
 		symNam(6) = ' ';	/* trailing space to ensure end */
 
 		len = 0;
 		do while symNam(0) <> ' ';	/* find length of name */
 			len = len + 1;
-			recData$p = recData$p + 1;
+			dta$p = dta$p + 1;
 		end;
 		symNam(0) = 0;			/* terminate name with 0 */
-		recSym$p = recData$p + 1;
+		recSym$p = dta$p + 1;
 	end;
 
 	flushSymRec: procedure;
-		if (rec16.len := recSym$p - .rec16.seg) > 1 then	/* something to write */
-			call writeRec(.rec16);
-		rec16.type = (arg1b and 4) or 12h;	/* PUBLIC or LOCAL */
-		rec16.seg = theSegId;
-		recSym$p = .rec16.dta;
+		if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
+			call writeRec(.r$publics);
+		r$publics.type = (arg1b and 4) or 12h;	/* PUBLIC or LOCAL */
+		r$publics.segid = segId;
+		recSym$p = .r$publics.dta;
 	end;
 
-	recSym$p = .rec16.dta;
-	do theSegId = 0 to 4;
+	recSym$p = .r$publics.dta;
+	do segId = 0 to 4;
 		call flushSymRec;
 		curTokenSym$p = symTab(1) - 2;
 	
 		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-			if recSym$p > .rec16.dta(114) then		/* make sure there is room */
+			if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
 				call flushSymRec;
 
-			if (symb(1) and 7) = theSegId and symb(0) <> 3Ah and sub$3FA9
+			if (symb(1) and 7) = segId and symb(0) <> 3Ah and sub$3FA9
 			  and not testBit(symb(0), .b6D7E) and (not arg1b or (symb(1) and 20h) <> 0) then
-				call writePubLocSym;
+				call addSymbol;
 		end;
 		call flushSymRec;
 	end;
 end;
 
-writeRec02: procedure public;
-	declare w based recData$p address;
-	declare b based recData$p byte;
+writeModhdr: procedure public;
+	declare w based dta$p address;
+	declare b based dta$p byte;
 	declare i byte;
 
-	call move((rec02.dta(0) := moduleNameLen), .aModulePage, .rec02.dta(1));
-	recData$p = .rec02 + moduleNameLen + 4;
+	call move((r$modhdr.dta(0) := moduleNameLen), .aModulePage, .r$modhdr.dta(1));
+	dta$p = .r$modhdr + moduleNameLen + 4;
 	w = 0;
-	recData$p = recData$p + 1;
+	dta$p = dta$p + 1;
 	if segSize(1) < w6B41(1) then
 		segSize(1) = w6B41(1);
 	if segSize(2) < w6B41(2) then
 		segSize(2) = w6B41(2);
 
 	do i = 1 to 4;
-		recData$p = recData$p + 1;
+		dta$p = dta$p + 1;
 		b = i;
-		recData$p = recData$p + 1;
+		dta$p = dta$p + 1;
 		w = segSize(i);
-		recData$p = recData$p + 2;
+		dta$p = dta$p + 2;
 		b = alignTypes(i - 1);
 	end;
-	rec02.len = moduleNameLen + 19;
-	call writeRec(.rec02);
+	r$modhdr.len = moduleNameLen + 19;
+	call writeRec(.r$modhdr);
 end;
 
 
-writeRec040E: procedure public;
-	rec04.subtype = b6755;
-	rec04.seg = b6745;
-	rec04.addr = startAddr;
-	call writeRec(.rec04);
-	rec0E(1) = 0;
-	call writeRec(.rec0E);
+writeModend: procedure public;
+	declare lenb byte at (.r$eof.len);
+	r$modend.modtyp = startDefined;
+	r$modend.segid = startSeg;
+	r$modend.offset = startOffset;
+	call writeRec(.r$modend);
+	lenb = 0;
+	call writeRec(.r$eof);
 end;
 
 ovl8: procedure public;
@@ -345,16 +347,16 @@ ovl11: procedure public;
 	if w6750 <> 0 then
 	do;
 		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
-		call writeRec02;
+		call writeModhdr;
 		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
 	end;
-	rec16.type = 16h;
-	rec16.len = 1;
-	rec16.seg = 0;
-	rec16.dta(0) = 0;
-	call sub$725E(0FFh);	  /* EMIT PUBLICS */
-	if optDEBUG then
-		call sub$725E(0); /* EMIT LOCALS */
+	r$publics.type = 16h;
+	r$publics.len = 1;
+	r$publics.segid = 0;
+	r$publics.dta(0) = 0;
+	call writeSymbols(0FFh);	  /* EMIT PUBLICS */
+	if ctlDEBUG then
+		call writeSymbols(0); /* EMIT LOCALS */
 end;
 
 end;

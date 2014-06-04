@@ -25,10 +25,10 @@ declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, space
 	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
 	(b6855, opType, b6B2B, b6B2C, b6B2F, b6B35, b6B36) byte external,
 	(activeSeg, b6B28, b6858, b68AB, b6B23, b6B24, b6B2D, b6B30, b6CE4) byte external,
-	(tokenSP, b6745, b6755, ifDepth, b6B32, b6B33, b6881, b6748, b6749) byte external,
+	(tokenSP, startSeg, startDefined, ifDepth, b6B32, b6B33, b6881, b6748, b6749) byte external,
 	(b6754, b6743, moduleNameLen, b6B29, b6885, b6B25, phase, b6B34, opSP, b6856, b6859) byte external,
-	(b6857, b6BDB, b6B2E, optOBJECT, b6744) byte external,
-	(accum1, accum2, startAddr, w6750, w685A, w685C, w68A6) address external,
+	(b6857, ii, b6B2E, ctlOBJECT, b6744) byte external,
+	(accum1, accum2, startOffset, w6750, w685A, w685C, w68A6) address external,
 	accum(4) byte at(.accum1),
 	(segSize, tokenSymId, w6B41)(1) address external;
 
@@ -37,7 +37,7 @@ flushout: procedure external; end;
 sub$6E32: procedure external; end;
 writeExtName: procedure external; end;
 ovl3: procedure external; end;
-writeRec02: procedure external; end;
+writeModhdr: procedure external; end;
 ovl8: procedure external; end;
 popToken: procedure external; end;
 pushToken: procedure(b1) external; declare b1 byte; end;
@@ -237,7 +237,7 @@ sub$4B72: procedure public;
 			else
 				call expressionError;
 
-			if optOBJECT then
+			if ctlOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
 					w6B41(activeSeg) = segSize(activeSeg);
 			segSize(activeSeg) = accum1;
@@ -245,9 +245,9 @@ sub$4B72: procedure public;
 /* 32 */	do;
 			if tokenSP > 0 then
 			do;
-				startAddr = sub$43DD;
-				b6755 = 1;
-				b6745 = b6855 and 7;
+				startOffset = sub$43DD;
+				startDefined = 1;
+				startSeg = b6855 and 7;
 				if (b6855 and 40h) = 40h then
 					call expressionError;
 				if sub$425B(b6858) then
@@ -337,13 +337,13 @@ sub$4B72: procedure public;
 		end;
 /* 51 */	do;
 			b6749 = 0FFh;
-			if w6750 = 0 and isPhase1 and optOBJECT then
+			if w6750 = 0 and isPhase1 and ctlOBJECT then
 			do;
-				call writeRec02;
+				call writeModhdr;
 			end;
 			b6CE4 = 0;
 			call sub$5819(w6750, 2);
-			if isPhase1 and optOBJECT and not b6754 then
+			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
 				call writeExtName;
 			end;
@@ -475,9 +475,9 @@ sub$518F: procedure public;
 		if (b6B28 and 1Eh) <> 0 then
 			call pushToken(b6B2D);
 
-		do b6BDB = 0 to 3;
+		do ii = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum(b6BDB));
+				call addByte2Tok(accum(ii));
 		end;
 
 		tokenAttr(0) = b6855;

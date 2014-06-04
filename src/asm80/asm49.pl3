@@ -6,8 +6,8 @@ sourceError: procedure(b) external; declare b byte; end;
 runtimeError: procedure(b) external; declare b byte; end;
 readM: procedure(w) external; declare w address; end;
 physmem: procedure address external; end;
-getChX: procedure byte external; end;
-sub$65BE: procedure byte external; end;
+getCh: procedure byte external; end;
+getChClass: procedure byte external; end;
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
@@ -16,12 +16,12 @@ declare (bZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byt
 	(tokenType, tokenSize, tokenAttr, skipping, inElse, macroCondStk)(1) byte external,
 	(endLineBuf, curTokStart, w6870, wZERO) address external,
 	(tokenSymId, tokenSym, tokStart)(1) address external,
-	s906CStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
+	macroStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
 			     w4 address, buf$p address, blk address, w10 address,
 			     w12 address, w14 address) external,
-	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) external;
+
+	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
+	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
 
 
 syntaxError: procedure public;
@@ -123,9 +123,9 @@ nestIFX: procedure(arg1b) public;
 		end;
 		else
 		do;
-			call move(16, .s906CStk(0), .s906CStk(b$9063));
-			s906C.macroCondSP = macroCondSP;
-			s906C.ifDepth = ifDepth;
+			call move(16, .macroStk(0), .macroStk(b$9063));
+			tmac$macroCondSP = macroCondSP;
+			tmac$ifDepth = ifDepth;
 			b$9061 = 0FFh;
 		end;
 	end;
@@ -153,17 +153,17 @@ sub$676D: procedure(arg1b) public;
 		call nestingError;
 		if arg1b = 2 then
 			return;
-		macroCondSP = s906C.macroCondSP;
-		ifDepth = s906C.ifDepth;
+		macroCondSP = tmac$macroCondSP;
+		ifDepth = tmac$ifDepth;
 	end;
 
 	macroCondStk(0) = macroCondStk(macroCondSP);
 	macroCondSP = macroCondSP - 1;
 	if arg1b = 1 then
 	do;
-		call move(16, .s906CStk(b$9063), .s906CStk(0));
-		call readM(s906C.blk);
-		b$9062 = s906C.mtype;
+		call move(16, .macroStk(b$9063), .macroStk(0));
+		call readM(tmac$blk);
+		b$9062 = tmac$mtype;
 		if (b$9063 := b$9063 - 1) = 0 then
 		do;
 			b$905B = 0;
@@ -215,13 +215,13 @@ collectByte: procedure(arg1b) public;
 		call stackError;
 end;
 
-collectIdent: procedure(arg1b) public;
+getId: procedure(arg1b) public;
 	declare arg1b byte;
 
 	call pushToken(arg1b);
 	reget = 1;
 
-	do while (arg1b := sub$65BE) = 8 or arg1b = 9;	/* digit or letter */
+	do while (arg1b := getChClass) = 8 or arg1b = 9;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
@@ -230,12 +230,12 @@ collectIdent: procedure(arg1b) public;
 end;
 
 
-ascii2Num: procedure public;
+getNum: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
 	declare chrs based curTokStart(1) byte;
 
-	call collectIdent(0Ch);
+	call getId(0Ch);
 	radix = chrs(tokenSize(0):= tokenSize(0)- 1);
 	if radix = 'H' then
 		radix = 16;
@@ -281,12 +281,12 @@ ascii2Num: procedure public;
 	call collectByte(high(accum));
 end;
 
-collectString: procedure public;
+getStr: procedure public;
 	call pushToken(0Ah);
 
-	do while getChX <> 0Dh;
+	do while getCh <> 0Dh;
 		if curChar = 27h then
-			if getChX <> 27h then
+			if getCh <> 27h then
 				goto L6268;
 		call collectByte(curChar);
 	end;

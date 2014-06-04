@@ -14,7 +14,7 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 	b41C6(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
 	b41D2(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
-	b41E7(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
+	precedence(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, /* extra */ 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah);
@@ -39,9 +39,9 @@ declare tokenSize literally 'toksiz',
 declare (tokenSP, b6855, b6856, b6858) byte external,
 	(tokenType, tokenSize, tokenAttr, lstFile, bp6A4E, bp6BE0)(1) byte external,
 	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
-	(b6859, b6881, b689A, optXREF, optPAGING, optPAGEWIDTH) byte external,
-	(optPAGELENGTH, optLIST, optGEN, optCOND, b6A6F, has16bitOperand, b6B2B, b6B2D) byte external,
-	(b6B30, b6B31, b6B32, b6B36, b6BDB, b6BDC, b6BDD, b$905B) byte external,
+	(b6859, b6881, b689A, ctlXREF, ctlPAGING, ctlPAGEWIDTH) byte external,
+	(ctlPAGELENGTH, ctlLIST, ctlGEN, ctlCOND, b6A6F, has16bitOperand, b6B2B, b6B2D) byte external,
+	(b6B30, b6B31, b6B32, b6B36, ii, b6BDC, jj, b$905B) byte external,
 	(skipping, b$9A77) byte external,
 	(curTokenSym$p, curTokStart, accum1, w685A, w685C, xreffd) address external,
 	(tokenSymId)(1) address external;
@@ -86,10 +86,10 @@ sub$4291: procedure public;
 		if (b6856 and 7) <> 0 then
 			if ((b6855 xor b6856) and 1Fh) <> 0 then
 				call expressionError;
-	if (b6BDB := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
+	if (ii := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
 		if b6B2B = 5 then
-			if not (b6BDB or bp6BE0(0)) then
+			if not (ii or bp6BE0(0)) then
 			do;
 				w685A = w685C;
 				b6855 = b6856;
@@ -100,14 +100,14 @@ sub$4291: procedure public;
 		else
 			return;
 	end;
-	b6BDD = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
-	if testBit(b6BDD, .b41C6) then
+	jj = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
+	if testBit(jj, .b41C6) then
 L4394:	do;
 		call expressionError;
 		b6855 = 0;
 		return;
 	end;
-	if testBit(b6BDD, .b41D2) then
+	if testBit(jj, .b41D2) then
 	do;
 		if not bp6BE0(0) then
 			b6855 = b6856;
@@ -160,11 +160,11 @@ sub$43DD: procedure address public;
 		call pushToken(0Dh);
 
 	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
-		call sub$4884(51h);
+		call sub$4884('Q');
 	else
 	do;
 		if tokenType(0) = 9 or tokenType(0) = 6 then
-			call sub$4884(55h);
+			call sub$4884('U');
 		else
 		do;
 			b6858 = tokenType(0);
@@ -178,11 +178,11 @@ sub$43DD: procedure address public;
 
 			end;
 			else if tokenSize(0) = 0 then
-				call sub$4884(56h);
+				call sub$4884('V');
 			else
 			do;
 				if tokenSize(0) > 2 then
-					call sub$4884(56h);
+					call sub$4884('V');
 
 				b6855 = (tokenAttr(0) and 0DFh);
 				w685A = tokenSymId(0);
@@ -216,7 +216,7 @@ end;
 
 getPrec: procedure(arg1b) byte public;
 	declare arg1b byte;
-	return b41E7(arg1b);
+	return precedence(arg1b);
 end;
 
 sub$450F: procedure(arg1b) public;
@@ -274,16 +274,16 @@ end;
 
 
 sub$465B: procedure byte public;
-	return ((not b$9A77) and optLIST or b6A6F and b$9A77)
-	        and (not (b$905B > 1) or optGEN)
-		and (not(b6B32 or skipping) or optCOND);
+	return ((not b$9A77) and ctlLIST or b6A6F and b$9A77)
+	        and (not (b$905B > 1) or ctlGEN)
+		and (not(b6B32 or skipping) or ctlCOND);
 end;
 
 sub$467F: procedure(arg1b, arg2w) public;
 	declare arg1b byte, arg2w address;
 	declare (b6C1F, b6C20) byte;
 
-	if not isPhase1 or not optXREF or isSkipping and not b6881 then
+	if not isPhase1 or not ctlXREF or isSkipping and not b6881 then
 		return;
 
 	call outch(arg1b + '0');
@@ -308,15 +308,15 @@ sub$467F: procedure(arg1b, arg2w) public;
 	else
 	do;
 		call outStrN(.lstFile, 15);
-		if optPAGING then
+		if ctlPAGING then
 			call outch('1');
 		else
 			call outch('0');
 
-		call outch(nibble2Ascii(ror(optPAGELENGTH, 4)));
-		call outch(nibble2Ascii(optPAGELENGTH));
-		call outch(nibble2Ascii(ror(optPAGEWIDTH, 4)));
-		call outch(nibble2Ascii(optPAGEWIDTH));
+		call outch(nibble2Ascii(ror(ctlPAGELENGTH, 4)));
+		call outch(nibble2Ascii(ctlPAGELENGTH));
+		call outch(nibble2Ascii(ror(ctlPAGEWIDTH, 4)));
+		call outch(nibble2Ascii(ctlPAGEWIDTH));
 		call outch('3');
 		call flushout;
 		call closeF(xreffd);

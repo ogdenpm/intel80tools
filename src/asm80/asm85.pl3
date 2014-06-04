@@ -26,7 +26,7 @@ flushout: procedure external; end;
 sub$6E32: procedure external; end;
 writeExtName: procedure external; end;
 ovl3: procedure external; end;
-writeRec02: procedure external; end;
+writeModhdr: procedure external; end;
 ovl8: procedure external; end;
 ovlMgr: procedure(b1) external; declare b1 byte; end;
 popToken: procedure external; end;
@@ -227,7 +227,7 @@ sub$4B72: procedure public;
 			else
 				call expressionError;
 
-			if optOBJECT then
+			if ctlOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
 					w6B41(activeSeg) = segSize(activeSeg);
 			segSize(activeSeg) = accum1;
@@ -235,9 +235,9 @@ sub$4B72: procedure public;
 /* 32 */	do;					/* END ? */
 			if tokenSP > 0 then
 			do;
-				startAddr = sub$43DD;
-				b6755 = 1;
-				b6745 = b6855 and 7;
+				startOffset = sub$43DD;
+				startDefined = 1;
+				startSeg = b6855 and 7;
 				if (b6855 and 40h) = 40h then
 					call expressionError;
 				if sub$425B(b6858) then
@@ -332,14 +332,14 @@ sub$4B72: procedure public;
 		end;
 /* 51 */	do;				/* EXTRN ? */
 			b6749 = 0FFh;
-			if w6750 = 0 and isPhase1 and optOBJECT then
+			if w6750 = 0 and isPhase1 and ctlOBJECT then
 			do;
 				call ovlMgr(2);
-				call writeRec02;
+				call writeModhdr;
 			end;
 			b6CE4 = 0;
 			call sub$5819(w6750, 2);
-			if isPhase1 and optOBJECT and not b6754 then
+			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
 				call ovlMgr(2);
 				call writeExtName;
@@ -471,9 +471,9 @@ sub$518F: procedure public;
 		if (b6B28 and 1Eh) <> 0 then
 			call pushToken(b6B2D);
 
-		do b6BDB = 0 to 3;
+		do ii = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum(b6BDB));
+				call addByte2Tok(accum(ii));
 		end;
 
 		tokenAttr(0) = b6855;

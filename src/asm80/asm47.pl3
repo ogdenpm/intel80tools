@@ -45,7 +45,7 @@ sub$7844: procedure external; end;
 sub$787A: procedure external; end;
 sub$78CE: procedure external; end;
 writeExtName: procedure external; end;
-writeRec02: procedure external; end;
+writeModhdr: procedure external; end;
 haveTokens: procedure byte external; end;
 isPhase1: procedure byte external; end;
 sub$425B: procedure(b) byte external; declare b byte; end;
@@ -58,22 +58,22 @@ declare	FALSE literally '0',
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (moduleNameLen, b6745, activeSeg, b6754) byte external,
-	(b6755, tokenSP, b6855, b6856) byte external,
-	(b6857, b6858, b6859, b6881, b6885, b68AB, optOBJECT, b6B23) byte external,
+declare (moduleNameLen, startSeg, activeSeg, b6754) byte external,
+	(startDefined, tokenSP, b6855, b6856) byte external,
+	(b6857, b6858, b6859, b6881, b6885, b68AB, ctlOBJECT, b6B23) byte external,
 	(b6B24, b6B25, phase, b6B28, b6B29, opType, b6B2B, b6B2C, b6B2D) byte external,
-	(b6B2E, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, b6BDB) byte external,
-	(b6BDD, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
+	(b6B2E, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, ii) byte external,
+	(jj, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
 	(inElse, macroCondSP, opSP, b9C3A) byte external,
-	(b3692, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr)(1) byte external,
+	(spaces24, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr)(1) byte external,
 	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
 	(macroCondStk, b6873, b674A, skipping, opStack)(1) byte external,
-	(w6750, startAddr, accum1, accum2, w685A, w685C, w68A6) address external,
+	(w6750, startOffset, accum1, accum2, w685A, w685C, w68A6) address external,
 	accum(4) byte at(.accum1),
 	(tokenSymId, segSize, w6B41)(1) address external,
-	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) external;
+
+	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
+	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
 
 
 declare pad9C27 byte;
@@ -247,7 +247,7 @@ sub$516F: procedure;
 			else
 				call expressionError;
 
-			if optOBJECT then
+			if ctlOBJECT then
 				if segSize(activeSeg) > w6B41(activeSeg) then
 					w6B41(activeSeg) = segSize(activeSeg);
 
@@ -256,9 +256,9 @@ sub$516F: procedure;
 /* 32 */	do;
 			if tokenSP > 0 then
 			do;
-				startAddr = sub$43DD;
-				b6755 = 1;
-				b6745 = (b6855 and 7);
+				startOffset = sub$43DD;
+				startDefined = 1;
+				startSeg = (b6855 and 7);
 
 				if (b6855 and 40h) = 40h then
 					call expressionError;
@@ -269,10 +269,10 @@ sub$516F: procedure;
 				b68AB = 0FFh;
 			end;
 
-			b6BDD = b$905E;		/* code diff */
+			jj = b$905E;		/* code diff */
 			b$905E = 0;			/* code diff */
 
-			if macroCondSP > 0 or b6BDD then	/* code diff */
+			if macroCondSP > 0 or jj then	/* code diff */
 				call nestingError;
 
 			if opType <> 1 then
@@ -356,11 +356,11 @@ sub$516F: procedure;
 		end;
 /* 51 */	do;
 			b6749 = 0FFh;
-			if w6750 = 0 and isPhase1 and optOBJECT then
-				call writeRec02;
+			if w6750 = 0 and isPhase1 and ctlOBJECT then
+				call writeModhdr;
 			b$9C3A = 0;
 			call sub$5CE8(w6750, 2);
-			if isPhase1 and optOBJECT and not b6754 then
+			if isPhase1 and ctlOBJECT and not b6754 then
 				call writeExtName;
 			
 			if not b6754 then
@@ -370,7 +370,7 @@ sub$516F: procedure;
 /* 52 */	do;
 			if tokenSP <> 0 and b6743 then
 			do;
-				call move(6, .b3692, .aModulePage);
+				call move(6, .spaces24 + 18, .aModulePage);
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
@@ -383,7 +383,7 @@ sub$516F: procedure;
 /* 56 */	call sub$75FF;			/* ENDM */
 /* 57 */	call sub$76CE;			/* EXITM */
 /* 58 */	do;
-			s906C.mtype = 4;
+			tmac$mtype = 4;
 			call sub$7327;
 		end;
 /* 59 */	call sub$72A4(1);		/* IRP ? */
@@ -511,9 +511,9 @@ sub$518F: procedure;
 	if (b6B28 and 1Eh) <> 0 then
 		call pushToken(b6B2D);
 
-	do b6BDB = 0 to 3;
+	do ii = 0 to 3;
 		if (b6B28 := ror(b6B28, 1)) then
-			call collectByte(accum(b6BDB));
+			call collectByte(accum(ii));
 	end;
 
 	tokenAttr(0) = b6855;

@@ -2,7 +2,7 @@ asmov0: do;
 
 $include(global.inc)
 
-declare b6D6E(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
+declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   34h, 'XREF', 37h, 'SYMBOLS',
 			   36h, 'PAGING', 33h, 'TTY',
 			   25h, 'MOD85', 35h, 'PRINT',
@@ -13,7 +13,7 @@ declare b6D6E(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   5, 'EJECT', 14h, 'LIST',
 			   13h, 'GEN', 14h, 'COND');
 
-declare (b7463, b7464, b7465, b7466) byte;
+declare (b7463, b7464, b7465, controlError) byte;
 
 
 skipWhite$2: procedure external; end;
@@ -25,14 +25,14 @@ commandError: procedure external; end;
 stackError: procedure external; end;
 fileError: procedure external; end;
 popToken: procedure external; end;
-collectIdent: procedure(b) external; declare b byte; end;
-ascii2Num: procedure external; end;
-collectString: procedure external; end;
+getId: procedure(b) external; declare b byte; end;
+getNum: procedure external; end;
+getStr: procedure external; end;
 isCR: procedure byte external; end;
 isPhase1: procedure byte external; end;
 sub$43DD: procedure address external; end;
 getCh: procedure byte external; end;
-xisSpace: procedure byte external; end;
+blankAsmErrCode: procedure byte external; end;
 isWhite: procedure byte external; end;
 isRParen: procedure byte external; end;
 
@@ -48,51 +48,51 @@ end;
 
 
 
-collectBasicToken: procedure byte;
-	collectBufLen = 0;
-	b6ADB = 0;
+getTok: procedure byte;
+	tokBufLen = 0;
+	tokType = TT$ID;
 	if isCR then
 		return curChar;
 
 	call skipWhite$2;
 	if curChar > 40h and 5Bh > curChar or curChar >60h and 7Bh > curChar then
 	do;	/* is letter */
-		call collectIdent(1);
-		if xisSpace and tokenSize(0) < 14 then
-			call move(collectBufLen := tokenSize(0), .lineBuf, .collectBuf);
+		call getId(1);
+		if blankAsmErrCode and tokenSize(0) < 14 then
+			call move(tokBufLen := tokenSize(0), .lineBuf, .tokBuf);
 	end;
 	else if curChar > 2Fh  and  3Ah > curChar then
 	do;	/* is digit */
-		call ascii2Num;
-		if xisSpace then
+		call getNum;
+		if blankAsmErrCode then
 		do;
 			w6B1E = sub$43DD;
-			b6ADB = 2;
-			collectBuf(0) = 20h;
+			tokType = TT$NUM;
+			tokBuf(0) = 20h;
 		end;
 	end;
 	else if curChar = 27h then
 	do;	/* is string */
-		call collectString;
-		if xisSpace then
+		call getStr;
+		if blankAsmErrCode then
 		do;
-			collectBufLen = 40h;
+			tokBufLen = 40h;
 			if tokenSize(0) < 40h then
-				collectBufLen = tokenSize(0);
-			b6ADB = 4;
-			if collectBufLen > 0 then
-				call move(collectBufLen, .lineBuf, .collectBuf);
+				tokBufLen = tokenSize(0);
+			tokType = TT$STR;
+			if tokBufLen > 0 then
+				call move(tokBufLen, .lineBuf, .tokBuf);
 		end;
 	end;
 	else
 	do;
-		collectBufLen = 1;
-		collectBuf(0) = curChar;
+		tokBufLen = 1;
+		tokBuf(0) = curChar;
 		return curChar;
 	end;
 
 	call popToken;
-	return collectBuf(0);
+	return tokBuf(0);
 end;
 
 
@@ -101,11 +101,11 @@ sub$6F07: procedure(arg1w) byte;
 	declare arg1w address;
 	declare pad address;
 
-	if collectBufIdx = 0 then
+	if tokBufIdx = 0 then
 		return 0;
 
-	collectBuf(collectBufIdx) = 20h;
-	collectBufLen = collectBufIdx;
+	tokBuf(tokBufIdx) = 20h;
+	tokBufLen = tokBufIdx;
 	if isWhite then
 		return chkParen(1);
 	return 0FFh;
@@ -117,31 +117,31 @@ sub$6F39: procedure;
     do while 1;
 	if isRParen or isWhite then
 	do;
-		if sub$6F07(.collectBuf(0)) then
+		if sub$6F07(.tokBuf(0)) then
 			return;
 		goto done;
 	end;
 
-	collectBuf(collectBufIdx) = curChar;
-	collectBufIdx = collectBufIdx + 1;
-	if collectBufIdx > 14 then
+	tokBuf(tokBufIdx) = curChar;
+	tokBufIdx = tokBufIdx + 1;
+	if tokBufIdx > 14 then
 		goto done;
 	curChar = getCh;
     end;
 done:
-	curFileName$p = .collectBuf;
+	curFileName$p = .tokBuf;
 	call fileError;
 end;
 
 
 getFileParam: procedure;
-	collectBufIdx = 0;
+	tokBufIdx = 0;
 	if not chkParen(0) then		/* ( */
 		call fileError;
 	else
 	do;
 		call sub$6F39;
-		call move(collectBufIdx + 1, .collectBuf, curFileName$p);
+		call move(tokBufIdx + 1, .tokBuf, curFileName$p);
 		if not chkParen(1) then	/* ) */
 			call fileError;
 	end;
@@ -150,12 +150,12 @@ end;
 
 getMacroFileDrive: procedure;
 	call skipWhite$2;
-	collectBufIdx = 0Dh;
-	b6BDB = 0;
+	tokBufIdx = 0Dh;
+	ii = 0;
 
-	do while not isRParen and b6BDB < 4;
-		aF0Asmac$tmp(b6BDB) = curChar;
-		b6BDB = b6BDB + 1;
+	do while not isRParen and ii < 4;
+		aF0Asmac$tmp(ii) = curChar;
+		ii = ii + 1;
 		curChar = getCh;
 	end;
 
@@ -163,7 +163,7 @@ getMacroFileDrive: procedure;
 		if sub$6F07(.aF0Asmac$tmp) then
 			return;
 	curFileName$p = .aF0Asmac$tmp;
-	collectBufIdx = 0;
+	tokBufIdx = 0;
 	call fileError;
 end;
 
@@ -173,106 +173,106 @@ end;
 sub$702B: procedure byte;
 	if chkParen(0) then	/* ( */
 	do;
-		b7463 = collectBasicToken;
-		if b6ADB = 2 then
+		b7463 = getTok;
+		if tokType = TT$NUM then
 			return chkParen(1);	/* ) */
 	end;
 	return 0;
 end;
 
 
-sub$704B: procedure byte;
-	declare (b746C, b746D, optionSET, b746F, b7470, b7471) byte,
-		(w7472, w7474, w7476) address;
-	declare twoch address at(.collectBuf);
-	declare ch based w7472 byte;
-	declare byt based w7476 byte;
+lookupControl: procedure byte;
+	declare (cmdIdx, cmdStartIdx, ctlVal, cmdLen, ctlFlags, noInvalid) byte,
+		(control$p, nextControl$p, ctlSeen$p) address;
+	declare twoch address at(.tokBuf);
+	declare ch based control$p byte;
+	declare ctlSeen based ctlSeen$p byte;
 
-	setOption: procedure;
-		if not b7471 then
+	setControl: procedure;
+		if not noInvalid then
 		do;
-			options(optionId) = optionSET;
-			if not optionSET then
-				optionId = 17;
+			controls(controlId) = ctlVal;
+			if not ctlVal then
+				controlId = 17;		/* no action needed */
 		end;
 	end;
 
-	b746F = collectBufLen;
-	b746D = 0;
-	optionSET = 0FFh;
-	if twoch = 'ON' then	/* NO stored inverse */
+	cmdLen = tokBufLen;
+	cmdStartIdx = 0;
+	ctlVal = 0FFh;
+	if twoch = 'ON' then	/* NO stored with bytes swapped */
 	do;
-		b746D = 2;
-		optionSET = 0;
-		b746F = collectBufLen - 2;
+		cmdStartIdx = 2;	/* don't match the NO in the table */
+		ctlVal = 0;		/* control will be set as false */
+		cmdLen = tokBufLen - 2;	/* length of string to match excludes the NO */
 	end;
-	w7472 = .b6D6E;
-	optionId = 0;
-	b746C = b746D;
+	control$p = .controlTable;
+	controlId = 0;
+	cmdIdx = cmdStartIdx;
 
-	do while optionId < 20;
-		w7474 = w7472 + (ch and 0Fh) + 1;
-		if (ch and 0Fh) = b746F then
+	do while controlId < 20;
+		nextControl$p = control$p + (ch and 0Fh) + 1;
+		if (ch and 0Fh) = cmdLen then
 		do;
-			b7470 = ch;
-			do while b746C < collectBufLen;
-				w7472 = w7472 + 1;
-				if ch <> collectBuf(b746C) then
-					b746C = collectBufLen + 1;
+			ctlFlags = ch;
+			do while cmdIdx < tokBufLen;
+				control$p = control$p + 1;
+				if ch <> tokBuf(cmdIdx) then
+					cmdIdx = tokBufLen + 1;	/* cause early exit */
 				else
-					b746C = b746C + 1;
+					cmdIdx = cmdIdx + 1;	/* check next character */
 			end;
-			if b746C = collectBufLen then
+			if cmdIdx = tokBufLen then		/* found it */
 				goto break;
 		end;
-		w7472 = w7474;
-		optionId = optionId + 1;
-		b746C = b746D;
+		control$p = nextControl$p;
+		controlId = controlId + 1;
+		cmdIdx = cmdStartIdx;
 	end;
-	return 0FFh;
+	return 255;					/* not found */
 
-break: if optionId = 1 or optionId = 12h then		/* MACRODEBUG or GEN */
+break: if controlId = 1 or controlId = 12h then		/* MACRODEBUG or GEN */
 	do;
-		if scanOptions then
+		if scanCmdLine then			/* only valid on command line not $ line */
 			MacroDebugOrGen = 0FFh;
 		else
-			return 0FFh;			/* error otherwise */
+			return 255;			/* error otherwise */
 	end;
 
-	if (b7471 := (b7470 and 10h) <> 10h) and not optionSET then
-		return 0FFh;				/* NO invalid */
+	if (noInvalid := (ctlFlags and 10h) <> 10h) and not ctlVal then
+		return 0FFh;				/* NO not supported */
 
-	if (b7470 and 20h) <> 20h then
+	if (ctlFlags and 20h) <> 20h then		/* GENERAL control */
 	do;
-		call setOption;
-		return optionId;
+		call setControl;
+		return controlId;
 	end;
+							/* is a PRIMARY control */
+	if not primaryValid then
+		return 255;
 
-	if not b6898 then
-		return 0FFh;
-
-	w7476 = .optionSeen(optionId);
-	if byt then
-		return 0FFh;
-	byt = 0FFh;
-	call setOption;
-	return optionId;
+	ctlSeen$p = .controlSeen(controlId);		/* make sure we only see a primary once */
+	if ctlSeen then
+		return 255;
+	ctlSeen = TRUE;
+	call setControl;
+	return controlId;
 end;
 
 
 
 
-processCmd: procedure;
-	if optionId >= 17 or optionId < 5 then
+processControl: procedure;
+	if controlId >= 17 or controlId < 5 then
 		return;
 
-	do case optionId - 5;
+	do case controlId - 5;
 /* 0 */		do;			/* TTY */
-			optTTY = 0FFh;
+			ctlTTY = 0FFh;
 			return;
 		end;
 /* 1 */		do;			/* MOD85 */
-			optMOD85 = 0FFh;
+			ctlMOD85 = 0FFh;
 			return;
 		end;
 /* 2 */		do;			/* PRINT */
@@ -293,26 +293,26 @@ processCmd: procedure;
 				call getMacroFileDrive;
 			else
 				reget = 1;
-			optMACROFILE = 0FFh;
+			ctlMACROFILE = 0FFh;
 			return;
 		end;
 /* 5 */		do;			/* PAGEWIDTH */
 			if sub$702B then
 			do;
-				optPAGEWIDTH = w6B1E;
-				if optPAGEWIDTH > 132 then
-					optPAGEWIDTH = 132;
-				if optPAGEWIDTH < 72 then
-					optPAGEWIDTH = 72;
+				ctlPAGEWIDTH = w6B1E;
+				if ctlPAGEWIDTH > 132 then
+					ctlPAGEWIDTH = 132;
+				if ctlPAGEWIDTH < 72 then
+					ctlPAGEWIDTH = 72;
 				return;
 			end;
 		end;
 /* 6 */		do;			/* PAGELENGTH */
 			if sub$702B then
 			do;
-				optPAGELENGTH = w6B1E;
-				if optPAGELENGTH < 15 then
-					optPAGELENGTH = 15;
+				ctlPAGELENGTH = w6B1E;
+				if ctlPAGELENGTH < 15 then
+					ctlPAGELENGTH = 15;
 				return;
 			end;
 		end;
@@ -328,7 +328,7 @@ processCmd: procedure;
 					curFileName$p = .files(fileIdx);
 					call getFileParam;
 					b6C21 = 0FFh;
-					if scanOptions then
+					if scanCmdLine then
 						b6C22 = 0FFh;
 					return;
 				end;
@@ -337,16 +337,16 @@ processCmd: procedure;
 /* 8 */		do;			/* TITLE */
 			if chkParen(0) then
 			do;
-				b7463 = collectBasicToken;
-				if b6ADB = 4 and collectBufLen <> 0 then
+				b7463 = getTok;
+				if tokType = TT$STR and tokBufLen <> 0 then
 				do;
-					if phase <> 1 or isPhase1 and b6898 then
+					if phase <> 1 or isPhase1 and primaryValid then
 					do;
-						call move(collectBufLen, .collectBuf, .optTITLESTR);
-						optTITLESTR(titleLen := collectBufLen) = 0;
+						call move(tokBufLen, .tokBuf, .ctlTITLESTR);
+						ctlTITLESTR(titleLen := tokBufLen) = 0;
 						if chkParen(1) then
 						do;
-							optTITLE = 0FFh;
+							ctlTITLE = 0FFh;
 							return;
 						end;
 					end;
@@ -358,7 +358,7 @@ processCmd: procedure;
 				call stackError;
 			else
 			do;
-				call move(3, .optLIST, .saveStack + saveIdx * 3);
+				call move(3, .ctlLIST, .saveStack + saveIdx * 3);
 				saveIdx = saveIdx + 1;
 				return;
 			end;
@@ -366,48 +366,48 @@ processCmd: procedure;
 /* 10 */	do;				/* RESTORE */
 			if saveIdx > 0 then
 			do;
-				call move(3, .saveStack + (saveIdx := saveIdx - 1) * 3, .optLIST);
+				call move(3, .saveStack + (saveIdx := saveIdx - 1) * 3, .ctlLIST);
 				return;
 			end;
 		end;
 /* 11 */	do;				/* EJECT */
-			optEJECT = optEJECT + 1;
+			ctlEJECT = ctlEJECT + 1;
 			return;
 		end;
 	end;
-	b7466 = 0FFh;
+	controlError = 0FFh;
 end;
 
 
-parseCmds: procedure public;
+parseControls: procedure public;
 	b6B20 = 0FFh;
-	b6A6F, b7464 = optLIST;
-	b7466 = 0;
+	b6A6F, b7464 = ctlLIST;
+	controlError = 0;
 
-	do while collectBasicToken <> 0Dh and not b7466;
-		if collectBuf(0) = ';' then
+	do while getTok <> 0Dh and not controlError;
+		if tokBuf(0) = ';' then
 			call skip2EOL;
-		else if sub$704B = 0FFh then
-			b7466 = 0FFh;
+		else if lookupControl = 0FFh then	/* error ? */
+			controlError = 0FFh;
 		else
-			call processCmd;
+			call processControl;
 	end;
 
-	if b7466 then
+	if controlError then
 	do;
-		if collectBuf(0) <> 0Dh then
+		if tokBuf(0) <> 0Dh then
 		do;
 			reget = 0;
 			call skip2EOL;
 		end;
-		if scanOptions then
+		if scanCmdLine then
 			call runtimeError(2);	/* command error */
 		else
 			call commandError;
 	end;
 
-	call chkLF;
-	if optLIST <> b7464 then
+	call chkLF;				/* gobble the line feed */
+	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
 	reget = 0;
 end;

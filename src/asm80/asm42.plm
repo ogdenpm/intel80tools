@@ -5,24 +5,24 @@ declare TRUE literally '0FFh';
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (aBadSyntax, aError, asc$3699, aError$0, tokenSize)(1) byte external,
+declare (aBadSyntax, aError, ascCRLF, aError$0, tokenSize)(1) byte external,
 	(bZERO, bTRUE, b6749, b6754, tokenSP, tokenType) byte external,
 	(b6855, b6857, b6858, b6859, curChar, reget, b6872) byte external,
-	(b687F, b6880, b6881, b6884, b6885, b6896, b6897) byte external,
-	(b6898, b689A, b689B, b689C, b68AB, b68AD, optDEBUG) byte external,
-	(optXREF, optSYMBOLS, optPAGING, optPRINT, optOBJECT, optEJECT, collectBufIdx) byte external,
-	(scanOptions, b6B23, b6B24, b6B25, has16bitOperand, phase, b6B2B) byte external,
+	(b687F, b6880, b6881, b6884, b6885, asmErrCode, b6897) byte external,
+	(primaryValid, b689A, b689B, b689C, b68AB, b68AD, ctlDEBUG) byte external,
+	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlPRINT, ctlOBJECT, ctlEJECT, tokBufIdx) byte external,
+	(scanCmdLine, b6B23, b6B24, b6B25, has16bitOperand, phase, b6B2B) byte external,
 	(b6B30, b6B31, b6B32, b6B33, b6B34, b6B35, b6BD9) byte external,
 	(b6C27, b6C21, b6C30) byte external,
 	(b6742, skipping, b$9A77) byte external,
 	(cmdch$p, endOutBuf, openStatus, outbuf, outfd, out$p) address external,
-	(w6870, w6A4E, errCnt, options$p, curFileName$p, w6BE0, statusIO) address external,
+	(w6870, w6A4E, errCnt, controls$p, curFileName$p, w6BE0, statusIO) address external,
 	(errStrs)(1) address external,
 	(errStrsLen)(1) byte external,
 	(off$6C2C, off$6C2E) address external;
 
 isSkipping: procedure byte external; end;
-getChX: procedure byte external; end;
+getCh: procedure byte external; end;
 
 
 close: procedure(w1, w2) external; declare (w1, w2) address; end;
@@ -56,12 +56,12 @@ declare b$8FD5(127) byte external,
 	b$9064 byte external,
 	b$9065 byte external,
 	b$9066 byte external,
-	b$9067 byte external,
+	argNestCnt byte external,
 	w$9068 address external,
 	w$906A address external,
-	s906C structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) external,
+
+	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
+	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external,
 	curMacroBlk address external,
 	nxtMacroBlk address external,
 	maxMacroBlk address external,
@@ -180,17 +180,17 @@ end;
 
 skip2EOL: procedure public;
 	if not isCR then
-		do while getChX <> 0Dh;
+		do while getCh <> 0Dh;
 		end;
 end;
 
 
-sub$3A6A: procedure byte public;
-	return (phase = 2) and optOBJECT;
+chkGenObj: procedure byte public;
+	return (phase = 2) and ctlOBJECT;
 end;
 
 isPhase2Print: procedure byte public;
-	return phase = 2 and optPRINT;
+	return phase = 2 and ctlPRINT;
 end;
 
 wrConsole: procedure(arg1w, arg2w) public;
@@ -227,10 +227,10 @@ runtimeError: procedure(arg1b) public;
 
 	if arg1b = 4 or arg1b = 3 then
 	do;
-		if collectBufIdx = 0 then
+		if tokBufIdx = 0 then
 		do;
 			call wrConsole(.aBadSyntax, 12);
-			if not scanOptions then
+			if not scanCmdLine then
 			do;
 				call skip2NextLine;
 				outfd = 0;
@@ -240,8 +240,8 @@ runtimeError: procedure(arg1b) public;
 		end;
 		else
 		do;
-			call wrConsole(curFileName$p, collectBufIdx);
-			call wrConsole(.asc$3699, 2);
+			call wrConsole(curFileName$p, tokBufIdx);
+			call wrConsole(.ascCRLF, 2);
 		end;
 	end;
 
@@ -258,11 +258,11 @@ ioError: procedure(arg1w) public;
 	declare arg1w address;
 	declare ch based arg1w byte;
 
-	collectBufIdx = 0;
+	tokBufIdx = 0;
 	curFileName$p = arg1w;
 
 	do while ch <> ' ' and ch <> 0dh and ch <> 9;
-		collectBufIdx = collectBufIdx + 1;
+		tokBufIdx = tokBufIdx + 1;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
@@ -296,12 +296,12 @@ put2Hex: procedure(arg1w, arg2b) public;
 	call arg1w(nibble2Ascii(arg2b));
 end;
 
-xisSpace: procedure byte public;
-	return b6896 = 20h;
+blankAsmErrCode: procedure byte public;
+	return asmErrCode = 20h;
 end;
 
-sub$3C91: procedure byte public;
-	return xisSpace or b6896 = 'M' or b6896 = 'P';
+blankMorPAsmErrCode: procedure byte public;
+	return blankAsmErrCode or asmErrCode = 'M' or asmErrCode = 'P';
 end;
 
 
@@ -324,12 +324,12 @@ sourceError: procedure(arg1b) public;
 	do;
 		if b6749 then
 			b6754 = TRUE;
-		if xisSpace then
+		if blankAsmErrCode then
 			errCnt = errCnt + 1;
 
-		if sub$3C91 or arg1b = 'L' or arg1b = 'U' then
-			if b6896 <> 'L' then
-				b6896 = arg1b;
+		if blankMorPAsmErrCode or arg1b = 'L' or arg1b = 'U' then
+			if asmErrCode <> 'L' then
+				asmErrCode = arg1b;
 	end;
 end;
 
@@ -353,9 +353,9 @@ end;
 
 
 
-sub$3D6E: procedure public;
+preStatementControls: procedure public;
 
-	do while getChX = '$';
+	do while getCh = '$';
 		if isSkipping then
 		do;
 			call skip2NextLine;
@@ -372,8 +372,8 @@ end;
 
 
 sub$3DA4: procedure public;
-	cmdch$p = options$p;
-	scanOptions = 0FFh;
+	cmdch$p = controls$p;
+	scanCmdLine = 0FFh;
 	call sub$70D7;
 	if isPhase2Print then
 		call printCmdLine;
@@ -381,13 +381,13 @@ sub$3DA4: procedure public;
 	if b6C21 then
 		call sub$4904;
 
-	b6C21, b$9A77, scanOptions = bZERO;
-	call sub$3D6E;
-	b6898 = 0;
-	optDEBUG = optDEBUG and optOBJECT;
-	optXREF = optXREF and optPRINT;
-	optSYMBOLS = optSYMBOLS and optPRINT;
-	optPAGING = optPAGING and optPRINT;
+	b6C21, b$9A77, scanCmdLine = bZERO;
+	call preStatementControls;
+	primaryValid = 0;
+	ctlDEBUG = ctlDEBUG and ctlOBJECT;
+	ctlXREF = ctlXREF and ctlPRINT;
+	ctlSYMBOLS = ctlSYMBOLS and ctlPRINT;
+	ctlPAGING = ctlPAGING and ctlPRINT;
 end;
 
 
@@ -400,8 +400,8 @@ sub$3DFB: procedure public;
 	b68AD, has16bitOperand, b$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
 	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = bZERO;
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	optEJECT, b6857, tokenSP, b$9058, b$9067, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = bZERO;
-	b6896 = 20h;
+	ctlEJECT, b6857, tokenSP, b$9058, argNestCnt, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = bZERO;
+	asmErrCode = 20h;
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
 	b$905B = b$905B > 0;

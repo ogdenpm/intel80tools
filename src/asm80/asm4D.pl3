@@ -17,20 +17,20 @@ declare
     asc$6DBC(*) byte data(0Dh),
     asc$6DBD(*) byte data(0Ah, 0Ah, 0Ah, 0),
     b6DC1(2) byte data(20h, 40h),
-    asc$6DC3(*) byte data(' (', 0),
-    asc$6DC6(*) byte data(')', 0),
+    ascLParen(*) byte data(' (', 0),
+    ascRParen(*) byte data(')', 0),
     a1234(*) byte data('  1234');    
 
 
 
-declare rec18a structure(type byte, len address, dta(1) byte) external,
-	rec16 structure(type byte, len address, seg byte, dta(1) address) external,
-	rec22 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec24 structure(type byte, len address, seg byte, fixtype byte, dta(1) address) external,
-	rec20 structure(type byte, len address, fixtype byte, dta(30) address) external, 
-	rec18 structure(type byte, len address, dta(1) byte) external,
-	rec06 structure(type byte, len address, seg byte, addr address, dta(1) byte) external,
-	rec04 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external;
+declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
+	r$publics structure(type byte, len address, segid byte, dta(1) address) external,
+	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
+	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
+	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
+	r$extnames2 structure(type byte, len address, dta(1) byte) external,
+	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
+	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
 
 
 
@@ -49,31 +49,31 @@ sub$465B: procedure byte external; end;
 isSkipping: procedure byte external; end;
 unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
 physmem: procedure address external; end;
-xisSpace: procedure byte external; end;
+blankAsmErrCode: procedure byte external; end;
 
 
 
 
 declare tokenSize literally 'toksiz',
 	tokStart literally 'tokst';
-declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, b3680)(1) byte external,
-	(b3694, b3696, b3689, b3692, objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
-	(b68B8, asciiLineNo, b6A57, optionSeen, optTITLESTR, b8FD5, cmdLineBuf)(1) byte external,
+declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, spaces24)(1) byte external,
+	(objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
+	(b68B8, asciiLineNo, b6A57, controlSeen, ctlTITLESTR, b8FD5, cmdLineBuf)(1) byte external,
 	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
-	(b6896, b6898, b689B, curCol, b68AB, b68AD, b6A56, optDEBUG, optMACRODEBUG) byte external,
-	(optXREF, optSYMBOLS, optPAGING, optTTY, optPRINT, optOBJECT, optPAGEWIDTH, optPAGELENGTH, optTITLE) byte external,
-	(optEJECT, optLIST, optGEN, optCOND, b6A6F, titleLen, saveIdx, scanOptions, b6B23) byte external,
-	(opType, b6B2C, b6B2E, b6B33, b6B34, b6BDB, b6BDD, b6C21, fileIdx) byte external,
+	(asmErrCode, primaryValid, b689B, curCol, b68AB, b68AD, b6A56, ctlDEBUG, ctlMACRODEBUG) byte external,
+	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlTTY, ctlPRINT, ctlOBJECT, ctlPAGEWIDTH, ctlPAGELENGTH, ctlTITLE) byte external,
+	(ctlEJECT, ctlLIST, ctlGEN, ctlCOND, b6A6F, titleLen, saveIdx, scanCmdLine, b6B23) byte external,
+	(opType, b6B2C, b6B2E, b6B33, b6B34, ii, jj, b6C21, fileIdx) byte external,
 	(b6C30, b905B, b905C, b905E, b9063, b9064, b6742, b6743) byte external,
 	b674A(2) byte external,
 	(b9A77, b6B24) byte external,
 	(cmdch$p, actRead, off$6C25, off$6C2C, off$6C2E, outfd, statusIO) address external,
 	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, b7 byte),
+	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
 	(w6750, w686E, w6870, objfd) address external,
 	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
 	(w6A4E,  errCnt, zero) address external,
-	(options$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
+	(controls$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
 	(w6868, w6B41, segSize, symTab, tokStart)(1) address external,
 	CR literally '0Dh';
 
@@ -128,7 +128,7 @@ itoa: procedure(arg1w, arg2w);
     declare (arg1w, arg2w) address;
     declare ch based arg2w byte;
 
-    call move(5, .b3692 + 1, arg2w);
+    call move(5, .spaces24 + 19, arg2w);
     arg2w = arg2w + 4;
 
     do while 1;
@@ -147,7 +147,7 @@ printDecimal: procedure(arg1w) reentrant public;
 end;
 
 skipToEOP: procedure public;
-    do while lineCnt <= optPAGELENGTH;
+    do while lineCnt <= ctlPAGELENGTH;
         call outch(0Ah);
         lineCnt = lineCnt + 1;
     end;
@@ -159,8 +159,8 @@ newPageHeader: procedure public;
     call printStr(.aIsisIi80808085);
     call printDecimal(pageCnt);
     call printCRLF;
-    if optTITLE then
-        call printNStr(titleLen, .optTITLESTR);
+    if ctlTITLE then
+        call printNStr(titleLen, .ctlTITLESTR);
 
     call printCRLF;
     call printCRLF;
@@ -171,22 +171,22 @@ end;
 
 
 newPage: procedure public;
-    if optTTY then
+    if ctlTTY then
         call skipToEOP;
     else
         call outch(0Ch);
 
     lineCnt = 1;
-    if not scanOptions then
+    if not scanCmdLine then
         call newPageHeader;
 end;
 
 
 sub$6F4D: procedure public;
     if sub$465B then
-    do while optEJECT > 0;
+    do while ctlEJECT > 0;
         call newPage;
-        optEJECT = optEJECT - 1;
+        ctlEJECT = ctlEJECT - 1;
     end;
 end;
 
@@ -203,14 +203,14 @@ printChar: procedure(arg1b) reentrant;
     end;
 
     if arg1b = 0Ah then
-        if optPAGING then
+        if ctlPAGING then
         do;
-            if (lineCnt := lineCnt + 1) >= optPAGELENGTH - 2 then
+            if (lineCnt := lineCnt + 1) >= ctlPAGELENGTH - 2 then
             do;
-                if optTTY then
+                if ctlTTY then
                     call outch(0Ah);
-                if optEJECT > 0 then
-                    optEJECT = optEJECT - 1;
+                if ctlEJECT > 0 then
+                    ctlEJECT = ctlEJECT - 1;
                 call newPage;
                 return;
             end;
@@ -231,10 +231,10 @@ printChar: procedure(arg1b) reentrant;
         do;
             if arg1b >= ' ' then
                 curCol = curCol + 1;
-            if curCol > optPAGEWIDTH then
+            if curCol > ctlPAGEWIDTH then
             do;
                 call printCRLF;
-                call printStr(.b3680);
+                call printStr(.spaces24);
                 curCol = curCol + 1;
             end;
             call outch(arg1b);
@@ -262,13 +262,13 @@ sub$8447: procedure public;
 
 
     b68AE(0) = 0FFh;
-    if not optSYMBOLS then
+    if not ctlSYMBOLS then
         return;
 
     b755C(0) = 'A';
     do b7562 = 0 to 2;
-        b6BDD = isPhase2Print and optSYMBOLS;
-        optDEBUG = optDEBUG or optMACRODEBUG;
+        jj = isPhase2Print and ctlSYMBOLS;
+        ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
         curTokenSym$p = symTab(1) - 2;
         call printCRLF;
         call printStr(wa6DB2(b7562));
@@ -282,34 +282,34 @@ sub$8447: procedure public;
                             if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
                             do;
                                 call unpackToken(curTokenSym$p - 6, .b68AE(1));
-                                if b6BDD then
+                                if jj then
                                 do;
-                                    if (optPAGEWIDTH - curCol) < 11h then
+                                    if (ctlPAGEWIDTH - curCol) < 11h then
                                         call printCRLF;
 
                                     call printStr(.b68AE(1));
-                                    call printChar(20h);
+                                    call printChar(' ');
                                     if b7563 = 3Ah then
-                                        call printChar(2Bh);
+                                        call printChar('+');
                                     else if (b7565 := (b7564 and 40h) <> 0) then
-                                        call printChar(45h);
+                                        call printChar('E');
                                     else
                                         call printChar(b755C(b7564 and 7));
 
-                                    call printChar(20h);
+                                    call printChar(' ');
                                     call sub$718C(.print2Hex);
                                     call sub$718C(.print2Hex);
                                     curTokenSym$p = curTokenSym$p + 2;
-                                    call printStr(.b3694);
+                                    call printStr(.spaces24 + 20);
                                 end;
                             end;
         end;
     end;
 
-    if optDEBUG then
+    if ctlDEBUG then
         b68AE(0) = 0;
 
-    if b6BDD then
+    if jj then
         call printCRLF;
 end;
 
@@ -362,7 +362,7 @@ sub$7229: procedure public;
         call out2Hex(low(w68A6));
     end;
     else
-        call outStr(.b3692 + 2);
+        call outStr(.spaces24 + 20);
 
     call outch(' ');
     do  b7568 = 1 to 4; 
@@ -372,18 +372,18 @@ sub$7229: procedure public;
             call out2Hex(ch);
         end;
         else
-            call outStr(.b3692 + 4);
+            call outStr(.spaces24 + 22);
 
         w68A2 = w68A2 + 1;
     end;
 
     call outch(' ');
-    if shr(b6BDD := tokenAttr(b6A56), 6) then
+    if shr(jj := tokenAttr(b6A56), 6) then
         call outch('E');
     else if not b68AB then
         call outch(' ');
     else
-        call outch(b755C(b6BDD and 7));
+        call outch(b755C(jj and 7));
 end;
 
 
@@ -391,9 +391,9 @@ sub$72D8: procedure public;
     if not b689B then
         return;
 
-    call printStr(.asc$6DC3);    /* " (" */
+    call printStr(.ascLParen);    /* " (" */
     call printNStr(4, .b6A57);
-    call printStr(.asc$6DC6);    /* ")" */
+    call printStr(.ascRParen);    /* ")" */
     call printCRLF;
     call move(4, .asciiLineNo, .b6A57);
 end;
@@ -410,36 +410,36 @@ loop:
     if isSkipping then
         w68A0 = w68A2;
 
-    call outch(b6896);
+    call outch(asmErrCode);
     if b$905E = 0FFh then
-        call outch(2Dh);
+        call outch('-');
     else
-        call outch(20h);
+        call outch(' ');
 
-    if not xisSpace then
+    if not blankAsmErrCode then
     do;
-        b6896 = 20h;
+        asmErrCode = ' ';
         b689B = 0FFh;
     end;
     if b$9A77 then
-        call outStr(.b3689);
+        call outStr(.spaces24 + 9);
     else
         call sub$7229;
 
     if fileIdx > 0 then
     do;
-        call outch(a1234(b6BDB := b6C21 + fileIdx));
-        if b6BDB > 0 then    
+        call outch(a1234(ii := b6C21 + fileIdx));
+        if ii > 0 then    
             call outch(3Dh);
         else
             call outch(20h);
     end;
     else
-        call outStr(.b3696);
+        call outStr(.spaces24 + 22);
 
     if b68AD then
     do;
-        call outStr(.b3694);
+        call outStr(.spaces24 + 20);
         call printCRLF;
     end;
     else
@@ -447,9 +447,9 @@ loop:
         b68AD = 0FFh;
         call outNStr(4, .asciiLineNo);
         if b$905B > 1 then
-            call outch(2Bh);
+            call outch('+');
         else
-            call outch(20h);
+            call outch(' ');
 
         if b$905B > 1 then
         do;
@@ -469,13 +469,13 @@ loop:
 
     if b$9A77 then
     do;
-        if optPAGING then
+        if ctlPAGING then
             call sub$6F4D;
     end;
     else
     do;
         do while sub$721E;
-            call outStr(.b3696);
+            call outStr(.spaces24 + 22);
             call sub$7229;
             call printCRLF;
         end;
@@ -504,7 +504,7 @@ asmComplete: procedure public;
 end;
 
 ovl9: procedure public;
-    if optPRINT then
+    if ctlPRINT then
         call closeF(outfd);
     outfd = 0;
     lineCnt = 1;
@@ -518,10 +518,10 @@ sub$8915: procedure public;
     call closeF(infd);
     call closeF(macrofd);
     call delete(.aF0Asmac$tmp, .statusIO);
-    if optOBJECT then
+    if ctlOBJECT then
         call closeF(objfd);
 
-    if optXREF then
+    if ctlXREF then
     do;
         w68A6 = physmem - 1;
         ch = '0';

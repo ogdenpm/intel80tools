@@ -19,7 +19,7 @@ sub$7041: procedure external; end;			/* in overlay 1 */
 sub$6E32: procedure external; end;
 sub$4646: procedure byte external; end;
 haveTokens: procedure byte external; end;
-xisSpace: procedure byte external; end;
+blankAsmErrCode: procedure byte external; end;
 isPhase2Print: procedure byte external; end;
 sub$465B: procedure byte external; end;
 sub$3A71: procedure byte external; end;
@@ -55,10 +55,10 @@ sub$546F: procedure public;
 			call syntaxError;
 	if b6B23 or b6B24 then
 	do;
-		if tokenSP = 1 and not xisSpace and tokenSize(0) <> 1 then
+		if tokenSP = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
 			tokenSize(0) = 2;
 	end;
-	else if not xisSpace and haveTokens then
+	else if not blankAsmErrCode and haveTokens then
 		if tokenSize(b6A56) > 3 then
 			tokenSize(b6A56) = 3;
 end;
@@ -66,30 +66,30 @@ end;
 
 
 sub$54FD: procedure public;
-	declare w6CD7 address, b6CD9 byte;
-	declare ch based w6CD7 byte;
+	declare lineno$p address, updating byte;
+	declare ch based lineno$p byte;
 
 	call sub$546F;
 	if isPhase2Print then
 	do;
-		w6CD7 = .asciiLineNo(3);
-		b6CD9 = TRUE;
+		lineno$p = .asciiLineNo(3);	/* point to last digit */
+		updating = TRUE;
 
-		do while b6CD9;
-			if ch = '9' then
+		do while updating;	/* adjust the line number */
+			if ch = '9' then	/* if 9 then roll over to 0 */
 				ch = '0';
 			else
 			do;
-				if ch = ' ' then
+				if ch = ' ' then	/* new digit */
 					ch = '1';
-				else
+				else			/* just increment */
 					ch = ch + 1;
-				b6CD9 = FALSE;
+				updating = FALSE;
 			end;
-			w6CD7 = w6CD7 - 1;
+			lineno$p = lineno$p - 1;
 		end;
 
-		if sub$465B or not xisSpace then
+		if sub$465B or not blankAsmErrCode then
 		do;
 			call ovlMgr(1);
 			call ovl3;
@@ -106,11 +106,11 @@ sub$54FD: procedure public;
 
 	if not b6B20 then
 	do;
-		b6BDB = 2;
+		ii = 2;
 		if tokenSP < 2 or b6B23 or b6B24 then
-			b6BDB = 0;
+			ii = 0;
 
-		w6BCE = tokStart(b6BDB) + tokenSize(b6BDB);
+		w6BCE = tokStart(ii) + tokenSize(ii);
 		if isSkipping or not b6B34 then
 			w6BCE = .lineBuf;
 
@@ -124,7 +124,7 @@ sub$54FD: procedure public;
 		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
-	if optXREF and b6880 then
+	if ctlXREF and b6880 then
 		if phase = 1 then
 			call sub$467F(1, .b6873);
 
@@ -136,7 +136,7 @@ sub$54FD: procedure public;
 	if b6B33 then
 	do;
 		b6B2E = 0FFh;
-		if isPhase2Print and optSYMBOLS then
+		if isPhase2Print and ctlSYMBOLS then
 		do;
 			call ovlMgr(1);
 			call sub$7041;			/* in overlay 1 */
