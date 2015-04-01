@@ -8,6 +8,7 @@ OBJ =	lib.obj lib1.obj isis1.obj isisa.obj isis2.obj lib3.obj lib4.obj
 ISIS=..\..\thames
 V4=../../plm80v4/
 V3=../../plm80v3/
+TOOLS=../../tools/
 F0=./
 F3=../common/
 
@@ -15,7 +16,7 @@ F3=../common/
 .plm.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	@SET ISIS_F3=$F3)
+	@SET ISIS_F3=$(F3)
 	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code
 	@if not exist $*.obj exit /b 1
 
@@ -47,17 +48,11 @@ $(OBJ: =,&
 	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
 
 clean:
-	del *.obj *lst *.map *.*~ *~ $(TARGET)
+	del *.obj *lst *.map $(TARGET)
 
 verify: $(TARGET)
-	..\..\diffbin $(TARGET) $(V4)$(TARGET)
-
+	$(TOOLS:/=\)diffbin $(TARGET) $(V4)$(TARGET)
 
 # auto generated
-isis1.obj: isis1.plm
-isis2.obj: isis2.plm
-isisa.obj: isisa.asm
 lib.obj: lib.plm lib.lit
 lib1.obj: lib1.plm lib.lit
-lib3.obj: lib3.plm
-lib4.obj: lib4.plm

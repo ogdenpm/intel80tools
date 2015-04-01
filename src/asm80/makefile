@@ -1,6 +1,7 @@
 ISIS=..\..\thames
 V4=../../plm80v4/
 V3=../../plm80v3/
+TOOLS=../../tools/
 F0=./
 F3=../common/
 
@@ -155,7 +156,7 @@ vclean: clean
 	del asm80 asm80.ov?
 
 verify: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
-	for %i in ($**) do ..\..\diffbin %i $(V4)\%i
+	for %i in ($**) do $(TOOLS:/=\)diffbin %i $(V4)\%i
 
 compare: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	for %i in ($**) do fc /b %i $(V4)\%i

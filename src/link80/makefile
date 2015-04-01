@@ -1,6 +1,7 @@
 ISIS=..\..\thames
 V4=../../plm80v4/
 V3=../../plm80v3/
+TOOLS=../../tools/
 F0=./
 F3=../common/
 #
@@ -93,8 +94,8 @@ clean:
 	del *.obj *lst *.map *.abs *.rel *.*~ *~ link.ovl link
 
 verify: link link.ovl
-	..\..\diffbin link $(V4)link
-	..\..\diffbin link.ovl $(V4)link.ovl
+	$(TOOLS:/=\)diffbin link $(V4)link
+	$(TOOLS:/=\)diffbin link.ovl $(V4)link.ovl
 
 
 

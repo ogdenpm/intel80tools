@@ -61,91 +61,41 @@ clean:
 adninf.obj: adninf.plm $(F3)gilen.pex $(F3)gitype.pex
 alloc.obj: alloc.plm $(F3)err.inc $(F3)ftlerr.pex
 allocs.obj: allocs.plm $(F3)err.inc $(F3)ftlerr.pex
-backup.obj: backup.plm
 chain.obj: chain.plm $(F3)fatlio.pex $(F3)initf.pex $(F3)load.pex
-close.obj: close.plm
 closef.obj: closef.plm $(F3)close.pex $(F3)fatlio.pex
-clrflg.obj: clrflg.plm
-cpytil.obj: cpytil.plm
 creatf.obj: creatf.plm $(F3)readf.pex
 creati.obj: creati.plm $(F3)err.inc $(F3)info.inc $(F3)fill.aex $(F3)alloc.pex \
             $(F3)ftlerr.pex $(F3)silnko.pex $(F3)sitype.pex $(F3)silen.pex \
             $(F3)siscop.pex $(F3)sisym.pex
-data.obj: data.plm
-delete.obj: delete.plm
 deletf.obj: deletf.plm $(F3)delete.pex
 endcom.obj: endcom.plm $(F3)itoa.pex $(F3)prints.pex
-exit.obj: exit.plm
 fatal.obj: fatal.plm $(F3)exit.pex $(F3)prints.pex
 fatlio.obj: fatlio.plm $(F3)prints.pex $(F3)itoa.pex $(F3)exit.pex
 fflush.obj: fflush.plm $(F3)writef.pex
 fi.obj: fi.plm $(F3)fiscop.pex
-fill.obj: fill.asm
 findmi.obj: findmi.plm $(F3)flags.inc $(F3)gilnko.pex $(F3)giparo.pex \
             $(F3)tiflag.pex
 fiscop.obj: fiscop.plm $(F3)tiflag.pex $(F3)giscop.pex $(F3)silnko.pex \
             $(F3)gilnko.pex $(F3)gitype.pex $(F3)flags.inc $(F3)info.inc
-fread.obj: fread.asm
-fwrite.obj: fwrite.asm
-gibin.obj: gibin.plm
-gibseo.obj: gibseo.plm
-gibsev.obj: gibsev.plm
-gidim.obj: gidim.plm
-gidim2.obj: gidim2.plm
 gidtyp.obj: gidtyp.plm $(F3)info.inc
-gieid.obj: gieid.plm
-giintn.obj: giintn.plm
-gilen.obj: gilen.plm
-gilnko.obj: gilnko.plm
-gilnkv.obj: gilnkv.plm
 giparo.obj: giparo.plm $(F3)info.inc
-giparv.obj: giparv.plm
 gipcnt.obj: gipcnt.plm $(F3)info.inc
-gipid.obj: gipid.plm
-giscop.obj: giscop.plm
-gisym.obj: gisym.plm
-gitype.obj: gitype.plm
 initf.obj: initf.plm $(F3)fill.aex $(F3)cpytil.pex
 itoa.obj: itoa.plm $(F3)movmem.aex $(F3)fill.aex
-load.obj: load.plm
 lookup.obj: lookup.plm $(F3)allocs.pex $(F3)movmem.aex $(F3)strcmp.pex \
             $(F3)alloc.pex
 lstinf.obj: lstinf.plm $(F3)data.inc $(F3)gibsev.pex $(F3)closef.pex
 lstlin.obj: lstlin.plm $(F3)itoa.pex
-memchk.obj: memchk.asm
-movmem.obj: movmem.asm
-open.obj: open.plm
 openf.obj: openf.plm $(F3)open.pex $(F3)fatlio.pex
 prints.obj: prints.plm $(F3)write.pex
-putlst.obj: putlst.asm
-read.obj: read.plm
 readf.obj: readf.plm $(F3)read.pex $(F3)fatlio.pex
 rewind.obj: rewind.plm $(F3)seekf.pex
-seek.obj: seek.plm
 seekf.obj: seekf.plm $(F3)seek.pex $(F3)fatlio.pex
 sekend.obj: sekend.plm $(F3)seek.pex $(F3)fatlio.pex
-setflg.obj: setflg.plm
-sibin.obj: sibin.plm
-sibsev.obj: sibsev.plm
-sidim.obj: sidim.plm
 sidtyp.obj: sidtyp.plm $(F3)info.inc
-sieid.obj: sieid.plm
 siflag.obj: siflag.plm $(F3)setflg.pex
-silen.obj: silen.plm
-silnko.obj: silnko.plm
-silnkv.obj: silnkv.plm
 siparo.obj: siparo.plm $(F3)info.inc
 sipcnt.obj: sipcnt.plm $(F3)info.inc
-siscop.obj: siscop.plm
-sisym.obj: sisym.plm
-sitype.obj: sitype.plm
-strcmp.obj: strcmp.plm
 tellf.obj: tellf.plm $(F3)seek.pex $(F3)fatlio.pex
 tiflag.obj: tiflag.plm $(F3)tstflg.pex
-tstflg.obj: tstflg.plm
-wr2lst.obj: wr2lst.plm
-wrclst.obj: wrclst.asm
-write.obj: write.plm
 writef.obj: writef.plm $(F3)write.pex $(F3)fatlio.pex
-wrslst.obj: wrslst.plm
-$(F3)data.obj: $(F3)data.plm

@@ -97,38 +97,16 @@ plm2h.obj: plm2h.plm $(F3)data.inc t2code.inc $(F3)info.inc $(F3)flags.inc \
            $(F3)tiflag.pex $(F3)sibsev.pex $(F3)sidim.pex $(F3)gidim.pex
 $(F3)adninf.obj: $(F3)adninf.plm $(F3)gilen.pex $(F3)gitype.pex
 $(F3)chain.obj: $(F3)chain.plm $(F3)fatlio.pex $(F3)initf.pex $(F3)load.pex
-$(F3)cpytil.obj: $(F3)cpytil.plm
 $(F3)creatf.obj: $(F3)creatf.plm $(F3)readf.pex
-$(F3)data.obj: $(F3)data.plm
-$(F3)exit.obj: $(F3)exit.plm
 $(F3)fatal.obj: $(F3)fatal.plm $(F3)exit.pex $(F3)prints.pex
 $(F3)fatlio.obj: $(F3)fatlio.plm $(F3)prints.pex $(F3)itoa.pex $(F3)exit.pex
 $(F3)fflush.obj: $(F3)fflush.plm $(F3)writef.pex
-$(F3)fill.obj: $(F3)fill.asm
-$(F3)fread.obj: $(F3)fread.asm
-$(F3)fwrite.obj: $(F3)fwrite.asm
-$(F3)gibsev.obj: $(F3)gibsev.plm
-$(F3)gidim.obj: $(F3)gidim.plm
 $(F3)gidtyp.obj: $(F3)gidtyp.plm $(F3)info.inc
-$(F3)gieid.obj: $(F3)gieid.plm
-$(F3)gilen.obj: $(F3)gilen.plm
-$(F3)gilnkv.obj: $(F3)gilnkv.plm
 $(F3)giparo.obj: $(F3)giparo.plm $(F3)info.inc
-$(F3)giparv.obj: $(F3)giparv.plm
 $(F3)gipcnt.obj: $(F3)gipcnt.plm $(F3)info.inc
-$(F3)gipid.obj: $(F3)gipid.plm
-$(F3)gitype.obj: $(F3)gitype.plm
 $(F3)initf.obj: $(F3)initf.plm $(F3)fill.aex $(F3)cpytil.pex
 $(F3)itoa.obj: $(F3)itoa.plm $(F3)movmem.aex $(F3)fill.aex
-$(F3)load.obj: $(F3)load.plm
-$(F3)movmem.obj: $(F3)movmem.asm
 $(F3)prints.obj: $(F3)prints.plm $(F3)write.pex
-$(F3)read.obj: $(F3)read.plm
 $(F3)readf.obj: $(F3)readf.plm $(F3)read.pex $(F3)fatlio.pex
-$(F3)sibsev.obj: $(F3)sibsev.plm
-$(F3)sidim.obj: $(F3)sidim.plm
-$(F3)silnkv.obj: $(F3)silnkv.plm
 $(F3)tiflag.obj: $(F3)tiflag.plm $(F3)tstflg.pex
-$(F3)tstflg.obj: $(F3)tstflg.plm
-$(F3)write.obj: $(F3)write.plm
 $(F3)writef.obj: $(F3)writef.plm $(F3)write.pex $(F3)fatlio.pex

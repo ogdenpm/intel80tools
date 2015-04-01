@@ -80,42 +80,22 @@ plma.obj: plma.plm $(F3)movmem.aex fill.aex $(F3)initf.pex $(F3)openf.pex \
 plmb.obj: plmb.plm $(F3)data.inc $(F3)flags.inc $(F3)info.inc $(F3)lookup.pex \
           $(F3)creati.pex $(F3)sibin.pex $(F3)sipcnt.pex $(F3)siflag.pex \
           $(F3)sidtyp.pex
-plmc.obj: plmc.plm
 plmd.obj: plmd.plm $(F3)data.inc $(F3)movmem.aex $(F3)fill.aex
-plme.obj: plme.plm
 $(F3)alloc.obj: $(F3)alloc.plm $(F3)err.inc $(F3)ftlerr.pex
 $(F3)allocs.obj: $(F3)allocs.plm $(F3)err.inc $(F3)ftlerr.pex
 $(F3)chain.obj: $(F3)chain.plm $(F3)fatlio.pex $(F3)initf.pex $(F3)load.pex
-$(F3)cpytil.obj: $(F3)cpytil.plm
 $(F3)creati.obj: $(F3)creati.plm $(F3)err.inc $(F3)info.inc $(F3)fill.aex \
                  $(F3)alloc.pex $(F3)ftlerr.pex $(F3)silnko.pex $(F3)sitype.pex \
                  $(F3)silen.pex $(F3)siscop.pex $(F3)sisym.pex
-$(F3)data.obj: $(F3)data.plm
-$(F3)exit.obj: $(F3)exit.plm
 $(F3)fatal.obj: $(F3)fatal.plm $(F3)exit.pex $(F3)prints.pex
 $(F3)fatlio.obj: $(F3)fatlio.plm $(F3)prints.pex $(F3)itoa.pex $(F3)exit.pex
-$(F3)fill.obj: $(F3)fill.asm
 $(F3)initf.obj: $(F3)initf.plm $(F3)fill.aex $(F3)cpytil.pex
 $(F3)itoa.obj: $(F3)itoa.plm $(F3)movmem.aex $(F3)fill.aex
-$(F3)load.obj: $(F3)load.plm
 $(F3)lookup.obj: $(F3)lookup.plm $(F3)allocs.pex $(F3)movmem.aex $(F3)strcmp.pex \
                  $(F3)alloc.pex
-$(F3)memchk.obj: $(F3)memchk.asm
-$(F3)movmem.obj: $(F3)movmem.asm
-$(F3)open.obj: $(F3)open.plm
 $(F3)openf.obj: $(F3)openf.plm $(F3)open.pex $(F3)fatlio.pex
 $(F3)prints.obj: $(F3)prints.plm $(F3)write.pex
-$(F3)read.obj: $(F3)read.plm
 $(F3)readf.obj: $(F3)readf.plm $(F3)read.pex $(F3)fatlio.pex
-$(F3)setflg.obj: $(F3)setflg.plm
-$(F3)sibin.obj: $(F3)sibin.plm
 $(F3)sidtyp.obj: $(F3)sidtyp.plm $(F3)info.inc
 $(F3)siflag.obj: $(F3)siflag.plm $(F3)setflg.pex
-$(F3)silen.obj: $(F3)silen.plm
-$(F3)silnko.obj: $(F3)silnko.plm
 $(F3)sipcnt.obj: $(F3)sipcnt.plm $(F3)info.inc
-$(F3)siscop.obj: $(F3)siscop.plm
-$(F3)sisym.obj: $(F3)sisym.plm
-$(F3)sitype.obj: $(F3)sitype.plm
-$(F3)strcmp.obj: $(F3)strcmp.plm
-$(F3)write.obj: $(F3)write.plm

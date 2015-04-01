@@ -80,45 +80,24 @@ main6.obj: main6.plm $(F3)data.inc $(F3)gisym.pex $(F3)deletf.pex $(F3)closef.pe
            $(F3)openf.pex $(F3)chain.pex $(F3)initf.pex $(F3)tellf.pex \
            $(F3)backup.pex
 page.obj: page.plm $(F3)data.inc $(F3)itoa.pex
-pdata.obj: pdata.plm
 plm6a.obj: plm6a.plm $(F3)data.inc $(F3)tellf.pex $(F3)backup.pex $(F3)fread.aex \
            $(F3)closef.pex $(F3)initf.pex $(F3)openf.pex $(F3)movmem.aex
 plm6b.obj: plm6b.plm $(F3)data.inc $(F3)err.inc $(F3)closef.pex $(F3)initf.pex \
            $(F3)gisym.pex $(F3)openf.pex $(F3)readf.pex $(F3)seekf.pex
-$(F3)backup.obj: $(F3)backup.plm
 $(F3)chain.obj: $(F3)chain.plm $(F3)fatlio.pex $(F3)initf.pex $(F3)load.pex
-$(F3)close.obj: $(F3)close.plm
 $(F3)closef.obj: $(F3)closef.plm $(F3)close.pex $(F3)fatlio.pex
-$(F3)cpytil.obj: $(F3)cpytil.plm
 $(F3)creatf.obj: $(F3)creatf.plm $(F3)readf.pex
-$(F3)data.obj: $(F3)data.plm
-$(F3)delete.obj: $(F3)delete.plm
 $(F3)deletf.obj: $(F3)deletf.plm $(F3)delete.pex
 $(F3)endcom.obj: $(F3)endcom.plm $(F3)itoa.pex $(F3)prints.pex
-$(F3)exit.obj: $(F3)exit.plm
 $(F3)fatlio.obj: $(F3)fatlio.plm $(F3)prints.pex $(F3)itoa.pex $(F3)exit.pex
 $(F3)fflush.obj: $(F3)fflush.plm $(F3)writef.pex
-$(F3)fill.obj: $(F3)fill.asm
-$(F3)fread.obj: $(F3)fread.asm
-$(F3)gibsev.obj: $(F3)gibsev.plm
-$(F3)gisym.obj: $(F3)gisym.plm
 $(F3)initf.obj: $(F3)initf.plm $(F3)fill.aex $(F3)cpytil.pex
 $(F3)itoa.obj: $(F3)itoa.plm $(F3)movmem.aex $(F3)fill.aex
-$(F3)load.obj: $(F3)load.plm
 $(F3)lstinf.obj: $(F3)lstinf.plm $(F3)data.inc $(F3)gibsev.pex $(F3)closef.pex
 $(F3)lstlin.obj: $(F3)lstlin.plm $(F3)itoa.pex
-$(F3)movmem.obj: $(F3)movmem.asm
-$(F3)open.obj: $(F3)open.plm
 $(F3)openf.obj: $(F3)openf.plm $(F3)open.pex $(F3)fatlio.pex
 $(F3)prints.obj: $(F3)prints.plm $(F3)write.pex
-$(F3)putlst.obj: $(F3)putlst.asm
-$(F3)read.obj: $(F3)read.plm
 $(F3)readf.obj: $(F3)readf.plm $(F3)read.pex $(F3)fatlio.pex
-$(F3)seek.obj: $(F3)seek.plm
 $(F3)seekf.obj: $(F3)seekf.plm $(F3)seek.pex $(F3)fatlio.pex
 $(F3)tellf.obj: $(F3)tellf.plm $(F3)seek.pex $(F3)fatlio.pex
-$(F3)wr2lst.obj: $(F3)wr2lst.plm
-$(F3)wrclst.obj: $(F3)wrclst.asm
-$(F3)write.obj: $(F3)write.plm
 $(F3)writef.obj: $(F3)writef.plm $(F3)write.pex $(F3)fatlio.pex
-$(F3)wrslst.obj: $(F3)wrslst.plm
