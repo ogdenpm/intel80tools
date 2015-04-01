@@ -919,6 +919,9 @@ NAME = isist0
 STACK = 42
 
 OBJ = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj junk.obj
+
+SRC =	boot.asm t0boot.plm consol.plm exit.plm memchk.asm write.plm \
+	junk.asm makefile
 	
 # common makefile info
 ISIS=..\..\thames
@@ -961,11 +964,13 @@ $(**: =,&
 	@echo ##################################################################
 	del $*.rel
 	@if not exist $*.bin exit /b 1
-	$(TOOLS)obj2bin $*.bin $(TARGET)
+	$(TOOLS:/=\)obj2bin $*.bin $(TARGET)
 
 clean:
 	del *.obj *lst *.map *.rel *.ixi *~ *.*~ *.bin $(TARGET)
 
+vclean: clean
+	del $(SRC)
 
 verify: $(TARGET)
 	fc /b $(TARGET) $(TARGET).ref

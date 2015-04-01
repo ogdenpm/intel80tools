@@ -1,2 +1,2 @@
-split.pl
+..\..\unpack.pl
 ..\..\nmake
