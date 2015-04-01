@@ -17,6 +17,9 @@ cd ..\isist0 & ..\..\unpack.pl & ..\..\nmake
 rem check the builds
 rem done separately to avoid errors being lost
 rem inside a long build list
+echo #########################
+echo #### VERIFYING BUILD ####
+echo #########################
 cd ..\plm & ..\..\nmake verify
 cd ..\plm0 & ..\..\nmake verify
 cd ..\plm1 & ..\..\nmake verify
