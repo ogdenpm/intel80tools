@@ -7,19 +7,19 @@ cd ..\plm3 & ..\..\mkdepend.pl & ..\..\nmake
 cd ..\plm4 & ..\..\mkdepend.pl & ..\..\nmake
 cd ..\plm5 & ..\..\mkdepend.pl & ..\..\nmake
 cd ..\plm6 & ..\..\mkdepend.pl & ..\..\nmake
-rem other tools are stored in packed file
+@rem other tools are stored in packed file
 cd ..\link80 & ..\..\unpack.pl & ..\..\nmake
 cd ..\loc80 & ..\..\unpack.pl & ..\..\nmake
 cd ..\asm80 & ..\..\unpack.pl & ..\..\nmake
 cd ..\lib80 & ..\..\unpack.pl & ..\..\nmake
 cd ..\isis41 & ..\..\unpack.pl & ..\..\nmake
 cd ..\isist0 & ..\..\unpack.pl & ..\..\nmake
-rem check the builds
-rem done separately to avoid errors being lost
-rem inside a long build list
-echo #########################
-echo #### VERIFYING BUILD ####
-echo #########################
+@rem check the builds
+@rem done separately to avoid errors being lost
+@rem inside a long build list
+@echo #########################
+@echo #### VERIFYING BUILD ####
+@echo #########################
 cd ..\plm & ..\..\nmake verify
 cd ..\plm0 & ..\..\nmake verify
 cd ..\plm1 & ..\..\nmake verify
