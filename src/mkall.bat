@@ -1,15 +1,17 @@
-cd plm & ..\..\nmake
-cd ..\plm0 & ..\..\nmake
-cd ..\plm1 & ..\..\nmake
-cd ..\plm2 & ..\..\nmake
-cd ..\plm3 & ..\..\nmake
-cd ..\plm4 & ..\..\nmake
-cd ..\plm5 & ..\..\nmake
-cd ..\plm6 & ..\..\nmake
-cd ..\link80 & ..\..\nmake
-cd ..\loc80 & ..\..\nmake
-cd ..\asm80 & ..\..\nmake
-cd ..\lib80 & ..\..\nmake
+cd common & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm0 & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm1 & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm2 & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm3 & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm4 & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm5 & ..\..\mkdepend.pl & ..\..\nmake
+cd ..\plm6 & ..\..\mkdepend.pl & ..\..\nmake
+rem other tools are stored in packed file
+cd ..\link80 & ..\..\unpack.pl & ..\..\nmake
+cd ..\loc80 & ..\..\unpack.pl & ..\..\nmake
+cd ..\asm80 & ..\..\unpack.pl & ..\..\nmake
+cd ..\lib80 & ..\..\unpack.pl & ..\..\nmake
 rem check the builds
 cd ..\plm & ..\..\nmake verify
 cd ..\plm0 & ..\..\nmake verify

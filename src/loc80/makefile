@@ -1,25 +1,27 @@
+TARGET=locate
 ISIS=..\..\thames
-PLMDIR=..\..\plm80v4
-ASMDIR=..\..\plm80v4
-OLDPLMDIR=..\..\plm80v3
+V4=../../plm80v4/
+V3=../../plm80v3/
+F0=./
+F3=../common/
 #
 # compilation and assembly rules
 .SUFFIXES: .plm .pl3
 .plm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
 	$(ISIS) :F1:PLM80 $< code
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(OLDPLMDIR)
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V3)
 	$(ISIS) :F1:PLM80 $< code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .asm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(ASMDIR)
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
 	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
@@ -33,9 +35,9 @@ HICODE=6656H
 
 # locate build rules
 # default target
-locate: loctmp.abs $(HIGHOBJ)
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
+$(TARGET): loctmp.abs $(HIGHOBJ)
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
 	$(ISIS) :F1:link "&" < <<
 $(**: =,&
 ),:f1:system.lib,:f1:plm80.lib to $*.rel
@@ -46,8 +48,8 @@ $(**: =,&
 
 # intermediate target - note will have unsatisfied externals see also HICODE above
 loctmp.abs: $(LOWOBJ)
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
 	echo $(**: =,)
 	$(ISIS) :F1:link "&" < <<
 $(**: =,&
@@ -58,10 +60,27 @@ $(**: =,&
 	@if not exist $@ exit /b 1
 
 clean:
-	del *.obj *lst *.map *.abs *.rel locate
+	del *.obj *lst *.map *.abs *.rel $(TARGET) *.*~ *~
 
 # make this target to check the build matches the original binary
 verify: locate
-	fc /b locate $(PLMDIR)\locate
+	fc /b locate $(V4)$(TARGET)
 
-$(LOWOBJ) $(HIGHOBJ): makefile
+
+
+# auto generated
+loc1.obj: loc1.plm isis.ext loc.lit loc2a.ext loc3.ext loc4.ext loc5.ext loc6.ext \
+          loc7.ext loc.bas
+loc2a.obj: loc2a.plm isis.ext
+loc2b.obj: loc2b.plm isis.ext loc.lit loc1.ext loc3.ext loc4.ext loc5.ext \
+           loc6.ext loc.bas
+loc3.obj: loc3.plm isis.ext loc.lit loc1.ext loc2a.ext loc2b.ext loc4.ext \
+          loc5.ext loc6.ext loc7.ext loc8.ext loc9.ext loc.bas
+loc4.obj: loc4.plm isis.ext loc.lit loc1.ext loc2a.ext loc3.ext loc5.ext loc6.ext \
+          loc.bas
+loc6.obj: loc6.plm isis.ext loc.lit loc1.ext loc2a.ext loc2b.ext loc3.ext \
+          loc4.ext loc5.ext loc7.ext loc8.ext loc9.ext loc.bas
+loc7.obj: loc7.plm isis.ext loc.lit loc1.ext loc2a.ext loc2b.ext loc3.ext \
+          loc4.ext loc5.ext loc6.ext loc8.ext loc9.ext loc.bas
+loc8.obj: loc8.plm loc.lit loc9.ext
+loc8a.obj: loc8a.plm loc.lit loc9.ext

@@ -924,6 +924,7 @@ OBJ = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj junk.obj
 ISIS=..\..\thames
 V4=../../plm80v4/
 V3=../../plm80v3/
+TOOLS=../../tools/
 F0=./
 
 .SUFFIXES: .plm .pl3
@@ -942,7 +943,7 @@ F0=./
 .asm.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:ASM80 $(<:../common/=:F3:) 
+	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
 $(TARGET): $(OBJ)
@@ -960,7 +961,7 @@ $(**: =,&
 	@echo ##################################################################
 	del $*.rel
 	@if not exist $*.bin exit /b 1
-	obj2bin $*.bin $(TARGET)
+	$(TOOLS)obj2bin $*.bin $(TARGET)
 
 clean:
 	del *.obj *lst *.map *.rel *.ixi *~ *.*~ *.bin $(TARGET)
@@ -969,4 +970,3 @@ clean:
 verify: $(TARGET)
 	fc /b $(TARGET) $(TARGET).ref
 	
-$(OBJ): makefile

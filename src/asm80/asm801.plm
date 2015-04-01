@@ -258,13 +258,13 @@ ioError: procedure(arg1w) public;
 	call runtimeError(4);		/* file error */
 end;
 
-inOpen: procedure(arg1w, arg2w) address public;
-	declare (arg1w, arg2w) address;
+inOpen: procedure(path$p, access) address public;
+	declare (path$p, access) address;
 	declare open$infd address;
 
-	call open(.open$infd, arg1w, arg2w, 0, .openStatus);
+	call open(.open$infd, path$p, access, 0, .openStatus);
 	if openStatus <> 0 then
-		call ioError(arg1w);
+		call ioError(path$p);
 	return open$infd;
 end;
 
@@ -339,7 +339,7 @@ preStatementControls: procedure public;
 end;
 
 
-sub$3D6D: procedure public;
+initialControls: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = 0FFh;
 	call ovlMgr(0);
@@ -386,7 +386,7 @@ start:
 	call getAsmFileX;
 	phase = 1;
 	call resetData;
-	call sub$3D6D;
+	call initialControls;
 	if ctlMACROFILE then
 	do;
 		if physmem < 8001h then
@@ -394,7 +394,7 @@ start:
 		if includefd <> rootfd then
 			call closeF(includefd);
 		call closeF(infd);
-		ovlFile(12) = '4';
+		ovlFile(12) = '4';		/* use macro asm version */
 		call load(.ovlFile, 0, 1, 0, .statusIO);
 		call ioErrChk;
 	end;
@@ -403,12 +403,12 @@ start:
 		if includefd <> rootfd then
 			call closeF(includefd);
 		call closeF(infd);
-		ovlFile(12) = '5';
+		ovlFile(12) = '5';		/* use big memory asm version */
 		call load(.ovlFile, 0, 1, 0, .statusIO);
 		call ioErrChk;
 	end;
 
-	if MacroDebugOrGen then			/* error if no Macrofile */
+	if MacroDebugOrGen then			/* attempt to use macro features */
 		call runtimeError(2);		/* command error */
 
 	if ctlOBJECT then
@@ -440,7 +440,7 @@ start:
 
 		call ovlMgr(3);
 		call resetData;
-		call sub$3D6D;
+		call initialControls;
 		call sub$540D;
 	end;
 	if ctlPRINT then
@@ -455,7 +455,7 @@ start:
 		call ovlMgr(3);
 		call resetData;
 		call sub$70EE;
-		call sub$3D6D;
+		call initialControls;
 		call sub$540D;
 		call ovlMgr(2);
 		call ovl11;

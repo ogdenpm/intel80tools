@@ -18,37 +18,38 @@ OBJ =	main5.obj :f3:movmem.obj :f3:exit.obj :f3:itoa.obj\
 
 # common makefile info
 ISIS=..\..\thames
-PLMDIR=..\..\plm80v4
-ASMDIR=..\..\plm80v4
-OLDPLMDIR=..\..\plm80v3
+V4=../../plm80v4/
+V3=../../plm80v3/
+F0=./
+F3=../common/
 
 .SUFFIXES: .plm .pl3
 .plm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	@SET ISIS_F3=..\common
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
 	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(OLDPLMDIR)
-	@SET ISIS_F3=..\common
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V3)
+	@SET ISIS_F3=$(F3)
 	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .asm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(ASMDIR)
-	@SET ISIS_F3=..\common
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
 	$(ISIS) :F1:ASM80 $(<:../common/=:F3:) 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
 
-$(TARGET): ../common/data.abs $(OBJ::f3:=../common/)
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	@SET ISIS_F3=..\common
+$(TARGET): $(F3)data.abs $(OBJ::f3:=../common/)
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
 !IF "$(TARGET)" == "plm80"
 	$(ISIS) :F1:LINK :f3:data.abs, "&" < <<
 !ELSE
@@ -61,15 +62,74 @@ $(OBJ: =,&
 	@del $*.rel
 	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
 
-../common/data.abs: ../common/data.obj
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	@SET ISIS_F3=..\common
+$(F3)data.abs: $(F3)data.obj
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
 	$(ISIS) :F1:locate :f3:data.obj to :f3:data.abs SYMBOLS PUBLICS DATA(3800H) print(:f3:data.map)
 	@if not exist $@ exit /b 1
 
 clean:
-	del *.obj *lst *.map $(TARGET)
+	del *.obj *lst *.map *.*~ *~ $(TARGET)
 
 verify: $(TARGET)
-	fc /b $(TARGET) ..\..\plm80v4\$(TARGET)
+	fc /b $(TARGET) $(V4)$(TARGET)
+
+# auto generated
+lstsup.obj: lstsup.plm $(F3)data.inc $(F3)openf.pex $(F3)writef.pex $(F3)itoa.pex
+main5.obj: main5.plm $(F3)data.inc $(F3)flags.inc $(F3)info.inc $(F3)fread.aex \
+           $(F3)gitype.pex $(F3)adninf.pex $(F3)tiflag.pex $(F3)closef.pex \
+           $(F3)gibsev.pex $(F3)gibseo.pex $(F3)giscop.pex $(F3)siscop.pex \
+           $(F3)gisym.pex $(F3)openf.pex $(F3)creatf.pex $(F3)giparo.pex \
+           $(F3)gidtyp.pex $(F3)giintn.pex $(F3)gieid.pex $(F3)gidim.pex \
+           $(F3)gidim2.pex $(F3)gilnkv.pex $(F3)fflush.pex $(F3)deletf.pex \
+           $(F3)endcom.pex $(F3)exit.pex $(F3)fwrite.aex
+page1.obj: page1.plm $(F3)data.inc $(F3)itoa.pex
+page2.obj: page2.plm $(F3)data.inc
+plm5a.obj: plm5a.plm $(F3)data.inc $(F3)prints.pex $(F3)readf.pex
+$(F3)adninf.obj: $(F3)adninf.plm $(F3)gilen.pex $(F3)gitype.pex
+$(F3)close.obj: $(F3)close.plm
+$(F3)closef.obj: $(F3)closef.plm $(F3)close.pex $(F3)fatlio.pex
+$(F3)cpytil.obj: $(F3)cpytil.plm
+$(F3)creatf.obj: $(F3)creatf.plm $(F3)readf.pex
+$(F3)data.obj: $(F3)data.plm
+$(F3)delete.obj: $(F3)delete.plm
+$(F3)deletf.obj: $(F3)deletf.plm $(F3)delete.pex
+$(F3)endcom.obj: $(F3)endcom.plm $(F3)itoa.pex $(F3)prints.pex
+$(F3)exit.obj: $(F3)exit.plm
+$(F3)fatlio.obj: $(F3)fatlio.plm $(F3)prints.pex $(F3)itoa.pex $(F3)exit.pex
+$(F3)fflush.obj: $(F3)fflush.plm $(F3)writef.pex
+$(F3)fill.obj: $(F3)fill.asm
+$(F3)fread.obj: $(F3)fread.asm
+$(F3)fwrite.obj: $(F3)fwrite.asm
+$(F3)gibseo.obj: $(F3)gibseo.plm
+$(F3)gibsev.obj: $(F3)gibsev.plm
+$(F3)gidim.obj: $(F3)gidim.plm
+$(F3)gidim2.obj: $(F3)gidim2.plm
+$(F3)gidtyp.obj: $(F3)gidtyp.plm $(F3)info.inc
+$(F3)gieid.obj: $(F3)gieid.plm
+$(F3)giintn.obj: $(F3)giintn.plm
+$(F3)gilen.obj: $(F3)gilen.plm
+$(F3)gilnkv.obj: $(F3)gilnkv.plm
+$(F3)giparo.obj: $(F3)giparo.plm $(F3)info.inc
+$(F3)giscop.obj: $(F3)giscop.plm
+$(F3)gisym.obj: $(F3)gisym.plm
+$(F3)gitype.obj: $(F3)gitype.plm
+$(F3)initf.obj: $(F3)initf.plm $(F3)fill.aex $(F3)cpytil.pex
+$(F3)itoa.obj: $(F3)itoa.plm $(F3)movmem.aex $(F3)fill.aex
+$(F3)lstinf.obj: $(F3)lstinf.plm $(F3)data.inc $(F3)gibsev.pex $(F3)closef.pex
+$(F3)movmem.obj: $(F3)movmem.asm
+$(F3)open.obj: $(F3)open.plm
+$(F3)openf.obj: $(F3)openf.plm $(F3)open.pex $(F3)fatlio.pex
+$(F3)prints.obj: $(F3)prints.plm $(F3)write.pex
+$(F3)putlst.obj: $(F3)putlst.asm
+$(F3)read.obj: $(F3)read.plm
+$(F3)readf.obj: $(F3)readf.plm $(F3)read.pex $(F3)fatlio.pex
+$(F3)siscop.obj: $(F3)siscop.plm
+$(F3)tiflag.obj: $(F3)tiflag.plm $(F3)tstflg.pex
+$(F3)tstflg.obj: $(F3)tstflg.plm
+$(F3)wr2lst.obj: $(F3)wr2lst.plm
+$(F3)wrclst.obj: $(F3)wrclst.asm
+$(F3)write.obj: $(F3)write.plm
+$(F3)writef.obj: $(F3)writef.plm $(F3)write.pex $(F3)fatlio.pex
+$(F3)wrslst.obj: $(F3)wrslst.plm

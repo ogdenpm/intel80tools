@@ -12,7 +12,7 @@ declare (cmdch$p, actRead) address external,
 	(bZERO, bTRUE, b6742, b6743, activeSeg, ifDepth) byte external,
 	(opSP, b6857, curChar, lookAhead, b6882, primaryValid) byte external,
 	(b68B8, b6A00, ctlLIST, ctlCOND, b6A6F, saveIdx, scanCmdLine) byte external,
-	(opType, b6B2C, b6B2E, b6B33, b6C21, fileIdx) byte external,
+	(opType, b6B2C, finished, b6B33, b6C21, fileIdx) byte external,
 	(wZERO, w6750, w686E, w6870) address external,
 	(lineCnt, w68A6, pageCnt, w6A4E) address external,
 	(errCnt, controls$p, includefd, rootfd, stdKeywords, statusIO, infd, off6C25) address external,
@@ -89,51 +89,51 @@ getAsmFile: procedure public;
 		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
 	end;
 
-	symTab(0) = .stdKeywords;
+	symTab(0) = .stdKeywords;	/* no extended key words */
 	w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
-	call rescan(1, .statusIO);
+	call rescan(1, .statusIO);	/* get the command line */
 	call ioErrChk;
 	call read(1, .cmdLineBuf, 128, .actRead, .statusIO);
 	call ioErrChk;
-	actRead = actRead + .cmdLineBuf;
-	scanCmdLine = 0FFh;
+	actRead = actRead + .cmdLineBuf;	/* convert to pointer */
+	scanCmdLine = TRUE;		/* scanning command line */
 	call cmdSkipWhite;
-	aF0Asxref(2) = getDrive; 
+	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
 
 	do while not cmdIsWhite;
 		cmdch$p = cmdch$p + 1;
 	end;
 
 	call cmdSkipWhite;
-	if cmdch = CR then
+	if cmdch = CR then		/* no name !! */
 		call runtimeError(4);
 
-	infd = inOpen(cmdch$p, 1);
+	infd = inOpen(cmdch$p, 1);	/* open file for reading */
 	rootfd, includefd = infd;
 	ii = TRUE;
 	jj = 0;
 
-	do while not cmdIsWhite;
+	do while not cmdIsWhite;	/* copy file name over to the files list */
 		files(0).name(jj) = cmdch;
-		if ii then
+		if ii then		/* and the name for the lst and obj files */
 			lstFile(jj), objFile(jj) = cmdch;
 		if cmdch = '.' then
 		do;
 			ii = FALSE;
-			call addExtents;
+			call addExtents;	/* add lst and obj file extents */
 		end;
 		jj = jj + 1;
 		cmdch$p = cmdch$p + 1;
 	end;
-	controls$p = cmdch$p;
-	if ii then
+	controls$p = cmdch$p;		/* controls start after file name */
+	if ii then			/* no extent in source file */
 	do;
-		lstFile(jj) = '.';
+		lstFile(jj) = '.';	/* add the . and the extents */
 		objFile(jj) = '.';
 		call addExtents;
 	end;
 
-	files(0).name(jj) = ' ';
+	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
 	if lstFile(0) = ':' and lstFile(2) <> '0' then
 		aF0Asxref$tmp(2) = lstFile(2);
 end;
@@ -143,7 +143,7 @@ end;
 
 resetData: procedure public;
 	call sub$3DCE;
-	b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), b6B2E, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
+	b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
 	b6743, primaryValid, ctlLIST, b6A6F, ctlCOND = bTRUE;
 	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = wZERO;

@@ -67,33 +67,33 @@ declare (activeSeg, tokenSP, b6855, b6857, b6858) byte external,
 
 
 
-unpackToken: procedure(arg1w, arg2w) public;
-	declare (arg1w, arg2w) address;
-	declare wrd based arg1w address;
-	declare ch based arg2w byte;
-	declare w6CDE address;
+unpackToken: procedure(src, dst) public;
+	declare (src, dst) address;
+	declare wrd based src address;
+	declare ch based dst byte;
+	declare packedword address;
 
 	unpack1: procedure;
-		ch = w6CDE mod 40;	
+		ch = packedword mod 40;	
 		if ch = 0 then
 			ch = ' ';
 		else if ch <= 10 then
 			ch = ch + 2Fh;	/* digit */
 		else 
 			ch = ch + 34h;	/* ? @ and letters */
-		w6CDE = w6CDE / 40;
-		arg2w = arg2w - 1;
+		packedword = packedword / 40;
+		dst = dst - 1;
 	end;
 
 
-	arg1w = arg1w + 2;
-	arg2w = arg2w + 5;
-	w6CDE = wrd;
+	src = src + 2;
+	dst = dst + 5;
+	packedword = wrd;
 	call unpack1;
 	call unpack1;
 	call unpack1;
-	arg1w = arg1w - 2;
-	w6CDE = wrd;
+	src = src - 2;
+	packedword = wrd;
 	call unpack1;
 	call unpack1;
 	call unpack1;
