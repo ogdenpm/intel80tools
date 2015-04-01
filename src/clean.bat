@@ -11,4 +11,6 @@ cd ..\link80 & ..\..\nmake clean
 cd ..\loc80 & ..\..\nmake clean
 cd ..\asm80 & ..\..\nmake vclean
 cd ..\lib80 & ..\..\nmake clean
+cd ..\isis41 & ..\..\nmake vclean
+cd ..\isist0 & ..\..\nmake vclean
 cd ..
