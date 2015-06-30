@@ -1,17 +1,7 @@
 asm48:
 do;
-declare	lit	literally 'literally',
-	CC$BAD	lit	'0',
-	CC$WS	lit	'1',
-	CC$SEMI	lit	'2',
-	CC$COLON lit	'3',
-	CC$CR	lit	'4',
-	CC$PUNCT lit	'5',
-	CC$DOLAR lit	'6',
-	CC$QUOTE lit	'7',
-	CC$DIGIT lit	'8',
-	CC$LET	lit	'9',
-	CC$ESC	lit	'0bh';
+/*$SET(ASM48=1)*/
+$include(asm48.ipx)
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
 	op16(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -26,46 +16,6 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0,
 			      0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);
-
-
-runtimeError: procedure(b) external; declare b byte; end;
-sourceError: procedure(b) external; declare b byte; end;
-sub$3D55: procedure(b) external; declare b byte; end;
-readM: procedure(w) external; declare w address; end;
-syntaxError: procedure external; end;
-multipleDefError: procedure external; end;
-phaseError: procedure external; end;
-illegalCharError: procedure external; end;
-undefinedSymbolError: procedure external; end;
-locationError: procedure external; end;
-popToken: procedure external; end;
-nxtCmdCh: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isPhase1: procedure byte external; end;
-isPhase2Print: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-sub$4879: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare (activeSeg, tokenSP, b6855, b6857, b6858) byte external,
-	(curChar, reget, lookAhead, b6882, b6883, b6884, b6885, ctlMOD85, scanCmdLine) byte external,
-	(has16bitOperand, opType, ii, jj, b$9059, b$905B, b$905C, b$905D) byte external,
-	(b$905E, b$9062, argNestCnt, b$91A1, b$91A2) byte external,
-	(b6742, b6748, b6749) byte external,
-	(tokenType, b$91A4, mem, macroBuf)(1) byte external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	(w$9054, off$9056, curTokStart, w6866) address external,
-	(w686E, w6870, w6A4E, w6BE0, w$906A) address external,
-	(curMacroBlk, w$9197, w$919D) address external,
-	(symTab, w6868, tokenSym)(1) address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
-
-
 
 unpackToken: procedure(src, dst) public;
 	declare (src, dst) address;
@@ -520,14 +470,18 @@ end;
 
 
 
-sub$65D9: procedure public;
+chkLF: procedure public;
 	if lookAhead = 0Ah then
 		lookAhead = 0;
 	else
 	do;
+/* $IF ASM48 */
 		b$905E = b$905E and 0FEh;
+/* $ENDIF */
 		call illegalCharError;
+/* $IF ASM48 */
 		b$905E = b$905E > 0;
+/* $ENDIF */
 	end;
 end;
 

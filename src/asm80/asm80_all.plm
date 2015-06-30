@@ -1,253 +1,650 @@
-global.inc
-declare lit literally 'literally',
-	TRUE lit '0FFh',
-	FALSE lit '0',
-	CR lit '0Dh',
-	LF lit '0Ah';
+asm80.pex
+/* assembler routines & linkage */
+ISIS            P(B b,A w)
+pckTkn          P
+EDATA		B
 
-declare	CC$BAD	lit	'0',
-	CC$WS	lit	'1',
-	CC$SEMI	lit	'2',
-	CC$COLON lit	'3',
-	CC$CR	lit	'4',
-	CC$PUNCT lit	'5',
-	CC$DOLAR lit	'6',
-	CC$QUOTE lit	'7',
-	CC$DIGIT lit	'8',
-	CC$LET	lit	'9',
-	CC$ESC	lit	'0bh';
+packToken       'pckTkn'
+tokenSize       'toksiz'
+tokStart        'tokst'
 
-declare TT$ID	LIT	'0',
-	TT$NUM	LIT	'2',
-	TT$STR	LIT	'4';
 
-declare tokenSize lit 'toksiz',
-	tokStart lit 'tokst',
-	packToken lit 'pckTkn';
+lit             'literally'
+TRUE            '0FFh'
+FALSE           '0'
+CR              '0Dh'
 
-declare w651F address external,
-	b6521 byte external,
-	w6522 address external,
-	b6524 byte external,
-	b6525 byte external,
-	b6526(4) byte external,
-	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
-	extNamIdx byte external,
-	b652B(4) byte external,
-	b652F byte external,
-	r$eof structure(type byte, len address, crc byte) external,
-	r$extnames1 structure(type byte, len address, dta(125) byte) external,
-	moduleNameLen byte external,
-	r$extnames2 structure(type byte, len address, dta(125) byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(122) byte, crc byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(124) byte, crc byte) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(62) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(29) address, crc byte) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address, crc byte) external,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external,
-	wZERO address external,
-/*	pad6741 byte initial(0ah), */
-	b6742 byte external,
-	b6743 byte external,
-	b6744 byte external,
-	startSeg byte external,
-/*	padb6746 byte, */
-	activeSeg byte external,
-	b6748 byte external,
-	b6749 byte external,
-	b674A(2) byte external,
-	alignTypes(4) byte external,
-	w6750 address external,
-	w6752 address external,
-	b6754 byte external,
-	startDefined byte external,
-	startOffset address external,
-	tokenSP byte external,
-	lineBuf(128) byte external,
-	tokStart(9) address external,
-	curTokStart address external,
-	tokenSym(9) address external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte), 
-	tokenType(9) byte external,
-	tokenSize(9) byte external,
-	tokenAttr(9) byte external,
-	tokenSymId(9) address external,
-/* end */
-	endLineBuf address external,
-	ifDepth byte external,
-	skipping(9) byte external,
-	inElse(9) byte external,
-	opSP byte external,
-	opStack(17) byte external,
-/* ov4 compat 2CA0 */
-	(accum1, accum2) address external,
-	(accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte external,
-	b6855 byte external,
-	b6856 byte external,
-	b6857 byte external,
-	b6858 byte external,
-	b6859 byte external,
-	w685A address external,
-	w685C address external,
-	curChar byte external,
-	reget byte external,
-	lookAhead byte external,
-/*	pad6861 byte initial(0), */
-	symTab(2) address external,
-/*	pad6866 address, */
-	w6868(3) address external,
-	w686E address external,
-	w6870 address external,
-	b6872 byte external,
-	b6873(6) byte external,
-	b6879(6) byte external,
-	b687F byte external,
-	b6880 byte external,
-	b6881 byte external,
-	b6882 byte external,
-	b6883 byte external,
-	b6884 byte external,
-	b6885 byte external,
-	objfd address external,
-	xreffd address external,
-	infd address external,
-	outfd address external,
-/*	pad688E address, */
-	statusIO address external,
-	openStatus address external,
-/*	pad6894 address initial(0FFFFh), */
-	asmErrCode byte external,
-/*	pad6897 byte initial(0), */
-	primaryValid byte external,
-/* end */
-/*	pad6899 byte initial(0), */
-/* ov4 compat 2C9F */
-	b689A byte external,
-	b689B byte external,
-	b689C byte external,
-/*	pad689D(2) byte, */
-	curCol byte external,
-	w68A0 address external,
-	w68A2 address external,
-	lineCnt address external,
-	w68A6 address external,
-	pageCnt address external,
-/*	pad68AA byte, */
-	b68AB byte external,
-/*	pad68AC byte, */
-	b68AD byte external,
-	b68AE(8) byte external,
-	w68B6 address external,
-	b68B8(200) byte external,
-	outbuf(128) byte external,
-/* end */
-	b6A00 byte external,
-/* ov4 compat 2F57 */
-	out$p address external,
-	endOutBuf address external,
-/*	pad6A05 address initial(.outbuf), */
-/*	pad6A07 byte initial(0), */
-	objFile(15) byte external,
-	lstFile(15) byte external,
-	aF0Asxref$tmp(1) byte external,
-	aF0Asxref(1) byte external,
-	aF0Asmac$tmp(1) byte external,
-	w6A4E address external,
-	bp6A4E(2) byte external,
-/*	pad6A50(2) byte initial('  '),	*/	/* protects for very big files */
-	asciiLineNo(4) byte external,
-	b6A56 byte external,
-	b6A57(4) byte external,
-	ctlDEBUG byte external,
-	controls(1) byte external,
-	ctlMACRODEBUG byte external,
-	ctlXREF byte external,
-	ctlSYMBOLS byte external,
-	ctlPAGING byte external,
-	ctlTTY byte external,
-	ctlMOD85 byte external,
-	ctlPRINT byte external,
-	ctlOBJECT byte external,
-	ctlMACROFILE byte external,
-	ctlPAGEWIDTH byte external,
-	ctlPAGELENGTH byte external,
-/*	pad6A67 byte initial(0), */		/* INCLUDE */
-	ctlTITLE byte external,
-/*	pad6A69(2) byte,*/			/* SAVE, RESTORE */ 
-	ctlEJECT byte external,
-	ctlLIST byte external,
-	ctlGEN byte external,
-	ctlCOND byte external,
-	b6A6F byte external,
-	titleLen byte external,
-	b6A71 byte external,
-/*	pad6A72(3) byte initial(78h, 0FFh), */
-	controlSeen(12) byte external,
-	saveStack(24) byte external,
-	saveIdx byte external,
-	ctlTITLESTR(64) byte external,
-	tokBufLen byte external,
-	tokType byte external,
-	controlId byte external,
-	tokBuf(64) byte external,
-	tokBufIdx byte external,
-	w6B1E address external,
-/* end */
-	b6B20 byte external,
-	MacroDebugOrGen byte external,
-/* ov4 compat 2F56 */
-	scanCmdLine byte external,
-	b6B23 byte external,
-	b6B24 byte external,
-	b6B25 byte external,
-	has16bitOperand byte external,
-	phase byte external,
-	b6B28 byte external,
-	b6B29 byte external,
-	opType byte external,
-	b6B2B byte external,
-	b6B2C byte external,
-	b6B2D byte external,
-	finished byte external,
-	b6B2F byte external,
-	b6B30 byte external,
-	b6B31 byte external,
-	b6B32 byte external,
-	b6B33 byte external,
-	b6B34 byte external,
-	b6B35 byte external,
-	b6B36 byte external,
-	segSize(4) address external,
-/*	padw6B3E(2) byte initial(0, 0), */
-	w6B41(3) address external,
-	cmdLineBuf(129) byte external,
-	actRead address external,
-	errCnt address external,
-/*	padw6BCB(2) byte, */
-	w6BCE address external,
-/*	pad6BD0(3) byte initial(0), */
-	zero address external,
-	cmdch$p address external,
-	controls$p address external,
-	b6BD9 byte external,
-/*	pad6BDA byte, */
-	ii byte external,
-	b6BDC byte external,
-	jj byte external,
-/* end */
-/* ov4 compat 2F57 */
-	curFileName$p address external,
-	w6BE0 address external,
-	bp6BE0(2) byte external,
-	w6BE2 address external;
-/* end */
+/* character classes */
+CC$BAD          '0'
+CC$WS           '1'
+CC$SEMI         '2'
+CC$COLON        '3'
+CC$CR           '4'
+CC$PUNCT        '5'
+CC$DOLLAR       '6'
+CC$QUOTE        '7'
+CC$DIGIT        '8'
+CC$LET          '9'
+CC$ESC          '11'
+
+TT$ID           '0'
+TT$NUM          '2'
+TT$STR          '4'
+
+/* ISIS syscall ids */
+IOPEN           '0'
+ICLOSE          '1'
+IDELETE         '2'
+IREAD           '3'
+IWRITE          '4'
+ISEEK           '5'
+ILOAD           '6'
+IEXIT           '9'
+IRESCAN         '11'
+IERROR          '12'
+
+/* user defined types */
+TOKENSYM$T      'structure(w0 address, w2 address, w4 address, type byte, flags byte)'
+FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
+MACRO$T1	'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 address'
+MACRO$T2        'buf$p address, blk address, w10 address, w12 address, w14 address'
+MACRO$T         'structure(MACRO$T1,MACRO$T2)'
+CONTENT$T       'structure(type byte, len address, segid byte, offset address, dta(122) byte, crc byte)'
+EOF$T           'structure(type byte, len address, crc byte)'
+EXTNAMES$T	'structure(type byte, len address, dta(125) byte)'
+EXTREF$T        'structure(type byte, len address, hilo byte, dta(30) address, crc byte)'
+INTERSEG$T      'structure(type byte, len address, segid byte, hilo byte, dta(29) address, crc byte)'
+MODEND$T        'structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte)'
+MODHDR$T	'structure(type byte, len address, dta(26) byte)'
+PUBLICS$T       'structure(type byte, len address, segid byte, dta(124) byte, crc byte)'
+RELOC$T         'structure(type byte, len address, hilo byte, dta(62) address)'
+SYMENTRY$T	'structure(tok(2) address, b4 byte, delta byte, type byte, flags byte)'
+
+/* common based variables */
+curTokenSym     "TOKENSYM$T"..curTokenSym$p
+
+$file(asm41.plm)
+b$3782          B
+b$3783          B
+w$3780          A
+
+$file(asm41.plm,asm51.plm)
+aBadSyntax      BS
+aCo             BS
+aCommand        BS
+aEof            BS
+aError          BS
+aError$0        BS
+aFile           BS
+aIsisIi80808085 BS
+aMemory         BS
+aModulePage     BS
+ascCRLF         BS
+aStack          BS
+aTable          BS
+bTRUE           B
+bZERO           B
+errStrs         AS
+errStrsLen      BS
+spaces24        BS
+
+$file(asm42.plm)
+isGT            PB
+isLT            PB
+sub$3D34        P(B arg1b)
+sub$3D55        P(B arg1b)
+sub$3DA4        P
+sub$3DFB        P
+
+$file(asm42.plm,asm52.plm)
+chkGenObj       PB
+
+$file(asm42.plm,asm52.plm,asm801.plm)
+blankAsmErrCode PB
+blankMorPAsmErrCode PB
+closeF          P(A arg1w)
+flushout        P
+getNibble       P(A bp,B idx)B
+inOpen          P(A path$p,A access)A
+ioErrChk        P
+ioError         P(A arg1w)
+isComma         PB
+isCR            PB
+isPhase1        PB
+isPhase2Print   PB
+isRParen        PB
+isSpace         PB
+isTab           PB
+isWhite         PB
+nibble2Ascii    P(B n)B
+nxtCmdCh        PB
+outch           P(B c)
+outStrN         P(A s,B n)
+physmem         PA
+preStatementControls P
+put2Hex         P(A arg1w,B arg2b)
+runtimeError    P(B arg1b)
+skip2EOL        P
+sourceError     P(B arg1b)
+wrConsole       P(A buf$p,A count)
+
+
+$file(asm43.pl3)
+readM           P(A arg1w)
+sub$3FA9        PB
+sub$40B9        P
+writeM          P
+
+$file(asm43.pl3,asm82.pl3)
+skip2NextLine   P
+skipWhite       P
+skipWhite$2     P
+sub$3F19        P
+
+/* $file(asm44.plm) */
+
+$file(asm44.plm,asm83.plm)
+b4181           BS
+getPrec         P(B arg1b)B
+sub$425B        P(B arg1b)B
+sub$4274        P
+sub$4291        P
+sub$43D2        P
+sub$43DD        PA
+sub$450F        P(B arg1b)
+sub$4646        PB
+sub$465B        PB
+sub$467F        P(B arg1b,A arg2w)
+swapAccBytes    P
+testBit         P(B arg1b,A arg2w)B
+
+$file(asm45.plm)
+pad9B73         A
+sub$4C1E        P
+
+$file(asm45.plm,asm55.plm,asm851.plm)
+isSkipping      PB
+strUCequ        P(A arg1w,A arg2w)B
+sub$546F        P
+
+/* $file(asm46.pl3) */
+$file(asm46.pl3,asm84.pl3)
+b6C21           B
+b6C22           B
+b6C23           B
+b6C27           B
+b6C30           B
+fileIdx         B
+files           "FILE$T"S
+includefd       A
+off6C25         A
+off6C2C         A
+off6C2E         A
+rootfd          A
+closeI          P
+readF           P(B arg1b,A arg2w,A arg3w)
+readI           P(A arg1w)
+seekI           P(B arg1b)
+sub$4879        PB
+sub$4904        P
+
+/* $file(asm46.pl3) */
+
+/* $file(asm47.pl3) */
+
+$file(asm47.pl3,asm85.pl3)
+cond2Acc        P(B arg1b)
+sub$4AAA        P(B arg1b)
+sub$4B57        P(B arg1b)
+sub$540D        P
+
+$file(asm48.pl3)
+b$9C3A          B
+sub$5CAD        P(A arg1w,B arg2b)
+sub$5CE8        P(A arg1w,B arg2b)
+sub$65D9        P
+
+$file(asm48.pl3,asm86.pl3)
+getCh           PB
+getChClass      PB
+lookup          P(B arg1b)B
+unpackToken     P(A src,A dst)
+
+$file(asm49.pl3)
+collectByte     P(B arg1b)
+nestIFX         P(B arg1b)
+sub$676D        P(B arg1b)
+
+$file(asm49.pl3,asm861.plm)
+balanceError    P
+commandError    P
+doubleDefError  P
+expressionError P
+fileError       P
+getId           P(B arg1b)
+getNum          P
+getStr          P
+haveTokens      PB
+illegalCharError P
+locationError   P
+multipleDefError P
+nameError       P
+nestingError    P
+OpcodeOperandError P
+operandError    P
+phaseError      P
+popToken        P
+pushToken       P(B arg1b)
+stackError      P
+syntaxError     P
+undefinedSymbolError P
+valueError      P
+
+$file(asm4A.pl3)
+sub$70D7        P
+
+$file(asm4B.pl3)
+b$9C77          B
+sub$72A4        P(B arg1b)
+sub$7327        P
+sub$73AD        P
+sub$7517        P
+sub$753E        P
+sub$75FF        P
+sub$76CE        P
+sub$770B        P
+sub$7844        P
+sub$787A        P
+sub$78CE        P
+
+$file(asm4C.pl3)
+symb            BS..curTokenSym$p
+
+$file(asm4C.pl3,asmov2.pl3)
+ovl11           P
+ovl8            P
+sub$6E32        P
+writeExtName    P
+writeModend     P
+writeModhdr     P
+writeRec        P(A rec$p)
+
+$file(asm4D.pl3)
+outStr          P(A arg1w)
+sub$8447        P
+sub$872E        P
+sub$8915        P
+
+$file(asm4D.pl3,asmov1.pl3)
+asmComplete     P
+newPage         P
+newPageHeader   P
+ovl9            P
+printCmdLine    P
+printDecimal    P(A arg1w)
+skipToEOP       P
+sub$6F4D        P
+sub$721E        PB
+sub$7229        P
+sub$72D8        P
+
+/* $file(asm4E.plm) */
+
+$file(asm4E.plm,asm5D.plm)
+getAsmFile      P
+
+$file(asm4E.plm,asm5D.plm,asmov3.plm)
+aDebug          BS
+aExtents        BS
+addExtents      P
+cmdSkipWhite    P
+getDrive        PB
+resetData       P
+sub$70EE        P
+
+
+
+/* $file(asm51.plm) */
+
+$file(asm51.plm,asm801.plm)
+signonMsg       BS
+
+/* $file(asm52.plm) */
+$file(asm52.plm,asm801.plm)
+initialControls P
+sub$3DCE        P
+
+/* $file(asm55.plm) */
+$file(asm55.plm,asm851.plm)
+sub$54FD        P
+
+/* $file(asm57.pl3) */
+$file(asm57.pl3,asm85.pl3)
+sub$4B72        P
+sub$518F        P
+
+/* $file(asm5D.plm) */
+
+$file(asm801.plm)
+ovlFile         BS
+ovlMgr          P(B ovl)
+sub$3A71        PB
+
+/* $file(asm82.pl3) */
+/* $file(asm83.plm) */
+/* $file(asm84.pl3) */
+/* $file(asm85.pl3) */
+/* $file(asm851.plm) */
+
+$file(asm86.pl3)
+b6CE4           B
+chkLF           P
+insertSym       P
+sub$5819        P(A arg1w,B arg2b)
+
+$file(asm861.plm)
+addByte2Tok     P(B arg1b)
+nestIF          P(B arg1b)
+unnestIF        P(B arg1b)
+
+$file(asmov0.pl3)
+parseControls   P
+
+$file(asmov1.pl3)
+ovl10           P
+ovl3            P
+sub$7041        P
+
+/* $file(asmov2.pl3) */
+
+$file(asmov3.plm)
+getAsmFileX     P
+
+$file(close.plm)
+close           P(A conn,A status$p)
+
+$file(delete.plm)
+delete          P(A path$p,A status$p)
+
+$file(error.plm)
+error           P(A error$num)
+
+$file(exit.plm)
+exit            P
+
+/* these share a common file with build controlled by $IF statements */
+$file(glb.plm,glb4.plm,glb5.plm)
+accum1          A
+accum1$hb       B
+accum1$lb       B
+accum2          A
+accum2$hb       B
+accum2$lb       B
+activeSeg       B
+actRead         A
+aF0Asmac$tmp    BS
+aF0Asxref       BS
+aF0Asxref$tmp   BS
+alignTypes      BS
+argNestCnt      B		/* glb4 */
+asciiLineNo     BS
+asmErrCode      B
+azero           A
+b6521           B
+b6524           B
+b6525           B
+b6526           BS
+b652B           BS
+b652F           B
+b6742           B
+b6743           B
+b6744           B
+b6748           B
+b6749           B
+b674A           BS
+b6754           B
+b6855           B
+b6856           B
+b6857           B
+b6858           B
+b6859           B
+b6872           B
+b6873           BS
+b6879           BS
+b687F           B
+b6880           B
+b6881           B
+b6882           B
+b6883           B
+b6884           B
+b6885           B
+b6897           B
+b689A           B
+b689B           B
+b689C           B
+b68AB           B
+b68AD           B
+b68AE           BS
+b68B8           BS
+b6A00           B
+b6A56           B
+b6A57           BS
+b6A6F           B
+b6A71           B
+b6B20           B		/* glb & glb5 */
+b6B23           B
+b6B24           B
+b6B25           B
+b6B28           B
+b6B29           B
+b6B2B           B
+b6B2C           B
+b6B2D           B
+b6B2F           B
+b6B30           B
+b6B31           B
+b6B32           B
+b6B33           B
+b6B34           B
+b6B35           B
+b6B36           B
+b6BD9           B
+b6BDA           B
+b6BDC           B
+b$8FD5          BS		/* glb4 */
+b$9058          B		/* glb4 */
+b$9059          B		/* glb4 */
+b$905A          B		/* glb4 */
+b$905B          B		/* glb4 */
+b$905C          B		/* glb4 */
+b$905D          B		/* glb4 */
+b$905E          B		/* glb4 */
+b$9060          B		/* glb4 */
+b$9061          B		/* glb4 */
+b$9062          B		/* glb4 */
+b$9063          B		/* glb4 */
+b$9064          B		/* glb4 */
+b$9065          B		/* glb4 */
+b$9066          B		/* glb4 */
+b$91A1          B		/* glb4 */
+b$91A2          B		/* glb4 */
+b$91A3          B		/* glb4 */
+b$91A4          BS		/* glb4 */
+b$9A77          B		/* glb4 */
+bp6A4E          BS
+bp6BE0          BS
+cmdch$p         A
+cmdLineBuf      BS
+controlId       B
+controls        BS
+controlSeen     BS
+controls$p      A
+ctlCOND         B
+ctlDEBUG        B
+ctlEJECT        B
+ctlGEN          B
+ctlLIST         B
+ctlMACRODEBUG   B
+ctlMACROFILE    B
+ctlMOD85        B
+ctlOBJECT       B
+ctlPAGELENGTH   B
+ctlPAGEWIDTH    B
+ctlPAGING       B
+ctlPRINT        B
+ctlSYMBOLS      B
+ctlTITLE        B
+ctlTITLESTR     BS
+ctlTTY          B
+ctlXREF         B
+curChar         B
+curCol          B
+curFileName$p   A
+curMacroBlk     A		/* glb4 */
+curTokenSym$p   A
+curTokStart     A
+endLineBuf      A
+endOutBuf       A
+errCnt          A
+extNamIdx       B
+finished        B
+fix20Idx        B
+fix22Idx        B
+fix24Idx        B
+fix6Idx         B
+has16bitOperand B
+ifDepth         B
+ii              B
+inElse          BS
+infd            A
+jj              B
+lineBuf         BS
+lineCnt         A
+lookAhead       B
+lstFile         BS
+macroBuf        BS		/* glb4 */
+macroCondSP     B		/* glb4 */
+macroCondStk    BS		/* glb4 */
+MacroDebugOrGen B		/* glb & glb5 */
+macrofd         A
+macroStk        "MACRO$T"S	/* glb4 */
+maxMacroBlk     A		/* glb4 */
+mem             BS		/* glb4 */
+moduleNameLen   B
+nxtMacroBlk     A		/* glb4 */
+objfd           A
+objFile         BS
+off$9056        A		/* glb4 */
+openStatus      A
+opSP            B
+opStack         BS
+opType          B
+outbuf          BS
+outfd           A
+out$p           A
+pageCnt         A
+phase           B
+primaryValid    B
+r$content       "CONTENT$T"
+reget           B
+r$eof           "EOF$T"
+r$extnames1     "EXTNAMES$T"
+r$extnames2     "EXTNAMES$T"
+r$extref        "EXTREF$T"
+r$interseg      "INTERSEG$T"
+r$modend        "MODEND$T"
+r$publics       "PUBLICS$T"
+r$reloc         "RELOC$T"
+saveIdx         B
+saveStack       BS
+scanCmdLine     B
+segSize         AS
+skipping        BS
+startDefined    B
+startOffset     A
+startSeg        B
+statusIO        A
+symTab          AS
+titleLen        B
+tmac$b3         B		/* glb4 */
+tmac$blk        A		/* glb4 */
+tmac$buf$p      A		/* glb4 */
+tmac$ifDepth    B		/* glb4 */
+tmac$macroCondSP B		/* glb4 */
+tmac$mtype      B		/* glb4 */
+tmac$w10        A		/* glb4 */
+tmac$w12        A		/* glb4 */
+tmac$w14        A		/* glb4 */
+tmac$w4         A		/* glb4 */
+tokBuf          BS
+tokBufIdx       B
+tokBufLen       B
+tokenAttr       BS
+tokenSP         B
+tokenSym        AS
+tokenSymId      AS
+tokenType       BS
+toksiz          BS
+tokst           AS
+tokType         B
+w651F           A
+w6522           A
+w6750           A
+w6752           A
+w685A           A
+w685C           A
+w6866           A
+w6868           AS
+w686E           A
+w6870           A
+w68A0           A
+w68A2           A
+w68A6           A
+w68B6           A
+w6A4E           A
+w6B1E           A
+w6B41           AS
+w6BCE           A
+w6BE0           A
+w6BE2           A
+w$9054          A		/* glb4 */
+w$9068          A		/* glb4 */
+w$906A          A		/* glb4 */
+w$9114          A		/* glb4 */
+w$9197          A		/* glb4 */
+w$9199          A		/* glb4 */
+w$919B          A		/* glb4 */
+w$919D          A		/* glb4 */
+w$919F          A		/* glb4 */
+wZERO           A
+xreffd          A
+
+$file(key4.plm)
+extKeywords     AS
+
+$file(keywrd.plm)
+stdKeywords     AS
+
+$file(load.plm)
+load            P(A path$p,A load$offset,A switch,A entry$p,A status$p)
+
+$file(open.plm)
+open            P(A conn$p,A path$p,A access,A echo,A status$p)
+
+$file(read.plm)
+read            P(A conn,A buff$p,A count,A actual$p,A status$p)
+
+$file(rescan.plm)
+rescan          P(A conn,A status$p)
+
+$file(seek.plm)
+seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
+
+$file(write.plm)
+write           P(A conn,A buff$p,A count,A status$p)
+
 global.cmn
-declare lit literally 'literally',
-	TRUE lit '0FFh',
-	FALSE lit '0';
-declare tokenSize lit 'toksiz',
-	tokStart lit 'tokst',
+declare
 $IF OVL=4
 	IN$BUF$SIZE lit '512',
 	OUT$BUF$SIZE lit '512',
@@ -291,9 +688,7 @@ $IF OVL=4
 		5 -> ???
 	*/
 		
-	macroStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) public,
+	macroStk(10) MACRO$T public,
 	(tmac$macroCondSP, tmac$ifDepth,  tmac$mtype, tmac$b3) byte public at (.macroStk(0)),
 	(tmac$w4, tmac$buf$p) address public at (.macroStk(0).w4),
 	tmac$blk address public  at (.macroStk(0).blk) initial(0FFFFh),
@@ -326,16 +721,16 @@ $ENDIF
 	extNamIdx byte public initial(0),
 	b652B(4) byte public initial(0FFh, 0FFh, 0FFh, 0FFh),
 	b652F byte public initial(0FFh),
-	r$eof structure(type byte, len address, crc byte) public initial(0Eh, 0),
-	r$extnames1 structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
+	r$eof EOF$T public initial(0Eh, 0),
+	r$extnames1 EXTNAMES$T public initial(18h, 0, 0),
 	moduleNameLen byte public initial(6),
-	r$extnames2 structure(type byte, len address, dta(125) byte) public initial(18h, 0, 0),
-	r$content structure(type byte, len address, segid byte, offset address, dta(122) byte, crc byte) public at(.r$extnames2),
-	r$publics structure(type byte, len address, segid byte, dta(124) byte, crc byte) public initial (16h, 1, 0, 0, 0),
-	r$reloc structure(type byte, len address, hilo byte, dta(62) address) public at(.r$publics),
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(29) address, crc byte) public,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address, crc byte) public,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) public initial( 4, 4, 0),
+	r$extnames2 EXTNAMES$T public initial(18h, 0, 0),
+	r$content CONTENT$T public at(.r$extnames2),
+	r$publics PUBLICS$T public initial (16h, 1, 0, 0, 0),
+	r$reloc RELOC$T public at(.r$publics),
+	r$interseg INTERSEG$T public,
+	r$extref EXTREF$T public,
+	r$modend MODEND$T public initial( 4, 4, 0),
 	wZERO address public initial(0),
 	pad6741 byte initial(0ah),
 	b6742 byte public initial(0),
@@ -359,7 +754,7 @@ $ENDIF
 	curTokStart address public at(.tokStart),
 	tokenSym(9) address public initial(0),
 	curTokenSym$p address public at(.tokenSym(0)),
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
+	curTokenSym based curTokenSym$p TOKENSYM$T,
 	tokenType(9) byte public,
 	tokenSize(9) byte public initial(0),
 	tokenAttr(9) byte public,
@@ -529,7 +924,7 @@ $ENDIF
 	padw6BCB(2) byte,
 	w6BCE address public,
 	pad6BD0(3) byte initial(0),
-	zero address public initial(0),
+	azero address public initial(0),
 	cmdch$p address public initial(.cmdLineBuf),
 	controls$p address public,
 	b6BD9 byte public initial(0),
@@ -551,41 +946,8 @@ $ENDIF
 asm80$1:
 do;
 
-$include(global.inc)
 
-close: procedure(w1, w2) external; declare (w1, w2) address; end;
-delete: procedure(w1, w2) external; declare (w1, w2) address; end;
-error: procedure(w1) external; declare w1 address; end;
-exit: procedure external; end;
-load: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-open: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-printCmdLine: procedure external; end;
-writeModhdr: procedure external; end;		/* in overlay 2 */
-parseControls: procedure external; end;
-asmComplete: procedure external; end;
-writeModend: procedure external; end;
-ovl9: procedure external; end;
-ovl10: procedure external; end;
-ovl11: procedure external; end;
-skip2NextLine: procedure external; end;
-sub$4904: procedure external; end;
-sub$540D: procedure external; end;
-sub$54FD: procedure external; end;
-writeRec: procedure(w) external; declare w address; end;	/* in overlay 2 */
-getAsmFileX: procedure external; end;
-printDecimal: procedure(w1) external; declare w1 address; end;		/* overlay 1 */
-resetData: procedure external; end;
-sub$70EE: procedure external; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-
-strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
-isSkipping: procedure byte external; end;
-getCh: procedure byte external; end;
-
-
-
-declare (b6C21, b6C27, b6C30) byte external,
-	(includefd, rootfd, off6C2C, off6C2E) address external;
+$include(asm801.ipx)
 
 declare	spaces24(*) byte public data('                        ', 0),
 	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
@@ -1025,7 +1387,7 @@ end;
 asm80$2:
 do;
 
-$include(global.inc)
+$include(asm82.ipx)
 
 declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1038,33 +1400,6 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
 			   0FFh, 0, 0, 0);
 
-getNum: procedure external; end;
-packToken: procedure external; end;
-popToken: procedure external; end;
-pushToken: procedure(b) external; declare b byte; end;
-skip2EOL: procedure external; end;
-preStatementControls: procedure external; end;
-sub$43D2: procedure external; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$5819: procedure(w, b) external; declare w address, b byte; end;
-chkLF: procedure external; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-illegalCharError: procedure external; end;
-addByte2Tok: procedure(b) external; declare b byte; end;
-getId: procedure(b) external; declare b byte; end;
-getStr: procedure external; end;
-
-isWhite: procedure byte external; end;
-isTab: procedure byte external; end;
-getCh: procedure byte external; end;
-getChClass: procedure byte external; end;
-lookup: procedure(b) byte external; declare b byte; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-
-declare b6CE4 byte external,
-	bTRUE byte external,
-	spaces24(1) byte external;
 
 skipWhite: procedure public;
 	do while isWhite;
@@ -1223,7 +1558,13 @@ end;
 asm83.plm
 asm80$3: do;
 
-$include(global.inc)
+/* to force the code generation this needs a non-standard definition
+   of outStrN
+*/
+outStrN: procedure(s, n) external; declare s address, n address; end;
+
+
+$include(asm83.ipx)
 
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
@@ -1241,22 +1582,6 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1);
 
-
-flushout: procedure external; end;
-outch: procedure(b) external; declare b byte; end;
-outStrN: procedure(w1, w2) external; declare w1 address, w2 address; end;
-popToken: procedure external; end;
-closeF: procedure(w) external; declare w address; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-undefinedSymbolError: procedure external; end;
-operandError: procedure external; end;
-nibble2Ascii: procedure(b) byte external; declare b byte; end;
-
-
-isPhase1: procedure byte external; end;
-isSkipping: procedure byte external; end;
 
 
 testBit: procedure(arg1b, arg2w) byte public;
@@ -1514,7 +1839,7 @@ end;
 asm84.pl3
 asm80$4: do;
 
-$include(global.inc)
+$include(asm84.ipx)
 
 declare	b6C21 byte public initial(0),
 	b6C22 byte public initial(0),
@@ -1527,7 +1852,7 @@ declare	b6C21 byte public initial(0),
 	off6C2C address public initial(.b68B8 - 1),
 	off6C2E address public initial(.b68B8),
 	b6C30 byte public initial(0), 
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) public,
+	files(6) FILE$T public,
 	seekIBlk address,
 	seekIByte address,
 	pad6CAD byte,  
@@ -1537,13 +1862,6 @@ declare	b6C21 byte public initial(0),
 	readFActual address,
 	pad6CBC address;
 
-
-close: procedure(w1, w2) external; declare (w1, w2) address; end;
-ioError: procedure(w1) external; declare w1 address; end;
-ioErrChk: procedure external; end;
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
 
 
 readF: procedure(arg1b, arg2w, arg3w) public;
@@ -1657,7 +1975,7 @@ end;
 asm85.pl3
 asm80$5: do;
 
-$include(global.inc)
+$include(asm85.ipx)
 
 declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
@@ -1673,49 +1991,7 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 
 declare pad byte;
 
-declare	(spaces24, aModulePage)(1) byte external,
-	b6CE4 byte external,
-	b4181(1) byte external,
-	accum(4) byte at(.accum1);
-
-exit: procedure external; end;
-flushout: procedure external; end;
-sub$6E32: procedure external; end;
-writeExtName: procedure external; end;
-ovl3: procedure external; end;
-writeModhdr: procedure external; end;
-ovl8: procedure external; end;
-ovlMgr: procedure(b1) external; declare b1 byte; end;
-popToken: procedure external; end;
-pushToken: procedure(b1) external; declare b1 byte; end;
-sourceError: procedure(b1) external; declare b1 byte; end;
-sub$3DCE: procedure external; end;
-sub$3F19: procedure external; end;
-sub$4274: procedure external; end;
-sub$4291: procedure external; end;
-getPrec: procedure(b1) byte external; declare b1 byte; end;
-sub$450F: procedure(b1) external; declare b1 byte; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$54FD: procedure external; end;
-sub$5819: procedure(w, b) external; declare w address, b byte; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-nestingError: procedure external; end;
-stackError: procedure external; end;
-balanceError: procedure external; end;
-operandError: procedure external; end;
-nestIF: procedure(b) external; declare b byte; end;
-unnestIF: procedure(b) external; declare b byte; end;
-addByte2Tok: procedure(b) external; declare b byte; end;
-sub$425B: procedure(b) byte external; declare b byte; end;
-sub$43DD: procedure address external; end;
-isPhase1: procedure byte external; end;
-haveTokens: procedure byte external; end;
-
-
-
-
+declare	accum(4) byte at(.accum1);
 
 
 sub$4AAA: procedure(arg1b) public;
@@ -2157,29 +2433,10 @@ end;
 asm851.plm
 asm851: do;
 
-$include(global.inc)
+$include(asm851.ipx)
 
 declare pad1 address data(40h);
 declare pad2 address;
-
-
-exit: procedure external; end;
-flushout: procedure external; end;
-ovl3: procedure external; end;
-ovl8: procedure external; end;
-ovlMgr: procedure(b) external; declare b byte; end;
-popToken: procedure external; end;
-sub$3DCE: procedure external; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-syntaxError: procedure external; end;
-sub$7041: procedure external; end;			/* in overlay 1 */
-sub$6E32: procedure external; end;
-sub$4646: procedure byte external; end;
-haveTokens: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isPhase2Print: procedure byte external; end;
-sub$465B: procedure byte external; end;
-sub$3A71: procedure byte external; end;
 
 
 
@@ -2311,8 +2568,7 @@ end;
 asm86.pl3
 asm80$6: do;
 
-$include(global.inc)
-
+$include(asm86.ipx)
 
 
 declare	b5666(*) byte data(9, 2Dh, 80h),
@@ -2331,23 +2587,6 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			     0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,	/* 60 */
 			     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);	/* 70 */
 
-
-popToken: procedure external; end;
-pushToken: procedure(b) external; declare b byte; end;
-runtimeError: procedure(b) external; declare b byte; end;
-sourceError: procedure(b) external; declare b byte; end;
-syntaxError: procedure external; end;
-locationError: procedure external; end;
-multipleDefError: procedure external; end;
-isPhase1: procedure byte external; end;
-isSkipping: procedure byte external; end;
-sub$4879: procedure byte external; end;
-nxtCmdCh: procedure byte external; end;
-phaseError: procedure external; end;
-undefinedSymbolError: procedure external; end;
-illegalCharError: procedure external; end;
-blankAsmErrCode: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
 
 
 unpackToken: procedure(src, dst) public;
@@ -2555,7 +2794,7 @@ lookup: procedure(arg1b) byte public;
 	declare arg1b byte;
 	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
 		x structure(i byte), b6CFB byte;
-	declare symEntry based entryOffset structure(tok(2) address, b4 byte, delta byte, type byte, flags byte),
+	declare symEntry based entryOffset SYMENTRY$T,
 		packedTok based packedTok$p (2) address; 
 	declare addr based w6BE0 address,
 		addrAlt based w6BE0 address;
@@ -2680,15 +2919,7 @@ end;
 asm861.plm
 asm861: do;
 
-$include(global.inc)
-
-declare bZERO byte external;
-
-sourceError: procedure(b) external; declare b byte; end;
-runtimeError: procedure(b) external; declare b byte; end;
-getChClass: procedure byte external; end;
-getCh: procedure byte external; end;
-
+$include(asm861.ipx)
 
 
 syntaxError: procedure public;
@@ -2928,7 +3159,7 @@ end;
 asmov0.pl3
 asmov0: do;
 
-$include(global.inc)
+$include(asmov0.ipx)
 
 declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   34h, 'XREF', 37h, 'SYMBOLS',
@@ -2943,29 +3174,6 @@ declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 
 declare (b7463, b7464, b7465, controlError) byte;
 
-
-skipWhite$2: procedure external; end;
-skipWhite: procedure external; end;
-skip2EOL: procedure external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-chkLF: procedure external; end;
-commandError: procedure external; end;
-stackError: procedure external; end;
-fileError: procedure external; end;
-popToken: procedure external; end;
-getId: procedure(b) external; declare b byte; end;
-getNum: procedure external; end;
-getStr: procedure external; end;
-isCR: procedure byte external; end;
-isPhase1: procedure byte external; end;
-sub$43DD: procedure address external; end;
-getCh: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isWhite: procedure byte external; end;
-isRParen: procedure byte external; end;
-
-declare (b6C21, b6C22, fileIdx) byte external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external;
 
 chkParen: procedure(arg1b) byte;
 	declare arg1b byte;
@@ -3343,8 +3551,9 @@ end;
 end;
 asmov1.pl3
 asmov1: do;
-
-$include(global.inc)
+/* override to force code */
+put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+$include(asmov1.ipx)
 
 declare	aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
 	aNoErrors(*) byte initial('   NO ERRORS'),
@@ -3366,26 +3575,6 @@ declare	aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
 	a1234(*) byte data('  1234');	
 
 
-
-exit: procedure external; end;
-flushout: procedure external; end;
-ioErrChk: procedure external; end;
-load: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-outch: procedure(b) external; declare b byte; end;
-closeF: procedure(w) external; declare w address; end;
-put2Hex: procedure(w1, w2) external; declare (w1, w2) address; end;
-sub$546F: procedure external; end;
-unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
-sub$465B: procedure byte external; end;
-isPhase2Print: procedure byte external; end;
-isSkipping: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-physmem: procedure address external; end;
-
-
-declare (aIsisIi80808085, spaces24)(1) byte external,
-	(b6C21, fileIdx, b6C30) byte external,
-	(off6C2C, off6C2E) address external;
 
 out2Hex: procedure(arg1b);
 	declare arg1b byte;
@@ -3808,8 +3997,7 @@ end;
 asmov2.pl3
 asmov2: do;
 
-$include(global.inc)
-declare (aModulePage)(1) byte external;
+$include(asmov2.ipx)
 
 
 declare	controlTable(*) byte data(1, 2, 1, 3),
@@ -3818,19 +4006,8 @@ declare	controlTable(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	r$modhdr structure(type byte, len address, dta(26) byte) initial(2),
-	(dta$p, recSym$p) address;
+declare	r$modhdr MODHDR$T initial(2), (dta$p, recSym$p) address;
 
-
-
-
-ioErrChk: procedure external; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-sub$4646: procedure byte external; end;
-isSkipping: procedure byte external; end;
 
 
 writeRec: procedure(rec$p) public;
@@ -4139,9 +4316,9 @@ end;
 ovl11: procedure public;
 	if w6750 <> 0 then
 	do;
-		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
+		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
 		call writeModhdr;
-		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
+		call seek(objfd, 4, .azero, .azero, .statusIO);		/* SEEKEND */
 	end;
 	r$publics.type = 16h;
 	r$publics.len = 1;
@@ -4155,30 +4332,10 @@ end;
 asmov3.plm
 asm88: do;
 
-$include(global.inc)
-
-declare	(signonMsg, ovlFile)(1) byte external,
-	(bZERO, bTRUE, b6C21, fileIdx) byte external,
-	(off6C25, off6C2C, off6C2E, stdKeywords, rootfd, includefd) address external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external;
-
-rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
-isPhase1: procedure byte external; end;
-physmem: procedure address external; end;
-ioErrChk: procedure external; end;
-sub$3DCE: procedure external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-closeF: procedure(w) external; declare w address; end;
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
-
+$include(asmov3.ipx)
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
 	aDebug(*) byte public initial('DEBUG');
-
-declare EDATA byte external;
 
 
 /* overlay 3 appears to repair the code that starts here */
@@ -4307,7 +4464,7 @@ resetData: procedure public;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
-		call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
+		call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
 		call ioErrChk;
 	end;
 	w6870 = physmem + 0BFh;
@@ -4497,6 +4654,8 @@ end;
 asm51.plm
 asm51: do;
 
+$include(asm51.ipx)
+
 declare	spaces24(*) byte public data('                        ', 0),
 	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
 	signonMsg(*) byte public data(0Dh, 0Ah),
@@ -4519,33 +4678,6 @@ declare	spaces24(*) byte public data('                        ', 0),
 	aCo(*) byte public data(':CO:', 0);
 
 
-
-delete: procedure(w1, w2) external; declare (w1, w2) address; end;
-flushout: procedure external; end;
-writeRec: procedure(w) external; declare w address; end;	/* in overlay 2 */
-ovl10: procedure external; end;
-ovl11: procedure external; end;
-writeModhdr: procedure external; end;		/* in overlay 2 */
-asmComplete: procedure external; end;
-writeModend: procedure external; end;
-ovl9: procedure external; end;
-sub$540D: procedure external; end;
-getAsmFile: procedure external; end;
-resetData: procedure external; end;
-sub$70EE: procedure external; end;
-initialControls: procedure external; end;
-
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
-strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
-
-
-declare	(objFile, ctlXREF, ctlPRINT, ctlOBJECT, ctlMACROFILE, MacroDebugOrGen, phase) byte external,
-	(w6750, objfd, xreffd, includefd, rootfd, statusIO, infd, outfd) address external,
-	r$extnames1 structure(type byte, len address, dta(1) byte) external,
-	lstFile(1) byte external,
-	aF0Asxref$tmp(1) byte external;;
-
-	
 start$ov5:
 	call getAsmFile;
 	phase = 1;
@@ -4601,41 +4733,7 @@ end;
 asm52.plm
 asm52: do;
 
-declare TRUE literally '0FFh',
-	FALSE literally '0';
-
-close: procedure(w1, w2) external; declare (w1, w2) address; end;
-error: procedure(w1) external; declare w1 address; end;
-exit: procedure external; end;
-load: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-open: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-printCmdLine: procedure external; end;
-parseControls: procedure external; end;
-skip2NextLine: procedure external; end;
-sub$4904: procedure external; end;
-sub$54FD: procedure external; end;
-printDecimal: procedure(w1) external; declare w1 address; end;		/* overlay 1 */
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-
-getCh: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-
-declare (w6A4E, curFileName$p, w6BE0, cmdch$p, statusIO, outfd, out$p, endOutBuf) address external,
-	(openStatus, errCnt, controls$p, off6C2C, off6C2E) address external,
-	(outbuf, aError, aError$0, errStrsLen)(1) byte external,
-	(aBadSyntax, ascCRLF)(1) byte external,
-	errStrs(1) address external,
-	(phase, ctlPRINT, ctlOBJECT, tokBufIdx, scanCmdLine, b6B33, b6BD9) byte external,
-	(b6C27, asmErrCode, b6B2B, b6749, b6754, curChar, b6B20, reget) byte external,
-	(b6C21, bZERO, bTRUE, primaryValid, ctlDEBUG, ctlXREF, ctlSYMBOLS, ctlPAGING, b6C30) byte external,
-	(b6742, b6855, b6857, b6858, b6859, b6872) byte external,
-	(b687F, b6880, b6881, b6884, b6885, b689A, b689B, b689C, b68AB) byte external,
-	(b68AD, ctlEJECT, b6B23, b6B24, b6B25, has16bitOperand, b6B30, b6B31, b6B32) byte external,
-	(b6B34, b6B35, tokenSP) byte external,
-	(tokenSize, skipping, tokenType)(1) byte external;
+$include(asm52.ipx)
 
 physmem: procedure address public;
 	declare top address at(4);
@@ -4936,39 +5034,10 @@ end;
 end;
 asm55.plm
 asm851: do;
-
-declare TRUE literally '0FFh',
-	FALSE literally '0';
+$include(asm55.ipx)
 
 declare pad1 address data(40h);
 declare pad2 address;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (skipping, tokenType, tokenSize, lineBuf, asciiLineNo)(1) byte external,
-	(b6A56, b6B30, b68AD, b6B23, b6B24, tokenSP, b6BD9) byte external,
-	(b6B20, ii, b6B34, b6B2C, activeSeg, b6880, ctlXREF, phase, b6873) byte external,
-	(b6B33, finished, ctlSYMBOLS) byte external,
-	(out$p, w6BCE, w68A6) address external,
-	(tokStart, segSize)(1) address external;
-
-exit: procedure external; end;
-flushout: procedure external; end;
-ovl3: procedure external; end;
-ovl8: procedure external; end;
-popToken: procedure external; end;
-sub$3DCE: procedure external; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-syntaxError: procedure external; end;
-sub$7041: procedure external; end;			/* in overlay 1 */
-sub$6E32: procedure external; end;
-sub$4646: procedure byte external; end;
-haveTokens: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isPhase2Print: procedure byte external; end;
-sub$465B: procedure byte external; end;
-chkGenObj: procedure byte external; end;
-
 
 
 strUCequ: procedure(arg1w, arg2w) byte public;
@@ -5094,10 +5163,7 @@ end;
 end;
 asm57.pl3
 asm57: do;
-
-declare lit literally 'literally',
-	TRUE lit '0FFh',
-	FALSE lit '0';
+$include(asm57.ipx)
 
 declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
@@ -5113,57 +5179,7 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 
 declare pad byte;
 
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (b674A, alignTypes, tokenSize, tokenAttr, skipping, inElse, b6873, spaces24, aModulePage)(1) byte external,
-	(tokenType, opStack, b4181)(1) byte external,
-	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
-	(b6855, opType, b6B2B, b6B2C, b6B2F, b6B35, b6B36) byte external,
-	(activeSeg, b6B28, b6858, b68AB, b6B23, b6B24, b6B2D, b6B30, b6CE4) byte external,
-	(tokenSP, startSeg, startDefined, ifDepth, b6B32, b6B33, b6881, b6748, b6749) byte external,
-	(b6754, b6743, moduleNameLen, b6B29, b6885, b6B25, phase, b6B34, opSP, b6856, b6859) byte external,
-	(b6857, ii, finished, ctlOBJECT, b6744) byte external,
-	(accum1, accum2, startOffset, w6750, w685A, w685C, w68A6) address external,
-	accum(4) byte at(.accum1),
-	(segSize, tokenSymId, w6B41)(1) address external;
-
-exit: procedure external; end;
-flushout: procedure external; end;
-sub$6E32: procedure external; end;
-writeExtName: procedure external; end;
-ovl3: procedure external; end;
-writeModhdr: procedure external; end;
-ovl8: procedure external; end;
-popToken: procedure external; end;
-pushToken: procedure(b1) external; declare b1 byte; end;
-sourceError: procedure(b1) external; declare b1 byte; end;
-sub$3DCE: procedure external; end;
-sub$3F19: procedure external; end;
-sub$4274: procedure external; end;
-sub$4291: procedure external; end;
-getPrec: procedure(b1) byte external; declare b1 byte; end;
-sub$450F: procedure(b1) external; declare b1 byte; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$54FD: procedure external; end;
-sub$5819: procedure(w, b) external; declare w address, b byte; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-nestingError: procedure external; end;
-stackError: procedure external; end;
-balanceError: procedure external; end;
-operandError: procedure external; end;
-nestIF: procedure(b) external; declare b byte; end;
-unnestIF: procedure(b) external; declare b byte; end;
-addByte2Tok: procedure(b) external; declare b byte; end;
-sub$425B: procedure(b) byte external; declare b byte; end;
-sub$43DD: procedure address external; end;
-isPhase1: procedure byte external; end;
-haveTokens: procedure byte external; end;
-
-
-
-
+declare accum(4) byte at(.accum1);
 
 
 sub$4AAA: procedure(arg1b) public;
@@ -5598,44 +5614,7 @@ end;
 end;
 asm5D.plm
 asm5D: do;
-declare lit literally 'literally',
-	TRUE lit '0FFh',
-	FALSE lit '0',
-	CR lit '0Dh';
-
-
-declare (cmdch$p, actRead) address external,
-	(ii, jj) byte external,
-	(lstFile, objFile, cmdLineBuf, signonMsg, b674A, b68AE)(1) byte external,
-	(inElse, opStack, aF0Asxref, aF0Asxref$tmp, skipping, controlSeen)(1) byte external,
-	(bZERO, bTRUE, b6742, b6743, activeSeg, ifDepth) byte external,
-	(opSP, b6857, curChar, lookAhead, b6882, primaryValid) byte external,
-	(b68B8, b6A00, ctlLIST, ctlCOND, b6A6F, saveIdx, scanCmdLine) byte external,
-	(opType, b6B2C, finished, b6B33, b6C21, fileIdx) byte external,
-	(wZERO, w6750, w686E, w6870) address external,
-	(lineCnt, w68A6, pageCnt, w6A4E) address external,
-	(errCnt, controls$p, includefd, rootfd, stdKeywords, statusIO, infd, off6C25) address external,
-	(off6C2C, off6C2E, zero, endOutBuf) address external,
-	(w6868, w6B41, segSize, symTab)(1) address external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(122) byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(124) byte) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(29) address) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address) external;
-
-rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
-isPhase1: procedure byte external; end;
-physmem: procedure address external; end;
-ioErrChk: procedure external; end;
-sub$3DCE: procedure external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-closeF: procedure(w) external; declare w address; end;
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
-
+$include(asm5D.ipx)
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
 	aDebug(*) byte public initial('DEBUG');
@@ -5765,7 +5744,7 @@ resetData: procedure public;
 		off6C25 = .b68B8;
 		off6C2C = off6C25 - 1;
 		off6C2E = .b68B8;
-		call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
+		call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
 		call ioErrChk;
 	end;
 	w6870 = physmem + 0BFh;
@@ -5788,6 +5767,7 @@ end;
 asm41.plm
 asmov4:
 do;
+$include(asm41.ipx)
 
 declare w$3780 address public data(0),
 	b$3782 byte public data(80h),
@@ -5812,30 +5792,6 @@ declare w$3780 address public data(0),
 	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
 	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
 	aCo(*) byte public data(':CO:', 0);
-
-declare (aF0Asmac$tmp, aF0Asxref$tmp, objFile, lstFile)(1) byte external,
-	(ctlXREF, ctlPRINT, ctlOBJECT, phase) byte external,
-	(outfd, statusIO, w6750, objfd, xreffd, macrofd) address external,
-	r$extnames1 structure(type byte, len address, dta(1) byte) external;
-
-
-delete: procedure(w1, w2) external; declare (w1, w2) address; end;
-flushout: procedure external; end;
-sub$3DA4: procedure external; end;
-sub$540D: procedure external; end;
-sub$70EE: procedure external; end;
-sub$8915: procedure external; end;
-getAsmFile: procedure external; end;
-resetData: procedure external; end;
-asmComplete: procedure external; end;
-ovl9: procedure external; end;
-writeRec: procedure(arg1w) external; declare arg1w address; end;
-writeModhdr: procedure external; end;
-writeModend: procedure external; end;
-ovl11: procedure external; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
-strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
-
 
 start$ov4:
 	call getAsmFile;
@@ -5894,86 +5850,7 @@ end;
 asm42.plm
 asm42:
 do;
-
-declare TRUE literally '0FFh';
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (aBadSyntax, aError, ascCRLF, aError$0, tokenSize)(1) byte external,
-	(bZERO, bTRUE, b6749, b6754, tokenSP, tokenType) byte external,
-	(b6855, b6857, b6858, b6859, curChar, reget, b6872) byte external,
-	(b687F, b6880, b6881, b6884, b6885, asmErrCode, b6897) byte external,
-	(primaryValid, b689A, b689B, b689C, b68AB, b68AD, ctlDEBUG) byte external,
-	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlPRINT, ctlOBJECT, ctlEJECT, tokBufIdx) byte external,
-	(scanCmdLine, b6B23, b6B24, b6B25, has16bitOperand, phase, b6B2B) byte external,
-	(b6B30, b6B31, b6B32, b6B33, b6B34, b6B35, b6BD9) byte external,
-	(b6C27, b6C21, b6C30) byte external,
-	(b6742, skipping, b$9A77) byte external,
-	(cmdch$p, endOutBuf, openStatus, outbuf, outfd, out$p) address external,
-	(w6870, w6A4E, errCnt, controls$p, curFileName$p, w6BE0, statusIO) address external,
-	(errStrs)(1) address external,
-	(errStrsLen)(1) byte external,
-	(off$6C2C, off$6C2E) address external;
-
-isSkipping: procedure byte external; end;
-getCh: procedure byte external; end;
-
-
-close: procedure(w1, w2) external; declare (w1, w2) address; end;
-error: procedure(w1) external; declare w1 address; end;
-exit: procedure external; end;
-open: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-skip2NextLine: procedure external; end;
-sub$4904: procedure external; end;
-sub$4C1E: procedure external; end;
-sub$70D7: procedure external; end;
-printDecimal: procedure(w1) external; declare w1 address; end;
-printCmdLine: procedure external; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-
-
-/* global data */
-declare b$8FD5(127) byte external,
-	w$9054 address external,
-	off$9056 address external,
-	b$9058 byte external,
-	b$9059 byte external,
-	b$905A byte external,
-	b$905B byte external,
-	b$905C byte external,
-	b$905D byte external,
-	b$905E byte external,
-	b$9060 byte external,
-	b$9061 byte external,
-	b$9062 byte external,
-	b$9063 byte external,
-	b$9064 byte external,
-	b$9065 byte external,
-	b$9066 byte external,
-	argNestCnt byte external,
-	w$9068 address external,
-	w$906A address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external,
-	curMacroBlk address external,
-	nxtMacroBlk address external,
-	maxMacroBlk address external,
-	w$9114 address external,
-	macroBuf(129) byte external,
-	w$9197 address external,
-	w$9199 address external,
-	w$919B address external,
-	w$919D address external,
-	w$919F address external,
-	b$91A1 byte external,
-	b$91A2 byte external,
-	b$91A3 byte external,
-	b$91A4(1) byte external;
-
-	
-		
-	
+$include(asm42.ipx)
 
 
 physmem: procedure address public;
@@ -6258,7 +6135,7 @@ preStatementControls: procedure public;
 				b6897 = 0FFh;
 		end;
 		else
-			call sub$70D7;
+			call parseControls;
 		call sub$4C1E;
 	end;
 	reget = 1;
@@ -6268,7 +6145,7 @@ end;
 sub$3DA4: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = 0FFh;
-	call sub$70D7;
+	call parseControls;
 	if isPhase2Print then
 		call printCmdLine;
 
@@ -6294,7 +6171,7 @@ sub$3DFB: procedure public;
 	b68AD, has16bitOperand, b$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
 	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = bZERO;
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	ctlEJECT, b6857, tokenSP, b$9058, argNestCnt, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = bZERO;
+	ctlEJECT, b6857, tokenSP, b$9058, argNestCnt, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	asmErrCode = 20h;
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
@@ -6302,7 +6179,7 @@ sub$3DFB: procedure public;
 	b689A = 1;
 	w6A4E = w6A4E + 1;
 	off$9056 = .b$8FD5;
-	skipping = skipping > 0;
+	skipping(0) = skipping(0) > 0;
 end;
 
 end;
@@ -6312,7 +6189,7 @@ end;
 asm43.pl3
 asm43:
 do;
-declare packToken literally 'pckTkn';
+$include(asm43.ipx)
 
 declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -6325,55 +6202,6 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
 			   0FFh, 0, 0, 0),
 	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
-
-
-ioErrChk: procedure external; end;
-packToken: procedure external; end;
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-skip2EOL: procedure external; end;
-sub$3D34: procedure(b1) external; declare b1 byte; end;
-sub$3D55: procedure(b1) external; declare b1 byte; end;
-preStatementControls: procedure external; end;
-sub$43D2: procedure external; end;
-sub$467F: procedure(b1, w2) external; declare b1 byte, w2 address; end;
-sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-illegalCharError: procedure external; end;
-popToken: procedure external; end;
-getId: procedure(b1) external; declare b1 byte; end;
-getStr: procedure external; end;
-sub$65D9: procedure external; end;
-pushToken: procedure(b1) external; declare b1 byte; end;
-collectByte: procedure(b1) external; declare b1 byte; end;
-getNum: procedure external; end;
-sub$73AD: procedure external; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-testBit: procedure(b1, w2) byte external; declare b1 byte, w2 address; end;
-sub$43DD: procedure address external; end;
-getCh: procedure byte external; end;
-lookup: procedure(b1) byte external; declare b1 byte; end;
-getChClass: procedure byte external; end;
-isTab: procedure byte external; end;
-isWhite: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (spaces24, tokenSize, tokenAttr, mem, macroBuf)(1) byte external,
-	(bTRUE, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
-	(b6880, b6885, b6897, b689C, ctlMACRODEBUG, ctlXREF, b6B25, phase) byte external,
-	(b6B29, opType, b6B30, b6B31, b6BDA, jj) byte external,
-	(b$9058, b$9059, b$905B, b$905E, skipping, b$9C3A) byte external,
-	(curTokenSym$p, statusIO, w$3780, w686E) address external,
-	(w6868, curTokStart, segSize)(1) address external,
-	(macrofd, w6BE0, w$906A, curMacroBlk, nxtMacroBlk) address external,
-	(maxMacroBlk, w$9114, w$919F) address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
 
 
 skipWhite$2: procedure public;
@@ -6468,7 +6296,7 @@ end;
 
 skip2NextLine: procedure public;
 	call skip2EOL;
-	call sub$65D9;
+	call chkLF;
 end;
 
 
@@ -6510,7 +6338,7 @@ sub$3F19: procedure public;
 /* 3 */		do;
 			if not b6872 then
 			do;
-				if skipping or b$905E then
+				if skipping(0) or b$905E then
 					call popToken;
 				else
 				do;
@@ -6532,7 +6360,7 @@ sub$3F19: procedure public;
 			opType = 3;
 		end;
 /* 4 */		do;
-			call sub$65D9;
+			call chkLF;
 			b6B29 = 1;
 			b$9058 = 0;
 			return;
@@ -6586,7 +6414,7 @@ sub$3F19: procedure public;
 				call move(6, .spaces24 + 18, .b6873);
 			end;
 
-			call move(tokenSize(0), curTokStart(0), .b6873);
+			call move(tokenSize(0), curTokStart, .b6873);
 			b6744 = tokenSize(0);
 			call packToken;
 			if b6880 then
@@ -6597,7 +6425,7 @@ sub$3F19: procedure public;
 
 			if lookup(2) <> 9 and b$905E then
 			do;
-				if not b$9058 or (jj := tokenType = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
+				if not b$9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
 				do;
 					w$906A = w$919F;
 					call sub$3D55(jj + 81h);
@@ -6610,13 +6438,13 @@ sub$3F19: procedure public;
 			do;
 				if lookup(0) = 9 then
 				do;
-					tokenType = lookup(1);
+					tokenType(0) = lookup(1);
 					b6880 = 0FFh;
 				end;
 
-				b6B29 = tokenType;
-				b6885 = b3EA8(tokenType);
-				if not b3E5E(tokenType) then
+				b6B29 = tokenType(0);
+				b6885 = b3EA8(tokenType(0));
+				if not b3E5E(tokenType(0)) then
 					call popToken;
 
 				if b687F then
@@ -6665,7 +6493,7 @@ sub$3F19: procedure public;
 /* 11 */	do;
 			if b$905B then
 			do;
-				skipping = 0;
+				skipping(0) = 0;
 				b6B29 = 40h;
 				return;
 			end;
@@ -6680,6 +6508,13 @@ end;
 asm44.plm
 asm44:
 do;
+/* to force the code generation this needs a non-standard definition
+   of outStrN and put2Hex
+*/
+put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+outStrN: procedure(s, n) external; declare s address, n address; end;
+
+$include(asm44.ipx)
 
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
@@ -6698,34 +6533,6 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, /* extra */ 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah);
-
-
-flushout: procedure external; end;
-outch: procedure(b) external; declare b byte; end;
-outStrN: procedure(w1, w2) external; declare (w1, w2) address; end;
-closeF: procedure(w) external; declare w address; end;
-sourceError: procedure(b) external; declare b byte; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-operandError: procedure external; end;
-popToken: procedure external; end;
-pushToken: procedure(b) external; declare b byte; end;
-nibble2Ascii: procedure(b) byte external; declare b byte; end; 
-isPhase1: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (tokenSP, b6855, b6856, b6858) byte external,
-	(tokenType, tokenSize, tokenAttr, lstFile, bp6A4E, bp6BE0)(1) byte external,
-	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
-	(b6859, b6881, b689A, ctlXREF, ctlPAGING, ctlPAGEWIDTH) byte external,
-	(ctlPAGELENGTH, ctlLIST, ctlGEN, ctlCOND, b6A6F, has16bitOperand, b6B2B, b6B2D) byte external,
-	(b6B30, b6B31, b6B32, b6B36, ii, b6BDC, jj, b$905B) byte external,
-	(skipping, b$9A77) byte external,
-	(curTokenSym$p, curTokStart, accum1, w685A, w685C, xreffd) address external,
-	(tokenSymId)(1) address external;
-
 
 
 testBit: procedure(arg1b, arg2w) byte public;
@@ -6956,7 +6763,7 @@ end;
 sub$465B: procedure byte public;
 	return ((not b$9A77) and ctlLIST or b6A6F and b$9A77)
 	        and (not (b$905B > 1) or ctlGEN)
-		and (not(b6B32 or skipping) or ctlCOND);
+		and (not(b6B32 or skipping(0)) or ctlCOND);
 end;
 
 sub$467F: procedure(arg1b, arg2w) public;
@@ -7007,41 +6814,10 @@ end;
 asm45.plm
 asm45:
 do;
+$include(asm45.ipx)
 
 declare pad4B3C address data(40h),
 	pad9B73 address public;
-
-declare	TRUE literally '0FFh',
-	FALSE literally '0';
-
-exit: procedure external; end;
-flushout: procedure external; end;
-sub$3DFB: procedure external; end;
-sub$40B9: procedure external; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-syntaxError: procedure external; end;
-popToken: procedure external; end;
-sub$8447: procedure external; end;
-sub$872E: procedure external; end;
-sub$6E32: procedure external; end;
-ovl8: procedure external; end;
-haveTokens: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-chkGenObj: procedure byte external; end;
-isPhase2Print: procedure byte external; end;
-sub$4646: procedure byte external; end;
-sub$465B: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-
-declare (activeSeg, tokenSP, b6880, b68AD) byte external,
-	(b6A56, ctlXREF, ctlSYMBOLS, b6B23, b6B24, phase, b6B2C, finished, b6B30) byte external,
-	(lineBuf, tokenType, tokenSize, b6873, asciiLineNo)(1) byte external,
-	(b6B33, b6B34, b6BD9, ii, b905E, skipping, b9A77) byte external,
-	(out$p, w68A6, w6BCE) address external,
-	(tokStart, segSize)(1) address external;
-
 
 
 strUCequ: procedure(arg1w, arg2w) byte public;
@@ -7060,7 +6836,7 @@ end;
 
 
 isSkipping: procedure byte public;
-	return b$905E or skipping;
+	return b$905E or skipping(0);
 end;
 
 sub$546F: procedure public;
@@ -7159,10 +6935,7 @@ end;
 end;
 asm46.pl3
 asm46: do;
-
-declare (b68B8)(1) byte external,
-	(statusIO) address external,
-	w68B6 address external;
+$include(asm46.ipx)
 
 declare	b6C21 byte public initial(0),
 	b6C22 byte public initial(0),
@@ -7184,14 +6957,6 @@ declare	b6C21 byte public initial(0),
 	pad6CB2(4) address,
 	readFActual address,
 	pad6CBC address;
-
-
-close: procedure(w1, w2) external; declare (w1, w2) address; end;
-ioError: procedure(w1) external; declare w1 address; end;
-ioErrChk: procedure external; end;
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
 
 
 readF: procedure(arg1b, arg2w, arg3w) public;
@@ -7306,6 +7071,7 @@ end;
 asm47.pl3
 asm47:
 do;
+$include(asm47.ipx)
 
 declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
@@ -7319,69 +7085,7 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh);
 
-
-
-sourceError: procedure(b) external; declare b byte; end;
-sub$3F19: procedure external; end;
-sub$4274: procedure external; end;
-sub$4291: procedure external; end;
-sub$450F: procedure(b) external; declare b byte; end;
-sub$4C1E: procedure external; end;
-sub$5CE8: procedure(w, b) external; declare w address, b byte; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-nestingError: procedure external; end;
-stackError: procedure external; end;
-balanceError: procedure external; end;
-operandError: procedure external; end;
-popToken: procedure external; end;
-nestIFX: procedure(b) external; declare b byte; end;
-sub$676D: procedure(b) external; declare b byte; end;
-pushToken: procedure(b) external; declare b byte; end;
-collectByte: procedure(b) external; declare b byte; end;
-sub$72A4: procedure(b) external; declare b byte; end;
-sub$7327: procedure external; end;
-sub$7517: procedure external; end;
-sub$753E: procedure external; end;
-sub$75FF: procedure external; end;
-sub$76CE: procedure external; end;
-sub$770B: procedure external; end;
-sub$7844: procedure external; end;
-sub$787A: procedure external; end;
-sub$78CE: procedure external; end;
-writeExtName: procedure external; end;
-writeModhdr: procedure external; end;
-haveTokens: procedure byte external; end;
-isPhase1: procedure byte external; end;
-sub$425B: procedure(b) byte external; declare b byte; end;
-getPrec: procedure(b) byte external; declare b byte; end;
-sub$43DD: procedure address external; end;
-
-declare	FALSE literally '0',
-	TRUE literally '0FFh';
-
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (moduleNameLen, startSeg, activeSeg, b6754) byte external,
-	(startDefined, tokenSP, b6855, b6856) byte external,
-	(b6857, b6858, b6859, b6881, b6885, b68AB, ctlOBJECT, b6B23) byte external,
-	(b6B24, b6B25, phase, b6B28, b6B29, opType, b6B2B, b6B2C, b6B2D) byte external,
-	(finished, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, ii) byte external,
-	(jj, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
-	(inElse, macroCondSP, opSP, b9C3A) byte external,
-	(spaces24, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr)(1) byte external,
-	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
-	(macroCondStk, b6873, b674A, skipping, opStack)(1) byte external,
-	(w6750, startOffset, accum1, accum2, w685A, w685C, w68A6) address external,
-	accum(4) byte at(.accum1),
-	(tokenSymId, segSize, w6B41)(1) address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
+declare	accum(4) byte at(.accum1);
 declare pad9C27 byte;
 
 
@@ -7598,7 +7302,7 @@ sub$516F: procedure;
 				if skipping(0) = 0 then
 					skipping(0) = not ((low(accum1) and 1) = 1);
 
-				inElse = 0;
+				inElse(0) = 0;
 
 			end;
 		end;
@@ -7606,13 +7310,13 @@ sub$516F: procedure;
 			b6B32 = 0FFh;
 			if macroCondStk(0) <> 2 then
 				call nestingError;
-			else if not inElse then
+			else if not inElse(0) then
 			do;
 				if not skipping(0) then
 					skipping(0) = 0FFh;
 				else
 					skipping(0) = skipping(ifDepth);
-				inElse = 0FFh;
+				inElse(0) = 0FFh;
 			end;
 			else
 				call nestingError;
@@ -7843,18 +7547,8 @@ end;
 asm48.pl3
 asm48:
 do;
-declare	lit	literally 'literally',
-	CC$BAD	lit	'0',
-	CC$WS	lit	'1',
-	CC$SEMI	lit	'2',
-	CC$COLON lit	'3',
-	CC$CR	lit	'4',
-	CC$PUNCT lit	'5',
-	CC$DOLAR lit	'6',
-	CC$QUOTE lit	'7',
-	CC$DIGIT lit	'8',
-	CC$LET	lit	'9',
-	CC$ESC	lit	'0bh';
+/*$SET(ASM48=1)*/
+$include(asm48.ipx)
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
 	op16(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -7869,46 +7563,6 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0,
 			      0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
 			      9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);
-
-
-runtimeError: procedure(b) external; declare b byte; end;
-sourceError: procedure(b) external; declare b byte; end;
-sub$3D55: procedure(b) external; declare b byte; end;
-readM: procedure(w) external; declare w address; end;
-syntaxError: procedure external; end;
-multipleDefError: procedure external; end;
-phaseError: procedure external; end;
-illegalCharError: procedure external; end;
-undefinedSymbolError: procedure external; end;
-locationError: procedure external; end;
-popToken: procedure external; end;
-nxtCmdCh: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isPhase1: procedure byte external; end;
-isPhase2Print: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-sub$4879: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare (activeSeg, tokenSP, b6855, b6857, b6858) byte external,
-	(curChar, reget, lookAhead, b6882, b6883, b6884, b6885, ctlMOD85, scanCmdLine) byte external,
-	(has16bitOperand, opType, ii, jj, b$9059, b$905B, b$905C, b$905D) byte external,
-	(b$905E, b$9062, argNestCnt, b$91A1, b$91A2) byte external,
-	(b6742, b6748, b6749) byte external,
-	(tokenType, b$91A4, mem, macroBuf)(1) byte external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	(w$9054, off$9056, curTokStart, w6866) address external,
-	(w686E, w6870, w6A4E, w6BE0, w$906A) address external,
-	(curMacroBlk, w$9197, w$919D) address external,
-	(symTab, w6868, tokenSym)(1) address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
-
-
 
 unpackToken: procedure(src, dst) public;
 	declare (src, dst) address;
@@ -8363,14 +8017,18 @@ end;
 
 
 
-sub$65D9: procedure public;
+chkLF: procedure public;
 	if lookAhead = 0Ah then
 		lookAhead = 0;
 	else
 	do;
+/* $IF ASM48 */
 		b$905E = b$905E and 0FEh;
+/* $ENDIF */
 		call illegalCharError;
+/* $IF ASM48 */
 		b$905E = b$905E > 0;
+/* $ENDIF */
 	end;
 end;
 
@@ -8379,29 +8037,7 @@ end;
 asm49.pl3
 asm49:
 do;
-
-
-sourceError: procedure(b) external; declare b byte; end;
-runtimeError: procedure(b) external; declare b byte; end;
-readM: procedure(w) external; declare w address; end;
-physmem: procedure address external; end;
-getCh: procedure byte external; end;
-getChClass: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (bZERO, tokenSP, macroCondSP, curChar, reget, ifDepth, b905B, b9061) byte external,
-	(b9062, b9063) byte external,
-	(tokenType, tokenSize, tokenAttr, skipping, inElse, macroCondStk)(1) byte external,
-	(endLineBuf, curTokStart, w6870, wZERO) address external,
-	(tokenSymId, tokenSym, tokStart)(1) address external,
-	macroStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
+$include(asm49.ipx)
 
 syntaxError: procedure public;
 	call sourceError('Q');
@@ -8678,7 +8314,10 @@ end;
 
 end;
 asm4A.pl3
+/*$SET(ASM4A=1)*/
 asm4A: do;
+$include(asm4a.ipx)
+
 declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   34h, 'XREF', 37h, 'SYMBOLS',
 			   36h, 'PAGING', 33h, 'TTY',
@@ -8692,42 +8331,6 @@ declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 
 declare (b7463, b7464, b7465, controlError) byte;
 
-declare TRUE literally '0FFh',
-	FALSE literally '0';
-
-skipWhite$2: procedure external; end;
-skipWhite: procedure external; end;
-skip2EOL: procedure external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-commandError: procedure external; end;
-stackError: procedure external; end;
-fileError: procedure external; end;
-popToken: procedure external; end;
-getId: procedure(b) external; declare b byte; end;
-getNum: procedure external; end;
-getStr: procedure external; end;
-isCR: procedure byte external; end;
-isPhase1: procedure byte external; end;
-sub$43DD: procedure address external; end;
-getCh: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isWhite: procedure byte external; end;
-isRParen: procedure byte external; end;
-sub$65D9: procedure external; end;
-
-declare TT$ID	literally	'0',
-	TT$NUM	literally	'2',
-	TT$STR	literally	'4';
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (lineBuf, curChar, reget, primaryValid, objFile, lstFile, ctlTTY, ctlMOD85, ctlMACROFILE,
-	 ctlPAGEWIDTH, ctlPAGELENGTH, ctlTITLE, ctlEJECT, ctlGEN, b6A6F, ctlLIST, titleLen, saveStack,
-	 saveIdx, tokBufLen, tokType, b$905B, b$9A77, ctlDEBUG) byte external,
-	 (controlId, tokBufIdx, scanCmdLine, phase, ii, b6C21, b6C22, fileIdx) byte external,
-	(tokenSize, aF0Asmac$tmp, controls, controlSeen, ctlTITLESTR, tokBuf)(1) byte external,
-	(w6B1E, curFileName$p, w6BE2) address external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external;
 
 chkParen: procedure(arg1b) byte;
 	declare arg1b byte;
@@ -8746,12 +8349,12 @@ getTok: procedure byte;
 
 	call skipWhite$2;
 	if curChar > 'A'-1 and 'Z'+1 > curChar or curChar > 'a'-1 and 'z'+1 > curChar then
-	do;
+	do;							/* letter */
 		call getId(1);
 		if blankAsmErrCode and tokenSize(0) < 14 then
 			call move(tokBufLen := tokenSize(0), .lineBuf, .tokBuf);
 	end;
-	else if curChar > '0'-1  and  '9'+1 > curChar then
+	else if curChar > '0'-1  and  '9'+1 > curChar then	/* digit ? */
 	do;
 		call getNum;
 		if blankAsmErrCode then
@@ -8761,7 +8364,7 @@ getTok: procedure byte;
 			tokBuf(0) = ' ';
 		end;
 	end;
-	else if curChar = '''' then
+	else if curChar = '''' then	/* string ? */
 	do;
 		call getStr;
 		if blankAsmErrCode then
@@ -8826,13 +8429,13 @@ end;
 
 getFileParam: procedure;
 	tokBufIdx = 0;
-	if not chkParen(0) then
+	if not chkParen(0) then	/* ( */
 		call fileError;
 	else
 	do;
 		call sub$6F39;
 		call move(tokBufIdx + 1, .tokBuf, curFileName$p);
-		if not chkParen(1) then
+		if not chkParen(1) then	/* ) */
 			call fileError;
 	end;
 end;
@@ -8861,11 +8464,11 @@ end;
 
 
 sub$702B: procedure byte;
-	if chkParen(0) then
+	if chkParen(0) then	/* ( */
 	do;
 		b7463 = getTok;
 		if tokType = TT$NUM then
-			return chkParen(1);
+			return chkParen(1);	/* ) */
 	end;
 	return 0;
 end;
@@ -8925,6 +8528,15 @@ lookupControl: procedure byte;
 	return 255;						/* not found */
 
 break:
+/* $IF NOT ASM4A */
+/*	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
+/*	do;
+/*		if scanCmdLine then			/* only valid on command line not $ line */
+/*			MacroDebugOrGen = 0FFh;
+/*		else
+/*			return 255;			/* error otherwise */
+/*	end;
+/* $ENDIF */
 	if (noInvalid := (ctlFlags and 10h) <> 10h) and not ctlVal then
 		return 255;	/* NO not supported */
 
@@ -8950,8 +8562,8 @@ processControl: procedure;
 		return;
 
 	do case controlId - 5;
-/* 0 */		do;
-			ctlTTY = 0FFh;	/* TTY */
+/* 0 */		do;			/* TTY */
+			ctlTTY = 0FFh;
 			return;
 		end;
 /* 1 */		do;			/* MOD85 */
@@ -8972,7 +8584,7 @@ processControl: procedure;
 		end;
 /* 4 */		do;			/* MACROFILE */
 			w6BE2 = 3;
-			if chkParen(0) then
+			if chkParen(0) then	/* optional drive for tmp file */
 				call getMacroFileDrive;
 			else
 				reget = 1;
@@ -9061,17 +8673,22 @@ processControl: procedure;
 	controlError = 0FFh;
 end;
 
-sub$70D7: procedure public;
-
-	b$9A77 = 0FFh;
+parseControls: procedure public;
+/*$IF ASM4A */
+	b$9A77 = 0FFh;		/* TOFIX */
+/* $ELSE */
+/*	b6B20 = 0FFh;
+/* $ENDIF */
 	b6A6F, b7464 = ctlLIST;
+/*$IF ASM4A */
 	b7465 = ctlGEN;
+/* $ENDIF */
 	controlError = 0;
 
 	do while getTok <> 0Dh and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
-		else if lookupControl = 0FFh then
+		else if lookupControl = 0FFh then	/* error ? */
 			controlError = 0FFh;
 		else
 			call processControl;
@@ -9091,7 +8708,7 @@ sub$70D7: procedure public;
 			call commandError;
 	end;
 
-	call sub$65D9;
+	call chkLF;
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
 	else if ctlGEN <> b7465 and b$905B then
@@ -9104,73 +8721,13 @@ end;
 asm4B.pl3
 asm4B:
 do;
+$include(asm4b.ipx)
 
 declare b$7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h),
 	aMacro(*) byte data('MACRO', 0);
 
 declare w$9C75 address,
 	b$9C77 byte public;
-
-
-popToken: procedure external; end;
-skip2EOL: procedure external; end;
-skipWhite: procedure external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-readM: procedure(w) external; declare w address; end;
-writeM: procedure external; end;
-sub$40B9: procedure external; end;
-sub$467F: procedure(b, w) external; declare b byte, w address; end;
-sub$5CAD: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-syntaxError: procedure external; end;
-multipleDefError: procedure external; end;
-nestingError: procedure external; end;
-stackError: procedure external; end;
-illegalCharError: procedure external; end;
-balanceError: procedure external; end;
-locationError: procedure external; end;
-nestIFX: procedure(b) external; declare b byte; end;
-sub$676D: procedure(b) external; declare b byte; end;
-pushToken: procedure(b) external; declare b byte; end;
-collectByte: procedure(b) external; declare b byte; end;
-isCR: procedure byte external; end;
-isLT: procedure byte external; end;
-isWhite: procedure byte external; end;
-isComma: procedure byte external; end;
-isGT: procedure byte external; end;
-getCh: procedure byte external; end;
-blankMorPAsmErrCode: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-sub$43DD: procedure address external; end;
-strUCequ: procedure(w1, w2) byte external; declare (w1, w2) address; end;
-haveTokens: procedure byte external; end;
-
-
-declare TRUE literally '0FFh',
-	FALSE literally '0';
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (bZERO, bTRUE, b$3782, b$3783, tokenSP, curChar, reget, lookAhead) byte external,
-	(b6880, b6884, asmErrCode, b689C, b6B29, opType, b6B2B, b6B2C, b6B30) byte external,
-	(b6B32, b6BDA, jj, b905A, b905B, b905D, b905E, b9060, b9061) byte external,
-	(b9062, b9063, b9064, b9065, b9066, argNestCnt) byte external,
-	(ifDepth, macroCondSP, opSP) byte external,
-	(macroBuf, tokenType, tokenSize, b6873, macroCondStk, bp6BE0, mem)(1) byte external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	(curTokStart, accum1, w6866, w686E, w6870, w6BE0) address external,
-	(w$9068, w906A, w9114) address external,
-	(w9199, w919B, w919D, w919F) address external,
-	w6868(3) address external,
-	macroStk(10) structure(macroCondSP byte, ifDepth byte, mtype byte, b3 byte,
-			     w4 address, buf$p address, blk address, w10 address,
-			     w12 address, w14 address) external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
 
 
 sub$7192: procedure byte;
@@ -9656,15 +9213,7 @@ end;
 asm4C.pl3
 asm4C:
 do;
-
-declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(1) byte) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
-	r$extnames2 structure(type byte, len address, dta(1) byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
+$include(asm4c.ipx)
 
 declare	controlTable(*) byte data(1, 2, 1, 3),
 	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
@@ -9672,36 +9221,8 @@ declare	controlTable(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	r$modhdr structure(type byte, len address, dta(26) byte) initial(2),
+declare	r$modhdr MODHDR$T initial(2),
 	(dta$p, recSym$p) address;
-
-
-
-
-ioErrChk: procedure external; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
-sub$3FA9: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-sub$4646: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
-	(moduleNameLen, b6744, startSeg, activeSeg, startDefined, b689A, b6A56, ctlDEBUG) byte external,
-	(b6B23, b6B24, b6B33, b6B34, ii) byte external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	symb based curTokenSym$p(1) byte,
-	(statusIO, w651F, w6522, w6750, w6752, startOffset, objfd) address external,
-	(w68A0, w68A2, zero) address external,
-	r$eof structure(type byte, len address, crc byte) external,
-	(b6526, b652B, alignTypes, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
-	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
-	(w6868, w6B41, symTab, tokStart, tokenSymId, segSize)(1) address external;
-
 
 
 writeRec: procedure(rec$p) public;
@@ -10002,9 +9523,9 @@ end;
 ovl11: procedure public;
 	if w6750 <> 0 then
 	do;
-		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
+		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
 		call writeModhdr;
-		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
+		call seek(objfd, 4, .azero, .azero, .statusIO);		/* SEEKEND */
 	end;
 	r$publics.type = 16h;
 	r$publics.len = 1;
@@ -10019,7 +9540,12 @@ end;
 asm4D.pl3
 asm4D:
 do;
+/* to force the code generation this needs a non-standard definition
+   of put2Hex
+*/
+put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
+$include(asm4d.ipx)
 declare
     aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
     aNoErrors(*) byte initial('   NO ERRORS'),
@@ -10039,64 +9565,6 @@ declare
     ascLParen(*) byte data(' (', 0),
     ascRParen(*) byte data(')', 0),
     a1234(*) byte data('  1234');    
-
-
-
-declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(1) address) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
-	r$extnames2 structure(type byte, len address, dta(1) byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
-
-
-
-delete: procedure(w1, w2) external; declare (w1, w2) address; end;
-exit: procedure external; end;
-flushout: procedure external; end;
-ioErrChk: procedure external; end;
-load: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-outch: procedure(ch) external; declare ch byte; end;
-closeF: procedure(w) external; declare w address; end;
-put2Hex: procedure(w1, w2) external; declare (w1, w2) address; end;
-sub$546F: procedure external; end;
-isPhase2Print: procedure byte external; end;
-sub$3FA9: procedure byte external; end;
-sub$465B: procedure byte external; end;
-isSkipping: procedure byte external; end;
-unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
-physmem: procedure address external; end;
-blankAsmErrCode: procedure byte external; end;
-
-
-
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, spaces24)(1) byte external,
-	(objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
-	(b68B8, asciiLineNo, b6A57, controlSeen, ctlTITLESTR, b8FD5, cmdLineBuf)(1) byte external,
-	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
-	(asmErrCode, primaryValid, b689B, curCol, b68AB, b68AD, b6A56, ctlDEBUG, ctlMACRODEBUG) byte external,
-	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlTTY, ctlPRINT, ctlOBJECT, ctlPAGEWIDTH, ctlPAGELENGTH, ctlTITLE) byte external,
-	(ctlEJECT, ctlLIST, ctlGEN, ctlCOND, b6A6F, titleLen, saveIdx, scanCmdLine, b6B23) byte external,
-	(opType, b6B2C, finished, b6B33, b6B34, ii, jj, b6C21, fileIdx) byte external,
-	(b6C30, b905B, b905C, b905E, b9063, b9064, b6742, b6743) byte external,
-	b674A(2) byte external,
-	(b9A77, b6B24) byte external,
-	(cmdch$p, actRead, off$6C25, off$6C2C, off$6C2E, outfd, statusIO) address external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	(w6750, w686E, w6870, objfd) address external,
-	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E,  errCnt, zero) address external,
-	(controls$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
-	(w6868, w6B41, segSize, symTab, tokStart)(1) address external,
-	CR literally '0Dh';
-
-
 
 
 out2Hex: procedure(arg1b);
@@ -10557,56 +10025,7 @@ end;
 asm4E.plm
 asm4E:
 do;
-
-declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(1) address) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
-	r$extnames2 structure(type byte, len address, dta(1) byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
-
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, spaces24)(1) byte external,
-	(objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
-	(b68B8, asciiLineNo, b6A57, controlSeen, ctlTITLESTR, b8FD5, cmdLineBuf,
-	 macroCondStk, opStack, b674A)(1) byte external,
-	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
-	(asmErrCode, primaryValid, b689B, curCol, b68AB, b68AD, b6A56, ctlDEBUG, ctlMACRODEBUG) byte external,
-	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlTTY, ctlPRINT, ctlOBJECT, ctlPAGEWIDTH, ctlPAGELENGTH, ctlTITLE) byte external,
-	(ctlEJECT, ctlLIST, ctlGEN, ctlCOND, b6A6F, titleLen, saveIdx, scanCmdLine, b6B23) byte external,
-	(opType, b6B2C, finished, b6B33, b6B34, ii, jj, b6C21, fileIdx) byte external,
-	(b6C30, b905B, b905C, b905E, b9063, b9064, b6742, b6743) byte external,
-	(ifDepth, skipping, inElse, macroCondSP, opSP, b6A00) byte external,
-	(b9A77, b6B24) byte external,
-	(cmdch$p, actRead, off$6C25, off$6C2C, off$6C2E, outfd, statusIO) address external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	(w6750, w686E, w6870, objfd) address external,
-	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E, errCnt, zero) address external,
-	w6868(3) address external,
-	(controls$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
-	(w6B41, segSize, symTab, tokStart, extKeywords)(1) address external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
-	CR literally '0Dh';
-
-
-
-ioErrChk: procedure external; end;
-closeF: procedure(w) external; declare w address; end;
-physmem: procedure address external; end;
-
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-isPhase1: procedure byte external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-sub$3DFB: procedure external; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
+$include(asm4e.ipx)
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
@@ -10716,7 +10135,7 @@ resetData: procedure public;	/* extended initialisation */
 
     call sub$3DFB;
 
-    b6B33, scanCmdLine, skipping, b6B2C, inElse, finished, b674A(0), b674A(1), b6742,
+    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
     b$905B, b$905C, b$905E, b6857, b6C21 = bZERO;
     b6743, primaryValid, ctlLIST, b6A6F, ctlGEN, ctlCOND = bTRUE;
     b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
@@ -10743,7 +10162,7 @@ resetData: procedure public;	/* extended initialisation */
         off$6C25 = .b68B8;
         off$6C2C = off$6C25 - 1;
         off$6C2E = .b68B8;
-        call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
+        call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
         call ioErrChk;
     end;
 
@@ -10933,16 +10352,19 @@ end;
 glb.plm
 glb: do;
 $SET(OVL=0)
+$include(glb.ipx)
 $include(global.cmn)
 end;
 glb4.plm
 glb4: do;
 $SET(OVL=4)
+$include(glb4.ipx)
 $include(global.cmn)
 end;
 glb5.plm
 glb5: do;
 $SET(OVL=5)
+$include(glb5.ipx)
 $include(global.cmn)
 end;
 makefile
@@ -10951,7 +10373,6 @@ V4=../../plm80v4/
 V3=../../plm80v3/
 TOOLS=../../tools/
 F0=./
-F3=../common/
 
 OVERLAY=6D4Ch
 #
@@ -10968,6 +10389,16 @@ OVERLAY=6D4Ch
 	@SET ISIS_F1=$(V3)
 	$(ISIS) :F1:PLM80 $< code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
+
+.plm.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	$(TOOLS:/=\)ngenpex asm80.pex $<
+
+.pl3.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	$(TOOLS:/=\)ngenpex asm80.pex $<
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
@@ -11098,7 +10529,7 @@ to $*.rel map print($*.la3)
 
 
 clean:
-	del *.obj *lst *.map *.abs *.rel *.lin *.*~ *.la? *.ma? *.lo? *.mo? *~
+	del *.obj *lst *.map *.abs *.rel *.lin *.*~ *.la? *.ma? *.lo? *.mo? *~ *.ipx *.*~ *.lst.prn
 
 vclean: clean
 	del asm80 asm80.ov?
@@ -11156,23 +10587,7 @@ exit
 
 close.plm
 close: DO;
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(close.ipx)
 
 close: PROCEDURE(conn, status$p) public;
     declare (conn, status$p) address;
@@ -11181,24 +10596,7 @@ end close;
 end;
 delete.plm
 delete: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(delete.ipx)
 
 delete: procedure (path$p, status$p) public;
     declare (path$p, status$p) address;
@@ -11207,23 +10605,7 @@ end delete;
 end;
 error.plm
 error: DO;
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(error.ipx)
 
 error: procedure (error$num) public;
     declare (error$num) address;
@@ -11234,23 +10616,7 @@ end error;
 end;
 exit.plm
 exit: DO;
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(exit.ipx)
 
 exit: procedure public;
     declare tmp address;
@@ -11260,24 +10626,7 @@ end exit;
 end;
 load.plm
 load: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(load.ipx)
 
 load: procedure (path$p, load$offset, switch, entry$p, status$p) public;
     declare (path$p, load$offset, switch, entry$p, status$p) address;
@@ -11286,24 +10635,7 @@ end load;
 end;
 open.plm
 open: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(open.ipx)
 
 open: procedure (conn$p, path$p, access, echo, status$p) public;
     declare (conn$p, path$p, access, echo, status$p) address;
@@ -11312,24 +10644,7 @@ end open;
 end;
 read.plm
 read: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(read.ipx)
 
 read: procedure (conn, buff$p, count, actual$p, status$p) public;
     declare (conn, buff$p, count, actual$p, status$p) address;
@@ -11338,25 +10653,7 @@ end read;
 end;
 rescan.plm
 rescan: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
-
+$include(rescan.ipx)
 rescan: procedure (conn, status$p) public;
     declare (conn, status$p) address;
     call ISIS(IRESCAN, .conn);
@@ -11364,24 +10661,7 @@ end rescan;
 end;
 seek.plm
 seek: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(seek.ipx)
 
 seek: procedure (conn, mode, block$p, byte$p, status$p) public;
     declare (conn, mode, block$p, byte$p, status$p) address;
@@ -11390,24 +10670,7 @@ end seek;
 end;
 write.plm
 write: DO;
-
-DECLARE IOPEN LITERALLY '0',
- ICLOSE LITERALLY '1',
- IDELETE LITERALLY '2',
- IREAD LITERALLY '3',
- IWRITE LITERALLY '4',
- ISEEK LITERALLY '5',
- ILOAD LITERALLY '6',
- IRENAME LITERALLY '7',
- ICONSOL LITERALLY '8',
- IEXIT LITERALLY '9',
- IATTRIB LITERALLY '10',
- IRESCAN LITERALLY '11',
- IERROR LITERALLY '12',
- IWHOCON LITERALLY '13',
- ISPATH LITERALLY '14';
-
-ISIS: procedure(b, w) external; declare b byte, w address; end;
+$include(write.ipx)
 
 write: procedure (conn, buff$p, count, status$p) public;
     declare (conn, buff$p, count, status$p) address;
@@ -11500,3 +10763,4 @@ cprite:	db '(C) 1976,1977,1979,1980 INTEL CORP'
 	DSEG
 EDATA	equ	$
 	end
+

@@ -1,85 +1,6 @@
 asm42:
 do;
-
-declare TRUE literally '0FFh';
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (aBadSyntax, aError, ascCRLF, aError$0, tokenSize)(1) byte external,
-	(bZERO, bTRUE, b6749, b6754, tokenSP, tokenType) byte external,
-	(b6855, b6857, b6858, b6859, curChar, reget, b6872) byte external,
-	(b687F, b6880, b6881, b6884, b6885, asmErrCode, b6897) byte external,
-	(primaryValid, b689A, b689B, b689C, b68AB, b68AD, ctlDEBUG) byte external,
-	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlPRINT, ctlOBJECT, ctlEJECT, tokBufIdx) byte external,
-	(scanCmdLine, b6B23, b6B24, b6B25, has16bitOperand, phase, b6B2B) byte external,
-	(b6B30, b6B31, b6B32, b6B33, b6B34, b6B35, b6BD9) byte external,
-	(b6C27, b6C21, b6C30) byte external,
-	(b6742, skipping, b$9A77) byte external,
-	(cmdch$p, endOutBuf, openStatus, outbuf, outfd, out$p) address external,
-	(w6870, w6A4E, errCnt, controls$p, curFileName$p, w6BE0, statusIO) address external,
-	(errStrs)(1) address external,
-	(errStrsLen)(1) byte external,
-	(off$6C2C, off$6C2E) address external;
-
-isSkipping: procedure byte external; end;
-getCh: procedure byte external; end;
-
-
-close: procedure(w1, w2) external; declare (w1, w2) address; end;
-error: procedure(w1) external; declare w1 address; end;
-exit: procedure external; end;
-open: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-skip2NextLine: procedure external; end;
-sub$4904: procedure external; end;
-sub$4C1E: procedure external; end;
-sub$70D7: procedure external; end;
-printDecimal: procedure(w1) external; declare w1 address; end;
-printCmdLine: procedure external; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-
-
-/* global data */
-declare b$8FD5(127) byte external,
-	w$9054 address external,
-	off$9056 address external,
-	b$9058 byte external,
-	b$9059 byte external,
-	b$905A byte external,
-	b$905B byte external,
-	b$905C byte external,
-	b$905D byte external,
-	b$905E byte external,
-	b$9060 byte external,
-	b$9061 byte external,
-	b$9062 byte external,
-	b$9063 byte external,
-	b$9064 byte external,
-	b$9065 byte external,
-	b$9066 byte external,
-	argNestCnt byte external,
-	w$9068 address external,
-	w$906A address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external,
-	curMacroBlk address external,
-	nxtMacroBlk address external,
-	maxMacroBlk address external,
-	w$9114 address external,
-	macroBuf(129) byte external,
-	w$9197 address external,
-	w$9199 address external,
-	w$919B address external,
-	w$919D address external,
-	w$919F address external,
-	b$91A1 byte external,
-	b$91A2 byte external,
-	b$91A3 byte external,
-	b$91A4(1) byte external;
-
-	
-		
-	
+$include(asm42.ipx)
 
 
 physmem: procedure address public;
@@ -364,7 +285,7 @@ preStatementControls: procedure public;
 				b6897 = 0FFh;
 		end;
 		else
-			call sub$70D7;
+			call parseControls;
 		call sub$4C1E;
 	end;
 	reget = 1;
@@ -374,7 +295,7 @@ end;
 sub$3DA4: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = 0FFh;
-	call sub$70D7;
+	call parseControls;
 	if isPhase2Print then
 		call printCmdLine;
 
@@ -400,7 +321,7 @@ sub$3DFB: procedure public;
 	b68AD, has16bitOperand, b$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
 	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = bZERO;
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	ctlEJECT, b6857, tokenSP, b$9058, argNestCnt, tokenSize(0), tokenType, b6858, b6859, b6742, b6855 = bZERO;
+	ctlEJECT, b6857, tokenSP, b$9058, argNestCnt, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	asmErrCode = 20h;
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
@@ -408,7 +329,7 @@ sub$3DFB: procedure public;
 	b689A = 1;
 	w6A4E = w6A4E + 1;
 	off$9056 = .b$8FD5;
-	skipping = skipping > 0;
+	skipping(0) = skipping(0) > 0;
 end;
 
 end;

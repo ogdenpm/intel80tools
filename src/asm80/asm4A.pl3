@@ -1,4 +1,7 @@
+/*$SET(ASM4A=1)*/
 asm4A: do;
+$include(asm4a.ipx)
+
 declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   34h, 'XREF', 37h, 'SYMBOLS',
 			   36h, 'PAGING', 33h, 'TTY',
@@ -12,42 +15,6 @@ declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 
 declare (b7463, b7464, b7465, controlError) byte;
 
-declare TRUE literally '0FFh',
-	FALSE literally '0';
-
-skipWhite$2: procedure external; end;
-skipWhite: procedure external; end;
-skip2EOL: procedure external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-commandError: procedure external; end;
-stackError: procedure external; end;
-fileError: procedure external; end;
-popToken: procedure external; end;
-getId: procedure(b) external; declare b byte; end;
-getNum: procedure external; end;
-getStr: procedure external; end;
-isCR: procedure byte external; end;
-isPhase1: procedure byte external; end;
-sub$43DD: procedure address external; end;
-getCh: procedure byte external; end;
-blankAsmErrCode: procedure byte external; end;
-isWhite: procedure byte external; end;
-isRParen: procedure byte external; end;
-sub$65D9: procedure external; end;
-
-declare TT$ID	literally	'0',
-	TT$NUM	literally	'2',
-	TT$STR	literally	'4';
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (lineBuf, curChar, reget, primaryValid, objFile, lstFile, ctlTTY, ctlMOD85, ctlMACROFILE,
-	 ctlPAGEWIDTH, ctlPAGELENGTH, ctlTITLE, ctlEJECT, ctlGEN, b6A6F, ctlLIST, titleLen, saveStack,
-	 saveIdx, tokBufLen, tokType, b$905B, b$9A77, ctlDEBUG) byte external,
-	 (controlId, tokBufIdx, scanCmdLine, phase, ii, b6C21, b6C22, fileIdx) byte external,
-	(tokenSize, aF0Asmac$tmp, controls, controlSeen, ctlTITLESTR, tokBuf)(1) byte external,
-	(w6B1E, curFileName$p, w6BE2) address external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external;
 
 chkParen: procedure(arg1b) byte;
 	declare arg1b byte;
@@ -66,12 +33,12 @@ getTok: procedure byte;
 
 	call skipWhite$2;
 	if curChar > 'A'-1 and 'Z'+1 > curChar or curChar > 'a'-1 and 'z'+1 > curChar then
-	do;
+	do;							/* letter */
 		call getId(1);
 		if blankAsmErrCode and tokenSize(0) < 14 then
 			call move(tokBufLen := tokenSize(0), .lineBuf, .tokBuf);
 	end;
-	else if curChar > '0'-1  and  '9'+1 > curChar then
+	else if curChar > '0'-1  and  '9'+1 > curChar then	/* digit ? */
 	do;
 		call getNum;
 		if blankAsmErrCode then
@@ -81,7 +48,7 @@ getTok: procedure byte;
 			tokBuf(0) = ' ';
 		end;
 	end;
-	else if curChar = '''' then
+	else if curChar = '''' then	/* string ? */
 	do;
 		call getStr;
 		if blankAsmErrCode then
@@ -146,13 +113,13 @@ end;
 
 getFileParam: procedure;
 	tokBufIdx = 0;
-	if not chkParen(0) then
+	if not chkParen(0) then	/* ( */
 		call fileError;
 	else
 	do;
 		call sub$6F39;
 		call move(tokBufIdx + 1, .tokBuf, curFileName$p);
-		if not chkParen(1) then
+		if not chkParen(1) then	/* ) */
 			call fileError;
 	end;
 end;
@@ -181,11 +148,11 @@ end;
 
 
 sub$702B: procedure byte;
-	if chkParen(0) then
+	if chkParen(0) then	/* ( */
 	do;
 		b7463 = getTok;
 		if tokType = TT$NUM then
-			return chkParen(1);
+			return chkParen(1);	/* ) */
 	end;
 	return 0;
 end;
@@ -245,6 +212,15 @@ lookupControl: procedure byte;
 	return 255;						/* not found */
 
 break:
+/* $IF NOT ASM4A */
+/*	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
+/*	do;
+/*		if scanCmdLine then			/* only valid on command line not $ line */
+/*			MacroDebugOrGen = 0FFh;
+/*		else
+/*			return 255;			/* error otherwise */
+/*	end;
+/* $ENDIF */
 	if (noInvalid := (ctlFlags and 10h) <> 10h) and not ctlVal then
 		return 255;	/* NO not supported */
 
@@ -270,8 +246,8 @@ processControl: procedure;
 		return;
 
 	do case controlId - 5;
-/* 0 */		do;
-			ctlTTY = 0FFh;	/* TTY */
+/* 0 */		do;			/* TTY */
+			ctlTTY = 0FFh;
 			return;
 		end;
 /* 1 */		do;			/* MOD85 */
@@ -292,7 +268,7 @@ processControl: procedure;
 		end;
 /* 4 */		do;			/* MACROFILE */
 			w6BE2 = 3;
-			if chkParen(0) then
+			if chkParen(0) then	/* optional drive for tmp file */
 				call getMacroFileDrive;
 			else
 				reget = 1;
@@ -381,17 +357,22 @@ processControl: procedure;
 	controlError = 0FFh;
 end;
 
-sub$70D7: procedure public;
-
-	b$9A77 = 0FFh;
+parseControls: procedure public;
+/*$IF ASM4A */
+	b$9A77 = 0FFh;		/* TOFIX */
+/* $ELSE */
+/*	b6B20 = 0FFh;
+/* $ENDIF */
 	b6A6F, b7464 = ctlLIST;
+/*$IF ASM4A */
 	b7465 = ctlGEN;
+/* $ENDIF */
 	controlError = 0;
 
 	do while getTok <> 0Dh and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
-		else if lookupControl = 0FFh then
+		else if lookupControl = 0FFh then	/* error ? */
 			controlError = 0FFh;
 		else
 			call processControl;
@@ -411,7 +392,7 @@ sub$70D7: procedure public;
 			call commandError;
 	end;
 
-	call sub$65D9;
+	call chkLF;
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
 	else if ctlGEN <> b7465 and b$905B then

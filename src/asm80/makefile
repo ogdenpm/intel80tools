@@ -3,7 +3,6 @@ V4=../../plm80v4/
 V3=../../plm80v3/
 TOOLS=../../tools/
 F0=./
-F3=../common/
 
 OVERLAY=6D4Ch
 #
@@ -20,6 +19,16 @@ OVERLAY=6D4Ch
 	@SET ISIS_F1=$(V3)
 	$(ISIS) :F1:PLM80 $< code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
+
+.plm.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	$(TOOLS:/=\)ngenpex asm80.pex $<
+
+.pl3.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	$(TOOLS:/=\)ngenpex asm80.pex $<
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
@@ -150,7 +159,7 @@ to $*.rel map print($*.la3)
 
 
 clean:
-	del *.obj *lst *.map *.abs *.rel *.lin *.*~ *.la? *.ma? *.lo? *.mo? *~
+	del *.obj *lst *.map *.abs *.rel *.lin *.*~ *.la? *.ma? *.lo? *.mo? *~ *.ipx *.*~ *.lst.prn
 
 vclean: clean
 	del asm80 asm80.ov?
@@ -207,18 +216,47 @@ exit
 
 
 # auto generated
-asm801.obj: asm801.plm global.inc
-asm82.obj: asm82.pl3 global.inc
-asm83.obj: asm83.plm global.inc
-asm84.obj: asm84.pl3 global.inc
-asm85.obj: asm85.pl3 global.inc
-asm851.obj: asm851.plm global.inc
-asm86.obj: asm86.pl3 global.inc
-asm861.obj: asm861.plm global.inc
-asmov0.obj: asmov0.pl3 global.inc
-asmov1.obj: asmov1.pl3 global.inc
-asmov2.obj: asmov2.pl3 global.inc
-asmov3.obj: asmov3.plm global.inc
-glb.obj: glb.plm global.cmn
-glb4.obj: glb4.plm global.cmn
-glb5.obj: glb5.plm global.cmn
+asm41.obj: asm41.plm asm41.ipx
+asm42.obj: asm42.plm asm42.ipx
+asm43.obj: asm43.pl3 asm43.ipx
+asm44.obj: asm44.plm asm44.ipx
+asm45.obj: asm45.plm asm45.ipx
+asm46.obj: asm46.pl3 asm46.ipx
+asm47.obj: asm47.pl3 asm47.ipx
+asm48.obj: asm48.pl3 asm48.ipx
+asm49.obj: asm49.pl3 asm49.ipx
+asm4a.obj: asm4a.pl3 asm4a.ipx
+asm4b.obj: asm4b.pl3 asm4b.ipx
+asm4c.obj: asm4c.pl3 asm4c.ipx
+asm4d.obj: asm4d.pl3 asm4d.ipx
+asm4e.obj: asm4e.plm asm4e.ipx
+asm51.obj: asm51.plm asm51.ipx
+asm52.obj: asm52.plm asm52.ipx
+asm55.obj: asm55.plm asm55.ipx
+asm57.obj: asm57.pl3 asm57.ipx
+asm5d.obj: asm5d.plm asm5d.ipx
+asm801.obj: asm801.plm asm801.ipx
+asm82.obj: asm82.pl3 asm82.ipx
+asm83.obj: asm83.plm asm83.ipx
+asm84.obj: asm84.pl3 asm84.ipx
+asm85.obj: asm85.pl3 asm85.ipx
+asm851.obj: asm851.plm asm851.ipx
+asm86.obj: asm86.pl3 asm86.ipx
+asm861.obj: asm861.plm asm861.ipx
+asmov0.obj: asmov0.pl3 asmov0.ipx
+asmov1.obj: asmov1.pl3 asmov1.ipx
+asmov2.obj: asmov2.pl3 asmov2.ipx
+asmov3.obj: asmov3.plm asmov3.ipx
+close.obj: close.plm close.ipx
+delete.obj: delete.plm delete.ipx
+error.obj: error.plm error.ipx
+exit.obj: exit.plm exit.ipx
+glb.obj: glb.plm glb.ipx global.cmn
+glb4.obj: glb4.plm glb4.ipx global.cmn
+glb5.obj: glb5.plm glb5.ipx global.cmn
+load.obj: load.plm load.ipx
+open.obj: open.plm open.ipx
+read.obj: read.plm read.ipx
+rescan.obj: rescan.plm rescan.ipx
+seek.obj: seek.plm seek.ipx
+write.obj: write.plm write.ipx

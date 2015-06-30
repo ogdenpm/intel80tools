@@ -1,5 +1,6 @@
 asm47:
 do;
+$include(asm47.ipx)
 
 declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
@@ -13,69 +14,7 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh);
 
-
-
-sourceError: procedure(b) external; declare b byte; end;
-sub$3F19: procedure external; end;
-sub$4274: procedure external; end;
-sub$4291: procedure external; end;
-sub$450F: procedure(b) external; declare b byte; end;
-sub$4C1E: procedure external; end;
-sub$5CE8: procedure(w, b) external; declare w address, b byte; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-nestingError: procedure external; end;
-stackError: procedure external; end;
-balanceError: procedure external; end;
-operandError: procedure external; end;
-popToken: procedure external; end;
-nestIFX: procedure(b) external; declare b byte; end;
-sub$676D: procedure(b) external; declare b byte; end;
-pushToken: procedure(b) external; declare b byte; end;
-collectByte: procedure(b) external; declare b byte; end;
-sub$72A4: procedure(b) external; declare b byte; end;
-sub$7327: procedure external; end;
-sub$7517: procedure external; end;
-sub$753E: procedure external; end;
-sub$75FF: procedure external; end;
-sub$76CE: procedure external; end;
-sub$770B: procedure external; end;
-sub$7844: procedure external; end;
-sub$787A: procedure external; end;
-sub$78CE: procedure external; end;
-writeExtName: procedure external; end;
-writeModhdr: procedure external; end;
-haveTokens: procedure byte external; end;
-isPhase1: procedure byte external; end;
-sub$425B: procedure(b) byte external; declare b byte; end;
-getPrec: procedure(b) byte external; declare b byte; end;
-sub$43DD: procedure address external; end;
-
-declare	FALSE literally '0',
-	TRUE literally '0FFh';
-
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (moduleNameLen, startSeg, activeSeg, b6754) byte external,
-	(startDefined, tokenSP, b6855, b6856) byte external,
-	(b6857, b6858, b6859, b6881, b6885, b68AB, ctlOBJECT, b6B23) byte external,
-	(b6B24, b6B25, phase, b6B28, b6B29, opType, b6B2B, b6B2C, b6B2D) byte external,
-	(finished, b6B2F, b6B30, b6B32, b6B33, b6B34, b6B35, b6B36, ii) byte external,
-	(jj, b9058, b905E, b6743, b6744, b6748, b6749, ifDepth) byte external,
-	(inElse, macroCondSP, opSP, b9C3A) byte external,
-	(spaces24, aModulePage, b4181, tokenSize, alignTypes, tokenType, tokenAttr)(1) byte external,
-	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
-	(macroCondStk, b6873, b674A, skipping, opStack)(1) byte external,
-	(w6750, startOffset, accum1, accum2, w685A, w685C, w68A6) address external,
-	accum(4) byte at(.accum1),
-	(tokenSymId, segSize, w6B41)(1) address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
+declare	accum(4) byte at(.accum1);
 declare pad9C27 byte;
 
 
@@ -292,7 +231,7 @@ sub$516F: procedure;
 				if skipping(0) = 0 then
 					skipping(0) = not ((low(accum1) and 1) = 1);
 
-				inElse = 0;
+				inElse(0) = 0;
 
 			end;
 		end;
@@ -300,13 +239,13 @@ sub$516F: procedure;
 			b6B32 = 0FFh;
 			if macroCondStk(0) <> 2 then
 				call nestingError;
-			else if not inElse then
+			else if not inElse(0) then
 			do;
 				if not skipping(0) then
 					skipping(0) = 0FFh;
 				else
 					skipping(0) = skipping(ifDepth);
-				inElse = 0FFh;
+				inElse(0) = 0FFh;
 			end;
 			else
 				call nestingError;

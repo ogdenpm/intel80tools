@@ -1,7 +1,6 @@
 asm80$6: do;
 
-$include(global.inc)
-
+$include(asm86.ipx)
 
 
 declare	b5666(*) byte data(9, 2Dh, 80h),
@@ -20,23 +19,6 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
 			     0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,	/* 60 */
 			     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);	/* 70 */
 
-
-popToken: procedure external; end;
-pushToken: procedure(b) external; declare b byte; end;
-runtimeError: procedure(b) external; declare b byte; end;
-sourceError: procedure(b) external; declare b byte; end;
-syntaxError: procedure external; end;
-locationError: procedure external; end;
-multipleDefError: procedure external; end;
-isPhase1: procedure byte external; end;
-isSkipping: procedure byte external; end;
-sub$4879: procedure byte external; end;
-nxtCmdCh: procedure byte external; end;
-phaseError: procedure external; end;
-undefinedSymbolError: procedure external; end;
-illegalCharError: procedure external; end;
-blankAsmErrCode: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
 
 
 unpackToken: procedure(src, dst) public;
@@ -244,7 +226,7 @@ lookup: procedure(arg1b) byte public;
 	declare arg1b byte;
 	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
 		x structure(i byte), b6CFB byte;
-	declare symEntry based entryOffset structure(tok(2) address, b4 byte, delta byte, type byte, flags byte),
+	declare symEntry based entryOffset SYMENTRY$T,
 		packedTok based packedTok$p (2) address; 
 	declare addr based w6BE0 address,
 		addrAlt based w6BE0 address;

@@ -1,6 +1,6 @@
 asm43:
 do;
-declare packToken literally 'pckTkn';
+$include(asm43.ipx)
 
 declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -13,55 +13,6 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
 			   0FFh, 0, 0, 0),
 	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
-
-
-ioErrChk: procedure external; end;
-packToken: procedure external; end;
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-skip2EOL: procedure external; end;
-sub$3D34: procedure(b1) external; declare b1 byte; end;
-sub$3D55: procedure(b1) external; declare b1 byte; end;
-preStatementControls: procedure external; end;
-sub$43D2: procedure external; end;
-sub$467F: procedure(b1, w2) external; declare b1 byte, w2 address; end;
-sub$5CE8: procedure(w1, b2) external; declare w1 address, b2 byte; end;
-syntaxError: procedure external; end;
-expressionError: procedure external; end;
-illegalCharError: procedure external; end;
-popToken: procedure external; end;
-getId: procedure(b1) external; declare b1 byte; end;
-getStr: procedure external; end;
-sub$65D9: procedure external; end;
-pushToken: procedure(b1) external; declare b1 byte; end;
-collectByte: procedure(b1) external; declare b1 byte; end;
-getNum: procedure external; end;
-sub$73AD: procedure external; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-testBit: procedure(b1, w2) byte external; declare b1 byte, w2 address; end;
-sub$43DD: procedure address external; end;
-getCh: procedure byte external; end;
-lookup: procedure(b1) byte external; declare b1 byte; end;
-getChClass: procedure byte external; end;
-isTab: procedure byte external; end;
-isWhite: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (spaces24, tokenSize, tokenAttr, mem, macroBuf)(1) byte external,
-	(bTRUE, b6742, b6744, activeSeg, tokenType, curChar, b6872, b6873, b6879, b687F) byte external,
-	(b6880, b6885, b6897, b689C, ctlMACRODEBUG, ctlXREF, b6B25, phase) byte external,
-	(b6B29, opType, b6B30, b6B31, b6BDA, jj) byte external,
-	(b$9058, b$9059, b$905B, b$905E, skipping, b$9C3A) byte external,
-	(curTokenSym$p, statusIO, w$3780, w686E) address external,
-	(w6868, curTokStart, segSize)(1) address external,
-	(macrofd, w6BE0, w$906A, curMacroBlk, nxtMacroBlk) address external,
-	(maxMacroBlk, w$9114, w$919F) address external,
-
-	(tmac$macroCondSP, tmac$ifDepth, tmac$mtype, tmac$b3) byte external,
-	(tmac$w4, tmac$buf$p, tmac$blk, tmac$w10, tmac$w12, tmac$w14) address external;
-
-
 
 
 skipWhite$2: procedure public;
@@ -156,7 +107,7 @@ end;
 
 skip2NextLine: procedure public;
 	call skip2EOL;
-	call sub$65D9;
+	call chkLF;
 end;
 
 
@@ -198,7 +149,7 @@ sub$3F19: procedure public;
 /* 3 */		do;
 			if not b6872 then
 			do;
-				if skipping or b$905E then
+				if skipping(0) or b$905E then
 					call popToken;
 				else
 				do;
@@ -220,7 +171,7 @@ sub$3F19: procedure public;
 			opType = 3;
 		end;
 /* 4 */		do;
-			call sub$65D9;
+			call chkLF;
 			b6B29 = 1;
 			b$9058 = 0;
 			return;
@@ -274,7 +225,7 @@ sub$3F19: procedure public;
 				call move(6, .spaces24 + 18, .b6873);
 			end;
 
-			call move(tokenSize(0), curTokStart(0), .b6873);
+			call move(tokenSize(0), curTokStart, .b6873);
 			b6744 = tokenSize(0);
 			call packToken;
 			if b6880 then
@@ -285,7 +236,7 @@ sub$3F19: procedure public;
 
 			if lookup(2) <> 9 and b$905E then
 			do;
-				if not b$9058 or (jj := tokenType = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
+				if not b$9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
 				do;
 					w$906A = w$919F;
 					call sub$3D55(jj + 81h);
@@ -298,13 +249,13 @@ sub$3F19: procedure public;
 			do;
 				if lookup(0) = 9 then
 				do;
-					tokenType = lookup(1);
+					tokenType(0) = lookup(1);
 					b6880 = 0FFh;
 				end;
 
-				b6B29 = tokenType;
-				b6885 = b3EA8(tokenType);
-				if not b3E5E(tokenType) then
+				b6B29 = tokenType(0);
+				b6885 = b3EA8(tokenType(0));
+				if not b3E5E(tokenType(0)) then
 					call popToken;
 
 				if b687F then
@@ -353,7 +304,7 @@ sub$3F19: procedure public;
 /* 11 */	do;
 			if b$905B then
 			do;
-				skipping = 0;
+				skipping(0) = 0;
 				b6B29 = 40h;
 				return;
 			end;
