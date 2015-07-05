@@ -1,0 +1,358 @@
+lit             'literally'
+
+/* seek modes */
+SEEKTELL        '0'
+SEEKBCK         '1'
+SEEKABS         '2'
+SEEKFWD         '3'
+SEEKEND         '4'
+
+ERR2            '2' /* ILLEGAL AFTN ARGUMENT */
+ERR3            '3' /* TOO MANY OPEN FILES */
+ERR4            '4' /* INCORRECTLY SPECIFIED FILE */
+ERR5            '5' /* UNRECOGNIZED DEVICE NAME */
+ERR9            '9' /* DISK DIRECTORY FULL */
+ERR12           '12' /* FILE IS ALREADY OPEN */
+ERR13           '13' /* NO SUCH FILE */
+ERR14           '14' /* WRITE PROTECTED */
+ERR17           '17' /* NOT A DISK FILE */
+ERR19           '19' /* ATTEMPTED SEEK ON NON-DISK FILE */
+ERR20           '20' /* ATTEMPTED BACK SEEK TOO FAR */
+ERR21           '21' /* CAN'T RESCAN */
+ERR22           '22' /* ILLEGAL ACCESS MODE TO OPEN */
+ERR23           '23' /* MISSING FILENAME */
+ERR27           '27' /* ILLEGAL SEEK COMMAND */
+ERR28           '28' /* MISSING EXTENSION */
+ERR31           '31' /* CAN'T SEEK ON WRITE ONLY FILE */
+ERR32           '32' /* CAN'T DELETE OPEN FILE */
+ERR35           '35' /* SEEK PAST EOF */
+ERR203          '203' /* INVALID SYNTAX */
+ERR204          '204' /* PREMATURE EOF */
+ERR208          '208' /* CHECKSUM ERROR */
+ERR210          '210' /* INSUFFICIENT MEMORY */
+ERR211          '211' /* RECORD TOO LONG */
+ERR212          '212' /* ILLEGAL RELO RECORD */
+ERR213          '213' /* FIXUP BOUNDS ERROR */
+ERR218          '218' /* ILLEGAL RECORD FORMAT */
+ERR224          '224' /* BAD RECORD SEQUENCE */
+ERR225          '225' /* INVALID NAME */
+ERR226          '226' /* NAME TOO LONG */
+ERR227          '227' /* LEFT PARENTHESIS EXPECTED */
+ERR228          '228' /* RIGHT PARENTHESIS EXPECTED */
+ERR229          '229' /* UNRECOGNIZED CONTROL */
+ERR233          '233' /* 'TO' EXPECTED */
+ERR237          '237' /* COMMON NOT FOUND */
+ERR238          '238' /* ILLEGAL STACK CONTENT RECORD */
+ERR239          '239' /* NO MODULE HEADER RECORD */
+ERR240          '240' /* PROGRAM EXCEEDS 64K */
+
+/* Record types */
+R$MODHDR        '2'
+R$MODEND        '4'
+R$MODDAT        '6'
+R$LINNUM        '8'
+R$MODEOF        '0EH'
+R$ANCEST        '10H'
+R$LOCDEF        '12H'
+R$PUBDEF        '16H'
+R$EXTNAM        '18H'
+R$FIXEXT        '20H'
+R$FIXLOC        '22H'
+R$FIXSEG        '24H'
+R$LIBLOC        '26H'
+R$LIBNAM        '28H'
+R$LIBDIC        '2AH'
+R$LIBHDR        '2CH'
+R$COMDEF        '2EH'
+
+/* Segments */
+SABS            '0'
+SCODE           '1'
+SDATA           '2'
+SSTACK          '3'
+SMEMORY         '4'
+SRESERVED       '5'
+SNAMED          '6'	/* through 254 */
+SBLANK          '255'
+
+/* Alignments  & Flags*/
+AMASK           '0FH'
+AABS            '0'
+AUNKNOWN        '0'
+AINPAGE         '1'
+APAGE           '2'
+ABYTE           '3'
+FHASADDR        '080H'
+FWRAP0          '40H'
+FSEGSEEN        '10H'
+
+/* Fixup type */
+FLOW            '1'
+FHIGH           '2'
+FBOTH           '3'
+
+TRUE            '0FFH'
+FALSE           '0'
+
+/* controls seen tags */
+startSeen       'seen(0)'
+stackSizeSeen   'seen(1)'
+restart0Seen    'seen(2)'
+MapSeen         'seen(3)'
+PublicsSeen     'seen(4)'
+SymbolsSeen     'seen(5)'
+LinesSeen       'seen(6)'
+PurgeSeen       'seen(7)'
+moduleNameSeen  'seen(8)'
+
+
+/* user types */
+SPATH$T         'STRUCTURE (SPATH$T1,SPATH$T2)'
+SPATH$T1        'deviceId BYTE, name(6) BYTE, ext(3) BYTE'
+SPATH$T2        'deviceType BYTE, driveType BYTE'
+DATAFRAG$T      'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)'
+SEGFRAG$T       'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)'
+DATAFRAG$T      'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)'
+PAGE1$T         'STRUCTURE (state BYTE, mpage BYTE)'
+PAGE2$T         'STRUCTURE (pageIdx BYTE, fileIdx BYTE)'
+RECORD$T        'STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE)'
+
+/* based vars */
+cmdbuf          BS..cmd$p
+cmdch           B..cmd$p
+erec            B..erec$p
+inRecord        "RECORD$T"..inRecord$p
+lsout           "RECORD$T"..lsout$p
+outRecord       "RECORD$T"..outRecord$p
+pageTab1        "PAGE1$T"(256)..pageTab1$p
+pageTab2        "PAGE2$T"(256)..pageTab2$p
+
+$file(system.lib)
+isis            P(B rectyp,A parameter$ptr)
+memck           PA
+rescan          P(A conn,A status$p)
+spath           P(A path$p,A info$p,A status$p)
+
+$file(isis.plm)
+close           P(A conn,A status$p)
+delete          P(A path$p,A status$p)
+error           P(A error$num)
+exit            P
+open            P(A conn$p,A path$p,A access,A echo,A status$p)
+read            P(A conn,A buff$p,A count,A actual$p,A status$p)
+seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
+write           P(A conn,A buff$p,A count,A status$p)
+
+$file(loc1.plm)
+actRead         A
+aRecordType     BS
+baseMemImage    A
+botHeap         A
+columns         B
+crlf            BS
+curDataFrag$p   A
+curSegFrag$p    A
+eibuf$p         A
+eout$p          A
+epbuf$p         A
+erec$p          A
+havePagingFile  B
+ibuf$p          A
+inBlk           A
+inb$p           A
+inByt           A
+inCRC           B
+inFileName      BS
+inFragment      "DATAFRAG$T"
+in$p            A
+inRecord$p      A
+isMain          B
+modhdr$x1       B
+modhdr$x2       B
+moduleName      BS
+nextDataFrag$p  A
+nextSegFrag$p   A
+npbuf           A
+nxtPageNo       B
+outFileName     BS
+out$p           A
+outputfd        A
+outRealFile     B
+outRecord$p     A
+pageCacheSize   B
+pageIndexTmpFil B
+pageTab1$p      A
+pageTab2$p      A
+pbuf$p          A
+printfd         A
+printFileName   BS
+readfd          A
+recLen          A
+recNum          A
+roundRobinIndex B
+seen            BS
+segBases        AS
+segFlags        BS
+segOrder        BS
+segSizes        AS
+sibuf$p         A
+spbuf$p         A
+startAddr       A
+statusIO        A
+tmpfd           A
+tmpFileName     BS
+topDataFrags    A
+topHeap         A
+usePrintBuf     B
+VERSION         BS
+addDataFrag     P(A saddr,A eaddr)
+addrInCache     P(A addr)A
+addSegFrag      P(B flags,B seg,A start,A len)
+alloc           P(A cnt)
+allocNewPage    P(B page)A
+anotherPage     P(B page)
+badRecordSeq    P
+chkRead         P(A cnt)
+conAndPrint     P(A buf,A cnt)
+conStrOut       P(A buf,A cnt)
+fatalErr        P(B errCode)
+flushPrintBuf   P
+getRecord       P
+illegalRecord   P
+illegalReloc    P
+objSeek           P(A blk,A byt)
+loadMODDAT      P(B segId)
+pageout         P(B page,A bufp)
+printcrlf       P
+printString     P(A bufp,A cnt)
+pstrcpy         P(A psrc,A pdst)
+seekPagingFile  P(B para)
+
+$file(loc2a.plm)
+errmsg          P(A errCode)
+
+$file(loc2b.plm)
+alin            BS
+aMod            BS
+aPub            BS
+aReadFromFile   BS
+aReferenceToUns BS
+aSym            BS
+aSymbol         BS
+aSymbolTableOfM BS
+aUnsatisfiedExt BS
+aValueType      BS
+aWrittenToFile  BS
+curcol          B
+curColumn       A
+curListField    A
+loHiBoth        B
+lsout$p         A
+nameLen         B
+outSegType      B
+spc32           BS
+unsatisfiedCnt  A
+workingSegBase  A
+x5              BS
+emitMODDAT      P(A curDataFrag$p)
+endRecord       P
+flushOut        P
+forceSOL        P
+initRecOut      P(B rectyp)
+printColumn     P(A field,A pstr)
+procMODDAT      P
+procMODEND      P
+seekOutFile     P(A mode,A pblk,A pbyt)
+setWorkingSeg   P(B seg)B
+writeBytes      P(A buf$p,A cnt)
+
+$file(loc3.plm)
+fixupBoundsChk  P(A addr)
+locateFile      P
+printListingHeader P(A buf,A len)
+procANCEST      P
+procDefs        P(B list,A template)
+procEXTNAM      P
+procLINNUM      P
+
+$file(loc4.plm)
+a0LengthSegment BS
+aAddresses      BS
+alignNames      BS
+aMemoryMapOfMod BS
+aMemOverlap     BS
+aModuleIsNotAMa BS
+aModuleStartAdd BS
+aRestartControl BS
+aStartControlIg BS
+aStartStopLengt BS
+segNames        BS
+getCommonName   P(B segid)A
+printMemoryMap  P
+skipspc         P(A pch)A
+
+$file(loc4a.plm)
+errChkReport    P(A errCode,A file,B errExit)
+
+$file(loc5a.plm)
+binasc          P(A number,B base,B pad,A bufp,B ndigits)
+pastAFN         P(A pch)A
+
+$file(loc5b.plm)
+pastFileName    P(A pch)A
+
+$file(loc6.plm)
+aCommandTailErr BS
+aInvokedBy      BS
+cin             BS
+cmd$p           A
+controls        BS
+cout            BS
+mdebug          BS
+mstar2          BS
+mto             BS
+mtoand          BS
+scmd$p          A
+signonMsg       BS
+spathInfo       "SPATH$T"
+tmpFileInfo     BS
+cmdErr          P(A err)
+errNotADisk     P
+expectChar      P(B ch,B err)
+expectLP        P
+expectRP        P
+expectSlash     P
+getFile         P
+getpstrName     P(A pstr)
+initSegOrder    P
+processControls P
+skipNonArgChars P(A pch)
+
+$file(loc7.plm)
+aInpageSegment2 BS
+nxtSegOrder     B
+pad7935         BS
+segId           B
+getCommonSegId  PB
+insSegIdOrder   P(B seg)
+parseLPNumRP    PA
+procArgs$Init   P
+procCOMDEF      P
+procHdrAndComDef P
+procMODHDR      P
+readCmdLine     P
+
+$file(loc8.plm)
+makeFullName    P(A pinfo,A pstr)
+strupr          P(A pch)
+
+$file(loc8a.plm)
+parseNumber     P(A ppstr)A
+strequ          P(A pstr1,A pstr2,B len)B
+
+$file(loc9.plm)
+toupper         P(B ch)B
+
+$file(memmov.asm)
+mem$mov         P(A cnt,A src,A dst)
+
