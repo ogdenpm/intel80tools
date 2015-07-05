@@ -2,6 +2,15 @@ TARGET = plm80
 NAME = PL8010
 STACK = 136
 
+# common makefile info
+ISIS=..\..\thames
+V4=../../plm80v4/
+V3=../../plm80v3/
+F0=./
+F3=../common/
+TOOLS=..\..\tools
+PEXFILE=:f3:plm.pex
+
 OBJ =	main.obj plma.obj plmb.obj :f3:memchk.obj\
 	:f3:movmem.obj :f3:fill.obj plmc.obj :f3:exit.obj\
 	:f3:prints.obj :f3:fatal.obj :f3:fatlio.obj :f3:initf.obj\
@@ -12,15 +21,6 @@ OBJ =	main.obj plma.obj plmb.obj :f3:memchk.obj\
 	:f3:itoa.obj :f3:silen.obj :f3:sitype.obj :f3:sisym.obj\
 	:f3:siscop.obj :f3:silnko.obj :f3:setflg.obj :f3:allocs.obj\
 	:f3:alloc.obj plme.obj
-
-# common makefile info
-ISIS=..\..\thames
-V4=../../plm80v4/
-V3=../../plm80v3/
-F0=./
-F3=../common/
-TOOLS=..\..\tools
-PEXFILE=:f3:plm.pex
 
 .SUFFIXES: .plm .pl3
 .plm.obj:
