@@ -1,51 +1,5 @@
 plm6b: DO;
-declare lit literally 'literally',
-	true lit '0ffh',
-	false lit '0',
-	cr lit '0dh',
-	lf lit '0ah';
-
-$nolist
-$include(:f3:data.inc)
-$include(:f3:err.inc)
-
-declare errCont label external;
-declare b7AD9 byte external,
-	b7ADA byte external,
-	listing byte external,
-	listOff byte external,
-	codeOn byte external,
-	ERRNum address external,
-	w7AE0 address external,
-	STMTNum address external,
-	b7AE4 byte external,
-	w7AE5 address external,
-	lineNo address external,
-	w7AE9 address external,
-	w7AEB address external,
-	offLastCh address external,
-	offCurCh address external,
-	b7AF1 byte external,
-	b7AF2 byte external,
-	lstLineLen byte external,
-	lstbuf(130) byte external,
-	srcbuf(2048) byte external;
-
-setStartAndTabW: procedure(arg1b, arg2b) external; declare (arg1b, arg2b) byte; end;
-lstLineNo: procedure external; end;
-tabLst: procedure(ntab) external; declare ntab byte; end;
-putLst: procedure(ch) external; declare ch byte; end;
-xwrnstrLst: procedure(str, cnt) external; declare str address, cnt byte; end;
-newlineLst: procedure external; end;
-xputStr2cLst: procedure(str, ch) external; declare str address, ch byte; end;
-$include(:f3:closef.pex)
-$include(:f3:initf.pex)
-xnumLst: procedure(arg1w, arg2b, arg3b) external; declare arg1w address, (arg2b, arg3b) byte; end;
-$include(:f3:gisym.pex)
-$include(:f3:openf.pex)
-$include(:f3:readf.pex)
-$include(:f3:seekf.pex)
-
+$include(plm6b.ipx)
 
 declare digits(*) byte data(' 123456789');
 
@@ -340,7 +294,7 @@ emitError: procedure public;
 			curInfo$p = w7AE0 + botInfo;
 			curSymbol$p = getSymbol;
 			if curSymbol$p <> 0 then
-				call xwrnstrLst(.sym.name(1), sym.name(0));
+				call xwrnstrLst(.cursym.name(1), cursym.name(0));
 			else
 				call xputstr2cLst(.('<LONG CONSTANT>', 0), 0);
 			call xwrnstrLst(.(''', '), 3);

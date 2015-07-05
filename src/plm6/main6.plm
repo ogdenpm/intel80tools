@@ -1,38 +1,5 @@
 plm6: DO;
-declare lit literally 'literally',
-	true lit '0ffh',
-	false lit '0',
-	cr lit '0dh',
-	lf lit '0ah';
-
-$nolist
-$include(:f3:data.inc)
-
-newPageNextChLst: procedure external; end;
-xputStr2cLst: procedure(str, ch) external; declare str address, ch byte; end;
-xwrnstrLst: procedure(str, cnt) external; declare str address, cnt byte; end;
-$include(:f3:gisym.pex)
-newlineLst: procedure external; end;
-tabLst: procedure(ntab) external; declare ntab byte; end;
-setSkipLst: procedure(arg1b) external; declare arg1b byte; end;
-$include(:f3:deletf.pex)
-$include(:f3:closef.pex)
-$include(:f3:creatf.pex)
-$include(:f3:fread.aex)
-$include(:f3:endcom.pex)
-$include(:f3:exit.pex)
-$include(:f3:openf.pex)
-$include(:f3:chain.pex)
-lstModuleInfo: procedure external; end;
-sub$6550: procedure external; end;
-setMarkerInfo: procedure(arg1b, arg2b, arg3b) external; declare (arg1b, arg2b, arg3b) byte; end;
-$include(:f3:initf.pex)
-$include(:f3:tellf.pex)
-$include(:f3:backup.pex)
-flushLstBuf: procedure external; end;
-emitError: procedure external; end;
-sub$42E7: procedure external; end;
-
+$include(main6.ipx)
 
 declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
 declare errCont label public;
@@ -70,7 +37,7 @@ declare b7AD9 byte external,
 			curInfo$p = botInfo + procInfo(1);
 			curSymbol$p = getSymbol;
 			if curSymbol$p <> 0 then
-				call xwrnstrLst(.sym.name(1), sym.name(0));
+				call xwrnstrLst(.cursym.name(1), cursym.name(0));
 			call newLineLst;
 			if OBJECT then
 				call xputstr2cLst(.('NO OBJECT MODULE GENERATED', 0), 0);
@@ -143,8 +110,8 @@ declare b7AD9 byte external,
 		call fread(.nmsFile, .b7ADA, 1);
 		do while b7ADA <> 0;
 			curSymbol$p = curSymbol$p - b7ADA - 1;
-			sym.name(0) = b7ADA;
-			call fread(.nmsFile, .sym.name(1), b7ADA);
+			cursym.name(0) = b7ADA;
+			call fread(.nmsFile, .cursym.name(1), b7ADA);
 			call fread(.nmsFile, .b7ADA, 1);
 		end;
 		botSymbol = curSymbol$p + 4;

@@ -1,18 +1,5 @@
 plm0e: DO;
-DECLARE LIT LITERALLY 'LITERALLY',
-	TRUE LIT '0FFH',
-	CR LIT '0DH',
-	LF LIT '0AH',
-	QUOTE LIT '27H',
-	FALSE LIT '0',
-	boolean lit 'byte';
-
-$include(toks.inc)
-$include(:f3:err.inc)
-$include(:f3:lex.inc)
-$include(cclass.inc)
-$include(:f3:flags.inc)
-$include(:f3:info.inc)
+$include(plm0e.ipx)
 
 DECLARE ENDorSEMICOLON(2) BYTE DATA(T$END, T$SEMICOLON);
 DECLARE tokenTypeTable(*) BYTE DATA(
@@ -33,77 +20,6 @@ DECLARE binValidate(4) BYTE DATA(0, 1, 1, 1),
 	decValidate(4) BYTE DATA(0, 0, 0, 1),
 	hexValidate(4) BYTE DATA(0, 0, 0, 2);
 
-/* $include(data.inc) */
-DECLARE	curInfo$p address external,
-	curSymbol$p ADDRESS EXTERNAL,
-	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE),
-	(botInfo, topInfo) address external,
-	procInfo(1) address external;
-
-DECLARE 
-	curProcData ADDRESS EXTERNAL,
-	scope BASED curProcData ADDRESS,
-	cClass(1) BYTE EXTERNAL,
-	tokenVal ADDRESS EXTERNAL,
-	tokenStr(1) BYTE EXTERNAL,
-	tokenType BYTE EXTERNAL,
-	macroPtrs(1) ADDRESS EXTERNAL,
-	macroDepth ADDRESS EXTERNAL,
-	inChr$p ADDRESS EXTERNAL,
-	curMacroInfo$p ADDRESS EXTERNAL,
-	markedSymbol$p ADDRESS EXTERNAL,
-	lastch BYTE EXTERNAL,
-	yyAgain BYTE EXTERNAL,
-	unexpectedEOF BYTE EXTERNAL,
-	stmtLabelCnt ADDRESS EXTERNAL,
-	curProcInfo$p ADDRESS EXTERNAL,
-	stmtLabels(1) ADDRESS EXTERNAL,
-	curDoBlkCnt BYTE EXTERNAL,
-	curProcId BYTE EXTERNAL,
-	procCnt ADDRESS EXTERNAL,
-	doBlkCnt ADDRESS EXTERNAL;
-
-
-
-tokenErrorAt: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
-tokenError: PROCEDURE(err, str) EXTERNAL; DECLARE err BYTE, str ADDRESS; end;
-$include(:f3:gilit.pex)
-$include(:f3:lookup.pex)
-$include(:f3:fi.pex)
-$include(:f3:sitype.pex)
-$include(:f3:gitype.pex)
-wrXrefUse: PROCEDURE EXTERNAL; end; 
-gnxtch: PROCEDURE EXTERNAL; end; 
-$include(:f3:giscop.pex)
-$include(:f3:tiflag.pex)
-wrByte: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; end;
-wrWord: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end;
-wrOffset: PROCEDURE(info$p) EXTERNAL; DECLARE info$p ADDRESS; end;
-wrXrefDef: PROCEDURE EXTERNAL; end;
-$include(:f3:siflag.pex)
-$include(:f3:sidim.pex)
-$include(:f3:siparo.pex)
-$include(:f3:cpyflg.pex)
-$include(:f3:zerflg.pex)
-$include(:f3:silit.pex)
-$include(:f3:sibseo.pex)
-createLit: PROCEDURE(str) ADDRESS EXTERNAL; DECLARE str ADDRESS; end;
-wrOprAndValue: PROCEDURE EXTERNAL; end;
-$include(:f3:findmi.pex)
-$include(:f3:giparo.pex)
-$include(:f3:gidtyp.pex)
-$include(:f3:sidtyp.pex)
-$include(:f3:sipcnt.pex)
-$include(:f3:siintn.pex)
-$include(:f3:sipid.pex)
-pushBlock: PROCEDURE(scope) EXTERNAL; DECLARE scope ADDRESS; end;
-syntaxError: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
-$include(:f3:ftlerr.pex)
-$include(:f3:tstflg.pex)
-$include(:f3:clrflg.pex)
-$include(:f3:setflg.pex)
-$include(:f3:fiscop.pex)
-$include(:f3:creati.pex)
 
 DECLARE endToggle BYTE INITIAL(0);
 
@@ -203,8 +119,8 @@ yylex: PROCEDURE public;
 
 	    call lookup(.tokenStr);
 	    markedSymbol$p = curSymbol$p;
-	    if high(sym.info$p) = 0FFH then	/* simple key word */
-		tokenType = low(sym.info$p);
+	    if high(cursym.info$p) = 0FFH then	/* simple key word */
+		tokenType = low(cursym.info$p);
 	    else
 	    do; 
 		call findInfo;
@@ -581,7 +497,7 @@ parseDcl: PROCEDURE public;
 
 	chkModuleLevel: PROCEDURE;	/* 62C2 */
 
-		if scope <> 100H then
+		if curscope <> 100H then
 			call tokenErrorAt(ERR73);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 	end;
 
@@ -618,7 +534,7 @@ parseDcl: PROCEDURE public;
 			curSymbol$p = structMembers(i);
 			memType = structMemType(i);
 			memDim = structMemDim(i);
-			call createInfo(scope, memType);
+			call createInfo(curscope, memType);
 			call wrXrefDef;
 			call setInfoFlag(F$MEMBER);
 			call setInfoFlag(F$LABEL);
@@ -633,12 +549,12 @@ parseDcl: PROCEDURE public;
 		end;
 	end;
 
-	sub$63B7: PROCEDURE(val);
-		DECLARE val ADDRESS;
+	sub$63B7: PROCEDURE(v);
+		DECLARE v ADDRESS;
 		DECLARE (cFlags, i) BYTE;
 	    
 		curSymbol$p = declaringName;
-		call findScopedInfo(scope);
+		call findScopedInfo(curscope);
 		if curInfo$p <> 0 then
 		do;
 			call wrXrefUse;
@@ -668,7 +584,7 @@ parseDcl: PROCEDURE public;
 		end;
 		else
 		do;
-			call createInfo(scope, dclType);
+			call createInfo(curscope, dclType);
 			call wrXrefDef;
 			call cpyFlags(.dclFlags);
 		end;
@@ -716,7 +632,7 @@ parseDcl: PROCEDURE public;
 		end;
 		if testInfoFlag(F$PARAMETER) then
 			byte$9D7B = byte$9D7B + 1;
-		else if val - byte$9D7B <> 1 then
+		else if v - byte$9D7B <> 1 then
 			call setInfoFlag(F$PACKED);
 		call setInfoFlag(F$LABEL);
 		if dclType = 4 then
@@ -1049,7 +965,7 @@ parseDcl: PROCEDURE public;
 			declBasedNames(declNameCnt) = 0;
 			if not flag then
 			do;
-				call findScopedInfo(scope);
+				call findScopedInfo(curscope);
 				if curInfo$p = 0 then
 					flag = TRUE;
 			end;
@@ -1219,10 +1135,10 @@ parseProcDcl: PROCEDURE public;
 
 	sub$6E4B: PROCEDURE;
 
-	    call findScopedInfo(scope);
+	    call findScopedInfo(curscope);
 	    if curInfo$p <> 0 then
 			call tokenErrorAt(ERR38);	/* DUPLICATE PARAMETER NAME */
-	    call createInfo(scope, BYTE$T);
+	    call createInfo(curscope, BYTE$T);
 	    call wrXrefDef;
 	    call setInfoFlag(F$PARAMETER);
 	    paramCnt = paramCnt + 1;
@@ -1262,10 +1178,10 @@ parseProcDcl: PROCEDURE public;
 
 	tmp = curProcInfo$p;
 	curSymbol$p = stmtLabels(1);
-	call findScopedInfo(scope);
+	call findScopedInfo(curscope);
 	if curInfo$p <> 0 then
 		call syntaxError(ERR34);	/* DUPLICATE PROCEDURE DECLARATION */
-	call createInfo(scope, PROC$T);
+	call createInfo(curscope, PROC$T);
 	call setInfoFlag(F$LABEL);
 	call wrXrefDef;
 	if procCnt = 254 then
@@ -1275,7 +1191,7 @@ parseProcDcl: PROCEDURE public;
 	curProcInfo$p = curInfo$p;
 	curDoBlkCnt = 0;
 	doBlkCnt = 0;
-	call pushBlock(scope);
+	call pushBlock(curscope);
 	call parseParams;
 	call parseRetType;
 	call parseProcAttrib;
@@ -1285,7 +1201,7 @@ parseProcDcl: PROCEDURE public;
 		call wrByte(L$PROCEDURE);
 		call wrOffset(curInfo$p);
 		call wrByte(L$SCOPE);
-		call wrWord(scope);
+		call wrWord(curscope);
 	end;
 	else
 	do;

@@ -1,117 +1,5 @@
 plm1c: DO;
-declare LIT LITERALLY 'LITERALLY',
-    CR  LIT '0DH',
-    LF LIT '0AH',
-    TRUE LIT '0FFH',
-    FALSE LIT '0';
-
-$nolist
-$include(:f3:lex.inc)
-/* $include(t2code.inc) */
-declare	T2$LINEINFO LIT '152';
-/* $include(icodes.inc) */
-
-declare	I$BASED LIT '31',
-	I$BYTEINDEX LIT '27',
-	I$LAST LIT '36',
-	I$LENGTH LIT '37',
-	I$MEMBER LIT '30',
-	I$NOT LIT '13',
-	I$NUMBER LIT '2',
-	I$OUTPUT LIT '24',
-	I$PLUSSIGN LIT '3',
-	I$SIZE LIT '48',
-	I$STACKPTR LIT '22',
-	I$STAR LIT '7',
-	I$UNARYMINUS LIT '21',
-	I$VARIABLE LIT '1',
-	I$WORDINDEX LIT '28';
-
-$include(:f3:flags.inc)
-/*$include(:f3:data.inc) */
-declare curSymbol$p ADDRESS EXTERNAL,
-	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE),
-	botInfo address external,
-	CONTROLS(8) BYTE EXTERNAL,
-	XREF	 LIT 'CONTROLS(1)',
-	SYMBOLS	 LIT 'CONTROLS(2)',
-	IXREF	 LIT 'CONTROLS(7)',
-	curInfo$p address external,
-	xrfFile(1) byte external,	/* saves symbol space !! */
-	atFile(1) byte external;
-
-$include(:f3:info.inc)
-
-declare	ATI$DHDR LIT '1',
-	ATI$STRING LIT '3',
-	ATI$DATA LIT '4',
-	ATI$END LIT '5';
-
-
-$include(:f3:fwrite.aex)
-$include(:f3:tiflag.pex)
-$include(:f3:siflag.pex)
-$include(:f3:fi.pex)
-$include(:f3:gitype.pex)
-$include(:f3:siparo.pex)
-$include(:f3:giparo.pex)
-$include(:f3:gibseo.pex)
-$include(:f3:creati.pex)
-$include(:f3:findmi.pex)
-$include(:f3:sidim.pex)
-$include(:f3:gidtyp.pex)
-$include(:f3:ftlerr.pex)
-mapLtoT2: PROCEDURE external; end;
-optWrXrf: PROCEDURE external; end;
-rdTx1Item: procedure external; end;
-setRegetTx1Item: PROCEDURE external; end;
-wrTx2Error: PROCEDURE(arg1b) external; DECLARE arg1b BYTE; end;
-wrTx2ExtError: PROCEDURE(arg1b) external; declare arg1b byte; end;
-wrTx2File: PROCEDURE(buf, cnt) external; DECLARE buf ADDRESS, cnt BYTE; end;
-
-matchTx2Item: PROCEDURE(arg1b) BYTE external; declare arg1b byte; end;
-notMatchTx2Item: PROCEDURE(arg1b) BYTE external; declare arg1b byte; end;
-sub$4599: PROCEDURE external; end;
-sub$45E0: PROCEDURE external; end;
-sub$4631: PROCEDURE external; end;
-expectRPAREN: PROCEDURE(arg1b) external; declare arg1b byte; end;
-wrAtFileByte: PROCEDURE(arg1b) external; declare arg1b byte; end;
-wrAtFileWord: PROCEDURE(arg1w) external; declare arg1w address; end;
-wrAtFile: PROCEDURE(buf, cnt) external; declare (buf, cnt) address; end;
-resyncRPAREN: PROCEDURE external; end;
-$list 
-
-
-
-
-
-declare T2CntForStmt address external,
-	curProcInfo$p address external,
-	curStmtNum address external,
-	(varInfoOffset, varArrayIndex, varNestedArrayIndex, val) address external,
-	regetTx1Item byte external,
-	b88B3 byte external,
-	tx1Item structure(type byte, dataw(129) address) external,
-	linfo structure(itemType byte, lineCnt address, stmtCnt address, blkCnt address) external,
-	tx1Aux2 byte external,
-	tx1Aux1 byte external,
-	tx1RdBuf(512) byte external,
-	tx2Buf(512) byte external,
-	xrfBuf(512) byte external,
-	atBuf(512) byte external,
-	b91C0 byte external,
-	parseSP address external,
-	parseStack(100) address external,
-	operatorSP address external,
-	operatorStack(50) address external,
-	exSP address external,
-	ex1Stack(100) byte external,
-	ex2Stack(100) byte external,
-	ex3Stack(100) address external,
-	stSP address external,
-	st1Stack(300) byte external,
-	st2Stack(300) byte external,
-	st3Stack(300) address external;
+$include(plm1c.ipx)
 
 getRestrictedExpr: PROCEDURE public;
 	declare rValue address,
@@ -230,7 +118,7 @@ getRestrictedExpr: PROCEDURE public;
 	    varInfoOffset = varInfoOffset - botInfo;
 	end;
 
-    varInfoOffset, varArrayIndex, varNestedArrayIndex, val = 0;
+    varInfoOffset, varArrayIndex, varNestedArrayIndex, varVal = 0;
     if matchTx2Item(L$PERIOD) then
     do;
 	call getRestrictedVar;
@@ -242,7 +130,7 @@ getRestrictedExpr: PROCEDURE public;
 	    return;
 	use8bit = FALSE;
 	call evalSimpleExpr;
-	val = rValue;
+	varVal = rValue;
     end;
     else if matchTx2Item(L$RPAREN) then
 	call setRegetTx1Item;
@@ -250,7 +138,7 @@ getRestrictedExpr: PROCEDURE public;
     do;
 	use8bit = TRUE;
 	call evalSimpleExpr;
-	val = rValue;
+	varVal = rValue;
     end;
 end;
 

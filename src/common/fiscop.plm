@@ -1,23 +1,11 @@
 fiscop: DO;
-declare lit literally 'literally';
-
-$include(:f3:tiflag.pex)
-$include(:f3:giscop.pex)
-$include(:f3:silnko.pex)
-$include(:f3:gilnko.pex)
-$include(:f3:gitype.pex)
-$include(:f3:flags.inc)
-$include(:f3:info.inc)
-
-declare curInfo$p address external,
-	curSymbol$p address external,
-	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE);
+$include(:f3:fiscop.ipx)
 
 findScopedInfo: PROCEDURE(scp) PUBLIC;
 	DECLARE scp ADDRESS;
 	DECLARE (p, q, next) ADDRESS, infoType BYTE;
 
-	curInfo$p = sym.info$p;
+	curInfo$p = cursym.info$p;
 	p = 0;
 	do while curInfo$p <> 0;
 		if scp = getScope then
@@ -34,8 +22,8 @@ findScopedInfo: PROCEDURE(scp) PUBLIC;
 				curInfo$p = p;		/* pick up previous */
 				call setLinkOffset(next);	/* set its link */
 				curInfo$p = q;		/* restore current */
-				call setLinkOffset(sym.info$p);	/* set its link to current head */
-				sym.info$p = curInfo$p;	/* set head to found info */
+				call setLinkOffset(cursym.info$p);	/* set its link to current head */
+				cursym.info$p = curInfo$p;	/* set head to found info */
 			end;
 			return;
 		end;

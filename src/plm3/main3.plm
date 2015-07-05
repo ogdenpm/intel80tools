@@ -1,74 +1,6 @@
 main3: DO;
+$include(main3.ipx)
 declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
-
-declare lit literally 'literally',
-    cr lit '0dh',
-    lf lit '0ah',
-    true lit '0ffh',
-    false lit '0',
-    boolean lit 'byte';
-
-$nolist
-$include(:f3:data.inc)
-$include(:f3:flags.inc)
-$include(:f3:info.inc)
-
-declare (tx1Buf, nmsBuf,  atBuf, objBuf) (1280) byte external,
-    w7197 address external,
-    b7199 byte external,
-    rec2 structure(type byte, len address, val(51) byte) external,
-    rec18 structure(type byte, len address, val(300) byte) external,
-    rec16$1 structure(type byte, len address, val(301) byte) external,
-    rec16$2 structure(type byte, len address, val(301) byte) external,
-    rec16$3 structure(type byte, len address, val(301) byte) external,
-    rec16$4 structure(type byte, len address, val(301) byte) external,
-    rec12 structure(type byte, len address, val(1021) byte) external,
-    rec6 structure(type byte, len address, seg byte, addr address, val(300) byte) external,
-    rec22 structure(type byte, len address, val(151) byte) external,
-    rec24$1 structure(type byte, len address, val(151) byte) external,
-    rec24$2 structure(type byte, len address, val(151) byte) external,
-    rec24$3 structure(type byte, len address, val(151) byte) external,
-    rec20 structure(type byte, len address, val(150) byte) external,
-    b4789(1) byte external,
-    b47B7(1) byte external,
-    b4813(1) byte external;
-
-
-recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
-recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
-
-$include(:f3:deletf.pex)
-$include(:f3:closef.pex)
-$include(:f3:sekend.pex)
-$include(:f3:fflush.pex)
-$include(:f3:rewind.pex)
-$include(:f3:openf.pex)
-$include(:f3:fread.aex)
-$include(:f3:fwrite.aex)
-$include(:f3:tiflag.pex)
-$include(:f3:silnkv.pex)
-$include(:f3:gilnkv.pex)
-$include(:f3:gidim2.pex)
-$include(:f3:gitype.pex)
-$include(:f3:adninf.pex)
-writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
-sub$48BA: procedure(arg1w, arg2b, arg3b, arg4b$p) external;
-	declare arg1w address, (arg2b, arg3b) byte, arg4b$p address;
-end;
-sub$49BC: procedure(arg1w, arg2w, arg3w) external; declare (arg1w, arg2w, arg3w) address; end;
-$include(:f3:giscop.pex)
-$include(:f3:itoa.pex)
-$include(:f3:endcom.pex)
-$include(:f3:chain.pex)
-$include(:f3:exit.pex)
-$include(:f3:creatf.pex)
-$include(:f3:giintn.pex)
-$include(:f3:gisym.pex)
-sub$49F9: procedure external; end;
-sub$4938: procedure address external; end;
-
-$list
-
 
     sub$3F3C: procedure;
 	b7199 = PRINT or OBJECT;
@@ -195,8 +127,8 @@ $list
 	call fread(.nmsFile, .i, 1);
 	do while i <> 0;
 	    curSymbol$p = curSymbol$p - i - 1;
-	    sym.name(0) = i;
-	    call fread(.nmsFile, .sym.name(1), i);
+	    cursym.name(0) = i;
+	    call fread(.nmsFile, .cursym.name(1), i);
 	    call fread(.nmsFile, .i, 1);
 	end;
 	botSymbol = curSymbol$p + 4;
@@ -211,7 +143,7 @@ $list
 	if curSymbol$p = 0 then
 	    call recAddByte(.rec2, 0, 0);
 	else 
-	    call sub$48BA(.rec2, 0, sym.name(0), .sym.name(1));
+	    call sub$48BA(.rec2, 0, cursym.name(0), .cursym.name(1));
 	call recAddByte(.rec2, 0, 1);
 	call recAddByte(.rec2, 0, shl(version(1), 4) or (version(3) and 0fh));
 	call recAddByte(.rec2, 0, 1);
@@ -243,10 +175,10 @@ $list
 	    do; 
 		if testInfoFlag(F$EXTERNAL) and not testInfoFlag(F$AT) then
 		do; 
-			if rec18.len + sym.name(0) + 2 >= 299 then
+			if rec18.len + cursym.name(0) + 2 >= 299 then
 				call writeRec(.rec18.type, 0);
 			s = s + 1;
-			call sub$48BA(.rec18.type, 0, sym.name(0), .sym.name(1));
+			call sub$48BA(.rec18.type, 0, cursym.name(0), .cursym.name(1));
 			call recAddByte(.rec18.type, 0, 0);
 		end;
 		else if not (testInfoFlag(F$AUTOMATIC) or testInfoFlag(F$BASED) or testInfoFlag(F$MEMBER)) then
@@ -278,10 +210,10 @@ $list
 
 			if testInfoFlag(F$PUBLIC) then
 			do; 
-				if q + sym.name(0) + 4 >= 299 then
+				if q + cursym.name(0) + 4 >= 299 then
 					call writeRec(p, 1);
 				call recAddWord(p, 1, getLinkVal);
-				call sub$48BA(p, 1, sym.name(0), .sym.name(1));
+				call sub$48BA(p, 1, cursym.name(0), .cursym.name(1));
 				call recAddByte(p, 1, 0);
 			end;
 			if DEBUG then
@@ -299,11 +231,11 @@ $list
 				end;
 				if not j then
 				do;
-					if i <> rec12.val(0) or rec12.len + sym.name(0) + 4 >= 1019 then
+					if i <> rec12.val(0) or rec12.len + cursym.name(0) + 4 >= 1019 then
 						call writeRec(.rec12, 1);
 					rec12.val(0) = i;
 					call recAddWord(.rec12, 1, getLinkVal);
-					call sub$48BA(.rec12, 1, sym.name(0), .sym.name(1));
+					call sub$48BA(.rec12, 1, cursym.name(0), .cursym.name(1));
 					call recAddByte(.rec12, 1, 0);
 				end;
 			end;

@@ -1,38 +1,18 @@
 plm3a: DO;
-declare lit literally 'literally',
-    cr lit '0dh',
-    lf lit '0ah',
-    true lit '0ffh',
-    false lit '0',
-    boolean lit 'byte';
+/* as this defines the record sizes so override the VALx$SIZE literals */
 
-$nolist
-$include(:f3:data.inc)
-$include(:f3:flags.inc)
-$include(:f3:info.inc)
-declare	ATI$AHDR LIT '0',
-	ATI$DHDR LIT '1',
-	ATI$2 LIT '2',
-	ATI$STRING LIT '3',
-	ATI$DATA LIT '4',
-	ATI$END LIT '5',
-	ATI$EOF LIT '6';
+declare	VAL2$SIZE	literally	'51',
+	VAL6$SIZE	literally	'300',
+	VAL12$SIZE	literally	'1021',
+	VAL16$SIZE	literally	'301',
+	VAL18$SIZE	literally	'300',
+	VAL20$SIZE	literally	'150',
+	VAL22$SIZE	literally	'151',
+	VAL24$SIZE	literally	'151';
 
 
-recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
-recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
-writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
-$include(:f3:gitype.pex)
-$include(:f3:fread.aex)
-$include(:f3:fwrite.aex)
-$include(:f3:adninf.pex)
-$include(:f3:tiflag.pex)
-$include(:f3:gibsev.pex)
-$include(:f3:giparo.pex)
-$include(:f3:gidim.pex)
-$include(:f3:gilnkv.pex)
-$include(:f3:gieid.pex)
 
+$include(plm3a.ipx)
 
 declare b4789(*) byte public data(
 	2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3,
@@ -68,19 +48,19 @@ declare b4813(*) byte public data(
 declare (tx1Buf, nmsBuf,  atBuf, objBuf) (1280) byte public,
 	w7197 address public,
 	b7199 byte public,
-	rec2 structure(type byte, len address, val(51) byte) public initial(2, 0),
-	rec18 structure(type byte, len address, val(300) byte) public initial(18h, 0),
-	rec16$1 structure(type byte, len address, val(301) byte) public initial(16h, 0, 0),
-	rec16$2 structure(type byte, len address, val(301) byte) public initial(16h, 0, 1),
-	rec16$3 structure(type byte, len address, val(301) byte) public initial(16h, 0, 2),
-	rec16$4 structure(type byte, len address, val(301) byte) public initial(16h, 0, 4),
-	rec12 structure(type byte, len address, val(1021) byte) public initial(12h, 0, 1),
-	rec6 structure(type byte, len address, seg byte, addr address, val(300) byte) public initial(6, 0, 0),
-	rec22 structure(type byte, len address, val(151) byte) public initial(22h, 0, 3),
-	rec24$1 structure(type byte, len address, val(151) byte) public initial(24h, 0, 1, 3),
-	rec24$2 structure(type byte, len address, val(151) byte) public initial(24h, 0, 2, 3),
-	rec24$3 structure(type byte, len address, val(151) byte) public initial(24h, 0, 4, 3),
-	rec20 structure(type byte, len address, val(150) byte) public initial(20h, 0, 3);
+	rec2 REC2$ST public initial(2, 0),
+	rec18 REC18$ST public initial(18h, 0),
+	rec16$1 REC16$ST public initial(16h, 0, 0),
+	rec16$2 REC16$ST public initial(16h, 0, 1),
+	rec16$3 REC16$ST public initial(16h, 0, 2),
+	rec16$4 REC16$ST public initial(16h, 0, 4),
+	rec12 REC12$ST public initial(12h, 0, 1),
+	rec6 REC6$ST public initial(6, 0, 0),
+	rec22 REC22$ST public initial(22h, 0, 3),
+	rec24$1 REC24$ST public initial(24h, 0, 1, 3),
+	rec24$2 REC24$ST public initial(24h, 0, 2, 3),
+	rec24$3 REC24$ST public initial(24h, 0, 4, 3),
+	rec20 REC20$ST public initial(20h, 0, 3);
 
 $list
 
@@ -170,8 +150,8 @@ end;
 
 sub$49F9: procedure public;
 	declare atFData STRUCTURE(type byte, info$p address, stmtNum address,
-		varInfoOffset address, varArrayIndex address, varNestedArrayIndex address,
-		val address), dat(255) byte;
+		atVarInfoOffset address, atVarArrayIndex address, atNestedArrayIndex address,
+		atVal address), dat(255) byte;
 	
 
 	sub$4A31: procedure;
@@ -213,13 +193,13 @@ sub$49F9: procedure public;
 			do;
 				call fread(.atFile, .atFData.type, 1);
 				do case atFData.type - 2;
-					call fread(.atFile, .atFData.val, 2); /* ATI$2 */
+					call fread(.atFile, .atFData.atVal, 2); /* ATI$2 */
 					do;		/* ATI$STRING */
 						call fread(.atFile, .w8115, 2);
 						call fread(.atFile, .dat, w8115);
 						w8117 = 0;
 					end;
-					call fread(.atFile, .atFData.varInfoOffset, 8); /* ATI$DATA */
+					call fread(.atFile, .atFData.atVarInfoOffset, 8); /* ATI$DATA */
 					;		/* ATI$END */
 				end;
 			end;
@@ -232,13 +212,13 @@ sub$49F9: procedure public;
 				if getType = BYTE$T then
 				do;
 					call sub$4908(.rec6, 12ch, 1);
-					call recAddByte(.rec6, 3, atFData.val);
+					call recAddByte(.rec6, 3, atFData.atVal);
 					w7197 = w7197 + 1;
 				end;
 				else
 				do;
 					call sub$4908(.rec6, 12Ch, 2);
-					call recAddWord(.rec6, 3, atFData.val);
+					call recAddWord(.rec6, 3, atFData.atVal);
 					w7197 = w7197 + 2;
 				end;
 			end;
@@ -253,12 +233,12 @@ sub$49F9: procedure public;
 
 				if getType = BYTE$T then
 				do;
-					atFData.val = dat(w8117);
+					atFData.atVal = dat(w8117);
 					w8117 = w8117 + 1;
 				end;
 				else
 				do;
-						w8120 = .atFData.val;
+						w8120 = .atFData.atVal;
 						bytpr(1) = dat(w8117);
 						w8117 = w8117 + 1;
 						if w8117 < w8115 then
@@ -278,7 +258,7 @@ sub$49F9: procedure public;
 
 
 			sub$4D85: procedure;
-				if atFData.val > 255 and getType = BYTE$T then
+				if atFData.atVal > 255 and getType = BYTE$T then
 					call sub$4CF9;
 				else
 					call sub$4CAC;
@@ -287,21 +267,21 @@ sub$49F9: procedure public;
 			sub$4DA8: procedure;
 				declare i byte, (p, q) address, j byte;
 
-				if atFData.varInfoOffset = 0 then
+				if atFData.atVarInfoOffset = 0 then
 					call sub$4D85;
 				else if getType = BYTE$T then
 					call sub$4CF9;
 				else
 				do;
 					p = curInfo$p;
-					curInfo$p = botInfo + atFData.varInfoOffset;
+					curInfo$p = botInfo + atFData.atVarInfoOffset;
 					if testInfoFlag(F$MEMBER) then
 					do;
-						atFData.val = atFData.val + sub$4984 * atFData.varNestedArrayIndex + getLinkVal;
+						atFData.atVal = atFData.atVal + sub$4984 * atFData.atNestedArrayIndex + getLinkVal;
 						curInfo$p = getParentOffset;
 					end;
 
-					atFData.val = atFData.val + sub$4984 * atFData.varArrayIndex + getLinkVal;
+					atFData.atVal = atFData.atVal + sub$4984 * atFData.atVarArrayIndex + getLinkVal;
 					if testInfoFlag(F$EXTERNAL) then
 					do;
 						i = getExternId;

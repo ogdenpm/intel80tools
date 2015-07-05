@@ -1,14 +1,5 @@
 lookup: DO;
-$include(:f3:allocs.pex)
-$include(:f3:movmem.aex)
-$include(:f3:strcmp.pex)
-$include(:f3:alloc.pex)
-
-declare hashChains$p address external,
-	curSymbol$p address external,
-	sym based curSymbol$p STRUCTURE(link ADDRESS, info$p ADDRESS, name(1) BYTE);
-
-
+$include(:f3:lookup.ipx)
 
 lookup: PROCEDURE(pstr) PUBLIC;
 	DECLARE pstr ADDRESS;
@@ -37,32 +28,32 @@ lookup: PROCEDURE(pstr) PUBLIC;
 	curSymbol$p = hashChains(hval);
 	p = 0;
 	do while curSymbol$p <> 0;
-		if sym.name(0) = len then
+		if cursym.name(0) = len then
 		do;
-			cmp = strncmp(.sym.name(1), pstr + 1, len);
+			cmp = strncmp(.cursym.name(1), pstr + 1, len);
 			if cmp = 0 then
 			do;
 				if p <> 0 then
 				do;
-					q = sym.link;
+					q = cursym.link;
 					r = curSymbol$p;
 					curSymbol$p = p;
-					sym.link = q;
+					cursym.link = q;
 					curSymbol$p = r;
-					sym.link = hashChains(hval);
+					cursym.link = hashChains(hval);
 					hashChains(hval) = curSymbol$p;
 				end;
 				return;
 			end;
 		end;
 		p = curSymbol$p;
-		curSymbol$p = sym.link;
+		curSymbol$p = cursym.link;
 	end;
 	call alloc(0, len + 1);
 	curSymbol$p = allocSymbol(5 + len);
-	call movmem(len + 1, pstr, .sym.name);
-	sym.info$p = 0;
-	sym.link = hashChains(hval);
+	call movmem(len + 1, pstr, .cursym.name);
+	cursym.info$p = 0;
+	cursym.link = hashChains(hval);
 	hashChains(hval) = curSymbol$p;
 end lookup;
 END;

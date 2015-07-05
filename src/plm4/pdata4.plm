@@ -1,6 +1,13 @@
 pdata: DO;
-declare true literally '0ffh',
-	false literally '0';
+/* as this defines the record sizes so override the VALx$SIZE literals */
+
+declare	VAL6$SIZE	literally	'1018',
+	VAL8$SIZE	literally	'1021',
+	VAL18$SIZE	literally	'300',
+	VAL20$SIZE	literally	'1019',
+	VAL22$SIZE	literally	'1019',
+	VAL24$SIZE	literally	'101';
+$include(pdata4.ipx)
 
 declare (helperModId, endHelperId) byte public,
 	listing byte public,
@@ -21,15 +28,18 @@ declare (helperModId, endHelperId) byte public,
 	bo813C byte public initial(true),
 	lstLineLen byte public,
 	lstLine(130) byte public,
-	rec6$4 structure(type byte, len address, seg byte, addr address, val(1018) byte) public initial(6, 0, 1),
-	rec22 structure(type byte, len address, val(1019) byte) public initial(22h, 0, 3),
-	rec24$1 structure(type byte, len address, val(1019) byte) public initial(24h, 0, 2, 3),
-	rec24$2 structure(type byte, len address, val(101) byte) public initial(24h, 0, 3, 3),
-	rec24$3 structure(type byte, len address, val(101) byte) public initial(24h, 0, 4, 3),
-	rec20 structure(type byte, len address, val(1019) byte) public initial(20h, 0, 3),
-	rec8 structure(type byte, len address, val(1021) byte) public initial(8, 0, 1),
-	rec4 structure(type byte, len address, subtype byte) public initial(4, 4),
-	rec4dat structure(seg byte, addr address, crc byte) public initial(1),
+	rec6$4 REC6$ST public initial(6, 0, 1),
+	rec22 REC22$ST public initial(22h, 0, 3),
+	rec24$1 REC24$ST public initial(24h, 0, 2, 3),
+	/* to allow common user defined types add in the extra val buf */
+	/* 1019 - VAL24$SIZE => 918 */
+	rec24$1$extra(918) byte,
+	rec24$2 REC24$ST public initial(24h, 0, 3, 3),
+	rec24$3 REC24$ST public initial(24h, 0, 4, 3),
+	rec20 REC20$ST public initial(20h, 0, 3),
+	rec8 REC8$ST public initial(8, 0, 1),
+	rec4 REC4$ST  public initial(4, 4),
+	rec4seg byte at(.rec4.seg) initial(1),
 	b9692 byte public,
 	helperId byte public,
 	helperStr(1) byte public,

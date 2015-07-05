@@ -1,13 +1,5 @@
 PLMA: DO;
-
-DECLARE LIT LITERALLY 'LITERALLY',
-	CR LIT '0DH',
-	LF LIT '0AH',
-	QUOTE LIT '27H',
-	TRUE LIT '0ffh',
-	FALSE LIT '0',
-	BOOLEAN LIT 'BYTE',
-	IRESCAN LIT '11';
+$include(plma.ipx)
 
 DECLARE
 	signonMsg(*) BYTE DATA(CR, LF, 'ISIS-II PL/M-80 COMPILER '),
@@ -27,30 +19,6 @@ DECLARE
 	aSourceFileBadExt(*) BYTE DATA('SOURCE FILE EXTENSION INCORRECT'),
 	aIllegalCommand(*) BYTE DATA('ILLEGAL COMMAND TAIL SYNTAX');
 
-
-$include(:f3:movmem.aex)
-/* use local definition for fill */
-$include(fill.aex)
-$include(:f3:initf.pex)
-$include(:f3:openf.pex)
-$include(:f3:memchk.aex)
-$include(:f3:fatal.pex)
-$include(:f3:prints.pex)
-$include(:f3:fatlIO.pex)
-$include(:f3:readf.pex)
-
-setDate: PROCEDURE(str, len) EXTERNAL; DECLARE str ADDRESS, len BYTE; end setDate;
-setPageLen: PROCEDURE(len) EXTERNAL; DECLARE len ADDRESS; end setPageLen;
-setMarkerInfo: PROCEDURE(b1, b2, b3) EXTERNAL; DECLARE (b1, b2, b3) BYTE; end setMarkerInfo;
-setPageNo: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end setPageNo;
-setMarginAndTabW: PROCEDURE(b1, b2) EXTERNAL; DECLARE (b1, b2) BYTE; end setMarginAndTabW;
-setPageWidth: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end setPageWidth;
-setTitle: PROCEDURE(str, len) EXTERNAL; DECLARE str ADDRESS, len BYTE; end setTitle;
-
-$include(:f3:data.inc)
-declare ioBuffer(1) byte external,
-	verno(1) byte external;
-
 DECLARE
 	cmdText$p ADDRESS PUBLIC,
 	cmdch BASED cmdText$p BYTE;
@@ -58,10 +26,10 @@ DECLARE
 
 sub$40AC: PROCEDURE PUBLIC;
 
-	rescan: procedure (conn, status$p);
+	localRescan: procedure (conn, status$p);
 	    declare (conn, status$p) address;
 		call ISIS(IRESCAN, .conn);
-	end rescan;
+	end localRescan;
 
 
 	skipSpace: PROCEDURE;
@@ -111,7 +79,7 @@ sub$40AC: PROCEDURE PUBLIC;
 		DECLARE (actual, status) ADDRESS;
 		DECLARE (i, inQuote) BYTE;
 
-		call Rescan(1, .status);
+		call localRescan(1, .status);
 		if status <> 0 then
 			call fatlIO(.conFile, status);
 		startCmdLine$p = 0;
@@ -163,12 +131,12 @@ sub$40AC: PROCEDURE PUBLIC;
 		call skipAlphaNum;
 		if (len := cmdText$p - start$p) > 10 then
 			len = 10;
-		do p = .overlay1 to .overlay5 by length(overlay1);
+		do p = .overlay1 to .overlay5 by FILE$NAME$LEN;
 			call movmem(len, start$p, p);
 		end;
 		call movmem(len, start$p, .invokeName);
 		call movmem(len, start$p, .overlay6);
-		do p = .overlay1 to .overlay5 by length(overlay1);
+		do p = .overlay1 to .overlay5 by FILE$NAME$LEN;
 			call movmem(5, p + 10, p + len);
 		end;
 		call movmem(5, .ov0, .invokeName(len));
@@ -202,7 +170,7 @@ sub$40AC: PROCEDURE PUBLIC;
 		if (nameLen := cmdText$p - fileName) = 0 or nameLen > 6 then
 			call fatal(.aSourceFileName, length(aSourceFileName));
 		srcStemLen = cmdText$p - fullname;
-		call FILL(10, .srcStemName, ' ');
+		call FILLX(10, .srcStemName, double(' '));
 		call movmem(srcStemLen, fullname, .srcStemName);
 		if cmdch = '.' then
 		do;
@@ -213,9 +181,9 @@ sub$40AC: PROCEDURE PUBLIC;
 		end;
 		namelen = cmdText$p - fullname;
 		srcFileIdx = 0;
-		call FILL(16, .srcFileTable, ' ');
+		call FILLX(16, .srcFileTable, double(' '));
 		call movmem(namelen, fullname, .srcFileTable);
-		call FILL(4, .srcFileTable(8), 0);
+		call FILLX(4, .srcFileTable(8), double(0));
 		call skipSpace;
 		if cmdch = '$' then
 			call fatal(.aIllegalCommand, length(aIllegalCommand));
@@ -227,16 +195,16 @@ sub$40AC: PROCEDURE PUBLIC;
 
 	sub$45F6: PROCEDURE;
 		LEFTMARGIN = 1;
-		call FILL(15, .ixiFileName, ' ');
+		call FILLX(15, .ixiFileName, double(' '));
 		call movmem(srcStemLen, .srcStemName, .ixiFileName);
 		call movmem(4, .a$ixi, .ixiFileName(srcStemLen));
 		call initf(.ixiFile, .('IXREF '), .ixiFileName);
 		objBlk, objByte = 0;
-		call FILL(15, .objFileName, ' ');	
+		call FILLX(15, .objFileName, double(' '));	
 		call movmem(srcStemLen, .srcStemName, .objFileName);
 		call movmem(4, .a$obj, .objFileName(srcStemLen));
 		call initf(.objFile, .('OBJECT'), .objFileName);
-		call FILL(15, .lstFileName, ' ');	
+		call FILLX(15, .lstFileName, double(' '));	
 		call movmem(srcStemLen, .srcStemName, .lstFileName);
 		call movmem(4, .a$lst, .lstFileName(srcStemLen));
 		call initf(.lstFil, .('LIST '), .lstFileName);

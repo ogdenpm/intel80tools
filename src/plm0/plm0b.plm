@@ -1,18 +1,6 @@
 plm0b:
 DO;
-DECLARE LIT LITERALLY 'LITERALLY',
-	CR LIT '0DH',
-	LF LIT '0AH',
-	TRUE LIT '0FFH',
-	FALSE LIT '0',
-	boolean lit 'byte';
-
-DECLARE local lit ' ';
-
-$include(cclass.inc)
-$include(:f3:err.inc)
-$include(:f3:lex.inc)
-$include(:f3:info.inc)
+$include(plm0b.ipx)
 
 DECLARE opttable(*) BYTE DATA(
 	5,'PRINT', 0, 0, 0FFh, 7, 0,
@@ -62,16 +50,6 @@ DECLARE ebadcontrol(*) BYTE DATA('UNRECOGNIZED CONTROL IN COMMAND TAIL');
 DECLARE errNotDisk(*) BYTE DATA('INCLUDE FILE IS NOT A DISKETTE FILE'),
 	errWorkFiles(*) BYTE DATA('MISPLACED CONTROL: WORKFILES ALREADY OPEN');
 
-$include(:f3:data.inc)
-declare
-	isNonCtrlLine BYTE EXTERNAL,
-	skippingCOND BYTE EXTERNAL,
-	ifDepth ADDRESS EXTERNAL,
-	cClass(1) byte external,
-	ocurch ADDRESS EXTERNAL,
-	olstch ADDRESS EXTERNAL;
-
-
 
 
 DECLARE	primaryCtrlSeen(14) BYTE INITIAL(0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -95,30 +73,6 @@ DECLARE	primaryCtrlSeen(14) BYTE INITIAL(0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 	tknFlags BASED tknFlags$p STRUCTURE(tokenId BYTE, primary BYTE,
 			controlId BYTE, controlVal BYTE, primaryId BYTE);
 	
-$include(:f3:fatal.pex)
-$include(:f3:movmem.aex)
-$include(:f3:fill.aex)
-$include(:f3:initf.pex)
-$include(:f3:openf.pex)
-$include(:f3:tellf.pex)
-$include(:f3:backup.pex)
-$include(:f3:closef.pex)
-syntaxError: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
-wrByte: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; end;
-wrBuf: PROCEDURE(buf, len) EXTERNAL; DECLARE (buf, len) ADDRESS; end;
-$include(:f3:lookup.pex)
-$include(:f3:fiscop.pex)
-setPAGELEN: PROCEDURE(len) EXTERNAL; DECLARE len ADDRESS; end;
-setPAGEWIDTH: PROCEDURE(len) EXTERNAL; DECLARE len ADDRESS; end;
-setDate: PROCEDURE(str, len) EXTERNAL; DECLARE str ADDRESS, len BYTE; end;
-$include(:f3:ftlerr.pex)
-$include(:f3:creati.pex)
-$include(:f3:sicond.pex)
-$include(:f3:gicond.pex)
-$include(:f3:strcmp.pex)
-
-
-
 DECLARE curCh BASED curCh$p BYTE;
 
 nxtCh: PROCEDURE PUBLIC;
@@ -367,7 +321,7 @@ getval:	PROCEDURE local;
 		call badCmdTail(ERR184);	/* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
 	end;
 	call lookup(optStrVal$p - 1);
-	if HIGH(sym.info$p) = 0FFH then	/* special */
+	if HIGH(cursym.info$p) = 0FFH then	/* special */
 	do;
 		curInfo$p = 0FFFFh;
 		curCh$p = tmp;
@@ -554,7 +508,7 @@ end;
 
 optTitle: PROCEDURE local;
 
-	setTITLE: PROCEDURE BYTE;
+	localSetTITLE: PROCEDURE BYTE;
 		DECLARE len BYTE;
 		call nxtCh;
 		if curCh <> '''' then
@@ -598,7 +552,7 @@ optTitle: PROCEDURE local;
 		call badCmdTail(ERR11);	/* MISSING CONTROL PARAMETER */
 		return;
 	end;
-	if not setTITLE then
+	if not localSetTITLE then
 	do;
 		call badCmdTail(ERR12);	/* INVALID CONTROL PARAMETER */
 		call skipToRPARorEOL;

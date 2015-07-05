@@ -2,6 +2,15 @@ TARGET = plm80.ov0
 NAME = PL8020
 STACK = 314
 
+# common makefile info
+ISIS=..\..\thames
+V4=../../plm80v4/
+V3=../../plm80v3/
+F0=./
+F3=../common/
+TOOLS=..\..\tools
+PEXFILE=:f3:plm.pex
+
 OBJ =	main0.obj plm0a.obj plm0b.obj plm0c.obj plm0d.obj plm0e.obj plm0f.obj\
 	:f3:movmem.obj :f3:fill.obj :f3:strcmp.obj :f3:fatal.obj\
 	:f3:initf.obj :f3:openf.obj :f3:readf.obj :f3:tellf.obj\
@@ -22,12 +31,6 @@ OBJ =	main0.obj plm0a.obj plm0b.obj plm0c.obj plm0d.obj plm0e.obj plm0f.obj\
 	:f3:gilnko.obj :f3:silnko.obj :f3:allocs.obj :f3:write.obj\
 	:f3:itoa.obj
 
-# common makefile info
-ISIS=..\..\thames
-V4=../../plm80v4/
-V3=../../plm80v3/
-F0=./
-F3=../common/
 
 .SUFFIXES: .plm .pl3
 .plm.obj:
@@ -43,6 +46,18 @@ F3=../common/
 	@SET ISIS_F3=$(F3)
 	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
+
+.plm.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
+	$(TOOLS)\ngenpex $(PEXFILE) $(<:../common/=:F3:)
+
+.pl3.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
+	$(TOOLS)\ngenpex $(PEXFILE) $(<:../common/=:F3:)
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
@@ -75,75 +90,88 @@ $(F3)data.abs: $(F3)data.obj
 	$(ISIS) :F1:locate :f3:data.obj to :f3:data.abs SYMBOLS PUBLICS DATA(3800H) print(:f3:data.map)
 	@if not exist $@ exit /b 1
 
+IPX = 	$(OBJ:.obj=.ipx)
+$(IPX::F3:=../common/): $(PEXFILE::f3:=../common/)
+
+
 clean:
-	del *.obj *lst *.map *.*~ *~ $(TARGET)
+	del *.obj *lst *.map *.*~ *~ 
+
+vclean: clean
+	del *.ipx $(TARGET)
 
 verify: $(TARGET)
 	fc /b $(TARGET) $(V4)$(TARGET)
 
 
 # auto generated
-main0.obj: main0.plm $(F3)lex.inc $(F3)data.inc $(F3)initf.pex $(F3)openf.pex \
-           $(F3)seekf.pex $(F3)tellf.pex $(F3)backup.pex $(F3)closef.pex \
-           $(F3)chain.pex
-plm0a.obj: plm0a.plm cclass.inc $(F3)lex.inc toks.inc $(F3)data.inc \
-           $(F3)movmem.aex $(F3)openf.pex $(F3)fflush.pex $(F3)rewind.pex \
-           $(F3)fwrite.aex $(F3)fatal.pex $(F3)creatf.pex
-plm0b.obj: plm0b.plm cclass.inc $(F3)err.inc $(F3)lex.inc $(F3)info.inc \
-           $(F3)data.inc $(F3)fatal.pex $(F3)movmem.aex $(F3)fill.aex \
-           $(F3)initf.pex $(F3)openf.pex $(F3)tellf.pex $(F3)backup.pex \
-           $(F3)closef.pex $(F3)lookup.pex $(F3)fiscop.pex $(F3)ftlerr.pex \
-           $(F3)creati.pex $(F3)sicond.pex $(F3)gicond.pex $(F3)strcmp.pex
-plm0d.obj: plm0d.plm $(F3)err.inc $(F3)lex.inc $(F3)data.inc $(F3)sitype.pex \
-           $(F3)initf.pex $(F3)openf.pex $(F3)closef.pex $(F3)seekf.pex
-plm0e.obj: plm0e.plm toks.inc $(F3)err.inc $(F3)lex.inc cclass.inc $(F3)flags.inc \
-           $(F3)info.inc $(F3)gilit.pex $(F3)lookup.pex $(F3)fi.pex \
-           $(F3)sitype.pex $(F3)gitype.pex $(F3)giscop.pex $(F3)tiflag.pex \
-           $(F3)siflag.pex $(F3)sidim.pex $(F3)siparo.pex $(F3)cpyflg.pex \
-           $(F3)zerflg.pex $(F3)silit.pex $(F3)sibseo.pex $(F3)findmi.pex \
-           $(F3)giparo.pex $(F3)gidtyp.pex $(F3)sidtyp.pex $(F3)sipcnt.pex \
-           $(F3)siintn.pex $(F3)sipid.pex $(F3)ftlerr.pex $(F3)tstflg.pex \
-           $(F3)clrflg.pex $(F3)setflg.pex $(F3)fiscop.pex $(F3)creati.pex
-plm0f.obj: plm0f.plm $(F3)lex.inc $(F3)err.inc toks.inc $(F3)data.inc plm0.inc \
-           $(F3)flags.inc $(F3)info.inc $(F3)ftlerr.pex $(F3)adninf.pex \
-           $(F3)sipid.pex $(F3)fiscop.pex $(F3)tiflag.pex $(F3)siflag.pex \
-           $(F3)giscop.pex $(F3)gisym.pex $(F3)lookup.pex $(F3)alloc.pex \
-           $(F3)creati.pex $(F3)gipcnt.pex
-plm0g.obj: plm0g.plm $(F3)movmem.aex $(F3)allocs.pex
-plm0h.obj: plm0h.plm $(F3)data.inc $(F3)fill.aex $(F3)movmem.aex
-$(F3)adninf.obj: $(F3)adninf.plm $(F3)gilen.pex $(F3)gitype.pex
-$(F3)alloc.obj: $(F3)alloc.plm $(F3)err.inc $(F3)ftlerr.pex
-$(F3)allocs.obj: $(F3)allocs.plm $(F3)err.inc $(F3)ftlerr.pex
-$(F3)chain.obj: $(F3)chain.plm $(F3)fatlio.pex $(F3)initf.pex $(F3)load.pex
-$(F3)closef.obj: $(F3)closef.plm $(F3)close.pex $(F3)fatlio.pex
-$(F3)creatf.obj: $(F3)creatf.plm $(F3)readf.pex
-$(F3)creati.obj: $(F3)creati.plm $(F3)err.inc $(F3)info.inc $(F3)fill.aex \
-                 $(F3)alloc.pex $(F3)ftlerr.pex $(F3)silnko.pex $(F3)sitype.pex \
-                 $(F3)silen.pex $(F3)siscop.pex $(F3)sisym.pex
-$(F3)fatal.obj: $(F3)fatal.plm $(F3)exit.pex $(F3)prints.pex
-$(F3)fatlio.obj: $(F3)fatlio.plm $(F3)prints.pex $(F3)itoa.pex $(F3)exit.pex
-$(F3)fflush.obj: $(F3)fflush.plm $(F3)writef.pex
-$(F3)fi.obj: $(F3)fi.plm $(F3)fiscop.pex
-$(F3)findmi.obj: $(F3)findmi.plm $(F3)flags.inc $(F3)gilnko.pex $(F3)giparo.pex \
-                 $(F3)tiflag.pex
-$(F3)fiscop.obj: $(F3)fiscop.plm $(F3)tiflag.pex $(F3)giscop.pex $(F3)silnko.pex \
-                 $(F3)gilnko.pex $(F3)gitype.pex $(F3)flags.inc $(F3)info.inc
-$(F3)gidtyp.obj: $(F3)gidtyp.plm $(F3)info.inc
-$(F3)giparo.obj: $(F3)giparo.plm $(F3)info.inc
-$(F3)gipcnt.obj: $(F3)gipcnt.plm $(F3)info.inc
-$(F3)initf.obj: $(F3)initf.plm $(F3)fill.aex $(F3)cpytil.pex
-$(F3)itoa.obj: $(F3)itoa.plm $(F3)movmem.aex $(F3)fill.aex
-$(F3)lookup.obj: $(F3)lookup.plm $(F3)allocs.pex $(F3)movmem.aex $(F3)strcmp.pex \
-                 $(F3)alloc.pex
-$(F3)openf.obj: $(F3)openf.plm $(F3)open.pex $(F3)fatlio.pex
-$(F3)prints.obj: $(F3)prints.plm $(F3)write.pex
-$(F3)readf.obj: $(F3)readf.plm $(F3)read.pex $(F3)fatlio.pex
-$(F3)rewind.obj: $(F3)rewind.plm $(F3)seekf.pex
-$(F3)seekf.obj: $(F3)seekf.plm $(F3)seek.pex $(F3)fatlio.pex
-$(F3)sidtyp.obj: $(F3)sidtyp.plm $(F3)info.inc
-$(F3)siflag.obj: $(F3)siflag.plm $(F3)setflg.pex
-$(F3)siparo.obj: $(F3)siparo.plm $(F3)info.inc
-$(F3)sipcnt.obj: $(F3)sipcnt.plm $(F3)info.inc
-$(F3)tellf.obj: $(F3)tellf.plm $(F3)seek.pex $(F3)fatlio.pex
-$(F3)tiflag.obj: $(F3)tiflag.plm $(F3)tstflg.pex
-$(F3)writef.obj: $(F3)writef.plm $(F3)write.pex $(F3)fatlio.pex
+main0.obj: main0.plm main0.ipx
+plm0a.obj: plm0a.plm plm0a.ipx
+plm0b.obj: plm0b.plm plm0b.ipx
+plm0d.obj: plm0d.plm plm0d.ipx
+plm0e.obj: plm0e.plm plm0e.ipx
+plm0f.obj: plm0f.plm plm0f.ipx $(F3)info.inc
+plm0g.obj: plm0g.plm plm0g.ipx
+plm0h.obj: plm0h.plm plm0h.ipx
+$(F3)adninf.obj: $(F3)adninf.plm $(F3)adninf.ipx
+$(F3)alloc.obj: $(F3)alloc.plm $(F3)alloc.ipx
+$(F3)allocs.obj: $(F3)allocs.plm $(F3)allocs.ipx
+$(F3)backup.obj: $(F3)backup.plm $(F3)backup.ipx
+$(F3)chain.obj: $(F3)chain.plm $(F3)chain.ipx
+$(F3)close.obj: $(F3)close.plm $(F3)close.ipx
+$(F3)closef.obj: $(F3)closef.plm $(F3)closef.ipx
+$(F3)clrflg.obj: $(F3)clrflg.plm $(F3)clrflg.ipx
+$(F3)cpyflg.obj: $(F3)cpyflg.plm $(F3)cpyflg.ipx
+$(F3)creatf.obj: $(F3)creatf.plm $(F3)creatf.ipx
+$(F3)creati.obj: $(F3)creati.plm $(F3)creati.ipx
+$(F3)data.obj: $(F3)data.plm $(F3)data.ipx
+$(F3)exit.obj: $(F3)exit.plm $(F3)exit.ipx
+$(F3)fatal.obj: $(F3)fatal.plm $(F3)fatal.ipx
+$(F3)fatlio.obj: $(F3)fatlio.plm $(F3)fatlio.ipx
+$(F3)fflush.obj: $(F3)fflush.plm $(F3)fflush.ipx
+$(F3)fi.obj: $(F3)fi.plm $(F3)fi.ipx
+$(F3)findmi.obj: $(F3)findmi.plm $(F3)findmi.ipx
+$(F3)fiscop.obj: $(F3)fiscop.plm $(F3)fiscop.ipx
+$(F3)gicond.obj: $(F3)gicond.plm $(F3)gicond.ipx
+$(F3)gidtyp.obj: $(F3)gidtyp.plm $(F3)gidtyp.ipx
+$(F3)gilen.obj: $(F3)gilen.plm $(F3)gilen.ipx
+$(F3)gilit.obj: $(F3)gilit.plm $(F3)gilit.ipx
+$(F3)gilnko.obj: $(F3)gilnko.plm $(F3)gilnko.ipx
+$(F3)giparo.obj: $(F3)giparo.plm $(F3)giparo.ipx
+$(F3)gipcnt.obj: $(F3)gipcnt.plm $(F3)gipcnt.ipx
+$(F3)giscop.obj: $(F3)giscop.plm $(F3)giscop.ipx
+$(F3)gisym.obj: $(F3)gisym.plm $(F3)gisym.ipx
+$(F3)gitype.obj: $(F3)gitype.plm $(F3)gitype.ipx
+$(F3)initf.obj: $(F3)initf.plm $(F3)initf.ipx
+$(F3)itoa.obj: $(F3)itoa.plm $(F3)itoa.ipx
+$(F3)load.obj: $(F3)load.plm $(F3)load.ipx
+$(F3)lookup.obj: $(F3)lookup.plm $(F3)lookup.ipx
+$(F3)open.obj: $(F3)open.plm $(F3)open.ipx
+$(F3)openf.obj: $(F3)openf.plm $(F3)openf.ipx
+$(F3)prints.obj: $(F3)prints.plm $(F3)prints.ipx
+$(F3)read.obj: $(F3)read.plm $(F3)read.ipx
+$(F3)readf.obj: $(F3)readf.plm $(F3)readf.ipx
+$(F3)rewind.obj: $(F3)rewind.plm $(F3)rewind.ipx
+$(F3)seek.obj: $(F3)seek.plm $(F3)seek.ipx
+$(F3)seekf.obj: $(F3)seekf.plm $(F3)seekf.ipx
+$(F3)setflg.obj: $(F3)setflg.plm $(F3)setflg.ipx
+$(F3)sibseo.obj: $(F3)sibseo.plm $(F3)sibseo.ipx
+$(F3)sicond.obj: $(F3)sicond.plm $(F3)sicond.ipx
+$(F3)sidim.obj: $(F3)sidim.plm $(F3)sidim.ipx
+$(F3)sidtyp.obj: $(F3)sidtyp.plm $(F3)sidtyp.ipx
+$(F3)siflag.obj: $(F3)siflag.plm $(F3)siflag.ipx
+$(F3)siintn.obj: $(F3)siintn.plm $(F3)siintn.ipx
+$(F3)silen.obj: $(F3)silen.plm $(F3)silen.ipx
+$(F3)silit.obj: $(F3)silit.plm $(F3)silit.ipx
+$(F3)silnko.obj: $(F3)silnko.plm $(F3)silnko.ipx
+$(F3)siparo.obj: $(F3)siparo.plm $(F3)siparo.ipx
+$(F3)sipcnt.obj: $(F3)sipcnt.plm $(F3)sipcnt.ipx
+$(F3)sipid.obj: $(F3)sipid.plm $(F3)sipid.ipx
+$(F3)siscop.obj: $(F3)siscop.plm $(F3)siscop.ipx
+$(F3)sisym.obj: $(F3)sisym.plm $(F3)sisym.ipx
+$(F3)sitype.obj: $(F3)sitype.plm $(F3)sitype.ipx
+$(F3)tellf.obj: $(F3)tellf.plm $(F3)tellf.ipx
+$(F3)tiflag.obj: $(F3)tiflag.plm $(F3)tiflag.ipx
+$(F3)tstflg.obj: $(F3)tstflg.plm $(F3)tstflg.ipx
+$(F3)write.obj: $(F3)write.plm $(F3)write.ipx
+$(F3)writef.obj: $(F3)writef.plm $(F3)writef.ipx

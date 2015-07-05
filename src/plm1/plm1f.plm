@@ -1,46 +1,7 @@
 plm1f: DO;
-    DECLARE LIT LITERALLY 'LITERALLY',
-	TRUE LIT '0FFH',
-	FALSE LIT '0',
-	CR LIT '0DH',
-	LF LIT '0AH';
-/*$nolist*/
-$include(:f3:data.inc)
-$include(:f3:info.inc)
-$include(:f3:flags.inc)
-$include(:f3:err.inc)
-$include(t2code.inc)
-$include(:f3:fread.aex)
-$include(:f3:fwrite.aex)
-$include(:f3:fflush.pex)
-$include(:f3:openf.pex)
-$include(:f3:creatf.pex)
-$include(:f3:rewind.pex)
-$include(:f3:gitype.pex)
-$include(:f3:giparo.pex)
-$include(:f3:tiflag.pex)
-$include(:f3:siflag.pex)
-$include(:f3:silnkv.pex)
-$include(:f3:gilnkv.pex)
-$include(:f3:sisym.pex)
-$include(:f3:siparo.pex)
-$include(:f3:gidim.pex)
-$include(:f3:adninf.pex)
-$include(:f3:gilnko.pex)
-$include(:f3:giscop.pex)
-$include(:f3:clrflg.pex)
-$include(:f3:gieid.pex)
-$include(:f3:sieid.pex)
-$list
+$include(plm1f.ipx)
 
 
-DECLARE info based curInfo$p STRUCTURE(len BYTE, type BYTE, sym ADDRESS,
-	      scope ADDRESS, ilink ADDRESS, flag(3) BYTE,
-	      extId BYTE, dim ADDRESS, baseoff ADDRESS, parent ADDRESS,
-	      dtype BYTE, intno BYTE, pcnt BYTE, procId BYTE);
-
-declare atBuf(512) byte external,
-	xrfBuf(512) byte external;
 
 declare externalsCnt byte initial(0),
 	atStmtNum address initial(0),
@@ -116,16 +77,16 @@ sub$6EE0: PROCEDURE public;
 	do i = 0 to 63;
 	    curSymbol$p = hashChains(i);
 	    do while curSymbol$p <> 0;
-		if (curInfo$p := sym.info$p) <> 0 and high(curInfo$p) <> 0ffh then
+		if (curInfo$p := cursym.info$p) <> 0 and high(curInfo$p) <> 0ffh then
 		do;
-			p = p - sym.name(0) - 1;
+			p = p - cursym.name(0) - 1;
 			do while curInfo$p <> 0; 
 				call setSymbol(p);
 				curInfo$p = getLinkOffset;
 			end;
-			call fwrite(.nmsFile, .sym.name, sym.name(0) + 1);
+			call fwrite(.nmsFile, .cursym.name, cursym.name(0) + 1);
 		end;
-		curSymbol$p = sym.link;
+		curSymbol$p = cursym.link;
 	    end;
 	end;
 	call fwrite(.nmsFile, .(0), 1);

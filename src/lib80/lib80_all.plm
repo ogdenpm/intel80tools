@@ -1079,10 +1079,11 @@ createCmd: PROCEDURE;
 
 	argFilename = token$p;	/* try to open library */
 	call Open(.inConn, argFilename, readOnly, 0, .status);
-	if status = 0 then	/* if error then assume doesn't exist so ok */
+	if status = 0 then	/* if no error then already exists so error */
 	do;
 		call closeFile(inConn, .status);
 		call fileStatusChk(0E7h, argFilename, 0FFh);	/* error 231 not defined !!! */
+								/* should be FILE ALREADY EXISTS */
 	end;
 	call closeFile(inConn, .status);
 	call openFile(.outConn, argFilename, writeOnly, 0, .status);
