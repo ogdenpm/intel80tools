@@ -1,14 +1,6 @@
 asm4C:
 do;
-
-declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(1) byte) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
-	r$extnames2 structure(type byte, len address, dta(1) byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
+$include(asm4c.ipx)
 
 declare	controlTable(*) byte data(1, 2, 1, 3),
 	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
@@ -16,36 +8,8 @@ declare	controlTable(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(0Ah, 12h, 40h);
 
 
-declare	r$modhdr structure(type byte, len address, dta(26) byte) initial(2),
+declare	r$modhdr MODHDR$T initial(2),
 	(dta$p, recSym$p) address;
-
-
-
-
-ioErrChk: procedure external; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-write: procedure(w1, w2, w3, w4) external; declare (w1, w2, w3, w4) address; end;
-unpackToken: procedure(w1, w2) external; declare (w1, w2) address; end;
-sub$3FA9: procedure byte external; end;
-testBit: procedure(b, w) byte external; declare b byte, w address; end;
-sub$4646: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare	(b6521, b6524, b6525, extNamIdx, b652F) byte external,
-	(moduleNameLen, b6744, startSeg, activeSeg, startDefined, b689A, b6A56, ctlDEBUG) byte external,
-	(b6B23, b6B24, b6B33, b6B34, ii) byte external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	symb based curTokenSym$p(1) byte,
-	(statusIO, w651F, w6522, w6750, w6752, startOffset, objfd) address external,
-	(w68A0, w68A2, zero) address external,
-	r$eof structure(type byte, len address, crc byte) external,
-	(b6526, b652B, alignTypes, aModulePage, tokenSize, tokenAttr, b6873)(1) byte external,
-	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte external,
-	(w6868, w6B41, symTab, tokStart, tokenSymId, segSize)(1) address external;
-
 
 
 writeRec: procedure(rec$p) public;
@@ -346,9 +310,9 @@ end;
 ovl11: procedure public;
 	if w6750 <> 0 then
 	do;
-		call seek(objfd, 2, .zero, .zero, .statusIO);		/* SEEKABS */
+		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
 		call writeModhdr;
-		call seek(objfd, 4, .zero, .zero, .statusIO);		/* SEEKEND */
+		call seek(objfd, 4, .azero, .azero, .statusIO);		/* SEEKEND */
 	end;
 	r$publics.type = 16h;
 	r$publics.len = 1;

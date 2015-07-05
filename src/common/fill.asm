@@ -1,9 +1,10 @@
-	public FILL
+	public FILL,FILLX
 
 	CSEG
 
+; FILLX(cnt$w, dest$p, val$w)
 ; FILL(cnt$w, dest$p, val$b)
-
+FILLX:
 FILL:	pop	h
 	xthl
 	mov	a, e

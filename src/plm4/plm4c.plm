@@ -1,119 +1,6 @@
 plm4c: DO;
-declare lit literally 'literally',
-	true lit '0ffh',
-	false lit '0',
-	cr lit '0dh',
-	lf lit '0ah',
-	tab lit '9';
+$include(plm4c.ipx)
 
-$nolist
-$include(:f3:data.inc)
-$include(:f3:flags.inc)
-$include(:f3:info.inc)
-
-declare (helperModId, endHelperId) byte external,
-	listing byte external,
-	listOff byte external,
-	codeOn byte external,
-	locLabStr(32) byte external,
-	wa8125(3) address external,
-	bo812B  byte external,
-	baseAddr address external,
-	cfCode byte external,
-	w812F address external,
-	lineNo address external,
-	depth address external,
-	stmtNo address external,
-	olstch address external,
-	ocurch address external,
-	bo813B byte external,
-	bo813C byte external,
-	lstLineLen byte external,
-	lstLine(130) byte external,
-	rec6$4 structure(type byte, len address, seg byte, addr address, val(1018) byte) external,
-	rec22 structure(type byte, len address, val(1019) byte) external,
-	rec24$1 structure(type byte, len address, val(1019) byte) external,
-	rec24$2 structure(type byte, len address, val(101) byte) external,
-	rec24$3 structure(type byte, len address, val(101) byte) external,
-	rec20 structure(type byte, len address, val(1019) byte) external,
-	rec8 structure(type byte, len address, val(1021) byte) external,
-	rec4 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
-	b9692 byte external,
-	helperId byte external,
-	helperStr(1) byte external,
-	b969C byte external,
-	b969D byte external,
-	w969E address external,
-	wValAry(4) address external,
-	sValAry(4) address external,
-	b96B0 byte external,
-	b96B1(37) byte external,
-	b96D6 byte external,
-	w96D7 address external,
-	curExtId byte external,
-	commentStr(41) byte external,
-	lineLen byte external,
-	line(80) byte external,
-	opByteCnt byte external,
-	opBytes(3) byte external,
-	dstRec byte external,
-	srcbuf(640) byte external,
-	tx1buf(640) byte external,
-	objbuf(640) byte external,
-	lstbuf(640) byte external;
-
-
-
-declare b42A8(1) byte external,
-	b42D6(1) byte external,
-	b4304(1) byte external,
-	b4332(1) byte external,
-	b4431(1) byte external,
-	b4444(1) byte external,
-	b4495(1) byte external,
-	b4566(1) byte external,
-	b457C(1) byte external,
-	b4602(1) byte external,
-	opcodes(1) byte external,
-	regNo(1) byte external,
-	regIdx(1) byte external,
-	stkRegNo(1) byte external,
-	stkRegIdx(1) byte external,
-	b473D(1) byte external,
-	b475E(1) byte external,
-	b4774(1) byte external,
-	b478A(1) byte external,
-	b47A0(1) byte external,
-	w47C1(1) address external,
-	w4919(1) address external,
-	b4A03(1) byte external,
-	b4A78(1) byte external,
-	w506F(1) address external,
-	stack$origin(1) byte external;
-
-$include(:f3:movmem.aex)
-$include(:f3:itoa.pex)
-$include(:f3:fread.aex)
-
-flushRecs: procedure external; end;
-recAddByte: procedure(rec$p, arg2b, arg3b) external; declare rec$p address, (arg2b, arg3b) byte; end;
-recAddWord: procedure(arg1w, arg2b, arg3w) external; declare arg1w address, arg2b byte, arg3w address; end;
-writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
-
-addWrdDisp: procedure(arg1w, arg2w) external; declare (arg1w, arg2w) address ; end;
-emitError: procedure external; end;
-$include(:f3:gilnkv.pex)
-$include(:f3:gisym.pex)
-$include(:f3:gieid.pex)
-$include(:f3:gitype.pex)
-$include(:f3:tiflag.pex)
-sub$5E3E: procedure external; end;
-sub$5BD3: procedure external; end;
-
-
-/* plm4a.plm */
-/* plm4b.plm */
-$list
 declare ccBits(*) byte data(10h, 18h, 8, 0, 18h, 10h),
 	ccCodes(*) byte data( 2, 'NC', 1, 'C ', 1, 'Z ', 2, 'NZ', 1, 'C ', 2, 'NC');
 
@@ -493,8 +380,8 @@ sub$668B: procedure public;
 				curSymbol$p = getSymbol;
 				if curSymbol$p <> 0 then
 				do;
-					b96B0 = sym.name(0);
-					call movmem(b96B0, .sym.name(1), .b96B1);
+					b96B0 = cursym.name(0);
+					call movmem(b96B0, .cursym.name(1), .b96B1);
 				end;
 				else
 				do;
@@ -538,8 +425,8 @@ sub$668B: procedure public;
 				sValAry(arg2b) = .b96B0;
 				w969E = .commentStr;
 				curSymbol$p = getSymbol;
-				commentStr(0) = sym.name(0) + 2;
-				call movmem(sym.name(0), .sym.name(1), .commentStr(3));
+				commentStr(0) = cursym.name(0) + 2;
+				call movmem(cursym.name(0), .cursym.name(1), .commentStr(3));
 				call addWrdDisp(w969E, p(0));
 			end;
 

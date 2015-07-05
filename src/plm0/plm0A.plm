@@ -1,12 +1,6 @@
 plm0a:
 DO;
-DECLARE LIT LITERALLY 'LITERALLY',
-	CR LIT '0DH',
-	LF LIT '0AH',
-	TRUE LIT '0FFH',
-	FALSE LIT '0';
-
-$INCLUDE(cclass.inc)
+$include(plm0a.ipx)
 
 DECLARE	cClass(*) BYTE PUBLIC DATA(
 	CC$NONPRINT, CC$NONPRINT, CC$NONPRINT, CC$NONPRINT,
@@ -43,12 +37,6 @@ DECLARE	cClass(*) BYTE PUBLIC DATA(
 	CC$INVALID, CC$INVALID, CC$INVALID, CC$NONPRINT
 	);
 
-$INCLUDE(:f3:lex.inc)
-$INCLUDE(toks.inc)
-
-
-
-$INCLUDE (:f3:err.inc)
 DECLARE tok2oprMap(*) BYTE PUBLIC DATA(
 	L$VARIABLE, L$NUMBER, L$STRING, L$PLUSSIGN,
 	L$MINUSSIGN, L$STAR, L$SLASH, L$MOD,
@@ -66,16 +54,9 @@ DECLARE tok2oprMap(*) BYTE PUBLIC DATA(
 	L$INVALID, L$BY, L$INVALID, L$INVALID,
 	L$INVALID, L$INVALID, L$TO, L$INVALID);
 
-DECLARE
-	aDynamicStorage(*) BYTE DATA('DYNAMIC STORAGE OVERFLOW'),
-	aUnknownErr(*) BYTE DATA('UNKNOWN FATAL ERROR');
-
-
-DECLARE resetPt LABEL EXTERNAL;
-$include(:f3:data.inc)
 
 /* public variables */
-DECLARE	macroPtrs(6) STRUCTURE(inChr$p ADDRESS, info$p ADDRESS) PUBLIC,
+DECLARE	macroPtrs(12) ADDRESS /* six inChr$p, info$p pairs */ PUBLIC,
 	macroDepth ADDRESS PUBLIC INITIAL(0),
 	tokenVal ADDRESS PUBLIC,
 	inChr$p ADDRESS PUBLIC,
@@ -105,21 +86,13 @@ DECLARE	macroPtrs(6) STRUCTURE(inChr$p ADDRESS, info$p ADDRESS) PUBLIC,
 	lineInfoToWrite BYTE PUBLIC INITIAL(FALSE),
 	isNonCtrlLine BYTE PUBLIC INITIAL(FALSE),
 	yyAgain BYTE PUBLIC INITIAL(FALSE),
-	linfo STRUCTURE(type BYTE, lineCnt ADDRESS, stmtCnt ADDRESS, blkCnt ADDRESS) PUBLIC INITIAL(0, 0),
+	linfo LINFO$ST PUBLIC INITIAL(0, 0),
 	(curDoBlkCnt, curProcId) BYTE PUBLIC INITIAL(0, 0),
 	curProcData ADDRESS PUBLIC,
 	state BYTE PUBLIC,
 	skippingCOND BYTE PUBLIC INITIAL(FALSE),
 	ifDepth ADDRESS PUBLIC INITIAL(0);
 	
-$include(:f3:movmem.aex)
-$include(:f3:openf.pex)
-$include(:f3:fflush.pex)
-$include(:f3:rewind.pex)
-$include(:f3:fwrite.aex)
-$include(:f3:fatal.pex)
-$include(:f3:creatf.pex)
-
 
 createTxi1File:	PROCEDURE PUBLIC;
 	DECLARE tmp ADDRESS;
@@ -169,18 +142,18 @@ wrBuf: PROCEDURE(buf, len) PUBLIC;
 	call writeTx1(buf, len);
 end wrBuf;
 
-wrByte: PROCEDURE(val) PUBLIC;
-	DECLARE val BYTE;
+wrByte: PROCEDURE(v) PUBLIC;
+	DECLARE v BYTE;
 
-	call wrBuf(.val, 1);
+	call wrBuf(.v, 1);
 end wrByte;
 
 
 
-wrWord: PROCEDURE(val) PUBLIC;
-	DECLARE val ADDRESS;
+wrWord: PROCEDURE(v) PUBLIC;
+	DECLARE v ADDRESS;
 
-	call wrBuf(.val, 2);
+	call wrBuf(.v, 2);
 end wrWord;
 
 
@@ -225,8 +198,8 @@ fatalError: PROCEDURE(err) PUBLIC;
 	if state <> 20 then
 	do;
 		if err = ERR83 then	/* LIMIT EXCEEDED: DYNAMIC STORAGE */
-			call fatal(.aDynamicStorage, length(aDynamicStorage));
-		call fatal(.aUnknownErr, length(aUnknownErr));
+			call fatal(.('DYNAMIC STORAGE OVERFLOW'), 24);
+		call fatal(.('UNKNOWN FATAL ERROR'), 19);
 	end;
 	call tokenErrorAt(err);
 	fatalErrorCode = err;

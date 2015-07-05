@@ -1,9 +1,5 @@
 fatlIO: DO;
-
-DECLARE CR LITERALLY '0DH',
-	LF LITERALLY '0AH',
-	FILE$T LITERALLY
- 'STRUCTURE(AFTN ADDRESS, sNam(6) BYTE, fNam(16) BYTE, BUF$P ADDRESS, BSIZE ADDRESS, ACTUAL ADDRESS, CUROFF ADDRESS)';
+$include(:f3:fatlio.ipx)
 
 DECLARE
 	errHeader(*) BYTE DATA(CR, LF, LF, 'PL/M-80 I/O ERROR --', CR, LF, '  FILE: '),
@@ -21,14 +17,8 @@ DECLARE
 	17h, 'FILENAME REQUIRED ON DISKETTE FILE', 0,
 	1Ch, 'NULL FILE EXTENSION', 0,
 	0FEh, 'ATTEMPT TO READ PAST EOF', 0,
-   	0),
-	REBOOTVECTOR ADDRESS EXTERNAL,
-	debugFlag BYTE EXTERNAL;
+   	0);
 
-
-$include(:f3:prints.pex)
-$include(:f3:itoa.pex)
-$include(:f3:exit.pex)
 
 fatlIO: PROCEDURE(file$p, errnum) PUBLIC;
 	DECLARE (file$p, errnum) ADDRESS;

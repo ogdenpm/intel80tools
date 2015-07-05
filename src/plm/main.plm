@@ -1,33 +1,21 @@
 PLM: DO;
-
-
+$include(main.ipx)
 DECLARE
-	copyRight(*) BYTE DATA('(C) 1976, 1977, 1982 INTEL CORP'),
-	aDynamicStorage(*) BYTE DATA('DYNAMIC STORAGE OVERFLOW'),
-	aUnknownFatalErr(*) BYTE DATA('UNKNOWN FATAL ERROR');
+	copyRight(*) BYTE DATA('(C) 1976, 1977, 1982 INTEL CORP');
 
-DECLARE state BYTE;
-
-
-DECLARE invokeName(1) BYTE EXTERNAL;
-
-$include(:f3:fatal.pex)
-$include(:f3:exit.pex)
-$include(:f3:chain.pex)
-sub$40AC: PROCEDURE EXTERNAL; end sub$40AC;
-sub$4767: PROCEDURE EXTERNAL; end sub$4767;
+DECLARE state$main BYTE;
 
 	fatalError: PROCEDURE(code) PUBLIC;
 		DECLARE code BYTE;
-		if code = 53H then
-			call fatal(.aDynamicStorage, length(aDynamicStorage));
-		call fatal(.aUnknownFatalErr, length(aUnknownFatalErr));
+		if code = ERR83 then
+			call fatal(.('DYNAMIC STORAGE OVERFLOW'), 24);
+		call fatal(.('UNKNOWN FATAL ERROR'), 19);
 		call Exit;
 	end fatalError;
 
-	state = 10;
+	state$main = 10;
 	call sub$40AC;
-	state = 15;
+	state$main = 15;
 	call sub$4767;
 	call chain(.invokeName);
 end;

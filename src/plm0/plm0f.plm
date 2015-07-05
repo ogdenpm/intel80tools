@@ -1,15 +1,5 @@
 plm0f: DO;
-DECLARE LIT LITERALLY 'LITERALLY',
-	TRUE LIT '0FFH',
-	FALSE LIT '0';
-
-$include(:f3:lex.inc)
-$include(:f3:err.inc)
-$include(toks.inc)
-$include(:f3:data.inc)
-$include(plm0.inc)
-$include(:f3:flags.inc)
-$include(:f3:info.inc)
+$include(plm0f.ipx)
 
 DECLARE brkTxiCodes(*) BYTE DATA(
 	L$STATEMENT, L$SEMICOLON, L$CALL, L$LINEINFO,
@@ -17,41 +7,6 @@ DECLARE brkTxiCodes(*) BYTE DATA(
 	L$GO, L$GOTO, L$HALT, L$IF,
 	L$PROCEDURE, L$RETURN);
 
-
-$include(:f3:ftlerr.pex)
-syntaxError: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
-tokenErrorAt: PROCEDURE(err) EXTERNAL; DECLARE err BYTE; end;
-yylex: PROCEDURE EXTERNAL; end;
-setYyAgain: PROCEDURE EXTERNAL; end;
-$include(:f3:adninf.pex)
-popDO: PROCEDURE EXTERNAL; end;
-$include(:f3:sipid.pex)
-yylexNotMatch: PROCEDURE(tok) BYTE EXTERNAL; DECLARE tok BYTE; end;
-yylexMatch: PROCEDURE(tok) BYTE EXTERNAL; DECLARE tok BYTE; end;
-wrByte: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; end;
-wrWord: PROCEDURE(val) EXTERNAL; DECLARE val ADDRESS; end;
-$include(:f3:fiscop.pex)
-pushBlock: PROCEDURE(scope) EXTERNAL; DECLARE scope ADDRESS;end;
-$include(:f3:tiflag.pex)
-$include(:f3:siflag.pex)
-tokenError: PROCEDURE(err, sym) EXTERNAL; DECLARE err BYTE, sym ADDRESS;end;
-$include(:f3:giscop.pex)
-$include(:f3:gisym.pex)
-$include(:f3:lookup.pex)
-$include(:f3:alloc.pex)
-wrXrefUse: PROCEDURE EXTERNAL; end;
-wrOffset: PROCEDURE(info$p) EXTERNAL;
-	DECLARE info$p ADDRESS;
-end;
-
-wrXrefDef: PROCEDURE EXTERNAL; end;
-
-$include(:f3:creati.pex)
-parseExpresion: PROCEDURE(tok) EXTERNAL; DECLARE tok BYTE; end;
-wrOprAndValue: PROCEDURE EXTERNAL; end;
-parseDcl: PROCEDURE EXTERNAL; end;
-parseProcDcl: PROCEDURE EXTERNAL; end;
-$include(:f3:gipcnt.pex)
 
 DECLARE curState ADDRESS PUBLIC, endSeen BYTE PUBLIC;
 
@@ -175,7 +130,7 @@ sub$6F00: PROCEDURE public;
 		do;
 			do i = 1 to stmtLabelCnt;
 				curSymbol$p = stmtLabels(i);
-				call findScopedInfo(scope);
+				call findScopedInfo(curscope);
 				if curInfo$p <> 0 then		/* already seen at this scope */
 				do;
 					if testInfoFlag(F$LABEL) then
@@ -191,14 +146,14 @@ sub$6F00: PROCEDURE public;
 				end;
 				else
 				do;
-					call createInfo(scope, LABEL$T);
+					call createInfo(curscope, LABEL$T);
 					call wrXrefDef;
 					call wrByte(L$LABELDEF);
 					call wrOffset(curInfo$p);
 					call setInfoFlag(F$LABEL);
 				end;
 			end;
-			if scope = 100h then
+			if curscope = 100h then
 				call wrByte(L$MODULE);
 		end;
 		curSymbol$p = tmp;
@@ -236,7 +191,7 @@ sub$6F00: PROCEDURE public;
 	end sub$723A;
 
 	sub$7296: PROCEDURE;
-		DECLARE (i, val) BYTE;
+		DECLARE (i, v) BYTE;
 		
 		call popDO;
 		if yylexMatch(T$VARIABLE) then
@@ -246,8 +201,8 @@ sub$6F00: PROCEDURE public;
 				call tokenErrorAt(ERR20);	/* MISMATCHED IDENTIFIER AT END OF BLOCK */
 		end;
 		curInfo$p = curProcInfo$p;
-		val = getParamCnt;
-		do i = 1 to val;
+		v = getParamCnt;
+		do i = 1 to v;
 			call advNxtInfo;
 			if not testInfoFlag(F$LABEL) then
 				call tokenError(ERR25, getSymbol);	/* UNDECLARED PARAMETER */
@@ -257,11 +212,11 @@ sub$6F00: PROCEDURE public;
 		call expectSemiColon;
 	end;
 
-	pushStateWord: PROCEDURE(val);
-		DECLARE val ADDRESS;
+	pushStateWord: PROCEDURE(v);
+		DECLARE v ADDRESS;
 		if stateIdx <> 63h then
 		do;
-			stateStack(stateIdx := stateIdx + 1) = val;
+			stateStack(stateIdx := stateIdx + 1) = v;
 		end;
 		else
 			call fatalError(ERR31);		/* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
@@ -285,11 +240,11 @@ sub$6F00: PROCEDURE public;
 		call setProcId(1);
 		procCnt = 1;
 		procInfo(1) = curInfo$p;
-		scope = 100H;			/* proc = 1,  do level = 0 */
+		curscope = 100H;			/* proc = 1,  do level = 0 */
 		call wrByte(L$DO);
 		call wrByte(L$SCOPE);
-		call wrWord(scope);
-		call pushBlock(scope);
+		call wrWord(curscope);
+		call pushBlock(curscope);
 	end;
 
 
@@ -594,9 +549,9 @@ sub$6F00: PROCEDURE public;
 			doBlkCnt = doBlkCnt + 1;
 
 		curDoBlkCnt = doBlkCnt;
-		call pushBlock(scope);
+		call pushBlock(curscope);
 		call wrByte(L$SCOPE);
-		call wrWord(scope);
+		call wrWord(curscope);
 	end;
 
 

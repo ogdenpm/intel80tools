@@ -1,5 +1,12 @@
 asm44:
 do;
+/* to force the code generation this needs a non-standard definition
+   of outStrN and put2Hex
+*/
+put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+outStrN: procedure(s, n) external; declare s address, n address; end;
+
+$include(asm44.ipx)
 
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
@@ -18,34 +25,6 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, /* extra */ 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah);
-
-
-flushout: procedure external; end;
-outch: procedure(b) external; declare b byte; end;
-outStrN: procedure(w1, w2) external; declare (w1, w2) address; end;
-closeF: procedure(w) external; declare w address; end;
-sourceError: procedure(b) external; declare b byte; end;
-expressionError: procedure external; end;
-valueError: procedure external; end;
-operandError: procedure external; end;
-popToken: procedure external; end;
-pushToken: procedure(b) external; declare b byte; end;
-nibble2Ascii: procedure(b) byte external; declare b byte; end; 
-isPhase1: procedure byte external; end;
-isSkipping: procedure byte external; end;
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (tokenSP, b6855, b6856, b6858) byte external,
-	(tokenType, tokenSize, tokenAttr, lstFile, bp6A4E, bp6BE0)(1) byte external,
-	(accum1$lb,accum1$hb,accum2$lb,accum2$hb) byte external,
-	(b6859, b6881, b689A, ctlXREF, ctlPAGING, ctlPAGEWIDTH) byte external,
-	(ctlPAGELENGTH, ctlLIST, ctlGEN, ctlCOND, b6A6F, has16bitOperand, b6B2B, b6B2D) byte external,
-	(b6B30, b6B31, b6B32, b6B36, ii, b6BDC, jj, b$905B) byte external,
-	(skipping, b$9A77) byte external,
-	(curTokenSym$p, curTokStart, accum1, w685A, w685C, xreffd) address external,
-	(tokenSymId)(1) address external;
-
 
 
 testBit: procedure(arg1b, arg2w) byte public;
@@ -276,7 +255,7 @@ end;
 sub$465B: procedure byte public;
 	return ((not b$9A77) and ctlLIST or b6A6F and b$9A77)
 	        and (not (b$905B > 1) or ctlGEN)
-		and (not(b6B32 or skipping) or ctlCOND);
+		and (not(b6B32 or skipping(0)) or ctlCOND);
 end;
 
 sub$467F: procedure(arg1b, arg2w) public;

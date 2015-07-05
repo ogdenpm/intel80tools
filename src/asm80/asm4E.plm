@@ -1,55 +1,6 @@
 asm4E:
 do;
-
-declare r$extnames1 structure(type byte, len address, dta(1) byte) external,
-	r$publics structure(type byte, len address, segid byte, dta(1) address) external,
-	r$reloc structure(type byte, len address, hilo byte, dta(1) address) external,
-	r$interseg structure(type byte, len address, segid byte, hilo byte, dta(1) address) external,
-	r$extref structure(type byte, len address, hilo byte, dta(30) address) external, 
-	r$extnames2 structure(type byte, len address, dta(1) byte) external,
-	r$content structure(type byte, len address, segid byte, offset address, dta(1) byte) external,
-	r$modend structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte) external;
-
-
-declare tokenSize literally 'toksiz',
-	tokStart literally 'tokst';
-declare (aF0Asmac$tmp, aF0Asxref, aF0Asxref$tmp, aIsisIi80808085, spaces24)(1) byte external,
-	(objFile, lstFile, tokenSize, tokenAttr, b68AE)(1) byte external,
-	(b68B8, asciiLineNo, b6A57, controlSeen, ctlTITLESTR, b8FD5, cmdLineBuf,
-	 macroCondStk, opStack, b674A)(1) byte external,
-	(bZERO, bTRUE, activeSeg, b6857, curChar, lookAhead, b6882) byte external,
-	(asmErrCode, primaryValid, b689B, curCol, b68AB, b68AD, b6A56, ctlDEBUG, ctlMACRODEBUG) byte external,
-	(ctlXREF, ctlSYMBOLS, ctlPAGING, ctlTTY, ctlPRINT, ctlOBJECT, ctlPAGEWIDTH, ctlPAGELENGTH, ctlTITLE) byte external,
-	(ctlEJECT, ctlLIST, ctlGEN, ctlCOND, b6A6F, titleLen, saveIdx, scanCmdLine, b6B23) byte external,
-	(opType, b6B2C, finished, b6B33, b6B34, ii, jj, b6C21, fileIdx) byte external,
-	(b6C30, b905B, b905C, b905E, b9063, b9064, b6742, b6743) byte external,
-	(ifDepth, skipping, inElse, macroCondSP, opSP, b6A00) byte external,
-	(b9A77, b6B24) byte external,
-	(cmdch$p, actRead, off$6C25, off$6C2C, off$6C2E, outfd, statusIO) address external,
-	curTokenSym$p address external,
-	curTokenSym based curTokenSym$p structure(w0 address, w2 address, w4 address, type byte, flags byte),
-	(w6750, w686E, w6870, objfd) address external,
-	(infd, macrofd, w68A0, w68A2, lineCnt, w68A6, pageCnt, endOutBuf) address external,
-	(w6A4E, errCnt, zero) address external,
-	w6868(3) address external,
-	(controls$p, includefd, rootfd, off$9056, curMacroBlk, w9114, w919B, wZERO) address external,
-	(w6B41, segSize, symTab, tokStart, extKeywords)(1) address external,
-	files(6) structure(name(15) byte, blk address, byt address, b19 byte) external,
-	CR literally '0Dh';
-
-
-
-ioErrChk: procedure external; end;
-closeF: procedure(w) external; declare w address; end;
-physmem: procedure address external; end;
-
-read: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-rescan: procedure(w1, w2) external; declare (w1, w2) address; end;
-seek: procedure(w1, w2, w3, w4, w5) external; declare (w1, w2, w3, w4, w5) address; end;
-isPhase1: procedure byte external; end;
-runtimeError: procedure(b) external; declare b byte; end;
-sub$3DFB: procedure external; end;
-inOpen: procedure(w1, w2) address external; declare (w1, w2) address; end;
+$include(asm4e.ipx)
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
@@ -159,7 +110,7 @@ resetData: procedure public;	/* extended initialisation */
 
     call sub$3DFB;
 
-    b6B33, scanCmdLine, skipping, b6B2C, inElse, finished, b674A(0), b674A(1), b6742,
+    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
     b$905B, b$905C, b$905E, b6857, b6C21 = bZERO;
     b6743, primaryValid, ctlLIST, b6A6F, ctlGEN, ctlCOND = bTRUE;
     b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
@@ -186,7 +137,7 @@ resetData: procedure public;	/* extended initialisation */
         off$6C25 = .b68B8;
         off$6C2C = off$6C25 - 1;
         off$6C2E = .b68B8;
-        call seek(infd, 2, .zero, .zero, .statusIO);	/* SEEKABS */
+        call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
         call ioErrChk;
     end;
 

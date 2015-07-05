@@ -1,114 +1,5 @@
 plm4b: DO;
-declare lit literally 'literally',
-	true lit '0ffh',
-	false lit '0',
-	cr lit '0dh',
-	lf lit '0ah',
-	tab lit '9';
-
-$nolist
-$include(:f3:data.inc)
-
-
-declare (helperModId, endHelperId) byte external,
-	listing byte external,
-	listOff byte external,
-	codeOn byte external,
-	locLabStr(32) byte external,
-	wa8125(3) address external,
-	bo812B  byte external,
-	baseAddr address external,
-	cfCode byte external,
-	w812F address external,
-	lineNo address external,
-	depth address external,
-	stmtNo address external,
-	olstch address external,
-	ocurch address external,
-	bo813B byte external,
-	bo813C byte external,
-	lstLineLen byte external, 
-	lstLine(130) byte external,
-	rec6$4 structure(type byte, len address, seg byte, addr address, val(1018) byte) external,
-	rec22 structure(type byte, len address, val(1019) byte) external,
-	rec24$1 structure(type byte, len address, val(1019) byte) external,
-	rec24$2 structure(type byte, len address, val(101) byte) external,
-	rec24$3 structure(type byte, len address, val(101) byte) external,
-	rec20 structure(type byte, len address, val(1019) byte) external,
-	rec8 structure(type byte, len address, val(1021) byte) external,
-	rec4 structure(type byte, len address, subtype byte, seg byte, addr address, crc byte) external,
-	b9692 byte external,
-	helperId byte external,
-	helperStr(1) byte external,
-	b969C byte external,
-	b969D byte external,
-	w969E address external,
-	wValAry(4) address external,
-	sValAry(4) address external,
-	b96B0 byte external,
-	b96B1(37) byte external,
-	b96D6 byte external,
-	w96D7 address external,
-	curExtId byte external,
-	commentStr(41) byte external,
-	lineLen byte external,
-	line(80) byte external,
-	opByteCnt byte external,
-	opBytes(3) byte external,
-	dstRec byte external,
-	srcbuf(640) byte external,
-	tx1buf(640) byte external,
-	objbuf(640) byte external,
-	lstbuf(640) byte external;
-
-
-
-declare b42A8(1) byte external,
-	b42D6(1) byte external,
-	b4304(1) byte external,
-	b4332(1) byte external,
-	b4431(1) byte external,
-	b4444(1) byte external,
-	b4495(1) byte external,
-	b4566(1) byte external,
-	b457C(1) byte external,
-	b4602(1) byte external,
-	opcodes(1) byte external,
-	regNo(1) byte external,
-	regIdx(1) byte external,
-	stkRegNo(1) byte external,
-	stkRegIdx(1) byte external,
-	b473D(1) byte external,
-	b475E(1) byte external,
-	b4774(1) byte external,
-	b478A(1) byte external,
-	b47A0(1) byte external,
-	w47C1(1) address external,
-	w4919(1) address external,
-	b4A03(1) byte external,
-	b4A78(1) byte external,
-	w506F(1) address external,
-	stack$origin(1) byte external,
-	errCont label external;
-
-$include(:f3:itoa.pex)
-$include(:f3:initf.pex)
-$include(:f3:openf.pex)
-$include(:f3:closef.pex)
-$include(:f3:seekf.pex)
-$include(:f3:readf.pex)
-$include(:f3:gisym.pex)
-
-writeRec: procedure(rec$p, arg2b) external; declare rec$p address, arg2b byte; end;
-putLst: procedure(ch) external; declare ch byte; end;
-tabLst: procedure(tpos) external; declare tpos byte; end;
-setStartAndTabW: procedure(arg1b, arg2b) external; declare (arg1b, arg2b) byte; end;
-lstLineNo: procedure external; end;
-newLineLst: procedure external; end;
-xnumLst: procedure(num, width, radix) external; declare num address, (width, radix) byte; end;
-xwrnstrLst: procedure(str, cnt) external; declare str address, cnt byte; end;
-xputstr2cLst: procedure(str, endch) external; declare str address, endch byte; end;
-
+$include(plm4b.ipx)
 
 /* plm4a.plm */
 declare	digits(*) byte data(' 123456789'),
@@ -266,7 +157,7 @@ emitError: procedure public;
 			curInfo$p = wa8125(1) + botInfo;
 			curSymbol$p = getSymbol;
 			if curSymbol$p <> 0 then
-				call xwrnstrLst(.sym.name(1), sym.name(0));
+				call xwrnstrLst(.cursym.name(1), cursym.name(0));
 			else
 				call xputstr2cLst(.('<LONG CONSTANT>', 0), 0);
 			call xwrnstrLst(.(''', '), 3);
