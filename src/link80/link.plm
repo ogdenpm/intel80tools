@@ -4,22 +4,7 @@ $xref
 	only and not for commercial gain. */
 link:
 DO;
-$INCLUDE(LINK.EXT)
-/* from ISIS.EXT */
-close: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
-end close;
-
-write: procedure (conn, buff$p, count, status$p) external;
-    declare (conn, buff$p, count, status$p) address;
-end write;
-
-exit: procedure external;
-end exit;
-
-load: procedure (path$p, load$offset, switch, entry$p, status$p) external;
-    declare (path$p, load$offset, switch, entry$p, status$p) address;
-end load;
+$INCLUDE(link.ipx)
 
 DECLARE
 	readfd ADDRESS PUBLIC,
@@ -76,9 +61,10 @@ DECLARE
 	inb$p ADDRESS PUBLIC,
 	inCRC BYTE PUBLIC;
 
-DECLARE	inRecord BASED inRecord$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
-DECLARE objFile BASED curObjFile LIBRARY$T;
-DECLARE module BASED curModule MODULE$T;
+/* explicit declare here because inRecord$p and curModule defined after the include file */
+declare	inRecord based inRecord$p  RECORD$ST, 
+	module based curModule MODULE$T;
+
 
 DECLARE COPYRIGHT(*) BYTE DATA('(C) 1976, 1977, 1979 INTEL CORP'),
 	VERSION(*) BYTE PUBLIC DATA('V3.0'),

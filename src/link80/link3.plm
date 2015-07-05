@@ -4,44 +4,7 @@ $xref
 	only and not for commercial gain. */
 link3:
 DO;
-$INCLUDE(LINK.EXT)
-DECLARE 
-	actRead ADDRESS EXTERNAL,
-	inFileName(16) BYTE EXTERNAL,
-	toFileName(16) BYTE EXTERNAL,
-	doMap BYTE EXTERNAL,
-	moduleName(32) BYTE EXTERNAL,
-	modtype BYTE EXTERNAL,
-	modhdr$x1 BYTE EXTERNAL,
-	modhdr$x2 BYTE EXTERNAL,
-	entrySeg BYTE EXTERNAL,
-	entryAddr ADDRESS EXTERNAL,
-	segLen(6) ADDRESS EXTERNAL,
-	alignType(6) BYTE EXTERNAL,
-	segmap(256) BYTE EXTERNAL,
-	baseHeap ADDRESS EXTERNAL,
-	topHeap ADDRESS EXTERNAL,
-	inRecord$p ADDRESS EXTERNAL,
-	erec$p ADDRESS EXTERNAL,
-	in$p ADDRESS EXTERNAL,
-	recNum ADDRESS EXTERNAL,
-	recLen ADDRESS EXTERNAL,
-	npbuf ADDRESS EXTERNAL,
-	sbuf$p ADDRESS EXTERNAL,
-	buf$p ADDRESS EXTERNAL,
-	ebuf$p ADDRESS EXTERNAL,
-	objFileHead ADDRESS EXTERNAL,
-	curObjFile ADDRESS EXTERNAL,
-	curModule ADDRESS EXTERNAL,
-	hashChains(128) ADDRESS EXTERNAL,
-	headSegOrderLink ADDRESS EXTERNAL,
-	comdefInfo$p ADDRESS EXTERNAL,
-	symbol$p ADDRESS EXTERNAL,
-	unresolved ADDRESS EXTERNAL,
-	maxExternCnt ADDRESS EXTERNAL,
-	headUnresolved ADDRESS EXTERNAL;
-
-DECLARE erec BASED erec$p BYTE;
+$include(link3.ipx)
 DECLARE msgmultdef(*) BYTE INITIAL(' - MULTIPLELY DEFINED, DUPLICATE IN ');
 DECLARE msgmore1main(*) BYTE INITIAL('MORE THAN 1 MAIN MODULE, CONFLICT IN ');
 DECLARE msgmodnotinlib(*) BYTE INITIAL('MODULE NOT IN LIBRARY, LOOKING FOR ');
@@ -89,105 +52,10 @@ DECLARE segUsed(6) BYTE,
 	externCnt ADDRESS,
 	inSegOffset ADDRESS;
 
-/* DECLARE pageTab1 BASED pageTab1$p (1) STRUCTURE (state BYTE, mpage BYTE);
-DECLARE	pageTab2 BASED pageTab2$p (1) STRUCTURE (state BYTE, fpage BYTE);
-*/
-/* based type representing structure at start of an input record */
-DECLARE	inRecord BASED inRecord$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
-/* generic based type to map to OMF style name at in$p in input file */
-DECLARE inOMFName BASED in$p STRUCTURE (len BYTE, name(1) BYTE);
-
-DECLARE comSegInfo BASED comSegInfo$p(256) STRUCTURE (combine BYTE, lenOrLinkedSeg ADDRESS);
-DECLARE symbol BASED symbol$p SYMBOL$T;
-DECLARE comdefInfo BASED comdefInfo$p COMINFO$T;
-DECLARE segFrag BASED segFrag$p STRUCTURE (link ADDRESS, bot ADDRESS, top ADDRESS);
-
-DECLARE rbytes BASED in$p (1) BYTE;
-DECLARE rwords BASED in$p (1) ADDRESS;
-DECLARE objFile BASED curObjFile LIBRARY$T;
-DECLARE module BASED curModule MODULE$T;
-DECLARE hmodule BASED hmodule$p MODULE$T;
-
-/* EXTERNALS */
-chkRead: PROCEDURE(cnt) EXTERNAL;
-	DECLARE cnt ADDRESS;
-END chkRead;
-
-iseek: PROCEDURE(blk, byt) EXTERNAL;
-	DECLARE (blk, byt) ADDRESS;
-END iseek;
-
-illegalRecord: PROCEDURE EXTERNAL;
-END illegalRecord;
-
-illegalRelo: PROCEDURE EXTERNAL;
-END illegalRelo;
-
-badRecordSeq: PROCEDURE EXTERNAL;
-END badRecordSeq;
-
-getRecord: PROCEDURE EXTERNAL;
-END getRecord;
-
-writeCRLF: PROCEDURE EXTERNAL;
-END writeCRLF;
-
-openObjFile: PROCEDURE EXTERNAL;
-END openObjFile;
-
-binasc: PROCEDURE(num, base, padch, bufp, width) EXTERNAL;
-	DECLARE num ADDRESS, (base, padch) BYTE, bufp ADDRESS, width BYTE;
-END binasc;
-
-writeBytes: PROCEDURE(buf$p, count) EXTERNAL;
-	DECLARE buf$p ADDRESS;
-	DECLARE count ADDRESS;
-END writeBytes;
-
-writeAndEcho: PROCEDURE(buff$p, count) EXTERNAL;
-	DECLARE buff$p ADDRESS;
-	DECLARE count ADDRESS;
-END writeAndEcho;
-
-allocUp: PROCEDURE(count) ADDRESS EXTERNAL;
-	DECLARE count ADDRESS;
-END allocUp;
-
-allocdown: PROCEDURE(count) ADDRESS EXTERNAL;
-	DECLARE count ADDRESS;
-END allocdown;
-
-fatalErr: PROCEDURE(errCode) EXTERNAL;
-	DECLARE errCode BYTE;
-END fatalErr;
-
-wAEFnAndMod: PROCEDURE(buff$p, count) EXTERNAL;
-	DECLARE buff$p ADDRESS;
-	DECLARE count ADDRESS;
-END wAEFnAndMod;
-
-find: PROCEDURE(pstr, ppitem, arg3b) BYTE EXTERNAL;
-	DECLARE (pstr, ppitem) ADDRESS, arg3b BYTE;
-END find;
-
-pstrcpy: PROCEDURE(psrc, pdst) EXTERNAL;
-	DECLARE psrc ADDRESS;
-	DECLARE pdst ADDRESS;
-END pstrcpy;
-
-strequ: PROCEDURE(str1p, str2p, cnt) BYTE EXTERNAL;
-	DECLARE (str1p, str2p) ADDRESS;
-	DECLARE cnt BYTE;
-END strequ;
-
-errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
-	DECLARE errCode ADDRESS;
-	DECLARE file ADDRESS;
-	DECLARE errExit BYTE;
-END errChkReport;
-
-closeObjFile: PROCEDURE EXTERNAL;
-END closeObjFile;
+/* explicit declare of base vars as bases defined after include */
+declare	comSegInfo based comSegInfo$p (256) COMSEGINFO$T,
+	hmodule based hmodule$p MODULE$T,
+	segFrag based segFrag$p SEGFRAG$T;
 
 primeRecord: PROCEDURE PUBLIC;
 	/* save the record type and con inRecord to believe it is a real record */
@@ -809,7 +677,7 @@ p1LibScan: PROCEDURE PUBLIC;
 		hmodule$p = .objFile.modlist;
 		blk = inLibhdr.blk;		/* library header block */
 		byt = inLibhdr.byt;		/* library header byte */
-		CALL iseek(blk, byt);	/* seek to library module names record */
+		CALL objSeek(blk, byt);	/* seek to library module names record */
 		CALL expectType(R$LIBNAMES);	/* get rec and validate type */ 
 		CALL primeRecord;			/* save pointers */
 		blk = (byt + recLen + 3) / 128 + blk; /* location of the libloc record */
@@ -822,7 +690,7 @@ p1LibScan: PROCEDURE PUBLIC;
 		DO WHILE newUnresolved > 0;	/* loop incase scan adds more externs that the lib can resolve */
 			libModulesToLoad = 0;
 			modlocs$p = allocUp(0);		/* base memory of the new module locations info */
-			CALL iseek(blk2A, byt2A);	/* go to the libdic */
+			CALL objSeek(blk2A, byt2A);	/* go to the libdic */
 			CALL expectType(R$LIBDICT);
 			CALL primeRecord;
 			modIdx = 1;
@@ -847,7 +715,7 @@ p1LibScan: PROCEDURE PUBLIC;
 			END; /* DO WHILE */
 			IF libModulesToLoad > 0 THEN	/* matched some modules */
 			DO;
-				CALL iseek(blk, byt);	/* get the libloc data */
+				CALL objSeek(blk, byt);	/* get the libloc data */
 				CALL expectType(R$LIBLOCS);
 				CALL primeRecord;
 				modIdx = 0;
@@ -860,7 +728,7 @@ p1LibScan: PROCEDURE PUBLIC;
 					modlocs(i).byt = inLibloc.byt;
 				END;
 				DO i = 0 TO libModulesToLoad - 1;			/* process each module needed */
-					CALL iseek(modlocs(i).blk, modlocs(i).byt);		/* seek module location in library */
+					CALL objSeek(modlocs(i).blk, modlocs(i).byt);		/* seek module location in library */
 					CALL expectType(R$MODHDR);
 					CALL procPas1Recs(TRUE);		/* creates a new module entry */
 					module.blk = modlocs(i).blk;		/* record the module location */
@@ -876,7 +744,7 @@ p1LibUserModules: PROCEDURE PUBLIC;
 	DECLARE inLibloc BASED in$p STRUCTURE (blk ADDRESS, byt ADDRESS);
 	DECLARE inLibhdr BASED in$p STRUCTURE (cnt ADDRESS, blk ADDRESS, byt ADDRESS);
 
-	CALL iseek(inLibhdr.blk, inLibhdr.byt);	/* seek to the libnam section - libhdr is current rec */
+	CALL objSeek(inLibhdr.blk, inLibhdr.byt);	/* seek to the libnam section - libhdr is current rec */
 	CALL expectType(R$LIBNAMES);
 	CALL primeRecord;		/* record its a LIBNAM record and the start of the content */
 	modIdx = 0;
@@ -921,7 +789,7 @@ p1LibUserModules: PROCEDURE PUBLIC;
 		END;
 		ELSE
 		DO;
-			CALL iseek(module.blk, module.byt);	/* process the module */
+			CALL objSeek(module.blk, module.byt);	/* process the module */
 			CALL expectType(R$MODHDR);
 			CALL procPas1Recs(FALSE);		/* module already known so don't create entry for it */
 			hmodule$p = curModule;			/* this module remains on the list */
