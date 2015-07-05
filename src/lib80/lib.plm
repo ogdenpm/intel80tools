@@ -1,7 +1,6 @@
 
 LIB: DO;
-
-$INCLUDE(lib.lit)
+$include(lib.ipx)
 
 DECLARE
 	actual		ADDRESS PUBLIC,
@@ -44,125 +43,14 @@ DECLARE
 				     ENDFILE, 1, 0, 0F1h);
 
 
-/* EXTERNALS */
-DECLARE token$p ADDRESS EXTERNAL,
-	fileHead ADDRESS EXTERNAL,
-	file$p	ADDRESS EXTERNAL,
-	curRec STRUCTURE(LIBREC$T1, LIBREC$T2) EXTERNAL,
-	lookAhead$p ADDRESS EXTERNAL,
-	tokLen BYTE EXTERNAL,
-	inModuleLIst BYTE EXTERNAL,
-	memTop ADDRESS EXTERNAL,
-	heapTop ADDRESS EXTERNAL;
-
-writeFile: PROCEDURE(conn, buff$p, count, status$p) EXTERNAL;
-	DECLARE (conn, buff$p, count, status$p) ADDRESS;
-end;
-
-readFile: PROCEDURE(conn, buff$p, count, actual$p, status$p) EXTERNAL;
-	DECLARE (conn, buff$p, count, actual$p, status$p) ADDRESS;
-end;
-
-seekFile: PROCEDURE (conn, mode, block$p, byte$p, status$p) EXTERNAL;
-	DECLARE (conn, mode, block$p, byte$p, status$p) ADDRESS;
-end;
-
-skipSpc: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-end;
-
-closeFile: PROCEDURE(conn, status$p) EXTERNAL;
-	DECLARE (conn, status$p) ADDRESS;
-end;
-openFile: PROCEDURE(conn$p, path$p, access, echo, status$p) EXTERNAL;
-	DECLARE (conn$p, path$p, access, echo, status$p) ADDRESS;
-end;
-
-renameFile: PROCEDURE(old$p, new$p, status$p) EXTERNAL;
-	DECLARE (old$p, new$p, status$p) ADDRESS;
-end;
-
-deleteFile: PROCEDURE(path$p, status$p) EXTERNAL;
-	DECLARE (path$p, status$p) ADDRESS;
-end;
-
-log: PROCEDURE(buf, cnt) EXTERNAL;
-	DECLARE (buf, cnt) ADDRESS;
-end;
-
-logCRLF: PROCEDURE(buf, cnt) EXTERNAL;
-	DECLARE (buf, cnt) ADDRESS;
-end;
-pastFileName: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-end;
-allocUp: PROCEDURE(cnt) ADDRESS EXTERNAL;
-	DECLARE cnt address;
-end;
-getToken: PROCEDURE EXTERNAL; end;
-
-liberror: PROCEDURE(err) EXTERNAL;
-	DECLARE err BYTE;
-end;
-getRecordBytes: PROCEDURE(count, buf$p) EXTERNAL;
-	DECLARE  (count, buf$p) ADDRESS;
-end;
-
-readChkCRC: PROCEDURE EXTERNAL; end;
-
-getName: PROCEDURE(buf) EXTERNAL;
-	DECLARE buf ADDRESS;
-end;
-
-lookupSymbol: PROCEDURE(modName$p, hash$p) BYTE EXTERNAL;
-	DECLARE (modName$p, hash$p) ADDRESS;
-end;
-
-fatal: PROCEDURE(err) EXTERNAL;
-	DECLARE err BYTE;
-end;
-
-prepRecord: PROCEDURE EXTERNAL; end;
-
-libSeek: PROCEDURE(mode$b, blkByte$p) EXTERNAL;
-	DECLARE mode$b BYTE, blkByte$p ADDRESS;
-end;
-
-matchLookAhead: PROCEDURE(str, len) BYTE EXTERNAL;
-	DECLARE str ADDRESS, len BYTE;
-end;
-
-acceptRecord: PROCEDURE(type) EXTERNAL;
-	DECLARE type BYTE;
-end;
-
-openLib: PROCEDURE EXTERNAL; end;
-
-matchToken: PROCEDURE(str, len) BYTE EXTERNAL;
-	DECLARE str ADDRESS, len BYTE;
-end;
-getCmd: PROCEDURE EXTERNAL; end;
-
-skipModule: PROCEDURE EXTERNAL; end;
-saveCurPos: PROCEDURE EXTERNAL; end;
-restoreCurPos: PROCEDURE EXTERNAL; end;
-swapCurSavedRec: PROCEDURE EXTERNAL; end;
-writeErrStr: PROCEDURE(errCode) EXTERNAL;
-	DECLARE errCode BYTE;	/* note inconsistent but code expects this */
-end;
-
-fileStatusChk: PROCEDURE(errCode, path$p, isFatal) EXTERNAL;
-	DECLARE (errCode, path$p) ADDRESS, isFatal BYTE;
-end;
-
-skipCurRec: PROCEDURE EXTERNAL; end;
-
-
+/* override the correct defintion for this file */
+writeErrStr: PROCEDURE(errCode) EXTERNAL; DECLARE errCode BYTE; end;
 
 DECLARE token based token$p(1) BYTE;
 DECLARE file BASED file$p FILE$T;
 DECLARE arg BASED argChain ARG$T;
-DECLARE module BASED module$p STRUCTURE(MODULE$T1, MODULE$T2);
+/* explicit based as base var is defined after include */
+DECLARE module BASED module$p MODULE$T;
 DECLARE reset LABEL PUBLIC;
 
 
@@ -246,7 +134,7 @@ end;
 
 modNotFound: PROCEDURE;
 	DECLARE s ADDRESS;
-	DECLARE module BASED module$p STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE module BASED module$p MODULE$T;
 	DECLARE arg BASED argChain ARG$T;
 
 	s = arg.name;
@@ -260,7 +148,7 @@ end;
 
 lookupModule: PROCEDURE BYTE PUBLIC;
 	DECLARE (i, found) BYTE;
-	DECLARE module BASED module$p STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE module BASED module$p MODULE$T;
 	DECLARE module$a BASED module$p(1) BYTE;
 	DECLARE arg BASED argChain ARG$T;
 
@@ -305,7 +193,7 @@ getFileAndModuleNames: PROCEDURE;
 	DECLARE arg BASED argChain ARG$T;
 	DECLARE lookAhead BASED lookAhead$p(1) BYTE;
 	DECLARE token BASED token$p(1) BYTE;
-	DECLARE module BASED module$p STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE module BASED module$p MODULE$T;
 	DECLARE module$a BASED module$p(1) BYTE;
 	DECLARE i BYTE;
 
@@ -397,10 +285,10 @@ end;
 
 addModule: PROCEDURE(addName);
 	DECLARE addName BYTE;
-	DECLARE module BASED module$p STRUCTURE(MODULE$T1, MODULE$T2);
+	DECLARE module BASED module$p MODULE$T;
 	DECLARE xfield ADDRESS, offset ADDRESS, tmpByte BYTE, objNameLen BYTE;
 	DECLARE junk(4) BYTE;	/* safety net for getRecordBytes */
-	DECLARE symbol BASED hashptr STRUCTURE(SYMBOL$T);
+	DECLARE symbol BASED hashptr SYMBOL$T;
 	DECLARE symbol$a BASED hashptr(1) BYTE;
 
 	addCnt = addCnt + 1;
@@ -493,7 +381,7 @@ end;
 
 addCmd:	PROCEDURE;
 	DECLARE lookAhead BASED lookAhead$p(1) BYTE;
-	DECLARE hashItem BASED hashptr STRUCTURE(SYMBOL$T);
+	DECLARE hashItem BASED hashptr SYMBOL$T;
 	DECLARE module$a BASED module$p(1) BYTE;
 
 	DECLARE blkIdx		ADDRESS,
@@ -798,8 +686,8 @@ deleteCmd: PROCEDURE;
 	DECLARE lookAhead BASED lookAhead$p(1) BYTE;
 	DECLARE tmpLibHdr LIBHDR$T, junk$6429 ADDRESS,
 		nothingToDelete BYTE, (junk$642C, delmod$p) ADDRESS;
-	DECLARE modules BASED module$p STRUCTURE(MODULE$T1, MODULE$T2);
-	DECLARE delmod BASED delmod$p STRUCTURE(MODULE$T1, MODULE$T2);	/* actually on start of structure */
+	DECLARE modules BASED module$p MODULE$T;
+	DECLARE delmod BASED delmod$p MODULE$T;	/* actually on start of structure */
 
 
 	call getFileAndModuleNames;
@@ -943,10 +831,11 @@ createCmd: PROCEDURE;
 
 	argFilename = token$p;	/* try to open library */
 	call Open(.inConn, argFilename, readOnly, 0, .status);
-	if status = 0 then	/* if error then assume doesn't exist so ok */
+	if status = 0 then	/* if no error then already exists so error */
 	do;
 		call closeFile(inConn, .status);
 		call fileStatusChk(0E7h, argFilename, 0FFh);	/* error 231 not defined !!! */
+								/* should be FILE ALREADY EXISTS */
 	end;
 	call closeFile(inConn, .status);
 	call openFile(.outConn, argFilename, writeOnly, 0, .status);
