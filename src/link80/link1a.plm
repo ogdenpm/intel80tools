@@ -4,73 +4,7 @@ $xref
 	only and not for commercial gain. */
 link1a:
 DO;
-$INCLUDE(LINK.EXT)
-/* from ISIS.EXT */
-close: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
-end close;
-
-read: procedure (conn, buff$p, count, actual$p, status$p) external;
-    declare (conn, buff$p, count, actual$p, status$p) address;
-end read;
-
-open: procedure (conn$p, path$p, access, echo, status$p) external;
-    declare (conn$p, path$p, access, echo, status$p) address;
-end open;
-
-seek: procedure (conn, mode, block$p, byte$p, status$p) external;
-    declare (conn, mode, block$p, byte$p, status$p) address;
-end seek;
-
-DECLARE readfd ADDRESS EXTERNAL,
-	statusIO ADDRESS EXTERNAL,
-	actRead ADDRESS EXTERNAL,
-	inFileName(16) BYTE EXTERNAL,
-	toFileName(16) BYTE EXTERNAL,
-	baseHeap ADDRESS EXTERNAL,
-	topHeap ADDRESS EXTERNAL,
-	(inRecord$p, erec$p) ADDRESS EXTERNAL,
-	in$p ADDRESS EXTERNAL,
-	recNum ADDRESS EXTERNAL,
-	recLen ADDRESS EXTERNAL,	
-	npbuf ADDRESS EXTERNAL,
-	sbuf$p ADDRESS EXTERNAL,
-	buf$p ADDRESS EXTERNAL,
-	ebuf$p ADDRESS EXTERNAL,
-	objFileHead ADDRESS EXTERNAL,
-	curObjFile ADDRESS EXTERNAL,
-	curModule ADDRESS EXTERNAL,
-	inBlk ADDRESS EXTERNAL,
-	inByt ADDRESS EXTERNAL,
-	inb$p ADDRESS EXTERNAL,
-	inCRC BYTE EXTERNAL;
-
-DECLARE DUMMYREC(1) BYTE EXTERNAL;
-
-DECLARE	inRecord BASED inRecord$p STRUCTURE (type BYTE, len ADDRESS, rec(1) BYTE);
-DECLARE objFile BASED curObjFile LIBRARY$T;
-
-errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
-	DECLARE errCode ADDRESS;
-	DECLARE file ADDRESS;
-	DECLARE errExit BYTE;
-END errChkReport;
-
-memmov: PROCEDURE(cnt, srcp, dstp) EXTERNAL;
-	DECLARE (cnt, srcp, dstp) ADDRESS;
-END memmov;
-
-illegalRelo: PROCEDURE EXTERNAL;
-END illegalRelo;
-
-fatalErr: PROCEDURE(errCode) EXTERNAL;
-	DECLARE errCode BYTE;
-END fatalErr;
-
-pstrcpy: PROCEDURE(psrc, pdst) EXTERNAL;
-	DECLARE psrc ADDRESS;
-	DECLARE pdst ADDRESS;
-END pstrcpy;
+$include(link1a.ipx)
 
 allocUp: PROCEDURE(count) ADDRESS PUBLIC;
 	DECLARE count ADDRESS;
@@ -152,7 +86,7 @@ getRecord: PROCEDURE PUBLIC;
 		CALL fatalErr(ERR208);	/* checksum error */
 END getRecord;
 
-iseek: PROCEDURE(blk, byt) PUBLIC;	/* seek in input buffer */
+objSeek: PROCEDURE(blk, byt) PUBLIC;	/* seek in input buffer */
 	DECLARE (blk, byt) ADDRESS;
 
 	/* check if already in memory, if so update buf$p only */
@@ -169,7 +103,7 @@ iseek: PROCEDURE(blk, byt) PUBLIC;	/* seek in input buffer */
 	CALL chkRead(1);
 	inBlk = blk;
 	inByt = byt;
-END iseek;
+END objSeek;
 
 openObjFile: PROCEDURE PUBLIC;
 	CALL pstrcpy(.objfile.name(0), .inFilename(0));		/* copy the user supplied file name */

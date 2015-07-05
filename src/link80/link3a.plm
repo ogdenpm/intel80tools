@@ -4,31 +4,7 @@ $xref
 	only and not for commercial gain. */
 link3a:
 DO;
-$INCLUDE(LINK.EXT)
-/* from ISIS.EXT */
-
-open: procedure (conn$p, path$p, access, echo, status$p) external;
-    declare (conn$p, path$p, access, echo, status$p) address;
-end open;
-
-read: procedure (conn, buff$p, count, actual$p, status$p) external;
-    declare (conn, buff$p, count, actual$p, status$p) address;
-end read;
-
-exit: procedure external;
-end exit;
-
-spath: procedure (path$p, info$p, status$p) external;
-    declare (path$p, info$p, status$p) address;
-end spath;
-
-rescan: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
-end rescan;
-
-memck: procedure address external;
-end memck;
-
+$include(link3a.ipx)
 
 
 DECLARE controls(*) BYTE PUBLIC DATA(1, 3, 'MAP', 2, 4, 'NAME', 3, 5, 'PRINT');
@@ -43,104 +19,9 @@ DECLARE info SPATH$T,
 	scmd$p ADDRESS,
 	cmd$p ADDRESS;
 
-DECLARE	cmdch BASED cmd$p BYTE;
-DECLARE	cmdbuf BASED cmd$p (1) BYTE;
-
-DECLARE	CRLF (2) BYTE EXTERNAL,
-	objFileHead ADDRESS EXTERNAL,
-	curObjFile ADDRESS EXTERNAL,
-	curModule ADDRESS EXTERNAL,
-	doMap BYTE EXTERNAL,
-	moduleName(32) BYTE EXTERNAL,
-	printFileNo ADDRESS EXTERNAL,
-	printFileName(16) BYTE EXTERNAL,
-	inFileName(16) BYTE EXTERNAL,
-	actRead ADDRESS EXTERNAL,
-	baseHeap ADDRESS EXTERNAL,
-	topHeap ADDRESS EXTERNAL,
-	npbuf ADDRESS EXTERNAL,
-	sbuf$p ADDRESS EXTERNAL,
-	buf$p ADDRESS EXTERNAL,
-	ebuf$p ADDRESS EXTERNAL,
-	filePath(16) BYTE EXTERNAL,
-	toFileName(16) BYTE EXTERNAL,
-	linkTmpFile(16) BYTE EXTERNAL,
-	hashChains(128) ADDRESS EXTERNAL,
-	alignType(6) BYTE EXTERNAL,
-	segmap(256) BYTE EXTERNAL,
-	modhdr$x1 BYTE EXTERNAL,
-	modhdr$x2 BYTE EXTERNAL,
-	segLen(6) ADDRESS EXTERNAL,
-	entrySeg BYTE EXTERNAL,
-	entryAddr ADDRESS EXTERNAL,
-	maxExternCnt ADDRESS EXTERNAL,
-	headUnresolved ADDRESS EXTERNAL,
-	headSegOrderLink ADDRESS EXTERNAL,
-	modtype BYTE EXTERNAL,
-	unresolved ADDRESS EXTERNAL,
-	statusIO ADDRESS EXTERNAL;
-
-DECLARE VERSION(4) BYTE EXTERNAL;
-
-DECLARE objFile BASED curObjFile LIBRARY$T;
-DECLARE module BASED curModule MODULE$T;
-
-
-pastFileName: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-END pastFileName;
-
-conOutStr: PROCEDURE(pstr, count) EXTERNAL;
-	DECLARE pstr ADDRESS;
-	DECLARE count ADDRESS;
-END conOutStr;
-
-writeErrStr: PROCEDURE(errcode) EXTERNAL;
-	DECLARE errcode ADDRESS;
-END writeErrStr;
-
-skipSpc: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-END skipSpc;
-
-makeFullName: PROCEDURE(pinfo, pstr) EXTERNAL;
-	DECLARE (pinfo, pstr) ADDRESS;
-END makeFullName;
-
-errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
-	DECLARE errCode ADDRESS;
-	DECLARE file ADDRESS;
-	DECLARE errExit BYTE;
-END errChkReport;
-
-allocUp: PROCEDURE(count) ADDRESS EXTERNAL;
-	DECLARE count ADDRESS;
-END allocUp;
-
-
-allocdown: PROCEDURE(count) ADDRESS EXTERNAL;
-	DECLARE count ADDRESS;
-END allocdown;
-
-pstrcpy: PROCEDURE(psrc, pdst) EXTERNAL;
-	DECLARE psrc ADDRESS;
-	DECLARE pdst ADDRESS;
-END pstrcpy;
-
-strequ: PROCEDURE(str1p, str2p, cnt) BYTE EXTERNAL;
-	DECLARE (str1p, str2p) ADDRESS;
-	DECLARE cnt BYTE;
-END strequ;
-
-crStrUpper: PROCEDURE(PCH) EXTERNAL;
-	DECLARE PCH ADDRESS;
-END crStrUpper;
-
-writeBytes: PROCEDURE(buf$p, count) EXTERNAL;
-	DECLARE buf$p ADDRESS;
-	DECLARE count ADDRESS;
-END writeBytes;
-
+/* explicit definition of based vars as based defined after include */
+declare	cmdbuf based cmd$p (1) byte,
+	cmdch based cmd$p byte;
 
 fatalCmdLineErr: PROCEDURE(errCode) PUBLIC;
 	DECLARE errCode ADDRESS;
