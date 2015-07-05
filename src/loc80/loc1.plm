@@ -2,17 +2,7 @@ $LIST
 $CODE
 LOCATE:
 DO;
-$INCLUDE(ISIS.EXT)
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC2A.EXT)
-$INCLUDE(LOC3.EXT)
-$INCLUDE(LOC4.EXT)
-$INCLUDE(LOC5.EXT)
-$INCLUDE(LOC6.EXT)
-$INCLUDE(LOC7.EXT)
-
-$list
-/* Externals */
+$include(loc1.ipx)
 
 DECLARE COPYRIGHT (*) BYTE DATA ('(C) 1976, 1977, 1979 INTEL CORP');
 DECLARE VERSION (*) BYTE PUBLIC DATA ('V3.0');
@@ -77,8 +67,10 @@ DECLARE	crlf(2) BYTE PUBLIC INITIAL(0DH, 0AH),
 	inb$p ADDRESS PUBLIC,
 	inCRC BYTE PUBLIC;
 
-$INCLUDE(LOC.BAS)
-
+/* explicit based vars as base is defined after include */
+declare	inRecord based inRecord$p RECORD$T,
+	pageTab1 based pageTab1$p (256) PAGE1$T,
+	pageTab2 based pageTab2$p (256) PAGE2$T;
 
 conStrOut: PROCEDURE(buf, cnt) PUBLIC;
 	DECLARE (buf, cnt) ADDRESS;
@@ -236,7 +228,7 @@ getRecord: PROCEDURE PUBLIC;
 END getRecord;
 
 
-iseek: PROCEDURE(blk, byt) PUBLIC;
+objSeek: PROCEDURE(blk, byt) PUBLIC;
 	DECLARE (blk, byt) ADDRESS;
 
 	recNum = 0;		/* reset record number */
@@ -250,7 +242,7 @@ iseek: PROCEDURE(blk, byt) PUBLIC;
 	CALL chkRead(1);	/* read the buffer */
 	inBlk = blk;
 	inByt = byt;
-END iseek;
+END objSeek;
 
 
 

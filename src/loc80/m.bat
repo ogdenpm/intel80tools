@@ -1,2 +1,0 @@
-split.pl
-..\..\nmake verify

@@ -1,54 +1,362 @@
-ISIS.EXT
-close: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
-end close;
+loc80.pex
+lit             'literally'
 
-delete: procedure (path$p, status$p) external;
-    declare (path$p, status$p) address;
-end delete;
+/* seek modes */
+SEEKTELL        '0'
+SEEKBCK         '1'
+SEEKABS         '2'
+SEEKFWD         '3'
+SEEKEND         '4'
 
-error: procedure (error$num) external;
-    declare (error$num) address;
-end error;
+ERR2            '2' /* ILLEGAL AFTN ARGUMENT */
+ERR3            '3' /* TOO MANY OPEN FILES */
+ERR4            '4' /* INCORRECTLY SPECIFIED FILE */
+ERR5            '5' /* UNRECOGNIZED DEVICE NAME */
+ERR9            '9' /* DISK DIRECTORY FULL */
+ERR12           '12' /* FILE IS ALREADY OPEN */
+ERR13           '13' /* NO SUCH FILE */
+ERR14           '14' /* WRITE PROTECTED */
+ERR17           '17' /* NOT A DISK FILE */
+ERR19           '19' /* ATTEMPTED SEEK ON NON-DISK FILE */
+ERR20           '20' /* ATTEMPTED BACK SEEK TOO FAR */
+ERR21           '21' /* CAN'T RESCAN */
+ERR22           '22' /* ILLEGAL ACCESS MODE TO OPEN */
+ERR23           '23' /* MISSING FILENAME */
+ERR27           '27' /* ILLEGAL SEEK COMMAND */
+ERR28           '28' /* MISSING EXTENSION */
+ERR31           '31' /* CAN'T SEEK ON WRITE ONLY FILE */
+ERR32           '32' /* CAN'T DELETE OPEN FILE */
+ERR35           '35' /* SEEK PAST EOF */
+ERR203          '203' /* INVALID SYNTAX */
+ERR204          '204' /* PREMATURE EOF */
+ERR208          '208' /* CHECKSUM ERROR */
+ERR210          '210' /* INSUFFICIENT MEMORY */
+ERR211          '211' /* RECORD TOO LONG */
+ERR212          '212' /* ILLEGAL RELO RECORD */
+ERR213          '213' /* FIXUP BOUNDS ERROR */
+ERR218          '218' /* ILLEGAL RECORD FORMAT */
+ERR224          '224' /* BAD RECORD SEQUENCE */
+ERR225          '225' /* INVALID NAME */
+ERR226          '226' /* NAME TOO LONG */
+ERR227          '227' /* LEFT PARENTHESIS EXPECTED */
+ERR228          '228' /* RIGHT PARENTHESIS EXPECTED */
+ERR229          '229' /* UNRECOGNIZED CONTROL */
+ERR233          '233' /* 'TO' EXPECTED */
+ERR237          '237' /* COMMON NOT FOUND */
+ERR238          '238' /* ILLEGAL STACK CONTENT RECORD */
+ERR239          '239' /* NO MODULE HEADER RECORD */
+ERR240          '240' /* PROGRAM EXCEEDS 64K */
 
-exit: procedure external;
-end exit;
+/* Record types */
+R$MODHDR        '2'
+R$MODEND        '4'
+R$MODDAT        '6'
+R$LINNUM        '8'
+R$MODEOF        '0EH'
+R$ANCEST        '10H'
+R$LOCDEF        '12H'
+R$PUBDEF        '16H'
+R$EXTNAM        '18H'
+R$FIXEXT        '20H'
+R$FIXLOC        '22H'
+R$FIXSEG        '24H'
+R$LIBLOC        '26H'
+R$LIBNAM        '28H'
+R$LIBDIC        '2AH'
+R$LIBHDR        '2CH'
+R$COMDEF        '2EH'
 
-open: procedure (conn$p, path$p, access, echo, status$p) external;
-    declare (conn$p, path$p, access, echo, status$p) address;
-end open;
+/* Segments */
+SABS            '0'
+SCODE           '1'
+SDATA           '2'
+SSTACK          '3'
+SMEMORY         '4'
+SRESERVED       '5'
+SNAMED          '6'	/* through 254 */
+SBLANK          '255'
 
-read: procedure (conn, buff$p, count, actual$p, status$p) external;
-    declare (conn, buff$p, count, actual$p, status$p) address;
-end read;
+/* Alignments  & Flags*/
+AMASK           '0FH'
+AABS            '0'
+AUNKNOWN        '0'
+AINPAGE         '1'
+APAGE           '2'
+ABYTE           '3'
+FHASADDR        '080H'
+FWRAP0          '40H'
+FSEGSEEN        '10H'
 
-seek: procedure (conn, mode, block$p, byte$p, status$p) external;
-    declare (conn, mode, block$p, byte$p, status$p) address;
-end seek;
+/* Fixup type */
+FLOW            '1'
+FHIGH           '2'
+FBOTH           '3'
 
-write: procedure (conn, buff$p, count, status$p) external;
-    declare (conn, buff$p, count, status$p) address;
-end write;
+TRUE            '0FFH'
+FALSE           '0'
 
-
-
-rescan: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
-end rescan;
-
-spath: procedure (path$p, info$p, status$p) external;
-    declare (path$p, info$p, status$p) address;
-end spath;
-
-
-
+/* controls seen tags */
+startSeen       'seen(0)'
+stackSizeSeen   'seen(1)'
+restart0Seen    'seen(2)'
+MapSeen         'seen(3)'
+PublicsSeen     'seen(4)'
+SymbolsSeen     'seen(5)'
+LinesSeen       'seen(6)'
+PurgeSeen       'seen(7)'
+moduleNameSeen  'seen(8)'
 
 
-memck: procedure address external;
-end memck;
+/* user types */
+SPATH$T         'STRUCTURE (SPATH$T1,SPATH$T2)'
+SPATH$T1        'deviceId BYTE, name(6) BYTE, ext(3) BYTE'
+SPATH$T2        'deviceType BYTE, driveType BYTE'
+DATAFRAG$T      'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)'
+SEGFRAG$T       'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)'
+DATAFRAG$T      'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)'
+PAGE1$T         'STRUCTURE (state BYTE, mpage BYTE)'
+PAGE2$T         'STRUCTURE (pageIdx BYTE, fileIdx BYTE)'
+RECORD$T        'STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE)'
 
+/* based vars */
+cmdbuf          BS..cmd$p
+cmdch           B..cmd$p
+erec            B..erec$p
+inRecord        "RECORD$T"..inRecord$p
+lsout           "RECORD$T"..lsout$p
+outRecord       "RECORD$T"..outRecord$p
+pageTab1        "PAGE1$T"(256)..pageTab1$p
+pageTab2        "PAGE2$T"(256)..pageTab2$p
 
-$list
+$file(system.lib)
+isis            P(B rectyp,A parameter$ptr)
+memck           PA
+rescan          P(A conn,A status$p)
+spath           P(A path$p,A info$p,A status$p)
+
+$file(isis.plm)
+close           P(A conn,A status$p)
+delete          P(A path$p,A status$p)
+error           P(A error$num)
+exit            P
+open            P(A conn$p,A path$p,A access,A echo,A status$p)
+read            P(A conn,A buff$p,A count,A actual$p,A status$p)
+seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
+write           P(A conn,A buff$p,A count,A status$p)
+
+$file(loc1.plm)
+actRead         A
+aRecordType     BS
+baseMemImage    A
+botHeap         A
+columns         B
+crlf            BS
+curDataFrag$p   A
+curSegFrag$p    A
+eibuf$p         A
+eout$p          A
+epbuf$p         A
+erec$p          A
+havePagingFile  B
+ibuf$p          A
+inBlk           A
+inb$p           A
+inByt           A
+inCRC           B
+inFileName      BS
+inFragment      "DATAFRAG$T"
+in$p            A
+inRecord$p      A
+isMain          B
+modhdr$x1       B
+modhdr$x2       B
+moduleName      BS
+nextDataFrag$p  A
+nextSegFrag$p   A
+npbuf           A
+nxtPageNo       B
+outFileName     BS
+out$p           A
+outputfd        A
+outRealFile     B
+outRecord$p     A
+pageCacheSize   B
+pageIndexTmpFil B
+pageTab1$p      A
+pageTab2$p      A
+pbuf$p          A
+printfd         A
+printFileName   BS
+readfd          A
+recLen          A
+recNum          A
+roundRobinIndex B
+seen            BS
+segBases        AS
+segFlags        BS
+segOrder        BS
+segSizes        AS
+sibuf$p         A
+spbuf$p         A
+startAddr       A
+statusIO        A
+tmpfd           A
+tmpFileName     BS
+topDataFrags    A
+topHeap         A
+usePrintBuf     B
+VERSION         BS
+addDataFrag     P(A saddr,A eaddr)
+addrInCache     P(A addr)A
+addSegFrag      P(B flags,B seg,A start,A len)
+alloc           P(A cnt)
+allocNewPage    P(B page)A
+anotherPage     P(B page)
+badRecordSeq    P
+chkRead         P(A cnt)
+conAndPrint     P(A buf,A cnt)
+conStrOut       P(A buf,A cnt)
+fatalErr        P(B errCode)
+flushPrintBuf   P
+getRecord       P
+illegalRecord   P
+illegalReloc    P
+objSeek           P(A blk,A byt)
+loadMODDAT      P(B segId)
+pageout         P(B page,A bufp)
+printcrlf       P
+printString     P(A bufp,A cnt)
+pstrcpy         P(A psrc,A pdst)
+seekPagingFile  P(B para)
+
+$file(loc2a.plm)
+errmsg          P(A errCode)
+
+$file(loc2b.plm)
+alin            BS
+aMod            BS
+aPub            BS
+aReadFromFile   BS
+aReferenceToUns BS
+aSym            BS
+aSymbol         BS
+aSymbolTableOfM BS
+aUnsatisfiedExt BS
+aValueType      BS
+aWrittenToFile  BS
+curcol          B
+curColumn       A
+curListField    A
+loHiBoth        B
+lsout$p         A
+nameLen         B
+outSegType      B
+spc32           BS
+unsatisfiedCnt  A
+workingSegBase  A
+x5              BS
+emitMODDAT      P(A curDataFrag$p)
+endRecord       P
+flushOut        P
+forceSOL        P
+initRecOut      P(B rectyp)
+printColumn     P(A field,A pstr)
+procMODDAT      P
+procMODEND      P
+seekOutFile     P(A mode,A pblk,A pbyt)
+setWorkingSeg   P(B seg)B
+writeBytes      P(A buf$p,A cnt)
+
+$file(loc3.plm)
+fixupBoundsChk  P(A addr)
+locateFile      P
+printListingHeader P(A buf,A len)
+procANCEST      P
+procDefs        P(B list,A template)
+procEXTNAM      P
+procLINNUM      P
+
+$file(loc4.plm)
+a0LengthSegment BS
+aAddresses      BS
+alignNames      BS
+aMemoryMapOfMod BS
+aMemOverlap     BS
+aModuleIsNotAMa BS
+aModuleStartAdd BS
+aRestartControl BS
+aStartControlIg BS
+aStartStopLengt BS
+segNames        BS
+getCommonName   P(B segid)A
+printMemoryMap  P
+skipspc         P(A pch)A
+
+$file(loc4a.plm)
+errChkReport    P(A errCode,A file,B errExit)
+
+$file(loc5a.plm)
+binasc          P(A number,B base,B pad,A bufp,B ndigits)
+pastAFN         P(A pch)A
+
+$file(loc5b.plm)
+pastFileName    P(A pch)A
+
+$file(loc6.plm)
+aCommandTailErr BS
+aInvokedBy      BS
+cin             BS
+cmd$p           A
+controls        BS
+cout            BS
+mdebug          BS
+mstar2          BS
+mto             BS
+mtoand          BS
+scmd$p          A
+signonMsg       BS
+spathInfo       "SPATH$T"
+tmpFileInfo     BS
+cmdErr          P(A err)
+errNotADisk     P
+expectChar      P(B ch,B err)
+expectLP        P
+expectRP        P
+expectSlash     P
+getFile         P
+getpstrName     P(A pstr)
+initSegOrder    P
+processControls P
+skipNonArgChars P(A pch)
+
+$file(loc7.plm)
+aInpageSegment2 BS
+nxtSegOrder     B
+pad7935         BS
+segId           B
+getCommonSegId  PB
+insSegIdOrder   P(B seg)
+parseLPNumRP    PA
+procArgs$Init   P
+procCOMDEF      P
+procHdrAndComDef P
+procMODHDR      P
+readCmdLine     P
+
+$file(loc8.plm)
+makeFullName    P(A pinfo,A pstr)
+strupr          P(A pch)
+
+$file(loc8a.plm)
+parseNumber     P(A ppstr)A
+strequ          P(A pstr1,A pstr2,B len)B
+
+$file(loc9.plm)
+toupper         P(B ch)B
+
+$file(memmov.asm)
+mem$mov         P(A cnt,A src,A dst)
+
 isis.plm
 isissub:
 DO;
@@ -69,11 +377,7 @@ DECLARE LIT LITERALLY 'LITERALLY',
 	IWHOCON LIT	'13',
 	ISPATH LIT	'14';
 
-
-isis: procedure (rectyp, parameter$ptr) external;
-    declare rectyp byte,
-            parameter$ptr address;
-end isis;
+$include(isis.ipx)
 
 close: procedure (conn, status$p) public;
     declare (conn, status$p) address;
@@ -123,262 +427,12 @@ end write;
 
 
 END;
-loc.bas
-DECLARE	cmdch BASED cmd$p BYTE;
-DECLARE	cmdbuf BASED cmd$p (1) BYTE;
-DECLARE	pageTab1 BASED pageTab1$p (256) STRUCTURE (state BYTE, mpage BYTE);
-DECLARE	pageTab2 BASED pageTab2$p (256) STRUCTURE (pageIdx BYTE, fileIdx BYTE);
-DECLARE	inRecord BASED inRecord$p STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE);
-DECLARE	outRecord BASED outRecord$p STRUCTURE (rectyp BYTE, reclen ADDRESS, record(1) BYTE);
-loc.lit
-DECLARE	LIT LITERALLY 'LITERALLY';
-
-/* seek modes */
-DECLARE	SEEKTELL LIT	'0',
-	SEEKBCK LIT	'1',
-	SEEKABS	LIT	'2',
-	SEEKFWD LIT	'3',
-	SEEKEND	LIT	'4';
-
-DECLARE	SPATH$T LIT 'STRUCTURE (deviceId BYTE, name(6) BYTE, ext(3) BYTE, deviceType BYTE, driveType BYTE)',
-        DATAFRAG$T LIT 'STRUCTURE (saddr ADDRESS, eaddr ADDRESS)',
-	SEGFRAG$T LIT 'STRUCTURE (flags BYTE, seg BYTE, start ADDRESS, len ADDRESS)';
-DECLARE	ERR2 LIT '2', /* ILLEGAL AFTN ARGUMENT */
-	ERR3 LIT '3', /* TOO MANY OPEN FILES */
-	ERR4 LIT '4', /* INCORRECTLY SPECIFIED FILE */
-	ERR5 LIT '5', /* UNRECOGNIZED DEVICE NAME */
-	ERR9 LIT '9', /* DISK DIRECTORY FULL */
-	ERR12 LIT '12', /* FILE IS ALREADY OPEN */
-	ERR13 LIT '13', /* NO SUCH FILE */
-	ERR14 LIT '14', /* WRITE PROTECTED */
-	ERR17 LIT '17', /* NOT A DISK FILE */
-	ERR19 LIT '19', /* ATTEMPTED SEEK ON NON-DISK FILE */
-	ERR20 LIT '20', /* ATTEMPTED BACK SEEK TOO FAR */
-	ERR21 LIT '21', /* CAN'T RESCAN */
-	ERR22 LIT '22', /* ILLEGAL ACCESS MODE TO OPEN */
-	ERR23 LIT '23', /* MISSING FILENAME */
-	ERR27 LIT '27', /* ILLEGAL SEEK COMMAND */
-	ERR28 LIT '28', /* MISSING EXTENSION */
-	ERR31 LIT '31', /* CAN'T SEEK ON WRITE ONLY FILE */
-	ERR32 LIT '32', /* CAN'T DELETE OPEN FILE */
-	ERR35 LIT '35', /* SEEK PAST EOF */
-	ERR203 LIT '203', /* INVALID SYNTAX */
-	ERR204 LIT '204', /* PREMATURE EOF */
-	ERR208 LIT '208', /* CHECKSUM ERROR */
-	ERR210 LIT '210', /* INSUFFICIENT MEMORY */
-	ERR211 LIT '211', /* RECORD TOO LONG */
-	ERR212 LIT '212', /* ILLEGAL RELO RECORD */
-	ERR213 LIT '213', /* FIXUP BOUNDS ERROR */
-	ERR218 LIT '218', /* ILLEGAL RECORD FORMAT */
-	ERR224 LIT '224', /* BAD RECORD SEQUENCE */
-	ERR225 LIT '225', /* INVALID NAME */
-	ERR226 LIT '226', /* NAME TOO LONG */
-	ERR227 LIT '227', /* LEFT PARENTHESIS EXPECTED */
-	ERR228 LIT '228', /* RIGHT PARENTHESIS EXPECTED */
-	ERR229 LIT '229', /* UNRECOGNIZED CONTROL */
-	ERR233 LIT '233', /* 'TO' EXPECTED */
-	ERR237 LIT '237', /* COMMON NOT FOUND */
-	ERR238 LIT '238', /* ILLEGAL STACK CONTENT RECORD */
-	ERR239 LIT '239', /* NO MODULE HEADER RECORD */
-	ERR240 LIT '240'; /* PROGRAM EXCEEDS 64K */
-
-/* Record types */
-DECLARE	R$MODHDR	LIT	'2',
-	R$MODEND	LIT	'4',
-	R$MODDAT	LIT	'6',
-	R$LINNUM	LIT	'8',
-	R$MODEOF	LIT	'0EH',
-	R$ANCEST	LIT	'10H',
-	R$LOCDEF	LIT	'12H',
-	R$PUBDEF	LIT	'16H',
-	R$EXTNAM	LIT	'18H',
-	R$FIXEXT	LIT	'20H',
-	R$FIXLOC	LIT	'22H',
-	R$FIXSEG	LIT	'24H',
-	R$LIBLOC	LIT	'26H',
-	R$LIBNAM	LIT	'28H',
-	R$LIBDIC	LIT	'2AH',
-	R$LIBHDR	LIT	'2CH',
-	R$COMDEF	LIT	'2EH';
-
-/* Segments */
-DECLARE	SABS	LIT	'0',
-	SCODE	LIT	'1',
-	SDATA	LIT	'2',
-	SSTACK	LIT	'3',
-	SMEMORY	LIT	'4',
-	SRESERVED LIT	'5',
-	SNAMED	LIT	'6',	/* through 254 */
-	SBLANK	LIT	'255';
-
-/* Alignments  & Flags*/
-DECLARE AMASK	LIT	'0FH',
-	AABS	LIT	'0',
-	AUNKNOWN LIT	'0',
-	AINPAGE	LIT	'1',
-	APAGE	LIT	'2',
-	ABYTE	LIT	'3',
-	FHASADDR LIT	'080H',
-	FWRAP0	LIT	'40H',
-	FSEGSEEN LIT	'10H';
-
-/* Fixup type */
-DECLARE	FLOW	LIT	'1',
-	FHIGH	LIT	'2',
-	FBOTH	LIT	'3';
-
-DECLARE	TRUE	LIT	'0FFH',
-	FALSE	LIT	'0';
-
-DECLARE	startSeen LIT 'seen(0)',
-	stackSizeSeen LIT 'seen(1)',
-	restart0Seen LIT 'seen(2)',
-	MapSeen LIT 'seen(3)',
-	PublicsSeen LIT 'seen(4)',
-	SymbolsSeen LIT 'seen(5)',
-	LinesSeen LIT 'seen(6)',
-	PurgeSeen LIT 'seen(7)',
-	moduleNameSeen LIT 'seen(8)';
-
-mem$mov: PROCEDURE(cnt, src, dst) EXTERNAL;
-	DECLARE cnt ADDRESS, src ADDRESS, dst ADDRESS;
-END mem$mov;	
-loc1.ext
-DECLARE	VERSION (1) BYTE EXTERNAL ;
-DECLARE	(readfd, outputfd, printfd, tmpfd, statusIO, actRead) ADDRESS EXTERNAL,
-	inFileName (16) BYTE EXTERNAL, outFileName (16) BYTE EXTERNAL,
-	printFileName (16) BYTE EXTERNAL, tmpFileName (16) BYTE EXTERNAL,
-	columns BYTE EXTERNAL,
-	seen(9) BYTE EXTERNAL,	/* START, STACK, RESTART0, MAP, PUBLICS, SYMBOLS, LINES, PURGE, NAME */
-	moduleName(32) BYTE EXTERNAL,
-	isMain BYTE EXTERNAL,
-	modhdr$x1 BYTE EXTERNAL,
-	modhdr$x2 BYTE EXTERNAL,
-	startAddr ADDRESS EXTERNAL,
-	segOrder(255) BYTE EXTERNAL,
-	segBases(256) ADDRESS EXTERNAL,	/* abs, code, data */
-	segSizes(256) ADDRESS EXTERNAL,
-	segFlags(256) BYTE EXTERNAL,
-	inRecord$p ADDRESS EXTERNAL,
-	erec$p ADDRESS EXTERNAL,
-	in$p ADDRESS EXTERNAL,
-	recNum ADDRESS EXTERNAL,
-	recLen ADDRESS EXTERNAL,
-	npbuf ADDRESS EXTERNAL,
-	sibuf$p ADDRESS EXTERNAL,
-	ibuf$p ADDRESS EXTERNAL,
-	eibuf$p ADDRESS EXTERNAL,
-	outRecord$p ADDRESS EXTERNAL,
-	out$p ADDRESS EXTERNAL,
-	eout$p ADDRESS EXTERNAL,
-	spbuf$p ADDRESS EXTERNAL,
-	pbuf$p ADDRESS EXTERNAL,
-	epbuf$p ADDRESS EXTERNAL,
-	topHeap ADDRESS EXTERNAL,
-	topDataFrags ADDRESS EXTERNAL,
-	curSegFrag$p ADDRESS EXTERNAL,
-	nextSegFrag$p ADDRESS EXTERNAL,
-	botHeap ADDRESS EXTERNAL,
-	curDataFrag$p ADDRESS EXTERNAL,
-	nextDataFrag$p ADDRESS EXTERNAL,
-	inFragment DATAFRAG$T EXTERNAL,
-	usePrintBuf BYTE EXTERNAL,
-	outRealFile BYTE EXTERNAL,
-	baseMemImage ADDRESS EXTERNAL,
-	havePagingFile BYTE EXTERNAL,
-	pageCacheSize BYTE EXTERNAL,
-	roundRobinIndex BYTE EXTERNAL,
-	nxtPageNo BYTE EXTERNAL,
-	pageIndexTmpFil BYTE EXTERNAL,
-	pageTab1$p ADDRESS EXTERNAL,
-	pageTab2$p ADDRESS EXTERNAL;
-
-DECLARE	crlf(2) BYTE EXTERNAL,
-	aRecordType(1) BYTE EXTERNAL,
-	(inBlk, inByt) ADDRESS EXTERNAL,
-	inb$p ADDRESS EXTERNAL,
-	inCRC BYTE EXTERNAL;
-
-conStrOut: PROCEDURE(buf, cnt) EXTERNAL;
-	DECLARE (buf, cnt) ADDRESS;
-END conStrOut;
-
-fatalErr: PROCEDURE(errCode) EXTERNAL;
-	DECLARE errCode BYTE;
-END fatalErr;
-
-illegalRecord: PROCEDURE EXTERNAL;
-END illegalRecord;
-
-illegalReloc: PROCEDURE EXTERNAL;
-END illegalReloc;
-
-badRecordSeq: PROCEDURE EXTERNAL;
-END badRecordSeq;
-
-pstrcpy: PROCEDURE(psrc, pdst) EXTERNAL;
-	DECLARE (psrc, pdst) ADDRESS;
-END pstrcpy;
-
-printString: PROCEDURE(bufp, cnt) EXTERNAL;
-	DECLARE bufp ADDRESS;
-	DECLARE cnt ADDRESS;
-END printString;
-
-printcrlf: PROCEDURE EXTERNAL;
-END printcrlf;
-
-conAndPrint: PROCEDURE(buf, cnt) EXTERNAL;
-	DECLARE (buf, cnt) ADDRESS;
-END conAndPrint;
-
-chkRead: PROCEDURE(cnt) EXTERNAL;
-	DECLARE cnt ADDRESS;
-END chkRead;
-
-getRecord: PROCEDURE EXTERNAL;
-END getRecord;
-
-iseek: PROCEDURE(blk, byt) EXTERNAL;
-	DECLARE (blk, byt) ADDRESS;
-END iseek;
-
-
-addrInCache: PROCEDURE(addr) ADDRESS EXTERNAL;
-	DECLARE addr ADDRESS;
-END addrInCache;
-
-
-addSegFrag: PROCEDURE(flags, seg, start, len) EXTERNAL;
-	DECLARE (flags, seg) BYTE;
-	DECLARE (start, len) ADDRESS;
-END addSegFrag;
-
-addDataFrag: PROCEDURE(arg1w, arg2w) EXTERNAL;
-	DECLARE arg1w ADDRESS;
-	DECLARE arg2w ADDRESS;
-END addDataFrag;
-
-loadMODDAT: PROCEDURE(arg1b) EXTERNAL;
-	DECLARE arg1b BYTE;
-END loadMODDAT;
-
 loc1.plm
 $LIST
 $CODE
 LOCATE:
 DO;
-$INCLUDE(ISIS.EXT)
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC2A.EXT)
-$INCLUDE(LOC3.EXT)
-$INCLUDE(LOC4.EXT)
-$INCLUDE(LOC5.EXT)
-$INCLUDE(LOC6.EXT)
-$INCLUDE(LOC7.EXT)
-
-$list
-/* Externals */
+$include(loc1.ipx)
 
 DECLARE COPYRIGHT (*) BYTE DATA ('(C) 1976, 1977, 1979 INTEL CORP');
 DECLARE VERSION (*) BYTE PUBLIC DATA ('V3.0');
@@ -443,8 +497,10 @@ DECLARE	crlf(2) BYTE PUBLIC INITIAL(0DH, 0AH),
 	inb$p ADDRESS PUBLIC,
 	inCRC BYTE PUBLIC;
 
-$INCLUDE(LOC.BAS)
-
+/* explicit based vars as base is defined after include */
+declare	inRecord based inRecord$p RECORD$T,
+	pageTab1 based pageTab1$p (256) PAGE1$T,
+	pageTab2 based pageTab2$p (256) PAGE2$T;
 
 conStrOut: PROCEDURE(buf, cnt) PUBLIC;
 	DECLARE (buf, cnt) ADDRESS;
@@ -602,7 +658,7 @@ getRecord: PROCEDURE PUBLIC;
 END getRecord;
 
 
-iseek: PROCEDURE(blk, byt) PUBLIC;
+objSeek: PROCEDURE(blk, byt) PUBLIC;
 	DECLARE (blk, byt) ADDRESS;
 
 	recNum = 0;		/* reset record number */
@@ -616,7 +672,7 @@ iseek: PROCEDURE(blk, byt) PUBLIC;
 	CALL chkRead(1);	/* read the buffer */
 	inBlk = blk;
 	inByt = byt;
-END iseek;
+END objSeek;
 
 
 
@@ -935,17 +991,11 @@ main:
 	CALL exit;
 
 END;
-loc2a.ext
-errmsg: PROCEDURE(errCode) EXTERNAL;
-	DECLARE errCode ADDRESS;
-END errmsg;
-
 loc2a.plm
 locate2a: DO;
 
-$INCLUDE(ISIS.EXT)
+$include(loc2a.ipx)
 
-$list
 DECLARE	errTab(*) BYTE DATA (
 	   2, 'ILLEGAL AFTN ARGUMENT', 0,
 	   3, 'TOO MANY OPEN FILES', 0,
@@ -1016,67 +1066,9 @@ errmsg: PROCEDURE(errCode) PUBLIC;
 END errmsg;
 
 END locate2a;
-loc2b.ext
-DECLARE	aUnsatisfiedExt(1) BYTE EXTERNAL,
-	aSymbolTableOfM(1) BYTE EXTERNAL,
-	aReadFromFile(1) BYTE EXTERNAL,
-	aWrittenToFile(1) BYTE EXTERNAL,
-	aValueType(1) BYTE EXTERNAL,
-	aSymbol(1) BYTE EXTERNAL,
-	aPub(1) BYTE EXTERNAL,
-	aSym(1) BYTE EXTERNAL,
-	alin(1) BYTE EXTERNAL,
-	aMod(1) BYTE EXTERNAL,
-	x5(1) BYTE EXTERNAL;
-DECLARE
-	outSegType BYTE EXTERNAL,
-	curColumn ADDRESS EXTERNAL,
-	workingSegBase ADDRESS EXTERNAL,
-	unsatisfiedCnt ADDRESS EXTERNAL;
-
-writeBytes: PROCEDURE(arg1w, arg2w) EXTERNAL;
-	DECLARE arg1w ADDRESS;
-	DECLARE arg2w ADDRESS;
-END writeBytes;
-
-initRecOut: PROCEDURE(rectyp) EXTERNAL;
-	DECLARE rectyp BYTE;
-END initRecOut;
-
-endRecord: PROCEDURE EXTERNAL;
-END endRecord;
-
-
-forceSOL: PROCEDURE EXTERNAL;
-END forceSOL;
-
-printColumn: PROCEDURE(arg1w, pstr) EXTERNAL;
-	DECLARE arg1w ADDRESS;
-	DECLARE pstr ADDRESS;
-END printColumn;
-
-setWorkingSeg: PROCEDURE(arg1b) BYTE EXTERNAL;	/* always returns SABS */
-	DECLARE arg1b BYTE;
-END setWorkingSeg;
-
-procMODEND: PROCEDURE EXTERNAL;
-END procMODEND;
-
-procMODDAT: PROCEDURE EXTERNAL;
-END procMODDAT;
-
 loc2b.plm
 locate2: DO;
-$INCLUDE(ISIS.EXT)
-
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC1.EXT)
-$INCLUDE(LOC3.EXT)
-$INCLUDE(LOC4.EXT)
-$INCLUDE(LOC5.EXT)
-$INCLUDE(LOC6.EXT)
-
-$INCLUDE(LOC.BAS)
+$include(loc2b.ipx)
 
 DECLARE aUnsatisfiedExt(*) BYTE PUBLIC INITIAL('UNSATISFIED EXTERNAL(XXXXX) '),
 
@@ -1440,51 +1432,9 @@ END procMODDAT;
 
 END locate2;
 
-loc3.ext
-fixupBoundsChk: PROCEDURE(addr) EXTERNAL;
-	DECLARE addr ADDRESS;
-END fixupBoundsChk;
-
-procLINNUM: PROCEDURE EXTERNAL;
-END procLINNUM;
-
-procANCEST: PROCEDURE EXTERNAL;
-END procANCEST;
-
-procDefs: PROCEDURE(arg1b, arg2w) EXTERNAL;
-	DECLARE arg1b BYTE;
-	DECLARE arg2w ADDRESS;
-END procDefs;
-
-procEXTNAM: PROCEDURE EXTERNAL;
-END procEXTNAM;
-
-printListingHeader: PROCEDURE(buf, len) EXTERNAL;
-	DECLARE buf ADDRESS;
-	DECLARE len ADDRESS;
-END printListingHeader;
-
-locateFile: PROCEDURE EXTERNAL;
-END locateFile;
-
 loc3.plm
 locate3: DO;
-$INCLUDE(ISIS.EXT)
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC1.EXT)
-$INCLUDE(LOC2A.EXT)
-$INCLUDE(LOC2B.EXT)
-/*$INCLUDE(LOC3.EXT)*/
-$INCLUDE(LOC4.EXT)
-$INCLUDE(LOC5.EXT)
-$INCLUDE(LOC6.EXT)
-$INCLUDE(LOC7.EXT)
-$INCLUDE(LOC8.EXT)
-$INCLUDE(LOC9.EXT)
-
-$INCLUDE(LOC.BAS)
-
-DECLARE erec BASED erec$p BYTE;
+$include(loc3.ipx)
 
 fixupBoundsChk: PROCEDURE(addr) PUBLIC;
 	DECLARE addr ADDRESS;
@@ -1706,33 +1656,9 @@ locateFile: PROCEDURE PUBLIC;
 END locateFile;
 
 END locate3;
-loc4.ext
-printMemoryMap: PROCEDURE EXTERNAL;
-END printMemoryMap;
-
-skipspc: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-END skipspc;
-
-errChkReport: PROCEDURE(errCode, file, errExit) EXTERNAL;
-	DECLARE errCode ADDRESS;
-	DECLARE file ADDRESS;
-	DECLARE errExit BYTE;
-END errChkReport;
-
 loc4.plm
 locate4: DO;
-$INCLUDE(ISIS.EXT)
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC1.EXT)
-$INCLUDE(LOC2A.EXT)
-$INCLUDE(LOC3.EXT)
-$INCLUDE(LOC5.EXT)
-$INCLUDE(LOC6.EXT)
-
-$INCLUDE(LOC.BAS)
-
-DECLARE erec BASED erec$p BYTE;
+$include(loc4.ipx)
 
 DECLARE	aMemoryMapOfMod(*) BYTE PUBLIC INITIAL(0DH, 0AH, 'MEMORY MAP OF MODULE '),
 	aStartStopLengt(*) BYTE PUBLIC INITIAL(0DH, 0AH, 0AH, 'START   STOP LENGTH REL NAME', 0DH, 0AH, 0AH),
@@ -1752,7 +1678,7 @@ getCommonName: PROCEDURE(segid) ADDRESS PUBLIC;
 
 	IF segid = SBLANK THEN
 		RETURN .(0);	/* blank name */
-	CALL iseek(0,0);	/* seek start of file */
+	CALL objSeek(0,0);	/* seek start of file */
 	CALL getRecord;		/* junk the modhdr record */
 	DO WHILE 1;
 		CALL getRecord;	/* scan comdef records */
@@ -1886,13 +1812,7 @@ END skipspc;
 END locate4;
 loc4a.plm
 loc4a: DO;
-$INCLUDE (ISIS.EXT)
-$INCLUDE (LOC2A.EXT)
-$INCLUDE (LOC5.EXT)
-
-skipspc: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-END skipspc;
+$include(loc4a.ipx)
 
 errChkReport: PROCEDURE(errCode, file, errExit) PUBLIC;
 	DECLARE errCode ADDRESS;
@@ -1912,21 +1832,9 @@ errChkReport: PROCEDURE(errCode, file, errExit) PUBLIC;
 	END;
 END errChkReport;
 END;
-loc5.ext
-binasc: PROCEDURE(number, base,	pad, bufp, ndigits) EXTERNAL;
-	DECLARE number ADDRESS, (base, pad) BYTE, bufp ADDRESS, ndigits BYTE;
-	DECLARE buf BASED bufp (1) BYTE;
-END binasc;
-
-pastAFN: PROCEDURE(pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-	DECLARE ch BASED pch BYTE;
-END pastAFN;
-
-$INCLUDE (loc5b.ext)
 loc5a.plm
 locate5a: DO;
-$INCLUDE (loc5b.ext)
+$include(loc5a.ipx)
 
 DECLARE hexdigits(*) BYTE DATA ('0123456789ABCDEF');
 
@@ -1964,11 +1872,6 @@ END pastAFN;
 END locate5a;
 
 
-
-loc5b.ext
-pastFileName: PROCEDURE (pch) ADDRESS EXTERNAL;
-	DECLARE pch ADDRESS;
-END pastFileName;
 loc5b.plm
 locate5b: DO;
 
@@ -1986,61 +1889,9 @@ END pastFileName;
 END locate5b;
 
 
-
-loc6.ext
-DECLARE	spathInfo SPATH$T EXTERNAL;
-DECLARE	signonMsg(1) BYTE EXTERNAL,
-	aInvokedBy(1) BYTE EXTERNAL,
-	tmpFileInfo(1) BYTE EXTERNAL,
-	scmd$p ADDRESS EXTERNAL,
-	cmd$p ADDRESS EXTERNAL;
-DECLARE	controls(1) BYTE EXTERNAL;
-
-
-cmdErr: PROCEDURE(err) EXTERNAL;
-	DECLARE err ADDRESS;
-END cmdErr;
-
-skipNonArgChars: PROCEDURE(pch) EXTERNAL;
-	DECLARE pch ADDRESS;
-END skipNonArgChars;
-
-expectLP: PROCEDURE EXTERNAL;
-END expectLP;
-
-expectRP: PROCEDURE EXTERNAL;
-END expectRP;
-
-getFile: PROCEDURE EXTERNAL;
-END getFile;
-
-initSegOrder: PROCEDURE EXTERNAL;
-END initSegOrder;
-
-errNotADisk: PROCEDURE EXTERNAL;
-END errNotADisk;
-
-getpstrName: PROCEDURE(pstr) EXTERNAL;
-	DECLARE pstr ADDRESS;
-END getpstrName;
-
-processControls: PROCEDURE EXTERNAL;
-END processControls;
-
 loc6.plm
 locate6: DO;
-$INCLUDE(ISIS.EXT)
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC1.EXT)
-$INCLUDE(LOC2A.EXT)
-$INCLUDE(LOC2B.EXT)
-$INCLUDE(LOC3.EXT)
-$INCLUDE(LOC4.EXT)
-$INCLUDE(LOC5.EXT)
-/*$INCLUDE(LOC6.EXT)*/
-$INCLUDE(LOC7.EXT)
-$INCLUDE(LOC8.EXT)
-$INCLUDE(LOC9.EXT)
+$include(loc6.ipx)
 
 
 
@@ -2052,8 +1903,9 @@ DECLARE signonMsg(*) BYTE PUBLIC INITIAL(0CH, 'ISIS-II OBJECT LOCATER '),
 	scmd$p ADDRESS PUBLIC,
 	cmd$p ADDRESS PUBLIC;
 DECLARE nxtSegOrder BYTE EXTERNAL;
-$INCLUDE(LOC.BAS)
 
+/* explicit declare of based variables as base defined after include */
+declare	cmdch based cmd$p byte;
 
 
 
@@ -2294,40 +2146,9 @@ processControls: PROCEDURE PUBLIC;
 	END;
 END processControls;
 END locate6;
-loc7.ext
-parseLPNumRP: PROCEDURE ADDRESS EXTERNAL;
-END parseLPNumRP;
-
-getCommonSegId: PROCEDURE BYTE EXTERNAL;
-END getCommonSegId;
-
-insSegIdOrder: PROCEDURE(seg) EXTERNAL;
-	DECLARE seg BYTE;
-END insSegIdOrder;
-
-procArgs$Init: PROCEDURE EXTERNAL;
-END procArgs$Init;
-
-procHdrAndComDef: PROCEDURE EXTERNAL;
-END procHdrAndComDef;
 loc7.plm
 locate7: DO;
-$INCLUDE(ISIS.EXT)
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC1.EXT)
-$INCLUDE(LOC2A.EXT)
-$INCLUDE(LOC2B.EXT)
-$INCLUDE(LOC3.EXT)
-$INCLUDE(LOC4.EXT)
-$INCLUDE(LOC5.EXT)
-$INCLUDE(LOC6.EXT)
-/*$INCLUDE(LOC7.EXT)*/
-$INCLUDE(LOC8.EXT)
-$INCLUDE(LOC9.EXT)
-
-$INCLUDE(LOC.BAS)
-
-DECLARE erec BASED erec$p BYTE;
+$include(loc7.ipx)
 
 DECLARE cin(1) BYTE EXTERNAL;
 DECLARE cout(1) BYTE EXTERNAL;
@@ -2360,7 +2181,7 @@ getCommonSegId: PROCEDURE BYTE PUBLIC;
 		RETURN SBLANK;	/* blank common */
 	CALL getpstrName(.name);
 	name(name(0) + 1) = ' ';	/* space at end */
-	CALL iseek(0, 0);
+	CALL objSeek(0, 0);
 	CALL getRecord;		/* skip modhdr record */
 
 	DO WHILE 1;
@@ -2690,7 +2511,7 @@ END procCOMDEF;
 
 
 procHdrAndComDef: PROCEDURE PUBLIC;
-	CALL iseek(0, 0);	/* rewind */
+	CALL objSeek(0, 0);	/* rewind */
 	CALL getRecord;		/* get modhdr */
 	CALL procMODHDR;	/* load the modhdr and set the segment bases */
 
@@ -2704,30 +2525,9 @@ procHdrAndComDef: PROCEDURE PUBLIC;
 END procHdrAndComDef;
 
 END locate7;
-loc8.ext
-
-makeFullName: PROCEDURE(pinfo, pstr) EXTERNAL;
-	DECLARE pinfo ADDRESS;
-	DECLARE pstr ADDRESS;
-END makeFullName;
-
-strupr: PROCEDURE(pch) EXTERNAL;
-	DECLARE pch ADDRESS;
-END strupr;
-
-
-parseNumber: PROCEDURE(ppstr) ADDRESS EXTERNAL;
-	DECLARE ppstr ADDRESS;
-END parseNumber;
-
-strequ: PROCEDURE(pstr1, pstr2, len) BYTE EXTERNAL;
-	DECLARE (pstr1, pstr2) ADDRESS, len BYTE;
-END strequ;
-
 loc8.plm
 locate8: DO;
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC9.EXT)
+$include(loc8.ipx)
 
 DECLARE devices (*) BYTE DATA('F0F1F2F3F4F5TITO',
 		      'VIVOI1O1TRHRR1R2',
@@ -2783,8 +2583,7 @@ END strupr;
 END locate8;
 loc8a.plm
 locate8: DO;
-$INCLUDE(LOC.LIT)
-$INCLUDE(LOC9.EXT)
+$include(loc8a.ipx)
 
 DECLARE hexch(*) BYTE DATA ('0123456789ABCDEF');
 
@@ -2856,11 +2655,6 @@ END strequ;
 
 
 END locate8;
-loc9.ext
-toupper: PROCEDURE(ch) BYTE EXTERNAL;
-	DECLARE ch BYTE;
-END toupper;
-
 loc9.plm
 locate9:
 DO;
@@ -2876,11 +2670,13 @@ END toupper;
 END locate9;
 makefile
 TARGET=locate
+# common makefile info
 ISIS=..\..\thames
 V4=../../plm80v4/
 V3=../../plm80v3/
 F0=./
-F3=../common/
+TOOLS=..\..\tools
+PEXFILE=loc80.pex
 #
 # compilation and assembly rules
 .SUFFIXES: .plm .pl3
@@ -2902,6 +2698,17 @@ F3=../common/
 	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
+.plm.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
+	$(TOOLS)\ngenpex $(PEXFILE) $<
+
+.pl3.ipx:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	@SET ISIS_F3=$(F3)
+	$(TOOLS)\ngenpex $(PEXFILE) $<
 
 LOWOBJ=loc1.obj loc2a.obj memmov.obj loc2b.obj loc3.obj loc4.obj loc4a.obj loc5a.obj loc5b.obj isis.obj
 HIGHOBJ=loc6.obj loc7.obj loc8.obj loc8a.obj loc9.obj
@@ -2936,8 +2743,17 @@ $(**: =,&
 	@del $*.rel
 	@if not exist $@ exit /b 1
 
+$(LOWOBJ:.obj=.ipx) : $(PEXFILE)
+$(HIGHOBJ:.obj=.ipx) : $(PEXFILE)
+
 clean:
-	del *.obj *lst *.map *.abs *.rel $(TARGET) *.*~ *~
+	del *.obj *lst *.map *.abs *.rel *.*~ *~
+
+vclean: clean
+	del *.ipx $(TARGET) 
+
+uclean: vclean
+	del $(LOWOBJ:.obj=.plm) $(HIGHOBJ:.obj=.plm) *.asm *.pex makefile
 
 # make this target to check the build matches the original binary
 verify: locate
