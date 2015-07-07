@@ -254,7 +254,7 @@ asm861.obj: asm861.plm asm861.ipx
 asmov0.obj: asmov0.pl3 asmov0.ipx
 asmov1.obj: asmov1.pl3 asmov1.ipx
 asmov2.obj: asmov2.pl3 asmov2.ipx
-asmov3.obj: asmov3.plm asmov3.ipx
+asmov3.obj: asmov3.plm asmov3.ipx as4e5d.pac
 close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx
 error.obj: error.plm error.ipx
