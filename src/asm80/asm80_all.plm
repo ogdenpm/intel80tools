@@ -13,6 +13,8 @@ lit             'literally'
 TRUE            '0FFh'
 FALSE           '0'
 CR              '0Dh'
+LF              '0Ah'
+TAB             '9'
 
 /* character classes */
 CC$BAD          '0'
@@ -93,18 +95,18 @@ isGT            PB
 isLT            PB
 sub$3D34        P(B arg1b)
 sub$3D55        P(B arg1b)
-sub$3DA4        P
-sub$3DFB        P
 
 $file(asm42.plm,asm52.plm)
-chkGenObj       PB
+-ovlFile
 
 $file(asm42.plm,asm52.plm,asm801.plm)
 blankAsmErrCode PB
 blankMorPAsmErrCode PB
+chkGenObj       PB
 closeF          P(A arg1w)
 flushout        P
 getNibble       P(A bp,B idx)B
+initialControls P
 inOpen          P(A path$p,A access)A
 ioErrChk        P
 ioError         P(A arg1w)
@@ -126,6 +128,7 @@ put2Hex         P(A arg1w,B arg2b)
 runtimeError    P(B arg1b)
 skip2EOL        P
 sourceError     P(B arg1b)
+sub3DCE$3DFB        P
 wrConsole       P(A buf$p,A count)
 
 
@@ -160,11 +163,11 @@ testBit         P(B arg1b,A arg2w)B
 
 $file(asm45.plm)
 pad9B73         A
-sub$4C1E        P
 
 $file(asm45.plm,asm55.plm,asm851.plm)
 isSkipping      PB
 strUCequ        P(A arg1w,A arg2w)B
+sub4C1E$54FD    P
 sub$546F        P
 
 $file(asm46.pl3)
@@ -310,12 +313,21 @@ signonMsg       BS
 
 /* $file(asm52.plm) */
 $file(asm52.plm,asm801.plm)
-initialControls P
-sub$3DCE        P
+/* hide variables managed by $IF */
+-argNestCnt
+-b$8FD5
+-b$9058
+-b$9059
+-b$905B
+-b$905E
+-b$9060
+-off$9056
+-w$906A
+-w$919D
+
+
 
 /* $file(asm55.plm) */
-$file(asm55.plm,asm851.plm)
-sub$54FD        P
 
 /* $file(asm57.pl3) */
 $file(asm57.pl3,asm85.pl3)
@@ -327,7 +339,6 @@ sub$518F        P
 $file(asm801.plm)
 ovlFile         BS
 ovlMgr          P(B ovl)
-sub$3A71        PB
 
 /* $file(asm82.pl3) */
 $file(asm83.plm)
@@ -939,9 +950,9 @@ $ENDIF
 	w6BE2 address public;
 /* end */
 asm801.plm
+$SET(ASM801)
 asm80$1:
 do;
-
 
 $include(asm801.ipx)
 
@@ -969,325 +980,7 @@ declare	spaces24(*) byte public data('                        ', 0),
 declare	loadedOvl byte initial(4),
 	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 
-
-physmem: procedure address public;
-	declare top address at(4);
-
-	return (top - 100h) and 0FF00h;
-end;
-
-
-nxtCmdCh: procedure byte public;
-	declare cmdch based cmdch$p byte;
-	declare ch byte;
-
-	ch = cmdch;
-	cmdch$p = cmdch$p + 1;
-	if 'a' <= ch and ch <= 'z' then
-		ch = ch and 5Fh;
-	return ch;
-end;	
-
-
-ioErrChk: procedure public;
-	if statusIO = 0 then
-		return;
-	call error(statusIO);
-	call exit;
-end;
-
-
-flushout: procedure public;
-	call write(outfd, .outbuf, out$p - .outbuf, .statusIO);
-	out$p = .outbuf;
-end;
-
-outch: procedure(c) public;
-	declare c byte;
-	declare outc based out$p byte;
-
-	if out$p = endOutBuf then
-		call flushout;
-	outc = c;
-	out$p = out$p + 1;
-end;
-
-outStrN: procedure(s, n) public;
-	declare s address, n byte;
-	declare ch based s byte;
-
-	do while n > 0;
-		call outch(ch);
-		s = s + 1;
-		n = n - 1;
-	end;
-end;
-
-ovlMgr: procedure(ovl) public;
-	declare ovl byte;
-	declare entry$p address;
-
-	if ovl > 4 then
-	do;
-		statusIO = 0Dh;
-		call ioErrChk;
-	end;
-	if ovl <> loadedOvl then
-	do;
-		ovlFile(12) = ovl + '0';
-		call load(.ovlFile, 0, 0, .entry$p, .statusIO);
-		call ioErrChk;
-		loadedOvl = ovl;
-	end;
-end;
-
-closeF: procedure(arg1w) public;
-	declare arg1w address;
-
-	call close(arg1w, .statusIO);
-end;
-
-isSpace: procedure byte public;
-	return curChar = ' ';
-end;
-
-isTab: procedure byte public;
-	return curChar = 9;
-end;
-
-isWhite: procedure byte public;
-	return isSpace or isTab;
-end;
-
-isRParen: procedure byte public;
-	return curChar = ')';
-end;
-
-isCR: procedure byte public;
-	return curChar = 0Dh;
-end;
-
-isComma: procedure byte public;
-	return curChar = ',';
-end;
-
-isPhase1: procedure byte public;
-	return phase = 1;
-end;
-
-
-skip2EOL: procedure public;
-	if not isCR then
-		do while getCh <> 0Dh;
-		end;
-end;
-
-
-sub$3A71: procedure byte public;
-	return phase > 2 and ctlOBJECT;
-end;
-
-
-isPhase2Print: procedure byte public;
-	return phase = 2 and ctlPRINT;
-end;
-
-wrConsole: procedure(buf$p, count) public;
-	declare (buf$p, count) address;
-
-	call write(0, buf$p, count, .statusIO);
-	call ioErrChk;
-end;
-
-runtimeError: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if b6BD9 then
-		return;
-	
-	if isPhase1 and arg1b = 0 then
-	do;
-		b6B33 = TRUE;
-		return;
-	end;
-
-	w6BE0 = .aError;		/* assume " ERROR\r\n" */
-	if arg1b = 4 then		/* file error */
-		w6BE0 = .aError$0;	/* replace with " ERROR, " */
-
-	call wrConsole(errStrs(arg1b), errStrsLen(arg1b));	/* write the ERROR type */
-	call wrConsole(w6BE0, 8);	/* write the ERROR string */
-	if isPhase2Print then		/* repeat to the print file if required */
-	do;
-		call outStrN(errStrs(arg1b), errStrsLen(arg1b));
-		call outStrN(w6BE0, 8);
-	end;
-	if arg1b = 4 or arg1b = 3 then	/* file or EOF error */
-	do;
-		if tokBufIdx = 0 then
-		do;
-			call wrConsole(.aBadSyntax, 12);
-			if not scanCmdLine then
-			do;
-				call skip2NextLine;
-				outfd = 0;
-				call ovlMgr(1);
-				call printDecimal(w6A4E);		/* overlay 1 */
-				call outch(0Ah);
-			end;
-		end;
-		else
-		do;
-			call wrConsole(curFileName$p, tokBufIdx);
-			call wrConsole(.ascCRLF, 2);
-		end;
-	end;
-	if arg1b = 0 then		/* stack error */
-	do;
-		b6BD9 = TRUE;
-		return;
-	end;
-	call exit;
-end;
-
-ioError: procedure(arg1w) public;
-	declare arg1w address;
-	declare ch based arg1w byte;
-
-	tokBufIdx = 0;
-	curFileName$p = arg1w;
-
-	do while ch <> ' ' and ch <> 0dh and ch <> 9;
-		tokBufIdx = tokBufIdx + 1;
-		arg1w = arg1w + 1;
-	end;
-	if b6C27 then
-		call runtimeError(3);	/* EOF error */
-	call runtimeError(4);		/* file error */
-end;
-
-inOpen: procedure(path$p, access) address public;
-	declare (path$p, access) address;
-	declare open$infd address;
-
-	call open(.open$infd, path$p, access, 0, .openStatus);
-	if openStatus <> 0 then
-		call ioError(path$p);
-	return open$infd;
-end;
-
-
-nibble2Ascii: procedure(n) byte public;
-	declare n byte;
-	n = (n and 0Fh) + '0';
-	if n > '9' then
-		n = n + 7;
-	return n;
-end;
-
-put2Hex: procedure(arg1w, arg2b) public;
-	declare arg1w address, arg2b byte;
-
-	call arg1w(nibble2Ascii(ror(arg2b, 4)));
-	call arg1w(nibble2Ascii(arg2b));
-end;
-
-blankAsmErrCode: procedure byte public;
-	return asmErrCode = ' ';
-end;
-
-blankMorPAsmErrCode: procedure byte public;
-	return blankAsmErrCode or asmErrCode = 'M' or asmErrCode = 'P';
-end;
-
-
-getNibble: procedure(bp, idx) byte public;
-	declare bp address, idx byte;
-	declare b based bp byte;
-	declare n byte;
-
-	bp = bp + shr(idx, 1);		/* index into buffer the number of nibbles */
-	n = b;				/* pick up the byte there */
-	if not idx then			/* pick up the right nibble */
-		n = ror(n, 4);
-	return n and 0Fh;		/* mask to leave just the nibble */
-end;
-
-sourceError: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if not isSkipping or b6B2B = 22h then	/* ELSE */
-	do;
-		if b6749 then
-			b6754 = TRUE;
-		if blankAsmErrCode then
-			errCnt = errCnt + 1;
-
-		if blankMorPAsmErrCode or arg1b = 'L' or arg1b = 'U' then
-			if asmErrCode <> 'L' then
-				asmErrCode = arg1b;
-	end;
-end;
-
-preStatementControls: procedure public;
-	do while getCh = '$';
-		if isSkipping then
-		do;
-			call skip2NextLine;
-			b6B20$9A77 = 0FFh;
-		end;
-		else
-		do;
-			call ovlMgr(0);
-			call parseControls;
-		end;
-		call sub$54FD;
-	end;
-	reget = 1;
-end;
-
-
-initialControls: procedure public;
-	cmdch$p = controls$p;
-	scanCmdLine = 0FFh;
-	call ovlMgr(0);
-	call parseControls;
-	if isPhase2Print then
-	do;
-		call ovlMgr(1);
-		call printCmdLine;
-	end;
-
-	if b6C21 then
-		call sub$4904;
-
-	b6C21, b6B20$9A77, scanCmdLine = bZERO;
-	call preStatementControls;
-	primaryValid = 0;
-	ctlDEBUG = ctlDEBUG and ctlOBJECT;
-	ctlXREF = ctlXREF and ctlPRINT;
-	ctlSYMBOLS = ctlSYMBOLS and ctlPRINT;
-	ctlPAGING = ctlPAGING and ctlPRINT;
-end;
-
-
-
-sub$3DCE: procedure public;
-	off6C2E = off6C2C + 1;
-	b6C30 = 0;
-	if b6C21 then
-		call sub$4904;
-
-	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b6885 = bZERO;
-	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	ctlEJECT, b6857, tokenSP, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
-	asmErrCode = 20h;
-	b689A = 1;
-	w6A4E = w6A4E + 1;
-	skipping(0) = skipping(0) > 0;
-end;
-
+$include(as4252.cmn)
 
 
 start:
@@ -1552,7 +1245,6 @@ end;
 
 end;
 asm83.plm
-$SET(ASM44=0)
 asm80$3: do;
 
 /* to force the code generation this needs a non-standard definition
@@ -1904,7 +1596,7 @@ end;
 sub$4B72: procedure public;
 	do case b6B2B;
 /* 0 */		;
-/* 1 */		call sub$54FD;			/* white space ? */
+/* 1 */		call sub4C1E$54FD;			/* white space ? */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* : or ) */
 			if not (b6B2B = 2 and opType = 3) then
@@ -2342,7 +2034,7 @@ end;
 
 
 
-sub$54FD: procedure public;
+sub4C1E$54FD: procedure public;
 	declare lineno$p address, updating byte;
 	declare ch based lineno$p byte;
 
@@ -2391,7 +2083,7 @@ sub$54FD: procedure public;
 		if isSkipping or not b6B34 then
 			w6BCE = .lineBuf;
 
-		if sub$3A71 then
+		if chkGenObj then
 		do;
 			call ovlMgr(2);
 			call ovl8;
@@ -2409,7 +2101,7 @@ sub$54FD: procedure public;
 		call popToken;
 	end;
 
-	call sub$3DCE;
+	call sub3DCE$3DFB;
 	if b6B33 then
 	do;
 		finished = 0FFh;
@@ -2420,7 +2112,7 @@ sub$54FD: procedure public;
 		end;
 
 		call sub$467F(2, .b6873);
-		if sub$3A71 then
+		if chkGenObj then
 		do;
 			call ovlMgr(2);
 			call sub$6E32;
@@ -4303,7 +3995,7 @@ end;
 
 
 resetData: procedure public;
-	call sub$3DCE;
+	call sub3DCE$3DFB;
 	b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
 	b6743, primaryValid, ctlLIST, b6A6F, ctlCOND = bTRUE;
 	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
@@ -4595,8 +4287,10 @@ start$ov5:
 end;
 asm52.plm
 asm52: do;
-
 $include(asm52.ipx)
+$include(as4252.cmn)
+end;
+asm52.xxx
 
 physmem: procedure address public;
 	declare top address at(4);
@@ -4849,7 +4543,7 @@ preStatementControls: procedure public;
 		do;
 			call parseControls;
 		end;
-		call sub$54FD;
+		call sub4C1E$54FD;
 	end;
 	reget = 1;
 end;
@@ -4878,7 +4572,7 @@ end;
 
 
 
-sub$3DCE: procedure public;
+sub3DCE$3DFB: procedure public;
 	off6C2E = off6C2C + 1;
 	b6C30 = 0;
 	if b6C21 then
@@ -4942,7 +4636,7 @@ end;
 
 
 
-sub$54FD: procedure public;
+sub4C1E$54FD: procedure public;
 	declare lineno$p address, updating byte;
 	declare ch based lineno$p byte;
 
@@ -5007,7 +4701,7 @@ sub$54FD: procedure public;
 		call popToken;
 	end;
 
-	call sub$3DCE;
+	call sub3DCE$3DFB;
 	if b6B33 then
 	do;
 		finished = 0FFh;
@@ -5092,7 +4786,7 @@ end;
 sub$4B72: procedure public;
 	do case b6B2B;
 /* 0 */		;
-/* 1 */		call sub$54FD;
+/* 1 */		call sub4C1E$54FD;
 /* 2 */		goto case3;
 /* 3 */ case3:	do;
 			if not (b6B2B = 2 and opType = 3) then
@@ -5583,7 +5277,7 @@ end;
 
 
 resetData: procedure public;
-	call sub$3DCE;
+	call sub3DCE$3DFB;
 	b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
 	b6743, primaryValid, ctlLIST, b6A6F, ctlCOND = bTRUE;
 	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
@@ -5660,7 +5354,7 @@ start$ov4:
 	call getAsmFile;
 	phase = 1;
 	call resetData;
-	call sub$3DA4;
+	call initialControls;
 	macrofd = inOpen(.aF0Asmac$tmp, 3);
 	if ctlOBJECT then
 	do;
@@ -5691,7 +5385,7 @@ start$ov4:
 		outfd = inOpen(.lstFile, 2);
 
 	call resetData;
-	call sub$3DA4;
+	call initialControls;
 	call sub$540D;
 	if ctlPRINT then
 	do;
@@ -5711,10 +5405,13 @@ start$ov4:
 	call sub$8915;
 end;
 asm42.plm
+$SET(ASM42)
 asm42:
 do;
 $include(asm42.ipx)
-
+$include(as4252.cmn)
+end;
+as4252.cmn
 
 physmem: procedure address public;
 	declare top address at(4);
@@ -5748,26 +5445,46 @@ flushout: procedure public;
 	out$p = .outbuf;
 end;
 
-outch: procedure(arg1b) public;
-	declare arg1b byte;
-	declare ch based out$p byte;
+outch: procedure(c) public;
+	declare c byte;
+	declare outc based out$p byte;
 
 	if out$p = endOutBuf then
 		call flushout;
-	ch = arg1b;
+	outc = c;
 	out$p = out$p + 1;
 end;
 
-outStrN: procedure(arg1w, arg2b) public;
-	declare arg1w address, arg2b byte;
-	declare ch based arg1w byte;
+outStrN: procedure(s, n) public;
+	declare s address, n byte;
+	declare ch based s byte;
 
-	do while arg2b > 0;
+	do while n > 0;
 		call outch(ch);
-		arg1w = arg1w + 1;
-		arg2b = arg2b - 1;
+		s = s + 1;
+		n = n - 1;
 	end;
 end;
+
+$IF ASM801
+ovlMgr: procedure(ovl) public;
+	declare ovl byte;
+	declare entry$p address;
+
+	if ovl > 4 then
+	do;
+		statusIO = 0Dh;
+		call ioErrChk;
+	end;
+	if ovl <> loadedOvl then
+	do;
+		ovlFile(12) = ovl + '0';
+		call load(.ovlFile, 0, 0, .entry$p, .statusIO);
+		call ioErrChk;
+		loadedOvl = ovl;
+	end;
+end;
+$ENDIF
 
 closeF: procedure(arg1w) public;
 	declare arg1w address;
@@ -5776,11 +5493,11 @@ closeF: procedure(arg1w) public;
 end;
 
 isSpace: procedure byte public;
-	return curChar = 20h;
+	return curChar = ' ';
 end;
 
 isTab: procedure byte public;
-	return curChar = 9;
+	return curChar = TAB;
 end;
 
 isWhite: procedure byte public;
@@ -5788,17 +5505,18 @@ isWhite: procedure byte public;
 end;
 
 isRParen: procedure byte public;
-	return curChar = 29h;
+	return curChar = ')';
 end;
 
 isCR: procedure byte public;
-	return curChar = 0Dh;
+	return curChar = CR;
 end;
 
 isComma: procedure byte public;
-	return curChar = 2Ch;
+	return curChar = ',';
 end;
 
+$IF ASM42
 isLT: procedure byte public;
 	return curChar = '<';
 end;
@@ -5807,6 +5525,8 @@ end;
 isGT: procedure byte public;
 	return curChar = '>';
 end;
+
+$ENDIF
 
 isPhase1: procedure byte public;
 	return phase = 1;
@@ -5820,17 +5540,23 @@ end;
 
 
 chkGenObj: procedure byte public;
+$IF ASM801
+	return (phase > 2) and ctlOBJECT;
+$ELSE
 	return (phase = 2) and ctlOBJECT;
+$ENDIF
 end;
+
 
 isPhase2Print: procedure byte public;
 	return phase = 2 and ctlPRINT;
 end;
 
-wrConsole: procedure(arg1w, arg2w) public;
-	declare (arg1w, arg2w) address;
 
-	call write(0, arg1w, arg2w, .statusIO);
+wrConsole: procedure(buf$p, count) public;
+	declare (buf$p, count) address;
+
+	call write(0, buf$p, count, .statusIO);
 	call ioErrChk;
 end;
 
@@ -5847,19 +5573,19 @@ runtimeError: procedure(arg1b) public;
 		return;
 	end;
 
-	w6BE0 = .aError;
-	if arg1b = 4 then
-		w6BE0 = .aError$0;
+	w6BE0 = .aError;		/* assume " ERROR\r\n" */
+	if arg1b = 4 then		/* file error */
+		w6BE0 = .aError$0;	/* replace with " ERROR, " */
 
-	call wrConsole(errStrs(arg1b), errStrsLen(arg1b));
-	call wrConsole(w6BE0, 8);
-	if isPhase2Print then
+	call wrConsole(errStrs(arg1b), errStrsLen(arg1b));	/* write the ERROR type */
+	call wrConsole(w6BE0, 8);	/* write the ERROR string */
+	if isPhase2Print then		/* repeat to the print file if required */
 	do;
 		call outStrN(errStrs(arg1b), errStrsLen(arg1b));
 		call outStrN(w6BE0, 8);
 	end;
 
-	if arg1b = 4 or arg1b = 3 then
+	if arg1b = 4 or arg1b = 3 then	/* file or EOF error */
 	do;
 		if tokBufIdx = 0 then
 		do;
@@ -5868,8 +5594,11 @@ runtimeError: procedure(arg1b) public;
 			do;
 				call skip2NextLine;
 				outfd = 0;
-				call printDecimal(w6A4E);
-				call outch(0Ah);
+$IF ASM801
+				call ovlMgr(1);
+$ENDIF
+				call printDecimal(w6A4E);	/* overlay 1 */
+				call outch(LF);
 			end;
 		end;
 		else
@@ -5879,7 +5608,7 @@ runtimeError: procedure(arg1b) public;
 		end;
 	end;
 
-	if arg1b = 0 then
+	if arg1b = 0 then	/* stack error */
 	do;
 		b6BD9 = TRUE;
 		return;
@@ -5900,8 +5629,8 @@ ioError: procedure(arg1w) public;
 		arg1w = arg1w + 1;
 	end;
 	if b6C27 then
-		call runtimeError(3);	/* eof */
-	call runtimeError(4);
+		call runtimeError(3);	/* EOF error*/
+	call runtimeError(4);		/* file error */
 end;
 
 inOpen: procedure(path$p, access) address public;
@@ -5939,33 +5668,36 @@ blankMorPAsmErrCode: procedure byte public;
 end;
 
 
-getNibble: procedure(arg1w, arg2b) byte public;
-	declare arg1w address, arg2b byte;
-	declare ch based arg1w byte;
-	declare b6C11 byte;
+getNibble: procedure(bp, idx) byte public;
+	declare bp address, idx byte;
+	declare b based bp byte;
+	declare n byte;
 
-	arg1w = arg1w + shr(arg2b, 1);
-	b6C11 = ch;
-	if not arg2b then
-		b6C11 = ror(b6C11, 4);
-	return b6C11 and 0Fh;
+	bp = bp + shr(idx, 1);	/* index into buffer the number of nibbles */
+	n = b;			/* pick up the byte there */
+	if not idx then		/* pick up the right nibble */
+		n = ror(n, 4);
+	return n and 0Fh;	/* mask to leave just the nibble */
 end;
 
 sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
-	if not isSkipping or b6B2B = 22h then
+	if not isSkipping or b6B2B = 22h then	/* ELSE */
 	do;
 		if b6749 then
 			b6754 = TRUE;
 		if blankAsmErrCode then
 			errCnt = errCnt + 1;
 
-		if blankMorPAsmErrCode or arg1b = 'L' or arg1b = 'U' then
-			if asmErrCode <> 'L' then
+		if blankMorPAsmErrCode or arg1b = 'L' or arg1b = 'U' then	/* no error or M, P L or U */
+			if asmErrCode <> 'L' then	/* override unless already location counter error */
 				asmErrCode = arg1b;
+
 	end;
 end;
+
+$IF ASM42
 
 sub$3D34: procedure(arg1b) public;
 	declare arg1b byte;
@@ -5985,6 +5717,7 @@ sub$3D55: procedure(arg1b) public;
 		call sub$3D34(0Ah);
 end;
 
+$ENDIF
 
 
 preStatementControls: procedure public;
@@ -5994,24 +5727,38 @@ preStatementControls: procedure public;
 		do;
 			call skip2NextLine;
 			b6B20$9A77 = 0FFh;
+$IF ASM42
 			if b$905E = 1 then
 				b6897 = 0FFh;
+$ENDIF
 		end;
 		else
+		do;
+$IF ASM801
+			call ovlMgr(0);
+$ENDIF
 			call parseControls;
-		call sub$4C1E;
+		end;
+		call sub4C1E$54FD;
 	end;
 	reget = 1;
 end;
 
 
-sub$3DA4: procedure public;
+initialControls: procedure public;
 	cmdch$p = controls$p;
-	scanCmdLine = 0FFh;
+	scanCmdLine = TRUE;
+$IF ASM801
+	call ovlMgr(0);
+$ENDIF
 	call parseControls;
 	if isPhase2Print then
+	do;
+$IF ASM801
+		call ovlMgr(1);
+$ENDIF
 		call printCmdLine;
-
+	end;
 	if b6C21 then
 		call sub$4904;
 
@@ -6025,26 +5772,37 @@ sub$3DA4: procedure public;
 end;
 
 
-sub$3DFB: procedure public;
+sub3DCE$3DFB: procedure public;
 	off$6C2E = off$6C2C + 1;
 	b6C30 = 0;
 	if b6C21 then
 		call sub$4904;
 
 	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884, b$9059, b$9060, b6885 = bZERO;
+	b6B23, b6B24, b6B32, b68AB, b6884,
+$IF ASM42
+	b$9059, b$9060, 
+$ENDIF
+	b6885 = bZERO;
+
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	ctlEJECT, b6857, tokenSP, b$9058, argNestCnt, tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
+	ctlEJECT, b6857, tokenSP,
+$IF ASM42
+	b$9058, argNestCnt,
+$ENDIF
+	tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	asmErrCode = 20h;
+$IF ASM42
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
 	b$905B = b$905B > 0;
+$ENDIF
 	b689A = 1;
 	w6A4E = w6A4E + 1;
+$IF ASM42
 	off$9056 = .b$8FD5;
+$ENDIF
 	skipping(0) = skipping(0) > 0;
-end;
-
 end;
 
 /* pckToken code follows */
@@ -6369,7 +6127,7 @@ end;
 
 end;
 asm44.plm
-$SET(ASM44=1)
+$SET(ASM44)
 asm44:
 do;
 /* to force the code generation this needs a non-standard definition
@@ -6389,7 +6147,7 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   1, 1, 80h, 1, 0, 0, 47h, 7, 7, 7,
 			   17h, 47h, 7, 47h, 37h, 5, 7, 0, 0, 0,
 			   40h, 40h, 0, 1
-$IF ASM44=1
+$IF ASM44
 			   ,80h, 40h, 80h, 0, 40h, 80h, 80h, 40h, 81h, 0C0h, 80h, 0Dh
 $ENDIF
 			   ),
@@ -6403,7 +6161,7 @@ $ENDIF
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1
-$IF ASM44=1
+$IF ASM44
 	       /* extra */ ,0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah
 $ENDIF
 			   );
@@ -6498,7 +6256,7 @@ sub$43DD: procedure address public;
 	declare s based curTokStart(1) byte,
 		wrd$p address,
 		wrd based wrd$p address;
-$IF ASM44=1
+$IF ASM44
 	logError: procedure(arg1b);
 		declare arg1b byte;
 
@@ -6515,12 +6273,12 @@ $ENDIF
 	b6855 = 0;
 	accum1 = 0;
 	b6858 = 9;
-$IF ASM44=1
+$IF ASM44
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
 	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
-$IF ASM44=1
+$IF ASM44
 		call logError('Q');
 $ELSE
 		call syntaxError;
@@ -6528,7 +6286,7 @@ $ENDIF
 	else
 	do;
 		if tokenType(0) = 9 or tokenType(0) = 6 then
-$IF ASM44=1
+$IF ASM44
 			call logError('U');
 $ELSE
 			call undefinedSymbolError;
@@ -6546,7 +6304,7 @@ $ENDIF
 
 			end;
 			else if tokenSize(0) = 0 then
-$IF ASM44=1
+$IF ASM44
 				call logError('V');
 $ELSE
 				call valueError;
@@ -6554,7 +6312,7 @@ $ENDIF
 			else
 			do;
 				if tokenSize(0) > 2 then
-$IF ASM44=1
+$IF ASM44
 					call logError('V');
 $ELSE
 					call valueError;
@@ -6647,7 +6405,7 @@ end;
 
 sub$465B: procedure byte public;
 	return ((not b6B20$9A77) and ctlLIST or b6A6F and b6B20$9A77)
-$IF ASM44=1
+$IF ASM44
 	        and (not (b$905B > 1) or ctlGEN)
 $ENDIF
 		and (not(b6B32 or skipping(0)) or ctlCOND);
@@ -6743,7 +6501,7 @@ sub$546F: procedure public;
 end;
 
 
-sub$4C1E: procedure public;
+sub4C1E$54FD: procedure public;
 	declare w$9B79 address,
 		b$9B7B byte,
 		ch based w$9B79 byte;
@@ -6805,7 +6563,7 @@ sub$4C1E: procedure public;
 		call popToken;
 	end;
 
-	call sub$3DFB;
+	call sub3DCE$3DFB;
 	if b6B33 then
 	do;
 		finished = 0FFh;
@@ -7025,7 +6783,7 @@ end;
 sub$516F: procedure;
 	do case b6B2B;
 /* 0 */		;
-/* 1 */		call sub$4C1E;
+/* 1 */		call sub4C1E$54FD;
 /* 2 */		goto case3;
 /* 3 */	case3:	do;
 			if not (b6B2B = 2 and opType = 3) then
@@ -7432,7 +7190,7 @@ end;
 asm48.pl3
 asm48:
 do;
-/*$SET(ASM48=1)*/
+/*$SET(ASM48)*/
 $include(asm48.ipx)
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
@@ -8199,7 +7957,7 @@ end;
 
 end;
 asm4A.pl3
-/*$SET(ASM4A=1)*/
+/*$SET(ASM4A)*/
 asm4A: do;
 $include(asm4a.ipx)
 
@@ -10014,7 +9772,7 @@ end;
 
 resetData: procedure public;	/* extended initialisation */
 
-    call sub$3DFB;
+    call sub3DCE$3DFB;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
     b$905B, b$905C, b$905E, b6857, b6C21 = bZERO;

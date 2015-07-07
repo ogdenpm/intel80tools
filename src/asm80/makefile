@@ -220,7 +220,7 @@ exit
 
 # auto generated
 asm41.obj: asm41.plm asm41.ipx
-asm42.obj: asm42.plm asm42.ipx
+asm42.obj: asm42.plm asm42.ipx as4252.cmn
 asm43.obj: asm43.pl3 asm43.ipx
 asm44.obj: asm44.plm asm44.ipx as4483.cmn
 asm45.obj: asm45.plm asm45.ipx
@@ -234,11 +234,11 @@ asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
 asm4e.obj: asm4e.plm asm4e.ipx
 asm51.obj: asm51.plm asm51.ipx
-asm52.obj: asm52.plm asm52.ipx
+asm52.obj: asm52.plm asm52.ipx as4252.cmn
 asm55.obj: asm55.plm asm55.ipx
 asm57.obj: asm57.pl3 asm57.ipx
 asm5d.obj: asm5d.plm asm5d.ipx
-asm801.obj: asm801.plm asm801.ipx
+asm801.obj: asm801.plm asm801.ipx as4252.cmn
 asm82.obj: asm82.pl3 asm82.ipx
 asm83.obj: asm83.plm asm83.ipx as4483.cmn
 asm85.obj: asm85.pl3 asm85.ipx
