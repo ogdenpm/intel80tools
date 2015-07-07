@@ -219,7 +219,7 @@ exit
 
 
 # auto generated
-asm41.obj: asm41.plm asm41.ipx
+asm41.obj: asm41.plm asm41.ipx as4151.cmn
 asm42.obj: asm42.plm asm42.ipx as4252.cmn
 asm43.obj: asm43.pl3 asm43.ipx
 asm44.obj: asm44.plm asm44.ipx as4483.cmn
@@ -233,7 +233,7 @@ asm4b.obj: asm4b.pl3 asm4b.ipx
 asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
 asm4e.obj: asm4e.plm asm4e.ipx
-asm51.obj: asm51.plm asm51.ipx
+asm51.obj: asm51.plm asm51.ipx as4151.cmn
 asm52.obj: asm52.plm asm52.ipx as4252.cmn
 asm55.obj: asm55.plm asm55.ipx
 asm57.obj: asm57.pl3 asm57.ipx
