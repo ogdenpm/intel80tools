@@ -55,7 +55,7 @@ $(OBJ: =,&
 $(OBJ:.obj=.ipx) : $(PEXFILE)
 
 clean:
-	del *.obj *lst *.map *.abs *.rel *.*~ *~
+	del *.obj *lst *.map *.abs *.rel *.*~ *~ *.lmp
 
 vclean: clean
 	del *.ipx $(TARGET) 

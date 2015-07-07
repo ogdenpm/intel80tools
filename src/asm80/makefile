@@ -91,7 +91,7 @@ STACKSIZE(0) PURGE NAME(A80O3)
 
 
 
-OBJS1 =	glb.obj asm801.obj asm82.obj asm83.obj asm84.obj asm85.obj\
+OBJS1 =	glb.obj asm801.obj asm82.obj asm83.obj asm46.obj asm85.obj\
 	asm851.obj asm86.obj asm861.obj asm87.obj close.obj delete.obj error.obj\
        	exit.obj load.obj open.obj read.obj rescan.obj seek.obj write.obj
 
@@ -164,6 +164,9 @@ clean:
 vclean: clean
 	del asm80 asm80.ov?
 
+uclean: vclean
+	del ??????.* makefile
+
 verify: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	for %i in ($**) do $(TOOLS:/=\)diffbin %i $(V4)\%i
 
@@ -193,7 +196,7 @@ exit
 
 
 
-OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm84.obj\
+OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	asm57.obj asm86.obj asm861.obj asmov0.obj asmov2.obj asmov1.obj asm5D.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
@@ -219,7 +222,7 @@ exit
 asm41.obj: asm41.plm asm41.ipx
 asm42.obj: asm42.plm asm42.ipx
 asm43.obj: asm43.pl3 asm43.ipx
-asm44.obj: asm44.plm asm44.ipx
+asm44.obj: asm44.plm asm44.ipx as4483.cmn
 asm45.obj: asm45.plm asm45.ipx
 asm46.obj: asm46.pl3 asm46.ipx
 asm47.obj: asm47.pl3 asm47.ipx
@@ -237,8 +240,7 @@ asm57.obj: asm57.pl3 asm57.ipx
 asm5d.obj: asm5d.plm asm5d.ipx
 asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
-asm83.obj: asm83.plm asm83.ipx
-asm84.obj: asm84.pl3 asm84.ipx
+asm83.obj: asm83.plm asm83.ipx as4483.cmn
 asm85.obj: asm85.pl3 asm85.ipx
 asm851.obj: asm851.plm asm851.ipx
 asm86.obj: asm86.pl3 asm86.ipx
