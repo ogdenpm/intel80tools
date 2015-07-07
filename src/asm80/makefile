@@ -4,6 +4,8 @@ V3=../../plm80v3/
 TOOLS=../../tools/
 F0=./
 
+PEXFILE=asm80.pex
+
 OVERLAY=6D4Ch
 #
 # compilation and assembly rules
@@ -23,12 +25,12 @@ OVERLAY=6D4Ch
 .plm.ipx:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(TOOLS:/=\)ngenpex asm80.pex $<
+	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 
 .pl3.ipx:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(TOOLS:/=\)ngenpex asm80.pex $<
+	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
@@ -216,13 +218,17 @@ exit
 	@find asmov5.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find asmov5.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
-
+# pex file dependencies
+$(OBJS1:.obj=.ipx): $(PEXFILE)
+$(OBJS4:.obj=.ipx): $(PEXFILE)
+$(OBJS5:.obj=.ipx): $(PEXFILE)
+asmov0.ipx asmov1.ipx asmov2.ipx asmov3.ipx: $(PEXFILE)
 
 # auto generated
-asm41.obj: asm41.plm asm41.ipx as4151.cmn
-asm42.obj: asm42.plm asm42.ipx as4252.cmn
+asm41.obj: asm41.plm asm41.ipx as4151.pac
+asm42.obj: asm42.plm asm42.ipx as4252.pac
 asm43.obj: asm43.pl3 asm43.ipx
-asm44.obj: asm44.plm asm44.ipx as4483.cmn
+asm44.obj: asm44.plm asm44.ipx as4483.pac
 asm45.obj: asm45.plm asm45.ipx
 asm46.obj: asm46.pl3 asm46.ipx
 asm47.obj: asm47.pl3 asm47.ipx
@@ -232,15 +238,15 @@ asm4a.obj: asm4a.pl3 asm4a.ipx
 asm4b.obj: asm4b.pl3 asm4b.ipx
 asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
-asm4e.obj: asm4e.plm asm4e.ipx
-asm51.obj: asm51.plm asm51.ipx as4151.cmn
-asm52.obj: asm52.plm asm52.ipx as4252.cmn
+asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pac
+asm51.obj: asm51.plm asm51.ipx as4151.pac
+asm52.obj: asm52.plm asm52.ipx as4252.pac
 asm55.obj: asm55.plm asm55.ipx
 asm57.obj: asm57.pl3 asm57.ipx
-asm5d.obj: asm5d.plm asm5d.ipx
-asm801.obj: asm801.plm asm801.ipx as4252.cmn
+asm5d.obj: asm5d.plm asm5d.ipx as4e5d.pac
+asm801.obj: asm801.plm asm801.ipx as4252.pac
 asm82.obj: asm82.pl3 asm82.ipx
-asm83.obj: asm83.plm asm83.ipx as4483.cmn
+asm83.obj: asm83.plm asm83.ipx as4483.pac
 asm85.obj: asm85.pl3 asm85.ipx
 asm851.obj: asm851.plm asm851.ipx
 asm86.obj: asm86.pl3 asm86.ipx
@@ -253,9 +259,9 @@ close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx
 error.obj: error.plm error.ipx
 exit.obj: exit.plm exit.ipx
-glb.obj: glb.plm glb.ipx global.cmn
-glb4.obj: glb4.plm glb4.ipx global.cmn
-glb5.obj: glb5.plm glb5.ipx global.cmn
+glb.obj: glb.plm glb.ipx global.pac
+glb4.obj: glb4.plm glb4.ipx global.pac
+glb5.obj: glb5.plm glb5.ipx global.pac
 load.obj: load.plm load.ipx
 open.obj: open.plm open.ipx
 read.obj: read.plm read.ipx

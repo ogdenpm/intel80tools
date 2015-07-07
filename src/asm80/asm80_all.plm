@@ -290,7 +290,8 @@ sub$721E        PB
 sub$7229        P
 sub$72D8        P
 
-/* $file(asm4E.plm) */
+$file(asm4E.plm)
+-stdKeywords
 
 $file(asm4E.plm,asm5D.plm)
 getAsmFile      P
@@ -334,7 +335,20 @@ $file(asm57.pl3,asm85.pl3)
 sub$4B72        P
 sub$518F        P
 
-/* $file(asm5D.plm) */
+$file(asm5D.plm)
+-b$905B
+-b$905C
+-b$905E
+-b$9063
+-b$9064
+-ctlGEN
+-curMacroBlk
+-extKeywords
+-macroCondStk
+-macroCondSP
+-w$9114
+-w$919B
+
 
 $file(asm801.plm)
 ovlFile         BS
@@ -651,7 +665,7 @@ seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
 $file(write.plm)
 write           P(A conn,A buff$p,A count,A status$p)
 
-global.cmn
+global.pac
 declare
 $IF OVL=4
 	IN$BUF$SIZE lit '512',
@@ -979,7 +993,7 @@ declare	spaces24(*) byte public data('                        ', 0),
 declare	loadedOvl byte initial(4),
 	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 
-$include(as4252.cmn)
+$include(as4252.pac)
 
 
 start:
@@ -1253,7 +1267,7 @@ outStrN: procedure(s, n) external; declare s address, n address; end;
 
 
 $include(asm83.ipx)
-$include(as4483.cmn)
+$include(as4483.pac)
 end;
 asm85.pl3
 asm80$5: do;
@@ -3937,12 +3951,12 @@ end;
 asm51.plm
 asm51: do;
 $include(asm51.ipx)
-$include(as4151.cmn)
+$include(as4151.pac)
 end;
 asm52.plm
 asm52: do;
 $include(asm52.ipx)
-$include(as4252.cmn)
+$include(as4252.pac)
 end;
 asm55.plm
 asm851: do;
@@ -4527,163 +4541,16 @@ end;
 asm5D.plm
 asm5D: do;
 $include(asm5D.ipx)
-
-declare aExtents(*) byte public initial(' LSTOBJ'),
-	aDebug(*) byte public initial('DEBUG');
-
-
-
-/* overlay 3 appears to repair the code that starts here */
-
-cmdSkipWhite: procedure public;
-	declare cmdch based cmdch$p byte;
-	
-	do while (cmdch = ' ' or cmdch = 9) and cmdch$p <> actRead;
-		cmdch$p = cmdch$p + 1;
-	end;
-end;
-
-getDrive: procedure byte public;
-	declare cmdch based cmdch$p byte;
-
-	if cmdch = ':' then
-	do;
-		cmdch$p = cmdch$p + 2;
-		return cmdch;
-	end;
-	else
-		do ii = 0 to 4;
-		if cmdch <> aDebug(ii) and aDebug(ii) + 20h <> cmdch then
-				return '0';
-			cmdch$p = cmdch$p + 1;
-		end;
-	call cmdSkipWhite;
-	if cmdch <> ':' then
-		return '0';
-	cmdch$p = cmdch$p + 2;
-	return cmdch;
-end;
-
-addExtents: procedure public;
-	do ii = 1 to 3;
-		lstFile(jj + ii) = aExtents(ii);
-		objFile(jj + ii) = aExtents(ii+3);
-	end;
-end;
-
-getAsmFile: procedure public;
-	declare cmdch based cmdch$p byte;
-
-	cmdIsWhite: procedure byte;
-		declare cmdch based cmdch$p byte;
-		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
-	end;
-
-	symTab(0) = .stdKeywords;	/* no extended key words */
-	w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
-	call rescan(1, .statusIO);	/* get the command line */
-	call ioErrChk;
-	call read(1, .cmdLineBuf, 128, .actRead, .statusIO);
-	call ioErrChk;
-	actRead = actRead + .cmdLineBuf;	/* convert to pointer */
-	scanCmdLine = TRUE;		/* scanning command line */
-	call cmdSkipWhite;
-	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
-
-	do while not cmdIsWhite;
-		cmdch$p = cmdch$p + 1;
-	end;
-
-	call cmdSkipWhite;
-	if cmdch = CR then		/* no name !! */
-		call runtimeError(4);
-
-	infd = inOpen(cmdch$p, 1);	/* open file for reading */
-	rootfd, includefd = infd;
-	ii = TRUE;
-	jj = 0;
-
-	do while not cmdIsWhite;	/* copy file name over to the files list */
-		files(0).name(jj) = cmdch;
-		if ii then		/* and the name for the lst and obj files */
-			lstFile(jj), objFile(jj) = cmdch;
-		if cmdch = '.' then
-		do;
-			ii = FALSE;
-			call addExtents;	/* add lst and obj file extents */
-		end;
-		jj = jj + 1;
-		cmdch$p = cmdch$p + 1;
-	end;
-	controls$p = cmdch$p;		/* controls start after file name */
-	if ii then			/* no extent in source file */
-	do;
-		lstFile(jj) = '.';	/* add the . and the extents */
-		objFile(jj) = '.';
-		call addExtents;
-	end;
-
-	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
-	if lstFile(0) = ':' and lstFile(2) <> '0' then
-		aF0Asxref$tmp(2) = lstFile(2);
-end;
-
-
-
-
-resetData: procedure public;
-	call sub3DCE$3DFB;
-	b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742, b6857, b6C21 = bZERO;
-	b6743, primaryValid, ctlLIST, b6A6F, ctlCOND = bTRUE;
-	saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
-	segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w6750, errCnt = wZERO;
-	b6882 = b6882 + 1;
-	w6A4E, opType, pageCnt, lineCnt = 1;
-	b68AE(0) = 0;
-	curChar = 20h;
-	do ii = 0 to 11;
-		controlSeen(ii) = 0;
-	end;
-	if not isPhase1 then
-	do;
-		if fileIdx <> 0 then
-		do;
-			call closeF(includefd);
-			call ioErrChk;
-			includefd = rootfd;
-		end;
-		fileIdx = bZERO;
-		off6C25 = .b68B8;
-		off6C2C = off6C25 - 1;
-		off6C2E = .b68B8;
-		call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
-		call ioErrChk;
-	end;
-	w6870 = physmem + 0BFh;
-	endOutBuf = .b6A00;
-end;
-
-
-sub$70EE: procedure public;
-	r$content.type = 6;
-	r$content.len = 3;
-	r$reloc.type = 22h;
-	r$reloc.len = 1;
-	r$interseg.type = 24h;
-	r$interseg.len = 2;
-	r$extref.type = 20h;
-	r$extref.len = 1;
-end;
-
+$include(as4e5d.pac)
 end;
 asm41.plm
 $SET(ASM41)
 asmov4:
 do;
 $include(asm41.ipx)
-$include(as4151.cmn)
+$include(as4151.pac)
 end;
-as4151.cmn
+as4151.pac
 $IF ASM41
 declare w$3780 address public data(0),
 	b$3782 byte public data(80h),
@@ -4770,9 +4637,9 @@ $SET(ASM42)
 asm42:
 do;
 $include(asm42.ipx)
-$include(as4252.cmn)
+$include(as4252.pac)
 end;
-as4252.cmn
+as4252.pac
 
 physmem: procedure address public;
 	declare top address at(4);
@@ -5498,10 +5365,10 @@ outStrN: procedure(s, n) external; declare s address, n address; end;
 put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
 $include(asm44.ipx)
-$include(as4483.cmn)
+$include(as4483.pac)
 
 end;
-as4483.cmn
+as4483.pac
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
 			   0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh, 1, 1,
@@ -9023,9 +8890,13 @@ ovl10: procedure public;
 end;
 end;
 asm4E.plm
+$SET(ASM4E)
 asm4E:
 do;
 $include(asm4e.ipx)
+$include(as4e5d.pac)
+end;
+as4e5d.pac
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
@@ -9034,7 +8905,7 @@ declare aExtents(*) byte public initial(' LSTOBJ'),
 cmdSkipWhite: procedure public;
     declare cmdch based cmdch$p byte;
     
-    do while (cmdch = ' ' or cmdch = 9) and cmdch$p <> actRead;
+    do while (cmdch = ' ' or cmdch = TAB) and cmdch$p <> actRead;
         cmdch$p = cmdch$p + 1;
     end;
 end;
@@ -9069,65 +8940,67 @@ end;
 
 
 getAsmFile: procedure public;
-    declare cmdch based cmdch$p byte;
+	declare cmdch based cmdch$p byte;
 
-    cmdIsWhite: procedure byte;
-        declare cmdch based cmdch$p byte;
-        return cmdch = ' ' or cmdch = 9 or cmdch = CR;
-    end;
+	cmdIsWhite: procedure byte;
+		declare cmdch based cmdch$p byte;
+		return cmdch = ' ' or cmdch = 9 or cmdch = CR;
+	end;
 
+$IF ASM4E
+	symTab(0) = .extKeywords;	/* extended key words */
+$ELSE
+	symTab(0) = .stdKeywords;	/* no extended key words */
+$ENDIF
+	w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
+	call rescan(1, .statusIO);	/* get the command line */
+	call ioErrChk;
+	call read(1, .cmdLineBuf, 128, .actRead, .statusIO);
+	call ioErrChk;
+	actRead = actRead + .cmdLineBuf;	/* convert to pointer */
+	scanCmdLine = TRUE;		/* scanning command line */
+	call cmdSkipWhite;
+	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
 
-    symTab(0) = .extKeywords;
-    w686E, w6868(0), symTab(1), w6868(1) = .MEMORY;
-    call rescan(1, .statusIO);
-    call ioErrChk;
-    call read(1, .cmdLineBuf, 128, .actRead, .statusIO);
-    call ioErrChk;
-    actRead = actRead + .cmdLineBuf;
-    scanCmdLine = 0FFh;
-    call cmdSkipWhite;
-    aF0Asxref(2) = getDrive;
+	do while not cmdIsWhite;
+		cmdch$p = cmdch$p + 1;
+	end;
 
-    do while not cmdIsWhite;
-        cmdch$p = cmdch$p + 1;
-    end;
+	call cmdSkipWhite;
+	if cmdch = CR then		/* no name !! */
+		call runtimeError(4);
 
-    call cmdSkipWhite;
-    if cmdch = 0Dh then
-        call runtimeError(4);	/* file */
+	infd = inOpen(cmdch$p, 1);	/* open file for reading */
+	rootfd, includefd = infd;
+	ii = TRUE;
+	jj = 0;
 
-    infd = inOpen(cmdch$p, 1);
-    rootfd, includefd = infd;
-    ii = 0FFh;
+	do while not cmdIsWhite;	/* copy file name over to the files list */
+		files(0).name(jj) = cmdch;
+		if ii then		/* and the name for the lst and obj files */
+			lstFile(jj), objFile(jj) = cmdch;
+		if cmdch = '.' then
+		do;
+			ii = FALSE;
+			call addExtents;	/* add lst and obj file extents */
+		end;
+		jj = jj + 1;
+		cmdch$p = cmdch$p + 1;
+	end;
+	controls$p = cmdch$p;		/* controls start after file name */
+	if ii then			/* no extent in source file */
+	do;
+		lstFile(jj) = '.';	/* add the . and the extents */
+		objFile(jj) = '.';
+		call addExtents;
+	end;
 
-    jj = 0;
-
-    do while not cmdIsWhite;
-        files(0).name(jj) = cmdch;
-        if ii then
-            lstFile(jj), objFile(jj) = cmdch;
-
-        if cmdch = '.' then
-        do;
-            ii = 0;
-            call addExtents;
-        end;
-
-        jj = jj + 1;
-        cmdch$p = cmdch$p + 1;
-    end;
-
-    controls$p = cmdch$p;
-    if ii then
-    do;
-        lstFile(jj) = '.';
-        objFile(jj) = '.';
-        call addExtents;
-    end;
-
-    files(0).name(jj) = ' ';
-    if lstFile(0) = ':' and lstFile(2) <> '0' then
-        aF0Asmac$tmp(2), aF0Asxref$tmp(2) = lstFile(2);
+	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
+	if lstFile(0) = ':' and lstFile(2) <> '0' then
+$IF ASM4E
+		aF0Asmac$tmp(2),
+$ENDIF
+		aF0Asxref$tmp(2) = lstFile(2);
 end;
 
 
@@ -9136,19 +9009,37 @@ resetData: procedure public;	/* extended initialisation */
     call sub3DCE$3DFB;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
-    b$905B, b$905C, b$905E, b6857, b6C21 = bZERO;
-    b6743, primaryValid, ctlLIST, b6A6F, ctlGEN, ctlCOND = bTRUE;
-    b$9063, b$9064, macroCondStk(0), macroCondSP, saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
-    w$9114, segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6, w$919B, w6750, errCnt = wZERO;
+$IF ASM4E
+    b$905B, b$905C, b$905E,
+$ENDIF
+    b6857, b6C21 = bZERO;
+    b6743, primaryValid, ctlLIST, b6A6F,
+$IF ASM4E
+    ctlGEN,
+$ENDIF
+    ctlCOND = bTRUE;
+$IF ASM4E
+    b$9063, b$9064, macroCondStk(0), macroCondSP, 
+$ENDIF
+    saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
+$IF ASM4E
+    w$9114,
+$ENDIF
+    segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6,
+$IF ASM4E
+    w$919B,
+$ENDIF
+    w6750, errCnt = wZERO;
     b6882 = b6882 + 1;
     w6A4E, opType, pageCnt, lineCnt = 1;
     b68AE(0) = 0;
-    curChar = 20h;
+    curChar = ' ';
     do ii = 0 to 11;
         controlSeen(ii) = 0;
     end;
-
+$IF ASM4E
     curMacroBlk = 0FFFFh;
+$ENDIF
     if not isPhase1 then
     do;
         if fileIdx <> 0 then
@@ -9159,9 +9050,9 @@ resetData: procedure public;	/* extended initialisation */
         end;
 
         fileIdx = bZERO;
-        off$6C25 = .b68B8;
-        off$6C2C = off$6C25 - 1;
-        off$6C2E = .b68B8;
+        off6C25 = .b68B8;
+        off6C2C = off6C25 - 1;
+        off6C2E = .b68B8;
         call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
         call ioErrChk;
     end;
@@ -9181,7 +9072,6 @@ sub$70EE: procedure public;
     r$extref.len = 1;
 end;
 
-end;
 key4.plm
 keywords: do;
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
@@ -9353,19 +9243,19 @@ end;
 glb: do;
 $SET(OVL=0)
 $include(glb.ipx)
-$include(global.cmn)
+$include(global.pac)
 end;
 glb4.plm
 glb4: do;
 $SET(OVL=4)
 $include(glb4.ipx)
-$include(global.cmn)
+$include(global.pac)
 end;
 glb5.plm
 glb5: do;
 $SET(OVL=5)
 $include(glb5.ipx)
-$include(global.cmn)
+$include(global.pac)
 end;
 makefile
 ISIS=..\..\thames
@@ -9373,6 +9263,8 @@ V4=../../plm80v4/
 V3=../../plm80v3/
 TOOLS=../../tools/
 F0=./
+
+PEXFILE=asm80.pex
 
 OVERLAY=6D4Ch
 #
@@ -9393,12 +9285,12 @@ OVERLAY=6D4Ch
 .plm.ipx:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(TOOLS:/=\)ngenpex asm80.pex $<
+	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 
 .pl3.ipx:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(TOOLS:/=\)ngenpex asm80.pex $<
+	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
@@ -9586,7 +9478,11 @@ exit
 	@find asmov5.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find asmov5.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
-
+# pex file dependencies
+$(OBJS1:.obj=.ipx): $(PEXFILE)
+$(OBJS4:.obj=.ipx): $(PEXFILE)
+$(OBJS5:.obj=.ipx): $(PEXFILE)
+asmov0.ipx asmov1.ipx asmov2.ipx asmov3.ipx: $(PEXFILE)
 
 close.plm
 close: DO;
