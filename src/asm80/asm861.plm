@@ -137,7 +137,7 @@ pushToken: procedure(arg1b) public;
 	end;
 end;
 
-addByte2Tok: procedure(arg1b) public;
+collectByte: procedure(arg1b) public;
 	declare arg1b byte, s address;
 	declare ch based s byte;
 
@@ -159,7 +159,7 @@ getId: procedure(arg1b) public;
 	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
 		if curChar > 60h then			/* make sure upper case */
 			curChar = curChar and 0DFh;
-		call addByte2Tok(curChar);
+		call collectByte(curChar);
 	end;
 	reget = 1;
 end;
@@ -215,8 +215,8 @@ getNum: procedure public;
 
 	/* replace with packed number */
 	tokenSize(0) = 0;
-	call addByte2Tok(low(accum));
-	call addByte2Tok(high(accum));
+	call collectByte(low(accum));
+	call collectByte(high(accum));
 end;
 
 
@@ -227,7 +227,7 @@ getStr: procedure public;
 		if curChar = 27h then
 			if getCh <> 27h then
 				goto L6268;
-		call addByte2Tok(curChar);
+		call collectByte(curChar);
 	end;
 
 	call balanceError;

@@ -13,6 +13,7 @@ lit             'literally'
 TRUE            '0FFh'
 FALSE           '0'
 CR              '0Dh'
+FF              '0Ch'
 LF              '0Ah'
 TAB             '9'
 
@@ -190,8 +191,6 @@ seekI           P(B arg1b)
 sub$4879        PB
 sub$4904        P
 
-/* $file(asm46.pl3) */
-
 /* $file(asm47.pl3) */
 
 $file(asm47.pl3,asm85.pl3)
@@ -201,24 +200,22 @@ sub$4B57        P(B arg1b)
 sub$540D        P
 
 $file(asm48.pl3)
-b$9C3A          B
 sub$5CAD        P(A arg1w,B arg2b)
-sub$5CE8        P(A arg1w,B arg2b)
 sub$65D9        P
 
 $file(asm48.pl3,asm86.pl3)
+b6EC4$9C3A          B
 getCh           PB
 getChClass      PB
 lookup          P(B arg1b)B
+sub5819$5CE8        P(A arg1w,B arg2b)
 unpackToken     P(A src,A dst)
 
-$file(asm49.pl3)
-collectByte     P(B arg1b)
-nestIFX         P(B arg1b)
-sub$676D        P(B arg1b)
+/* $file(asm49.pl3) */
 
 $file(asm49.pl3,asm861.plm)
 balanceError    P
+collectByte     P(B arg1b)
 commandError    P
 doubleDefError  P
 expressionError P
@@ -231,6 +228,7 @@ illegalCharError P
 locationError   P
 multipleDefError P
 nameError       P
+nestIF         P(B arg1b)
 nestingError    P
 OpcodeOperandError P
 operandError    P
@@ -240,6 +238,7 @@ pushToken       P(B arg1b)
 stackError      P
 syntaxError     P
 undefinedSymbolError P
+unnestIF        P(B arg1b)
 valueError      P
 
 $file(asm4A.pl3)
@@ -271,21 +270,21 @@ writeModend     P
 writeModhdr     P
 writeRec        P(A rec$p)
 
-$file(asm4D.pl3)
-outStr          P(A arg1w)
-sub$8447        P
-sub$872E        P
+/* $file(asm4D.pl3) */
 
 $file(asm4D.pl3,asmov1.pl3)
 asmComplete     P
 newPage         P
 newPageHeader   P
+outStr          P(A arg1w)
+ovl3            P
 ovl9            P
-ovl10        P
+ovl10           P
 printCmdLine    P
 printDecimal    P(A arg1w)
 skipToEOP       P
 sub$6F4D        P
+sub7041$8447    P
 sub$721E        PB
 sub$7229        P
 sub$72D8        P
@@ -335,7 +334,7 @@ $file(asm52.plm,asm801.plm)
 
 /* $file(asm57.pl3) */
 $file(asm57.pl3,asm85.pl3)
-sub$4B72        P
+sub4B72$516F        P
 sub$518F        P
 
 $file(asm5D.plm,asmov3.plm)
@@ -364,22 +363,15 @@ $file(asm83.plm)
 /* $file(asm851.plm) */
 
 $file(asm86.pl3)
-b6CE4           B
 chkLF           P
 insertSym       P
-sub$5819        P(A arg1w,B arg2b)
 
-$file(asm861.plm)
-addByte2Tok     P(B arg1b)
-nestIF          P(B arg1b)
-unnestIF        P(B arg1b)
+/* $file(asm861.plm) */
 
 $file(asmov0.pl3)
 parseControls   P
 
-$file(asmov1.pl3)
-ovl3            P
-sub$7041        P
+/* $file(asmov1.pl3) */
 
 /* $file(asmov2.pl3) */
 
@@ -1157,8 +1149,8 @@ sub$3F19: procedure public;
 						call popToken;
 					else
 					do;
-						b6CE4 = 2;
-						call sub$5819(segSize(activeSeg), 2);
+						b6EC4$9C3A = 2;
+						call sub5819$5CE8(segSize(activeSeg), 2);
 					end;
 
 					b6B30 = 0;
@@ -1188,8 +1180,8 @@ sub$3F19: procedure public;
 			end;
 	/* 6 CC$DOLLAR */do;
 				call pushToken(0Ch);
-				call addByte2Tok(low(segSize(activeSeg)));
-				call addByte2Tok(high(segSize(activeSeg)));
+				call collectByte(low(segSize(activeSeg)));
+				call collectByte(high(segSize(activeSeg)));
 				if activeSeg <> 0 then
 					tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
 				call sub$416B;
@@ -1271,11 +1263,13 @@ outStrN: procedure(s, n) external; declare s address, n address; end;
 $include(asm83.ipx)
 $include(as4483.pac)
 end;
-asm85.pl3
-asm80$5: do;
-
+asm4785.pl3x
+asm80$4785: do;
+$IF ASM47
+$include(asm47.ipx)
+$ELSE
 $include(asm85.ipx)
-
+$ENDIF
 declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0,
@@ -1337,10 +1331,10 @@ sub$4B57: procedure(arg1b) public;
 		b6855 = b6855 and 0E7h or arg1b;
 end;
 
-sub$4B72: procedure public;
+sub4B72$516F: procedure public;
 	do case b6B2B;
 /* 0 */		;
-/* 1 */		call sub4C1E$54FD;			/* white space ? */
+/* 1 */		call sub4C1E$54FD;		/* white space ? */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* : or ) */
 			if not (b6B2B = 2 and opType = 3) then
@@ -1371,7 +1365,7 @@ sub$4B72: procedure public;
 
 			accum1 = accum1 / accum2;
 		end;
-/* 10 */	accum1 = -accum1;		/* unary - */
+/* 10 */	accum1 = -accum1;			/* unary - */
 /* 11 */	call cond2Acc(accum1 = accum2);		/* EQ */
 /* 12 */	call cond2Acc(accum1 < accum2);		/* LT */
 /* 13 */	call cond2Acc(accum1 <= accum2);	/* LE */
@@ -1443,8 +1437,8 @@ sub$4B72: procedure public;
 				call expressionError;
 				b6855 = 0;
 			end;
-			b6CE4 = 1;
-			call sub$5819(accum1, 22h - b6B2B);	/* 4 for set, 5 for equ */
+			b6EC4$9C3A = 1;
+			call sub5819$5CE8(accum1, 22h - b6B2B);	/* 4 for set, 5 for equ */
 			b6B30 = 0;
 		end;
 /* 30 */	goto case29;				/* SET ? */
@@ -1477,8 +1471,14 @@ sub$4B72: procedure public;
 
 				b68AB = 0FFh;
 			end;
+$IF ASM47
+			jj = b$905E;
+			b$905E = 0;
 
+			if macroCondSP > 0 or jj then
+$ELSE
 			if ifDepth > 0 then
+$ENDIF
 				call nestingError;
 			if opType <> 1 then
 				call syntaxError;
@@ -1501,7 +1501,11 @@ sub$4B72: procedure public;
 		end;
 /* 34 */	do;					/* ELSE ? */
 			b6B32 = 0FFh;
+$IF ASM47
+			if macroCondStk(0) <> 2 then
+$ELSE
 			if ifDepth = 0 then
+$ENDIF
 				call nestingError;
 			else if not inElse(0) then
 			do;
@@ -1559,21 +1563,25 @@ sub$4B72: procedure public;
 
 /* 50 */	do;				/* PUBLIC */
 			b6748 = 0FFh;
-			b6CE4 = 0;
-			call sub$5819(0, 6);
+			b6EC4$9C3A = 0;
+			call sub5819$5CE8(0, 6);
 		end;
 /* 51 */	do;				/* EXTRN ? */
 			b6749 = 0FFh;
 			if w6750 = 0 and isPhase1 and ctlOBJECT then
 			do;
+$IF ASM85
 				call ovlMgr(2);
+$ENDIF
 				call writeModhdr;
 			end;
-			b6CE4 = 0;
-			call sub$5819(w6750, 2);
+			b6EC4$9C3A = 0;
+			call sub5819$5CE8(w6750, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
+$IF ASM85
 				call ovlMgr(2);
+$ENDIF
 				call writeExtName;
 			end;
 			if not b6754 then
@@ -1592,6 +1600,27 @@ sub$4B72: procedure public;
 			call popToken;
 		end;
 /* 53 */	segSize(3) = accum1;		/* STKLN ? */
+$IF ASM47
+/* 54 */	call sub$7517;			/* MACRO ? */
+/* 55 */	call sub$753E;
+/* 56 */	call sub$75FF;			/* ENDM */
+/* 57 */	call sub$76CE;			/* EXITM */
+/* 58 */	do;
+			tmac$mtype = 4;
+			call sub$7327;
+		end;
+/* 59 */	call sub$72A4(1);		/* IRP ? */
+/* 60 */	call sub$72A4(2);		/* IRPC */
+/* 61 */	call sub$770B;
+/* 62 */	call sub$7844;			/* REPT ? */
+/* 63 */	call sub$787A;			/* LOCAL */
+/* 64 */	call sub$78CE;
+/* 65 */	do;				/* NUL */
+			call cond2Acc(tokenType(0) = 41h);
+			call popToken;
+			b6855 = 0;
+		end;
+$ENDIF
 	end;
 
 	if b6B2B <> 1 then
@@ -1622,7 +1651,12 @@ sub$518F: procedure public;
 
 
 	do while 1;
-		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0) then
+		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0)
+$IF ASM47
+	           or (b4181(b6B29) < 128 or b$9058) and b$905E
+
+$ENDIF
+	        then
 		do;
 			b6885 = 0;
 			call popToken;
@@ -1687,7 +1721,7 @@ sub$518F: procedure public;
 			call sub$4274;
 		end;
 
-		call sub$4B72;
+		call sub4B72$516F;
 		if not b4A26(b6B2B) then
 			b6B35 = 0;
 
@@ -1705,7 +1739,7 @@ sub$518F: procedure public;
 
 		do ii = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum(ii));
+				call collectByte(accum(ii));
 		end;
 
 		tokenAttr(0) = b6855;
@@ -1852,7 +1886,7 @@ sub4C1E$54FD: procedure public;
 		if isPhase2Print and ctlSYMBOLS then
 		do;
 			call ovlMgr(1);
-			call sub$7041;			/* in overlay 1 */
+			call sub7041$8447;			/* in overlay 1 */
 		end;
 
 		call sub$467F(2, .b6873);
@@ -1942,9 +1976,9 @@ insertSym: procedure public;
 	curTokenSym.type = 0;
 end;
 
-declare b6CE4 byte public;
+declare b6EC4$9C3A byte public;
 
-sub$5819: procedure(arg1w, arg2b) public;
+sub5819$5CE8: procedure(arg1w, arg2b) public;
 	declare arg1w address, arg2b byte;
 	declare (b6CE8, b6CE9, b6CEA, b6CEB, b6CEC) byte;
 
@@ -1988,10 +2022,10 @@ sub$5819: procedure(arg1w, arg2b) public;
 			end;
 
 			b6CE8 = (activeSeg <> 0 and 18h) or (b6748 and 20h) or (b6749 and 58h);
-			if b6CE4 = 1 then
+			if b6EC4$9C3A = 1 then
 				b6CE8 = b6855;
 
-			if b6CE4 = 2 then
+			if b6EC4$9C3A = 2 then
 				b6CE8 = b6CE8 or activeSeg;
 			if b6857 and b6CEB then
 				tokenType(0) = 64h;
@@ -2026,9 +2060,9 @@ sub$5819: procedure(arg1w, arg2b) public;
 				do;
 					tokenType(0) = arg2b;
 					b6CE8 = b6CE8 and 0E0h;
-					if b6CE4 = 1 then
+					if b6EC4$9C3A = 1 then
 						b6CE8 = b6855 or 20h;
-					if b6CE4 = 2 then
+					if b6EC4$9C3A = 2 then
 						if activeSeg <> 0 then
 							b6CE8 = b6CE8 or activeSeg or 38h;
 				end;
@@ -2168,8 +2202,8 @@ lookup: procedure(arg1b) byte public;
 	if arg1b = 1 and not isSkipping then
 	do;
 		b6883 = 0;
-		b6CE4 = 0;
-		call sub$5819(w6A4E, b6885 and 80h or 9);
+		b6EC4$9C3A = 0;
+		call sub5819$5CE8(w6A4E, b6885 and 80h or 9);
 		w6BE0 = .tokenSym;
 		do x.i = 1 to tokenSP;
 			w6BE0 = w6BE0 + 2;
@@ -2355,7 +2389,7 @@ pushToken: procedure(arg1b) public;
 	end;
 end;
 
-addByte2Tok: procedure(arg1b) public;
+collectByte: procedure(arg1b) public;
 	declare arg1b byte, s address;
 	declare ch based s byte;
 
@@ -2377,7 +2411,7 @@ getId: procedure(arg1b) public;
 	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
 		if curChar > 60h then			/* make sure upper case */
 			curChar = curChar and 0DFh;
-		call addByte2Tok(curChar);
+		call collectByte(curChar);
 	end;
 	reget = 1;
 end;
@@ -2433,8 +2467,8 @@ getNum: procedure public;
 
 	/* replace with packed number */
 	tokenSize(0) = 0;
-	call addByte2Tok(low(accum));
-	call addByte2Tok(high(accum));
+	call collectByte(low(accum));
+	call collectByte(high(accum));
 end;
 
 
@@ -2445,7 +2479,7 @@ getStr: procedure public;
 		if curChar = 27h then
 			if getCh <> 27h then
 				goto L6268;
-		call addByte2Tok(curChar);
+		call collectByte(curChar);
 	end;
 
 	call balanceError;
@@ -2845,451 +2879,6 @@ parseControls: procedure public;
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
 	reget = 0;
-end;
-
-end;
-asmov1.pl3
-asmov1: do;
-/* override to force code */
-put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-$include(asmov1.ipx)
-
-declare	aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
-	aNoErrors(*) byte initial('   NO ERRORS'),
-	asc$751E(*) byte initial(' ('),
-	asc$7520(*) byte initial('     )'),
-	aPublicSymbols(*) byte initial(0Dh, 0Ah, 'PUBLIC SYMBOLS', 0Dh, 0Ah, 0),
-	aExternalSymbol(*) byte initial(0Dh, 0Ah, 'EXTERNAL SYMBOLS', 0Dh, 0Ah, 0),
-	pad754E address,
-
-	aUserSymbols(*) byte data(0Dh, 0Ah, 'USER SYMBOLS', 0Dh, 0Ah, 0),
-	aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', 0Dh, 0Ah, 0Ah, 0),
-	wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
-	asc$6DB8(*) byte data(0Dh, 0Ah, 0Ah, 0),
-	asc$6DBC(*) byte data(0Dh),
-	asc$6DBD(*) byte data(0Ah, 0Ah, 0Ah, 0),
-	b6DC1(2) byte data(20h, 40h),
-	ascLParen(*) byte data(' (', 0),
-	ascRParen(*) byte data(')', 0),
-	a1234(*) byte data('  1234');	
-
-
-
-out2Hex: procedure(arg1b);
-	declare arg1b byte;
-	call put2Hex(.outch, arg1b);
-end;
-
-
-print2Hex: procedure(arg1b);
-	declare arg1b byte;
-	call put2Hex(.printChar, arg1b);
-end;
-
-
-
-printStr: procedure(arg1w) reentrant;
-	declare arg1w address;
-	declare ch based arg1w byte;
-
-	do while ch <> 0;
-		call printChar(ch);
-		arg1w = arg1w + 1;
-	end;
-end;
-
-printNStr: procedure(arg1b, arg2w) reentrant;
-	declare arg1b byte, arg2w address;
-	declare ch based arg2w byte;
-
-	do while arg1b > 0;
-		call printChar(ch);
-		arg2w = arg2w + 1;
-		arg1b = arg1b - 1;
-	end;
-end;
-
-
-printCRLF: procedure reentrant;
-	call printChar(0Dh);
-	call printChar(0Ah);
-end;
-
-declare asc$7752 byte initial(' '),
-	asc$7553(*) byte initial('    ', 0);
-
-
-itoa: procedure(arg1w, arg2w);
-	declare (arg1w, arg2w) address;
-	declare ch based arg2w byte;
-
-	call move(5, .spaces24 + 19, arg2w);
-	arg2w = arg2w + 4;
-
-	do while 1;
-		ch = arg1w mod 10 + '0';
-		arg2w = arg2w - 1;
-		if (arg1w := arg1w /10) = 0 then
-			return;
-	end;
-end;
-
-
-printDecimal: procedure(arg1w) reentrant public;
-	declare arg1w address;
-	call itoa(arg1w, .asc$7752);
-	call printStr(.asc$7553);
-end;
-
-skipToEOP: procedure public;
-	do while lineCnt <= ctlPAGELENGTH;
-		call outch(0Ah);
-		lineCnt = lineCnt + 1;
-	end;
-end;
-
-
-newPageHeader: procedure public;
-	call printStr(.asc$6DBD);
-	call printStr(.aIsisIi80808085);
-	call printDecimal(pageCnt);
-	call printCRLF;
-	if ctlTITLE then
-		call printNStr(titleLen, .ctlTITLESTR);
-
-	call printCRLF;
-	call printCRLF;
-	if not b68AE(0) then
-		call printStr(.aLocObjLineSour);
-	pageCnt = pageCnt + 1;
-end;
-
-
-newPage: procedure public;
-	if ctlTTY then
-		call skipToEOP;
-	else
-		call outch(0Ch);
-
-	lineCnt = 1;
-	if not scanCmdLine then
-		call newPageHeader;
-end;
-
-
-sub$6F4D: procedure public;
-	if sub$465B then
-	do while ctlEJECT > 0;
-		call newPage;
-		ctlEJECT = ctlEJECT - 1;
-	end;
-end;
-
-
-
-printChar: procedure(arg1b) reentrant;
-	declare arg1b byte;
-	declare cnt byte;
-	
-	if arg1b = 0Ch then
-	do;
-		call newPage;
-		return;
-	end;
-	if arg1b = 0Ah then
-		if ctlPAGING then
-		do;
-			if (lineCnt := lineCnt + 1) >= ctlPAGELENGTH - 2 then
-			do;
-				if ctlTTY then
-					call outch(0Ah);
-				if ctlEJECT > 0 then
-					ctlEJECT = ctlEJECT - 1;
-				call newPage;
-				return;
-			end;
-		end;
-	if arg1b = 0Dh then
-		curCol = 0;
-	cnt = 1;
-	if arg1b = 9 then
-	do;
-		cnt = 8 - (curCol and 7);
-		arg1b = ' ';
-	end;
-	do while cnt <> 0;
-		if curCol < 132 then
-		do;
-			if arg1b >= ' ' then
-				curCol = curCol + 1;
-			if curCol > ctlPAGEWIDTH then
-			do;
-				call printCRLF;
-				call printStr(.spaces24);
-				curCol = curCol + 1;
-			end;
-			call outch(arg1b);
-		end;
-		cnt = cnt - 1;
-	end;
-end;
-
-declare b755C(*) byte initial(' CDSME');
-
-sub$7041: procedure public;
-	declare b7562 byte,
-		w7563 address,
-		(b7563, b7564) byte at(.w7563),
-		b7565 byte;
-
-	sub$718C: procedure(arg1w);
-		declare arg1w address;
-		declare ch based curTokenSym$p byte;
-
-		curTokenSym$p = curTokenSym$p - 1;
-		call arg1w(ch and not b7565);
-	end;
-
-
-
-	b68AE(0) = 0FFh;
-	if not ctlSYMBOLS then
-		return;
-	b755C(0) = 'A';
-	do b7562 = 0 to 2;
-		jj = isPhase2Print and ctlSYMBOLS;
-		curTokenSym$p = symTab(1) - 2;
-		call printCRLF;
-		call printStr(wa6DB2(b7562));
-
-		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-		    w7563 = curTokenSym.w0;
-		    if b7563 <> 9 then
-			if b7563 <> 6 then
-		    	    if b7562 <> 0 or b7563 <> 3 then
-				if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
-				do;
-				    call unpackToken(curTokenSym$p - 6, .b68AE + 1);
-				    if jj then
-				    do;
-					if ctlPAGEWIDTH - curCol < 11h then
-						call printCRLF;
-					call printStr(.b68AE + 1);
-					call printChar(' ');
-					if (b7565 := (b7564 and 40h) <> 0) then
-						call printChar('E');
-					else
-						call printChar(b755C(b7564 and 7));
-
-					call printChar(' ');
-					call sub$718C(.print2Hex);
-					call sub$718C(.print2Hex);
-					curTokenSym$p = curTokenSym$p + 2;
-					call printStr(.spaces24 + 20);
-				    end;
-				end;
-
-		end;
-
-	end;
-	if ctlDEBUG then
-		b68AE(0) = 0;
-	if jj then
-		call printCRLF;
-end;
-
-
-
-
-
-printCmdLine: procedure public;
-	declare ch based actRead byte;
-
-	call outch(0Ch);
-	call sub$6F4D;
-	ch = 0;
-	call printStr(.cmdLineBuf);
-	call newPageHeader;
-end;
-
-
-outStr: procedure(arg1w) reentrant;
-	declare arg1w address;
-	declare ch based arg1w byte;
-
-	do while ch <> 0;
-		call outch(ch);
-		arg1w = arg1w + 1;
-	end;
-end;
-
-outNStr: procedure(arg1b, arg2w) reentrant;
-	declare arg1b byte, arg2w address,
-		ch based arg2w byte;
-
-	do while arg1b > 0;
-		call outch(ch);
-		arg2w = arg2w + 1;
-		arg1b = arg1b - 1;
-	end;
-end;
-
-
-sub$721E: procedure byte public;
-	return w68A2 < w68A0;
-end;
-
-
-
-sub$7229: procedure public;
-	declare ch based w68A2 byte;
-	declare b7568 byte;
-
-	if (b68AB := sub$721E or b68AB) then
-	do;
-		call out2Hex(high(w68A6));
-		call out2Hex(low(w68A6));
-	end;
-	else
-		call outStr(.spaces24 + 20);
-
-	call outch(' ');
-	do  b7568 = 1 to 4;	/* may need structure access */
-		if sub$721E and b6B34 then
-		do;
-			w68A6 = w68A6 + 1;
-			call out2Hex(ch);
-		end;
-		else
-			call outStr(.spaces24 + 22);
-
-		w68A2 = w68A2 + 1;
-	end;
-
-	call outch(' ');
-	if shr(jj := tokenAttr(b6A56), 6) then
-		call outch('E');
-	else if not b68AB then
-		call outch(' ');
-	else
-		call outch(b755C(jj and 7));
-end;
-
-
-sub$72D8: procedure public;
-	if not b689B then
-		return;
-
-	call printStr(.ascLParen);	/* " (" */
-	call printNStr(4, .b6A57);
-	call printStr(.ascRParen);	/* ")" */
-	call printCRLF;
-	call move(4, .asciiLineNo, .b6A57);
-end;
-
-
-ovl3: procedure public;
-	declare ch based off6C2C byte;
-    loop:
-	w68A0 = (w68A2 := tokStart(b6A56)) + tokenSize(b6A56);
-	if isSkipping then
-		w68A0 = w68A2;
-
-	call outch(asmErrCode);
-	call outch(' ');
-	if not blankAsmErrCode then
-	do;
-		asmErrCode = ' ';
-		b689B = 0FFh;
-	end;
-	if b6B20$9A77 then
-		call outStr(.spaces24 + 9);
-	else
-		call sub$7229;
-	if fileIdx > 0 then
-	do;
-		call outch(a1234(ii := b6C21 + fileIdx));
-		if ii > 0 then
-			call outch('=');
-		else
-			call outch(' ');
-	end;
-	else
-		call outStr(.spaces24 + 22);
-
-	if b68AD then
-	do;
-		call outStr(.spaces24 + 20);
-		call printCRLF;
-	end;
-	else
-	do;
-		b68AD = 0FFh;
-		call outNStr(4, .asciiLineNo);
-		call outch(' ');
-		curCol = 18h;
-		call printNStr(b6C30, off6C2E);
-		if ch <> 0Ah then
-			call printChar(0Ah);
-	end;
-	if b6B20$9A77 then
-	do;
-		if ctlPAGING then
-			call sub$6F4D;
-	end;
-	else
-	do;
-		do while sub$721E;
-			call outStr(.spaces24 + 22);
-			call sub$7229;
-			call printCRLF;
-		end;
-		if b6A56 > 0 and (b6B23 or b6B24) then
-		do;
-			call sub$546F;
-			goto loop;
-		end;
-	end;
-	call sub$72D8;
-end;
-
-asmComplete: procedure public;
-	if errCnt > 0 then
-		call itoa(errCnt, .aNoErrors);
-	call printNStr((errCnt = 1) + 32, .aAssemblyComple);
-	if errCnt > 0 then
-	do;
-		call move(4, .b6A57, .asc$7520);
-		call printNStr(8, .asc$751E);
-	end;
-	call outch(0Dh);
-	call outch(0Ah);
-end;
-
-ovl9: procedure public;
-	if ctlPRINT then
-		call closeF(outfd);
-	outfd = 0;
-	lineCnt = 1;
-	call asmComplete;
-	call flushout;
-end;
-
-
-ovl10: procedure public;
-	declare ch based w68A6 byte;
-	call closeF(infd);
-	if ctlXREF then
-	do;
-		w68A6 = physmem - 1;
-		ch = '0';
-		if aF0Asxref$tmp(0) = ':' then
-			ch = aF0Asxref$tmp(2);
-		call load(.aF0Asxref, 0, 1, 0, .statusIO);
-		call ioErrChk;
-
-	end;
-	call exit;
 end;
 
 end;
@@ -3929,7 +3518,7 @@ sub4C1E$54FD: procedure public;
 		finished = 0FFh;
 		if isPhase2Print and ctlSYMBOLS then
 		do;
-			call sub$7041;			/* in overlay 1 */
+			call sub7041$8447;			/* in overlay 1 */
 		end;
 
 		call sub$467F(2, .b6873);
@@ -4005,7 +3594,7 @@ sub$4B57: procedure(arg1b) public;
 		b6855 = b6855 and 0E7h or arg1b;
 end;
 
-sub$4B72: procedure public;
+sub4B72$516F: procedure public;
 	do case b6B2B;
 /* 0 */		;
 /* 1 */		call sub4C1E$54FD;
@@ -4111,8 +3700,8 @@ sub$4B72: procedure public;
 				call expressionError;
 				b6855 = 0;
 			end;
-			b6CE4 = 1;
-			call sub$5819(accum1, 22h - b6B2B);
+			b6EC4$9C3A = 1;
+			call sub5819$5CE8(accum1, 22h - b6B2B);
 			b6B30 = 0;
 		end;
 /* 30 */	goto case29;
@@ -4222,8 +3811,8 @@ sub$4B72: procedure public;
 
 /* 50 */	do;
 			b6748 = 0FFh;
-			b6CE4 = 0;
-			call sub$5819(0, 6);
+			b6EC4$9C3A = 0;
+			call sub5819$5CE8(0, 6);
 		end;
 /* 51 */	do;
 			b6749 = 0FFh;
@@ -4231,8 +3820,8 @@ sub$4B72: procedure public;
 			do;
 				call writeModhdr;
 			end;
-			b6CE4 = 0;
-			call sub$5819(w6750, 2);
+			b6EC4$9C3A = 0;
+			call sub5819$5CE8(w6750, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
 				call writeExtName;
@@ -4349,7 +3938,7 @@ sub$518F: procedure public;
 			call sub$4274;
 		end;
 
-		call sub$4B72;
+		call sub4B72$516F;
 		if not b4A26(b6B2B) then
 			b6B35 = 0;
 
@@ -4367,7 +3956,7 @@ sub$518F: procedure public;
 
 		do ii = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call addByte2Tok(accum(ii));
+				call collectByte(accum(ii));
 		end;
 
 		tokenAttr(0) = b6855;
@@ -5044,8 +4633,8 @@ sub$3F19: procedure public;
 					call popToken;
 				else
 				do;
-					b$9C3A = 2;
-					call sub$5CE8(segSize(activeSeg), 2);
+					b6EC4$9C3A = 2;
+					call sub5819$5CE8(segSize(activeSeg), 2);
 				end;
 
 				b6B30 = 0;
@@ -5607,7 +5196,7 @@ sub4C1E$54FD: procedure public;
 			w$9B79 = w$9B79 - 1;
 		end;
 		if sub$465B or not blankAsmErrCode then
-			call sub$872E;
+			call ovl3;
 	end;
 
 	if b6BD9 then
@@ -5649,7 +5238,7 @@ sub4C1E$54FD: procedure public;
 	do;
 		finished = 0FFh;
 		if isPhase2Print and ctlSYMBOLS then
-			call sub$8447;
+			call sub7041$8447;
 
 		call sub$467F(2, .b6873);
 		if chkGenObj then
@@ -5792,482 +5381,6 @@ x:						/* forces code alignment */
 	includefd = inOpen(.files(fileIdx).name, 1);
 end;
 end;
-asm47.pl3
-asm47:
-do;
-$include(asm47.ipx)
-
-declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0, 0FFh, 0FFh, 0FFh),
-	b4A68(*) byte data(0, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh);
-
-declare	accum(4) byte at(.accum1);
-declare pad9C27 byte;
-
-
-
-sub$4AAA: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if b674A(arg1b) then
-	do;
-		if haveTokens then
-		do;
-			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1$lb then
-				call expressionError;
-		end;
-		else if alignTypes(arg1b) <> 3 then
-			call expressionError;
-	end;
-	else
-	do;
-		b674A(arg1b) = TRUE;
-		if haveTokens then
-		do;
-			accum1 = sub$43DD;
-			if accum1 = 1 or accum1 = 2 then
-				alignTypes(arg1b) = low(accum1);
-			else
-				call expressionError;
-		end;
-	end;
-end;
-
-
-cond2Acc: procedure(arg1b) public;
-	declare arg1b byte;
-
-	accum1 = arg1b;
-	if accum1 then
-		accum1 = 0FFFFh;
-end;
-
-sub$4B57: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if (b6855 and 47h) <> 0 then
-		b6855 = b6855 and 0E7h or arg1b;
-end;
-
-
-
-
-sub$516F: procedure;
-	do case b6B2B;
-/* 0 */		;
-/* 1 */		call sub4C1E$54FD;
-/* 2 */		goto case3;
-/* 3 */	case3:	do;
-			if not (b6B2B = 2 and opType = 3) then
-				call balanceError;
-
-			if tokenType(0) = 11 then
-			do;
-				tokenSize(0) = 1;
-				tokenAttr(0) = 0;
-				b6B36 = 0FFh;
-			end;
-			b6B35 = b6B2F;
-			if opType = 3 then
-				b6B2C = 0FFh;
-		end;
-/* 4 */		accum1 = accum1 * accum2;
-/* 5 */		accum1 = accum1 + accum2;
-/* 6 */		do;
-			call syntaxError;
-			call popToken;
-		end;
-/* 7 */		accum1 = accum1 - accum2;
-/* 8 */		;
-/* 9 */		do;
-			if accum2 = 0 then
-				call valueError;
-			accum1 = accum1 / accum2;
-		end;
-/* 10 */	accum1 = -accum1;
-/* 11 */	call cond2Acc(accum1 = accum2);
-/* 12 */	call cond2Acc(accum1 < accum2);
-/* 13 */	call cond2Acc(accum1 <= accum2);
-/* 14 */	call cond2Acc(accum1 > accum2);
-/* 15 */	call cond2Acc(accum1 >= accum2);
-/* 16 */	call cond2Acc(accum1 <> accum2);
-/* 17 */	accum1 = not accum1;
-/* 18 */	accum1 = accum1 and accum2;
-/* 19 */	accum1 = accum1 or accum2;
-/* 20 */	accum1 = accum1 xor accum2;
-/* 21 */	do;
-			if accum2 = 0 then
-				call valueError;
-			accum1 = accum1 mod accum2;
-		end;
-/* 22 */	do;
-			if accum2$lb <> 0 then
-				accum1 = shl(accum1, accum2);
-		end;
-/* 23 */	do;
-			if accum2$lb <> 0 then
-				accum1 = shr(accum1, accum2);
-		end;
-/* 24 */	do;
-			accum1 = high(accum1);
-			call sub$4B57(10h);
-		end;
-/* 25 */	do;
-			accum1 = low(accum1);
-			call sub$4B57(8);
-		end;
-/* 26 */	do;
-			if tokenType(0) <> 10 then
-			do;
-				accum1 = sub$43DD;
-				if accum1$hb - 1 < 0FEh then
-					call valueError;
-				b6B28 = 22h;
-				if (b6855 and 18h) = 18h then
-				do;
-					call valueError;
-					b6855 = b6855 and 0E7h or 8;
-				end;
-			end;
-			else
-			do;
-				b6855 = 0;
-				tokenType(0) = 0Bh;
-			end;
-
-			if sub$425B(b6858) then
-				call operandError;
-			b6B2D = 0Bh;
-			b6B23 = 0FFh;
-		end;
-/* 27 */	do;
-			b6B2D = 0Bh;
-			b6B24 = 0FFh;
-		end;
-/* 28 */	do;
-			segSize(activeSeg) = segSize(activeSeg) + accum1;
-			b68AB = 0FFh;
-		end;
-/* 29 */ case29:
-		do;
-			b68AB = 0FFh;
-			if (b6855 and 40h) = 40h then
-			do;
-				call expressionError;
-				b6855 = 0;
-			end;
-			b$9C3A = 1;
-			call sub$5CE8(accum1, 22h - b6B2B);
-			b6B30 = 0;
-		end;
-/* 30 */	goto case29;
-/* 31 */	do;
-			b68AB = 0FFh;
-			if (b6855 and 40h) <> 40h then
-			do;
-				if (b6855 and 18h) <> 0 then
-					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
-						call expressionError;
-			end;
-			else
-				call expressionError;
-
-			if ctlOBJECT then
-				if segSize(activeSeg) > w6B41(activeSeg) then
-					w6B41(activeSeg) = segSize(activeSeg);
-
-			segSize(activeSeg) = accum1;
-		end;
-/* 32 */	do;
-			if tokenSP > 0 then
-			do;
-				startOffset = sub$43DD;
-				startDefined = 1;
-				startSeg = (b6855 and 7);
-
-				if (b6855 and 40h) = 40h then
-					call expressionError;
-
-				if sub$425B(b6858) then
-					call operandError;
-
-				b68AB = 0FFh;
-			end;
-
-			jj = b$905E;		/* code diff */
-			b$905E = 0;			/* code diff */
-
-			if macroCondSP > 0 or jj then	/* code diff */
-				call nestingError;
-
-			if opType <> 1 then
-				call syntaxError;
-
-			if b6B35 then
-				b6B33 = 0FFh;
-			else
-				call syntaxError;
-		end;
-/* 33 */	do;
-			if b6B35 then
-			do;
-				b6B32 = 0FFh;
-				call nestIFX(2);
-				b6881 = 0FFh;
-				if skipping(0) = 0 then
-					skipping(0) = not ((low(accum1) and 1) = 1);
-
-				inElse(0) = 0;
-
-			end;
-		end;
-/* 34 */	do;
-			b6B32 = 0FFh;
-			if macroCondStk(0) <> 2 then
-				call nestingError;
-			else if not inElse(0) then
-			do;
-				if not skipping(0) then
-					skipping(0) = 0FFh;
-				else
-					skipping(0) = skipping(ifDepth);
-				inElse(0) = 0FFh;
-			end;
-			else
-				call nestingError;
-		end;
-/* 35 */	do;
-			if b6B35 then
-			do;
-				b6B32 = 0FFh;
-				call sub$676D(2);
-			end;
-		end;
-/* 36 */	do;
-			if b6744 = 1 then
-				if b6873(0) = 4Dh then
-					call syntaxError;
-			call sub$450F(85h);
-		end;
-/* 37 */	do;
-			if b6744 = 1 then
-				if b6873(0) = 4Dh then
-					call syntaxError;
-			call sub$450F(5);
-		end;
-/* 38 */	call sub$450F(7);
-/* 39 */	call sub$450F(2);
-/* 40 */	call sub$450F(8);
-/* 41 */	call sub$450F(46h);
-/* 42 */	call sub$450F(6);
-/* 43 */	call sub$450F(36h);
-/* 44 */	call sub$450F(0);
-/* 45 */	call sub$450F(0);
-/* 46 */	call sub$450F(6);
-/* 47 */	activeSeg = 0;
-/* 48 */	do;
-			activeSeg = 1;
-			call sub$4AAA(0);
-		end;
-/* 49 */	do;
-			activeSeg = 2;
-			call sub$4AAA(1);
-		end;
-
-/* 50 */	do;
-			b6748 = 0FFh;
-			b$9C3A = 0;
-			call sub$5CE8(0, 6);
-		end;
-/* 51 */	do;
-			b6749 = 0FFh;
-			if w6750 = 0 and isPhase1 and ctlOBJECT then
-				call writeModhdr;
-			b$9C3A = 0;
-			call sub$5CE8(w6750, 2);
-			if isPhase1 and ctlOBJECT and not b6754 then
-				call writeExtName;
-			
-			if not b6754 then
-				w6750 = w6750 + 1;
-			b6754 = 0;
-		end;
-/* 52 */	do;
-			if tokenSP <> 0 and b6743 then
-			do;
-				call move(6, .spaces24 + 18, .aModulePage);
-				call move(moduleNameLen := b6744, .b6873, .aModulePage);
-			end;
-			else
-				call sourceError(52h);
-			call popToken;
-		end;
-/* 53 */	segSize(3) = accum1;
-/* 54 */	call sub$7517;			/* MACRO ? */
-/* 55 */	call sub$753E;
-/* 56 */	call sub$75FF;			/* ENDM */
-/* 57 */	call sub$76CE;			/* EXITM */
-/* 58 */	do;
-			tmac$mtype = 4;
-			call sub$7327;
-		end;
-/* 59 */	call sub$72A4(1);		/* IRP ? */
-/* 60 */	call sub$72A4(2);		/* IRPC */
-/* 61 */	call sub$770B;
-/* 62 */	call sub$7844;			/* REPT ? */
-/* 63 */	call sub$787A;			/* LOCAL */
-/* 64 */	call sub$78CE;
-/* 65 */	do;				/* NUL */
-			call cond2Acc(tokenType(0) = 41h);
-			call popToken;
-			b6855 = 0;
-		end;
-	end;
-
-	if b6B2B <> 1 then
-		b6743 = 0;
-end;
-
-
-sub$518F: procedure;
-
-	sub$53C0: procedure byte;
-		if b6B29 > 3 then
-			if b6B29 <> 6 then
-				if b6B29 < 1Ah then
-					return TRUE;
-		return FALSE;
-	end;
-
-	sub$53DF: procedure(arg1b) byte;
-		declare arg1b byte;
-		return arg1b = 9 or arg1b = 64h;
-	end;
-
-
-	sub$53F8: procedure;
-		if not b4A68(b6B2B) then
-			b6B34 = 0;
-	end;
-
-    do while 1;
-	if not (b6B29 = 1 or not (b6B29 < 20h)
-	  and not (b6B29 > 23h)) and skipping(0)
-	  or (b4181(b6B29) < 128 or b$9058) and b$905E then
-		do;
-			b6885 = 0;
-			call popToken;
-			return;
-		end;
-
-	if phase <> 1 then
-		if b6B25 then
-			if sub$53C0 then
-				if getPrec(b6B29) <= getPrec(opStack(opSP)) then
-					call expressionError;
-
-	if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
-	do;
-		if opSP >= 10h then
-		do;
-			opSP = 0;
-			call stackError;
-		end;
-		else
-			opStack(opSP := opSP + 1) = opType;
-
-		if opType = 2 then
-		do;
-			b6B2F = b6B35;
-			b6B35 = 0FFh;
-		end;
-
-		if phase > 1 then
-			b6B25 = sub$53C0;
-
-		return;
-	end;
-
-	b6B25 = 0;
-	if not b6B35 and b6B2B > 3 then
-		call syntaxError;
-
-	if b6B2B = 0 then
-		b6B2B = opType;
-	else
-		opSP = opSP - 1;
-
-	if (b6B28 := b4181(b6B2B)) then
-	do;
-		accum2 = sub$43DD;
-		b6856 = b6855;
-		w685C = w685A;
-		b6859 = b6858;
-	end;
-
-	if (b6B28 := ror(b6B28, 1)) then
-		accum1 = sub$43DD;
-
-	if not b6857 then
-		b6857 = sub$53DF(b6858) or sub$53DF(b6859);
-
-	b6B2D = 0Ch;
-	if b6B2B > 3 and 1Ah > b6B2B then
-		call sub$4291;
-	else
-	do;
-		call sub$53F8;
-		call sub$4274;
-	end;
-
-	call sub$516F;
-	if not b4A26(b6B2B) then
-		b6B35 = 0;
-
-	if b6B2C then
-	do;
-		b6B2C = 0;
-		return;
-	end;
-
-	if (b6B2B <> 1Ch) and b68AB then
-		w68A6 = accum1;
-
-	if (b6B28 and 1Eh) <> 0 then
-		call pushToken(b6B2D);
-
-	do ii = 0 to 3;
-		if (b6B28 := ror(b6B28, 1)) then
-			call collectByte(accum(ii));
-	end;
-
-	tokenAttr(0) = b6855;
-	tokenSymId(0) = w685A;
-	if ror(b6B28,1) then
-		if opType = 6 then
-		do;
-			b6B29 = b6B2B;
-			b6B35 = 0FFh;
-		end;
-    end;
-end;
-
-sub$540D: procedure public;
-	do while finished = 0;
-		call sub$3F19;
-		call sub$518F;
-	end;
-end;
-end;
 asm48.pl3
 asm48:
 do;
@@ -6365,9 +5478,9 @@ sub$5CAD: procedure(arg1w, arg2b) public;
 	call popToken;
 end;
 
-declare b$9C3A byte public;
+declare b6EC4$9C3A byte public;
 
-sub$5CE8: procedure(arg1w, arg2b) public;
+sub5819$5CE8: procedure(arg1w, arg2b) public;
 	declare arg1w address, arg2b byte;
 	declare (b6CE8, b6CE9, b6CEA, b6CEB, b6CEC) byte;
 
@@ -6408,10 +5521,10 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 			end;
 
 			b6CE8 = (activeSeg <> 0 and 18h) or (b6748 and 20h) or (b6749 and 58h);
-			if b$9C3A = 1 then
+			if b6EC4$9C3A = 1 then
 				b6CE8 = b6855;
 
-			if b$9C3A = 2 then
+			if b6EC4$9C3A = 2 then
 				b6CE8 = b6CE8 or activeSeg;
 
 			if b6857 and b6CEB then
@@ -6448,10 +5561,10 @@ sub$5CE8: procedure(arg1w, arg2b) public;
 				do;
 					tokenType(0) = arg2b;
 					b6CE8 = b6CE8 and 0E0h;
-					if b$9C3A = 1 then
+					if b6EC4$9C3A = 1 then
 						b6CE8 = b6855 or 20h;
 
-					if b$9C3A = 2 then
+					if b6EC4$9C3A = 2 then
 						if activeSeg <> 0 then
 							b6CE8 = b6CE8 or activeSeg or 38h;
 				end;
@@ -6594,8 +5707,8 @@ lookup: procedure(arg1b) byte public;
 	if arg1b = 1 and not isSkipping then
 	do;
 		b6883 = 0;
-		b$9C3A = 0;
-		call sub$5CE8(w6A4E, (b6885 and 80h) or 9);
+		b6EC4$9C3A = 0;
+		call sub5819$5CE8(w6A4E, (b6885 and 80h) or 9);
 		w6BE0 = .tokenSym;
 		do i = 1 to tokenSP;
 			w6BE0 = w6BE0 + 2;
@@ -6849,7 +5962,7 @@ end;
 
 
 
-nestIFX: procedure(arg1b) public;
+nestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
@@ -6884,7 +5997,7 @@ nestIFX: procedure(arg1b) public;
 end;
 
 
-sub$676D: procedure(arg1b) public;
+unnestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if arg1b <> macroCondStk(0) then
@@ -7515,7 +6628,7 @@ sub$72A4: procedure(arg1b) public;	/* 1 -> IRP, 2 -> IRPC */
 	if sub$727F then
 	do;
 		call sub$71F2;
-		call nestIFX(1);
+		call nestIF(1);
 		tmac$w14 = 0;
 		tmac$mtype = arg1b;
 	end;
@@ -7654,7 +6767,7 @@ sub$73AD: procedure public;
 				return;
 			end;
 		tmac$mtype = b$9062;
-		call nestIFX(1);
+		call nestIF(1);
 		tmac$mtype = 0;
 	end;
 
@@ -7674,7 +6787,7 @@ sub$7517: procedure public;
 	do;
 		b6B30 = 0;
 		w$9068 = curTokenSym$p + 4;
-		call sub$5CE8(0, 3Ah);
+		call sub5819$5CE8(0, 3Ah);
 		tmac$mtype = 0;
 		call sub$71F2;
 	end;
@@ -7768,7 +6881,7 @@ sub$75FF: procedure public;
 					tmac$w10 = w$9C75;
 					call sub$720A;
 					if tmac$w14 = 0 then
-						call sub$676D(1);
+						call unnestIF(1);
 				end;
 			end;
 		end;
@@ -7839,7 +6952,7 @@ sub$770B: procedure public;
 			if tmac$mtype = 0 then
 			do;
 				call sub$720A;
-				call sub$676D(1);
+				call unnestIF(1);
 				return;
 			end;
 			else
@@ -7914,7 +7027,7 @@ sub$78CE: procedure public;
 	jj = mem(tmac$w12);
 	bp6BE0(0) = 1 - (jj = 21h and b$9062 = 2);
 	if b$9062 = 0 or (tmac$w14 := tmac$w14 - bp6BE0(0)) = 0 then
-		call sub$676D(1);
+		call unnestIF(1);
 	else
 	do;
 		if b$9062 = 1 then
@@ -8257,34 +7370,38 @@ ovl11: procedure public;
 end;
 
 end;
-asm4D.pl3
-asm4D:
+asm4dov1.pl3x
+asm4D$OV1:
 do;
 /* to force the code generation this needs a non-standard definition
    of put2Hex
 */
 put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
+$IF ASM4D
 $include(asm4d.ipx)
-declare
-    aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
-    aNoErrors(*) byte initial('   NO ERRORS'),
-    asc$751E(*) byte initial(' ('),
-    asc$7520(*) byte initial('     )'),
-    aPublicSymbols(*) byte initial(0Dh, 0Ah, 'PUBLIC SYMBOLS', 0Dh, 0Ah, 0),
-    aExternalSymbol(*) byte initial(0Dh, 0Ah, 'EXTERNAL SYMBOLS', 0Dh, 0Ah, 0),
-    pad754E address,
+$ELSE
+$include(asmov1.ipx)
+$ENDIF
 
-    aUserSymbols(*) byte data(0Dh, 0Ah, 'USER SYMBOLS', 0Dh, 0Ah, 0),
-    aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', 0Dh, 0Ah, 0Ah, 0),
-    wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
-    asc$6DB8(*) byte data(0Dh, 0Ah, 0Ah, 0),
-    asc$6DBC(*) byte data(0Dh),
-    asc$6DBD(*) byte data(0Ah, 0Ah, 0Ah, 0),
-    b6DC1(2) byte data(20h, 40h),
-    ascLParen(*) byte data(' (', 0),
-    ascRParen(*) byte data(')', 0),
-    a1234(*) byte data('  1234');    
+declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
+	aNoErrors(*) byte initial('   NO ERRORS'),
+	asc$751E(*) byte initial(' ('),
+	asc$7520(*) byte initial('     )'),
+	aPublicSymbols(*) byte initial(CR, LF, 'PUBLIC SYMBOLS', CR, LF, 0),
+	aExternalSymbol(*) byte initial(CR, LF, 'EXTERNAL SYMBOLS', CR, LF, 0),
+	pad754E address,
+
+	aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
+	aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
+	wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
+	asc$6DB8(*) byte data(CR, LF, LF, 0),
+	asc$6DBC(*) byte data(CR),
+	asc$6DBD(*) byte data(LF, LF, LF, 0),
+	b6DC1(2) byte data(20h, 40h),
+	ascLParen(*) byte data(' (', 0),
+	ascRParen(*) byte data(')', 0),
+	a1234(*) byte data('  1234');
 
 
 out2Hex: procedure(arg1b);
@@ -8355,13 +7472,13 @@ end;
 
 skipToEOP: procedure public;
     do while lineCnt <= ctlPAGELENGTH;
-        call outch(0Ah);
+        call outch(LF);
         lineCnt = lineCnt + 1;
     end;
 end;
 
 
-newPageHeader: procedure public;    
+newPageHeader: procedure public;
     call printStr(.asc$6DBD);
     call printStr(.aIsisIi80808085);
     call printDecimal(pageCnt);
@@ -8381,7 +7498,7 @@ newPage: procedure public;
     if ctlTTY then
         call skipToEOP;
     else
-        call outch(0Ch);
+        call outch(FF);
 
     lineCnt = 1;
     if not scanCmdLine then
@@ -8400,22 +7517,23 @@ end;
 
 
 
-printChar: procedure(arg1b) reentrant;
-    declare ch byte, arg1b byte;
+printChar: procedure(c) reentrant;
+    declare c byte;
+    declare cnt byte;
 
-    if arg1b = 0Ch then
+    if c = FF then
     do;
         call newPage;
         return;
     end;
 
-    if arg1b = 0Ah then
+    if c = LF then
         if ctlPAGING then
         do;
             if (lineCnt := lineCnt + 1) >= ctlPAGELENGTH - 2 then
             do;
                 if ctlTTY then
-                    call outch(0Ah);
+                    call outch(LF);
                 if ctlEJECT > 0 then
                     ctlEJECT = ctlEJECT - 1;
                 call newPage;
@@ -8423,20 +7541,20 @@ printChar: procedure(arg1b) reentrant;
             end;
         end;
 
-    if arg1b = 0Dh then
+    if c = CR then
         curCol = 0;
 
-    ch = 1;
-    if arg1b = 9 then
+    cnt = 1;
+    if c = TAB then
     do;
-        ch = 8 - (curCol and 7);
-        arg1b = ' ';
+        cnt = 8 - (curCol and 7);
+        c = ' ';
     end;
 
-    do while ch <> 0;
+    do while cnt <> 0;
         if curCol < 132 then
         do;
-            if arg1b >= ' ' then
+            if c >= ' ' then
                 curCol = curCol + 1;
             if curCol > ctlPAGEWIDTH then
             do;
@@ -8444,19 +7562,18 @@ printChar: procedure(arg1b) reentrant;
                 call printStr(.spaces24);
                 curCol = curCol + 1;
             end;
-            call outch(arg1b);
+            call outch(c);
         end;
-        ch = ch - 1;
+        cnt = cnt - 1;
     end;
 end;
 
 declare b755C(*) byte initial(' CDSME');
 
-sub$8447: procedure public;
+sub7041$8447: procedure public;
     declare b7562 byte,
         w7563 address,
-        b7563 byte at(.w7563),
-        b7564 byte at(.w7563 + 1),
+        (b7563, b7564) byte at(.w7563),
         b7565 byte;
 
     sub$718C: procedure(arg1w);
@@ -8475,7 +7592,9 @@ sub$8447: procedure public;
     b755C(0) = 'A';
     do b7562 = 0 to 2;
         jj = isPhase2Print and ctlSYMBOLS;
+$IF ASM4D
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
+$ENDIF
         curTokenSym$p = symTab(1) - 2;
         call printCRLF;
         call printStr(wa6DB2(b7562));
@@ -8484,7 +7603,9 @@ sub$8447: procedure public;
             w7563 = curTokenSym.w0;
             if b7563 <> 9 then
                 if b7563 <> 6 then
+$IF ASM4D
                     if sub$3FA9 then
+$ENDIF
                         if b7562 <> 0 or b7563 <> 3 then
                             if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
                             do;
@@ -8496,9 +7617,12 @@ sub$8447: procedure public;
 
                                     call printStr(.b68AE(1));
                                     call printChar(' ');
+$IF ASM4D
                                     if b7563 = 3Ah then
                                         call printChar('+');
-                                    else if (b7565 := (b7564 and 40h) <> 0) then
+                                    else
+$ENDIF
+				    if (b7565 := (b7564 and 40h) <> 0) then
                                         call printChar('E');
                                     else
                                         call printChar(b755C(b7564 and 7));
@@ -8523,7 +7647,7 @@ end;
 printCmdLine: procedure public;
     declare ch based actRead byte;
 
-    call outch(0Ch);
+    call outch(FF);
     call sub$6F4D;
     ch = 0;
     call printStr(.cmdLineBuf);
@@ -8531,24 +7655,24 @@ printCmdLine: procedure public;
 end;
 
 
-outStr: procedure(arg1w) reentrant public;
-    declare arg1w address;
-    declare ch based arg1w byte;
+outStr: procedure(s) reentrant public;
+    declare s address;
+    declare ch based s byte;
 
     do while ch <> 0;
         call outch(ch);
-        arg1w = arg1w + 1;
+        s = s + 1;
     end;
 end;
 
-outNStr: procedure(arg1b, arg2w) reentrant;
-    declare arg1b byte, arg2w address,
-        ch based arg2w byte;
+outNStr: procedure(cnt, s) reentrant;
+    declare cnt byte, s address,
+        ch based s byte;
 
-    do while arg1b > 0;
+    do while cnt > 0;
         call outch(ch);
-        arg2w = arg2w + 1;
-        arg1b = arg1b - 1;
+        s = s + 1;
+        cnt = cnt - 1;
     end;
 end;
 
@@ -8572,7 +7696,7 @@ sub$7229: procedure public;
         call outStr(.spaces24 + 20);
 
     call outch(' ');
-    do  b7568 = 1 to 4; 
+    do  b7568 = 1 to 4;
         if sub$721E and b6B34 then
         do;
             w68A6 = w68A6 + 1;
@@ -8607,20 +7731,22 @@ end;
 
 
 
-sub$872E: procedure public;
-    declare ch based off$9056 byte,
-        ch1 based off$6C2C byte;
+ovl3: procedure public;
+    declare ch based off6C2C byte;
+$IF ASM4D
+    declare ch1 based off9056 byte;
+$ENDIF
 loop:
-
-   
     w68A0 = (w68A2 := tokStart(b6A56)) + tokenSize(b6A56);
     if isSkipping then
         w68A0 = w68A2;
 
     call outch(asmErrCode);
+$IF ASM4D
     if b$905E = 0FFh then
         call outch('-');
     else
+$ENDIF
         call outch(' ');
 
     if not blankAsmErrCode then
@@ -8637,9 +7763,9 @@ loop:
     do;
         call outch(a1234(ii := b6C21 + fileIdx));
         if ii > 0 then    
-            call outch(3Dh);
+            call outch('=');
         else
-            call outch(20h);
+            call outch(' ');
     end;
     else
         call outStr(.spaces24 + 22);
@@ -8653,25 +7779,30 @@ loop:
     do;
         b68AD = 0FFh;
         call outNStr(4, .asciiLineNo);
+$IF ASM4D
         if b$905B > 1 then
             call outch('+');
         else
+$ENDIF
             call outch(' ');
-
+$IF ASM4D
         if b$905B > 1 then
         do;
             curCol = 18h;
-            ch = 0;
+            ch1 = 0;
             call printStr(.b$8FD5);
-            call printChar(0Ah);
+            call printChar(LF);
         end;
         else
         do;
+$ENDIF
             curCol = 18h;
-            call printNStr(b6C30, off$6C2E);
-            if ch1 <> 0Ah then
-                call printChar(0Ah);
+            call printNStr(b6C30, off6C2E);
+	    if ch <> LF then
+                 call printChar(LF);
+$IF ASM4D
         end;
+$ENDIF
     end;
 
     if b6B20$9A77 then
@@ -8706,8 +7837,8 @@ asmComplete: procedure public;
         call move(4, .b6A57, .asc$7520);
         call printNStr(8, .asc$751E);
     end;
-    call outch(0Dh);
-    call outch(0Ah);
+    call outch(CR);
+    call outch(LF);
 end;
 
 ovl9: procedure public;
@@ -8723,11 +7854,12 @@ ovl10: procedure public;
     declare ch based w68A6 byte;
 
     call closeF(infd);
+$IF ASM4D
     call closeF(macrofd);
     call delete(.aF0Asmac$tmp, .statusIO);
     if ctlOBJECT then
         call closeF(objfd);
-
+$ENDIF
     if ctlXREF then
     do;
         w68A6 = physmem - 1;
@@ -9168,6 +8300,23 @@ OVERLAY=6D4Ch
 
 all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
+# generated pl3 files
+asm4d.pl3: asm4dov1.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM4D -o $@ $**
+
+asmov1.pl3: asm4dov1.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASMOV1 -o $@ $**
+
+asm47.pl3: asm4785.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM47 -o $@ $**
+
+asm85.pl3: asm4785.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM85 -o $@ $**
+
 asm80: base.abs asmov0.abs asmov1.abs asmov2.abs asmov3.abs keywrd.abs 
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
@@ -9295,7 +8444,7 @@ vclean: clean
 	del asm80 asm80.ov?
 
 uclean: vclean
-	del ??????.* makefile
+	del ??????.* makefile *.pl3x
 
 verify: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	for %i in ($**) do $(TOOLS:/=\)diffbin %i $(V4)\%i
@@ -9346,11 +8495,20 @@ exit
 	@find asmov5.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find asmov5.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
+
 # pex file dependencies
 $(OBJS1:.obj=.ipx): $(PEXFILE)
 $(OBJS4:.obj=.ipx): $(PEXFILE)
 $(OBJS5:.obj=.ipx): $(PEXFILE)
 asmov0.ipx asmov1.ipx asmov2.ipx asmov3.ipx: $(PEXFILE)
+
+# force depencency as pl3 files may not be present when mkdepend is run
+asm4d.obj: asm4d.pl3 asm4d.ipx
+asmov1.obj: asmov1.pl3 asmov1.ipx
+asm47.obj: asm47.pl3 asm47.ipx
+asm85.obj: asm85.pl3 asm85.ipx
+
+# auto generated
 
 close.plm
 close: DO;
@@ -9530,4 +8688,6 @@ cprite:	db '(C) 1976,1977,1979,1980 INTEL CORP'
 	DSEG
 EDATA	equ	$
 	end
+
+
 

@@ -1,30 +1,34 @@
-asm4D:
+asm4D$OV1:
 do;
 /* to force the code generation this needs a non-standard definition
    of put2Hex
 */
 put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
+$IF ASM4D
 $include(asm4d.ipx)
-declare
-    aAssemblyComple(*) byte initial(0Dh, 0Ah, 'ASSEMBLY COMPLETE,'),
-    aNoErrors(*) byte initial('   NO ERRORS'),
-    asc$751E(*) byte initial(' ('),
-    asc$7520(*) byte initial('     )'),
-    aPublicSymbols(*) byte initial(0Dh, 0Ah, 'PUBLIC SYMBOLS', 0Dh, 0Ah, 0),
-    aExternalSymbol(*) byte initial(0Dh, 0Ah, 'EXTERNAL SYMBOLS', 0Dh, 0Ah, 0),
-    pad754E address,
+$ELSE
+$include(asmov1.ipx)
+$ENDIF
 
-    aUserSymbols(*) byte data(0Dh, 0Ah, 'USER SYMBOLS', 0Dh, 0Ah, 0),
-    aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', 0Dh, 0Ah, 0Ah, 0),
-    wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
-    asc$6DB8(*) byte data(0Dh, 0Ah, 0Ah, 0),
-    asc$6DBC(*) byte data(0Dh),
-    asc$6DBD(*) byte data(0Ah, 0Ah, 0Ah, 0),
-    b6DC1(2) byte data(20h, 40h),
-    ascLParen(*) byte data(' (', 0),
-    ascRParen(*) byte data(')', 0),
-    a1234(*) byte data('  1234');    
+declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
+	aNoErrors(*) byte initial('   NO ERRORS'),
+	asc$751E(*) byte initial(' ('),
+	asc$7520(*) byte initial('     )'),
+	aPublicSymbols(*) byte initial(CR, LF, 'PUBLIC SYMBOLS', CR, LF, 0),
+	aExternalSymbol(*) byte initial(CR, LF, 'EXTERNAL SYMBOLS', CR, LF, 0),
+	pad754E address,
+
+	aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
+	aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
+	wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
+	asc$6DB8(*) byte data(CR, LF, LF, 0),
+	asc$6DBC(*) byte data(CR),
+	asc$6DBD(*) byte data(LF, LF, LF, 0),
+	b6DC1(2) byte data(20h, 40h),
+	ascLParen(*) byte data(' (', 0),
+	ascRParen(*) byte data(')', 0),
+	a1234(*) byte data('  1234');
 
 
 out2Hex: procedure(arg1b);
@@ -95,13 +99,13 @@ end;
 
 skipToEOP: procedure public;
     do while lineCnt <= ctlPAGELENGTH;
-        call outch(0Ah);
+        call outch(LF);
         lineCnt = lineCnt + 1;
     end;
 end;
 
 
-newPageHeader: procedure public;    
+newPageHeader: procedure public;
     call printStr(.asc$6DBD);
     call printStr(.aIsisIi80808085);
     call printDecimal(pageCnt);
@@ -121,7 +125,7 @@ newPage: procedure public;
     if ctlTTY then
         call skipToEOP;
     else
-        call outch(0Ch);
+        call outch(FF);
 
     lineCnt = 1;
     if not scanCmdLine then
@@ -140,22 +144,23 @@ end;
 
 
 
-printChar: procedure(arg1b) reentrant;
-    declare ch byte, arg1b byte;
+printChar: procedure(c) reentrant;
+    declare c byte;
+    declare cnt byte;
 
-    if arg1b = 0Ch then
+    if c = FF then
     do;
         call newPage;
         return;
     end;
 
-    if arg1b = 0Ah then
+    if c = LF then
         if ctlPAGING then
         do;
             if (lineCnt := lineCnt + 1) >= ctlPAGELENGTH - 2 then
             do;
                 if ctlTTY then
-                    call outch(0Ah);
+                    call outch(LF);
                 if ctlEJECT > 0 then
                     ctlEJECT = ctlEJECT - 1;
                 call newPage;
@@ -163,20 +168,20 @@ printChar: procedure(arg1b) reentrant;
             end;
         end;
 
-    if arg1b = 0Dh then
+    if c = CR then
         curCol = 0;
 
-    ch = 1;
-    if arg1b = 9 then
+    cnt = 1;
+    if c = TAB then
     do;
-        ch = 8 - (curCol and 7);
-        arg1b = ' ';
+        cnt = 8 - (curCol and 7);
+        c = ' ';
     end;
 
-    do while ch <> 0;
+    do while cnt <> 0;
         if curCol < 132 then
         do;
-            if arg1b >= ' ' then
+            if c >= ' ' then
                 curCol = curCol + 1;
             if curCol > ctlPAGEWIDTH then
             do;
@@ -184,19 +189,18 @@ printChar: procedure(arg1b) reentrant;
                 call printStr(.spaces24);
                 curCol = curCol + 1;
             end;
-            call outch(arg1b);
+            call outch(c);
         end;
-        ch = ch - 1;
+        cnt = cnt - 1;
     end;
 end;
 
 declare b755C(*) byte initial(' CDSME');
 
-sub$8447: procedure public;
+sub7041$8447: procedure public;
     declare b7562 byte,
         w7563 address,
-        b7563 byte at(.w7563),
-        b7564 byte at(.w7563 + 1),
+        (b7563, b7564) byte at(.w7563),
         b7565 byte;
 
     sub$718C: procedure(arg1w);
@@ -215,7 +219,9 @@ sub$8447: procedure public;
     b755C(0) = 'A';
     do b7562 = 0 to 2;
         jj = isPhase2Print and ctlSYMBOLS;
+$IF ASM4D
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
+$ENDIF
         curTokenSym$p = symTab(1) - 2;
         call printCRLF;
         call printStr(wa6DB2(b7562));
@@ -224,7 +230,9 @@ sub$8447: procedure public;
             w7563 = curTokenSym.w0;
             if b7563 <> 9 then
                 if b7563 <> 6 then
+$IF ASM4D
                     if sub$3FA9 then
+$ENDIF
                         if b7562 <> 0 or b7563 <> 3 then
                             if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
                             do;
@@ -236,9 +244,12 @@ sub$8447: procedure public;
 
                                     call printStr(.b68AE(1));
                                     call printChar(' ');
+$IF ASM4D
                                     if b7563 = 3Ah then
                                         call printChar('+');
-                                    else if (b7565 := (b7564 and 40h) <> 0) then
+                                    else
+$ENDIF
+				    if (b7565 := (b7564 and 40h) <> 0) then
                                         call printChar('E');
                                     else
                                         call printChar(b755C(b7564 and 7));
@@ -263,7 +274,7 @@ end;
 printCmdLine: procedure public;
     declare ch based actRead byte;
 
-    call outch(0Ch);
+    call outch(FF);
     call sub$6F4D;
     ch = 0;
     call printStr(.cmdLineBuf);
@@ -271,24 +282,24 @@ printCmdLine: procedure public;
 end;
 
 
-outStr: procedure(arg1w) reentrant public;
-    declare arg1w address;
-    declare ch based arg1w byte;
+outStr: procedure(s) reentrant public;
+    declare s address;
+    declare ch based s byte;
 
     do while ch <> 0;
         call outch(ch);
-        arg1w = arg1w + 1;
+        s = s + 1;
     end;
 end;
 
-outNStr: procedure(arg1b, arg2w) reentrant;
-    declare arg1b byte, arg2w address,
-        ch based arg2w byte;
+outNStr: procedure(cnt, s) reentrant;
+    declare cnt byte, s address,
+        ch based s byte;
 
-    do while arg1b > 0;
+    do while cnt > 0;
         call outch(ch);
-        arg2w = arg2w + 1;
-        arg1b = arg1b - 1;
+        s = s + 1;
+        cnt = cnt - 1;
     end;
 end;
 
@@ -312,7 +323,7 @@ sub$7229: procedure public;
         call outStr(.spaces24 + 20);
 
     call outch(' ');
-    do  b7568 = 1 to 4; 
+    do  b7568 = 1 to 4;
         if sub$721E and b6B34 then
         do;
             w68A6 = w68A6 + 1;
@@ -347,20 +358,22 @@ end;
 
 
 
-sub$872E: procedure public;
-    declare ch based off$9056 byte,
-        ch1 based off$6C2C byte;
+ovl3: procedure public;
+    declare ch based off6C2C byte;
+$IF ASM4D
+    declare ch1 based off9056 byte;
+$ENDIF
 loop:
-
-   
     w68A0 = (w68A2 := tokStart(b6A56)) + tokenSize(b6A56);
     if isSkipping then
         w68A0 = w68A2;
 
     call outch(asmErrCode);
+$IF ASM4D
     if b$905E = 0FFh then
         call outch('-');
     else
+$ENDIF
         call outch(' ');
 
     if not blankAsmErrCode then
@@ -377,9 +390,9 @@ loop:
     do;
         call outch(a1234(ii := b6C21 + fileIdx));
         if ii > 0 then    
-            call outch(3Dh);
+            call outch('=');
         else
-            call outch(20h);
+            call outch(' ');
     end;
     else
         call outStr(.spaces24 + 22);
@@ -393,25 +406,30 @@ loop:
     do;
         b68AD = 0FFh;
         call outNStr(4, .asciiLineNo);
+$IF ASM4D
         if b$905B > 1 then
             call outch('+');
         else
+$ENDIF
             call outch(' ');
-
+$IF ASM4D
         if b$905B > 1 then
         do;
             curCol = 18h;
-            ch = 0;
+            ch1 = 0;
             call printStr(.b$8FD5);
-            call printChar(0Ah);
+            call printChar(LF);
         end;
         else
         do;
+$ENDIF
             curCol = 18h;
-            call printNStr(b6C30, off$6C2E);
-            if ch1 <> 0Ah then
-                call printChar(0Ah);
+            call printNStr(b6C30, off6C2E);
+	    if ch <> LF then
+                 call printChar(LF);
+$IF ASM4D
         end;
+$ENDIF
     end;
 
     if b6B20$9A77 then
@@ -446,8 +464,8 @@ asmComplete: procedure public;
         call move(4, .b6A57, .asc$7520);
         call printNStr(8, .asc$751E);
     end;
-    call outch(0Dh);
-    call outch(0Ah);
+    call outch(CR);
+    call outch(LF);
 end;
 
 ovl9: procedure public;
@@ -463,11 +481,12 @@ ovl10: procedure public;
     declare ch based w68A6 byte;
 
     call closeF(infd);
+$IF ASM4D
     call closeF(macrofd);
     call delete(.aF0Asmac$tmp, .statusIO);
     if ctlOBJECT then
         call closeF(objfd);
-
+$ENDIF
     if ctlXREF then
     do;
         w68A6 = physmem - 1;
