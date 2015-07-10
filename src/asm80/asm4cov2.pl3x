@@ -1,7 +1,9 @@
-asmov2: do;
-
+asm4c$ov2: do;
+$IF ASM4C
+$include(asm4c.ipx)
+$ELSE
 $include(asmov2.ipx)
-
+$ENDIF
 
 declare	controlTable(*) byte data(1, 2, 1, 3),
 	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
@@ -195,55 +197,59 @@ writeExtName: procedure public;
 end;
 
 writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
-	declare arg1b byte;
-	declare segId byte,
-	symb based curTokenSym$p(1) byte;	/* TO CLEANUP */
+    declare arg1b byte;
+    declare segId byte;
+    declare symb based curTokenSym$p (1) byte;
 
-	addSymbol: procedure;
-		declare offsetInSeg$p address;
-		declare symNam based dta$p(6) byte;
-		declare len based recSym$p byte;
-		declare symOffset based recSym$p address;
-		declare offsetInSeg based offsetInSeg$p address;
+    addSymbol: procedure;
+        declare offsetInSeg$p address;
+        declare symNam based dta$p(6) byte;
+        declare len based recSym$p byte;
+        declare symOffset based recSym$p address;
+        declare offsetInSeg based offsetInSeg$p address;
 
-		if (symb(1) and 40h) <> 0 then
-			return;
-		offsetInSeg$p = curTokenSym$p - 2;
-		symOffset = offsetInSeg; 
-		call unpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
-		symNam(6) = ' ';	/* trailing space to ensure end */
-		len = 0;
+        if (symb(1) and 40h) <> 0 then
+            return;
+        offsetInSeg$p = curTokenSym$p - 2;
+        symOffset = offsetInSeg; 
+        call unpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
+        symNam(6) = ' ';	/* trailing space to ensure end */
+        len = 0;
 
-		do while symNam(0) <> ' ';	/* find length of name */
-			len = len + 1;
-			dta$p = dta$p + 1;
-		end;
-		symNam(0) = 0;			/* terminate name with 0 */
-		recSym$p = dta$p + 1;
-	end;
+        do while symNam(0) <> ' ';	/* find length of name */
+            len = len + 1;
+            dta$p = dta$p + 1;
+        end;
+        symNam(0) = 0;			/* terminate name with 0 */
+        recSym$p = dta$p + 1;
+    end;
 
-	flushSymRec: procedure;
-		if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
-			call writeRec(.r$publics);
-		r$publics.type = (arg1b and 4) or 12h;			/* PUBLIC or LOCAL */
-		r$publics.segid = segId;
-		recSym$p = .r$publics.dta;
-	end;
+    flushSymRec: procedure;
+        if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
+            call writeRec(.r$publics);
+        r$publics.type = (arg1b and 4) or 12h;			/* PUBLIC or LOCAL */
+        r$publics.segid = segId;
+        recSym$p = .r$publics.dta;
+    end;
 
-	recSym$p = .r$publics.dta;
-	do segId = 0 to 4;
-		call flushSymRec;
-		curTokenSym$p = symTab(1) - 2;
+    recSym$p = .r$publics.dta;
+    do segId = 0 to 4;
+        call flushSymRec;
+        curTokenSym$p = symTab(1) - 2;
 
-		do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-			if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
-				call flushSymRec;
+        do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
+        	if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
+        		call flushSymRec;
 
-			if (symb(1) and 7) = segId and not testBit(symb(0), .b6D7E) and
-			  (not arg1b or (symb(1) and 20h) <> 0) then
-				call addSymbol;
-		end;
-		call flushSymRec;
+            if (symb(1) and 7) = segId
+$IF ASM4C
+               and symb(0) <> 3Ah and sub$3FA9
+$ENDIF
+               and not testBit(symb(0), .b6D7E) and
+               (not arg1b or (symb(1) and 20h) <> 0) then
+       	        call addSymbol;
+        end;
+        call flushSymRec;
 	end;
 end;
 

@@ -56,6 +56,14 @@ asmov1.pl3: asm4dov1.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASMOV1 -o $@ $**
 
+asm4c.pl3: asm4cov2.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM4C -o $@ $**
+
+asmov2.pl3: asm4cov2.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASMOV2 -o $@ $**
+
 asm47.pl3: asm4785.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM47 -o $@ $**
@@ -256,6 +264,8 @@ asm4a.obj: asm4a.pl3 asm4a.ipx
 asmov0.obj: asmov0.pl3 asmov0.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
 asmov1.obj: asmov1.pl3 asmov1.ipx
+asm4c.obj: asm4c.pl3 asm4c.ipx
+asmov2.obj: asmov2.pl3 asmov2.ipx
 asm47.obj: asm47.pl3 asm47.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 
@@ -269,7 +279,6 @@ asm46.obj: asm46.pl3 asm46.ipx
 asm48.obj: asm48.pl3 asm48.ipx
 asm49.obj: asm49.pl3 asm49.ipx
 asm4b.obj: asm4b.pl3 asm4b.ipx
-asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pac
 asm51.obj: asm51.plm asm51.ipx as4151.pac
 asm52.obj: asm52.plm asm52.ipx as4252.pac
@@ -282,7 +291,6 @@ asm83.obj: asm83.plm asm83.ipx as4483.pac
 asm851.obj: asm851.plm asm851.ipx
 asm86.obj: asm86.pl3 asm86.ipx
 asm861.obj: asm861.plm asm861.ipx
-asmov2.obj: asmov2.pl3 asmov2.ipx
 asmov3.obj: asmov3.plm asmov3.ipx as4e5d.pac
 close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx
