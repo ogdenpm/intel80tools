@@ -1,6 +1,10 @@
-asmov0: do;
-
+/*$SET(ASM4A)*/
+asm4A$OV0: do;
+$IF ASM4A
+$include(asm4a.ipx)
+$ELSE
 $include(asmov0.ipx)
+$ENDIF
 
 declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   34h, 'XREF', 37h, 'SYMBOLS',
@@ -32,29 +36,29 @@ getTok: procedure byte;
 		return curChar;
 
 	call skipWhite$2;
-	if curChar > 40h and 5Bh > curChar or curChar >60h and 7Bh > curChar then
-	do;	/* is letter */
+	if curChar > 'A'-1 and 'Z'+1 > curChar or curChar > 'a'-1 and 'z'+1 > curChar then
+	do;							/* letter */
 		call getId(1);
 		if blankAsmErrCode and tokenSize(0) < 14 then
 			call move(tokBufLen := tokenSize(0), .lineBuf, .tokBuf);
 	end;
-	else if curChar > 2Fh  and  3Ah > curChar then
-	do;	/* is digit */
+	else if curChar > '0'-1  and  '9'+1 > curChar then	/* digit ? */
+	do;
 		call getNum;
 		if blankAsmErrCode then
 		do;
 			w6B1E = sub$43DD;
 			tokType = TT$NUM;
-			tokBuf(0) = 20h;
+			tokBuf(0) = ' ';
 		end;
 	end;
-	else if curChar = 27h then
-	do;	/* is string */
+	else if curChar = '''' then	/* string ? */
+	do;
 		call getStr;
 		if blankAsmErrCode then
 		do;
-			tokBufLen = 40h;
-			if tokenSize(0) < 40h then
+			tokBufLen = 64;
+			if tokenSize(0) < 64 then
 				tokBufLen = tokenSize(0);
 			tokType = TT$STR;
 			if tokBufLen > 0 then
@@ -113,7 +117,7 @@ end;
 
 getFileParam: procedure;
 	tokBufIdx = 0;
-	if not chkParen(0) then		/* ( */
+	if not chkParen(0) then	/* ( */
 		call fileError;
 	else
 	do;
@@ -170,9 +174,10 @@ lookupControl: procedure byte;
 		do;
 			controls(controlId) = ctlVal;
 			if not ctlVal then
-				controlId = 17;		/* no action needed */
+				controlId = 17;	/* no action needed */
 		end;
 	end;
+
 
 	cmdLen = tokBufLen;
 	cmdStartIdx = 0;
@@ -183,6 +188,7 @@ lookupControl: procedure byte;
 		ctlVal = 0;		/* control will be set as false */
 		cmdLen = tokBufLen - 2;	/* length of string to match excludes the NO */
 	end;
+
 	control$p = .controlTable;
 	controlId = 0;
 	cmdIdx = cmdStartIdx;
@@ -199,6 +205,7 @@ lookupControl: procedure byte;
 				else
 					cmdIdx = cmdIdx + 1;	/* check next character */
 			end;
+
 			if cmdIdx = tokBufLen then		/* found it */
 				goto break;
 		end;
@@ -206,26 +213,28 @@ lookupControl: procedure byte;
 		controlId = controlId + 1;
 		cmdIdx = cmdStartIdx;
 	end;
-	return 255;					/* not found */
+	return 255;						/* not found */
 
-break: if controlId = 1 or controlId = 12h then		/* MACRODEBUG or GEN */
+break:
+$IF ASMOV0 
+	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
 	do;
 		if scanCmdLine then			/* only valid on command line not $ line */
 			MacroDebugOrGen = 0FFh;
 		else
 			return 255;			/* error otherwise */
 	end;
-
+$ENDIF
 	if (noInvalid := (ctlFlags and 10h) <> 10h) and not ctlVal then
-		return 0FFh;				/* NO not supported */
+		return 255;	/* NO not supported */
 
 	if (ctlFlags and 20h) <> 20h then		/* GENERAL control */
 	do;
 		call setControl;
 		return controlId;
 	end;
-							/* is a PRIMARY control */
-	if not primaryValid then
+
+	if not primaryValid then			/* is a PRIMARY control */
 		return 255;
 
 	ctlSeen$p = .controlSeen(controlId);		/* make sure we only see a primary once */
@@ -235,9 +244,6 @@ break: if controlId = 1 or controlId = 12h then		/* MACRODEBUG or GEN */
 	call setControl;
 	return controlId;
 end;
-
-
-
 
 processControl: procedure;
 	if controlId >= 17 or controlId < 5 then
@@ -330,7 +336,7 @@ processControl: procedure;
 				end;
 			end;
 		end;
-/* 9 */		do;				/* SAVE */
+/* 9 */		do;			/* SAVE */
 			if saveIdx > 7 then
 				call stackError;
 			else
@@ -340,14 +346,14 @@ processControl: procedure;
 				return;
 			end;
 		end;
-/* 10 */	do;				/* RESTORE */
+/* 10 */	do;			/* RESTORE */
 			if saveIdx > 0 then
 			do;
 				call move(3, .saveStack + (saveIdx := saveIdx - 1) * 3, .ctlLIST);
 				return;
 			end;
 		end;
-/* 11 */	do;				/* EJECT */
+/* 11 */	do;			/* EJECT */
 			ctlEJECT = ctlEJECT + 1;
 			return;
 		end;
@@ -355,14 +361,16 @@ processControl: procedure;
 	controlError = 0FFh;
 end;
 
-
 parseControls: procedure public;
 	b6B20$9A77 = 0FFh;
 	b6A6F, b7464 = ctlLIST;
+$IF ASM4A
+	b7465 = ctlGEN;
+$ENDIF
 	controlError = 0;
 
 	do while getTok <> 0Dh and not controlError;
-		if tokBuf(0) = ';' then
+		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
 		else if lookupControl = 0FFh then	/* error ? */
 			controlError = 0FFh;
@@ -372,20 +380,26 @@ parseControls: procedure public;
 
 	if controlError then
 	do;
-		if tokBuf(0) <> 0Dh then
+		if tokBuf(0) <> CR then
 		do;
 			reget = 0;
 			call skip2EOL;
 		end;
+
 		if scanCmdLine then
 			call runtimeError(2);	/* command error */
 		else
 			call commandError;
 	end;
 
-	call chkLF;				/* gobble the line feed */
+	call chkLF;			/* eat the LF */
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
+$IF ASM4A
+	else if ctlGEN <> b7465 and b$905B then
+		b6A6F = 0;
+$ENDIF
+
 	reget = 0;
 end;
 
