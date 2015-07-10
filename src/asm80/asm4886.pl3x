@@ -1,25 +1,29 @@
-asm80$6: do;
-
+asm48$86:
+do;
+$IF ASM48
+$include(asm48.ipx)
+$ELSE
 $include(asm86.ipx)
-
-
+$ENDIF
 declare	b5666(*) byte data(9, 2Dh, 80h),
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
-			/* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+		       /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 	op16(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-			   0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
+                          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
+                          0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
 			  /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 	chClass(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,	/* 00 */
-			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	/* 10 */
+$IF ASM48
+			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
+$ELSE
+			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
+$ENDIF
 			     1, 0, 0, 0, 6, 0, 0, 7, 5, 5, 5, 5, 5, 5, 0, 5,	/* 20 */
 			     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 2, 0, 0, 0, 9,	/* 30 */
 			     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,	/* 40 */
 			     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0,	/* 50 */
 			     0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,	/* 60 */
 			     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);	/* 70 */
-
-
 
 unpackToken: procedure(src, dst) public;
 	declare (src, dst) address;
@@ -54,26 +58,52 @@ unpackToken: procedure(src, dst) public;
 end;
 
 
-
-
 insertSym: procedure public;
-	declare (w6CE0, w6CE2) address;
-	declare ch1 based w6CE0 byte,
-		ch2 based w6CE2 byte;
+	declare (w6EC0$9C32, w6EC2$9C34) address;
+	declare ch1 based w6EC0$9C32 byte;
+	declare ch2 based w6EC2$9C34 byte;
 
-	w686E, w6CE0 = (w6CE2 := w686E) + 8;
-	if w6CE0 > w6870 then
+	w686E, w6EC0$9C32 = (w6EC2$9C34 := w686E) + 8;
+	if w6870 < w6EC0$9C32 then
 		call runtimeError(1);	/* table error */
 
-	do while w6CE2  > curTokenSym$p;
-		w6CE0 = w6CE0 - 1;
-		w6CE2 = w6CE2 - 1;
+	do while w6EC2$9C34 > curTokenSym$p;
+		w6EC0$9C32 = w6EC0$9C32 - 1;
+		w6EC2$9C34 = w6EC2$9C34 - 1;
 		ch1 = ch2;
 	end;
 
 	call move(4, curTokStart, curTokenSym$p);
+$IF ASM48
+	w6868(2) = w6868(2) + 8;
+$ENDIF
 	curTokenSym.type = 0;
 end;
+
+$IF ASM48
+sub$5C73: procedure(arg1b) byte;
+	declare arg1b byte;
+
+	if w6868(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
+		return 0;
+
+	call syntaxError;
+	return 0FFh;
+end;
+
+
+sub$5CAD: procedure(arg1w, arg2b) public;
+	declare arg1w address, arg2b byte;
+
+	if sub$5C73(2) then
+		return;
+	call insertSym;
+	curTokenSym.w4 = arg1w;
+	curTokenSym.type = arg2b;
+	curTokenSym.flags = 0;
+	call popToken;
+end;
+$ENDIF
 
 declare b6EC4$9C3A byte public;
 
@@ -87,15 +117,19 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 			tokenType(0) = 12 - arg2b;
 	end;
 
-
 	b6CEC = tokenType(0);
 	b6CEB = arg2b = 5 or arg2b = 4;
 	b6CE9 = 0;
 	b6CE8 = curTokenSym.flags;
 	b6CEA = 0;
+$IF ASM48
+	if sub$5C73(1) then
+	do;
+$ELSE
 	if curTokenSym$p > w6868(1) or curTokenSym$p < symTab(1) then
 	do;
 		call syntaxError;
+$ENDIF
 		return;
 	end;
 
@@ -107,7 +141,11 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 		do;
 			if b6883 then
 			do;
-				if curTokenSym.type >= 80h then
+				if curTokenSym.type >= 80h
+$IF ASM48
+					 or arg2b = 3Ah and curTokenSym.w4 <> w6A4E
+$ENDIF
+				then
 				do;
 					call locationError;
 					b6CE9 = 80h;
@@ -116,6 +154,9 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 			else
 			do;
 				call insertSym;
+$IF ASM48
+				w6866 = w6866 + 8;
+$ENDIF
 				w6868(1) = w6868(1) + 8;
 				b6CE8 = 0;
 			end;
@@ -126,11 +167,13 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 
 			if b6EC4$9C3A = 2 then
 				b6CE8 = b6CE8 or activeSeg;
+
 			if b6857 and b6CEB then
 				tokenType(0) = 64h;
 			else
 				call sub$5B9A;
-			goto L5A9B;
+
+			goto L5A9B$5F82;
 		end;
 
 	if b6882 = 2 then
@@ -146,7 +189,7 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 						b6CE8 = b6855;
 						b6CEA = 0FFh;
 					end;
-					goto L5A9B;
+					goto L5A9B$5F82;
 				end;
 
 	if isPhase1 then
@@ -161,11 +204,12 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 					b6CE8 = b6CE8 and 0E0h;
 					if b6EC4$9C3A = 1 then
 						b6CE8 = b6855 or 20h;
+
 					if b6EC4$9C3A = 2 then
 						if activeSeg <> 0 then
 							b6CE8 = b6CE8 or activeSeg or 38h;
 				end;
-				goto L5A9B;
+				goto L5A9B$5F82;
 			end;
 
 	if isPhase1 then
@@ -176,7 +220,7 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 					tokenType(0) = 3;
 				else
 					b6CE8 = b6CE8 or 20h;
-				goto L5A9B;
+				goto L5A9B$5F82;
 			end;
 
 	if isPhase1 then
@@ -195,8 +239,9 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 				call phaseError;
 	end;
 
-L5A9B:
+L5A9B$5F82:
 	b6CE9 = b6CE9 or (curTokenSym.type and 80h);
+
 	if isPhase1 and (arg2b = 9 or arg2b = 6 or b6CEC <> tokenType(0)) then
 		curTokenSym.type = tokenType(0) or b6CE9;
 
@@ -207,8 +252,14 @@ L5A9B:
 	if jj >= 80h then
 		call locationError;
 
-	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7) or arg2b = 4 and blankAsmErrCode or b6CEA then
+	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7)
+	   or arg2b = 4 and blankAsmErrCode or b6CEA
+$IF ASM48
+	   or arg2b = 3Ah
+$ENDIF
+	then
 		curTokenSym.w4 = arg1w;
+
 	curTokenSym.flags = b6CE8;
 	b6748 = 0;
 	b6749 = 0;
@@ -218,6 +269,7 @@ L5A9B:
 	b6857 = 0;
 	if b6883 then
 		call popToken;
+
 end;
 
 
@@ -225,15 +277,13 @@ end;
 lookup: procedure(arg1b) byte public;
 	declare arg1b byte;
 	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
-		x structure(i byte), b6CFB byte;
+		(i, b6CFB) byte;
 	declare symEntry based entryOffset SYMENTRY$T,
-		packedTok based packedTok$p (2) address; 
-	declare addr based w6BE0 address,
-		addrAlt based w6BE0 address;
-
+		packedTok based packedTok$p (2) address;
+	declare addr based w6BE0 address;
 
 	packedTok$p = curTokStart;
-	if arg1b = 0 then
+	if arg1b = 0 then		/* hash chain look up key word */
 	do;
 		entryOffset = 0;	/* offset to current symbol to compare */
 					/* offset of fist to use - hashes packed symbol name */
@@ -269,6 +319,8 @@ lookup: procedure(arg1b) byte public;
 	lowOffset = symTab(arg1b);
 	highOffset, entryOffset = w6868(arg1b);
 
+	/* binary chop search for id */
+
 	do while (midOffset := lowOffset + shr((highOffset - lowOffset) and 0FFF0h, 1)) <> entryOffset;
 		entryOffset = midOffset;
 		if packedTok(0) = symEntry.tok(0) then
@@ -279,7 +331,8 @@ lookup: procedure(arg1b) byte public;
 				tokenType(0) = curTokenSym.type;
 				if tokenType(0) = 64h then
 					tokenType(0) = 9;
-				if (b6884 := (jj := tokenType(0) and 7Fh) = 9) then
+
+				if (b6884 := (jj := (tokenType(0) and 7Fh)) = 9) then
 					if b6885 then
 						curTokenSym.type = 89h;
 				return jj;
@@ -302,49 +355,174 @@ lookup: procedure(arg1b) byte public;
 	do;
 		b6883 = 0;
 		b6EC4$9C3A = 0;
-		call sub5819$5CE8(w6A4E, b6885 and 80h or 9);
+		call sub5819$5CE8(w6A4E, (b6885 and 80h) or 9);
 		w6BE0 = .tokenSym;
-		do x.i = 1 to tokenSP;
+		do i = 1 to tokenSP;
 			w6BE0 = w6BE0 + 2;
 			if addr >= curTokenSym$p then
-				addrAlt = addr + 8;
+				addr = addr + 8;
 		end;
+
 		b6883 = 0FFh;
 	end;
 	return 9;
 end;
 
+
+
 getCh: procedure byte public;
 	declare (curCH, prevCH) byte;
+$IF ASM48
+	declare ch based tmac$buf$p byte;
+	declare ch1 based off9056 byte;
+$ENDIF
 
+L6339:
 	if not reget then
 	do;
 		prevCH = curCH;
-	L5E54:
+
+	L6347:
 		curCH = lookAhead;
-		if scanCmdLine then
+$IF ASM48
+		if b$905B then
+		do;
+			do while (lookAhead := ch) = 0FEh;
+				call readM(curMacroBlk + 1);
+				tmac$buf$p = .macroBuf;
+			end;
+
+			tmac$buf$p = tmac$buf$p + 1;
+		end;
+		else
+$ENDIF
+	        if scanCmdLine then
 			lookAhead = nxtCmdCh;
 		else
 			lookAhead = sub$4879;
 
 		if chClass(curCH) = CC$BAD then
 			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
-				goto L5E54;
+				goto L6347;
+$IF ASM48
+		if b$905B then
+		do;
+			if curCH = 1Bh then
+			do;
+				goto L65B2;
+			end;
+			else if curCH = '&' then
+			do;
+				if not prevCH < 80h or lookAhead = 80h then
+					goto L6339;
+			end;
+			else if curCH = '!' and prevCH <> 0 then
+			do;
+				if not (b$905D or b$905E) and b$905C then
+				do;
+					curCH = 0;
+					goto L6339;
+				end;
+			end;
+			else if curCH >= 128 then
+			do;
+				if not (b$905C := not b$905C) then
+					tmac$buf$p = w$9197;
+				else
+				do;
+					w$9197 = tmac$buf$p;
+					if curCH = 80h then
+					do;
+						tmac$buf$p = tmac$w12;
+						if b$9062 = 2 then
+						do;
+							b$91A2 = ch;
+							tmac$buf$p = .b$91A2;
+							if ch = '!' then
+							do;
+								b$91A1 = 21h;
+								b$91A2 = mem(tmac$w12 + 1);
+								tmac$buf$p = tmac$buf$p - 1;
+							end;
+						end;
+						else
+						do;
+							do while (lookAhead := lookAhead - 1) <> 0FFh;
+								tmac$buf$p = tmac$buf$p - (ch and 7Fh);
+							end;
+
+							tmac$buf$p = tmac$buf$p + 1;
+						end;
+					end;
+					else
+					do;
+						tmac$buf$p = .b$91A4;
+						w6BE0 = lookAhead + tmac$w4;
+						do ii = 1 to 4;
+							b$91A4(6 - ii) = w6BE0 mod 10 + '0';
+							w6BE0 = w6BE0 / 10;
+						end;
+					end;
+				end;
+
+				lookAhead = 0;
+				goto L6339;
+			end;
+		end;
+
+		if b$905B > 1 then
+			if isPhase2Print then
+				if off$9056 < .w$9054 then
+				do;
+					ch1 = curCH;	
+					off$9056 = off$9056 + 1;
+				end;
+
+		if b$905E then
+			if w$919D <> w$906A and curCH = 0Dh or not b$9059 then
+			call sub$3D55(curCH);
+
+		if not(prevCH = '!' or b6742) then
+		do;
+			if curCH = '>' then
+				argNestCnt = argNestCnt - 1;
+
+			if curCH = '<' then
+				argNestCnt = argNestCnt + 1;
+		end;
+$ENDIF
 	end;
+L65B2:
 	reget = 0;
 	return (curChar := curCH);
 end;
 
 getChClass: procedure byte public;
 	curChar = getCh;
+$IF ASM48
+	if b$905D then
+		return 0Ah;
+$ENDIF
+
 	return chClass(curChar);
 end;
 
 
+
 chkLF: procedure public;
-	if lookAhead = 0Ah then
+	if lookAhead = LF then
 		lookAhead = 0;
 	else
+	do;
+$IF ASM48 
+		b$905E = b$905E and 0FEh;
+$ENDIF
 		call illegalCharError;
+$IF ASM48
+		b$905E = b$905E > 0;
+$ENDIF */
+	end;
 end;
+
 end;
+

@@ -41,6 +41,13 @@ OVERLAY=6D4Ch
 all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
 # generated pl3 files
+asm48.pl3: asm4886.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM48 -o $@ $**
+asm86.pl3: asm4886.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM86 -o $@ $**
+
 asm4a.pl3: asm4aov0.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM4A -o $@ $**
@@ -268,6 +275,8 @@ asm4c.obj: asm4c.pl3 asm4c.ipx
 asmov2.obj: asmov2.pl3 asmov2.ipx
 asm47.obj: asm47.pl3 asm47.ipx
 asm85.obj: asm85.pl3 asm85.ipx
+asm48.obj: asm48.pl3 asm48.ipx
+asm86.obj: asm86.pl3 asm86.ipx
 
 # auto generated
 asm41.obj: asm41.plm asm41.ipx as4151.pac
@@ -276,7 +285,6 @@ asm43.obj: asm43.pl3 asm43.ipx
 asm44.obj: asm44.plm asm44.ipx as4483.pac
 asm45.obj: asm45.plm asm45.ipx
 asm46.obj: asm46.pl3 asm46.ipx
-asm48.obj: asm48.pl3 asm48.ipx
 asm49.obj: asm49.pl3 asm49.ipx
 asm4b.obj: asm4b.pl3 asm4b.ipx
 asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pac
@@ -289,7 +297,6 @@ asm801.obj: asm801.plm asm801.ipx as4252.pac
 asm82.obj: asm82.pl3 asm82.ipx
 asm83.obj: asm83.plm asm83.ipx as4483.pac
 asm851.obj: asm851.plm asm851.ipx
-asm86.obj: asm86.pl3 asm86.ipx
 asm861.obj: asm861.plm asm861.ipx
 asmov3.obj: asmov3.plm asmov3.ipx as4e5d.pac
 close.obj: close.plm close.ipx
