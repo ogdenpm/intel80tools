@@ -1726,246 +1726,6 @@ sub4C1E$54FD: procedure public;
 	end;
 end;
 end;
-asm861.plm
-asm861: do;
-
-$include(asm861.ipx)
-
-
-syntaxError: procedure public;
-	call sourceError('Q');	/* syntaxError */
-end;
-
-doubleDefError: procedure public;
-	call sourceError('D');	/* double defined symbol */
-end;
-
-expressionError: procedure public;
-	call sourceError('E');	/* external error */
-end;
-
-commandError: procedure public;
-	call sourceError('C');	/* command error */
-end;
-
-OpcodeOperandError: procedure public;
-	call sourceError('O');
-end;
-
-nameError: procedure public;
-	call sourceError('R');
-end;
-
-multipleDefError: procedure public;
-	call sourceError('M');	/* multiply defined symbol */
-end;
-
-valueError: procedure public;
-	call sourceError('V');	/* value error */
-end;
-
-nestingError: procedure public;
-	call sourceError('N');	/* nesting error */
-end;
-
-phaseError: procedure public;
-	call sourceError('P');	/* phase error */
-end;
-
-stackError: procedure public;
-	call runtimeError(0);	/* stack error */
-end;
-
-fileError: procedure public;
-	call runtimeError(4);	/* file error */
-end;
-
-illegalCharError: procedure public;
-	call sourceError('I');
-end;
-
-balanceError: procedure public;
-	call sourceError('B');
-end;
-
-undefinedSymbolError: procedure public;
-	call sourceError('U');	/* undefined symbol */
-end;
-
-locationError: procedure public;
-	call sourceError('L');
-end;
-
-operandError: procedure public;
-	call sourceError('X');
-end;
-
-haveTokens: procedure byte public;
-	return tokenSP <> 0;
-end;
-
-
-popToken: procedure public;
-	tokStart(0) = tokStart(tokenSP);
-	tokenSym(0) = tokenSym(tokenSP);
-	tokenType(0) = tokenType(tokenSP);
-	tokenAttr(0) = tokenAttr(tokenSP);
-	tokenSize(0) = tokenSize(tokenSP);
-	tokenSymId(0) = tokenSymId(tokenSP);
-	if haveTokens then
-		tokenSP = tokenSP - 1;
-end;
-
-
-nestIF: procedure(arg1b) public;
-	declare arg1b byte;
-	
-	if (ifDepth := ifDepth + 1) > 8 then
-	do;
-		call stackError;
-		ifDepth = 0;
-	end;
-	else
-	do;
-		skipping(ifDepth) = skipping(0);
-		inElse(ifDepth) = inElse(0);
-	end;
-end;
-
-unnestIF: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if ifDepth = 0 then
-		call nestingError;
-	else
-	do;
-		skipping(0) = skipping(ifDepth);
-		inElse(0) = inElse(ifDepth);
-		ifDepth = ifDepth - 1;
-	end;
-end;
-
-pushToken: procedure(arg1b) public;
-	declare arg1b byte;
-	if tokenSP >= 8 then
-		call stackError;
-	else
-	do;
-		tokenSP = tokenSP + 1;
-		tokStart(tokenSP) = tokStart(0);
-		tokenSym(tokenSP) = tokenSym(0);
-		tokenType(tokenSP) = tokenType(0);
-		tokenAttr(tokenSP) = tokenAttr(0);
-		tokenSize(tokenSP) = tokenSize(0);
-		tokenSymId(tokenSP) = tokenSymId(0);
-		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
-		tokenType(0) = arg1b;
-		tokenAttr(0), tokenSize(0) = bZERO;
-		tokenSym(0) = wZERO;
-		tokenSymId(0) = tokenSym(0);
-	end;
-end;
-
-collectByte: procedure(arg1b) public;
-	declare arg1b byte, s address;
-	declare ch based s byte;
-
-	if (s := tokStart(0) + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
-	do;
-		ch = arg1b;
-		tokenSize(0) = tokenSize(0) + 1;
-	end;
-	else
-		call stackError;
-end;
-
-getId: procedure(arg1b) public;
-	declare arg1b byte;
-
-	call pushToken(arg1b);
-	reget = 1;
-
-	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
-		if curChar > 60h then			/* make sure upper case */
-			curChar = curChar and 0DFh;
-		call collectByte(curChar);
-	end;
-	reget = 1;
-end;
-
-
-getNum: procedure public;
-	declare accum address, (radix, digit, i) byte;
-	declare chrs based curTokStart(1) byte;
-
-	call getId(0Ch);
-	
-
-	radix = chrs(tokenSize(0) := tokenSize(0) - 1);
-	if radix = 'H' then
-		radix = 10h;
-
-	if radix = 'D' then
-		radix = 0Ah;
-
-	if radix = 'O' or radix = 'Q' then
-		radix = 8;
-
-	if radix = 'B' then
-		radix = 2;
-
-	if radix > 10h then
-		radix = 10;
-	else
-		tokenSize(0) = tokenSize(0) - 1;
-
-	accum = 0;
-	do i = 0 to tokenSize(0);
-		if chrs(i) = '?' or chrs(i) = '@' then
-		do;
-			call illegalCharError;
-			digit = 0;
-		end;
-		else
-		do;
-			digit = chrs(i) - '0';
-			if digit > 9 then
-				digit = digit - 7;
-			if digit >= radix then
-				if tokenType(2) <> 40h then
-				do;
-					call illegalCharError;
-					digit = 0;
-				end;
-		end;
-
-		accum = accum * radix + digit;
-	end;
-
-	/* replace with packed number */
-	tokenSize(0) = 0;
-	call collectByte(low(accum));
-	call collectByte(high(accum));
-end;
-
-
-getStr: procedure public;
-	call pushToken(0Ah);
-
-	do while getCh <> 0Dh;
-		if curChar = 27h then
-			if getCh <> 27h then
-				goto L6268;
-		call collectByte(curChar);
-	end;
-
-	call balanceError;
-
-L6268:
-	reget = 1;
-end;
-
-end;
 asm4cov2.pl3x
 asm4c$ov2: do;
 $IF ASM4C
@@ -4587,10 +4347,14 @@ end;
 
 end;
 
-asm49.pl3
-asm49:
+asm49861.pl3x
+asm49$861:
 do;
+$IF ASM49
 $include(asm49.ipx)
+$ELSE
+$include(asm861.ipx)
+$ENDIF
 
 syntaxError: procedure public;
 	call sourceError('Q');
@@ -4680,7 +4444,7 @@ end;
 
 nestIF: procedure(arg1b) public;
 	declare arg1b byte;
-
+$IF ASM49
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
 	if (macroCondStk(0) := arg1b) = 1 then
 	do;
@@ -4698,6 +4462,7 @@ nestIF: procedure(arg1b) public;
 		end;
 	end;
 	else
+$ENDIF
 	do;
 		if (ifDepth := ifDepth + 1) > 8 then
 		do;
@@ -4716,6 +4481,7 @@ end;
 unnestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
+$IF ASM49
 	if arg1b <> macroCondStk(0) then
 	do;
 		call nestingError;
@@ -4738,6 +4504,10 @@ unnestIF: procedure(arg1b) public;
 			w6870 = physmem + 0BFh;
 		end;
 	end;
+$ELSE
+	if ifDepth = 0 then
+		call nestingError;
+$ENDIF
 	else
 	do;
 		skipping(0) = skipping(ifDepth);
@@ -4764,7 +4534,11 @@ pushToken: procedure(arg1b) public;
 		tokenType(0) = arg1b;
 		tokenAttr(0), tokenSize(0) = bZERO;
 		tokenSym(0) = wZERO;
+$IF ASM49
 		tokenSymId(0) = wZERO;
+$ELSE
+		tokenSymId(0) = tokenSym(0);
+$ENDIF
 	end;
 end;
 
@@ -4777,7 +4551,7 @@ collectByte: procedure(arg1b) public;
 	if (s := curTokStart + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
 		ch = arg1b;
-		tokenSize(0)= tokenSize(0)+ 1;
+		tokenSize(0) = tokenSize(0) + 1;
 	end;
 	else
 		call stackError;
@@ -4789,7 +4563,7 @@ getId: procedure(arg1b) public;
 	call pushToken(arg1b);
 	reget = 1;
 
-	do while (arg1b := getChClass) = 8 or arg1b = 9;	/* digit or letter */
+	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
@@ -4844,7 +4618,7 @@ getNum: procedure public;
 		accum = accum * radix + digit;
 	end;
 	/* replace with packed number */
-	tokenSize(0)= 0;
+	tokenSize(0) = 0;
 	call collectByte(low(accum));
 	call collectByte(high(accum));
 end;
@@ -4852,9 +4626,9 @@ end;
 getStr: procedure public;
 	call pushToken(0Ah);
 
-	do while getCh <> 0Dh;
-		if curChar = 27h then
-			if getCh <> 27h then
+	do while getCh <> CR;
+		if curChar = '''' then
+			if getCh <> '''' then
 				goto L6268;
 		call collectByte(curChar);
 	end;
@@ -6695,7 +6469,7 @@ OVERLAY=6D4Ch
 
 all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
-# generated pl3 files
+# generated pl3 files & asm861.plm
 asm43.pl3: asm4382.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM43 -o $@ $**
@@ -6709,6 +6483,13 @@ asm48.pl3: asm4886.pl3x
 asm86.pl3: asm4886.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM86 -o $@ $**
+
+asm49.pl3: asm49861.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM49 -o $@ $**
+asm861.plm: asm49861.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM861 -o $@ $**
 
 asm4a.pl3: asm4aov0.pl3x
 	@SET ISIS_F0=$(F0)
@@ -6942,10 +6723,12 @@ asmov2.obj: asmov2.pl3 asmov2.ipx
 asm43.obj: asm43.pl3 asm43.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm47.obj: asm47.pl3 asm47.ipx
+asm49.obj: asm49.pl3 asm49.ipx
 asm57.obj: asm57.pl3 asm57.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm48.obj: asm48.pl3 asm48.ipx
 asm86.obj: asm86.pl3 asm86.ipx
+asm861.obj: asm861.plm asm861.ipx
 
 # auto generated
 
