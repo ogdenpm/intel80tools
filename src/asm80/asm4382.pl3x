@@ -1,6 +1,10 @@
-asm43:
+asm43$82:
 do;
+$IF ASM43
 $include(asm43.ipx)
+$ELSE
+$include(asm82.ipx)
+$ENDIF
 
 declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -11,9 +15,9 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0, 0, 0FFh,
 			   0, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
-			   0FFh, 0, 0, 0),
-	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
-
+			   0FFh, 0, 0, 0);
+$IF ASM43
+declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
 
 skipWhite$2: procedure public;
 	do while getCh = ' ' or isTab;
@@ -99,11 +103,21 @@ sub$40B9: procedure public;
 	end;
 end;
 
+$ENDIF
+
 skipWhite: procedure public;
 	do while isWhite;
 		curChar = getCh;
 	end;
 end;
+
+
+$IF ASM82
+skipWhite$2: procedure public;
+	do while getCh = ' ' or isTab;
+	end;
+end;
+$ENDIF
 
 skip2NextLine: procedure public;
 	call skip2EOL;
@@ -130,26 +144,34 @@ sub$3F19: procedure public;
 	end;
 
 	do case getChClass;
-/* 0 */ case0:	call illegalCharError;
-/* 1 */		;
-/* 2 */		do;
+        case0:	call illegalCharError;		/* CC$BAD */
+		;				/* CC$WS */
+		do;				/* CC$SEMI */
+$IF ASM43
 			if not b$9058 then
+$ENDIF
 			do;
 				b6742 = 0FFh;
+$IF ASM43
 				if getChClass = 2 and b$905E then
 				do;
 					b$9059 = 0FFh;
 					w$906A = w$906A - 2;
 				end;
+$ENDIF
 				call skip2NextLine;
 				b6B29 = 1;
 				return;
 			end;
 		end;
-/* 3 */		do;
+		do;				/* CC$COLON */
 			if not b6872 then
 			do;
-				if skipping(0) or b$905E then
+				if skipping(0)
+$IF ASM43
+				   or b$905E
+$ENDIF
+				then
 					call popToken;
 				else
 				do;
@@ -170,20 +192,26 @@ sub$3F19: procedure public;
 			b6880 = 0;
 			opType = 3;
 		end;
-/* 4 */		do;
+		do;				/* CC$CR */
 			call chkLF;
 			b6B29 = 1;
+$IF ASM43
 			b$9058 = 0;
+$ENDIF
 			return;
 		end;
-/* 5 */		do;
-			if curChar = 2Bh or curChar = 2Dh then
+		do;				/* CC$PUNCT */
+			if curChar = '+' or curChar = '-' then
+$IF ASM43
 				if not testBit(opType, .b$3F88) then
+$ELSE
+				if opType <> 0 and opType <> 3 then
+$ENDIF
 					curChar = curChar + 3;
-			b6B29 = curChar - 28h + 2;
+			b6B29 = curChar - '(' + 2;
 			return;
 		end;
-/* 6 */		do;
+		do;				/* CC$DOLLAR */
 			call pushToken(0Ch);
 			call collectByte(low(segSize(activeSeg)));
 			call collectByte(high(segSize(activeSeg)));
@@ -191,7 +219,8 @@ sub$3F19: procedure public;
 				tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
 			call sub$416B;
 		end;
-/* 7 */		do;
+		do;				/* CC$QUOTE */
+$IF ASM43
 			if b6B29 = 37h then
 			do;
 				call illegalCharError;
@@ -200,6 +229,7 @@ sub$3F19: procedure public;
 			if b$905E then
 				b$9058 = not b$9058;
 			else
+$ENDIF
 			do;
 				call getStr;
 				if b6B31 then
@@ -207,14 +237,16 @@ sub$3F19: procedure public;
 				call sub$416B;
 			end;
 		end;
-/* 8 */		do;
+		do;				/* CC$DIGIT */
 			call getNum;
 			if b6B31 then
 				call sub$43D2;
 			call sub$416B;
 		end;
-/* 9 */		do;
+		do;				/* CC$LET */
+$IF ASM43
 			w$919F = w$906A - 1;
+$ENDIF
 			call getId(9);
 			if tokenSize(0) > 6 then
 				tokenSize(0) = 6;
@@ -234,6 +266,8 @@ sub$3F19: procedure public;
 				b6880 = 0;
 			end;
 
+
+$IF ASM43
 			if lookup(2) <> 9 and b$905E then
 			do;
 				if not b$9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
@@ -246,11 +280,12 @@ sub$3F19: procedure public;
 				end;
 			end;
 			else if b6B29 <> 37h and not b$905E = 2 then
+$ENDIF
 			do;
-				if lookup(0) = 9 then
+				if lookup(0) = 9 then		/* not a key word */
 				do;
-					tokenType(0) = lookup(1);
-					b6880 = 0FFh;
+					tokenType(0) = lookup(1);	/* look up in symbol space */
+					b6880 = 0FFh;		/* not a key word */
 				end;
 
 				b6B29 = tokenType(0);
@@ -264,7 +299,7 @@ sub$3F19: procedure public;
 					b687F = 0;
 				end;
 			end;
-
+$IF ASM43
 			if b$905E = 1 then
 			do;
 				if b6B29 = 3Fh then
@@ -283,6 +318,7 @@ sub$3F19: procedure public;
 
 			if b6B29 = 41h then
 				call pushToken(40h);
+$ENDIF
 			if b6B29 < 0Ah or b6B29 = 9 or 80h then
 			do;
 				call sub$416B;
@@ -295,13 +331,14 @@ sub$3F19: procedure public;
 				return;
 			end;
 		end;
-/* 10 */	do;
+$IF ASM43
+		do;				/* 10? */
 			b6BDA = 0;
 			call sub$73AD;
 			if b6BDA then
 				return;
 		end;
-/* 11 */	do;
+		do;				/* CC$ESC */
 			if b$905B then
 			do;
 				skipping(0) = 0;
@@ -311,6 +348,7 @@ sub$3F19: procedure public;
 			else
 				goto case0;
 		end;
+$ENDIF
 	end;
     end;
 end;
