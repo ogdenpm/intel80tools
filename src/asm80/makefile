@@ -78,11 +78,15 @@ asmov2.pl3: asm4cov2.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASMOV2 -o $@ $**
 
-asm47.pl3: asm4785.pl3x
+asm47.pl3: asm475785.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM47 -o $@ $**
 
-asm85.pl3: asm4785.pl3x
+asm57.pl3: asm475785.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM57 -o $@ $**
+
+asm85.pl3: asm475785.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM85 -o $@ $**
 
@@ -283,6 +287,7 @@ asmov2.obj: asmov2.pl3 asmov2.ipx
 asm43.obj: asm43.pl3 asm43.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm47.obj: asm47.pl3 asm47.ipx
+asm57.obj: asm57.pl3 asm57.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm48.obj: asm48.pl3 asm48.ipx
 asm86.obj: asm86.pl3 asm86.ipx
@@ -299,7 +304,6 @@ asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pac
 asm51.obj: asm51.plm asm51.ipx as4151.pac
 asm52.obj: asm52.plm asm52.ipx as4252.pac
 asm55.obj: asm55.plm asm55.ipx
-asm57.obj: asm57.pl3 asm57.ipx
 asm5d.obj: asm5d.plm asm5d.ipx as4e5d.pac
 asm801.obj: asm801.plm asm801.ipx as4252.pac
 asm83.obj: asm83.plm asm83.ipx as4483.pac

@@ -162,8 +162,7 @@ sub$467F        P(B arg1b,A arg2w)
 swapAccBytes    P
 testBit         P(B arg1b,A arg2w)B
 
-$file(asm45.plm)
-pad9B73         A
+/* $file(asm45.plm) */
 
 $file(asm45.plm,asm55.plm,asm851.plm)
 isSkipping      PB
@@ -1090,10 +1089,12 @@ outStrN: procedure(s, n) external; declare s address, n address; end;
 $include(asm83.ipx)
 $include(as4483.pac)
 end;
-asm4785.pl3x
-asm80$4785: do;
+asm475785.pl3x
+asm80$47$57$85: do;
 $IF ASM47
 $include(asm47.ipx)
+$ELSEIF ASM57
+$include(asm57.ipx)
 $ELSE
 $include(asm85.ipx)
 $ENDIF
@@ -1143,10 +1144,10 @@ sub$4AAA: procedure(arg1b) public;
 end;
 
 
-cond2Acc: procedure(arg1b) public;
-	declare arg1b byte;
+cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
+	declare cond byte;		/* 0 or 0ffffh */
 
-	accum1 = arg1b;
+	accum1 = cond;
 	if accum1 then
 		accum1 = 0FFFFh;
 end;
@@ -2618,457 +2619,6 @@ sub4C1E$54FD: procedure public;
 	end;
 end;
 end;
-asm57.pl3
-asm57: do;
-$include(asm57.ipx)
-
-declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0, 0FFh, 0FFh, 0FFh),
-	b4A68(*) byte data(0, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh);
-
-declare pad byte;
-
-declare accum(4) byte at(.accum1);
-
-
-sub$4AAA: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if b674A(arg1b) then
-	do;
-		if haveTokens then
-		do;
-			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1$lb then
-				call expressionError;
-		end;
-		else if alignTypes(arg1b) <> 3 then
-			call expressionError;
-	end;
-	else
-	do;
-		b674A(arg1b) = TRUE;
-		if haveTokens then
-		do;
-			accum1 = sub$43DD;
-			if accum1 = 1 or accum1 = 2 then
-				alignTypes(arg1b) = low(accum1);
-			else
-				call expressionError;
-		end;
-	end;
-end;
-
-
-cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
-	declare cond byte;		/* 0 or 0ffffh */
-
-	accum1 = cond;
-	if accum1 then
-		accum1 = 0FFFFh;
-end;
-
-sub$4B57: procedure(arg1b) public;
-	declare arg1b byte;
-
-	if (b6855 and 47h) <> 0 then
-		b6855 = b6855 and 0E7h or arg1b;
-end;
-
-sub4B72$516F: procedure public;
-	do case b6B2B;
-/* 0 */		;
-/* 1 */		call sub4C1E$54FD;
-/* 2 */		goto case3;
-/* 3 */ case3:	do;
-			if not (b6B2B = 2 and opType = 3) then
-				call balanceError;
-
-			if tokenType(0) = 11 then
-			do;
-				tokenSize(0) = 1;
-				tokenAttr(0) = 0;
-				b6B36 = 0FFh;
-			end;
-
-			b6B35 = b6B2F;
-			if opType = 3 then
-				b6B2C = 0FFh;
-		end;
-/* 4 */		accum1 = accum1 * accum2;
-/* 5 */		accum1 = accum1 + accum2;
-/* 6 */		do;
-			call syntaxError;
-			call popToken;
-		end;
-/* 7 */		accum1 = accum1 - accum2;
-/* 8 */		;
-/* 9 */		do;
-			if accum2 = 0 then
-				call valueError;
-
-			accum1 = accum1 / accum2;
-		end;
-/* 10 */	accum1 = -accum1;
-/* 11 */	call cond2Acc(accum1 = accum2);
-/* 12 */	call cond2Acc(accum1 < accum2);
-/* 13 */	call cond2Acc(accum1 <= accum2);
-/* 14 */	call cond2Acc(accum1 > accum2);
-/* 15 */	call cond2Acc(accum1 >= accum2);
-/* 16 */	call cond2Acc(accum1 <> accum2);
-/* 17 */	accum1 = not accum1;
-/* 18 */	accum1 = accum1 and accum2;
-/* 19 */	accum1 = accum1 or accum2;
-/* 20 */	accum1 = accum1 xor accum2;
-/* 21 */	do;
-			if accum2 = 0 then
-				call valueError;
-			accum1 = accum1 mod accum2;
-		end;
-/* 22 */	do;
-			if accum2$lb <> 0 then
-				accum1 = shl(accum1, accum2);
-		end;
-/* 23 */	do;
-			if accum2$lb <> 0 then
-				accum1 = shr(accum1, accum2);
-		end;
-/* 24 */	do;
-			accum1 = high(accum1);
-			call sub$4B57(10h);
-		end;
-/* 25 */	do;
-			accum1 = low(accum1);
-			call sub$4B57(8);
-		end;
-/* 26 */	do;
-			if tokenType(0) <> 10 then
-			do;
-				accum1 = sub$43DD;
-				if accum1$hb - 1 < 0FEh then
-					call valueError;
-				b6B28 = 22h;
-				if (b6855 and 18h) = 18h then
-				do;
-					call valueError;
-					b6855 = b6855 and 0E7h or 8;
-				end;
-			end;
-			else
-			do;
-				b6855 = 0;
-				tokenType(0) = 0Bh;
-			end;
-
-			if sub$425B(b6858) then
-				call operandError;
-			b6B2D = 0Bh;
-			b6B23 = 0FFh;
-		end;
-/* 27 */	do;
-			b6B2D = 0Bh;
-			b6B24 = 0FFh;
-		end;
-/* 28 */	do;
-			segSize(activeSeg) = segSize(activeSeg) + accum1;
-			b68AB = 0FFh;
-		end;
-/* 29 */ case29:
-		do;
-			b68AB = 0FFh;
-			if (b6855 and 40h) = 40h then
-			do;
-				call expressionError;
-				b6855 = 0;
-			end;
-			b6EC4$9C3A = 1;
-			call sub5819$5CE8(accum1, 22h - b6B2B);
-			b6B30 = 0;
-		end;
-/* 30 */	goto case29;
-/* 31 */	do;
-			b68AB = 0FFh;
-			if (b6855 and 40h) <> 40h then
-			do;
-				if (b6855 and 18h) <> 0 then
-					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
-						call expressionError;
-			end;
-			else
-				call expressionError;
-
-			if ctlOBJECT then
-				if segSize(activeSeg) > w6B41(activeSeg) then
-					w6B41(activeSeg) = segSize(activeSeg);
-			segSize(activeSeg) = accum1;
-		end;
-/* 32 */	do;
-			if tokenSP > 0 then
-			do;
-				startOffset = sub$43DD;
-				startDefined = 1;
-				startSeg = b6855 and 7;
-				if (b6855 and 40h) = 40h then
-					call expressionError;
-				if sub$425B(b6858) then
-					call operandError;
-
-				b68AB = 0FFh;
-			end;
-
-			if ifDepth > 0 then
-				call nestingError;
-			if opType <> 1 then
-				call syntaxError;
-			if b6B35 then
-				b6B33 = 0FFh;
-			else
-				call syntaxError;
-
-		end;
-/* 33 */	do;
-			if b6B35 then
-			do;
-				b6B32 = 0FFh;
-				call nestIF(2);
-				b6881 = 0FFh;
-				if skipping(0) = 0 then
-					skipping(0) = not ((low(accum1) and 1) = 1);
-				inElse(0) = 0;
-			end;
-		end;
-/* 34 */	do;
-			b6B32 = 0FFh;
-			if ifDepth = 0 then
-				call nestingError;
-			else if not inElse(0) then
-			do;
-				if not skipping(0) then
-					skipping(0) = 0FFh;
-				else
-					skipping(0) = skipping(ifDepth);
-				inElse(0) = 0FFh;
-			end;
-			else
-				call nestingError;
-		end;
-/* 35 */	do;
-			if b6B35 then
-			do;
-				b6B32 = 0FFh;
-				call unnestIF(2);
-			end;
-		end;
-/* 36 */	do;
-			if b6744 = 1 then
-				if b6873(0) = 4Dh then
-					call syntaxError;
-			call sub$450F(85h);
-		end;
-/* 37 */	do;
-			if b6744 = 1 then
-				if b6873(0) = 4Dh then
-					call syntaxError;
-			call sub$450F(5);
-		end;
-/* 38 */	call sub$450F(7);
-/* 39 */	call sub$450F(2);
-/* 40 */	call sub$450F(8);
-/* 41 */	call sub$450F(46h);
-/* 42 */	call sub$450F(6);
-/* 43 */	call sub$450F(36h);
-/* 44 */	call sub$450F(0);
-/* 45 */	call sub$450F(0);
-/* 46 */	call sub$450F(6);
-/* 47 */	activeSeg = 0;
-/* 48 */	do;
-			activeSeg = 1;
-			call sub$4AAA(0);
-		end;
-/* 49 */	do;
-			activeSeg = 2;
-			call sub$4AAA(1);
-		end;
-
-/* 50 */	do;
-			b6748 = 0FFh;
-			b6EC4$9C3A = 0;
-			call sub5819$5CE8(0, 6);
-		end;
-/* 51 */	do;
-			b6749 = 0FFh;
-			if w6750 = 0 and isPhase1 and ctlOBJECT then
-			do;
-				call writeModhdr;
-			end;
-			b6EC4$9C3A = 0;
-			call sub5819$5CE8(w6750, 2);
-			if isPhase1 and ctlOBJECT and not b6754 then
-			do;
-				call writeExtName;
-			end;
-			if not b6754 then
-				w6750 = w6750 + 1;
-			b6754 = 0;
-		end;
-/* 52 */	do;
-			if tokenSP <> 0 and b6743 then
-			do;
-				call move(6, .spaces24 + 18, .aModulePage);
-				call move(moduleNameLen := b6744, .b6873, .aModulePage);
-			end;
-			else
-				call sourceError('R');
-
-			call popToken;
-		end;
-/* 53 */	segSize(3) = accum1;
-	end;
-
-	if b6B2B <> 1 then
-		b6743 = 0;
-end;
-
-
-sub$518F: procedure public;
-
-	sub$53C0: procedure byte;
-		if b6B29 > 3 then
-			if b6B29 <> 6 then
-				if b6B29 < 1Ah then
-					return TRUE;
-		return FALSE;
-	end;
-
-	sub$53DF: procedure(arg1b) byte;
-		declare arg1b byte;
-		return arg1b = 9 or arg1b = 64h;
-	end;
-
-
-	sub$53F8: procedure;
-		if not b4A68(b6B2B) then
-			b6B34 = 0;
-	end;
-
-
-
-	do while 1;
-		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0) then
-		do;
-			b6885 = 0;
-			call popToken;
-			return;
-		end;
-		
-		if phase <> 1 then
-			if b6B25 then
-				if sub$53C0 then
-					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
-						call expressionError;
-
-		if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
-		do;
-			if opSP >= 10h then
-			do;
-				opSP = 0;
-				call stackError;
-			end;
-			else
-				opStack(opSP := opSP + 1) = opType;
-			if opType = 2 then
-			do;
-				b6B2F = b6B35;
-				b6B35 = 0FFh;
-			end;
-			if phase > 1 then
-				b6B25 = sub$53C0;
-			return;
-		end;
-
-		b6B25 = 0;
-		if not b6B35 and b6B2B > 3 then
-			call syntaxError;
-
-		if b6B2B = 0 then
-			b6B2B = opType;
-		else
-			opSP = opSP - 1;
-		
-
-		if (b6B28 := b4181(b6B2B)) then
-		do;
-			accum2 = sub$43DD;
-			b6856 = b6855;
-			w685C = w685A;
-			b6859 = b6858;
-		end;
-
-		if (b6B28 := ror(b6B28, 1)) then
-			accum1 = sub$43DD;
-
-		if not b6857 then
-			b6857 = sub$53DF(b6858) or sub$53DF(b6859);
-
-		b6B2D = 0Ch;
-		if b6B2B > 3 and b6B2B < 1Ah then
-			call sub$4291;
-		else
-		do;
-			call sub$53F8;
-			call sub$4274;
-		end;
-
-		call sub4B72$516F;
-		if not b4A26(b6B2B) then
-			b6B35 = 0;
-
-		if b6B2C then
-		do;
-			b6B2C = 0;
-			return;
-		end;
-
-		if b6B2B <> 1Ch and b68AB then
-			w68A6 = accum1;
-
-		if (b6B28 and 1Eh) <> 0 then
-			call pushToken(b6B2D);
-
-		do ii = 0 to 3;
-			if (b6B28 := ror(b6B28, 1)) then
-				call collectByte(accum(ii));
-		end;
-
-		tokenAttr(0) = b6855;
-		tokenSymId(0) = w685A;
-		if ror(b6B28, 1) then
-			if opType = 6 then
-			do;
-				b6B29 = b6B2B;
-				b6B35 = 0FFh;
-			end;
-	end;
-end;
-
-
-
-sub$540D: procedure public;
-	do while finished = 0;
-		call sub$3F19;
-		call sub$518F;
-	end;
-end;
-
-end;
 asm5D.plm
 asm5D: do;
 $include(asm5D.ipx)
@@ -4258,7 +3808,7 @@ do;
 $include(asm45.ipx)
 
 declare pad4B3C address data(40h),
-	pad9B73 address public;
+	pad9B73 address;
 
 
 strUCequ: procedure(arg1w, arg2w) byte public;
@@ -7183,11 +6733,15 @@ asmov2.pl3: asm4cov2.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASMOV2 -o $@ $**
 
-asm47.pl3: asm4785.pl3x
+asm47.pl3: asm475785.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM47 -o $@ $**
 
-asm85.pl3: asm4785.pl3x
+asm57.pl3: asm475785.pl3x
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sASM57 -o $@ $**
+
+asm85.pl3: asm475785.pl3x
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sASM85 -o $@ $**
 
@@ -7388,6 +6942,7 @@ asmov2.obj: asmov2.pl3 asmov2.ipx
 asm43.obj: asm43.pl3 asm43.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm47.obj: asm47.pl3 asm47.ipx
+asm57.obj: asm57.pl3 asm57.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm48.obj: asm48.pl3 asm48.ipx
 asm86.obj: asm86.pl3 asm86.ipx
