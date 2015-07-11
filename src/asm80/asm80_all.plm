@@ -139,7 +139,7 @@ skipWhite       P
 skipWhite$2     P
 sub$3F19        P
 
-$file(asm44.plm)
+/* $file(asm44.plm) */
 
 $file(asm44.plm,asm83.plm)
 b4181           BS
@@ -327,8 +327,7 @@ ovlFile         BS
 ovlMgr          P(B ovl)
 
 /* $file(asm82.pl3) */
-$file(asm83.plm)
--b$905B			/* special case due to $IF processing */
+/* $file(asm83.plm) */
 /* $file(asm85.pl3) */
 /* $file(asm851.plm) */
 
@@ -933,18 +932,6 @@ declare	curFileName$p address public,
 	bp6BE0(2) byte public at(.w6BE0),
 	w6BE2 address public;
 /* end */
-end;
-asm83.plm
-asm80$3: do;
-
-/* to force the code generation this needs a non-standard definition
-   of outStrN
-*/
-outStrN: procedure(s, n) external; declare s address, n address; end;
-
-
-$include(asm83.ipx)
-$include(as4483.pls)
 end;
 asm475785.pls
 asm80$47$57$85: do;
@@ -3123,21 +3110,18 @@ $ENDIF
 end;
 
 end;
-asm44.plm
-$SET(OVL4)
-asm44:
-do;
-/* to force the code generation this needs a non-standard definition
-   of outStrN and put2Hex
-*/
-outStrN: procedure(s, n) external; declare s address, n address; end;
-put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-
-$include(asm44.ipx)
-$include(as4483.pls)
-
-end;
 as4483.pls
+as4483: do;
+
+/* force the non standard code generation of outStrN and put2Hex */
+
+outStrN: procedure(s, n) external; declare s address, n address; end;
+$IF OVL4
+put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+$include(asm44.ipx)
+$ELSE
+$include(asm83.ipx)
+$ENDIF
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
 			   0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh, 1, 1,
@@ -3451,7 +3435,7 @@ sub$467F: procedure(arg1b, arg2w) public;
 		call closeF(xreffd);
 	end;
 end;
-
+end;
 asm45.plm
 asm45:
 do;
@@ -6378,6 +6362,12 @@ asm49.pl3 asm861.plm: asm49861.pls
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm49.pl3 $**
 	$(TOOLS:/=\)plmpp -sBASE -o asm861.plm $**
 
+asm44.plm asm83.plm: as4483.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm44.plm $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm83.plm $**
+
+
 asm4a.pl3 asmov0.pl3: asm4aov0.pls
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm4a.pl3 $**
@@ -6420,6 +6410,7 @@ asm4e.plm asm5d.plm asmov3.plm: init.pls
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
 asm41.obj: asm41.plm asm41.ipx
 asm43.obj: asm43.pl3 asm43.ipx
+asm44.obj: asm44.plm asm44.ipx
 asm47.obj: asm47.pl3 asm47.ipx
 asm48.obj: asm48.pl3 asm48.ipx
 asm49.obj: asm49.pl3 asm49.ipx
@@ -6432,6 +6423,7 @@ asm57.obj: asm57.pl3 asm57.ipx
 asm5d.obj: asm5d.plm asm5d.ipx
 asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
+asm83.obj: asm83.plm asm83.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm86.obj: asm86.pl3 asm86.ipx
 asm861.obj: asm861.plm asm861.ipx

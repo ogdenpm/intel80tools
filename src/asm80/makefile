@@ -77,6 +77,12 @@ asm49.pl3 asm861.plm: asm49861.pls
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm49.pl3 $**
 	$(TOOLS:/=\)plmpp -sBASE -o asm861.plm $**
 
+asm44.plm asm83.plm: as4483.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm44.plm $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm83.plm $**
+
+
 asm4a.pl3 asmov0.pl3: asm4aov0.pls
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm4a.pl3 $**
@@ -119,6 +125,7 @@ asm4e.plm asm5d.plm asmov3.plm: init.pls
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
 asm41.obj: asm41.plm asm41.ipx
 asm43.obj: asm43.pl3 asm43.ipx
+asm44.obj: asm44.plm asm44.ipx
 asm47.obj: asm47.pl3 asm47.ipx
 asm48.obj: asm48.pl3 asm48.ipx
 asm49.obj: asm49.pl3 asm49.ipx
@@ -131,6 +138,7 @@ asm57.obj: asm57.pl3 asm57.ipx
 asm5d.obj: asm5d.plm asm5d.ipx
 asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
+asm83.obj: asm83.plm asm83.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm86.obj: asm86.pl3 asm86.ipx
 asm861.obj: asm861.plm asm861.ipx
@@ -314,12 +322,10 @@ compare: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
 
 # auto generated
-asm44.obj: asm44.plm asm44.ipx as4483.pls
 asm45.obj: asm45.plm asm45.ipx
 asm46.obj: asm46.pl3 asm46.ipx
 asm4b.obj: asm4b.pl3 asm4b.ipx
 asm55.obj: asm55.plm asm55.ipx
-asm83.obj: asm83.plm asm83.ipx as4483.pls
 asm851.obj: asm851.plm asm851.ipx
 close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx

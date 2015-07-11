@@ -1,3 +1,14 @@
+as4483: do;
+
+/* force the non standard code generation of outStrN and put2Hex */
+
+outStrN: procedure(s, n) external; declare s address, n address; end;
+$IF OVL4
+put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+$include(asm44.ipx)
+$ELSE
+$include(asm83.ipx)
+$ENDIF
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
 			   0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh, 1, 1,
@@ -311,4 +322,4 @@ sub$467F: procedure(arg1b, arg2w) public;
 		call closeF(xreffd);
 	end;
 end;
-
+end;
