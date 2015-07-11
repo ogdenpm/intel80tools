@@ -1,3 +1,11 @@
+init: do;
+$IF OVL4
+$include(asm4e.ipx)
+$ELSEIF OVL5
+$include(asm5d.ipx)
+$ELSE
+$include(asmov3.ipx)
+$ENDIF
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
@@ -187,4 +195,4 @@ initRecTypes: procedure public;
     r$extref.type = 20h;
     r$extref.len = 1;
 end;
-
+end;

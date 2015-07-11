@@ -282,13 +282,7 @@ sub$721E        PB
 sub$7229        P
 sub$72D8        P
 
-$file(asm4E.plm)
--stdKeywords
-
-$file(asm4E.plm,asm5D.plm)
--EDATA
--ovlFile
--signonMsg
+/* $file(asm4E.plm) */
 
 $file(asm4E.plm,asm5D.plm,asmov3.plm)
 aDebug          BS
@@ -325,19 +319,7 @@ $file(asm57.pl3,asm85.pl3)
 sub4B72$516F        P
 sub$518F        P
 
-$file(asm5D.plm,asmov3.plm)
--b$905B
--b$905C
--b$905E
--b$9063
--b$9064
--ctlGEN
--curMacroBlk
--extKeywords
--macroCondStk
--macroCondSP
--w$9114
--w$919B
+/* $file(asm5D.plm) */
 
 
 $file(asm801.plm)
@@ -1942,12 +1924,6 @@ ovl11: procedure public;
 		call writeSymbols(0); /* EMIT LOCALS */
 end;
 end;
-asmov3.plm
-$SET(OVL3)
-asm88: do;
-$include(asmov3.ipx)
-$include(as4e5d.pls)
-end;
 keywrd.plm
 keywords: do;
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
@@ -2243,11 +2219,6 @@ sub4C1E$54FD: procedure public;
 		end;
 	end;
 end;
-end;
-asm5D.plm
-asm5D: do;
-$include(asm5D.ipx)
-$include(as4e5d.pls)
 end;
 start.pls
 start: do;
@@ -5961,14 +5932,15 @@ $ENDIF
     call exit;
 end;
 end;
-asm4E.plm
-$SET(OVL4)
-asm4E:
-do;
+init.pls
+init: do;
+$IF OVL4
 $include(asm4e.ipx)
-$include(as4e5d.pls)
-end;
-as4e5d.pls
+$ELSEIF OVL5
+$include(asm5d.ipx)
+$ELSE
+$include(asmov3.ipx)
+$ENDIF
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
@@ -6158,7 +6130,7 @@ initRecTypes: procedure public;
     r$extref.type = 20h;
     r$extref.len = 1;
 end;
-
+end;
 key4.plm
 keywords: do;
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
@@ -6439,6 +6411,11 @@ glb.plm glb4.plm glb5.plm: global.pls
 	$(TOOLS:/=\)plmpp -sOVL5 -o glb5.plm $**
 	$(TOOLS:/=\)plmpp -sBASE -o glb.plm $**
 
+asm4e.plm asm5d.plm asmov3.plm: init.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4e.plm $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm5d.plm $**
+	$(TOOLS:/=\)plmpp -sOVL3 -o asmov3.plm $**
 
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
 asm41.obj: asm41.plm asm41.ipx
@@ -6449,8 +6426,10 @@ asm49.obj: asm49.pl3 asm49.ipx
 asm4a.obj: asm4a.pl3 asm4a.ipx
 asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
+asm4e.obj: asm4e.plm asm4e.ipx
 asm51.obj: asm51.plm asm51.ipx
 asm57.obj: asm57.pl3 asm57.ipx
+asm5d.obj: asm5d.plm asm5d.ipx
 asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm85.obj: asm85.pl3 asm85.ipx
@@ -6459,6 +6438,7 @@ asm861.obj: asm861.plm asm861.ipx
 asmov0.obj: asmov0.pl3 asmov0.ipx
 asmov1.obj: asmov1.pl3 asmov1.ipx
 asmov2.obj: asmov2.pl3 asmov2.ipx
+asmov3.obj: asmov3.plm asmov3.ipx
 glb.obj: glb.plm glb.ipx
 glb4.obj: glb4.plm glb4.ipx
 glb5.obj: glb5.plm glb5.ipx

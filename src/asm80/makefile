@@ -110,6 +110,11 @@ glb.plm glb4.plm glb5.plm: global.pls
 	$(TOOLS:/=\)plmpp -sOVL5 -o glb5.plm $**
 	$(TOOLS:/=\)plmpp -sBASE -o glb.plm $**
 
+asm4e.plm asm5d.plm asmov3.plm: init.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4e.plm $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm5d.plm $**
+	$(TOOLS:/=\)plmpp -sOVL3 -o asmov3.plm $**
 
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
 asm41.obj: asm41.plm asm41.ipx
@@ -120,8 +125,10 @@ asm49.obj: asm49.pl3 asm49.ipx
 asm4a.obj: asm4a.pl3 asm4a.ipx
 asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
+asm4e.obj: asm4e.plm asm4e.ipx
 asm51.obj: asm51.plm asm51.ipx
 asm57.obj: asm57.pl3 asm57.ipx
+asm5d.obj: asm5d.plm asm5d.ipx
 asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm85.obj: asm85.pl3 asm85.ipx
@@ -130,6 +137,7 @@ asm861.obj: asm861.plm asm861.ipx
 asmov0.obj: asmov0.pl3 asmov0.ipx
 asmov1.obj: asmov1.pl3 asmov1.ipx
 asmov2.obj: asmov2.pl3 asmov2.ipx
+asmov3.obj: asmov3.plm asmov3.ipx
 glb.obj: glb.plm glb.ipx
 glb4.obj: glb4.plm glb4.ipx
 glb5.obj: glb5.plm glb5.ipx
@@ -310,12 +318,9 @@ asm44.obj: asm44.plm asm44.ipx as4483.pls
 asm45.obj: asm45.plm asm45.ipx
 asm46.obj: asm46.pl3 asm46.ipx
 asm4b.obj: asm4b.pl3 asm4b.ipx
-asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pls
 asm55.obj: asm55.plm asm55.ipx
-asm5d.obj: asm5d.plm asm5d.ipx as4e5d.pls
 asm83.obj: asm83.plm asm83.ipx as4483.pls
 asm851.obj: asm851.plm asm851.ipx
-asmov3.obj: asmov3.plm asmov3.ipx as4e5d.pls
 close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx
 error.obj: error.plm error.ipx
