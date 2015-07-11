@@ -5,7 +5,7 @@ do;
 */
 put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
-$IF ASM4D
+$IF OVL4
 $include(asm4d.ipx)
 $ELSE
 $include(asmov1.ipx)
@@ -219,7 +219,7 @@ sub7041$8447: procedure public;
     b755C(0) = 'A';
     do b7562 = 0 to 2;
         jj = isPhase2Print and ctlSYMBOLS;
-$IF ASM4D
+$IF OVL4
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
         curTokenSym$p = symTab(1) - 2;
@@ -230,7 +230,7 @@ $ENDIF
             w7563 = curTokenSym.w0;
             if b7563 <> 9 then
                 if b7563 <> 6 then
-$IF ASM4D
+$IF OVL4
                     if sub$3FA9 then
 $ENDIF
                         if b7562 <> 0 or b7563 <> 3 then
@@ -244,7 +244,7 @@ $ENDIF
 
                                     call printStr(.b68AE(1));
                                     call printChar(' ');
-$IF ASM4D
+$IF OVL4
                                     if b7563 = 3Ah then
                                         call printChar('+');
                                     else
@@ -360,7 +360,7 @@ end;
 
 ovl3: procedure public;
     declare ch based off6C2C byte;
-$IF ASM4D
+$IF OVL4
     declare ch1 based off9056 byte;
 $ENDIF
 loop:
@@ -369,7 +369,7 @@ loop:
         w68A0 = w68A2;
 
     call outch(asmErrCode);
-$IF ASM4D
+$IF OVL4
     if b$905E = 0FFh then
         call outch('-');
     else
@@ -406,13 +406,13 @@ $ENDIF
     do;
         b68AD = 0FFh;
         call outNStr(4, .asciiLineNo);
-$IF ASM4D
+$IF OVL4
         if b$905B > 1 then
             call outch('+');
         else
 $ENDIF
             call outch(' ');
-$IF ASM4D
+$IF OVL4
         if b$905B > 1 then
         do;
             curCol = 18h;
@@ -427,7 +427,7 @@ $ENDIF
             call printNStr(b6C30, off6C2E);
 	    if ch <> LF then
                  call printChar(LF);
-$IF ASM4D
+$IF OVL4
         end;
 $ENDIF
     end;
@@ -481,7 +481,7 @@ ovl10: procedure public;
     declare ch based w68A6 byte;
 
     call closeF(infd);
-$IF ASM4D
+$IF OVL4
     call closeF(macrofd);
     call delete(.aF0Asmac$tmp, .statusIO);
     if ctlOBJECT then

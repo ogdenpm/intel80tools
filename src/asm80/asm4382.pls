@@ -1,6 +1,6 @@
 asm43$82:
 do;
-$IF ASM43
+$IF OVL4
 $include(asm43.ipx)
 $ELSE
 $include(asm82.ipx)
@@ -16,7 +16,7 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
 			   0FFh, 0, 0, 0);
-$IF ASM43
+$IF OVL4
 declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
 
 skipWhite$2: procedure public;
@@ -112,7 +112,7 @@ skipWhite: procedure public;
 end;
 
 
-$IF ASM82
+$IF BASE
 skipWhite$2: procedure public;
 	do while getCh = ' ' or isTab;
 	end;
@@ -147,12 +147,12 @@ sub$3F19: procedure public;
         case0:	call illegalCharError;		/* CC$BAD */
 		;				/* CC$WS */
 		do;				/* CC$SEMI */
-$IF ASM43
+$IF OVL4
 			if not b$9058 then
 $ENDIF
 			do;
 				b6742 = 0FFh;
-$IF ASM43
+$IF OVL4
 				if getChClass = 2 and b$905E then
 				do;
 					b$9059 = 0FFh;
@@ -168,7 +168,7 @@ $ENDIF
 			if not b6872 then
 			do;
 				if skipping(0)
-$IF ASM43
+$IF OVL4
 				   or b$905E
 $ENDIF
 				then
@@ -195,14 +195,14 @@ $ENDIF
 		do;				/* CC$CR */
 			call chkLF;
 			b6B29 = 1;
-$IF ASM43
+$IF OVL4
 			b$9058 = 0;
 $ENDIF
 			return;
 		end;
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
-$IF ASM43
+$IF OVL4
 				if not testBit(opType, .b$3F88) then
 $ELSE
 				if opType <> 0 and opType <> 3 then
@@ -220,7 +220,7 @@ $ENDIF
 			call sub$416B;
 		end;
 		do;				/* CC$QUOTE */
-$IF ASM43
+$IF OVL4
 			if b6B29 = 37h then
 			do;
 				call illegalCharError;
@@ -244,7 +244,7 @@ $ENDIF
 			call sub$416B;
 		end;
 		do;				/* CC$LET */
-$IF ASM43
+$IF OVL4
 			w$919F = w$906A - 1;
 $ENDIF
 			call getId(9);
@@ -267,7 +267,7 @@ $ENDIF
 			end;
 
 
-$IF ASM43
+$IF OVL4
 			if lookup(2) <> 9 and b$905E then
 			do;
 				if not b$9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
@@ -299,7 +299,7 @@ $ENDIF
 					b687F = 0;
 				end;
 			end;
-$IF ASM43
+$IF OVL4
 			if b$905E = 1 then
 			do;
 				if b6B29 = 3Fh then
@@ -331,7 +331,7 @@ $ENDIF
 				return;
 			end;
 		end;
-$IF ASM43
+$IF OVL4
 		do;				/* 10? */
 			b6BDA = 0;
 			call sub$73AD;

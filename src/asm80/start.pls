@@ -1,3 +1,43 @@
+start: do;
+$IF BASE
+$include(asm801.ipx)
+$ELSEIF OVL4
+$include(asm41.ipx)
+$ELSE
+$include(asm51.ipx)
+$ENDIF
+
+$IF OVL4
+declare w$3780 address public data(0),
+	b$3782 byte public data(80h),
+	b$3783 byte public data(81h);
+$ENDIF
+
+declare	spaces24(*) byte public data('                        ', 0),
+	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
+	signonMsg(*) byte public data(0Dh, 0Ah),
+	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
+	aModulePage(*) byte public data('MODULE ', 9, ' PAGE ', 0),
+	bZERO byte public data(0),
+	bTRUE byte public data(0FFh),
+	copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
+	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
+	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
+	aCommand(*) byte public data(0Dh, 0Ah, 'COMMAND', 0),
+	aEof(*) byte public data(0Dh, 0Ah, 'EOF', 0),
+	aFile(*) byte public data(0Dh, 0Ah, 'FILE', 0),
+	aMemory(*) byte public data(0Dh, 0Ah, 'MEMORY', 0),
+	aError(*) byte public data(' ERROR', 0Dh, 0Ah, 0),
+	aError$0(*) byte public data(' ERROR, ', 0Dh,0Ah, 0),
+	errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
+	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
+	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
+	aCo(*) byte public data(':CO:', 0);
+
+$IF BASE
+declare	loadedOvl byte initial(4),
+	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
+$ENDIF
 
 physmem: procedure address public;
 	declare top address at(4);
@@ -52,7 +92,7 @@ outStrN: procedure(s, n) public;
 	end;
 end;
 
-$IF ASM801
+$IF BASE
 ovlMgr: procedure(ovl) public;
 	declare ovl byte;
 	declare entry$p address;
@@ -102,7 +142,7 @@ isComma: procedure byte public;
 	return curChar = ',';
 end;
 
-$IF ASM42
+$IF OVL4
 isLT: procedure byte public;
 	return curChar = '<';
 end;
@@ -126,7 +166,7 @@ end;
 
 
 chkGenObj: procedure byte public;
-$IF ASM801
+$IF BASE
 	return (phase > 2) and ctlOBJECT;
 $ELSE
 	return (phase = 2) and ctlOBJECT;
@@ -180,7 +220,7 @@ runtimeError: procedure(arg1b) public;
 			do;
 				call skip2NextLine;
 				outfd = 0;
-$IF ASM801
+$IF BASE
 				call ovlMgr(1);
 $ENDIF
 				call printDecimal(w6A4E);	/* overlay 1 */
@@ -283,7 +323,7 @@ sourceError: procedure(arg1b) public;
 	end;
 end;
 
-$IF ASM42
+$IF OVL4
 
 sub$3D34: procedure(arg1b) public;
 	declare arg1b byte;
@@ -313,14 +353,14 @@ preStatementControls: procedure public;
 		do;
 			call skip2NextLine;
 			b6B20$9A77 = 0FFh;
-$IF ASM42
+$IF OVL4
 			if b$905E = 1 then
 				b6897 = 0FFh;
 $ENDIF
 		end;
 		else
 		do;
-$IF ASM801
+$IF BASE
 			call ovlMgr(0);
 $ENDIF
 			call parseControls;
@@ -334,13 +374,13 @@ end;
 initialControls: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = TRUE;
-$IF ASM801
+$IF BASE
 	call ovlMgr(0);
 $ENDIF
 	call parseControls;
 	if isPhase2Print then
 	do;
-$IF ASM801
+$IF BASE
 		call ovlMgr(1);
 $ENDIF
 		call printCmdLine;
@@ -366,30 +406,140 @@ sub3DCE$3DFB: procedure public;
 
 	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
 	b6B23, b6B24, b6B32, b68AB, b6884,
-$IF ASM42
+$IF OVL4
 	b$9059, b$9060, 
 $ENDIF
 	b6885 = bZERO;
 
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
 	ctlEJECT, b6857, tokenSP,
-$IF ASM42
+$IF OVL4
 	b$9058, argNestCnt,
 $ENDIF
 	tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	asmErrCode = 20h;
-$IF ASM42
+$IF OVL4
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
 	b$905B = b$905B > 0;
 $ENDIF
 	b689A = 1;
 	w6A4E = w6A4E + 1;
-$IF ASM42
+$IF OVL4
 	off$9056 = .b$8FD5;
 $ENDIF
 	skipping(0) = skipping(0) > 0;
 end;
 
-/* pckToken code follows */
+
+start:
+	call getAsmFile;
+	phase = 1;
+	call resetData;
+	call initialControls;
+$IF BASE
+	if ctlMACROFILE then
+	do;
+		if physmem < 8001h then
+			call runtimeError(5);	 /* memory error */
+		if includefd <> rootfd then
+			call closeF(includefd);
+		call closeF(infd);
+		ovlFile(12) = '4';		/* use macro asm version */
+		call load(.ovlFile, 0, 1, 0, .statusIO);
+		call ioErrChk;
+	end;
+	if physmem > 8001h then
+	do;
+		if includefd <> rootfd then
+			call closeF(includefd);
+		call closeF(infd);
+		ovlFile(12) = '5';		/* use big memory asm version */
+		call load(.ovlFile, 0, 1, 0, .statusIO);
+		call ioErrChk;
+	end;
+
+	if MacroDebugOrGen then			/* attempt to use macro features */
+		call runtimeError(2);		/* command error */
+$ELSEIF OVL4
+	macrofd = inOpen(.aF0Asmac$tmp, 3);
+$ENDIF
+
+	if ctlOBJECT then
+	do;
+		call delete(.objFile, .statusIO);
+		objfd = inOpen(.objFile, 3);
+	end;
+
+	if ctlXREF then
+	do;
+		xreffd = inOpen(.aF0Asxref$tmp, 2);
+		outfd = xreffd;
+	end;
+
+	call sub$540D;
+	phase = 2;
+	if ctlOBJECT then
+	do;
+$IF BASE
+		call ovlMgr(2);
+$ENDIF
+		if r$extnames1.len > 0 then
+			call writeRec(.r$extnames1);	/* in overlay 2 */
+
+		if w6750 = 0 then
+			call writeModhdr;		/* in overlay 2 */
+$IF NOT BASE
+		call sub$70EE;
+$ENDIF
+	end;
+$IF BASE
+	if not ctlOBJECT or ctlPRINT then
+$ENDIF
+	do;
+		if ctlPRINT then
+			outfd = inOpen(.lstFile, 2);
+$IF BASE
+		call ovlMgr(3);
+$ENDIF
+		call resetData;
+		call initialControls;
+		call sub$540D;
+	end;
+	if ctlPRINT then
+	do;
+$IF BASE
+		call ovlMgr(1);
+$ENDIF
+		call asmComplete;
+		call flushout;
+	end;
+
+	if ctlOBJECT then
+	do;
+$IF BASE
+		phase = 3;
+		call ovlMgr(3);
+		call resetData;
+		call sub$70EE;
+		call initialControls;
+		call sub$540D;
+		call ovlMgr(2);
+$ENDIF
+		call ovl11;
+		call writeModend;
+	end;
+
+	if not strUCequ(.aCo, .lstFile) then
+	do;
+$IF BASE
+		call ovlMgr(1);
+$ENDIF
+		call ovl9;
+	end;
+$IF BASE
+	call ovlMgr(1);
+$ENDIF
+	call ovl10;
+end;
 

@@ -1,5 +1,5 @@
 asm4c$ov2: do;
-$IF ASM4C
+$IF OVL4
 $include(asm4c.ipx)
 $ELSE
 $include(asmov2.ipx)
@@ -242,7 +242,7 @@ writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
         		call flushSymRec;
 
             if (symb(1) and 7) = segId
-$IF ASM4C
+$IF OVL4
                and symb(0) <> 3Ah and sub$3FA9
 $ENDIF
                and not testBit(symb(0), .b6D7E) and

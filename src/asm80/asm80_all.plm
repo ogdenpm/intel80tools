@@ -70,8 +70,12 @@ $file(asm41.plm)
 b$3782          B
 b$3783          B
 w$3780          A
+isGT            PB
+isLT            PB
+sub$3D34        P(B arg1b)
+sub$3D55        P(B arg1b)
 
-$file(asm41.plm,asm51.plm)
+$file(asm41.plm,asm51.plm,asm801.plm)
 aBadSyntax      BS
 aCo             BS
 aCommand        BS
@@ -89,18 +93,8 @@ bTRUE           B
 bZERO           B
 errStrs         AS
 errStrsLen      BS
+signonMsg       BS
 spaces24        BS
-
-$file(asm42.plm)
-isGT            PB
-isLT            PB
-sub$3D34        P(B arg1b)
-sub$3D55        P(B arg1b)
-
-$file(asm42.plm,asm52.plm)
--ovlFile
-
-$file(asm42.plm,asm52.plm,asm801.plm)
 blankAsmErrCode PB
 blankMorPAsmErrCode PB
 chkGenObj       PB
@@ -310,11 +304,8 @@ sub$70EE        P
 
 /* $file(asm51.plm) */
 
-$file(asm51.plm,asm801.plm)
-signonMsg       BS
-
 /* $file(asm52.plm) */
-$file(asm52.plm,asm801.plm)
+$file(asm51.plm,,asm801.plm)
 /* hide variables managed by $IF */
 -argNestCnt
 -b$8FD5
@@ -326,8 +317,6 @@ $file(asm52.plm,asm801.plm)
 -off$9056
 -w$906A
 -w$919D
-
-
 
 /* $file(asm55.plm) */
 
@@ -657,12 +646,12 @@ seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
 $file(write.plm)
 write           P(A conn,A buff$p,A count,A status$p)
 
-global.pac
+global.pls
 declare
-$IF OVL=4
+$IF OVL4
 	IN$BUF$SIZE lit '512',
 	OUT$BUF$SIZE lit '512',
-$ELSEIF OVL=5
+$ELSEIF OVL5
 	IN$BUF$SIZE lit '2048',
 	OUT$BUF$SIZE lit '2048',
 $ELSE
@@ -670,7 +659,7 @@ $ELSE
 	OUT$BUF$SIZE lit '128',
 $ENDIF
 
-$IF OVL=4
+$IF OVL4
 	mem(1) byte public at(0),
 	b$8FD5(127) byte public,
 	w$9054 address public,
@@ -778,7 +767,7 @@ $ENDIF
 	ifDepth byte public initial(0),
 	skipping(9) byte public,
 	inElse(9) byte public,
-$IF OVL=4
+$IF OVL4
 	macroCondSP byte public initial(0),
 	macroCondStk(17) byte public,
 	b$94DD(2) byte,
@@ -826,7 +815,7 @@ $ENDIF
 	b6897 byte public initial(0),
 	primaryValid byte public initial(TRUE),
 /* end */
-$IF OVL=0
+$IF BASE
 	pad6899 byte initial(0),
 $ENDIF
 /* ov4 compat 2C9F */
@@ -902,7 +891,7 @@ $ENDIF
 	w6B1E address public,
 /* end */
 	b6B20$9A77 byte public initial(0),
-$IF OVL<>4
+$IF NOT OVL4
 	MacroDebugOrGen byte public initial(0),
 $ENDIF
 /* ov4 compat 2F56 */
@@ -945,7 +934,7 @@ $ENDIF
 	b6BDC byte public,
 	jj byte public,
 /* end */
-$IF OVL=4
+$IF OVL4
 	b$9B34 byte initial(0),
 $ENDIF
 /* ov4 compat 2F57 */
@@ -954,129 +943,6 @@ $ENDIF
 	bp6BE0(2) byte public at(.w6BE0),
 	w6BE2 address public;
 /* end */
-asm801.plm
-$SET(ASM801)
-asm80$1:
-do;
-
-$include(asm801.ipx)
-
-declare	spaces24(*) byte public data('                        ', 0),
-	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
-	signonMsg(*) byte public data(0Dh, 0Ah),
-	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
-	aModulePage(*) byte public data('MODULE ',9, ' PAGE ', 0),
-	bZERO byte public data(0),
-	bTRUE byte public data(0FFh),
-	aC19761977197$0(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
-	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
-	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
-	aCommand(*) byte public data(0Dh, 0Ah, 'COMMAND', 0),
-	aEof(*) byte public data(0Dh, 0Ah, 'EOF', 0),
-	aFile(*) byte public data(0Dh, 0Ah, 'FILE', 0),
-	aMemory(*) byte public data(0Dh, 0Ah, 'MEMORY', 0),
-	aError(*) byte public data(' ERROR', 0Dh, 0Ah, 0),
-	aError$0(*) byte public data(' ERROR, ', 0Dh,0Ah, 0),
-	errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
-	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
-	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
-	aCo(*) byte public data(':CO:', 0);
-
-declare	loadedOvl byte initial(4),
-	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
-
-$include(as4252.pac)
-
-
-start:
-	call getAsmFile;
-	phase = 1;
-	call resetData;
-	call initialControls;
-	if ctlMACROFILE then
-	do;
-		if physmem < 8001h then
-			call runtimeError(5);	 /* memory error */
-		if includefd <> rootfd then
-			call closeF(includefd);
-		call closeF(infd);
-		ovlFile(12) = '4';		/* use macro asm version */
-		call load(.ovlFile, 0, 1, 0, .statusIO);
-		call ioErrChk;
-	end;
-	if physmem > 8001h then
-	do;
-		if includefd <> rootfd then
-			call closeF(includefd);
-		call closeF(infd);
-		ovlFile(12) = '5';		/* use big memory asm version */
-		call load(.ovlFile, 0, 1, 0, .statusIO);
-		call ioErrChk;
-	end;
-
-	if MacroDebugOrGen then			/* attempt to use macro features */
-		call runtimeError(2);		/* command error */
-
-	if ctlOBJECT then
-	do;
-		call delete(.objFile, .statusIO);
-		objfd = inOpen(.objFile, 3);
-	end;
-
-	if ctlXREF then
-	do;
-		xreffd = inOpen(.aF0Asxref$tmp, 2);
-		outfd = xreffd;
-	end;
-
-	call sub$540D;
-	phase = 2;
-	if ctlOBJECT then
-	do;
-		call ovlMgr(2);
-		if r$extnames1.len > 0 then
-			call writeRec(.r$extnames1); /* in overlay 2 */
-		if w6750 = 0 then
-			call writeModhdr;		/* in overlay 2 */
-	end;
-	if not ctlOBJECT or ctlPRINT then
-	do;
-		if ctlPRINT then
-			outfd = inOpen(.lstFile, 2);
-
-		call ovlMgr(3);
-		call resetData;
-		call initialControls;
-		call sub$540D;
-	end;
-	if ctlPRINT then
-	do;
-		call ovlMgr(1);
-		call asmComplete;
-		call flushout;
-	end;
-	if ctlOBJECT then
-	do;
-		phase = 3;
-		call ovlMgr(3);
-		call resetData;
-		call sub$70EE;
-		call initialControls;
-		call sub$540D;
-		call ovlMgr(2);
-		call ovl11;
-		call writeModend;
-	end;
-	if not strUCequ(.aCo, .lstFile) then
-	do;
-		call ovlMgr(1);
-		call ovl9;
-	end;
-
-	call ovlMgr(1);
-	call ovl10;
-
-end;
 asm83.plm
 asm80$3: do;
 
@@ -1087,13 +953,13 @@ outStrN: procedure(s, n) external; declare s address, n address; end;
 
 
 $include(asm83.ipx)
-$include(as4483.pac)
+$include(as4483.pls)
 end;
-asm475785.pl3x
+asm475785.pls
 asm80$47$57$85: do;
-$IF ASM47
+$IF OVL4
 $include(asm47.ipx)
-$ELSEIF ASM57
+$ELSEIF OVL5
 $include(asm57.ipx)
 $ELSE
 $include(asm85.ipx)
@@ -1299,7 +1165,7 @@ sub4B72$516F: procedure public;
 
 				b68AB = 0FFh;
 			end;
-$IF ASM47
+$IF OVL4
 			jj = b$905E;
 			b$905E = 0;
 
@@ -1329,7 +1195,7 @@ $ENDIF
 		end;
 /* 34 */	do;					/* ELSE ? */
 			b6B32 = 0FFh;
-$IF ASM47
+$IF OVL4
 			if macroCondStk(0) <> 2 then
 $ELSE
 			if ifDepth = 0 then
@@ -1398,7 +1264,7 @@ $ENDIF
 			b6749 = 0FFh;
 			if w6750 = 0 and isPhase1 and ctlOBJECT then
 			do;
-$IF ASM85
+$IF BASE
 				call ovlMgr(2);
 $ENDIF
 				call writeModhdr;
@@ -1407,7 +1273,7 @@ $ENDIF
 			call sub5819$5CE8(w6750, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
-$IF ASM85
+$IF BASE
 				call ovlMgr(2);
 $ENDIF
 				call writeExtName;
@@ -1428,7 +1294,7 @@ $ENDIF
 			call popToken;
 		end;
 /* 53 */	segSize(3) = accum1;		/* STKLN ? */
-$IF ASM47
+$IF OVL4
 /* 54 */	call sub$7517;			/* MACRO ? */
 /* 55 */	call sub$753E;
 /* 56 */	call sub$75FF;			/* ENDM */
@@ -1480,7 +1346,7 @@ sub$518F: procedure public;
 
 	do while 1;
 		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0)
-$IF ASM47
+$IF OVL4
 	           or (b4181(b6B29) < 128 or b$9058) and b$905E
 
 $ENDIF
@@ -1726,9 +1592,9 @@ sub4C1E$54FD: procedure public;
 	end;
 end;
 end;
-asm4cov2.pl3x
+asm4cov2.pls
 asm4c$ov2: do;
-$IF ASM4C
+$IF OVL4
 $include(asm4c.ipx)
 $ELSE
 $include(asmov2.ipx)
@@ -1971,7 +1837,7 @@ writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
         		call flushSymRec;
 
             if (symb(1) and 7) = segId
-$IF ASM4C
+$IF OVL4
                and symb(0) <> 3Ah and sub$3FA9
 $ENDIF
                and not testBit(symb(0), .b6D7E) and
@@ -2068,10 +1934,10 @@ ovl11: procedure public;
 end;
 end;
 asmov3.plm
-$SET(ASMOV3)
+$SET(OVL3)
 asm88: do;
 $include(asmov3.ipx)
-$include(as4e5d.pac)
+$include(as4e5d.pls)
 end;
 keywrd.plm
 keywords: do;
@@ -2240,16 +2106,6 @@ declare stdKeywords(*) address public initial(
 
 
 end;
-asm51.plm
-asm51: do;
-$include(asm51.ipx)
-$include(as4151.pac)
-end;
-asm52.plm
-asm52: do;
-$include(asm52.ipx)
-$include(as4252.pac)
-end;
 asm55.plm
 asm851: do;
 $include(asm55.ipx)
@@ -2382,24 +2238,27 @@ end;
 asm5D.plm
 asm5D: do;
 $include(asm5D.ipx)
-$include(as4e5d.pac)
+$include(as4e5d.pls)
 end;
-asm41.plm
-$SET(ASM41)
-asmov4:
-do;
+start.pls
+start: do;
+$IF BASE
+$include(asm801.ipx)
+$ELSEIF OVL4
 $include(asm41.ipx)
-$include(as4151.pac)
-end;
-as4151.pac
-$IF ASM41
+$ELSE
+$include(asm51.ipx)
+$ENDIF
+
+$IF OVL4
 declare w$3780 address public data(0),
 	b$3782 byte public data(80h),
 	b$3783 byte public data(81h);
 $ENDIF
+
 declare	spaces24(*) byte public data('                        ', 0),
 	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
-	signonMsg(*) byte data(0Dh, 0Ah),
+	signonMsg(*) byte public data(0Dh, 0Ah),
 	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
 	aModulePage(*) byte public data('MODULE ', 9, ' PAGE ', 0),
 	bZERO byte public data(0),
@@ -2418,69 +2277,10 @@ declare	spaces24(*) byte public data('                        ', 0),
 	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
 	aCo(*) byte public data(':CO:', 0);
 
-start$ov4$5:
-	call getAsmFile;
-	phase = 1;
-	call resetData;
-	call initialControls;
-$IF ASM41
-	macrofd = inOpen(.aF0Asmac$tmp, 3);
+$IF BASE
+declare	loadedOvl byte initial(4),
+	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 $ENDIF
-	if ctlOBJECT then
-	do;
-		call delete(.objFile, .statusIO);
-		objfd = inOpen(.objFile, 3);
-	end;
-
-	if ctlXREF then
-	do;
-		xreffd = inOpen(.aF0Asxref$tmp, 2);
-		outfd = xreffd;
-	end;
-
-	call sub$540D;
-	phase = 2;
-	if ctlOBJECT then
-	do;
-		if r$extnames1.len > 0 then
-			call writeRec(.r$extnames1);
-
-		if w6750 = 0 then
-			call writeModhdr;
-
-		call sub$70EE;
-	end;
-
-	if ctlPRINT then
-		outfd = inOpen(.lstFile, 2);
-
-	call resetData;
-	call initialControls;
-	call sub$540D;
-	if ctlPRINT then
-	do;
-		call asmComplete;
-		call flushout;
-	end;
-
-	if ctlOBJECT then
-	do;
-		call ovl11;
-		call writeModend;
-	end;
-
-	if not strUCequ(.aCo, .lstFile) then
-		call ovl9;
-
-	call ovl10;
-asm42.plm
-$SET(ASM42)
-asm42:
-do;
-$include(asm42.ipx)
-$include(as4252.pac)
-end;
-as4252.pac
 
 physmem: procedure address public;
 	declare top address at(4);
@@ -2535,7 +2335,7 @@ outStrN: procedure(s, n) public;
 	end;
 end;
 
-$IF ASM801
+$IF BASE
 ovlMgr: procedure(ovl) public;
 	declare ovl byte;
 	declare entry$p address;
@@ -2585,7 +2385,7 @@ isComma: procedure byte public;
 	return curChar = ',';
 end;
 
-$IF ASM42
+$IF OVL4
 isLT: procedure byte public;
 	return curChar = '<';
 end;
@@ -2609,7 +2409,7 @@ end;
 
 
 chkGenObj: procedure byte public;
-$IF ASM801
+$IF BASE
 	return (phase > 2) and ctlOBJECT;
 $ELSE
 	return (phase = 2) and ctlOBJECT;
@@ -2663,7 +2463,7 @@ runtimeError: procedure(arg1b) public;
 			do;
 				call skip2NextLine;
 				outfd = 0;
-$IF ASM801
+$IF BASE
 				call ovlMgr(1);
 $ENDIF
 				call printDecimal(w6A4E);	/* overlay 1 */
@@ -2766,7 +2566,7 @@ sourceError: procedure(arg1b) public;
 	end;
 end;
 
-$IF ASM42
+$IF OVL4
 
 sub$3D34: procedure(arg1b) public;
 	declare arg1b byte;
@@ -2796,14 +2596,14 @@ preStatementControls: procedure public;
 		do;
 			call skip2NextLine;
 			b6B20$9A77 = 0FFh;
-$IF ASM42
+$IF OVL4
 			if b$905E = 1 then
 				b6897 = 0FFh;
 $ENDIF
 		end;
 		else
 		do;
-$IF ASM801
+$IF BASE
 			call ovlMgr(0);
 $ENDIF
 			call parseControls;
@@ -2817,13 +2617,13 @@ end;
 initialControls: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = TRUE;
-$IF ASM801
+$IF BASE
 	call ovlMgr(0);
 $ENDIF
 	call parseControls;
 	if isPhase2Print then
 	do;
-$IF ASM801
+$IF BASE
 		call ovlMgr(1);
 $ENDIF
 		call printCmdLine;
@@ -2849,37 +2649,147 @@ sub3DCE$3DFB: procedure public;
 
 	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
 	b6B23, b6B24, b6B32, b68AB, b6884,
-$IF ASM42
+$IF OVL4
 	b$9059, b$9060, 
 $ENDIF
 	b6885 = bZERO;
 
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
 	ctlEJECT, b6857, tokenSP,
-$IF ASM42
+$IF OVL4
 	b$9058, argNestCnt,
 $ENDIF
 	tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
 	asmErrCode = 20h;
-$IF ASM42
+$IF OVL4
 	off$9056 = .b$8FD5;
 	w$919D = w$906A;
 	b$905B = b$905B > 0;
 $ENDIF
 	b689A = 1;
 	w6A4E = w6A4E + 1;
-$IF ASM42
+$IF OVL4
 	off$9056 = .b$8FD5;
 $ENDIF
 	skipping(0) = skipping(0) > 0;
 end;
 
-/* pckToken code follows */
 
-asm4382.pl3x
+start:
+	call getAsmFile;
+	phase = 1;
+	call resetData;
+	call initialControls;
+$IF BASE
+	if ctlMACROFILE then
+	do;
+		if physmem < 8001h then
+			call runtimeError(5);	 /* memory error */
+		if includefd <> rootfd then
+			call closeF(includefd);
+		call closeF(infd);
+		ovlFile(12) = '4';		/* use macro asm version */
+		call load(.ovlFile, 0, 1, 0, .statusIO);
+		call ioErrChk;
+	end;
+	if physmem > 8001h then
+	do;
+		if includefd <> rootfd then
+			call closeF(includefd);
+		call closeF(infd);
+		ovlFile(12) = '5';		/* use big memory asm version */
+		call load(.ovlFile, 0, 1, 0, .statusIO);
+		call ioErrChk;
+	end;
+
+	if MacroDebugOrGen then			/* attempt to use macro features */
+		call runtimeError(2);		/* command error */
+$ELSEIF OVL4
+	macrofd = inOpen(.aF0Asmac$tmp, 3);
+$ENDIF
+
+	if ctlOBJECT then
+	do;
+		call delete(.objFile, .statusIO);
+		objfd = inOpen(.objFile, 3);
+	end;
+
+	if ctlXREF then
+	do;
+		xreffd = inOpen(.aF0Asxref$tmp, 2);
+		outfd = xreffd;
+	end;
+
+	call sub$540D;
+	phase = 2;
+	if ctlOBJECT then
+	do;
+$IF BASE
+		call ovlMgr(2);
+$ENDIF
+		if r$extnames1.len > 0 then
+			call writeRec(.r$extnames1);	/* in overlay 2 */
+
+		if w6750 = 0 then
+			call writeModhdr;		/* in overlay 2 */
+$IF NOT BASE
+		call sub$70EE;
+$ENDIF
+	end;
+$IF BASE
+	if not ctlOBJECT or ctlPRINT then
+$ENDIF
+	do;
+		if ctlPRINT then
+			outfd = inOpen(.lstFile, 2);
+$IF BASE
+		call ovlMgr(3);
+$ENDIF
+		call resetData;
+		call initialControls;
+		call sub$540D;
+	end;
+	if ctlPRINT then
+	do;
+$IF BASE
+		call ovlMgr(1);
+$ENDIF
+		call asmComplete;
+		call flushout;
+	end;
+
+	if ctlOBJECT then
+	do;
+$IF BASE
+		phase = 3;
+		call ovlMgr(3);
+		call resetData;
+		call sub$70EE;
+		call initialControls;
+		call sub$540D;
+		call ovlMgr(2);
+$ENDIF
+		call ovl11;
+		call writeModend;
+	end;
+
+	if not strUCequ(.aCo, .lstFile) then
+	do;
+$IF BASE
+		call ovlMgr(1);
+$ENDIF
+		call ovl9;
+	end;
+$IF BASE
+	call ovlMgr(1);
+$ENDIF
+	call ovl10;
+end;
+
+asm4382.pls
 asm43$82:
 do;
-$IF ASM43
+$IF OVL4
 $include(asm43.ipx)
 $ELSE
 $include(asm82.ipx)
@@ -2895,7 +2805,7 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
 			   0FFh, 0, 0, 0);
-$IF ASM43
+$IF OVL4
 declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
 
 skipWhite$2: procedure public;
@@ -2991,7 +2901,7 @@ skipWhite: procedure public;
 end;
 
 
-$IF ASM82
+$IF BASE
 skipWhite$2: procedure public;
 	do while getCh = ' ' or isTab;
 	end;
@@ -3026,12 +2936,12 @@ sub$3F19: procedure public;
         case0:	call illegalCharError;		/* CC$BAD */
 		;				/* CC$WS */
 		do;				/* CC$SEMI */
-$IF ASM43
+$IF OVL4
 			if not b$9058 then
 $ENDIF
 			do;
 				b6742 = 0FFh;
-$IF ASM43
+$IF OVL4
 				if getChClass = 2 and b$905E then
 				do;
 					b$9059 = 0FFh;
@@ -3047,7 +2957,7 @@ $ENDIF
 			if not b6872 then
 			do;
 				if skipping(0)
-$IF ASM43
+$IF OVL4
 				   or b$905E
 $ENDIF
 				then
@@ -3074,14 +2984,14 @@ $ENDIF
 		do;				/* CC$CR */
 			call chkLF;
 			b6B29 = 1;
-$IF ASM43
+$IF OVL4
 			b$9058 = 0;
 $ENDIF
 			return;
 		end;
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
-$IF ASM43
+$IF OVL4
 				if not testBit(opType, .b$3F88) then
 $ELSE
 				if opType <> 0 and opType <> 3 then
@@ -3099,7 +3009,7 @@ $ENDIF
 			call sub$416B;
 		end;
 		do;				/* CC$QUOTE */
-$IF ASM43
+$IF OVL4
 			if b6B29 = 37h then
 			do;
 				call illegalCharError;
@@ -3123,7 +3033,7 @@ $ENDIF
 			call sub$416B;
 		end;
 		do;				/* CC$LET */
-$IF ASM43
+$IF OVL4
 			w$919F = w$906A - 1;
 $ENDIF
 			call getId(9);
@@ -3146,7 +3056,7 @@ $ENDIF
 			end;
 
 
-$IF ASM43
+$IF OVL4
 			if lookup(2) <> 9 and b$905E then
 			do;
 				if not b$9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
@@ -3178,7 +3088,7 @@ $ENDIF
 					b687F = 0;
 				end;
 			end;
-$IF ASM43
+$IF OVL4
 			if b$905E = 1 then
 			do;
 				if b6B29 = 3Fh then
@@ -3210,7 +3120,7 @@ $ENDIF
 				return;
 			end;
 		end;
-$IF ASM43
+$IF OVL4
 		do;				/* 10? */
 			b6BDA = 0;
 			call sub$73AD;
@@ -3234,7 +3144,7 @@ end;
 
 end;
 asm44.plm
-$SET(ASM44)
+$SET(OVL4)
 asm44:
 do;
 /* to force the code generation this needs a non-standard definition
@@ -3244,17 +3154,17 @@ outStrN: procedure(s, n) external; declare s address, n address; end;
 put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
 $include(asm44.ipx)
-$include(as4483.pac)
+$include(as4483.pls)
 
 end;
-as4483.pac
+as4483.pls
 declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
 			   0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh, 1, 1,
 			   1, 1, 80h, 1, 0, 0, 47h, 7, 7, 7,
 			   17h, 47h, 7, 47h, 37h, 5, 7, 0, 0, 0,
 			   40h, 40h, 0, 1
-$IF ASM44
+$IF OVL4
 			   ,80h, 40h, 80h, 0, 40h, 80h, 80h, 40h, 81h, 0C0h, 80h, 0Dh
 $ENDIF
 			   ),
@@ -3268,7 +3178,7 @@ $ENDIF
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1
-$IF ASM44
+$IF OVL4
 	       /* extra */ ,0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah
 $ENDIF
 			   );
@@ -3363,7 +3273,7 @@ sub$43DD: procedure address public;
 	declare s based curTokStart(1) byte,
 		wrd$p address,
 		wrd based wrd$p address;
-$IF ASM44
+$IF OVL4
 	logError: procedure(arg1b);
 		declare arg1b byte;
 
@@ -3380,12 +3290,12 @@ $ENDIF
 	b6855 = 0;
 	accum1 = 0;
 	b6858 = 9;
-$IF ASM44
+$IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
 	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
-$IF ASM44
+$IF OVL4
 		call logError('Q');
 $ELSE
 		call syntaxError;
@@ -3393,7 +3303,7 @@ $ENDIF
 	else
 	do;
 		if tokenType(0) = 9 or tokenType(0) = 6 then
-$IF ASM44
+$IF OVL4
 			call logError('U');
 $ELSE
 			call undefinedSymbolError;
@@ -3411,7 +3321,7 @@ $ENDIF
 
 			end;
 			else if tokenSize(0) = 0 then
-$IF ASM44
+$IF OVL4
 				call logError('V');
 $ELSE
 				call valueError;
@@ -3419,7 +3329,7 @@ $ENDIF
 			else
 			do;
 				if tokenSize(0) > 2 then
-$IF ASM44
+$IF OVL4
 					call logError('V');
 $ELSE
 					call valueError;
@@ -3512,7 +3422,7 @@ end;
 
 sub$465B: procedure byte public;
 	return ((not b6B20$9A77) and ctlLIST or b6A6F and b6B20$9A77)
-$IF ASM44
+$IF OVL4
 	        and (not (b$905B > 1) or ctlGEN)
 $ENDIF
 		and (not(b6B32 or skipping(0)) or ctlCOND);
@@ -3818,10 +3728,10 @@ x:						/* forces code alignment */
 	includefd = inOpen(.files(fileIdx).name, 1);
 end;
 end;
-asm4886.pl3x
+asm4886.pls
 asm48$86:
 do;
-$IF ASM48
+$IF OVL4
 $include(asm48.ipx)
 $ELSE
 $include(asm86.ipx)
@@ -3834,7 +3744,7 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
                           0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
 			  /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 	chClass(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,	/* 00 */
-$IF ASM48
+$IF OVL4
 			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
 $ELSE
 			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
@@ -3895,13 +3805,13 @@ insertSym: procedure public;
 	end;
 
 	call move(4, curTokStart, curTokenSym$p);
-$IF ASM48
+$IF OVL4
 	w6868(2) = w6868(2) + 8;
 $ENDIF
 	curTokenSym.type = 0;
 end;
 
-$IF ASM48
+$IF OVL4
 sub$5C73: procedure(arg1b) byte;
 	declare arg1b byte;
 
@@ -3943,7 +3853,7 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 	b6CE9 = 0;
 	b6CE8 = curTokenSym.flags;
 	b6CEA = 0;
-$IF ASM48
+$IF OVL4
 	if sub$5C73(1) then
 	do;
 $ELSE
@@ -3963,7 +3873,7 @@ $ENDIF
 			if b6883 then
 			do;
 				if curTokenSym.type >= 80h
-$IF ASM48
+$IF OVL4
 					 or arg2b = 3Ah and curTokenSym.w4 <> w6A4E
 $ENDIF
 				then
@@ -3975,7 +3885,7 @@ $ENDIF
 			else
 			do;
 				call insertSym;
-$IF ASM48
+$IF OVL4
 				w6866 = w6866 + 8;
 $ENDIF
 				w6868(1) = w6868(1) + 8;
@@ -4075,7 +3985,7 @@ L5A9B$5F82:
 
 	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7)
 	   or arg2b = 4 and blankAsmErrCode or b6CEA
-$IF ASM48
+$IF OVL4
 	   or arg2b = 3Ah
 $ENDIF
 	then
@@ -4193,7 +4103,7 @@ end;
 
 getCh: procedure byte public;
 	declare (curCH, prevCH) byte;
-$IF ASM48
+$IF OVL4
 	declare ch based tmac$buf$p byte;
 	declare ch1 based off9056 byte;
 $ENDIF
@@ -4205,7 +4115,7 @@ L6339:
 
 	L6347:
 		curCH = lookAhead;
-$IF ASM48
+$IF OVL4
 		if b$905B then
 		do;
 			do while (lookAhead := ch) = 0FEh;
@@ -4225,7 +4135,7 @@ $ENDIF
 		if chClass(curCH) = CC$BAD then
 			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
 				goto L6347;
-$IF ASM48
+$IF OVL4
 		if b$905B then
 		do;
 			if curCH = 1Bh then
@@ -4320,7 +4230,7 @@ end;
 
 getChClass: procedure byte public;
 	curChar = getCh;
-$IF ASM48
+$IF OVL4
 	if b$905D then
 		return 0Ah;
 $ENDIF
@@ -4335,22 +4245,22 @@ chkLF: procedure public;
 		lookAhead = 0;
 	else
 	do;
-$IF ASM48 
+$IF OVL4 
 		b$905E = b$905E and 0FEh;
 $ENDIF
 		call illegalCharError;
-$IF ASM48
+$IF OVL4
 		b$905E = b$905E > 0;
-$ENDIF */
+$ENDIF
 	end;
 end;
 
 end;
 
-asm49861.pl3x
+asm49861.pls
 asm49$861:
 do;
-$IF ASM49
+$IF OVL4
 $include(asm49.ipx)
 $ELSE
 $include(asm861.ipx)
@@ -4444,7 +4354,7 @@ end;
 
 nestIF: procedure(arg1b) public;
 	declare arg1b byte;
-$IF ASM49
+$IF OVL4
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
 	if (macroCondStk(0) := arg1b) = 1 then
 	do;
@@ -4481,7 +4391,7 @@ end;
 unnestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
-$IF ASM49
+$IF OVL4
 	if arg1b <> macroCondStk(0) then
 	do;
 		call nestingError;
@@ -4534,7 +4444,7 @@ pushToken: procedure(arg1b) public;
 		tokenType(0) = arg1b;
 		tokenAttr(0), tokenSize(0) = bZERO;
 		tokenSym(0) = wZERO;
-$IF ASM49
+$IF OVL4
 		tokenSymId(0) = wZERO;
 $ELSE
 		tokenSymId(0) = tokenSym(0);
@@ -4640,10 +4550,9 @@ L6268:
 end;
 
 end;
-asm4aov0.pl3x
-/*$SET(ASM4A)*/
+asm4aov0.pls
 asm4A$OV0: do;
-$IF ASM4A
+$IF OVL4
 $include(asm4a.ipx)
 $ELSE
 $include(asmov0.ipx)
@@ -4859,7 +4768,7 @@ lookupControl: procedure byte;
 	return 255;						/* not found */
 
 break:
-$IF ASMOV0 
+$IF OVL0 
 	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
 	do;
 		if scanCmdLine then			/* only valid on command line not $ line */
@@ -5007,7 +4916,7 @@ end;
 parseControls: procedure public;
 	b6B20$9A77 = 0FFh;
 	b6A6F, b7464 = ctlLIST;
-$IF ASM4A
+$IF OVL4
 	b7465 = ctlGEN;
 $ENDIF
 	controlError = 0;
@@ -5038,7 +4947,7 @@ $ENDIF
 	call chkLF;			/* eat the LF */
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
-$IF ASM4A
+$IF OVL4
 	else if ctlGEN <> b7465 and b$905B then
 		b6A6F = 0;
 $ENDIF
@@ -5539,7 +5448,7 @@ sub$78CE: procedure public;
 end;
 
 end;
-asm4dov1.pl3x
+asm4dov1.pls
 asm4D$OV1:
 do;
 /* to force the code generation this needs a non-standard definition
@@ -5547,7 +5456,7 @@ do;
 */
 put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 
-$IF ASM4D
+$IF OVL4
 $include(asm4d.ipx)
 $ELSE
 $include(asmov1.ipx)
@@ -5761,7 +5670,7 @@ sub7041$8447: procedure public;
     b755C(0) = 'A';
     do b7562 = 0 to 2;
         jj = isPhase2Print and ctlSYMBOLS;
-$IF ASM4D
+$IF OVL4
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
         curTokenSym$p = symTab(1) - 2;
@@ -5772,7 +5681,7 @@ $ENDIF
             w7563 = curTokenSym.w0;
             if b7563 <> 9 then
                 if b7563 <> 6 then
-$IF ASM4D
+$IF OVL4
                     if sub$3FA9 then
 $ENDIF
                         if b7562 <> 0 or b7563 <> 3 then
@@ -5786,7 +5695,7 @@ $ENDIF
 
                                     call printStr(.b68AE(1));
                                     call printChar(' ');
-$IF ASM4D
+$IF OVL4
                                     if b7563 = 3Ah then
                                         call printChar('+');
                                     else
@@ -5902,7 +5811,7 @@ end;
 
 ovl3: procedure public;
     declare ch based off6C2C byte;
-$IF ASM4D
+$IF OVL4
     declare ch1 based off9056 byte;
 $ENDIF
 loop:
@@ -5911,7 +5820,7 @@ loop:
         w68A0 = w68A2;
 
     call outch(asmErrCode);
-$IF ASM4D
+$IF OVL4
     if b$905E = 0FFh then
         call outch('-');
     else
@@ -5948,13 +5857,13 @@ $ENDIF
     do;
         b68AD = 0FFh;
         call outNStr(4, .asciiLineNo);
-$IF ASM4D
+$IF OVL4
         if b$905B > 1 then
             call outch('+');
         else
 $ENDIF
             call outch(' ');
-$IF ASM4D
+$IF OVL4
         if b$905B > 1 then
         do;
             curCol = 18h;
@@ -5969,7 +5878,7 @@ $ENDIF
             call printNStr(b6C30, off6C2E);
 	    if ch <> LF then
                  call printChar(LF);
-$IF ASM4D
+$IF OVL4
         end;
 $ENDIF
     end;
@@ -6023,7 +5932,7 @@ ovl10: procedure public;
     declare ch based w68A6 byte;
 
     call closeF(infd);
-$IF ASM4D
+$IF OVL4
     call closeF(macrofd);
     call delete(.aF0Asmac$tmp, .statusIO);
     if ctlOBJECT then
@@ -6044,13 +5953,13 @@ $ENDIF
 end;
 end;
 asm4E.plm
-$SET(ASM4E)
+$SET(OVL4)
 asm4E:
 do;
 $include(asm4e.ipx)
-$include(as4e5d.pac)
+$include(as4e5d.pls)
 end;
-as4e5d.pac
+as4e5d.pls
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
@@ -6103,13 +6012,13 @@ getAsmFile: procedure public;
 		return cmdch = ' ' or cmdch = TAB or cmdch = CR;
 	end;
 
-$IF ASM4E
+$IF OVL4
 	symTab(0) = .extKeywords;	/* extended key words */
 $ELSE
 	symTab(0) = .stdKeywords;	/* no extended key words */
 $ENDIF
 	w686E, w6868(0), symTab(1), w6868(1) =
-$IF NOT ASMOV3
+$IF NOT OVL3
 						 .MEMORY;
 $ELSE
 						 .EDATA;
@@ -6120,13 +6029,13 @@ $ENDIF
 	call ioErrChk;
 	actRead = actRead + .cmdLineBuf;	/* convert to pointer */
 	scanCmdLine = TRUE;		/* scanning command line */
-$IF ASMOV3
+$IF OVL3
 	call write(0, .signonMsg, 29h, .statusIO);
 	call write(0, .signonMsg, 2, .statusIO);
 	call ioErrChk;
 $ENDIF
 	call cmdSkipWhite;
-$IF ASMOV3
+$IF OVL3
 	ovlFile(2),
 $ENDIF
 	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
@@ -6166,7 +6075,7 @@ $ENDIF
 
 	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
 	if lstFile(0) = ':' and lstFile(2) <> '0' then
-$IF ASM4E
+$IF OVL4
 		aF0Asmac$tmp(2),
 $ENDIF
 		aF0Asxref$tmp(2) = lstFile(2);
@@ -6178,24 +6087,24 @@ resetData: procedure public;	/* extended initialisation */
     call sub3DCE$3DFB;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
-$IF ASM4E
+$IF OVL4
     b$905B, b$905C, b$905E,
 $ENDIF
     b6857, b6C21 = bZERO;
     b6743, primaryValid, ctlLIST, b6A6F,
-$IF ASM4E
+$IF OVL4
     ctlGEN,
 $ENDIF
     ctlCOND = bTRUE;
-$IF ASM4E
+$IF OVL4
     b$9063, b$9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
-$IF ASM4E
+$IF OVL4
     w$9114,
 $ENDIF
     segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6,
-$IF ASM4E
+$IF OVL4
     w$919B,
 $ENDIF
     w6750, errCnt = wZERO;
@@ -6206,7 +6115,7 @@ $ENDIF
     do ii = 0 to 11;
         controlSeen(ii) = 0;
     end;
-$IF ASM4E
+$IF OVL4
     curMacroBlk = 0FFFFh;
 $ENDIF
     if not isPhase1 then
@@ -6410,21 +6319,21 @@ declare extKeywords(*) address public initial(
 end;
 glb.plm
 glb: do;
-$SET(OVL=0)
+$SET(BASE)
 $include(glb.ipx)
-$include(global.pac)
+$include(global.pls)
 end;
 glb4.plm
 glb4: do;
-$SET(OVL=4)
+$SET(OVL4)
 $include(glb4.ipx)
-$include(global.pac)
+$include(global.pls)
 end;
 glb5.plm
 glb5: do;
-$SET(OVL=5)
+$SET(OVL5)
 $include(glb5.ipx)
-$include(global.pac)
+$include(global.pls)
 end;
 makefile
 ISIS=..\..\thames
@@ -6442,13 +6351,13 @@ BASEOBJS = glb.obj asm801.obj asm82.obj asm83.obj asm46.obj asm85.obj\
 	asm851.obj asm86.obj asm861.obj asm87.obj close.obj delete.obj error.obj\
        	exit.obj load.obj open.obj read.obj rescan.obj seek.obj write.obj
 
-OBJS4 =	glb4.obj asm41.obj asm42.obj asm87.obj asm43.obj asm44.obj asm45.obj asm46.obj\
+OBJS4 =	glb4.obj asm41.obj asm87.obj asm43.obj asm44.obj asm45.obj asm46.obj\
 	asm47.obj asm48.obj asm49.obj asm4A.obj asm4B.obj asm4C.obj asm4D.obj asm4E.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
 	seek.obj write.obj
 
-OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
+OBJS5 =	glb5.obj asm51.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	asm57.obj asm86.obj asm861.obj asmov0.obj asmov2.obj asmov1.obj asm5D.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
@@ -6490,44 +6399,53 @@ OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm
 
 all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
-# generated pl3 files & asm861.plm
-asm43.pl3 asm82.pl3: asm4382.pl3x
+# source files generated from shared code
+asm43.pl3 asm82.pl3: asm4382.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM43 -o asm43.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM82 -o asm82.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm43.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm82.pl3 $**
 
-asm48.pl3 asm86.pl3: asm4886.pl3x
+asm48.pl3 asm86.pl3: asm4886.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM48 -o asm48.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM86 -o asm86.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm48.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm86.pl3 $**
 
-asm49.pl3 asm861.plm: asm49861.pl3x
+asm49.pl3 asm861.plm: asm49861.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM49 -o asm49.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM861 -o asm861.plm $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm49.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm861.plm $**
 
-asm4a.pl3 asmov0.pl3: asm4aov0.pl3x
+asm4a.pl3 asmov0.pl3: asm4aov0.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM4A -o asm4a.pl3 $**
-	$(TOOLS:/=\)plmpp -sASMOV0 -o asmov0.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4a.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL0 -o asmov0.pl3 $**
 
-asm4d.pl3 asmov1.pl3: asm4dov1.pl3x
+asm4d.pl3 asmov1.pl3: asm4dov1.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM4D -o asm4d.pl3 $**
-	$(TOOLS:/=\)plmpp -sASMOV1 -o asmov1.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4d.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL1 -o asmov1.pl3 $**
 
-asm4c.pl3 asmov2.pl3: asm4cov2.pl3x
+asm4c.pl3 asmov2.pl3: asm4cov2.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM4C -o asm4c.pl3 $**
-	$(TOOLS:/=\)plmpp -sASMOV2 -o asmov2.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4c.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL2 -o asmov2.pl3 $**
 
-asm47.pl3 asm57.pl3 asm85.pl3: asm475785.pl3x
+asm47.pl3 asm57.pl3 asm85.pl3: asm475785.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM47 -o asm47.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM57 -o asm57.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM85 -o asm85.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm47.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm57.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm85.pl3 $**
+
+asm41.plm asm51.plm asm801.plm: start.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm41.plm $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm51.plm $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm801.plm $**
+
+
 
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
+asm41.obj: asm41.plm asm41.ipx
 asm43.obj: asm43.pl3 asm43.ipx
 asm47.obj: asm47.pl3 asm47.ipx
 asm48.obj: asm48.pl3 asm48.ipx
@@ -6535,7 +6453,9 @@ asm49.obj: asm49.pl3 asm49.ipx
 asm4a.obj: asm4a.pl3 asm4a.ipx
 asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
+asm51.obj: asm51.plm asm51.ipx
 asm57.obj: asm57.pl3 asm57.ipx
+asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm86.obj: asm86.pl3 asm86.ipx
@@ -6703,7 +6623,7 @@ vclean: clean
 	del asm80 asm80.ov?
 
 uclean: vclean
-	del ??????.* makefile *.pl3x
+	del ??????.* makefile *.pls
 
 
 # checking targets

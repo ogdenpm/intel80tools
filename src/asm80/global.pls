@@ -1,8 +1,8 @@
 declare
-$IF OVL=4
+$IF OVL4
 	IN$BUF$SIZE lit '512',
 	OUT$BUF$SIZE lit '512',
-$ELSEIF OVL=5
+$ELSEIF OVL5
 	IN$BUF$SIZE lit '2048',
 	OUT$BUF$SIZE lit '2048',
 $ELSE
@@ -10,7 +10,7 @@ $ELSE
 	OUT$BUF$SIZE lit '128',
 $ENDIF
 
-$IF OVL=4
+$IF OVL4
 	mem(1) byte public at(0),
 	b$8FD5(127) byte public,
 	w$9054 address public,
@@ -118,7 +118,7 @@ $ENDIF
 	ifDepth byte public initial(0),
 	skipping(9) byte public,
 	inElse(9) byte public,
-$IF OVL=4
+$IF OVL4
 	macroCondSP byte public initial(0),
 	macroCondStk(17) byte public,
 	b$94DD(2) byte,
@@ -166,7 +166,7 @@ $ENDIF
 	b6897 byte public initial(0),
 	primaryValid byte public initial(TRUE),
 /* end */
-$IF OVL=0
+$IF BASE
 	pad6899 byte initial(0),
 $ENDIF
 /* ov4 compat 2C9F */
@@ -242,7 +242,7 @@ $ENDIF
 	w6B1E address public,
 /* end */
 	b6B20$9A77 byte public initial(0),
-$IF OVL<>4
+$IF NOT OVL4
 	MacroDebugOrGen byte public initial(0),
 $ENDIF
 /* ov4 compat 2F56 */
@@ -285,7 +285,7 @@ $ENDIF
 	b6BDC byte public,
 	jj byte public,
 /* end */
-$IF OVL=4
+$IF OVL4
 	b$9B34 byte initial(0),
 $ENDIF
 /* ov4 compat 2F57 */

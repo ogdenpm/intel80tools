@@ -1,7 +1,7 @@
 asm80$47$57$85: do;
-$IF ASM47
+$IF OVL4
 $include(asm47.ipx)
-$ELSEIF ASM57
+$ELSEIF OVL5
 $include(asm57.ipx)
 $ELSE
 $include(asm85.ipx)
@@ -207,7 +207,7 @@ sub4B72$516F: procedure public;
 
 				b68AB = 0FFh;
 			end;
-$IF ASM47
+$IF OVL4
 			jj = b$905E;
 			b$905E = 0;
 
@@ -237,7 +237,7 @@ $ENDIF
 		end;
 /* 34 */	do;					/* ELSE ? */
 			b6B32 = 0FFh;
-$IF ASM47
+$IF OVL4
 			if macroCondStk(0) <> 2 then
 $ELSE
 			if ifDepth = 0 then
@@ -306,7 +306,7 @@ $ENDIF
 			b6749 = 0FFh;
 			if w6750 = 0 and isPhase1 and ctlOBJECT then
 			do;
-$IF ASM85
+$IF BASE
 				call ovlMgr(2);
 $ENDIF
 				call writeModhdr;
@@ -315,7 +315,7 @@ $ENDIF
 			call sub5819$5CE8(w6750, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
-$IF ASM85
+$IF BASE
 				call ovlMgr(2);
 $ENDIF
 				call writeExtName;
@@ -336,7 +336,7 @@ $ENDIF
 			call popToken;
 		end;
 /* 53 */	segSize(3) = accum1;		/* STKLN ? */
-$IF ASM47
+$IF OVL4
 /* 54 */	call sub$7517;			/* MACRO ? */
 /* 55 */	call sub$753E;
 /* 56 */	call sub$75FF;			/* ENDM */
@@ -388,7 +388,7 @@ sub$518F: procedure public;
 
 	do while 1;
 		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0)
-$IF ASM47
+$IF OVL4
 	           or (b4181(b6B29) < 128 or b$9058) and b$905E
 
 $ENDIF

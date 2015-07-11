@@ -4,7 +4,7 @@ declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
 			   1, 1, 80h, 1, 0, 0, 47h, 7, 7, 7,
 			   17h, 47h, 7, 47h, 37h, 5, 7, 0, 0, 0,
 			   40h, 40h, 0, 1
-$IF ASM44
+$IF OVL4
 			   ,80h, 40h, 80h, 0, 40h, 80h, 80h, 40h, 81h, 0C0h, 80h, 0Dh
 $ENDIF
 			   ),
@@ -18,7 +18,7 @@ $ENDIF
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1
-$IF ASM44
+$IF OVL4
 	       /* extra */ ,0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah
 $ENDIF
 			   );
@@ -113,7 +113,7 @@ sub$43DD: procedure address public;
 	declare s based curTokStart(1) byte,
 		wrd$p address,
 		wrd based wrd$p address;
-$IF ASM44
+$IF OVL4
 	logError: procedure(arg1b);
 		declare arg1b byte;
 
@@ -130,12 +130,12 @@ $ENDIF
 	b6855 = 0;
 	accum1 = 0;
 	b6858 = 9;
-$IF ASM44
+$IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
 	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
-$IF ASM44
+$IF OVL4
 		call logError('Q');
 $ELSE
 		call syntaxError;
@@ -143,7 +143,7 @@ $ENDIF
 	else
 	do;
 		if tokenType(0) = 9 or tokenType(0) = 6 then
-$IF ASM44
+$IF OVL4
 			call logError('U');
 $ELSE
 			call undefinedSymbolError;
@@ -161,7 +161,7 @@ $ENDIF
 
 			end;
 			else if tokenSize(0) = 0 then
-$IF ASM44
+$IF OVL4
 				call logError('V');
 $ELSE
 				call valueError;
@@ -169,7 +169,7 @@ $ENDIF
 			else
 			do;
 				if tokenSize(0) > 2 then
-$IF ASM44
+$IF OVL4
 					call logError('V');
 $ELSE
 					call valueError;
@@ -262,7 +262,7 @@ end;
 
 sub$465B: procedure byte public;
 	return ((not b6B20$9A77) and ctlLIST or b6A6F and b6B20$9A77)
-$IF ASM44
+$IF OVL4
 	        and (not (b$905B > 1) or ctlGEN)
 $ENDIF
 		and (not(b6B32 or skipping(0)) or ctlCOND);

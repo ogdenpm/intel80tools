@@ -1,6 +1,5 @@
-/*$SET(ASM4A)*/
 asm4A$OV0: do;
-$IF ASM4A
+$IF OVL4
 $include(asm4a.ipx)
 $ELSE
 $include(asmov0.ipx)
@@ -216,7 +215,7 @@ lookupControl: procedure byte;
 	return 255;						/* not found */
 
 break:
-$IF ASMOV0 
+$IF OVL0 
 	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
 	do;
 		if scanCmdLine then			/* only valid on command line not $ line */
@@ -364,7 +363,7 @@ end;
 parseControls: procedure public;
 	b6B20$9A77 = 0FFh;
 	b6A6F, b7464 = ctlLIST;
-$IF ASM4A
+$IF OVL4
 	b7465 = ctlGEN;
 $ENDIF
 	controlError = 0;
@@ -395,7 +394,7 @@ $ENDIF
 	call chkLF;			/* eat the LF */
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
-$IF ASM4A
+$IF OVL4
 	else if ctlGEN <> b7465 and b$905B then
 		b6A6F = 0;
 $ENDIF

@@ -1,6 +1,6 @@
 asm48$86:
 do;
-$IF ASM48
+$IF OVL4
 $include(asm48.ipx)
 $ELSE
 $include(asm86.ipx)
@@ -13,7 +13,7 @@ declare	b5666(*) byte data(9, 2Dh, 80h),
                           0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
 			  /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 	chClass(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,	/* 00 */
-$IF ASM48
+$IF OVL4
 			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
 $ELSE
 			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
@@ -74,13 +74,13 @@ insertSym: procedure public;
 	end;
 
 	call move(4, curTokStart, curTokenSym$p);
-$IF ASM48
+$IF OVL4
 	w6868(2) = w6868(2) + 8;
 $ENDIF
 	curTokenSym.type = 0;
 end;
 
-$IF ASM48
+$IF OVL4
 sub$5C73: procedure(arg1b) byte;
 	declare arg1b byte;
 
@@ -122,7 +122,7 @@ sub5819$5CE8: procedure(arg1w, arg2b) public;
 	b6CE9 = 0;
 	b6CE8 = curTokenSym.flags;
 	b6CEA = 0;
-$IF ASM48
+$IF OVL4
 	if sub$5C73(1) then
 	do;
 $ELSE
@@ -142,7 +142,7 @@ $ENDIF
 			if b6883 then
 			do;
 				if curTokenSym.type >= 80h
-$IF ASM48
+$IF OVL4
 					 or arg2b = 3Ah and curTokenSym.w4 <> w6A4E
 $ENDIF
 				then
@@ -154,7 +154,7 @@ $ENDIF
 			else
 			do;
 				call insertSym;
-$IF ASM48
+$IF OVL4
 				w6866 = w6866 + 8;
 $ENDIF
 				w6868(1) = w6868(1) + 8;
@@ -254,7 +254,7 @@ L5A9B$5F82:
 
 	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7)
 	   or arg2b = 4 and blankAsmErrCode or b6CEA
-$IF ASM48
+$IF OVL4
 	   or arg2b = 3Ah
 $ENDIF
 	then
@@ -372,7 +372,7 @@ end;
 
 getCh: procedure byte public;
 	declare (curCH, prevCH) byte;
-$IF ASM48
+$IF OVL4
 	declare ch based tmac$buf$p byte;
 	declare ch1 based off9056 byte;
 $ENDIF
@@ -384,7 +384,7 @@ L6339:
 
 	L6347:
 		curCH = lookAhead;
-$IF ASM48
+$IF OVL4
 		if b$905B then
 		do;
 			do while (lookAhead := ch) = 0FEh;
@@ -404,7 +404,7 @@ $ENDIF
 		if chClass(curCH) = CC$BAD then
 			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
 				goto L6347;
-$IF ASM48
+$IF OVL4
 		if b$905B then
 		do;
 			if curCH = 1Bh then
@@ -499,7 +499,7 @@ end;
 
 getChClass: procedure byte public;
 	curChar = getCh;
-$IF ASM48
+$IF OVL4
 	if b$905D then
 		return 0Ah;
 $ENDIF
@@ -514,13 +514,13 @@ chkLF: procedure public;
 		lookAhead = 0;
 	else
 	do;
-$IF ASM48 
+$IF OVL4 
 		b$905E = b$905E and 0FEh;
 $ENDIF
 		call illegalCharError;
-$IF ASM48
+$IF OVL4
 		b$905E = b$905E > 0;
-$ENDIF */
+$ENDIF
 	end;
 end;
 

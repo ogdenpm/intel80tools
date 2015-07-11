@@ -13,13 +13,13 @@ BASEOBJS = glb.obj asm801.obj asm82.obj asm83.obj asm46.obj asm85.obj\
 	asm851.obj asm86.obj asm861.obj asm87.obj close.obj delete.obj error.obj\
        	exit.obj load.obj open.obj read.obj rescan.obj seek.obj write.obj
 
-OBJS4 =	glb4.obj asm41.obj asm42.obj asm87.obj asm43.obj asm44.obj asm45.obj asm46.obj\
+OBJS4 =	glb4.obj asm41.obj asm87.obj asm43.obj asm44.obj asm45.obj asm46.obj\
 	asm47.obj asm48.obj asm49.obj asm4A.obj asm4B.obj asm4C.obj asm4D.obj asm4E.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
 	seek.obj write.obj
 
-OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
+OBJS5 =	glb5.obj asm51.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	asm57.obj asm86.obj asm861.obj asmov0.obj asmov2.obj asmov1.obj asm5D.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
@@ -61,44 +61,53 @@ OBJS5 =	glb5.obj asm51.obj asm52.obj asm87.obj asm82.obj asm83.obj asm55.obj asm
 
 all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
-# generated pl3 files & asm861.plm
-asm43.pl3 asm82.pl3: asm4382.pl3x
+# source files generated from shared code
+asm43.pl3 asm82.pl3: asm4382.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM43 -o asm43.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM82 -o asm82.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm43.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm82.pl3 $**
 
-asm48.pl3 asm86.pl3: asm4886.pl3x
+asm48.pl3 asm86.pl3: asm4886.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM48 -o asm48.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM86 -o asm86.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm48.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm86.pl3 $**
 
-asm49.pl3 asm861.plm: asm49861.pl3x
+asm49.pl3 asm861.plm: asm49861.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM49 -o asm49.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM861 -o asm861.plm $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm49.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm861.plm $**
 
-asm4a.pl3 asmov0.pl3: asm4aov0.pl3x
+asm4a.pl3 asmov0.pl3: asm4aov0.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM4A -o asm4a.pl3 $**
-	$(TOOLS:/=\)plmpp -sASMOV0 -o asmov0.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4a.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL0 -o asmov0.pl3 $**
 
-asm4d.pl3 asmov1.pl3: asm4dov1.pl3x
+asm4d.pl3 asmov1.pl3: asm4dov1.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM4D -o asm4d.pl3 $**
-	$(TOOLS:/=\)plmpp -sASMOV1 -o asmov1.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4d.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL1 -o asmov1.pl3 $**
 
-asm4c.pl3 asmov2.pl3: asm4cov2.pl3x
+asm4c.pl3 asmov2.pl3: asm4cov2.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM4C -o asm4c.pl3 $**
-	$(TOOLS:/=\)plmpp -sASMOV2 -o asmov2.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm4c.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL2 -o asmov2.pl3 $**
 
-asm47.pl3 asm57.pl3 asm85.pl3: asm475785.pl3x
+asm47.pl3 asm57.pl3 asm85.pl3: asm475785.pls
 	@SET ISIS_F0=$(F0)
-	$(TOOLS:/=\)plmpp -sASM47 -o asm47.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM57 -o asm57.pl3 $**
-	$(TOOLS:/=\)plmpp -sASM85 -o asm85.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm47.pl3 $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm57.pl3 $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm85.pl3 $**
+
+asm41.plm asm51.plm asm801.plm: start.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm41.plm $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm51.plm $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm801.plm $**
+
+
 
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
+asm41.obj: asm41.plm asm41.ipx
 asm43.obj: asm43.pl3 asm43.ipx
 asm47.obj: asm47.pl3 asm47.ipx
 asm48.obj: asm48.pl3 asm48.ipx
@@ -106,7 +115,9 @@ asm49.obj: asm49.pl3 asm49.ipx
 asm4a.obj: asm4a.pl3 asm4a.ipx
 asm4c.obj: asm4c.pl3 asm4c.ipx
 asm4d.obj: asm4d.pl3 asm4d.ipx
+asm51.obj: asm51.plm asm51.ipx
 asm57.obj: asm57.pl3 asm57.ipx
+asm801.obj: asm801.plm asm801.ipx
 asm82.obj: asm82.pl3 asm82.ipx
 asm85.obj: asm85.pl3 asm85.ipx
 asm86.obj: asm86.pl3 asm86.ipx
@@ -274,7 +285,7 @@ vclean: clean
 	del asm80 asm80.ov?
 
 uclean: vclean
-	del ??????.* makefile *.pl3x
+	del ??????.* makefile *.pls
 
 
 # checking targets
@@ -287,28 +298,23 @@ compare: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
 
 # auto generated
-asm41.obj: asm41.plm asm41.ipx as4151.pac
-asm42.obj: asm42.plm asm42.ipx as4252.pac
-asm44.obj: asm44.plm asm44.ipx as4483.pac
+asm44.obj: asm44.plm asm44.ipx as4483.pls
 asm45.obj: asm45.plm asm45.ipx
 asm46.obj: asm46.pl3 asm46.ipx
 asm4b.obj: asm4b.pl3 asm4b.ipx
-asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pac
-asm51.obj: asm51.plm asm51.ipx as4151.pac
-asm52.obj: asm52.plm asm52.ipx as4252.pac
+asm4e.obj: asm4e.plm asm4e.ipx as4e5d.pls
 asm55.obj: asm55.plm asm55.ipx
-asm5d.obj: asm5d.plm asm5d.ipx as4e5d.pac
-asm801.obj: asm801.plm asm801.ipx as4252.pac
-asm83.obj: asm83.plm asm83.ipx as4483.pac
+asm5d.obj: asm5d.plm asm5d.ipx as4e5d.pls
+asm83.obj: asm83.plm asm83.ipx as4483.pls
 asm851.obj: asm851.plm asm851.ipx
-asmov3.obj: asmov3.plm asmov3.ipx as4e5d.pac
+asmov3.obj: asmov3.plm asmov3.ipx as4e5d.pls
 close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx
 error.obj: error.plm error.ipx
 exit.obj: exit.plm exit.ipx
-glb.obj: glb.plm glb.ipx global.pac
-glb4.obj: glb4.plm glb4.ipx global.pac
-glb5.obj: glb5.plm glb5.ipx global.pac
+glb.obj: glb.plm glb.ipx global.pls
+glb4.obj: glb4.plm glb4.ipx global.pls
+glb5.obj: glb5.plm glb5.ipx global.pls
 load.obj: load.plm load.ipx
 open.obj: open.plm open.ipx
 read.obj: read.plm read.ipx

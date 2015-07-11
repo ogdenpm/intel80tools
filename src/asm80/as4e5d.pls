@@ -50,13 +50,13 @@ getAsmFile: procedure public;
 		return cmdch = ' ' or cmdch = TAB or cmdch = CR;
 	end;
 
-$IF ASM4E
+$IF OVL4
 	symTab(0) = .extKeywords;	/* extended key words */
 $ELSE
 	symTab(0) = .stdKeywords;	/* no extended key words */
 $ENDIF
 	w686E, w6868(0), symTab(1), w6868(1) =
-$IF NOT ASMOV3
+$IF NOT OVL3
 						 .MEMORY;
 $ELSE
 						 .EDATA;
@@ -67,13 +67,13 @@ $ENDIF
 	call ioErrChk;
 	actRead = actRead + .cmdLineBuf;	/* convert to pointer */
 	scanCmdLine = TRUE;		/* scanning command line */
-$IF ASMOV3
+$IF OVL3
 	call write(0, .signonMsg, 29h, .statusIO);
 	call write(0, .signonMsg, 2, .statusIO);
 	call ioErrChk;
 $ENDIF
 	call cmdSkipWhite;
-$IF ASMOV3
+$IF OVL3
 	ovlFile(2),
 $ENDIF
 	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
@@ -113,7 +113,7 @@ $ENDIF
 
 	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
 	if lstFile(0) = ':' and lstFile(2) <> '0' then
-$IF ASM4E
+$IF OVL4
 		aF0Asmac$tmp(2),
 $ENDIF
 		aF0Asxref$tmp(2) = lstFile(2);
@@ -125,24 +125,24 @@ resetData: procedure public;	/* extended initialisation */
     call sub3DCE$3DFB;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
-$IF ASM4E
+$IF OVL4
     b$905B, b$905C, b$905E,
 $ENDIF
     b6857, b6C21 = bZERO;
     b6743, primaryValid, ctlLIST, b6A6F,
-$IF ASM4E
+$IF OVL4
     ctlGEN,
 $ENDIF
     ctlCOND = bTRUE;
-$IF ASM4E
+$IF OVL4
     b$9063, b$9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
-$IF ASM4E
+$IF OVL4
     w$9114,
 $ENDIF
     segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6,
-$IF ASM4E
+$IF OVL4
     w$919B,
 $ENDIF
     w6750, errCnt = wZERO;
@@ -153,7 +153,7 @@ $ENDIF
     do ii = 0 to 11;
         controlSeen(ii) = 0;
     end;
-$IF ASM4E
+$IF OVL4
     curMacroBlk = 0FFFFh;
 $ENDIF
     if not isPhase1 then
