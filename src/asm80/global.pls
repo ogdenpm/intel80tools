@@ -1,17 +1,25 @@
-declare
-$IF OVL4
-	IN$BUF$SIZE lit '512',
-	OUT$BUF$SIZE lit '512',
-$ELSEIF OVL5
-	IN$BUF$SIZE lit '2048',
-	OUT$BUF$SIZE lit '2048',
+global: do;
+$IF BASE
+$include(glb.ipx)
+$ELSEIF OVL4
+$include(glb4.ipx)
 $ELSE
-	IN$BUF$SIZE lit '200',
-	OUT$BUF$SIZE lit '128',
+$include(glb5.ipx)
 $ENDIF
 
 $IF OVL4
-	mem(1) byte public at(0),
+declare	IN$BUF$SIZE lit '512',
+	OUT$BUF$SIZE lit '512';
+$ELSEIF OVL5
+declare	IN$BUF$SIZE lit '2048',
+	OUT$BUF$SIZE lit '2048';
+$ELSE
+declare	IN$BUF$SIZE lit '200',
+	OUT$BUF$SIZE lit '128';
+$ENDIF
+
+$IF OVL4
+declare	mem(1) byte public at(0),
 	b$8FD5(127) byte public,
 	w$9054 address public,
 	off$9056 address public initial(.b$8FD5),
@@ -62,10 +70,10 @@ $IF OVL4
 	b$91A2 byte public initial(0),
 
 	b$91A3 byte public initial(81h),
-	b$91A4(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h),
+	b$91A4(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h);
 $ENDIF
 /* ov4 compat 2C8C */
-	w651F address public,
+declare	w651F address public,
 	b6521 byte public,
 	w6522 address public,
 	b6524 byte public,
@@ -117,13 +125,13 @@ $ENDIF
 	endLineBuf address public initial(.tokStart),
 	ifDepth byte public initial(0),
 	skipping(9) byte public,
-	inElse(9) byte public,
+	inElse(9) byte public;
 $IF OVL4
-	macroCondSP byte public initial(0),
+declare	macroCondSP byte public initial(0),
 	macroCondStk(17) byte public,
-	b$94DD(2) byte,
+	b$94DD(2) byte;
 $ENDIF
-	opSP byte public,
+declare	opSP byte public,
 	opStack(17) byte public,
 /* ov4 compat 2CA0 */
 	(accum1, accum2) address public,
@@ -164,13 +172,13 @@ $ENDIF
 	pad6894 address initial(0FFFFh),
 	asmErrCode byte public initial(20h),	
 	b6897 byte public initial(0),
-	primaryValid byte public initial(TRUE),
+	primaryValid byte public initial(TRUE);
 /* end */
 $IF BASE
-	pad6899 byte initial(0),
+declare	pad6899 byte initial(0);
 $ENDIF
 /* ov4 compat 2C9F */
-	b689A byte public,
+declare	b689A byte public,
 	b689B byte public,
 	b689C byte public,
 	pad689D(2) byte,
@@ -241,12 +249,12 @@ $ENDIF
 	tokBufIdx byte public initial(0),
 	w6B1E address public,
 /* end */
-	b6B20$9A77 byte public initial(0),
+	b6B20$9A77 byte public initial(0);
 $IF NOT OVL4
-	MacroDebugOrGen byte public initial(0),
+declare	MacroDebugOrGen byte public initial(0);
 $ENDIF
 /* ov4 compat 2F56 */
-	scanCmdLine byte public,
+declare	scanCmdLine byte public,
 	b6B23 byte public,
 	b6B24 byte public,
 	b6B25 byte public,
@@ -283,14 +291,15 @@ $ENDIF
 	b6BDA byte public,
 	ii byte public,
 	b6BDC byte public,
-	jj byte public,
+	jj byte public;
 /* end */
 $IF OVL4
-	b$9B34 byte initial(0),
+declare	b$9B34 byte initial(0);
 $ENDIF
 /* ov4 compat 2F57 */
-	curFileName$p address public,
+declare	curFileName$p address public,
 	w6BE0 address public,
 	bp6BE0(2) byte public at(.w6BE0),
 	w6BE2 address public;
 /* end */
+end;

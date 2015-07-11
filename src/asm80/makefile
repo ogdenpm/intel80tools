@@ -104,6 +104,11 @@ asm41.plm asm51.plm asm801.plm: start.pls
 	$(TOOLS:/=\)plmpp -sOVL5 -o asm51.plm $**
 	$(TOOLS:/=\)plmpp -sBASE -o asm801.plm $**
 
+glb.plm glb4.plm glb5.plm: global.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o glb4.plm $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o glb5.plm $**
+	$(TOOLS:/=\)plmpp -sBASE -o glb.plm $**
 
 
 # manually force depencencies for above as the source files may not be available when mkdepend.pl is run
@@ -125,6 +130,9 @@ asm861.obj: asm861.plm asm861.ipx
 asmov0.obj: asmov0.pl3 asmov0.ipx
 asmov1.obj: asmov1.pl3 asmov1.ipx
 asmov2.obj: asmov2.pl3 asmov2.ipx
+glb.obj: glb.plm glb.ipx
+glb4.obj: glb4.plm glb4.ipx
+glb5.obj: glb5.plm glb5.ipx
 
 # build rules to make the program and overlays
 
@@ -312,9 +320,6 @@ close.obj: close.plm close.ipx
 delete.obj: delete.plm delete.ipx
 error.obj: error.plm error.ipx
 exit.obj: exit.plm exit.ipx
-glb.obj: glb.plm glb.ipx global.pls
-glb4.obj: glb4.plm glb4.ipx global.pls
-glb5.obj: glb5.plm glb5.ipx global.pls
 load.obj: load.plm load.ipx
 open.obj: open.plm open.ipx
 read.obj: read.plm read.ipx
