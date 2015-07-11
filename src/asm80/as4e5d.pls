@@ -177,7 +177,7 @@ $ENDIF
     endOutBuf = .b6A00;
 end;
 
-sub$70EE: procedure public;
+initRecTypes: procedure public;
     r$content.type = 6;
     r$content.len = 3;
     r$publics.type = 22h;

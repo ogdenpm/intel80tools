@@ -482,7 +482,7 @@ $ENDIF
 	if ctlOBJECT then
 	do;
 $IF BASE
-		call ovlMgr(2);
+		call ovlMgr(2);	/* for small version load in overlay 2 for writeRec & writeModhdr */
 $ENDIF
 		if r$extnames1.len > 0 then
 			call writeRec(.r$extnames1);	/* in overlay 2 */
@@ -490,7 +490,7 @@ $ENDIF
 		if w6750 = 0 then
 			call writeModhdr;		/* in overlay 2 */
 $IF NOT BASE
-		call sub$70EE;
+		call initRecTypes;
 $ENDIF
 	end;
 $IF BASE
@@ -521,7 +521,7 @@ $IF BASE
 		phase = 3;
 		call ovlMgr(3);
 		call resetData;
-		call sub$70EE;
+		call initRecTypes;
 		call initialControls;
 		call sub$540D;
 		call ovlMgr(2);
