@@ -25,6 +25,17 @@ OBJS5 =	glb5.obj asm51.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	load.obj open.obj read.obj rescan.obj\
 	seek.obj write.obj
 
+P4SRCS = asm41.plm asm44.plm asm45.plm asm4e.plm asm51.plm asm55.plm asm5d.plm\
+	asm801.plm asm83.plm asm851.plm asm861.plm asmov3.plm close.plm delete.plm\
+	error.plm exit.plm glb.plm glb4.plm glb5.plm key4.plm keywrd.plm load.plm\
+	open.plm read.plm rescan.plm seek.plm write.plm
+
+P3SRCS = asm43.pl3 asm46.pl3 asm47.pl3 asm48.pl3 asm49.pl3 asm4a.pl3 asm4B.pl3 asm4c.pl3\
+	asm4d.pl3 asm57.pl3 asm82.pl3 asm85.pl3 asm86.pl3 asmov0.pl3 asmov1.pl3 asmov2.pl3
+
+ASRCS = asm87.asm cprite.asm memory.asm
+
+TARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
 #
 # compilation and assembly rules
@@ -32,24 +43,16 @@ OBJS5 =	glb5.obj asm51.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 .plm.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
+	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 	$(ISIS) :F1:PLM80 $< code
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
+	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 	$(ISIS) :F1:PLM80 $< code
 	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
-
-.plm.ipx:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
-
-.pl3.ipx:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
@@ -57,9 +60,16 @@ OBJS5 =	glb5.obj asm51.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
+# the default rule will force the makefile to be up to date
+all: $(TARGETS)
 
+# checking targets
+verify: all
+	for %i in ($(TARGETS)) do $(TOOLS:/=\)diffbin %i $(V4)\%i
 
-all: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
+compare: all
+	for %i in ($(TARGETS)) do fc /b %i $(V4)%i
+
 
 # source files generated from shared code
 asm43.pl3 asm82.pl3: asm4382.pls
@@ -81,7 +91,6 @@ asm44.plm asm83.plm: as4483.pls
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm44.plm $**
 	$(TOOLS:/=\)plmpp -sBASE -o asm83.plm $**
-
 
 asm4a.pl3 asmov0.pl3: asm4aov0.pls
 	@SET ISIS_F0=$(F0)
@@ -121,34 +130,6 @@ asm4e.plm asm5d.plm asmov3.plm: init.pls
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm4e.plm $**
 	$(TOOLS:/=\)plmpp -sOVL5 -o asm5d.plm $**
 	$(TOOLS:/=\)plmpp -sOVL3 -o asmov3.plm $**
-
-# manually force depencencies for above as the source files may not be available when mkdepend.pl is run
-asm41.obj: asm41.plm asm41.ipx
-asm43.obj: asm43.pl3 asm43.ipx
-asm44.obj: asm44.plm asm44.ipx
-asm47.obj: asm47.pl3 asm47.ipx
-asm48.obj: asm48.pl3 asm48.ipx
-asm49.obj: asm49.pl3 asm49.ipx
-asm4a.obj: asm4a.pl3 asm4a.ipx
-asm4c.obj: asm4c.pl3 asm4c.ipx
-asm4d.obj: asm4d.pl3 asm4d.ipx
-asm4e.obj: asm4e.plm asm4e.ipx
-asm51.obj: asm51.plm asm51.ipx
-asm57.obj: asm57.pl3 asm57.ipx
-asm5d.obj: asm5d.plm asm5d.ipx
-asm801.obj: asm801.plm asm801.ipx
-asm82.obj: asm82.pl3 asm82.ipx
-asm83.obj: asm83.plm asm83.ipx
-asm85.obj: asm85.pl3 asm85.ipx
-asm86.obj: asm86.pl3 asm86.ipx
-asm861.obj: asm861.plm asm861.ipx
-asmov0.obj: asmov0.pl3 asmov0.ipx
-asmov1.obj: asmov1.pl3 asmov1.ipx
-asmov2.obj: asmov2.pl3 asmov2.ipx
-asmov3.obj: asmov3.plm asmov3.ipx
-glb.obj: glb.plm glb.ipx
-glb4.obj: glb4.plm glb4.ipx
-glb5.obj: glb5.plm glb5.ipx
 
 # build rules to make the program and overlays
 
@@ -294,12 +275,10 @@ to $*.rel map print($*.la3)
 	del $*.rel
 	@find $*.la3 "LINK MAP" >nul || (del $@ & exit /b 1)
 
-# pex file dependencies
-$(BASEOBJS:.obj=.ipx): $(PEXFILE)
-$(OBJS4:.obj=.ipx): $(PEXFILE)
-$(OBJS5:.obj=.ipx): $(PEXFILE)
-asmov0.ipx asmov1.ipx asmov2.ipx asmov3.ipx: $(PEXFILE)
-
+# pex file and makefile dependencies
+$(P3SRCS:.pl3=.obj): $(PEXFILE) makefile
+$(P4SRCS:.plm=.obj): $(PEXFILE) makefile
+$(ASRCS:.asm=.obj): makefile
 
 # housekeeping rules
 clean:
@@ -309,31 +288,12 @@ vclean: clean
 	del asm80 asm80.ov?
 
 uclean: vclean
-	del ??????.* makefile *.pls
+	del ??????.* makefile *.pls .depend
 
-
-# checking targets
-verify: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
-	for %i in ($**) do $(TOOLS:/=\)diffbin %i $(V4)\%i
-
-compare: asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
-	for %i in ($**) do fc /b %i $(V4)%i
+gitprep: uclean
+	..\..\unpack.pl
 
 
 
 # auto generated
-asm45.obj: asm45.plm asm45.ipx
-asm46.obj: asm46.pl3 asm46.ipx
-asm4b.obj: asm4b.pl3 asm4b.ipx
-asm55.obj: asm55.plm asm55.ipx
-asm851.obj: asm851.plm asm851.ipx
-close.obj: close.plm close.ipx
-delete.obj: delete.plm delete.ipx
-error.obj: error.plm error.ipx
-exit.obj: exit.plm exit.ipx
-load.obj: load.plm load.ipx
-open.obj: open.plm open.ipx
-read.obj: read.plm read.ipx
-rescan.obj: rescan.plm rescan.ipx
-seek.obj: seek.plm seek.ipx
-write.obj: write.plm write.ipx
+
