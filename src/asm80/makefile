@@ -92,6 +92,12 @@ asm44.plm asm83.plm: as4483.pls
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm44.plm $**
 	$(TOOLS:/=\)plmpp -sBASE -o asm83.plm $**
 
+asm45.plm asm55.plm asm851.plm: as4555851.pls
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)plmpp -sOVL4 -o asm45.plm $**
+	$(TOOLS:/=\)plmpp -sOVL5 -o asm55.plm $**
+	$(TOOLS:/=\)plmpp -sBASE -o asm851.plm $**
+
 asm4a.pl3 asmov0.pl3: asm4aov0.pls
 	@SET ISIS_F0=$(F0)
 	$(TOOLS:/=\)plmpp -sOVL4 -o asm4a.pl3 $**

@@ -1,9 +1,15 @@
-asm45:
+asm45$55$851:
 do;
+$IF OVL4
 $include(asm45.ipx)
+$ELSEIF OVL5
+$include(asm55.ipx)
+$ELSE
+$include(asm851.ipx)
+$ENDIF
 
-declare pad4B3C address data(40h),
-	pad9B73 address;
+declare pad1 address data(40h),
+	pad2 address;
 
 
 strUCequ: procedure(arg1w, arg2w) byte public;
@@ -22,7 +28,11 @@ end;
 
 
 isSkipping: procedure byte public;
-	return b$905E or skipping(0);
+	return 
+$IF OVL4
+	b$905E or
+$ENDIF
+		 skipping(0);
 end;
 
 sub$546F: procedure public;
@@ -44,31 +54,36 @@ end;
 
 
 sub4C1E$54FD: procedure public;
-	declare w$9B79 address,
-		b$9B7B byte,
-		ch based w$9B79 byte;
+	declare lineno$p address,
+		updating byte,
+		ch based lineno$p byte;
 
 	call sub$546F;
 	if isPhase2Print then
 	do;
-		w$9B79 = .asciiLineNo(3);
-		b$9B7B = 0FFh;
+		lineno$p = .asciiLineNo(3);	/* point to last digit */
+		updating = TRUE;
 
-		do while b$9B7B;
-			if ch = '9' then
+		do while updating;		/* adjust the line number */
+			if ch = '9' then	/* if 9 then roll over to 0 */
 				ch = '0';
 			else
 			do;
-				if ch = ' ' then
+				if ch = ' ' then	/* new digit */
 					ch = '1';
-				else
+				else			/* just increment */
 					ch = ch + 1;
-				b$9B7B = 0;
+				updating = FALSE;
 			end;
-			w$9B79 = w$9B79 - 1;
+			lineno$p = lineno$p - 1;
 		end;
 		if sub$465B or not blankAsmErrCode then
+		do;
+$IF BASE
+			call ovlMgr(1);
+$ENDIF
 			call ovl3;
+		end;
 	end;
 
 	if b6BD9 then
@@ -89,8 +104,12 @@ sub4C1E$54FD: procedure public;
 			w6BCE = .lineBuf;
 
 		if chkGenObj then
+		do;
+$IF BASE
+			call ovlMgr(2);
+$ENDIF
 			call ovl8;
-
+		end;
 		b6B2C = 0FFh;
 		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
@@ -99,7 +118,9 @@ sub4C1E$54FD: procedure public;
 		if phase = 1 then
 			call sub$467F(1, .b6873);
 
+$IF OVL4
 	call sub$40B9;
+$ENDIF
 
 	do while tokenSP > 0;
 		call popToken;
@@ -110,11 +131,21 @@ sub4C1E$54FD: procedure public;
 	do;
 		finished = 0FFh;
 		if isPhase2Print and ctlSYMBOLS then
+		do;
+$IF BASE
+			call ovlMgr(1);
+$ENDIF
 			call sub7041$8447;
+		end;
 
 		call sub$467F(2, .b6873);
 		if chkGenObj then
+		do;
+$IF BASE
+			call ovlMgr(2);
+$ENDIF
 			call sub$6E32;
+		end;
 	end;
 end;
 
