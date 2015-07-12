@@ -1,0 +1,1010 @@
+p0000.asm
+	name	@P0000
+	public	@P0000, @P0001
+	cseg
+
+@P0000:			; hl = a plus hl
+	mov	e,a
+	mvi	d,0
+@P0001:			; hl = de plus hl
+	mov	a,e
+	adc	l
+	mov	l,a
+	mov	a,d
+	adc	h
+	mov	h,a
+	ret
+	end
+
+p0002.asm
+	name	@P0002
+	public	@P0002, @P0003
+	cseg
+
+@P0002:			; hl = de plus a
+	mov	c,a
+	mvi	b,0
+@P0003:			; hl = de plus bc
+	mov	a,e
+	adc	c
+	mov	l,a
+	mov	a,d
+	adc	b
+	mov	h,a
+	ret
+	end
+
+p0004.asm
+	name	@P0004
+	public	@P0004, @P0005, @P0006
+	cseg
+
+@P0004:			; hl = w[de] plus w[bc]
+	mov	l,c
+	mov	h,b
+@P0005:			; hl = w[de] plus w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0006:			; hl = w[de] plus hl
+	ldax	d
+	adc	c
+	mov	l,a
+	inx	d
+	ldax	d
+	adc	b
+	mov	h,a
+	ret
+	end
+
+p0007.asm
+	name	@P0007
+	public	@P0007, @P0008, @P0009, @P0010
+	cseg
+
+@P0007:			; hl = w[de] plus a
+	xchg
+@P0008:			; hl = w[hl] plus a
+	mov	e,a
+	mvi	d,0
+@P0009:			; hl = w[hl] plus de
+	xchg
+@P0010:			; hl = w[de] plus hl	
+	ldax	d
+	adc	l
+	mov	l,a
+	inx	d
+	ldax	d
+	adc	h
+	mov	h,a
+	ret
+	end
+
+p0011.asm
+	name	@P0011
+	public	@P0011, @P0012, @P0013
+	cseg
+
+@P0011:			; hl = w[de] + w[bc]
+	mov	l,c
+	mov	h,b
+@P0012:			; hl = w[de] + w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0013:			; hl = w[de] + bc
+	ldax	d
+	add	c
+	mov	l,a
+	inx	d
+	ldax	d
+	adc	b
+	mov	h,a
+	ret
+	end
+
+p0014.asm
+	name	@P0014
+	public	@P0014, @P0015, @P0016, @P0017
+	cseg
+
+@P0014:			; hl = w[de] + a
+	xchg
+@P0015:			; hl = w[hl] + a
+	mov	e,a	
+	mvi	d,0
+@P0016:			; hl = w[hl] + de
+	xchg
+@P0017:			; hl = w[de] + hl
+	ldax	d
+	add	l
+	mov	l,a
+	inx	d
+	ldax	d
+	adc	h
+	mov	h,a
+	ret
+	end
+
+p0018.asm
+	name	@P0018
+	public	@P0018, @P0019
+	cseg
+
+@P0018:			; hl = hl & a
+	mov	e,a
+	mvi	d,0
+@P0019:			; hl = hl & de
+	mov	a,e
+	ana	l
+	mov	l,a
+	mov	a,d
+	ana	h
+	mov	h,a
+	ret
+	end
+
+p0020.asm
+	name	@P0020
+	public	@P0020, @P0021
+	cseg
+
+@P0020:			; hl = de & a
+	mov	c,a
+	mvi	b,0
+@P0021:			; hl = de & bc
+	mov	a,e
+	ana	c
+	mov	l,a
+	mov	a,d
+	ana	b
+	mov	h,a
+	ret
+	end
+
+p0022.asm
+	name	@P0022
+	public	@P0022, @P0023, @P0024
+	cseg
+
+@P0022:			; hl = w[de] & w[bc]
+	mov	l,c
+	mov	h,b
+@P0023:			; hl = w[de] & w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0024:			; hl = w[de] & bc
+	ldax	d
+	ana	c
+	mov	l,a
+	inx	d
+	ldax	d
+	ana	b
+	mov	h,a
+	ret
+	end
+
+p0025.asm
+	name	@P0025
+	public	@P0025, @P0026, @P0027, @P0028
+	cseg
+
+@P0025:			; hl = w[de] & a
+	xchg
+@P0026:			; hl = w[hl] & a
+	mov	e,a
+	mvi	d,0
+@P0027:			; hl = w[hl] & de
+	xchg
+@P0028:			; hl = w[de] & hl
+	ldax	d
+	ana	l
+	mov	l,a
+	inx	d
+	ldax	d
+	ana	h
+	mov	h,a
+	ret
+	end
+
+p0029.asm
+	name	@P0029
+	public	@P0029, @P0030
+	cseg
+
+@P0029:			; de = de / hl, hl = de % hl
+	mov	b,h
+	mov	c,l
+@P0030:			; de = de / bc, hl = de % bc
+	lxi	h,0
+	mvi	a,10H
+L0007:
+	push	psw
+	dad	h
+	xchg
+	sub	a
+	dad	h
+	xchg
+	adc	l
+	sub	c
+	mov	l,a
+	mov	a,h
+	sbb	b
+	mov	h,a
+	inx	d
+	jnc	L0019
+	dad	b
+	dcx	d
+L0019:
+	pop	psw
+	dcr	a
+	jnz	L0007
+	ret
+	end
+
+p0031.asm
+	name	@P0031
+	public	@P0031, @P0032, @P0033
+	cseg
+
+@P0031:			; hl = [hl] * 10
+	mov	e,m
+	inx	h
+	mov	d,m
+@P0032:			; hl = de * 10
+	xchg
+@P0033:			; hl = hl * 10
+	dad	h
+	push	h
+	dad	h
+	dad	h
+	pop	b
+	dad	b
+	ret
+	end
+
+p0034.asm
+	name	@P0034
+	public	@P0034, @P0035
+	cseg
+
+@P0034:			; hl = de * hl
+	mov	b,h
+	mov	c,l
+@P0035:			; hl = de * bc
+	lxi	h,0
+	mvi	a,10H
+L0007:
+	dad	h
+	xchg
+	dad	h
+	xchg
+	jnc	L000F
+	dad	b
+L000F:
+	dcr	a
+	jnz	L0007
+	ret
+	end
+
+p0036.asm
+	name	@P0036
+	public	@P0036, @P0037, @P0038
+	cseg
+
+@P0036:			; hl = -w[bc]
+	mov	e,c
+	mov	d,b
+@P0037:			; hl = -w[de]
+	xchg
+@P0038:			; hl = -w[hl]
+	sub	a
+	sub	m
+	mov	e,a
+	mvi	a,0
+	inx	h
+	sbb	m
+	mov	d,a
+	xchg
+	ret
+	end
+
+p0039.asm
+	name	@P0039
+	public	@P0039, @P0040, @P0041
+	cseg
+
+@P0039:			; hl = -bc
+	mov	e,c
+	mov	d,b
+@P0040:			; hl = -de
+	xchg
+@P0041:			; hl = -hl
+	sub	a
+	sub	l
+	mov	l,a
+	mvi	a,0
+	sbb	h
+	mov	h,a
+	ret
+	end
+
+p0042.asm
+	name	@P0042
+	public	@P0042, @P0043, @P0044
+	cseg
+
+@P0042:			; hl =  ~w[bc]
+	mov	l,c
+	mov	h,b
+@P0043:			; hl = ~w[hl]
+	xchg
+@P0044:			; hl = ~w[de]
+	ldax	d
+	cma
+	mov	l,a
+	inx	d
+	ldax	d
+	cma
+	mov	h,a
+	ret
+	end
+
+p0045.asm
+	name	@P0045
+	public	@P0045, @P0046, @P0047
+	cseg
+
+@P0045:			; hl = ~bc
+	mov	e,c
+	mov	d,b
+@P0046:			; hl = ~de
+	xchg
+@P0047:			; hl = ~hl
+	mov	a,l
+	cma
+	mov	l,a
+	mov	a,h
+	cma
+	mov	h,a
+	ret
+	end
+
+p0048.asm
+	name	@P0048
+	public	@P0048, @P0049
+	cseg
+
+@P0048:			; hl = hl | a
+	mov	e,a
+	mvi	d,0
+@P0049:			; hl = hl | de
+	mov	a,e
+	ora	l
+	mov	l,a
+	mov	a,d
+	ora	h
+	mov	h,a
+	ret
+	end
+
+p0050.asm
+	name	@P0050
+	public	@P0050, @P0051
+	cseg
+
+@P0050:			; hl = de | a
+	mov	c,a
+	mvi	b,0
+@P0051:			; hl = de | bc
+	mov	a,e
+	ora	c
+	mov	l,a
+	mov	a,d
+	ora	b
+	mov	h,a
+	ret
+	end
+
+p0052.asm
+	name	@P0052
+	public	@P0052, @P0053, @P0054
+	cseg
+
+@P0052:			; hl = w[de] | w[bc]
+	mov	l,c
+	mov	h,b
+@P0053:			; hl = w[de] | w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0054:			; hl = [de] | bc
+	ldax	d
+	ora	c
+	mov	l,a
+	inx	d
+	ldax	d
+	ora	b
+	mov	h,a
+	ret
+	end
+
+p0055.asm
+	name	@P0055
+	public	@P0055, @P0056, @P0057, @P0058
+	cseg
+
+@P0055:			; hl = w[de] | a
+	xchg
+@P0056:			; hl = w[hl] | a
+	mov	e,a
+	mvi	d,0
+@P0057:			; hl = w[hl] | de
+	xchg
+@P0058:			; hl = w[de] | hl
+	ldax	d
+	ora	l
+	mov	l,a
+	inx	d
+	ldax	d
+	ora	h
+	mov	h,a
+	ret
+	end
+
+p0059.asm
+	name	@P0059
+	public	@P0059, @P0060
+	cseg
+
+@P0059:			; a = scl([hl], c) 
+	mov	a,m
+@P0060:			; a = scl(a, c)
+	ral
+	dcr	c
+	jnz	@P0060
+	ret
+	end
+
+p0061.asm
+	name	@P0061
+	public	@P0061, @P0062, @P0063
+	cseg
+
+@P0061:			; hl = scl(w[hl], c)
+	mov	e,m
+	inx	h
+	mov	d,m
+@P0062:			; hl = scl(de, c)
+	xchg
+@P0063:			; hl = scl(hl, c)
+	mov	a,l
+	ral
+	mov	l,a
+	mov	a,h
+	ral
+	mov	h,a
+	dcr	c
+	jnz	@P0063
+	ret
+	end
+
+p0064.asm
+	name	@P0064
+	public	@P0064, @P0065
+	cseg
+
+@P0064:			; a = scr([hl], c) 
+	mov	a,m
+@P0065:			; a = scr(a, c)
+	rar
+	dcr	c
+	jnz	@P0065
+	ret
+	end
+
+p0066.asm
+	name	@P0066
+	public	@P0066, @P0067, @P0068
+	cseg
+
+@P0066:			; hl = scr(w[hl], c)
+	mov	e,m
+	inx	h
+	mov	d,m
+@P0067:			; hl = scr(de, c)
+	xchg
+@P0068:			; hl = scr(hl, c)
+	mov	a,h
+	rar
+	mov	h,a
+	mov	a,l
+	rar
+	mov	l,a
+	dcr	c
+	jnz	@P0068
+	ret
+	end
+
+p0069.asm
+	name	@P0069
+	public	@P0069, @P0070
+	cseg
+
+@P0069:			; a = rol([hl], c)
+	mov	a,m
+@P0070:			; a = rol(a, c)
+	rlc
+	dcr	c
+	jnz	@P0070
+	ret
+	end
+
+p0071.asm
+	name	@P0071
+	public	@P0071, @P0072
+	cseg
+
+@P0071:			; a = ror([hl], c)
+	mov	a,m
+@P0072:			; a = ror(a, c)
+	rrc
+	dcr	c
+	jnz	@P0072
+	ret
+	end
+
+p0073.asm
+	name	@P0073
+	public	@P0073, @P0074
+	cseg
+
+@P0073:			; hl = a minus hl
+	mov	e,a
+	mvi	d,0
+@P0074:			; hl = de minus hl
+	mov	a,e
+	sbb	l
+	mov	l,a
+	mov	a,d
+	sbb	h
+	mov	h,a
+	ret
+	end
+
+p0075.asm
+	name	@P0075
+	public	@P0075, @P0076
+	cseg
+
+@P0075:			; hl = de minus a
+	mov	c,a
+	mvi	b,0
+@P0076:			; hl = de minus bc
+	mov	a,e
+	sbb	c
+	mov	l,a
+	mov	a,d
+	sbb	b
+	mov	h,a
+	ret
+	end
+
+p0077.asm
+	name	@P0077
+	public	@P0077, @P0078, @P0079
+	cseg
+
+@P0077:			; hl = w[de] minus w[bc]
+	mov	l,c
+	mov	h,b
+@P0078:			; hl = w[de] minus w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0079:			; hl = w[de] minus bc
+	ldax	d
+	sbb	c
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	b
+	mov	h,a
+	ret
+	end
+
+p0080.asm
+	name	@P0080
+	public	@P0080, @P0081
+	cseg
+
+@P0080:			; hl = w[de] minus a 
+	mov	l,a
+	mvi	h,0
+@P0081:			; hl = w[de] minus hl
+	ldax	d
+	sbb	l
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	h
+	mov	h,a
+	ret
+	end
+
+p0082.asm
+	name	@P0082
+	public	@P0082, @P0083
+	cseg
+
+@P0082:			; hl = a minus w[hl]
+	mov	e,a
+	mvi	d,0
+@P0083:			; hl = de minus w[hl]
+	mov	a,e
+	sbb	m
+	mov	e,a
+	mov	a,d
+	inx	h
+	sbb	m
+	mov	d,a
+	xchg
+	ret
+	end
+
+p0084.asm
+	name	@P0084
+	public	@P0084, @P0085
+	cseg
+
+@P0084:			; a = shl([hl], c)
+	mov	a,m
+@P0085:			; a = shl(a, c)
+	add	a
+	dcr	c
+	jnz	@P0085
+	ret
+	end
+
+p0086.asm
+	name	@P0086
+	public	@P0086, @P0087, @P0088
+	cseg
+
+@P0086:			; hl = shl(w[hl], c)
+	mov	e,m
+	inx	h
+	mov	d,m
+@P0087:			; hl = shl(de, c)
+	xchg
+@P0088:			; hl = shl(hl, c)
+	dad	h
+	dcr	c
+	jnz	@P0088
+	ret
+	end
+
+p0089.asm
+	name	@P0089
+	public	@P0089, @P0090
+	cseg
+
+@P0089:			; a = shr([hl], c)
+	mov	a,m
+@P0090:			; a = shr(a, c)
+	ora	a
+	rar
+	dcr	c
+	jnz	@P0090
+	ret
+	end
+
+p0091.asm
+	name	@P0091
+	public	@P0091, @P0092, @P0093
+	cseg
+
+@P0091:			; hl = shr(w[hl], c)
+	mov	e,m
+	inx	h
+	mov	d,m
+@P0092:			; hl = shr(de, c)
+	xchg
+@P0093:			; hl = shr(hl, c)
+	mov	a,h
+	ora	a
+	rar
+	mov	h,a
+	mov	a,l
+	rar
+	mov	l,a
+	dcr	c
+	jnz	@P0093
+	ret
+	end
+
+p0094.asm
+	name	@P0094
+	public	@P0094, @P0095
+	cseg
+
+@P0094:			; hl = a - hl
+	mov	e,a
+	mvi	d,0
+@P0095:			; hl = de - hl
+	mov	a,e
+	sub	l
+	mov	l,a
+	mov	a,d
+	sbb	h
+	mov	h,a
+	ret
+	end
+
+p0096.asm
+	name	@P0096
+	public	@P0096, @P0097
+	cseg
+
+@P0096:			; hl = de - a
+	mov	c,a
+	mvi	b,0
+@P0097:			; hl = de - bc
+	mov	a,e
+	sub	c
+	mov	l,a
+	mov	a,d
+	sbb	b
+	mov	h,a
+	ret
+	end
+
+p0098.asm
+	name	@P0098
+	public	@P0098, @P0099, @P0100
+	cseg
+
+@P0098:			; hl = w[de] - w[bc]
+	mov	l,c
+	mov	h,b
+@P0099:			; hl = w[de] - w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0100:			; hl = w[de] - bc
+	ldax	d
+	sub	c
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	b
+	mov	h,a
+	ret
+	end
+
+p0101.asm
+	name	@P0101
+	public	@P0101, @P0102
+	cseg
+
+@P0101:			; hl = w[de] - a
+	mov	l,a
+	mvi	h,0
+@P0102:			; hl = w[de] - hl
+	ldax	d
+	sub	l
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	h
+	mov	h,a
+	ret
+	end
+
+p0103.asm
+	name	@P0103
+	public	@P0103, @P0104
+	cseg
+
+@P0103:			; hl = a - w[hl] 
+	mov	e,a
+	mvi	d,0
+@P0104:			; hl = de - w[hl]
+	mov	a,e
+	sub	m
+	mov	e,a
+	mov	a,d
+	inx	h
+	sbb	m
+	mov	d,a
+	xchg
+	ret
+	end
+
+p0105.asm
+	name	@P0105
+	public	@P0105
+	cseg
+
+@P0105:			; delay
+	mvi	b,0CH
+L0002:
+	mov	c,b
+L0003:
+	dcr	c
+	jnz	L0003
+	dcr	a
+	jnz	L0002
+	ret
+	end
+
+p0106.asm
+	name	@P0106
+	public	@P0106, @P0107
+	cseg
+
+@P0106:			; hl = a ^ hl 
+	mov	e,a
+	mvi	d,0
+@P0107:			; hl = de ^ hl
+	mov	a,e
+	xra	l
+	mov	l,a
+	mov	a,d
+	xra	h
+	mov	h,a
+	ret
+	end
+
+p0108.asm
+	name	@P0108
+	public	@P0108, @P0109
+	cseg
+
+@P0108:			; hl = de ^ a
+	mov	c,a
+	mvi	b,0
+@P0109:			; hl = de ^ bc
+	mov	a,e
+	xra	c
+	mov	l,a
+	mov	a,d
+	xra	b
+	mov	h,a
+	ret
+	end
+
+p0110.asm
+	name	@P0110
+	public	@P0110, @P0111, @P0112
+	cseg
+
+@P0110:			; hl = w[de] ^ w[bc]
+	mov	l,c
+	mov	h,b
+@P0111:			; hl = w[de] ^ w[hl]
+	mov	c,m
+	inx	h
+	mov	b,m
+@P0112:			; hl = w[de] ^ bc
+	ldax	d
+	xra	c
+	mov	l,a
+	inx	d
+	ldax	d
+	xra	b
+	mov	h,a
+	ret
+	end
+
+p0113.asm
+	name	@P0113
+	public	@P0113, @P0114, @P0115, @P0116
+	cseg
+
+@P0113:			; hl = w[de] ^ a
+	xchg
+@P0114:			; hl = w[hl] ^ a
+	mov	e,a
+	mvi	d,0
+@P0115:			; hl = w[hl] ^ de
+	xchg
+@P0116:			; hl = w[de] ^ hl
+	ldax	d
+	xra	l
+	mov	l,a
+	inx	d
+	ldax	d
+	xra	h
+	mov	h,a
+	ret
+	end
+
+prmsk.asm
+$mod85
+	name	@PRMSK
+	public	RMASK
+	cseg
+
+RMASK:			; rmask: procedure public byte; end;
+	rim
+	ret 
+	end
+
+psmsk.asm
+$mod85
+	name	@PSMSK
+	public	SMASK
+	cseg
+
+SMASK:			; smask: procedure(msk) public; declare msk byte; end;
+	mov	a,c
+	sim
+	ret
+	end
+
+makefile
+# common makefile info
+ROOT=d:/usr/sandbox/intel80
+ISIS=$(ROOT:/=\)\thames
+TOOLS=$(ROOT:/=\)\tools
+F0=./
+# alternatives for :F1:
+V4=$(ROOT)/plm80v4
+V3=$(ROOT)/plm80v3
+
+TARGET=plm80.lib
+
+PLMFLAGS=code optimize
+ASMFLAGS=
+
+OBJS=	P0000.obj P0002.obj P0004.obj P0007.obj P0011.obj P0014.obj \
+	P0018.obj P0020.obj P0022.obj P0025.obj P0029.obj P0031.obj \
+	P0034.obj P0036.obj P0039.obj P0042.obj P0045.obj P0048.obj \
+	P0050.obj P0052.obj P0055.obj P0059.obj P0061.obj P0064.obj \
+	P0066.obj P0069.obj P0071.obj P0073.obj P0075.obj P0077.obj \
+	P0080.obj P0082.obj P0084.obj P0086.obj P0089.obj P0091.obj \
+	P0094.obj P0096.obj P0098.obj P0101.obj P0103.obj P0105.obj \
+	P0106.obj P0108.obj P0110.obj P0113.obj PRMSK.obj PSMSK.obj
+
+.SUFFIXES: .asm
+.asm.obj:
+	@SET ISIS_F0=$(F0)
+	@SET ISIS_F1=$(V4)
+	$(ISIS) :F1:ASM80 $< $(ASMFLAGS)
+	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
+
+
+$(TARGET): $(OBJS)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(V4)
+	del $@
+	$(ISIS) :F1:lib < <<
+create $@
+add $(**: =,&
+) TO $@
+exit
+<<NOKEEP
+
+ref:	$(OBJS:P=ref/@P)
+
+$(OBJS:P=ref/@P):
+	$(TOOLS)\delib.pl $(V4)/$(TARGET) ref
+
+verify: ref $(OBJS)
+	for %i in ($**) do $(TOOLS)\diffbin %i ref/@%i
+
+clean:
+       	del *.*~ *.obj *.lst *~
+
+vclean: clean
+	del $(TARGET) 
+
+uclean:	vclean
+	del /Q makefile *.asm ref\*.*
+
+gitprep: uclean
+	..\..\unpack.pl
+
+# auto generated
