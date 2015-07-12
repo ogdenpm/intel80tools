@@ -6,6 +6,13 @@ $include(asm57.ipx)
 $ELSE
 $include(asm85.ipx)
 $ENDIF
+
+$IF BASE
+declare	CHKOVL$2 lit	'call ovlMgr(2)';
+$ELSE
+declare	CHKOVL$2 lit	' ';
+$ENDIF
+
 declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0,
@@ -306,18 +313,14 @@ $ENDIF
 			b6749 = 0FFh;
 			if w6750 = 0 and isPhase1 and ctlOBJECT then
 			do;
-$IF BASE
-				call ovlMgr(2);
-$ENDIF
+				CHKOVL$2;
 				call writeModhdr;
 			end;
 			b6EC4$9C3A = 0;
 			call sub5819$5CE8(w6750, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
-$IF BASE
-				call ovlMgr(2);
-$ENDIF
+				CHKOVL$2;
 				call writeExtName;
 			end;
 			if not b6754 then

@@ -8,6 +8,14 @@ $ELSE
 $include(asm851.ipx)
 $ENDIF
 
+$IF BASE
+declare CHKOVL$1 lit	'call ovlMgr(1)',
+	CHKOVL$2 lit	'call ovlMgr(2)';
+$ELSE
+declare CHKOVL$1 lit	' ',
+	CHKOVL$2 lit	' ';
+$ENDIF
+
 declare pad1 address data(40h),
 	pad2 address;
 
@@ -79,9 +87,7 @@ sub4C1E$54FD: procedure public;
 		end;
 		if sub$465B or not blankAsmErrCode then
 		do;
-$IF BASE
-			call ovlMgr(1);
-$ENDIF
+			CHKOVL$1;
 			call ovl3;
 		end;
 	end;
@@ -105,9 +111,7 @@ $ENDIF
 
 		if chkGenObj then
 		do;
-$IF BASE
-			call ovlMgr(2);
-$ENDIF
+			CHKOVL$2;
 			call ovl8;
 		end;
 		b6B2C = 0FFh;
@@ -132,18 +136,14 @@ $ENDIF
 		finished = 0FFh;
 		if isPhase2Print and ctlSYMBOLS then
 		do;
-$IF BASE
-			call ovlMgr(1);
-$ENDIF
+			CHKOVL$1;
 			call sub7041$8447;
 		end;
 
 		call sub$467F(2, .b6873);
 		if chkGenObj then
 		do;
-$IF BASE
-			call ovlMgr(2);
-$ENDIF
+			CHKOVL$2;
 			call sub$6E32;
 		end;
 	end;

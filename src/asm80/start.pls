@@ -7,6 +7,18 @@ $ELSE
 $include(asm51.ipx)
 $ENDIF
 
+$IF BASE
+declare CHKOVL$0 lit	'call ovlMgr(0)',
+	CHKOVL$1 lit	'call ovlMgr(1)',
+	CHKOVL$2 lit	'call ovlMgr(2)',
+	CHKOVL$3 lit	'call ovlMgr(3)';
+$ELSE
+declare CHKOVL$0 lit	' ',
+	CHKOVL$1 lit	' ',
+	CHKOVL$2 lit	' ',
+	CHKOVL$3 lit	' ';
+$ENDIF
+
 $IF OVL4
 declare w$3780 address public data(0),
 	b$3782 byte public data(80h),
@@ -220,9 +232,7 @@ runtimeError: procedure(arg1b) public;
 			do;
 				call skip2NextLine;
 				outfd = 0;
-$IF BASE
-				call ovlMgr(1);
-$ENDIF
+				CHKOVL$1;
 				call printDecimal(w6A4E);	/* overlay 1 */
 				call outch(LF);
 			end;
@@ -360,9 +370,7 @@ $ENDIF
 		end;
 		else
 		do;
-$IF BASE
-			call ovlMgr(0);
-$ENDIF
+			CHKOVL$0;
 			call parseControls;
 		end;
 		call sub4C1E$54FD;
@@ -374,15 +382,11 @@ end;
 initialControls: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = TRUE;
-$IF BASE
-	call ovlMgr(0);
-$ENDIF
+	CHKOVL$0;
 	call parseControls;
 	if isPhase2Print then
 	do;
-$IF BASE
-		call ovlMgr(1);
-$ENDIF
+		CHKOVL$1;
 		call printCmdLine;
 	end;
 	if b6C21 then
@@ -481,9 +485,7 @@ $ENDIF
 	phase = 2;
 	if ctlOBJECT then
 	do;
-$IF BASE
-		call ovlMgr(2);	/* for small version load in overlay 2 for writeRec & writeModhdr */
-$ENDIF
+		CHKOVL$2;	/* for small version load in overlay 2 for writeRec & writeModhdr */
 		if r$extnames1.len > 0 then
 			call writeRec(.r$extnames1);	/* in overlay 2 */
 
@@ -499,18 +501,14 @@ $ENDIF
 	do;
 		if ctlPRINT then
 			outfd = inOpen(.lstFile, 2);
-$IF BASE
-		call ovlMgr(3);
-$ENDIF
+		CHKOVL$3;
 		call resetData;
 		call initialControls;
 		call sub$540D;
 	end;
 	if ctlPRINT then
 	do;
-$IF BASE
-		call ovlMgr(1);
-$ENDIF
+		CHKOVL$1;
 		call asmComplete;
 		call flushout;
 	end;
@@ -519,12 +517,12 @@ $ENDIF
 	do;
 $IF BASE
 		phase = 3;
-		call ovlMgr(3);
+		CHKOVL3;
 		call resetData;
 		call initRecTypes;
 		call initialControls;
 		call sub$540D;
-		call ovlMgr(2);
+		CHKOVL2;
 $ENDIF
 		call ovl11;
 		call writeModend;
@@ -532,14 +530,10 @@ $ENDIF
 
 	if not strUCequ(.aCo, .lstFile) then
 	do;
-$IF BASE
-		call ovlMgr(1);
-$ENDIF
+		CHKOVL$1;
 		call ovl9;
 	end;
-$IF BASE
-	call ovlMgr(1);
-$ENDIF
+	CHKOVL$1;
 	call ovl10;
 end;
 
