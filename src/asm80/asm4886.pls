@@ -59,32 +59,33 @@ end;
 
 
 insertSym: procedure public;
-	declare (w6EC0$9C32, w6EC2$9C34) address;
-	declare ch1 based w6EC0$9C32 byte;
-	declare ch2 based w6EC2$9C34 byte;
+	declare (q, p) address;
+	declare ch1 based q byte;
+	declare ch2 based p byte;
 
-	w686E, w6EC0$9C32 = (w6EC2$9C34 := w686E) + 8;
-	if w6870 < w6EC0$9C32 then
+	/* move up the top block of the symbol tables to make room */
+	symHighMark, q = (p := symHighMark) + 8;
+	if w6870 < q then
 		call runtimeError(1);	/* table error */
 
-	do while w6EC2$9C34 > curTokenSym$p;
-		w6EC0$9C32 = w6EC0$9C32 - 1;
-		w6EC2$9C34 = w6EC2$9C34 - 1;
+	do while p > curTokenSym$p;	/* byte copy */
+		q = q - 1;
+		p = p - 1;
 		ch1 = ch2;
 	end;
-
+	/* insert the new symbol name */
 	call move(4, curTokStart, curTokenSym$p);
 $IF OVL4
-	w6868(2) = w6868(2) + 8;
+	endSymTab(2) = endSymTab(2) + 8;	/* mark new top of macro table */
 $ENDIF
-	curTokenSym.type = 0;
+	curTokenSym.type = 0;			/* clear the type */
 end;
 
 $IF OVL4
 sub$5C73: procedure(arg1b) byte;
 	declare arg1b byte;
 
-	if w6868(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
+	if endSymTab(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
 		return 0;
 
 	call syntaxError;
@@ -92,14 +93,14 @@ sub$5C73: procedure(arg1b) byte;
 end;
 
 
-sub$5CAD: procedure(arg1w, arg2b) public;
-	declare arg1w address, arg2b byte;
+sub$5CAD: procedure(arg1w, type) public;
+	declare arg1w address, type byte;
 
 	if sub$5C73(2) then
 		return;
 	call insertSym;
-	curTokenSym.w4 = arg1w;
-	curTokenSym.type = arg2b;
+	curTokenSym.val = arg1w;		/* fill in the rest of the new entry */
+	curTokenSym.type = type;
 	curTokenSym.flags = 0;
 	call popToken;
 end;
@@ -126,7 +127,7 @@ $IF OVL4
 	if sub$5C73(1) then
 	do;
 $ELSE
-	if curTokenSym$p > w6868(1) or curTokenSym$p < symTab(1) then
+	if curTokenSym$p > endSymTab(1) or curTokenSym$p < symTab(1) then
 	do;
 		call syntaxError;
 $ENDIF
@@ -143,7 +144,7 @@ $ENDIF
 			do;
 				if curTokenSym.type >= 80h
 $IF OVL4
-					 or arg2b = 3Ah and curTokenSym.w4 <> w6A4E
+					 or arg2b = 3Ah and curTokenSym.val <> w6A4E
 $ENDIF
 				then
 				do;
@@ -155,9 +156,9 @@ $ENDIF
 			do;
 				call insertSym;
 $IF OVL4
-				w6866 = w6866 + 8;
+				symTab(2) = symTab(2) + 8;		/* adjust the base of the macro table */
 $ENDIF
-				w6868(1) = w6868(1) + 8;
+				endSymTab(1) = endSymTab(1) + 8;	/* adjust the end of the user symbol table */
 				b6CE8 = 0;
 			end;
 
@@ -185,7 +186,7 @@ $ENDIF
 					if curTokenSym.type < 128 then
 					do;
 						curTokenSym.type = tokenType(0);
-						curTokenSym.w4 = arg1w;
+						curTokenSym.val = arg1w;
 						b6CE8 = b6855;
 						b6CEA = 0FFh;
 					end;
@@ -235,7 +236,7 @@ $ENDIF
 			tokenType(0) = 3;
 
 		if not (b6748 or b6749) then
-			if curTokenSym.w4 <> arg1w then
+			if curTokenSym.val <> arg1w then
 				call phaseError;
 	end;
 
@@ -258,7 +259,7 @@ $IF OVL4
 	   or arg2b = 3Ah
 $ENDIF
 	then
-		curTokenSym.w4 = arg1w;
+		curTokenSym.val = arg1w;
 
 	curTokenSym.flags = b6CE8;
 	b6748 = 0;
@@ -274,19 +275,19 @@ end;
 
 
 
-lookup: procedure(arg1b) byte public;
-	declare arg1b byte;
+lookup: procedure(tableId) byte public;
+	declare tableId byte;
 	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
-		(i, b6CFB) byte;
+		(i, gt) byte;
 	declare symEntry based entryOffset SYMENTRY$T,
 		packedTok based packedTok$p (2) address;
 	declare addr based w6BE0 address;
 
 	packedTok$p = curTokStart;
-	if arg1b = 0 then		/* hash chain look up key word */
+	if tableId = 0 then		/* hash chain look up key word */
 	do;
 		entryOffset = 0;	/* offset to current symbol to compare */
-					/* offset of fist to use - hashes packed symbol name */
+					/* offset of first to use - hashes packed symbol name */
 		deltaToNext = symTab(0) + ((packedTok(0) + packedTok(1)) mod 151) * 8;
 
 		do while deltaToNext <> 0;	/* while not end of chain */
@@ -298,7 +299,7 @@ lookup: procedure(arg1b) byte public;
 					tokenType(0) = curTokenSym.type;
 					if tokenType(0) < 2Dh then	/* not pseudo op */
 						if op16(tokenType(0)) then
-							has16bitOperand = 0FFh;
+							has16bitOperand = TRUE;
 
 					if curTokenSym.flags = 2 and not ctlMOD85 then	/* RIM/SIM only valid on 8085 */
 						call sourceError('O');
@@ -316,8 +317,8 @@ lookup: procedure(arg1b) byte public;
 		return 9;
 	end;
 
-	lowOffset = symTab(arg1b);
-	highOffset, entryOffset = w6868(arg1b);
+	lowOffset = symTab(tableId);
+	highOffset, entryOffset = endSymTab(tableId);
 
 	/* binary chop search for id */
 
@@ -338,20 +339,20 @@ lookup: procedure(arg1b) byte public;
 				return jj;
 			end;
 			else
-				b6CFB = symEntry.tok(1) > packedTok(1);
+				gt = symEntry.tok(1) > packedTok(1);
 		end;
 		else
-			b6CFB = symEntry.tok(0) > packedTok(0);
+			gt = symEntry.tok(0) > packedTok(0);
 
 		entryOffset = midOffset;
-		if b6CFB then
+		if gt then
 			highOffset = entryOffset;
 		else
 			lowOffset = entryOffset;
 	end;
 
 	curTokenSym$p = highOffset;
-	if arg1b = 1 and not isSkipping then
+	if tableId = 1 and not isSkipping then
 	do;
 		b6883 = 0;
 		b6EC4$9C3A = 0;

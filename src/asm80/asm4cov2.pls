@@ -237,7 +237,7 @@ writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
         call flushSymRec;
         curTokenSym$p = symTab(1) - 2;
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
+        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(1);
         	if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
         		call flushSymRec;
 
@@ -323,7 +323,7 @@ end;
 
 
 ovl11: procedure public;
-	if w6750 <> 0 then
+	if exernId <> 0 then
 	do;
 		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
 		call writeModhdr;

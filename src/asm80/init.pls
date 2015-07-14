@@ -63,7 +63,7 @@ $IF OVL4
 $ELSE
 	symTab(0) = .stdKeywords;	/* no extended key words */
 $ENDIF
-	w686E, w6868(0), symTab(1), w6868(1) =
+	symHighMark, endSymTab(0), symTab(1), endSymTab(1) =
 $IF NOT OVL3
 						 .MEMORY;
 $ELSE
@@ -153,7 +153,7 @@ $ENDIF
 $IF OVL4
     w$919B,
 $ENDIF
-    w6750, errCnt = wZERO;
+    exernId, errCnt = wZERO;
     b6882 = b6882 + 1;
     w6A4E, opType, pageCnt, lineCnt = 1;
     b68AE(0) = 0;

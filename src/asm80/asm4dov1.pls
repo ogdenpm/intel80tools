@@ -226,8 +226,8 @@ $ENDIF
         call printCRLF;
         call printStr(wa6DB2(b7562));
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < w6868(1);
-            w7563 = curTokenSym.w0;
+        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(1);
+            w7563 = curTokenSym.tok(0);
             if b7563 <> 9 then
                 if b7563 <> 6 then
 $IF OVL4

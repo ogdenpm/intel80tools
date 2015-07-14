@@ -311,20 +311,20 @@ $ENDIF
 		end;
 /* 51 */	do;				/* EXTRN ? */
 			b6749 = 0FFh;
-			if w6750 = 0 and isPhase1 and ctlOBJECT then
+			if exernId = 0 and isPhase1 and ctlOBJECT then
 			do;
 				CHKOVL$2;
 				call writeModhdr;
 			end;
 			b6EC4$9C3A = 0;
-			call sub5819$5CE8(w6750, 2);
+			call sub5819$5CE8(exernId, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
 				CHKOVL$2;
 				call writeExtName;
 			end;
 			if not b6754 then
-				w6750 = w6750 + 1;
+				exernId = exernId + 1;
 			b6754 = 0;
 		end;
 /* 52 */	do;				/* NAME */

@@ -489,7 +489,7 @@ $ENDIF
 		if r$extnames1.len > 0 then
 			call writeRec(.r$extnames1);	/* in overlay 2 */
 
-		if w6750 = 0 then
+		if exernId = 0 then
 			call writeModhdr;		/* in overlay 2 */
 $IF NOT BASE
 		call initRecTypes;

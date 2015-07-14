@@ -80,7 +80,7 @@ writeM: procedure public;
 	do;
 		call seekM(maxMacroBlk);
 		maxMacroBlk = maxMacroBlk + 1;
-		call write(macrofd, w686E, 128, .statusIO);
+		call write(macrofd, symHighMark, 128, .statusIO);
 		call ioErrChk;
 	end;
 	w$9114 = w$9114 + 1;
@@ -93,13 +93,13 @@ sub$40B9: procedure public;
 
 	if b$905E then
 	do;
-		do while (w$9B62 := w$906A - w686E) >= 128;
+		do while (w$9B62 := w$906A - symHighMark) >= 128;
 			call writeM;
-			w686E = w686E + 128;
+			symHighMark = symHighMark + 128;
 		end;
 		if w$9B62 <> 0 then
-			call move(w$9B62, w686E, w6868(2));
-		w$906A = (w686E := w6868(2)) + w$9B62;
+			call move(w$9B62, symHighMark, endSymTab(2));
+		w$906A = (symHighMark := endSymTab(2)) + w$9B62;
 	end;
 end;
 
@@ -153,7 +153,7 @@ $ENDIF
 			do;
 				b6742 = 0FFh;
 $IF OVL4
-				if getChClass = 2 and b$905E then
+				if getChClass = CC$SEMI and b$905E then
 				do;
 					b$9059 = 0FFh;
 					w$906A = w$906A - 2;
