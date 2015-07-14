@@ -17,6 +17,11 @@ FF              '0Ch'
 LF              '0Ah'
 TAB             '9'
 
+# primiative types
+bool             'byte'
+word             'address'
+pointer          'address'
+
 /* character classes */
 CC$BAD          '0'
 CC$WS           '1'
@@ -45,6 +50,12 @@ ILOAD           '6'
 IEXIT           '9'
 IRESCAN         '11'
 IERROR          '12'
+
+/* segments */
+SEG$ABS         '0'
+SEG$CODE        '1'
+SEG$DATA        '2'
+SEG$STACK       '3'
 
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
@@ -83,7 +94,7 @@ aEof            BS
 aError          BS
 aError$0        BS
 aFile           BS
-aIsisIi80808085 BS
+asmHeader BS
 aMemory         BS
 aModulePage     BS
 ascCRLF         BS
@@ -94,7 +105,12 @@ bZERO           B
 errStrs         AS
 errStrsLen      BS
 signonMsg       BS
+spaces15        BS
+spaces2         BS
 spaces24        BS
+spaces4         BS
+spaces5         BS
+spaces6         BS
 blankAsmErrCode PB
 blankMorPAsmErrCode PB
 chkGenObj       PB
@@ -367,9 +383,9 @@ accum2$hb       B
 accum2$lb       B
 activeSeg       B
 actRead         A
-aF0Asmac$tmp    BS
-aF0Asxref       BS
-aF0Asxref$tmp   BS
+asmax$ref    BS
+asxref       BS
+asxref$tmp   BS
 alignTypes      BS
 argNestCnt      B		/* glb4 */
 asciiLineNo     BS
@@ -378,8 +394,8 @@ azero           A
 b6521           B
 b6524           B
 b6525           B
-b6526           BS
-b652B           BS
+fixIdxs           BS
+b652B           "bool"S
 b652F           B
 b6742           B
 b6743           B
@@ -409,7 +425,7 @@ b689B           B
 b689C           B
 b68AB           B
 b68AD           B
-b68AE           BS
+b68AE           B
 b68B8           BS
 b6A00           B
 b6A56           B
@@ -437,12 +453,12 @@ b6BD9           B
 b6BDA           B
 b6BDC           B
 b$8FD5          BS		/* glb4 */
-b$9058          B		/* glb4 */
+b$9058          "bool"		/* glb4 */
 b$9059          B		/* glb4 */
 b$905A          B		/* glb4 */
 b$905B          B		/* glb4 */
 b$905C          B		/* glb4 */
-b$905D          B		/* glb4 */
+b$905D          "bool"		/* glb4 */
 b$905E          B		/* glb4 */
 b$9060          B		/* glb4 */
 b$9061          B		/* glb4 */
@@ -461,26 +477,26 @@ cmdch$p         A
 cmdLineBuf      BS
 controlId       B
 controls        BS
-controlSeen     BS
+controlSeen     "bool"S
 controls$p      A
-ctlCOND         B
-ctlDEBUG        B
-ctlEJECT        B
-ctlGEN          B
-ctlLIST         B
-ctlMACRODEBUG   B
-ctlMACROFILE    B
-ctlMOD85        B
-ctlOBJECT       B
+ctlCOND         "bool"
+ctlDEBUG        "bool"
+ctlEJECT        "bool"
+ctlGEN          "bool"
+ctlLIST         "bool"
+ctlMACRODEBUG   "bool"
+ctlMACROFILE    "bool"
+ctlMOD85        "bool"
+ctlOBJECT       "bool"
 ctlPAGELENGTH   B
 ctlPAGEWIDTH    B
-ctlPAGING       B
-ctlPRINT        B
-ctlSYMBOLS      B
-ctlTITLE        B
+ctlPAGING       "bool"
+ctlPRINT        "bool"
+ctlSYMBOLS      "bool"
+ctlTITLE        "bool"
 ctlTITLESTR     BS
-ctlTTY          B
-ctlXREF         B
+ctlTTY          "bool"
+ctlXREF         "bool"
 curChar         B
 curCol          B
 curFileName$p   A
@@ -514,6 +530,7 @@ MacroDebugOrGen B		/* glb & glb5 */
 macrofd         A
 macroStk        "MACRO$T"S	/* glb4 */
 maxMacroBlk     A		/* glb4 */
+maxSegSize      AS
 mem             BS		/* glb4 */
 moduleNameLen   B
 nxtMacroBlk     A		/* glb4 */
@@ -566,6 +583,7 @@ tokBufIdx       B
 tokBufLen       B
 tokenAttr       BS
 tokenSP         B
+tokStr          BS
 tokenSym        AS
 tokenSymId      AS
 tokenType       BS
@@ -586,7 +604,6 @@ w68A6           A
 w68B6           A
 w6A4E           A
 w6B1E           A
-w6B41           AS
 w6BCE           A
 w6BE0           A
 w6BE2           A
@@ -652,12 +669,12 @@ declare	mem(1) byte public at(0),
 	b$8FD5(127) byte public,
 	w$9054 address public,
 	off$9056 address public initial(.b$8FD5),
-	b$9058 byte public initial(0),
+	b$9058 bool public initial(FALSE),
 	b$9059 byte public,
 	b$905A byte public,
 	b$905B byte public,
 	b$905C byte public,
-	b$905D byte public initial(0),
+	b$905D bool public initial(FALSE),
 	b$905E byte public,
 	b$905F byte,
 	b$9060 byte public,
@@ -707,10 +724,10 @@ declare	w651F address public,
 	w6522 address public,
 	b6524 byte public,
 	b6525 byte public,
-	b6526(4) byte public initial(0, 0, 0, 0),
-	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte public at (.b6526),
+	fixIdxs(4) byte public initial(0, 0, 0, 0),
+	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte public at (.fixIdxs),
 	extNamIdx byte public initial(0),
-	b652B(4) byte public initial(0FFh, 0FFh, 0FFh, 0FFh),
+	b652B(4) bool public initial(TRUE, TRUE, TRUE, TRUE),
 	b652F byte public initial(0FFh),
 	r$eof EOF$T public initial(0Eh, 0),
 	r$extnames1 EXTNAMES$T public initial(18h, 0, 0),
@@ -798,7 +815,7 @@ declare	opSP byte public,
 	statusIO address public,
 	openStatus address public,
 	pad6894 address initial(0FFFFh),
-	asmErrCode byte public initial(20h),	
+	asmErrCode byte public initial(' '),	
 	b6897 byte public initial(0),
 	primaryValid byte public initial(TRUE);
 /* end */
@@ -820,7 +837,8 @@ declare	b689A byte public,
 	b68AB byte public,
 	pad68AC byte,
 	b68AD byte public initial(0),
-	b68AE(8) byte public initial(0, 0, 0, 0, 0, 0, 0, 0),
+	b68AE byte public initial(FALSE),
+	tokStr(7) byte public initial(0, 0, 0, 0, 0, 0, 0),
 	w68B6 address public initial(IN$BUF$SIZE),
 	b68B8(IN$BUF$SIZE) byte public,
 	outbuf(OUT$BUF$SIZE) byte public,
@@ -833,40 +851,41 @@ declare	b689A byte public,
 	pad6A07 byte initial(0),
 	objFile(15) byte public initial('               '), /* 15 spaces */
 	lstFile(15) byte public initial('               '), /* 15 spaces */
-	aF0Asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
-	aF0Asxref(*) byte public initial(':F0:ASXREF '),
-	aF0Asmac$tmp(*) byte public initial(':F0:ASMAC.TMP '),
+	asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
+	asxref(*) byte public initial(':F0:ASXREF '),
+	asmax$ref(*) byte public initial(':F0:ASMAC.TMP '),
 	w6A4E address public initial(1),
 	bp6A4E(2) byte public at(.w6A4E),
 	pad6A50(2) byte initial('  '),		/* protects for very big files */
 	asciiLineNo(4) byte public initial('   0'),
 	b6A56 byte public,
-	b6A57(4) byte public initial('   0'),
-	ctlDEBUG byte public initial(0),	/* DEBUG */
+	b6A57(4) bool public initial('   0'),
+	ctlDEBUG bool public initial(0),	/* DEBUG */
 	controls(1) byte public at(.ctlDEBUG),
-	ctlMACRODEBUG byte public initial(0),		/* MACRODEBUG */
-	ctlXREF byte public initial(0),		/* XREF */
-	ctlSYMBOLS byte public initial(0FFh),	/* SYMBOLS */
-	ctlPAGING byte public initial(0FFh),	/* PAGING */
-	ctlTTY byte public initial(0),		/* TTY */
-	ctlMOD85 byte public initial(0),	/* MOD85 */
-	ctlPRINT byte public initial(0FFh),	/* PRINT */
-	ctlOBJECT byte public initial(0FFh),	/* OBJECT */
-	ctlMACROFILE byte public initial(0),		/* MACROFILE */
-	ctlPAGEWIDTH byte public initial(78h),		/* PAGEWIDTH */
-	ctlPAGELENGTH byte public initial(42h),		/* PAGELENGTH */
-	pad6A67 byte initial(0),		/* INCLUDE */
-	ctlTITLE byte public initial(0),		/* TITLE */
-	pad6A69(2) byte,			/* SAVE, RESTORE */
-	ctlEJECT byte public initial(0),		/* EJECT */
-	ctlLIST byte public initial(0FFh),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
-	ctlGEN byte public initial(0FFh),	/* GEN */
-	ctlCOND byte public initial(0FFh),	/* COND */
-	b6A6F byte public initial(0FFh),
+	ctlMACRODEBUG bool public initial(FALSE),	/* MACRODEBUG */
+	ctlXREF bool public initial(FALSE),	/* XREF */
+	ctlSYMBOLS bool public initial(TRUE),	/* SYMBOLS */
+	ctlPAGING bool public initial(TRUE),	/* PAGING */
+	ctlTTY bool public initial(FALSE),	/* TTY */
+	ctlMOD85 bool public initial(FALSE),	/* MOD85 */
+	ctlPRINT bool public initial(TRUE),	/* PRINT */
+	ctlOBJECT bool public initial(TRUE),	/* OBJECT */
+	ctlMACROFILE bool public initial(FALSE),	/* MACROFILE */
+	ctlPAGEWIDTH byte public initial(120),	/* PAGEWIDTH */
+	ctlPAGELENGTH byte public initial(66),	/* PAGELENGTH */
+	ctlINLCUDE byte initial(0),		/* INCLUDE */
+	ctlTITLE bool public initial(0),	/* TITLE */
+	ctlSAVE byte,				/* SAVE */
+	ctlRESTORE byte,			/* RESTORE */
+	ctlEJECT bool public initial(FALSE),	/* EJECT */
+	ctlLIST bool public initial(TRUE),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
+	ctlGEN bool public initial(TRUE),	/* GEN */
+	ctlCOND bool public initial(TRUE),	/* COND */
+	b6A6F byte public initial(TRUE),
 	titleLen byte public initial(0),
 	b6A71 byte public,
-	pad6A72(3) byte initial(78h, 0FFh),
-	controlSeen(12) byte public initial(0,0,0,0,0,0,0,0,0,0,0,0),
+	pad6A72(3) byte initial(120, TRUE),
+	controlSeen(12) bool public initial(0,0,0,0,0,0,0,0,0,0,0,0),
 	saveStack(24) byte public,
 	saveIdx byte public initial(0),
 	ctlTITLESTR(64) byte public,
@@ -877,7 +896,7 @@ declare	b689A byte public,
 	tokBufIdx byte public initial(0),
 	w6B1E address public,
 /* end */
-	b6B20$9A77 byte public initial(0);
+	b6B20$9A77 byte public initial(FALSE);
 $IF NOT OVL4
 declare	MacroDebugOrGen byte public initial(0);
 $ENDIF
@@ -900,12 +919,11 @@ declare	scanCmdLine byte public,
 	b6B31 byte public,
 	b6B32 byte public,
 	b6B33 byte public,
-	b6B34 byte public initial(0FFh),
-	b6B35 byte public initial(0FFh),
-	b6B36 byte public initial(0),
-	segSize(4) address public initial(0, 0, 0, 0),	/* note treated as array */
-	padw6B3E(2) byte initial(0, 0),
-	w6B41(3) address public initial(0, 0, 0),
+	b6B34 byte public initial(TRUE),
+	b6B35 byte public initial(TRUE),
+	b6B36 byte public initial(FALSE),
+	segSize(5) address public initial(0, 0, 0, 0, 0),	/* note treated as array */
+	maxSegSize(3) address public initial(0, 0, 0),
 	cmdLineBuf(129) byte public,
 	actRead address public,
 	errCnt address public,
@@ -915,7 +933,7 @@ declare	scanCmdLine byte public,
 	azero address public initial(0),
 	cmdch$p address public initial(.cmdLineBuf),
 	controls$p address public,
-	b6BD9 byte public initial(0),
+	b6BD9 byte public initial(FALSE),
 	b6BDA byte public,
 	ii byte public,
 	b6BDC byte public,
@@ -1131,8 +1149,8 @@ sub4B72$516F: procedure public;
 				call expressionError;
 
 			if ctlOBJECT then
-				if segSize(activeSeg) > w6B41(activeSeg) then
-					w6B41(activeSeg) = segSize(activeSeg);
+				if segSize(activeSeg) > maxSegSize(activeSeg) then
+					maxSegSize(activeSeg) = segSize(activeSeg);
 			segSize(activeSeg) = accum1;
 		end;
 /* 32 */	do;					/* END ? */
@@ -1264,7 +1282,7 @@ $ENDIF
 /* 52 */	do;				/* NAME */
 			if tokenSP <> 0 and b6743 then
 			do;
-				call move(6, .spaces24 + 18, .aModulePage);
+				call move(6, .spaces6, .aModulePage);
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
@@ -1272,7 +1290,7 @@ $ENDIF
 
 			call popToken;
 		end;
-/* 53 */	segSize(3) = accum1;		/* STKLN ? */
+/* 53 */	segSize(SEG$STACK) = accum1;	/* STKLN ? */
 $IF OVL4
 /* 54 */	call sub$7517;			/* MACRO ? */
 /* 55 */	call sub$753E;
@@ -1488,18 +1506,18 @@ end;
 
 
 sub$6E32: procedure public;
-	declare b7598 byte;
+	declare i byte;
 	declare wrd based dta$p address;
-	do b7598 = 0 to 3;
-		ii = (b7598 - 1) and 3;
+	do i = 0 to 3;
+		ii = (i - 1) and 3;
 		dta$p = off$6D72(ii);
 		if wrd > controlTable(ii) then
 			call writeRec(dta$p - 1);
 
 		wrd = controlTable(ii);
-		b6526(ii) = 0;
+		fixIdxs(ii) = 0;
 		if b6525 <>  ii then
-			b652B(ii) = 0FFh;
+			b652B(ii) = TRUE;
 	end;
 	r$content.offset = w6752 + segSize(r$content.segid := activeSeg);
 	r$publics.segid = b6524;
@@ -1532,7 +1550,7 @@ sub$6EE1: procedure;
 /* 0 */		do;
 			if b652B(0) then
 			do;
-				b652B(0) = 0;
+				b652B(0) = FALSE;
 				r$publics.segid = b6524;
 			end;
 			else if r$publics.segid <> b6524 then
@@ -1541,7 +1559,7 @@ sub$6EE1: procedure;
 /* 1 */		do;
 			if b652B(1) then
 			do;
-				b652B(1) = 0;
+				b652B(1) = FALSE;
 				r$interseg.segid = tokenAttr(b6A56) and 7;
 				r$interseg.hilo = b6524;
 			end;
@@ -1551,7 +1569,7 @@ sub$6EE1: procedure;
 /* 2 */		do;
 			if b652B(2) then
 			do;
-				b652B(2) = 0;
+				b652B(2) = FALSE;
 				r$extref.hilo = b6524;
 			end;
 			else if r$extref.hilo <> b6524 then
@@ -1564,10 +1582,10 @@ end;
 
 
 sub$704D: procedure;
-	declare b759B byte;
+	declare i byte;
 
 	declare ch based w651F byte;
-	do b759B = 1 to tokenSize(b6A56);
+	do i = 1 to tokenSize(b6A56);
 		r$content.dta(fix6Idx) = ch;
 		fix6Idx = fix6Idx + 1;
 		w651F = w651F + 1;
@@ -1635,8 +1653,8 @@ writeExtName: procedure public;
 	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
-writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
-    declare arg1b byte;
+writeSymbols: procedure(isPublic);			/* isPublix= TRUE -> PUBLIC else LOCAL */
+    declare isPublic byte;
     declare segId byte;
     declare symb based curTokenSym$p (1) byte;
 
@@ -1666,7 +1684,7 @@ writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
     flushSymRec: procedure;
         if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
             call writeRec(.r$publics);
-        r$publics.type = (arg1b and 4) or 12h;			/* PUBLIC or LOCAL */
+        r$publics.type = (isPublic and 4) or 12h;			/* PUBLIC or LOCAL */
         r$publics.segid = segId;
         recSym$p = .r$publics.dta;
     end;
@@ -1685,7 +1703,7 @@ $IF OVL4
                and symb(0) <> 3Ah and sub$3FA9
 $ENDIF
                and not testBit(symb(0), .b6D7E) and
-               (not arg1b or (symb(1) and 20h) <> 0) then
+               (not isPublic or (symb(1) and 20h) <> 0) then
        	        call addSymbol;
         end;
         call flushSymRec;
@@ -1710,10 +1728,10 @@ writeModhdr: procedure public;
 	w = 0;	/* the two xx bytes */
 	dta$p = dta$p + 1;	/* past first x byte */
 
-	if segSize(1) < w6B41(1) then	/* code segment */
-		segSize(1) = w6B41(1);
-	if segSize(2) < w6B41(2) then	/* data segment */
-		segSize(2) = w6B41(2);
+	if segSize(SEG$CODE) < maxSegSize(SEG$CODE) then	/* code segment */
+		segSize(SEG$CODE) = maxSegSize(SEG$CODE);
+	if segSize(SEG$DATA) < maxSegSize(SEG$DATA) then	/* data segment */
+		segSize(SEG$DATA) = maxSegSize(SEG$DATA);
 
 	do i = 1 to 4;
 		dta$p = dta$p + 1;
@@ -1972,25 +1990,30 @@ declare w$3780 address public data(0),
 	b$3783 byte public data(81h);
 $ENDIF
 
-declare	spaces24(*) byte public data('                        ', 0),
-	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
-	signonMsg(*) byte public data(0Dh, 0Ah),
-	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
-	aModulePage(*) byte public data('MODULE ', 9, ' PAGE ', 0),
+declare	spaces24(*) byte public data('         '),
+	spaces15(*) byte public data('         '),
+	spaces6(*) byte public data(' '),
+	spaces5(*) byte public data(' '),
+	spaces4(*) byte public data('  '),
+	spaces2(*) byte public data('  ', 0),
+	ascCRLF(*) byte public data(CR, LF, 0),
+	signonMsg(*) byte public data(CR, LF),
+	asmHeader(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', TAB, TAB),
+	aModulePage(*) byte public data('MODULE ', TAB, ' PAGE ', 0),
 	bZERO byte public data(0),
-	bTRUE byte public data(0FFh),
+	bTRUE byte public data(TRUE),
 	copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
-	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
-	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
-	aCommand(*) byte public data(0Dh, 0Ah, 'COMMAND', 0),
-	aEof(*) byte public data(0Dh, 0Ah, 'EOF', 0),
-	aFile(*) byte public data(0Dh, 0Ah, 'FILE', 0),
-	aMemory(*) byte public data(0Dh, 0Ah, 'MEMORY', 0),
-	aError(*) byte public data(' ERROR', 0Dh, 0Ah, 0),
-	aError$0(*) byte public data(' ERROR, ', 0Dh,0Ah, 0),
+	aStack(*) byte public data(CR, LF, 'STACK', 0),
+	aTable(*) byte public data(CR, LF, 'TABLE', 0),
+	aCommand(*) byte public data(CR, LF, 'COMMAND', 0),
+	aEof(*) byte public data(CR, LF, 'EOF', 0),
+	aFile(*) byte public data(CR, LF, 'FILE', 0),
+	aMemory(*) byte public data(CR, LF, 'MEMORY', 0),
+	aError(*) byte public data(' ERROR', CR, LF, 0),
+	aError$0(*) byte public data(' ERROR, ', CR,LF, 0),
 	errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
 	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
-	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
+	aBadSyntax(*) byte public data('BAD SYNTAX', CR, LF),
 	aCo(*) byte public data(':CO:', 0);
 
 $IF BASE
@@ -2413,7 +2436,7 @@ $IF BASE
 	if MacroDebugOrGen then			/* attempt to use macro features */
 		call runtimeError(2);		/* command error */
 $ELSEIF OVL4
-	macrofd = inOpen(.aF0Asmac$tmp, 3);
+	macrofd = inOpen(.asmax$ref, 3);
 $ENDIF
 
 	if ctlOBJECT then
@@ -2424,7 +2447,7 @@ $ENDIF
 
 	if ctlXREF then
 	do;
-		xreffd = inOpen(.aF0Asxref$tmp, 2);
+		xreffd = inOpen(.asxref$tmp, 2);
 		outfd = xreffd;
 	end;
 
@@ -2741,7 +2764,7 @@ $ENDIF
 			if ctlXREF then
 			do;
 				call move(6, .b6873, .b6879);
-				call move(6, .spaces24 + 18, .b6873);
+				call move(6, .spaces6, .b6873);
 			end;
 
 			call move(tokenSize(0), curTokStart, .b6873);
@@ -2989,7 +3012,7 @@ $IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
-	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
+	if tokenSP = 0 or tokenType(0) = 11 and not b6B36 then
 $IF OVL4
 		call logError('Q');
 $ELSE
@@ -4153,8 +4176,8 @@ $ENDIF
 	end;
 end;
 
-pushToken: procedure(arg1b) public;
-	declare arg1b byte;
+pushToken: procedure(type) public;
+	declare type byte;
 
 	if tokenSP >= 8 then
 		call stackError;
@@ -4168,7 +4191,7 @@ pushToken: procedure(arg1b) public;
 		tokenSize(tokenSP) = tokenSize(0);
 		tokenSymId(tokenSP) = tokenSymId(0);	
 		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
-		tokenType(0) = arg1b;
+		tokenType(0) = type;
 		tokenAttr(0), tokenSize(0) = bZERO;
 		tokenSym(0) = wZERO;
 $IF OVL4
@@ -4179,28 +4202,28 @@ $ENDIF
 	end;
 end;
 
-collectByte: procedure(arg1b) public;
-	declare arg1b byte;
+collectByte: procedure(c) public;
+	declare c byte;
 	declare s address;
 	declare ch based s byte;
 
 
 	if (s := curTokStart + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
-		ch = arg1b;
+		ch = c;
 		tokenSize(0) = tokenSize(0) + 1;
 	end;
 	else
 		call stackError;
 end;
 
-getId: procedure(arg1b) public;
-	declare arg1b byte;
+getId: procedure(type) public;
+	declare type byte;
 
-	call pushToken(arg1b);
+	call pushToken(type);
 	reget = 1;
 
-	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
+	do while (type := getChClass) = CC$DIGIT or type = CC$LET;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
@@ -4212,10 +4235,10 @@ end;
 getNum: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
-	declare chrs based curTokStart(1) byte;
+	declare chrs based curTokStart (1) byte;
 
-	call getId(0Ch);
-	radix = chrs(tokenSize(0):= tokenSize(0)- 1);
+	call getId(12);
+	radix = chrs(tokenSize(0):= tokenSize(0) - 1);
 	if radix = 'H' then
 		radix = 16;
 
@@ -4228,10 +4251,10 @@ getNum: procedure public;
 	if radix = 'B' then
 		radix = 2;
 
-	if radix > 10h then
-		radix = 0Ah;
+	if radix > 16 then
+		radix = 10;
 	else
-		tokenSize(0)= tokenSize(0)- 1;
+		tokenSize(0)= tokenSize(0) - 1;
 
 	accum = 0;
 	do i = 0 to tokenSize(0);
@@ -4245,7 +4268,7 @@ getNum: procedure public;
 			if (digit := chrs(i) - '0') > 9 then
 				digit = digit - 7;
 			if digit >= radix then
-				if not (tokenType(2) = 40h) then
+				if not (tokenType(2) = 40h) then /* risk that may be uninitialised */
 				do;
 					call illegalCharError;
 					digit = 0;
@@ -4414,15 +4437,15 @@ getMacroFileDrive: procedure;
 	ii = 0;
 
 	do while not isRParen and ii < 4;
-		aF0Asmac$tmp(ii) = curChar;
+		asmax$ref(ii) = curChar;
 		ii = ii + 1;
 		curChar = getCh;
 	end;
 
 	if isRParen or isWhite then
-		if sub$6F07(.aF0Asmac$tmp) then
+		if sub$6F07(.asmax$ref) then
 			return;
-	curFileName$p = .aF0Asmac$tmp;
+	curFileName$p = .asmax$ref;
 	tokBufIdx = 0;
 	call fileError;
 end;
@@ -4641,7 +4664,7 @@ processControl: procedure;
 end;
 
 parseControls: procedure public;
-	b6B20$9A77 = 0FFh;
+	b6B20$9A77 = TRUE;
 	b6A6F, b7464 = ctlLIST;
 $IF OVL4
 	b7465 = ctlGEN;
@@ -4651,8 +4674,8 @@ $ENDIF
 	do while getTok <> 0Dh and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
-		else if lookupControl = 0FFh then	/* error ? */
-			controlError = 0FFh;
+		else if lookupControl = 255 then	/* error ? */
+			controlError = TRUE;
 		else
 			call processControl;
 	end;
@@ -4787,7 +4810,7 @@ end;
 sub$7327: procedure public;
 	w$9199 = w6870;
 	b6B29 = 3Dh;
-	b$905D = 0FFh;
+	b$905D = TRUE;
 	b$9060 = 0;
 end;
 
@@ -4882,7 +4905,7 @@ sub$73AD: procedure public;
 		reget = 1;
 	end;
 
-	b$905D = 0;
+	b$905D = FALSE;
 	if tmac$mtype = 4 then
 	do;
 		if not b$905A and tokenSize(0) = 5 then
@@ -5062,7 +5085,7 @@ sub$770B: procedure public;
 		call popToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
-			b$905D = 0FFh;
+			b$905D = TRUE;
 		else
 			b$9060 = 0FFh;
 
@@ -5074,7 +5097,7 @@ sub$770B: procedure public;
 
 	if opType = 1 then
 	do;
-		b$905D = 0;
+		b$905D = FALSE;
 		if argNestCnt > 0 then
 			call balanceError;
 
@@ -5198,11 +5221,11 @@ declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
 	pad754E address,
 
 	aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
-	aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
+	lstHeader(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
 	wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
 	asc$6DB8(*) byte data(CR, LF, LF, 0),
 	asc$6DBC(*) byte data(CR),
-	asc$6DBD(*) byte data(LF, LF, LF, 0),
+	topLFs(*) byte data(LF, LF, LF, 0),
 	b6DC1(2) byte data(20h, 40h),
 	ascLParen(*) byte data(' (', 0),
 	ascRParen(*) byte data(')', 0),
@@ -5257,7 +5280,7 @@ itoa: procedure(arg1w, arg2w);
     declare (arg1w, arg2w) address;
     declare ch based arg2w byte;
 
-    call move(5, .spaces24 + 19, arg2w);
+    call move(5, .spaces5, arg2w);
     arg2w = arg2w + 4;
 
     do while 1;
@@ -5284,8 +5307,8 @@ end;
 
 
 newPageHeader: procedure public;
-    call printStr(.asc$6DBD);
-    call printStr(.aIsisIi80808085);
+    call printStr(.topLFs);
+    call printStr(.asmHeader);
     call printDecimal(pageCnt);
     call printCRLF;
     if ctlTITLE then
@@ -5293,8 +5316,8 @@ newPageHeader: procedure public;
 
     call printCRLF;
     call printCRLF;
-    if not b68AE(0) then
-        call printStr(.aLocObjLineSour);
+    if not b68AE then
+        call printStr(.lstHeader);
     pageCnt = pageCnt + 1;
 end;
 
@@ -5390,7 +5413,7 @@ sub7041$8447: procedure public;
     end;
 
 
-    b68AE(0) = 0FFh;
+    b68AE = TRUE;
     if not ctlSYMBOLS then
         return;
 
@@ -5414,13 +5437,13 @@ $ENDIF
                         if b7562 <> 0 or b7563 <> 3 then
                             if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
                             do;
-                                call unpackToken(curTokenSym$p - 6, .b68AE(1));
+                                call unpackToken(curTokenSym$p - 6, .tokStr);
                                 if jj then
                                 do;
                                     if (ctlPAGEWIDTH - curCol) < 11h then
                                         call printCRLF;
 
-                                    call printStr(.b68AE(1));
+                                    call printStr(.tokStr);
                                     call printChar(' ');
 $IF OVL4
                                     if b7563 = 3Ah then
@@ -5436,14 +5459,14 @@ $ENDIF
                                     call sub$718C(.print2Hex);
                                     call sub$718C(.print2Hex);
                                     curTokenSym$p = curTokenSym$p + 2;
-                                    call printStr(.spaces24 + 20);
+                                    call printStr(.spaces4);
                                 end;
                             end;
         end;
     end;
 
     if ctlDEBUG then
-        b68AE(0) = 0;
+        b68AE = FALSE;
 
     if jj then
         call printCRLF;
@@ -5498,7 +5521,7 @@ sub$7229: procedure public;
         call out2Hex(low(w68A6));
     end;
     else
-        call outStr(.spaces24 + 20);
+        call outStr(.spaces4);
 
     call outch(' ');
     do  b7568 = 1 to 4;
@@ -5508,7 +5531,7 @@ sub$7229: procedure public;
             call out2Hex(ch);
         end;
         else
-            call outStr(.spaces24 + 22);
+            call outStr(.spaces2);
 
         w68A2 = w68A2 + 1;
     end;
@@ -5560,7 +5583,7 @@ $ENDIF
         b689B = 0FFh;
     end;
     if b6B20$9A77 then
-        call outStr(.spaces24 + 9);
+        call outStr(.spaces15);
     else
         call sub$7229;
 
@@ -5573,11 +5596,11 @@ $ENDIF
             call outch(' ');
     end;
     else
-        call outStr(.spaces24 + 22);
+        call outStr(.spaces2);
 
     if b68AD then
     do;
-        call outStr(.spaces24 + 20);
+        call outStr(.spaces4);
         call printCRLF;
     end;
     else
@@ -5618,7 +5641,7 @@ $ENDIF
     else
     do;
         do while sub$721E;
-            call outStr(.spaces24 + 22);
+            call outStr(.spaces2);
             call sub$7229;
             call printCRLF;
         end;
@@ -5661,7 +5684,7 @@ ovl10: procedure public;
     call closeF(infd);
 $IF OVL4
     call closeF(macrofd);
-    call delete(.aF0Asmac$tmp, .statusIO);
+    call delete(.asmax$ref, .statusIO);
     if ctlOBJECT then
         call closeF(objfd);
 $ENDIF
@@ -5669,10 +5692,10 @@ $ENDIF
     do;
         w68A6 = physmem - 1;
         ch = '0';
-        if aF0Asxref$tmp(0) = ':' then
-            ch = aF0Asxref$tmp(2);
+        if asxref$tmp(0) = ':' then
+            ch = asxref$tmp(2);
     
-        call load(.aF0Asxref, 0, 1, 0, .statusIO);
+        call load(.asxref, 0, 1, 0, .statusIO);
         call ioErrChk;
     end;
 
@@ -5766,7 +5789,7 @@ $ENDIF
 $IF OVL3
 	ovlFile(2),
 $ENDIF
-	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
+	asxref(2) = getDrive; 	/* tem defaults to current drive */
 
 	do while not cmdIsWhite;
 		cmdch$p = cmdch$p + 1;
@@ -5804,9 +5827,9 @@ $ENDIF
 	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
 	if lstFile(0) = ':' and lstFile(2) <> '0' then
 $IF OVL4
-		aF0Asmac$tmp(2),
+		asmax$ref(2),
 $ENDIF
-		aF0Asxref$tmp(2) = lstFile(2);
+		asxref$tmp(2) = lstFile(2);
 end;
 
 
@@ -5831,14 +5854,15 @@ $ENDIF
 $IF OVL4
     w$9114,
 $ENDIF
-    segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6,
+    segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
+    maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), w68A6,
 $IF OVL4
     w$919B,
 $ENDIF
     externId, errCnt = wZERO;
     b6882 = b6882 + 1;
     w6A4E, opType, pageCnt, lineCnt = 1;
-    b68AE(0) = 0;
+    b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;
         controlSeen(ii) = 0;

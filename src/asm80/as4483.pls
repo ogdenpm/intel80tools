@@ -145,7 +145,7 @@ $IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
-	if tokenSP = 0 or tokenType(0) = 0Bh and not b6B36 then
+	if tokenSP = 0 or tokenType(0) = 11 and not b6B36 then
 $IF OVL4
 		call logError('Q');
 $ELSE

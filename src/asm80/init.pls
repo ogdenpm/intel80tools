@@ -84,7 +84,7 @@ $ENDIF
 $IF OVL3
 	ovlFile(2),
 $ENDIF
-	aF0Asxref(2) = getDrive; 	/* tem defaults to current drive */
+	asxref(2) = getDrive; 	/* tem defaults to current drive */
 
 	do while not cmdIsWhite;
 		cmdch$p = cmdch$p + 1;
@@ -122,9 +122,9 @@ $ENDIF
 	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
 	if lstFile(0) = ':' and lstFile(2) <> '0' then
 $IF OVL4
-		aF0Asmac$tmp(2),
+		asmax$ref(2),
 $ENDIF
-		aF0Asxref$tmp(2) = lstFile(2);
+		asxref$tmp(2) = lstFile(2);
 end;
 
 
@@ -149,14 +149,15 @@ $ENDIF
 $IF OVL4
     w$9114,
 $ENDIF
-    segSize(0), segSize(1), segSize(2), w6B41(0), w6B41(1), w6B41(2), w68A6,
+    segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
+    maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), w68A6,
 $IF OVL4
     w$919B,
 $ENDIF
-    exernId, errCnt = wZERO;
+    externId, errCnt = wZERO;
     b6882 = b6882 + 1;
     w6A4E, opType, pageCnt, lineCnt = 1;
-    b68AE(0) = 0;
+    b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;
         controlSeen(ii) = 0;

@@ -20,11 +20,11 @@ declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
 	pad754E address,
 
 	aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
-	aLocObjLineSour(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
+	lstHeader(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
 	wa6DB2(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
 	asc$6DB8(*) byte data(CR, LF, LF, 0),
 	asc$6DBC(*) byte data(CR),
-	asc$6DBD(*) byte data(LF, LF, LF, 0),
+	topLFs(*) byte data(LF, LF, LF, 0),
 	b6DC1(2) byte data(20h, 40h),
 	ascLParen(*) byte data(' (', 0),
 	ascRParen(*) byte data(')', 0),
@@ -79,7 +79,7 @@ itoa: procedure(arg1w, arg2w);
     declare (arg1w, arg2w) address;
     declare ch based arg2w byte;
 
-    call move(5, .spaces24 + 19, arg2w);
+    call move(5, .spaces5, arg2w);
     arg2w = arg2w + 4;
 
     do while 1;
@@ -106,8 +106,8 @@ end;
 
 
 newPageHeader: procedure public;
-    call printStr(.asc$6DBD);
-    call printStr(.aIsisIi80808085);
+    call printStr(.topLFs);
+    call printStr(.asmHeader);
     call printDecimal(pageCnt);
     call printCRLF;
     if ctlTITLE then
@@ -115,8 +115,8 @@ newPageHeader: procedure public;
 
     call printCRLF;
     call printCRLF;
-    if not b68AE(0) then
-        call printStr(.aLocObjLineSour);
+    if not b68AE then
+        call printStr(.lstHeader);
     pageCnt = pageCnt + 1;
 end;
 
@@ -212,7 +212,7 @@ sub7041$8447: procedure public;
     end;
 
 
-    b68AE(0) = 0FFh;
+    b68AE = TRUE;
     if not ctlSYMBOLS then
         return;
 
@@ -236,13 +236,13 @@ $ENDIF
                         if b7562 <> 0 or b7563 <> 3 then
                             if b7562 = 2 or (b7564 and b6DC1(b7562)) <> 0 then
                             do;
-                                call unpackToken(curTokenSym$p - 6, .b68AE(1));
+                                call unpackToken(curTokenSym$p - 6, .tokStr);
                                 if jj then
                                 do;
                                     if (ctlPAGEWIDTH - curCol) < 11h then
                                         call printCRLF;
 
-                                    call printStr(.b68AE(1));
+                                    call printStr(.tokStr);
                                     call printChar(' ');
 $IF OVL4
                                     if b7563 = 3Ah then
@@ -258,14 +258,14 @@ $ENDIF
                                     call sub$718C(.print2Hex);
                                     call sub$718C(.print2Hex);
                                     curTokenSym$p = curTokenSym$p + 2;
-                                    call printStr(.spaces24 + 20);
+                                    call printStr(.spaces4);
                                 end;
                             end;
         end;
     end;
 
     if ctlDEBUG then
-        b68AE(0) = 0;
+        b68AE = FALSE;
 
     if jj then
         call printCRLF;
@@ -320,7 +320,7 @@ sub$7229: procedure public;
         call out2Hex(low(w68A6));
     end;
     else
-        call outStr(.spaces24 + 20);
+        call outStr(.spaces4);
 
     call outch(' ');
     do  b7568 = 1 to 4;
@@ -330,7 +330,7 @@ sub$7229: procedure public;
             call out2Hex(ch);
         end;
         else
-            call outStr(.spaces24 + 22);
+            call outStr(.spaces2);
 
         w68A2 = w68A2 + 1;
     end;
@@ -382,7 +382,7 @@ $ENDIF
         b689B = 0FFh;
     end;
     if b6B20$9A77 then
-        call outStr(.spaces24 + 9);
+        call outStr(.spaces15);
     else
         call sub$7229;
 
@@ -395,11 +395,11 @@ $ENDIF
             call outch(' ');
     end;
     else
-        call outStr(.spaces24 + 22);
+        call outStr(.spaces2);
 
     if b68AD then
     do;
-        call outStr(.spaces24 + 20);
+        call outStr(.spaces4);
         call printCRLF;
     end;
     else
@@ -440,7 +440,7 @@ $ENDIF
     else
     do;
         do while sub$721E;
-            call outStr(.spaces24 + 22);
+            call outStr(.spaces2);
             call sub$7229;
             call printCRLF;
         end;
@@ -483,7 +483,7 @@ ovl10: procedure public;
     call closeF(infd);
 $IF OVL4
     call closeF(macrofd);
-    call delete(.aF0Asmac$tmp, .statusIO);
+    call delete(.asmax$ref, .statusIO);
     if ctlOBJECT then
         call closeF(objfd);
 $ENDIF
@@ -491,10 +491,10 @@ $ENDIF
     do;
         w68A6 = physmem - 1;
         ch = '0';
-        if aF0Asxref$tmp(0) = ':' then
-            ch = aF0Asxref$tmp(2);
+        if asxref$tmp(0) = ':' then
+            ch = asxref$tmp(2);
     
-        call load(.aF0Asxref, 0, 1, 0, .statusIO);
+        call load(.asxref, 0, 1, 0, .statusIO);
         call ioErrChk;
     end;
 

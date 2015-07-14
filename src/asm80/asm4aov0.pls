@@ -134,15 +134,15 @@ getMacroFileDrive: procedure;
 	ii = 0;
 
 	do while not isRParen and ii < 4;
-		aF0Asmac$tmp(ii) = curChar;
+		asmax$ref(ii) = curChar;
 		ii = ii + 1;
 		curChar = getCh;
 	end;
 
 	if isRParen or isWhite then
-		if sub$6F07(.aF0Asmac$tmp) then
+		if sub$6F07(.asmax$ref) then
 			return;
-	curFileName$p = .aF0Asmac$tmp;
+	curFileName$p = .asmax$ref;
 	tokBufIdx = 0;
 	call fileError;
 end;
@@ -361,7 +361,7 @@ processControl: procedure;
 end;
 
 parseControls: procedure public;
-	b6B20$9A77 = 0FFh;
+	b6B20$9A77 = TRUE;
 	b6A6F, b7464 = ctlLIST;
 $IF OVL4
 	b7465 = ctlGEN;
@@ -371,8 +371,8 @@ $ENDIF
 	do while getTok <> 0Dh and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
-		else if lookupControl = 0FFh then	/* error ? */
-			controlError = 0FFh;
+		else if lookupControl = 255 then	/* error ? */
+			controlError = TRUE;
 		else
 			call processControl;
 	end;

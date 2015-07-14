@@ -49,18 +49,18 @@ end;
 
 
 sub$6E32: procedure public;
-	declare b7598 byte;
+	declare i byte;
 	declare wrd based dta$p address;
-	do b7598 = 0 to 3;
-		ii = (b7598 - 1) and 3;
+	do i = 0 to 3;
+		ii = (i - 1) and 3;
 		dta$p = off$6D72(ii);
 		if wrd > controlTable(ii) then
 			call writeRec(dta$p - 1);
 
 		wrd = controlTable(ii);
-		b6526(ii) = 0;
+		fixIdxs(ii) = 0;
 		if b6525 <>  ii then
-			b652B(ii) = 0FFh;
+			b652B(ii) = TRUE;
 	end;
 	r$content.offset = w6752 + segSize(r$content.segid := activeSeg);
 	r$publics.segid = b6524;
@@ -93,7 +93,7 @@ sub$6EE1: procedure;
 /* 0 */		do;
 			if b652B(0) then
 			do;
-				b652B(0) = 0;
+				b652B(0) = FALSE;
 				r$publics.segid = b6524;
 			end;
 			else if r$publics.segid <> b6524 then
@@ -102,7 +102,7 @@ sub$6EE1: procedure;
 /* 1 */		do;
 			if b652B(1) then
 			do;
-				b652B(1) = 0;
+				b652B(1) = FALSE;
 				r$interseg.segid = tokenAttr(b6A56) and 7;
 				r$interseg.hilo = b6524;
 			end;
@@ -112,7 +112,7 @@ sub$6EE1: procedure;
 /* 2 */		do;
 			if b652B(2) then
 			do;
-				b652B(2) = 0;
+				b652B(2) = FALSE;
 				r$extref.hilo = b6524;
 			end;
 			else if r$extref.hilo <> b6524 then
@@ -125,10 +125,10 @@ end;
 
 
 sub$704D: procedure;
-	declare b759B byte;
+	declare i byte;
 
 	declare ch based w651F byte;
-	do b759B = 1 to tokenSize(b6A56);
+	do i = 1 to tokenSize(b6A56);
 		r$content.dta(fix6Idx) = ch;
 		fix6Idx = fix6Idx + 1;
 		w651F = w651F + 1;
@@ -196,8 +196,8 @@ writeExtName: procedure public;
 	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
-writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
-    declare arg1b byte;
+writeSymbols: procedure(isPublic);			/* isPublix= TRUE -> PUBLIC else LOCAL */
+    declare isPublic byte;
     declare segId byte;
     declare symb based curTokenSym$p (1) byte;
 
@@ -227,7 +227,7 @@ writeSymbols: procedure(arg1b);			/* arg1b = 0FFH -> PUBLIC else LOCAL */
     flushSymRec: procedure;
         if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
             call writeRec(.r$publics);
-        r$publics.type = (arg1b and 4) or 12h;			/* PUBLIC or LOCAL */
+        r$publics.type = (isPublic and 4) or 12h;			/* PUBLIC or LOCAL */
         r$publics.segid = segId;
         recSym$p = .r$publics.dta;
     end;
@@ -246,7 +246,7 @@ $IF OVL4
                and symb(0) <> 3Ah and sub$3FA9
 $ENDIF
                and not testBit(symb(0), .b6D7E) and
-               (not arg1b or (symb(1) and 20h) <> 0) then
+               (not isPublic or (symb(1) and 20h) <> 0) then
        	        call addSymbol;
         end;
         call flushSymRec;
@@ -271,10 +271,10 @@ writeModhdr: procedure public;
 	w = 0;	/* the two xx bytes */
 	dta$p = dta$p + 1;	/* past first x byte */
 
-	if segSize(1) < w6B41(1) then	/* code segment */
-		segSize(1) = w6B41(1);
-	if segSize(2) < w6B41(2) then	/* data segment */
-		segSize(2) = w6B41(2);
+	if segSize(SEG$CODE) < maxSegSize(SEG$CODE) then	/* code segment */
+		segSize(SEG$CODE) = maxSegSize(SEG$CODE);
+	if segSize(SEG$DATA) < maxSegSize(SEG$DATA) then	/* data segment */
+		segSize(SEG$DATA) = maxSegSize(SEG$DATA);
 
 	do i = 1 to 4;
 		dta$p = dta$p + 1;
@@ -323,7 +323,7 @@ end;
 
 
 ovl11: procedure public;
-	if exernId <> 0 then
+	if externId <> 0 then
 	do;
 		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
 		call writeModhdr;

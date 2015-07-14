@@ -166,8 +166,8 @@ $ENDIF
 	end;
 end;
 
-pushToken: procedure(arg1b) public;
-	declare arg1b byte;
+pushToken: procedure(type) public;
+	declare type byte;
 
 	if tokenSP >= 8 then
 		call stackError;
@@ -181,7 +181,7 @@ pushToken: procedure(arg1b) public;
 		tokenSize(tokenSP) = tokenSize(0);
 		tokenSymId(tokenSP) = tokenSymId(0);	
 		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
-		tokenType(0) = arg1b;
+		tokenType(0) = type;
 		tokenAttr(0), tokenSize(0) = bZERO;
 		tokenSym(0) = wZERO;
 $IF OVL4
@@ -192,28 +192,28 @@ $ENDIF
 	end;
 end;
 
-collectByte: procedure(arg1b) public;
-	declare arg1b byte;
+collectByte: procedure(c) public;
+	declare c byte;
 	declare s address;
 	declare ch based s byte;
 
 
 	if (s := curTokStart + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
-		ch = arg1b;
+		ch = c;
 		tokenSize(0) = tokenSize(0) + 1;
 	end;
 	else
 		call stackError;
 end;
 
-getId: procedure(arg1b) public;
-	declare arg1b byte;
+getId: procedure(type) public;
+	declare type byte;
 
-	call pushToken(arg1b);
+	call pushToken(type);
 	reget = 1;
 
-	do while (arg1b := getChClass) = CC$DIGIT or arg1b = CC$LET;	/* digit or letter */
+	do while (type := getChClass) = CC$DIGIT or type = CC$LET;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
@@ -225,10 +225,10 @@ end;
 getNum: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
-	declare chrs based curTokStart(1) byte;
+	declare chrs based curTokStart (1) byte;
 
-	call getId(0Ch);
-	radix = chrs(tokenSize(0):= tokenSize(0)- 1);
+	call getId(12);
+	radix = chrs(tokenSize(0):= tokenSize(0) - 1);
 	if radix = 'H' then
 		radix = 16;
 
@@ -241,10 +241,10 @@ getNum: procedure public;
 	if radix = 'B' then
 		radix = 2;
 
-	if radix > 10h then
-		radix = 0Ah;
+	if radix > 16 then
+		radix = 10;
 	else
-		tokenSize(0)= tokenSize(0)- 1;
+		tokenSize(0)= tokenSize(0) - 1;
 
 	accum = 0;
 	do i = 0 to tokenSize(0);
@@ -258,7 +258,7 @@ getNum: procedure public;
 			if (digit := chrs(i) - '0') > 9 then
 				digit = digit - 7;
 			if digit >= radix then
-				if not (tokenType(2) = 40h) then
+				if not (tokenType(2) = 40h) then /* risk that may be uninitialised */
 				do;
 					call illegalCharError;
 					digit = 0;

@@ -23,12 +23,12 @@ declare	mem(1) byte public at(0),
 	b$8FD5(127) byte public,
 	w$9054 address public,
 	off$9056 address public initial(.b$8FD5),
-	b$9058 byte public initial(0),
+	b$9058 bool public initial(FALSE),
 	b$9059 byte public,
 	b$905A byte public,
 	b$905B byte public,
 	b$905C byte public,
-	b$905D byte public initial(0),
+	b$905D bool public initial(FALSE),
 	b$905E byte public,
 	b$905F byte,
 	b$9060 byte public,
@@ -78,10 +78,10 @@ declare	w651F address public,
 	w6522 address public,
 	b6524 byte public,
 	b6525 byte public,
-	b6526(4) byte public initial(0, 0, 0, 0),
-	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte public at (.b6526),
+	fixIdxs(4) byte public initial(0, 0, 0, 0),
+	(fix22Idx, fix24Idx, fix20Idx, fix6Idx) byte public at (.fixIdxs),
 	extNamIdx byte public initial(0),
-	b652B(4) byte public initial(0FFh, 0FFh, 0FFh, 0FFh),
+	b652B(4) bool public initial(TRUE, TRUE, TRUE, TRUE),
 	b652F byte public initial(0FFh),
 	r$eof EOF$T public initial(0Eh, 0),
 	r$extnames1 EXTNAMES$T public initial(18h, 0, 0),
@@ -105,7 +105,7 @@ declare	w651F address public,
 	b6749 byte public initial(0),
 	b674A(2) byte public,
 	alignTypes(4) byte public initial(3, 3, 3, 3),
-	exernId address public,
+	externId address public,
 	w6752 address public,
 	b6754 byte public initial(0),
 	startDefined byte public initial(0),
@@ -169,7 +169,7 @@ declare	opSP byte public,
 	statusIO address public,
 	openStatus address public,
 	pad6894 address initial(0FFFFh),
-	asmErrCode byte public initial(20h),	
+	asmErrCode byte public initial(' '),	
 	b6897 byte public initial(0),
 	primaryValid byte public initial(TRUE);
 /* end */
@@ -191,7 +191,8 @@ declare	b689A byte public,
 	b68AB byte public,
 	pad68AC byte,
 	b68AD byte public initial(0),
-	b68AE(8) byte public initial(0, 0, 0, 0, 0, 0, 0, 0),
+	b68AE byte public initial(FALSE),
+	tokStr(7) byte public initial(0, 0, 0, 0, 0, 0, 0),
 	w68B6 address public initial(IN$BUF$SIZE),
 	b68B8(IN$BUF$SIZE) byte public,
 	outbuf(OUT$BUF$SIZE) byte public,
@@ -204,40 +205,41 @@ declare	b689A byte public,
 	pad6A07 byte initial(0),
 	objFile(15) byte public initial('               '), /* 15 spaces */
 	lstFile(15) byte public initial('               '), /* 15 spaces */
-	aF0Asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
-	aF0Asxref(*) byte public initial(':F0:ASXREF '),
-	aF0Asmac$tmp(*) byte public initial(':F0:ASMAC.TMP '),
+	asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
+	asxref(*) byte public initial(':F0:ASXREF '),
+	asmax$ref(*) byte public initial(':F0:ASMAC.TMP '),
 	w6A4E address public initial(1),
 	bp6A4E(2) byte public at(.w6A4E),
 	pad6A50(2) byte initial('  '),		/* protects for very big files */
 	asciiLineNo(4) byte public initial('   0'),
 	b6A56 byte public,
-	b6A57(4) byte public initial('   0'),
-	ctlDEBUG byte public initial(0),	/* DEBUG */
+	b6A57(4) bool public initial('   0'),
+	ctlDEBUG bool public initial(0),	/* DEBUG */
 	controls(1) byte public at(.ctlDEBUG),
-	ctlMACRODEBUG byte public initial(0),		/* MACRODEBUG */
-	ctlXREF byte public initial(0),		/* XREF */
-	ctlSYMBOLS byte public initial(0FFh),	/* SYMBOLS */
-	ctlPAGING byte public initial(0FFh),	/* PAGING */
-	ctlTTY byte public initial(0),		/* TTY */
-	ctlMOD85 byte public initial(0),	/* MOD85 */
-	ctlPRINT byte public initial(0FFh),	/* PRINT */
-	ctlOBJECT byte public initial(0FFh),	/* OBJECT */
-	ctlMACROFILE byte public initial(0),		/* MACROFILE */
-	ctlPAGEWIDTH byte public initial(78h),		/* PAGEWIDTH */
-	ctlPAGELENGTH byte public initial(42h),		/* PAGELENGTH */
-	pad6A67 byte initial(0),		/* INCLUDE */
-	ctlTITLE byte public initial(0),		/* TITLE */
-	pad6A69(2) byte,			/* SAVE, RESTORE */
-	ctlEJECT byte public initial(0),		/* EJECT */
-	ctlLIST byte public initial(0FFh),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
-	ctlGEN byte public initial(0FFh),	/* GEN */
-	ctlCOND byte public initial(0FFh),	/* COND */
-	b6A6F byte public initial(0FFh),
+	ctlMACRODEBUG bool public initial(FALSE),	/* MACRODEBUG */
+	ctlXREF bool public initial(FALSE),	/* XREF */
+	ctlSYMBOLS bool public initial(TRUE),	/* SYMBOLS */
+	ctlPAGING bool public initial(TRUE),	/* PAGING */
+	ctlTTY bool public initial(FALSE),	/* TTY */
+	ctlMOD85 bool public initial(FALSE),	/* MOD85 */
+	ctlPRINT bool public initial(TRUE),	/* PRINT */
+	ctlOBJECT bool public initial(TRUE),	/* OBJECT */
+	ctlMACROFILE bool public initial(FALSE),	/* MACROFILE */
+	ctlPAGEWIDTH byte public initial(120),	/* PAGEWIDTH */
+	ctlPAGELENGTH byte public initial(66),	/* PAGELENGTH */
+	ctlINLCUDE byte initial(0),		/* INCLUDE */
+	ctlTITLE bool public initial(0),	/* TITLE */
+	ctlSAVE byte,				/* SAVE */
+	ctlRESTORE byte,			/* RESTORE */
+	ctlEJECT bool public initial(FALSE),	/* EJECT */
+	ctlLIST bool public initial(TRUE),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
+	ctlGEN bool public initial(TRUE),	/* GEN */
+	ctlCOND bool public initial(TRUE),	/* COND */
+	b6A6F byte public initial(TRUE),
 	titleLen byte public initial(0),
 	b6A71 byte public,
-	pad6A72(3) byte initial(78h, 0FFh),
-	controlSeen(12) byte public initial(0,0,0,0,0,0,0,0,0,0,0,0),
+	pad6A72(3) byte initial(120, TRUE),
+	controlSeen(12) bool public initial(0,0,0,0,0,0,0,0,0,0,0,0),
 	saveStack(24) byte public,
 	saveIdx byte public initial(0),
 	ctlTITLESTR(64) byte public,
@@ -248,7 +250,7 @@ declare	b689A byte public,
 	tokBufIdx byte public initial(0),
 	w6B1E address public,
 /* end */
-	b6B20$9A77 byte public initial(0);
+	b6B20$9A77 byte public initial(FALSE);
 $IF NOT OVL4
 declare	MacroDebugOrGen byte public initial(0);
 $ENDIF
@@ -271,12 +273,11 @@ declare	scanCmdLine byte public,
 	b6B31 byte public,
 	b6B32 byte public,
 	b6B33 byte public,
-	b6B34 byte public initial(0FFh),
-	b6B35 byte public initial(0FFh),
-	b6B36 byte public initial(0),
-	segSize(4) address public initial(0, 0, 0, 0),	/* note treated as array */
-	padw6B3E(2) byte initial(0, 0),
-	w6B41(3) address public initial(0, 0, 0),
+	b6B34 byte public initial(TRUE),
+	b6B35 byte public initial(TRUE),
+	b6B36 byte public initial(FALSE),
+	segSize(5) address public initial(0, 0, 0, 0, 0),	/* note treated as array */
+	maxSegSize(3) address public initial(0, 0, 0),
 	cmdLineBuf(129) byte public,
 	actRead address public,
 	errCnt address public,
@@ -286,7 +287,7 @@ declare	scanCmdLine byte public,
 	azero address public initial(0),
 	cmdch$p address public initial(.cmdLineBuf),
 	controls$p address public,
-	b6BD9 byte public initial(0),
+	b6BD9 byte public initial(FALSE),
 	b6BDA byte public,
 	ii byte public,
 	b6BDC byte public,

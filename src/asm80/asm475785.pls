@@ -197,8 +197,8 @@ sub4B72$516F: procedure public;
 				call expressionError;
 
 			if ctlOBJECT then
-				if segSize(activeSeg) > w6B41(activeSeg) then
-					w6B41(activeSeg) = segSize(activeSeg);
+				if segSize(activeSeg) > maxSegSize(activeSeg) then
+					maxSegSize(activeSeg) = segSize(activeSeg);
 			segSize(activeSeg) = accum1;
 		end;
 /* 32 */	do;					/* END ? */
@@ -311,26 +311,26 @@ $ENDIF
 		end;
 /* 51 */	do;				/* EXTRN ? */
 			b6749 = 0FFh;
-			if exernId = 0 and isPhase1 and ctlOBJECT then
+			if externId = 0 and isPhase1 and ctlOBJECT then
 			do;
 				CHKOVL$2;
 				call writeModhdr;
 			end;
 			b6EC4$9C3A = 0;
-			call sub5819$5CE8(exernId, 2);
+			call sub5819$5CE8(externId, 2);
 			if isPhase1 and ctlOBJECT and not b6754 then
 			do;
 				CHKOVL$2;
 				call writeExtName;
 			end;
 			if not b6754 then
-				exernId = exernId + 1;
+				externId = externId + 1;
 			b6754 = 0;
 		end;
 /* 52 */	do;				/* NAME */
 			if tokenSP <> 0 and b6743 then
 			do;
-				call move(6, .spaces24 + 18, .aModulePage);
+				call move(6, .spaces6, .aModulePage);
 				call move(moduleNameLen := b6744, .b6873, .aModulePage);
 			end;
 			else
@@ -338,7 +338,7 @@ $ENDIF
 
 			call popToken;
 		end;
-/* 53 */	segSize(3) = accum1;		/* STKLN ? */
+/* 53 */	segSize(SEG$STACK) = accum1;	/* STKLN ? */
 $IF OVL4
 /* 54 */	call sub$7517;			/* MACRO ? */
 /* 55 */	call sub$753E;

@@ -25,25 +25,30 @@ declare w$3780 address public data(0),
 	b$3783 byte public data(81h);
 $ENDIF
 
-declare	spaces24(*) byte public data('                        ', 0),
-	ascCRLF(*) byte public data(0Dh, 0Ah, 0),
-	signonMsg(*) byte public data(0Dh, 0Ah),
-	aIsisIi80808085(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', 9, 9),
-	aModulePage(*) byte public data('MODULE ', 9, ' PAGE ', 0),
+declare	spaces24(*) byte public data('         '),
+	spaces15(*) byte public data('         '),
+	spaces6(*) byte public data(' '),
+	spaces5(*) byte public data(' '),
+	spaces4(*) byte public data('  '),
+	spaces2(*) byte public data('  ', 0),
+	ascCRLF(*) byte public data(CR, LF, 0),
+	signonMsg(*) byte public data(CR, LF),
+	asmHeader(*) byte public data('ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1', TAB, TAB),
+	aModulePage(*) byte public data('MODULE ', TAB, ' PAGE ', 0),
 	bZERO byte public data(0),
-	bTRUE byte public data(0FFh),
+	bTRUE byte public data(TRUE),
 	copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP'),
-	aStack(*) byte public data(0Dh, 0Ah, 'STACK', 0),
-	aTable(*) byte public data(0Dh, 0Ah, 'TABLE', 0),
-	aCommand(*) byte public data(0Dh, 0Ah, 'COMMAND', 0),
-	aEof(*) byte public data(0Dh, 0Ah, 'EOF', 0),
-	aFile(*) byte public data(0Dh, 0Ah, 'FILE', 0),
-	aMemory(*) byte public data(0Dh, 0Ah, 'MEMORY', 0),
-	aError(*) byte public data(' ERROR', 0Dh, 0Ah, 0),
-	aError$0(*) byte public data(' ERROR, ', 0Dh,0Ah, 0),
+	aStack(*) byte public data(CR, LF, 'STACK', 0),
+	aTable(*) byte public data(CR, LF, 'TABLE', 0),
+	aCommand(*) byte public data(CR, LF, 'COMMAND', 0),
+	aEof(*) byte public data(CR, LF, 'EOF', 0),
+	aFile(*) byte public data(CR, LF, 'FILE', 0),
+	aMemory(*) byte public data(CR, LF, 'MEMORY', 0),
+	aError(*) byte public data(' ERROR', CR, LF, 0),
+	aError$0(*) byte public data(' ERROR, ', CR,LF, 0),
 	errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
 	errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
-	aBadSyntax(*) byte public data('BAD SYNTAX', 0Dh, 0Ah),
+	aBadSyntax(*) byte public data('BAD SYNTAX', CR, LF),
 	aCo(*) byte public data(':CO:', 0);
 
 $IF BASE
@@ -466,7 +471,7 @@ $IF BASE
 	if MacroDebugOrGen then			/* attempt to use macro features */
 		call runtimeError(2);		/* command error */
 $ELSEIF OVL4
-	macrofd = inOpen(.aF0Asmac$tmp, 3);
+	macrofd = inOpen(.asmax$ref, 3);
 $ENDIF
 
 	if ctlOBJECT then
@@ -477,7 +482,7 @@ $ENDIF
 
 	if ctlXREF then
 	do;
-		xreffd = inOpen(.aF0Asxref$tmp, 2);
+		xreffd = inOpen(.asxref$tmp, 2);
 		outfd = xreffd;
 	end;
 
@@ -489,7 +494,7 @@ $ENDIF
 		if r$extnames1.len > 0 then
 			call writeRec(.r$extnames1);	/* in overlay 2 */
 
-		if exernId = 0 then
+		if externId = 0 then
 			call writeModhdr;		/* in overlay 2 */
 $IF NOT BASE
 		call initRecTypes;

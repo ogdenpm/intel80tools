@@ -16,6 +16,11 @@ FF              '0Ch'
 LF              '0Ah'
 TAB             '9'
 
+# primiative types
+bool             'byte'
+word             'address'
+pointer          'address'
+
 /* character classes */
 CC$BAD          '0'
 CC$WS           '1'
@@ -44,6 +49,12 @@ ILOAD           '6'
 IEXIT           '9'
 IRESCAN         '11'
 IERROR          '12'
+
+/* segments */
+SEG$ABS         '0'
+SEG$CODE        '1'
+SEG$DATA        '2'
+SEG$STACK       '3'
 
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
@@ -82,7 +93,7 @@ aEof            BS
 aError          BS
 aError$0        BS
 aFile           BS
-aIsisIi80808085 BS
+asmHeader BS
 aMemory         BS
 aModulePage     BS
 ascCRLF         BS
@@ -93,7 +104,12 @@ bZERO           B
 errStrs         AS
 errStrsLen      BS
 signonMsg       BS
+spaces15        BS
+spaces2         BS
 spaces24        BS
+spaces4         BS
+spaces5         BS
+spaces6         BS
 blankAsmErrCode PB
 blankMorPAsmErrCode PB
 chkGenObj       PB
@@ -366,9 +382,9 @@ accum2$hb       B
 accum2$lb       B
 activeSeg       B
 actRead         A
-aF0Asmac$tmp    BS
-aF0Asxref       BS
-aF0Asxref$tmp   BS
+asmax$ref    BS
+asxref       BS
+asxref$tmp   BS
 alignTypes      BS
 argNestCnt      B		/* glb4 */
 asciiLineNo     BS
@@ -377,8 +393,8 @@ azero           A
 b6521           B
 b6524           B
 b6525           B
-b6526           BS
-b652B           BS
+fixIdxs           BS
+b652B           "bool"S
 b652F           B
 b6742           B
 b6743           B
@@ -408,7 +424,7 @@ b689B           B
 b689C           B
 b68AB           B
 b68AD           B
-b68AE           BS
+b68AE           B
 b68B8           BS
 b6A00           B
 b6A56           B
@@ -436,12 +452,12 @@ b6BD9           B
 b6BDA           B
 b6BDC           B
 b$8FD5          BS		/* glb4 */
-b$9058          B		/* glb4 */
+b$9058          "bool"		/* glb4 */
 b$9059          B		/* glb4 */
 b$905A          B		/* glb4 */
 b$905B          B		/* glb4 */
 b$905C          B		/* glb4 */
-b$905D          B		/* glb4 */
+b$905D          "bool"		/* glb4 */
 b$905E          B		/* glb4 */
 b$9060          B		/* glb4 */
 b$9061          B		/* glb4 */
@@ -460,26 +476,26 @@ cmdch$p         A
 cmdLineBuf      BS
 controlId       B
 controls        BS
-controlSeen     BS
+controlSeen     "bool"S
 controls$p      A
-ctlCOND         B
-ctlDEBUG        B
-ctlEJECT        B
-ctlGEN          B
-ctlLIST         B
-ctlMACRODEBUG   B
-ctlMACROFILE    B
-ctlMOD85        B
-ctlOBJECT       B
+ctlCOND         "bool"
+ctlDEBUG        "bool"
+ctlEJECT        "bool"
+ctlGEN          "bool"
+ctlLIST         "bool"
+ctlMACRODEBUG   "bool"
+ctlMACROFILE    "bool"
+ctlMOD85        "bool"
+ctlOBJECT       "bool"
 ctlPAGELENGTH   B
 ctlPAGEWIDTH    B
-ctlPAGING       B
-ctlPRINT        B
-ctlSYMBOLS      B
-ctlTITLE        B
+ctlPAGING       "bool"
+ctlPRINT        "bool"
+ctlSYMBOLS      "bool"
+ctlTITLE        "bool"
 ctlTITLESTR     BS
-ctlTTY          B
-ctlXREF         B
+ctlTTY          "bool"
+ctlXREF         "bool"
 curChar         B
 curCol          B
 curFileName$p   A
@@ -513,6 +529,7 @@ MacroDebugOrGen B		/* glb & glb5 */
 macrofd         A
 macroStk        "MACRO$T"S	/* glb4 */
 maxMacroBlk     A		/* glb4 */
+maxSegSize      AS
 mem             BS		/* glb4 */
 moduleNameLen   B
 nxtMacroBlk     A		/* glb4 */
@@ -565,6 +582,7 @@ tokBufIdx       B
 tokBufLen       B
 tokenAttr       BS
 tokenSP         B
+tokStr          BS
 tokenSym        AS
 tokenSymId      AS
 tokenType       BS
@@ -573,7 +591,7 @@ tokst           AS
 tokType         B
 w651F           A
 w6522           A
-exernId           A
+externId           A
 w6752           A
 w685A           A
 w685C           A
@@ -585,7 +603,6 @@ w68A6           A
 w68B6           A
 w6A4E           A
 w6B1E           A
-w6B41           AS
 w6BCE           A
 w6BE0           A
 w6BE2           A

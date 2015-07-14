@@ -254,7 +254,7 @@ $ENDIF
 			if ctlXREF then
 			do;
 				call move(6, .b6873, .b6879);
-				call move(6, .spaces24 + 18, .b6873);
+				call move(6, .spaces6, .b6873);
 			end;
 
 			call move(tokenSize(0), curTokStart, .b6873);
