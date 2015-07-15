@@ -10,16 +10,16 @@ OVERLAY=6D4Ch
 
 # bulk obj names
 BASEOBJS = glb.obj asm801.obj asm82.obj asm83.obj asm46.obj asm85.obj\
-	asm851.obj asm86.obj asm861.obj asm87.obj close.obj delete.obj error.obj\
+	asm851.obj asm86.obj asm861.obj pcktkn.obj close.obj delete.obj error.obj\
        	exit.obj load.obj open.obj read.obj rescan.obj seek.obj write.obj
 
-OBJS4 =	glb4.obj asm41.obj asm87.obj asm43.obj asm44.obj asm45.obj asm46.obj\
+OBJS4 =	glb4.obj asm41.obj pcktkn.obj asm43.obj asm44.obj asm45.obj asm46.obj\
 	asm47.obj asm48.obj asm49.obj asm4A.obj asm4B.obj asm4C.obj asm4D.obj asm4E.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
 	seek.obj write.obj
 
-OBJS5 =	glb5.obj asm51.obj asm87.obj asm82.obj asm83.obj asm55.obj asm46.obj\
+OBJS5 =	glb5.obj asm51.obj pcktkn.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	asm57.obj asm86.obj asm861.obj asmov0.obj asmov2.obj asmov1.obj asm5D.obj\
 	close.obj delete.obj error.obj exit.obj\
 	load.obj open.obj read.obj rescan.obj\
@@ -33,7 +33,7 @@ P4SRCS = asm41.plm asm44.plm asm45.plm asm4e.plm asm51.plm asm55.plm asm5d.plm\
 P3SRCS = asm43.pl3 asm46.pl3 asm47.pl3 asm48.pl3 asm49.pl3 asm4a.pl3 asm4B.pl3 asm4c.pl3\
 	asm4d.pl3 asm57.pl3 asm82.pl3 asm85.pl3 asm86.pl3 asmov0.pl3 asmov1.pl3 asmov2.pl3
 
-ASRCS = asm87.asm cprite.asm memory.asm
+ASRCS = pcktkn.asm cprite.asm memory.asm
 
 TARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 
