@@ -29,9 +29,9 @@ readF: procedure(arg1b, arg2w, arg3w) public;
 	call ioErrChk;
 end;
 
-seekI: procedure(arg1b) public;
-	declare arg1b byte;
-	call seek(includefd, arg1b, .seekIBlk, .seekIByte, .statusIO);
+seekI: procedure(seekOp) public;
+	declare seekOP byte;
+	call seek(includefd, seekOp, .seekIBlk, .seekIByte, .statusIO);
 	call ioErrChk;
 end;
 
@@ -63,7 +63,7 @@ closeI: procedure public;
 
 	seekIByte = files(fileIdx).byt;
 	seekIBlk = files(fileIdx).blk;
-	call seekI(2);			/* SEEKABS */
+	call seekI(SEEKABS);
 	off6C25 = .b68B8;
 	off6C2C = .b68B8 - 1;
 end;
@@ -100,7 +100,7 @@ sub$4904: procedure public;
 	declare b6CC9 byte, w6CCA address;
 
 	b6C21 = 0;
-	call seekI(0);	/* SEEKTELL */
+	call seekI(SEEKTELL);
 	if seekIByte = 128 then
 	do;
 		seekIBlk = seekIBlk + 1;

@@ -11,6 +11,8 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0),
 	b3EA0(*) byte data(36h, 0, 0, 0, 6, 0, 0, 2),
+		/* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
+		/* 29, 30, 55 */
 	b3EA8(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0, 0, 0FFh,
 			   0, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -18,6 +20,7 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0FFh, 0, 0, 0);
 $IF OVL4
 declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
+	/* bit vector 66 -> 10010000 0 x 56 01 */
 
 skipWhite$2: procedure public;
 	do while getCh = ' ' or isTab;
@@ -40,11 +43,11 @@ seekM: procedure(arg1w);
 
 	if (w6BE0 := arg1w - nxtMacroBlk) <> 0 then
 	do;
-		jj = 3;			/* SEEKFWD */
+		jj = SEEKFWD;
 		if arg1w < nxtMacroBlk then
 		do;
 			w6BE0 = - w6BE0;
-			jj = 1;		/* SEEKBACK */
+			jj = SEEKBACK;
 		end;
 
 		call seek(macrofd, jj, .w6BE0, .w$3780, .statusIO);
@@ -203,7 +206,7 @@ $ENDIF
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
 $IF OVL4
-				if not testBit(opType, .b$3F88) then
+				if not testBit(opType, .b$3F88) then /* not 0, 3 or 65 */
 $ELSE
 				if opType <> 0 and opType <> 3 then
 $ENDIF

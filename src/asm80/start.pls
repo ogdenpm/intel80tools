@@ -324,7 +324,7 @@ end;
 sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
-	if not isSkipping or b6B2B = 22h then	/* ELSE */
+	if not isSkipping or op = 22h then	/* ELSE */
 	do;
 		if b6749 then
 			b6754 = TRUE;

@@ -21,10 +21,20 @@ $ENDIF
 			   ),
 
 	b41B7(*) byte data(41h, 0, 0, 0, 19h, 40h, 0, 1Ch, 0, 0),
+		/* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
 	b41C1(*) byte data(1Ah, 5, 80h, 0, 0C0h),
+		/* bit vector 27 -> 00000101 10000000 00000000 110 */
 	b41C6(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
+		/* bit vector 88 -> 01110001 11110100 01010111 01110110
+                                    01100110 01100110 01100111 01110111
+				    01110111 01110111 01010101 */
 	b41D2(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
+		/* bit vector 88 -> 00000110 00000010 00100000 00000000
+				    00000000 00000000 00000000 00000000
+				    00000000 00000000 00100010 */ 
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
+		/* bit vector 59 -> 11111111 10000000 00000000 00000000
+				    00001111 11111110 00000000 001 */
 	precedence(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -35,15 +45,15 @@ $ENDIF
 			   );
 
 
-testBit: procedure(arg1b, arg2w) byte public;
-	declare arg1b byte, arg2w address;
-	declare ch based arg2w byte;
+testBit: procedure(bitIdx, bitVector) byte public;
+	declare bitIdx byte, bitVector address;
+	declare ch based bitVector byte;
 
-	if ch < arg1b then
+	if ch < bitIdx then
 		return 0;
 	
-	arg2w = arg2w + shr(arg1b, 3) + 1;
-	return (ch and ROR(1, (arg1b and 7) + 1)) <> 0;
+	bitVector = bitVector + shr(bitIdx, 3) + 1;
+	return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
 sub$425B: procedure(arg1b) byte public;
@@ -53,7 +63,7 @@ sub$425B: procedure(arg1b) byte public;
 end;
 
 sub$4274: procedure public;
-	if testBit(b6B2B, .b41B7) then
+	if testBit(op, .b41B7) then
 		if sub$425B(b6858) then
 			call operandError;
 end;
@@ -61,7 +71,7 @@ end;
 sub$4291: procedure public;
 	if sub$425B(b6858) then
 		call operandError;
-	if (b4181(b6B2B) and 2) = 0 then
+	if (b4181(op) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
 		call operandError;
@@ -75,19 +85,19 @@ sub$4291: procedure public;
 				call expressionError;
 	if (ii := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
-		if b6B2B = 5 then	/* +? (PAGE INPAGE)? */
+		if op = 5 then	/* +? (PAGE INPAGE)? */
 			if not (ii or bp6BE0(0)) then
 			do;
 				w685A = w685C;
 				b6855 = b6856;
 				return;
 			end;
-		if b6BDC or bp6BE0(1) or not testBit(b6B2B, .b41C1) then
+		if b6BDC or bp6BE0(1) or not testBit(op, .b41C1) then
 			goto L4394;
 		else
 			return;
 	end;
-	jj = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
+	jj = shl(op - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
 	if testBit(jj, .b41C6) then
 L4394:	do;
 		call expressionError;
@@ -226,15 +236,15 @@ sub$450F: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not sub$425B(b6859) and b6B2B <> 2Eh) then    /* RST */
+		   or (not sub$425B(b6859) and op <> 2Eh) then    /* RST */
 			call operandError;
-		else if sub$425B(b6859) and b6B2B = 2Eh then	     /* RST */
+		else if sub$425B(b6859) and op = 2Eh then	     /* RST */
 			call operandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
-	else if b6B2B <> 2Dh then		/* single byte op */
+	else if op <> 2Dh then		/* single byte op */
 		if sub$425B(b6859) then
 			call operandError;
 
@@ -248,7 +258,7 @@ sub$450F: procedure(arg1b) public;
 		if accum2$hb + 1 > 1 then
 			call valueError;
 	end;
-	if b6B2B = 28h or b6B2B = 2Ch then	/* Imm8 or imm16 */
+	if op = 28h or op = 2Ch then	/* Imm8 or imm16 */
 	do;
 		b6855 = b6856;
 		w685A = w685C;
@@ -256,10 +266,10 @@ sub$450F: procedure(arg1b) public;
 	else
 		b6855 = 0;
 
-	if b6B2B <> 2Dh then		     /* single byte op */
+	if op <> 2Dh then		     /* single byte op */
 		if accum1$lb = 76h then
 			call operandError;
-	if (b6B2B := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
+	if (op := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
 		b6B2D = 0Bh;
 end;
 

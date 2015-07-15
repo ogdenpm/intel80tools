@@ -178,7 +178,7 @@ $ENDIF
         off6C25 = .b68B8;
         off6C2C = off6C25 - 1;
         off6C2E = .b68B8;
-        call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
+        call seek(infd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
         call ioErrChk;
     end;
 

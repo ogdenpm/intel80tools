@@ -8,7 +8,7 @@ $ENDIF
 declare	controlTable(*) byte data(1, 2, 1, 3),
 	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
 	b6D7A(*) byte data(7Bh, 3Ah, 39h, 7Ch),
-	b6D7E(*) byte data(0Ah, 12h, 40h);
+	b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
 
 
 declare	r$modhdr MODHDR$T initial(2), (dta$p, recSym$p) address;
@@ -196,14 +196,14 @@ writeExtName: procedure public;
 	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
-writeSymbols: procedure(isPublic);			/* isPublix= TRUE -> PUBLIC else LOCAL */
+writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
     declare isPublic byte;
     declare segId byte;
     declare symb based curTokenSym$p (1) byte;
 
     addSymbol: procedure;
         declare offsetInSeg$p address;
-        declare symNam based dta$p(6) byte;
+        declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
         declare symOffset based recSym$p address;
         declare offsetInSeg based offsetInSeg$p address;
@@ -235,7 +235,7 @@ writeSymbols: procedure(isPublic);			/* isPublix= TRUE -> PUBLIC else LOCAL */
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
         call flushSymRec;
-        curTokenSym$p = symTab(1) - 2;
+        curTokenSym$p = symTab(1) - 2;		/* point to type byte of user symbol (-1) */
 
         do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(1);
         	if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
@@ -250,13 +250,8 @@ $ENDIF
        	        call addSymbol;
         end;
         call flushSymRec;
-	end;
+    end;
 end;
-
-
-
-
-
 
 
 
@@ -325,16 +320,16 @@ end;
 ovl11: procedure public;
 	if externId <> 0 then
 	do;
-		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
+		call seek(objfd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
 		call writeModhdr;
-		call seek(objfd, 4, .azero, .azero, .statusIO);		/* SEEKEND */
+		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);
 	end;
-	r$publics.type = 16h;
+	r$publics.type = 16h;		  /* public declarations record */
 	r$publics.len = 1;
-	r$publics.segid = 0;
+	r$publics.segid = SEG$ABS;
 	r$publics.dta(0) = 0;
-	call writeSymbols(0FFh);	  /* EMIT PUBLICS */
+	call writeSymbols(TRUE);	  /* EMIT PUBLICS */
 	if ctlDEBUG then
-		call writeSymbols(0); /* EMIT LOCALS */
+		call writeSymbols(FALSE); /* EMIT LOCALS */
 end;
 end;

@@ -5,8 +5,10 @@ $include(asm48.ipx)
 $ELSE
 $include(asm86.ipx)
 $ENDIF
-declare	b5666(*) byte data(9, 2Dh, 80h),
+declare	b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
+		/* bit vector 59 -> 00001000 1000000 00000000 0000000
+				    00000000 0000000 00000000 001 */
 		       /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 	op16(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,

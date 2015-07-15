@@ -50,12 +50,18 @@ ILOAD           '6'
 IEXIT           '9'
 IRESCAN         '11'
 IERROR          '12'
-
+/* seek operations */
+SEEKTELL        '0'
+SEEKBACK        '1'
+SEEKABS         '2'
+SEEKFWD         '3'
+SEEKEND         '4'
 /* segments */
 SEG$ABS         '0'
 SEG$CODE        '1'
 SEG$DATA        '2'
 SEG$STACK       '3'
+SEG$MEMORY      '4'
 
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
@@ -332,7 +338,7 @@ $file(asm51.plm,,asm801.plm)
 
 /* $file(asm57.pl3) */
 $file(asm57.pl3,asm85.pl3)
-sub4B72$516F        P
+handleOp        P
 sub$518F        P
 
 /* $file(asm5D.plm) */
@@ -438,7 +444,7 @@ b6B24           B
 b6B25           B
 b6B28           B
 b6B29           B
-b6B2B           B
+op              B
 b6B2C           B
 b6B2D           B
 b6B2F           B
@@ -642,6 +648,18 @@ seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
 
 $file(write.plm)
 write           P(A conn,A buff$p,A count,A status$p)
+
+notes.txt
+symbol table format
+tok(2) address - packed symbol 3 chars per address field
+val address - keywords - high byte is link to next entry
+	      user - offset of symbol
+	      macro - 
+type byte
+flags byte keywords xxxxxxrx	r = rim/sim
+	   user - xhxxxsss	i = hidden sss = seg
+	   macro table
+
 
 global.pls
 global: do;
@@ -910,7 +928,7 @@ declare	scanCmdLine byte public,
 	b6B28 byte public,
 	b6B29 byte public,
 	opType byte public,
-	b6B2B byte public,
+	op byte public,
 	b6B2C byte public,
 	b6B2D byte public,
 	finished byte public,
@@ -1026,13 +1044,13 @@ sub$4B57: procedure(arg1b) public;
 		b6855 = b6855 and 0E7h or arg1b;
 end;
 
-sub4B72$516F: procedure public;
-	do case b6B2B;
+handleOp: procedure public;
+	do case op;
 /* 0 */		;
 /* 1 */		call sub4C1E$54FD;		/* white space ? */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* : or ) */
-			if not (b6B2B = 2 and opType = 3) then
+			if not (op = 2 and opType = 3) then
 				call balanceError;
 
 			if tokenType(0) = 11 then
@@ -1133,7 +1151,7 @@ sub4B72$516F: procedure public;
 				b6855 = 0;
 			end;
 			b6EC4$9C3A = 1;
-			call sub5819$5CE8(accum1, 22h - b6B2B);	/* 4 for set, 5 for equ */
+			call sub5819$5CE8(accum1, 34 - op);	/* 4 for set, 5 for equ */
 			b6B30 = 0;
 		end;
 /* 30 */	goto case29;				/* SET ? */
@@ -1314,7 +1332,7 @@ $IF OVL4
 $ENDIF
 	end;
 
-	if b6B2B <> 1 then
+	if op <> 1 then
 		b6743 = 0;
 end;
 
@@ -1335,7 +1353,7 @@ sub$518F: procedure public;
 
 
 	sub$53F8: procedure;
-		if not b4A68(b6B2B) then
+		if not b4A68(op) then
 			b6B34 = 0;
 	end;
 
@@ -1360,7 +1378,7 @@ $ENDIF
 					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
-		if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
+		if getPrec(opType := b6B29) > getPrec(op := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
@@ -1380,16 +1398,16 @@ $ENDIF
 		end;
 
 		b6B25 = 0;
-		if not b6B35 and b6B2B > 3 then
+		if not b6B35 and op > 3 then
 			call syntaxError;
 
-		if b6B2B = 0 then
-			b6B2B = opType;
+		if op = 0 then
+			op = opType;
 		else
 			opSP = opSP - 1;
 		
 
-		if (b6B28 := b4181(b6B2B)) then
+		if (b6B28 := b4181(op)) then
 		do;
 			accum2 = sub$43DD;
 			b6856 = b6855;
@@ -1404,7 +1422,7 @@ $ENDIF
 			b6857 = sub$53DF(b6858) or sub$53DF(b6859);
 
 		b6B2D = 0Ch;
-		if b6B2B > 3 and b6B2B < 1Ah then	/* expression op */
+		if op > 3 and op < 1Ah then	/* expression op */
 			call sub$4291;
 		else
 		do;
@@ -1412,8 +1430,8 @@ $ENDIF
 			call sub$4274;
 		end;
 
-		call sub4B72$516F;
-		if not b4A26(b6B2B) then
+		call handleOp;
+		if not b4A26(op) then
 			b6B35 = 0;
 
 		if b6B2C then
@@ -1422,7 +1440,7 @@ $ENDIF
 			return;
 		end;
 
-		if b6B2B <> 1Ch and b68AB then		/* DS */
+		if op <> 1Ch and b68AB then		/* DS */
 			w68A6 = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
@@ -1438,7 +1456,7 @@ $ENDIF
 		if ror(b6B28, 1) then
 			if opType = 6 then
 			do;
-				b6B29 = b6B2B;
+				b6B29 = op;
 				b6B35 = 0FFh;
 			end;
 	end;
@@ -1465,7 +1483,7 @@ $ENDIF
 declare	controlTable(*) byte data(1, 2, 1, 3),
 	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
 	b6D7A(*) byte data(7Bh, 3Ah, 39h, 7Ch),
-	b6D7E(*) byte data(0Ah, 12h, 40h);
+	b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
 
 
 declare	r$modhdr MODHDR$T initial(2), (dta$p, recSym$p) address;
@@ -1653,14 +1671,14 @@ writeExtName: procedure public;
 	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
 end;
 
-writeSymbols: procedure(isPublic);			/* isPublix= TRUE -> PUBLIC else LOCAL */
+writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
     declare isPublic byte;
     declare segId byte;
     declare symb based curTokenSym$p (1) byte;
 
     addSymbol: procedure;
         declare offsetInSeg$p address;
-        declare symNam based dta$p(6) byte;
+        declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
         declare symOffset based recSym$p address;
         declare offsetInSeg based offsetInSeg$p address;
@@ -1692,7 +1710,7 @@ writeSymbols: procedure(isPublic);			/* isPublix= TRUE -> PUBLIC else LOCAL */
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
         call flushSymRec;
-        curTokenSym$p = symTab(1) - 2;
+        curTokenSym$p = symTab(1) - 2;		/* point to type byte of user symbol (-1) */
 
         do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(1);
         	if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
@@ -1707,13 +1725,8 @@ $ENDIF
        	        call addSymbol;
         end;
         call flushSymRec;
-	end;
+    end;
 end;
-
-
-
-
-
 
 
 
@@ -1782,17 +1795,17 @@ end;
 ovl11: procedure public;
 	if externId <> 0 then
 	do;
-		call seek(objfd, 2, .azero, .azero, .statusIO);		/* SEEKABS */
+		call seek(objfd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
 		call writeModhdr;
-		call seek(objfd, 4, .azero, .azero, .statusIO);		/* SEEKEND */
+		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);
 	end;
-	r$publics.type = 16h;
+	r$publics.type = 16h;		  /* public declarations record */
 	r$publics.len = 1;
-	r$publics.segid = 0;
+	r$publics.segid = SEG$ABS;
 	r$publics.dta(0) = 0;
-	call writeSymbols(0FFh);	  /* EMIT PUBLICS */
+	call writeSymbols(TRUE);	  /* EMIT PUBLICS */
 	if ctlDEBUG then
-		call writeSymbols(0); /* EMIT LOCALS */
+		call writeSymbols(FALSE); /* EMIT LOCALS */
 end;
 end;
 keywrd.plm
@@ -2289,7 +2302,7 @@ end;
 sourceError: procedure(arg1b) public;
 	declare arg1b byte;
 
-	if not isSkipping or b6B2B = 22h then	/* ELSE */
+	if not isSkipping or op = 22h then	/* ELSE */
 	do;
 		if b6749 then
 			b6754 = TRUE;
@@ -2521,6 +2534,8 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0),
 	b3EA0(*) byte data(36h, 0, 0, 0, 6, 0, 0, 2),
+		/* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
+		/* 29, 30, 55 */
 	b3EA8(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0, 0, 0FFh,
 			   0, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -2528,6 +2543,7 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
 			   0FFh, 0, 0, 0);
 $IF OVL4
 declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
+	/* bit vector 66 -> 10010000 0 x 56 01 */
 
 skipWhite$2: procedure public;
 	do while getCh = ' ' or isTab;
@@ -2550,11 +2566,11 @@ seekM: procedure(arg1w);
 
 	if (w6BE0 := arg1w - nxtMacroBlk) <> 0 then
 	do;
-		jj = 3;			/* SEEKFWD */
+		jj = SEEKFWD;
 		if arg1w < nxtMacroBlk then
 		do;
 			w6BE0 = - w6BE0;
-			jj = 1;		/* SEEKBACK */
+			jj = SEEKBACK;
 		end;
 
 		call seek(macrofd, jj, .w6BE0, .w$3780, .statusIO);
@@ -2713,7 +2729,7 @@ $ENDIF
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
 $IF OVL4
-				if not testBit(opType, .b$3F88) then
+				if not testBit(opType, .b$3F88) then /* not 0, 3 or 65 */
 $ELSE
 				if opType <> 0 and opType <> 3 then
 $ENDIF
@@ -2888,10 +2904,20 @@ $ENDIF
 			   ),
 
 	b41B7(*) byte data(41h, 0, 0, 0, 19h, 40h, 0, 1Ch, 0, 0),
+		/* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
 	b41C1(*) byte data(1Ah, 5, 80h, 0, 0C0h),
+		/* bit vector 27 -> 00000101 10000000 00000000 110 */
 	b41C6(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
+		/* bit vector 88 -> 01110001 11110100 01010111 01110110
+                                    01100110 01100110 01100111 01110111
+				    01110111 01110111 01010101 */
 	b41D2(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
+		/* bit vector 88 -> 00000110 00000010 00100000 00000000
+				    00000000 00000000 00000000 00000000
+				    00000000 00000000 00100010 */ 
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
+		/* bit vector 59 -> 11111111 10000000 00000000 00000000
+				    00001111 11111110 00000000 001 */
 	precedence(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
 			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
 			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -2902,15 +2928,15 @@ $ENDIF
 			   );
 
 
-testBit: procedure(arg1b, arg2w) byte public;
-	declare arg1b byte, arg2w address;
-	declare ch based arg2w byte;
+testBit: procedure(bitIdx, bitVector) byte public;
+	declare bitIdx byte, bitVector address;
+	declare ch based bitVector byte;
 
-	if ch < arg1b then
+	if ch < bitIdx then
 		return 0;
 	
-	arg2w = arg2w + shr(arg1b, 3) + 1;
-	return (ch and ROR(1, (arg1b and 7) + 1)) <> 0;
+	bitVector = bitVector + shr(bitIdx, 3) + 1;
+	return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
 sub$425B: procedure(arg1b) byte public;
@@ -2920,7 +2946,7 @@ sub$425B: procedure(arg1b) byte public;
 end;
 
 sub$4274: procedure public;
-	if testBit(b6B2B, .b41B7) then
+	if testBit(op, .b41B7) then
 		if sub$425B(b6858) then
 			call operandError;
 end;
@@ -2928,7 +2954,7 @@ end;
 sub$4291: procedure public;
 	if sub$425B(b6858) then
 		call operandError;
-	if (b4181(b6B2B) and 2) = 0 then
+	if (b4181(op) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
 		call operandError;
@@ -2942,19 +2968,19 @@ sub$4291: procedure public;
 				call expressionError;
 	if (ii := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
 	do;
-		if b6B2B = 5 then	/* +? (PAGE INPAGE)? */
+		if op = 5 then	/* +? (PAGE INPAGE)? */
 			if not (ii or bp6BE0(0)) then
 			do;
 				w685A = w685C;
 				b6855 = b6856;
 				return;
 			end;
-		if b6BDC or bp6BE0(1) or not testBit(b6B2B, .b41C1) then
+		if b6BDC or bp6BE0(1) or not testBit(op, .b41C1) then
 			goto L4394;
 		else
 			return;
 	end;
-	jj = shl(b6B2B - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
+	jj = shl(op - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
 	if testBit(jj, .b41C6) then
 L4394:	do;
 		call expressionError;
@@ -3093,15 +3119,15 @@ sub$450F: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not sub$425B(b6859) and b6B2B <> 2Eh) then    /* RST */
+		   or (not sub$425B(b6859) and op <> 2Eh) then    /* RST */
 			call operandError;
-		else if sub$425B(b6859) and b6B2B = 2Eh then	     /* RST */
+		else if sub$425B(b6859) and op = 2Eh then	     /* RST */
 			call operandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
-	else if b6B2B <> 2Dh then		/* single byte op */
+	else if op <> 2Dh then		/* single byte op */
 		if sub$425B(b6859) then
 			call operandError;
 
@@ -3115,7 +3141,7 @@ sub$450F: procedure(arg1b) public;
 		if accum2$hb + 1 > 1 then
 			call valueError;
 	end;
-	if b6B2B = 28h or b6B2B = 2Ch then	/* Imm8 or imm16 */
+	if op = 28h or op = 2Ch then	/* Imm8 or imm16 */
 	do;
 		b6855 = b6856;
 		w685A = w685C;
@@ -3123,10 +3149,10 @@ sub$450F: procedure(arg1b) public;
 	else
 		b6855 = 0;
 
-	if b6B2B <> 2Dh then		     /* single byte op */
+	if op <> 2Dh then		     /* single byte op */
 		if accum1$lb = 76h then
 			call operandError;
-	if (b6B2B := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
+	if (op := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
 		b6B2D = 0Bh;
 end;
 
@@ -3375,9 +3401,9 @@ readF: procedure(arg1b, arg2w, arg3w) public;
 	call ioErrChk;
 end;
 
-seekI: procedure(arg1b) public;
-	declare arg1b byte;
-	call seek(includefd, arg1b, .seekIBlk, .seekIByte, .statusIO);
+seekI: procedure(seekOp) public;
+	declare seekOP byte;
+	call seek(includefd, seekOp, .seekIBlk, .seekIByte, .statusIO);
 	call ioErrChk;
 end;
 
@@ -3409,7 +3435,7 @@ closeI: procedure public;
 
 	seekIByte = files(fileIdx).byt;
 	seekIBlk = files(fileIdx).blk;
-	call seekI(2);			/* SEEKABS */
+	call seekI(SEEKABS);
 	off6C25 = .b68B8;
 	off6C2C = .b68B8 - 1;
 end;
@@ -3446,7 +3472,7 @@ sub$4904: procedure public;
 	declare b6CC9 byte, w6CCA address;
 
 	b6C21 = 0;
-	call seekI(0);	/* SEEKTELL */
+	call seekI(SEEKTELL);
 	if seekIByte = 128 then
 	do;
 		seekIBlk = seekIBlk + 1;
@@ -3485,8 +3511,10 @@ $include(asm48.ipx)
 $ELSE
 $include(asm86.ipx)
 $ENDIF
-declare	b5666(*) byte data(9, 2Dh, 80h),
+declare	b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
+		/* bit vector 59 -> 00001000 1000000 00000000 0000000
+				    00000000 0000000 00000000 001 */
 		       /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
 	op16(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
@@ -4712,6 +4740,8 @@ do;
 $include(asm4b.ipx)
 
 declare b$7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h),
+	/* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
+	/*                 CR, COMMA, SEMI */                                  
 	aMacro(*) byte data('MACRO', 0);
 
 declare w$9C75 address,
@@ -4771,7 +4801,7 @@ sub$727F: procedure byte;
 	if not b$905E then
 		return TRUE;
 	b$9064 = b$9064 + 1;
-	b6B2C = b6B2B <> 3Eh;
+	b6B2C = op <> 3Eh;
 	b6B29 = 37h;
 	return FALSE;
 end;
@@ -4927,7 +4957,7 @@ sub$73AD: procedure public;
 	end;
 
 	if not b$9C83 then
-		if not testBit(curChar, .b$7183) then
+		if not testBit(curChar, .b$7183) then	/* not CR, COMMA or SEMI */
 		do;
 			call skip2EOL;
 			call syntaxError;
@@ -5883,7 +5913,7 @@ $ENDIF
         off6C25 = .b68B8;
         off6C2C = off6C25 - 1;
         off6C2E = .b68B8;
-        call seek(infd, 2, .azero, .azero, .statusIO);	/* SEEKABS */
+        call seek(infd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
         call ioErrChk;
     end;
 

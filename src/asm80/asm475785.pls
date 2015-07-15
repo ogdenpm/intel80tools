@@ -74,13 +74,13 @@ sub$4B57: procedure(arg1b) public;
 		b6855 = b6855 and 0E7h or arg1b;
 end;
 
-sub4B72$516F: procedure public;
-	do case b6B2B;
+handleOp: procedure public;
+	do case op;
 /* 0 */		;
 /* 1 */		call sub4C1E$54FD;		/* white space ? */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* : or ) */
-			if not (b6B2B = 2 and opType = 3) then
+			if not (op = 2 and opType = 3) then
 				call balanceError;
 
 			if tokenType(0) = 11 then
@@ -181,7 +181,7 @@ sub4B72$516F: procedure public;
 				b6855 = 0;
 			end;
 			b6EC4$9C3A = 1;
-			call sub5819$5CE8(accum1, 22h - b6B2B);	/* 4 for set, 5 for equ */
+			call sub5819$5CE8(accum1, 34 - op);	/* 4 for set, 5 for equ */
 			b6B30 = 0;
 		end;
 /* 30 */	goto case29;				/* SET ? */
@@ -362,7 +362,7 @@ $IF OVL4
 $ENDIF
 	end;
 
-	if b6B2B <> 1 then
+	if op <> 1 then
 		b6743 = 0;
 end;
 
@@ -383,7 +383,7 @@ sub$518F: procedure public;
 
 
 	sub$53F8: procedure;
-		if not b4A68(b6B2B) then
+		if not b4A68(op) then
 			b6B34 = 0;
 	end;
 
@@ -408,7 +408,7 @@ $ENDIF
 					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
-		if getPrec(opType := b6B29) > getPrec(b6B2B := opStack(opSP)) or opType = 2 then
+		if getPrec(opType := b6B29) > getPrec(op := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
@@ -428,16 +428,16 @@ $ENDIF
 		end;
 
 		b6B25 = 0;
-		if not b6B35 and b6B2B > 3 then
+		if not b6B35 and op > 3 then
 			call syntaxError;
 
-		if b6B2B = 0 then
-			b6B2B = opType;
+		if op = 0 then
+			op = opType;
 		else
 			opSP = opSP - 1;
 		
 
-		if (b6B28 := b4181(b6B2B)) then
+		if (b6B28 := b4181(op)) then
 		do;
 			accum2 = sub$43DD;
 			b6856 = b6855;
@@ -452,7 +452,7 @@ $ENDIF
 			b6857 = sub$53DF(b6858) or sub$53DF(b6859);
 
 		b6B2D = 0Ch;
-		if b6B2B > 3 and b6B2B < 1Ah then	/* expression op */
+		if op > 3 and op < 1Ah then	/* expression op */
 			call sub$4291;
 		else
 		do;
@@ -460,8 +460,8 @@ $ENDIF
 			call sub$4274;
 		end;
 
-		call sub4B72$516F;
-		if not b4A26(b6B2B) then
+		call handleOp;
+		if not b4A26(op) then
 			b6B35 = 0;
 
 		if b6B2C then
@@ -470,7 +470,7 @@ $ENDIF
 			return;
 		end;
 
-		if b6B2B <> 1Ch and b68AB then		/* DS */
+		if op <> 1Ch and b68AB then		/* DS */
 			w68A6 = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
@@ -486,7 +486,7 @@ $ENDIF
 		if ror(b6B28, 1) then
 			if opType = 6 then
 			do;
-				b6B29 = b6B2B;
+				b6B29 = op;
 				b6B35 = 0FFh;
 			end;
 	end;
