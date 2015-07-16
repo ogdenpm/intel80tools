@@ -162,11 +162,11 @@ handleOp: procedure public;
 			if sub$425B(b6858) then
 				call operandError;
 			b6B2D = 0Bh;
-			b6B23 = 0FFh;
+			inDB = TRUE;
 		end;
 /* 27 */	do;					/* DW ? */
 			b6B2D = 0Bh;
-			b6B24 = 0FFh;
+			inDW = TRUE;
 		end;
 /* 28 */	do;					/* DS ? */
 			segSize(activeSeg) = segSize(activeSeg) + accum1;
@@ -215,8 +215,8 @@ handleOp: procedure public;
 				b68AB = 0FFh;
 			end;
 $IF OVL4
-			jj = b$905E;
-			b$905E = 0;
+			jj = b905E;
+			b905E = 0;
 
 			if macroCondSP > 0 or jj then
 $ELSE
@@ -269,14 +269,14 @@ $ENDIF
 			end;
 		end;
 /* 36 */	do;					/* LXI ? */
-			if b6744 = 1 then
-				if b6873(0) = 4Dh then
+			if nameLen = 1 then
+				if extName(0) = 4Dh then
 					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;				/* POP DAD PUSH INX DCX ? */
-			if b6744 = 1 then
-				if b6873(0) = 4Dh then
+			if nameLen = 1 then
+				if extName(0) = 4Dh then
 					call syntaxError;
 			call sub$450F(5);
 		end;
@@ -331,7 +331,7 @@ $ENDIF
 			if tokenSP <> 0 and b6743 then
 			do;
 				call move(6, .spaces6, .aModulePage);
-				call move(moduleNameLen := b6744, .b6873, .aModulePage);
+				call move(moduleNameLen := nameLen, .extName, .aModulePage);
 			end;
 			else
 				call sourceError('R');
@@ -392,7 +392,7 @@ sub$518F: procedure public;
 	do while 1;
 		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0)
 $IF OVL4
-	           or (b4181(b6B29) < 128 or b$9058) and b$905E
+	           or (b4181(b6B29) < 128 or b9058) and b905E
 
 $ENDIF
 	        then

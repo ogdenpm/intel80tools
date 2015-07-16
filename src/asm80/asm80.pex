@@ -62,6 +62,25 @@ SEG$DATA        '2'
 SEG$STACK       '3'
 SEG$MEMORY      '4'
 
+/* relocatable record types */
+OMF$MODHDR      '2'
+OMF$MODEND      '4'
+OMF$CONTENT     '6'
+OMF$LINENO      '8'
+OMF$EOF	        '0EH'
+OMF$ANCESTOR    '10H'
+OMF$LOCALS      '12H'
+OMF$PUBLICS     '16H'
+OMF$EXTNAMES    '18H'
+OMF$EXTREF      '20H'
+OMF$RELOC       '22H'
+OMF$INTERSEG    '24H'
+OMF$LIBLOCS     '26H'
+OMF$LIBNAMES    '28H'
+OMF$LIBDICT     '2AH'
+OMF$LIBHDR      '2CH'
+OMF$COMDEF      '2EH'
+
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
 FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
@@ -135,7 +154,7 @@ isSpace         PB
 isTab           PB
 isWhite         PB
 nibble2Ascii    P(B n)B
-nxtCmdCh        PB
+getCmdCh        PB
 outch           P(B c)
 outStrN         P(A s,B n)
 physmem         PA
@@ -144,7 +163,7 @@ put2Hex         P(A arg1w,B arg2b)
 runtimeError    P(B arg1b)
 skip2EOL        P
 sourceError     P(B arg1b)
-sub3DCE$3DFB        P
+initLine        P
 wrConsole       P(A buf$p,A count)
 
 
@@ -186,24 +205,24 @@ sub4C1E$54FD    P
 sub$546F        P
 
 $file(asm46.pl3)
-b6C21           B
+needToOpenFile           B
 b6C22           B
 b6C23           B
-b6C27           B
-b6C30           B
+missingEnd      "bool"
+lineChCnt           B
 fileIdx         B
 files           "FILE$T"S
-includefd       A
-off6C25         A
-off6C2C         A
-off6C2E         A
+srcfd       A
+endInBuf$p         A
+inCh$p         A
+startLine$p         A
 rootfd          A
-closeI          P
+closeSrc          P
 readF           P(B arg1b,A arg2w,A arg3w)
-readI           P(A arg1w)
+readSrc           P(A arg1w)
 seekI           P(B arg1b)
-sub$4879        PB
-sub$4904        P
+getSrcCh        PB
+openSrc        P
 
 /* $file(asm47.pl3) */
 
@@ -260,7 +279,7 @@ $file(asm4A.pl3,asmov0.pl3)
 parseControls   P
 
 $file(asm4B.pl3)
-b$9C77          B
+b9C77          B
 sub$72A4        P(B arg1b)
 sub$7327        P
 sub$73AD        P
@@ -278,7 +297,7 @@ sub$78CE        P
 $file(asm4C.pl3,asmov2.pl3)
 ovl11           P
 ovl8            P
-sub$6E32        P
+reinitFixupRecs        P
 writeExtName    P
 writeModend     P
 writeModhdr     P
@@ -320,18 +339,6 @@ initRecTypes        P
 /* $file(asm51.plm) */
 
 /* $file(asm52.plm) */
-$file(asm51.plm,,asm801.plm)
-/* hide variables managed by $IF */
--argNestCnt
--b$8FD5
--b$9058
--b$9059
--b$905B
--b$905E
--b$9060
--off$9056
--w$906A
--w$919D
 
 /* $file(asm55.plm) */
 
@@ -396,15 +403,15 @@ argNestCnt      B		/* glb4 */
 asciiLineNo     BS
 asmErrCode      B
 azero           A
-b6521           B
-b6524           B
-b6525           B
-fixIdxs           BS
-b652B           "bool"S
-b652F           B
+fixupSeg        B
+curFixupHiLoSegId B
+curFixupType    B
+fixIdxs         BS
+initFixupReq    "bool"S
+firstContent           "bool"
 b6742           B
 b6743           B
-b6744           B
+nameLen         B
 b6748           B
 b6749           B
 b674A           BS
@@ -415,10 +422,10 @@ b6857           B
 b6858           B
 b6859           B
 b6872           B
-b6873           BS
+extName         BS
 b6879           BS
 b687F           B
-b6880           B
+haveUserSymbol  "bool"
 b6881           B
 b6882           B
 b6883           B
@@ -431,15 +438,15 @@ b689C           B
 b68AB           B
 b68AD           B
 b68AE           B
-b68B8           BS
+inBuf           BS
 b6A00           B
-b6A56           B
+spIdx           B
 b6A57           BS
 b6A6F           B
 b6A71           B
 b6B20$9A77      B		
-b6B23           B
-b6B24           B
+inDB           B
+inDW           B
 b6B25           B
 b6B28           B
 b6B29           B
@@ -457,25 +464,25 @@ b6B36           B
 b6BD9           B
 b6BDA           B
 b6BDC           B
-b$8FD5          BS		/* glb4 */
-b$9058          "bool"		/* glb4 */
-b$9059          B		/* glb4 */
-b$905A          B		/* glb4 */
-b$905B          B		/* glb4 */
-b$905C          B		/* glb4 */
-b$905D          "bool"		/* glb4 */
-b$905E          B		/* glb4 */
-b$9060          B		/* glb4 */
-b$9061          B		/* glb4 */
-b$9062          B		/* glb4 */
-b$9063          B		/* glb4 */
-b$9064          B		/* glb4 */
-b$9065          B		/* glb4 */
-b$9066          B		/* glb4 */
-b$91A1          B		/* glb4 */
-b$91A2          B		/* glb4 */
-b$91A3          B		/* glb4 */
-b$91A4          BS		/* glb4 */
+macroLine          BS		/* glb4 */
+b9058          "bool"		/* glb4 */
+b9059          B		/* glb4 */
+b905A          B		/* glb4 */
+expandingMacro          B		/* glb4 */
+b905C          B		/* glb4 */
+b905D          "bool"		/* glb4 */
+b905E          B		/* glb4 */
+b9060          B		/* glb4 */
+b9061          B		/* glb4 */
+b9062          B		/* glb4 */
+b9063          B		/* glb4 */
+b9064          B		/* glb4 */
+b9065          B		/* glb4 */
+b9066          B		/* glb4 */
+b91A1          B		/* glb4 */
+b91A2          B		/* glb4 */
+b91A3          B		/* glb4 */
+b91A4          BS		/* glb4 */
 bp6A4E          BS
 bp6BE0          BS
 cmdch$p         A
@@ -525,7 +532,7 @@ inElse          BS
 infd            A
 jj              B
 lineBuf         BS
-lineCnt         A
+pageLineCnt         A
 lookAhead       B
 lstFile         BS
 macroBuf        BS		/* glb4 */
@@ -541,7 +548,7 @@ moduleNameLen   B
 nxtMacroBlk     A		/* glb4 */
 objfd           A
 objFile         BS
-off$9056        A		/* glb4 */
+macro$p        A		/* glb4 */
 openStatus      A
 opSP            B
 opStack         BS
@@ -595,8 +602,8 @@ tokenType       BS
 toksiz          BS
 tokst           AS
 tokType         B
-w651F           A
-w6522           A
+contentBytePtr           A
+fixOffset           A
 externId           A
 w6752           A
 w685A           A
@@ -606,21 +613,21 @@ w6870           A
 w68A0           A
 w68A2           A
 w68A6           A
-w68B6           A
-w6A4E           A
+sizeInBuf           A
+srcLineCnt           A
 w6B1E           A
 w6BCE           A
 w6BE0           A
 w6BE2           A
-w$9054          A		/* glb4 */
-w$9068          A		/* glb4 */
-w$906A          A		/* glb4 */
-w$9114          A		/* glb4 */
-w$9197          A		/* glb4 */
-w$9199          A		/* glb4 */
-w$919B          A		/* glb4 */
-w$919D          A		/* glb4 */
-w$919F          A		/* glb4 */
+endMacroLine   BS		/* glb4 */
+w9068          A		/* glb4 */
+w906A          A		/* glb4 */
+w9114          A		/* glb4 */
+w9197          A		/* glb4 */
+w9199          A		/* glb4 */
+w919B          A		/* glb4 */
+w919D          A		/* glb4 */
+w919F          A		/* glb4 */
 wZERO           A
 xreffd          A
 

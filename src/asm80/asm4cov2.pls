@@ -5,9 +5,9 @@ $ELSE
 $include(asmov2.ipx)
 $ENDIF
 
-declare	controlTable(*) byte data(1, 2, 1, 3),
-	off$6D72(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
-	b6D7A(*) byte data(7Bh, 3Ah, 39h, 7Ch),
+declare	fixupInitialLen(*) byte data(1, 2, 1, 3),
+	fixupRecLenPtrs(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
+	fixupRecLenChks(*) byte data(123, 58, 57, 124),
 	b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
 
 
@@ -36,141 +36,143 @@ writeRec: procedure(rec$p) public;
 end;
 
 
-sub$6DF1: procedure byte;
-	declare b7597 byte;
-	if ((b7597 := tokenAttr(b6A56)) and 5Fh) = 0 then
+getFixupType: procedure byte;
+	declare attr byte;
+	if ((attr := tokenAttr(spIdx)) and 5Fh) = 0 then
 		return 3;
-	if (b7597 and 40h) <> 0 then
+	if (attr and 40h) <> 0 then	/* external */
 		return 2;
-	if (b6521 := b7597 and 7) = 0 then
+	if (fixupSeg := attr and 7) = 0 then	/* absolute */
 		return 3;
-	return (b6521 <> activeSeg) and 1;
+	return (fixupSeg <> activeSeg) and 1;
 end;
 
 
-sub$6E32: procedure public;
+reinitFixupRecs: procedure public;
 	declare i byte;
 	declare wrd based dta$p address;
 	do i = 0 to 3;
 		ii = (i - 1) and 3;
-		dta$p = off$6D72(ii);
-		if wrd > controlTable(ii) then
+		dta$p = fixupRecLenPtrs(ii);
+		if wrd > fixupInitialLen(ii) then
 			call writeRec(dta$p - 1);
 
-		wrd = controlTable(ii);
+		wrd = fixupInitialLen(ii);
 		fixIdxs(ii) = 0;
-		if b6525 <>  ii then
-			b652B(ii) = TRUE;
+		if curFixupType <>  ii then
+			initFixupReq(ii) = TRUE;
 	end;
 	r$content.offset = w6752 + segSize(r$content.segid := activeSeg);
-	r$publics.segid = b6524;
-	r$interseg.segid = tokenAttr(b6A56) and 7;
-	r$interseg.hilo, r$extref.hilo = b6524;
+	r$publics.segid = curFixupHiLoSegId;
+	r$interseg.segid = tokenAttr(spIdx) and 7;
+	r$interseg.hilo, r$extref.hilo = curFixupHiLoSegId;
 end;
 
 
 
 sub$6EE1: procedure;
-	declare w7599 address;
+	declare effectiveOffset address;
 
 	declare wrd based dta$p address;
 
-	dta$p = off$6D72(b6525 := sub$6DF1);
-	if wrd > b6D7A(b6525) or r$content.len + tokenSize(b6A56) > 7Ch then
-		call sub$6E32;
+	dta$p = fixupRecLenPtrs(curFixupType := getFixupType);
+	if wrd > fixupRecLenChks(curFixupType) or r$content.len + tokenSize(spIdx) > 124 then
+		call reinitFixupRecs;
 
-	if b652F then
+	if firstContent then
 	do;
-		b652F = 0;
+		firstContent = FALSE;
 		r$content.offset = segSize(r$content.segid := activeSeg) + w6752;
 	end;
-	else if r$content.segid <> activeSeg or (w7599 := r$content.offset + fix6Idx) <> segSize(activeSeg) + w6752
-	  or w7599 < r$content.offset then
-		call sub$6E32;
+	else if r$content.segid <> activeSeg
+	      or (effectiveOffset := r$content.offset + fix6Idx) <> segSize(activeSeg) + w6752
+	      or effectiveOffset < r$content.offset then
+		call reinitFixupRecs;
 
 
-	do case b6525;
+	do case curFixupType;
 /* 0 */		do;
-			if b652B(0) then
+			if initFixupReq(0) then
 			do;
-				b652B(0) = FALSE;
-				r$publics.segid = b6524;
+				initFixupReq(0) = FALSE;
+				r$publics.segid = curFixupHiLoSegId;
 			end;
-			else if r$publics.segid <> b6524 then
-				call sub$6E32;
+			else if r$publics.segid <> curFixupHiLoSegId then
+				call reinitFixupRecs;
 		end;
 /* 1 */		do;
-			if b652B(1) then
+			if initFixupReq(1) then
 			do;
-				b652B(1) = FALSE;
-				r$interseg.segid = tokenAttr(b6A56) and 7;
-				r$interseg.hilo = b6524;
+				initFixupReq(1) = FALSE;
+				r$interseg.segid = tokenAttr(spIdx) and 7;
+				r$interseg.hilo = curFixupHiLoSegId;
 			end;
-			else if r$interseg.hilo <> b6524 or (tokenAttr(b6A56) and 7) <> r$interseg.segid then
-				call sub$6E32;
+			else if r$interseg.hilo <> curFixupHiLoSegId or (tokenAttr(spIdx) and 7) <> r$interseg.segid then
+				call reinitFixupRecs;
 		end;
 /* 2 */		do;
-			if b652B(2) then
+			if initFixupReq(2) then
 			do;
-				b652B(2) = FALSE;
-				r$extref.hilo = b6524;
+				initFixupReq(2) = FALSE;
+				r$extref.hilo = curFixupHiLoSegId;
 			end;
-			else if r$extref.hilo <> b6524 then
-				call sub$6E32;
+			else if r$extref.hilo <> curFixupHiLoSegId then
+				call reinitFixupRecs;
 
 		end;
-/* 4 */		;
+/* 3 */		;		/* abs no fixup */
 	end;
 end;
 
 
-sub$704D: procedure;
+recAddContentBytes: procedure;
 	declare i byte;
 
-	declare ch based w651F byte;
-	do i = 1 to tokenSize(b6A56);
+	declare ch based contentBytePtr byte;
+
+	do i = 1 to tokenSize(spIdx);
 		r$content.dta(fix6Idx) = ch;
 		fix6Idx = fix6Idx + 1;
-		w651F = w651F + 1;
+		contentBytePtr = contentBytePtr + 1;
 	end;
-	r$content.len = r$content.len + tokenSize(b6A56);
+	r$content.len = r$content.len + tokenSize(spIdx);
 end;
 
 
 
-sub$709D: procedure;
+intraSegFix: procedure;
 	r$reloc.len = r$reloc.len + 2;
-	r$reloc.dta(fix22Idx) = w6522;
+	r$reloc.dta(fix22Idx) = fixOffset;
 	fix22Idx = fix22Idx + 1;
 end;
 
 
-sub$70C1: procedure;
+interSegFix: procedure;
 	r$interseg.len = r$interseg.len + 2;
-	r$interseg.dta(fix24Idx) = w6522;
+	r$interseg.dta(fix24Idx) = fixOffset;
 	fix24Idx = fix24Idx + 1;
 end;
 
-sub$70E5: procedure;
-	r$extref.dta(fix20Idx) = tokenSymId(b6A56);
-	r$extref.dta(fix20Idx + 1) = w6522;
+externalFix: procedure;
+	r$extref.dta(fix20Idx) = tokenSymId(spIdx);
+	r$extref.dta(fix20Idx + 1) = fixOffset;
 	r$extref.len = r$extref.len + 4;
 	fix20Idx = fix20Idx + 2;
 end;
 
 sub$7131: procedure;
-	b6524 = shr(tokenAttr(b6A56) and 18h, 3);
-	w6522 = segSize(activeSeg) + w6752;
-	if not (b6B23 or b6B24) and (tokenSize(b6A56) = 2 or tokenSize(b6A56) = 3) then
-		w6522 = w6522 + 1;
+	curFixupHiLoSegId = shr(tokenAttr(spIdx) and 18h, 3);
+	fixOffset = segSize(activeSeg) + w6752;
+	if not (inDB or inDW) and (tokenSize(spIdx) = 2 or tokenSize(spIdx) = 3) then
+		fixOffset = fixOffset + 1;
 	call sub$6EE1;
-	w651F = w68A2;
-	call sub$704D;
-	do case sub$6DF1;
-/* 0 */ 	call sub$709D;
-/* 1 */		call sub$70C1;
-/* 2 */		call sub$70E5;
-/* 3 */		;
+	contentBytePtr = w68A2;
+	call recAddContentBytes;
+	do case getFixupType;
+/* 0 */ 	call intraSegFix;
+/* 1 */		call interSegFix;
+/* 2 */		call externalFix;
+/* 3 */		;			/* no fixup as absolute */
 	end;
 end;
 
@@ -181,19 +183,19 @@ writeExtName: procedure public;
 	if r$extnames1.len + 9 > 125 then	/* check room for extName */
 	do;
 		call writeRec(.r$extnames1);	/* flush existing extNam Record */
-		r$extnames1.type = 18h;
+		r$extnames1.type = OMF$EXTNAMES;
 		r$extnames1.len = 0;
 		extNamIdx = 0;
 	end;
-	r$extnames1.len = r$extnames1.len + b6744 + 2;	/* update length for this ref */
-	r$extnames1.dta(extNamIdx) = b6744;		/* write len */
+	r$extnames1.len = r$extnames1.len + nameLen + 2;	/* update length for this ref */
+	r$extnames1.dta(extNamIdx) = nameLen;		/* write len */
 	extNamIdx = extNamIdx + 1;
-	do i = 0 to b6744;			/* and name */
-		r$extnames1.dta(extNamIdx + i) = b6873(i);
+	do i = 0 to nameLen;			/* and name */
+		r$extnames1.dta(extNamIdx + i) = extName(i);
 	end;
 
-	r$extnames1.dta(extNamIdx + b6744) = 0;	/* and terminating 0 */
-	extNamIdx = extNamIdx + b6744 + 1;	/* update where next ref writes */
+	r$extnames1.dta(extNamIdx + nameLen) = 0;	/* and terminating 0 */
+	extNamIdx = extNamIdx + nameLen + 1;	/* update where next ref writes */
 end;
 
 writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
@@ -227,7 +229,7 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
     flushSymRec: procedure;
         if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
             call writeRec(.r$publics);
-        r$publics.type = (isPublic and 4) or 12h;			/* PUBLIC or LOCAL */
+        r$publics.type = (isPublic and 4) or OMF$LOCALS;		/* PUBLIC or LOCAL */
         r$publics.segid = segId;
         recSym$p = .r$publics.dta;
     end;
@@ -296,23 +298,23 @@ end;
 ovl8: procedure public;
 	w6752 = 0;
 	b689A = 1;
-	b6A56 = 1;
+	spIdx = 1;
 	if b6B33 then
 		;
 	else
-	do while b6A56 <> 0;
-		b6A56 = sub$4646;
-		w68A0 = tokStart(b6A56) + tokenSize(b6A56);
-		w68A2 = tokStart(b6A56);
+	do while spIdx <> 0;
+		spIdx = sub$4646;
+		w68A0 = tokStart(spIdx) + tokenSize(spIdx);
+		w68A2 = tokStart(spIdx);
 		if isSkipping or not b6B34 then
 			w68A0 = w68A2;
 		if w68A0 > w68A2 then
 		do;
 			call sub$7131;
-			w6752 = w6752 + tokenSize(b6A56);
+			w6752 = w6752 + tokenSize(spIdx);
 		end;
-		if not(b6B23 or b6B24) then
-			b6A56 = 0;
+		if not(inDB or inDW) then
+			spIdx = 0;
 	end;
 end;
 
@@ -324,7 +326,7 @@ ovl11: procedure public;
 		call writeModhdr;
 		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);
 	end;
-	r$publics.type = 16h;		  /* public declarations record */
+	r$publics.type = OMF$PUBLICS;		  /* public declarations record */
 	r$publics.len = 1;
 	r$publics.segid = SEG$ABS;
 	r$publics.dta(0) = 0;

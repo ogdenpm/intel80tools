@@ -2,24 +2,24 @@ asm4B:
 do;
 $include(asm4b.ipx)
 
-declare b$7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h),
+declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h),
 	/* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
 	/*                 CR, COMMA, SEMI */                                  
 	aMacro(*) byte data('MACRO', 0);
 
-declare w$9C75 address,
-	b$9C77 byte public;
+declare w9C75 address,
+	b9C77 byte public;
 
 
 sub$7192: procedure byte;
 	if isCR then
 	do;
-		b$905A = 0;
+		b905A = 0;
 		return TRUE;
 	end;
 
-	if b$905A then
-		return argNestCnt = b$9066;
+	if b905A then
+		return argNestCnt = b9066;
 
 	if isLT or (not (tmac$mtype = 1) and isGT) then
 	do;
@@ -34,36 +34,36 @@ end;
 
 sub$71F2: procedure;
 	symTab(2), endSymTab(2) = symHighMark;
-	b$9065, tmac$b3 = bZERO;
+	b9065, tmac$b3 = bZERO;
 	b6B29 = 37h;
 end;
 
 
 sub$720A: procedure;
 
-	b$9062 = tmac$mtype;
-	if not b$905B then
-		b$905B = 1;
+	b9062 = tmac$mtype;
+	if not expandingMacro then
+		expandingMacro = 1;
 
-	if b$9063 = 0 then
-		b$905B = 0FFh;
+	if b9063 = 0 then
+		expandingMacro = 0FFh;
 
-	if b$9061 then
-		call move(4, .macroStk(0).buf$p, .macroStk(b$9063).buf$p);
+	if b9061 then
+		call move(4, .macroStk(0).buf$p, .macroStk(b9063).buf$p);
 
-	b$9061 = 0;
-	tmac$w12 = w$9199;
-	tmac$w4 = w$919B;
-	w$919B = w$919B + tmac$b3;
+	b9061 = 0;
+	tmac$w12 = w9199;
+	tmac$w4 = w919B;
+	w919B = w919B + tmac$b3;
 	call readM(tmac$w10);
 	tmac$buf$p = .macroBuf;
 end;
 
 
 sub$727F: procedure byte;
-	if not b$905E then
+	if not b905E then
 		return TRUE;
-	b$9064 = b$9064 + 1;
+	b9064 = b9064 + 1;
 	b6B2C = op <> 3Eh;
 	b6B29 = 37h;
 	return FALSE;
@@ -83,28 +83,28 @@ sub$72A4: procedure(arg1b) public;	/* 1 -> IRP, 2 -> IRPC */
 end;
 
 sub$72C4: procedure;
-	declare b$9C79(6) byte;
+	declare b9C79(6) byte;
 
 	call pushToken(0Dh);
 	jj = 0;
 
 L72CE:
-	b$9C79(jj := jj + 1) = accum1 mod 10 + '0';
+	b9C79(jj := jj + 1) = accum1 mod 10 + '0';
 	if (accum1 := accum1 / 10) > 0 then
 		goto L72CE;
 
 	do while jj > 0;
-		call collectByte(b$9C79(jj));
+		call collectByte(b9C79(jj));
 		jj = jj - 1;
 	end;
 end;
 
 
 sub$7327: procedure public;
-	w$9199 = w6870;
+	w9199 = w6870;
 	b6B29 = 3Dh;
-	b$905D = TRUE;
-	b$9060 = 0;
+	b905D = TRUE;
+	b9060 = 0;
 end;
 
 
@@ -125,10 +125,10 @@ end;
 
 
 sub$7383: procedure;
-	b$9064 = 1;
-	w$906A = symHighMark;
-	b$905E = 1;
-	w$9C75 = w$9114;
+	b9064 = 1;
+	w906A = symHighMark;
+	b905E = 1;
+	w9C75 = w9114;
 end;
 
 
@@ -141,14 +141,14 @@ end;
 
 
 sub$73AD: procedure public;
-	declare b$9C83 byte;
+	declare b9C83 byte;
 
-	b$9C77 = tokenSP;
+	b9C77 = tokenSP;
 	call skipWhite;
-	if not (b$9C83 := curChar = 25h) then
+	if not (b9C83 := curChar = 25h) then
 	do;
-		b$9066 = argNestCnt - 1;
-		if (b$905A := isLT) then
+		b9066 = argNestCnt - 1;
+		if (b905A := isLT) then
 			curChar = getCh;
 
 		call pushToken(0Dh);
@@ -185,7 +185,7 @@ sub$73AD: procedure public;
 			end;
 		end;
 
-	L7463:	if b$905A then
+	L7463:	if b905A then
 			curChar = getCh;
 
 		call skipWhite;
@@ -198,29 +198,29 @@ sub$73AD: procedure public;
 		reget = 1;
 	end;
 
-	b$905D = FALSE;
+	b905D = FALSE;
 	if tmac$mtype = 4 then
 	do;
-		if not b$905A and tokenSize(0) = 5 then
+		if not b905A and tokenSize(0) = 5 then
 			if strUCequ(.aMacro, curTokStart) then
 			do;
 				b6B29 = 36h;
 				call popToken;
-				w$9199 = tmac$w12;
+				w9199 = tmac$w12;
 				opSP = opSP - 1;
 				reget = 1;
-				call sub$467F(0, .b6873);
-				b6880 = 0;
+				call sub$467F(0, .extName);
+				haveUserSymbol = FALSE;
 				b6BDA = 0FFh;
 				return;
 			end;
-		tmac$mtype = b$9062;
+		tmac$mtype = b9062;
 		call nestIF(1);
 		tmac$mtype = 0;
 	end;
 
-	if not b$9C83 then
-		if not testBit(curChar, .b$7183) then	/* not CR, COMMA or SEMI */
+	if not b9C83 then
+		if not testBit(curChar, .b7183) then	/* not CR, COMMA or SEMI */
 		do;
 			call skip2EOL;
 			call syntaxError;
@@ -234,7 +234,7 @@ sub$7517: procedure public;
 	if sub$727F then
 	do;
 		b6B30 = 0;
-		w$9068 = curTokenSym$p + 4;
+		w9068 = curTokenSym$p + 4;
 		call sub5819$5CE8(0, 3Ah);
 		tmac$mtype = 0;
 		call sub$71F2;
@@ -242,14 +242,14 @@ sub$7517: procedure public;
 end;
 
 sub$753E: procedure public;
-	declare ch based w$9068 byte;
+	declare ch based w9068 byte;
 
 	if haveTokens then
 	do;
 		if tokenType(0) = 0 then
 			call multipleDefError;
 
-		call sub$5CAD((b$9065 := b$9065 + 1), 0);
+		call sub$5CAD((b9065 := b9065 + 1), 0);
 	end;
 	else if not (tmac$mtype = 0) then
 		call syntaxError;
@@ -284,7 +284,7 @@ sub$753E: procedure public;
 		if not blankMorPAsmErrCode then
 		do;
 			tmac$mtype = 5;
-			w$9068 = w$9068 + 2;
+			w9068 = w9068 + 2;
 			if (ch and 7Fh) = 3Ah then
 				ch = (asmErrCode = 4Ch) and 80h or 9;
 		end;
@@ -293,40 +293,40 @@ sub$753E: procedure public;
 end;
 
 sub$75FF: procedure public;
-	declare ch based w$906A byte;
-	declare ch2 based w$9068 byte;
-	declare wrd based w$9068 address;
+	declare ch based w906A byte;
+	declare ch2 based w9068 byte;
+	declare wrd based w9068 address;
 
-	if b$905E then
+	if b905E then
 	do;
-		if (b$9064 := b$9064 - 1) = 0 then
+		if (b9064 := b9064 - 1) = 0 then
 		do;
-			b$905E = 0;
+			b905E = 0;
 			if not (tmac$mtype = 5) then
 			do;
 				if tmac$mtype = 2 then
-					w$9199 = w6870 + 3;
+					w9199 = w6870 + 3;
 
-				do w6BE0 = w$919D to w$919F - 1;
+				do w6BE0 = w919D to w919F - 1;
 					curChar = mem(w6BE0);
 					if not isWhite then
 						call syntaxError;
 				end;
 
-				w$906A = w$919D;
+				w906A = w919D;
 				ch = 1Bh;
 				call sub$40B9;
 				call writeM;
 				symHighMark, endSymTab(2) = symTab(2);
 				if tmac$mtype = 0 then
 				do;
-					wrd = w$9C75;
-					w$9068 = w$9068 + 3;
+					wrd = w9C75;
+					w9068 = w9068 + 3;
 					ch2 = tmac$b3;
 				end;
 				else
 				do;
-					tmac$w10 = w$9C75;
+					tmac$w10 = w9C75;
 					call sub$720A;
 					if tmac$w14 = 0 then
 						call unnestIF(1);
@@ -340,7 +340,7 @@ end;
 
 
 sub$76CE: procedure public;
-	if b$905B then
+	if expandingMacro then
 	do;
 		if opType = 1 then
 		do;
@@ -360,9 +360,9 @@ end;
 
 
 sub$770B: procedure public;
-	if b$9C77 + 1 <> tokenSP then
+	if b9C77 + 1 <> tokenSP then
 		call syntaxError;
-	else if not b$9060 then
+	else if not b9060 then
 	do;
 		if tokenType(0) <> 0Dh then
 		do;
@@ -378,9 +378,9 @@ sub$770B: procedure public;
 		call popToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
-			b$905D = TRUE;
+			b905D = TRUE;
 		else
-			b$9060 = 0FFh;
+			b9060 = 0FFh;
 
 		if tmac$mtype = 1 then
 			tmac$w14 = tmac$w14 + 1;
@@ -390,7 +390,7 @@ sub$770B: procedure public;
 
 	if opType = 1 then
 	do;
-		b$905D = FALSE;
+		b905D = FALSE;
 		if argNestCnt > 0 then
 			call balanceError;
 
@@ -431,7 +431,7 @@ sub$7844: procedure public;
 	if (b6B29 := opType) <> 1 then
 		call syntaxError;
 
-	if not b$905E then
+	if not b905E then
 	do;
 		tmac$w14 = accum1;
 		if not blankMorPAsmErrCode then
@@ -446,7 +446,7 @@ end;
 
 
 sub$787A: procedure public;
-	if b$905E = 2 then
+	if b905E = 2 then
 	do;
 		if haveTokens then
 		do;
@@ -457,12 +457,12 @@ sub$787A: procedure public;
 				call multipleDefError;
 
 			call sub$5CAD(tmac$b3, 1);
-			w$906A = symHighMark;
+			w906A = symHighMark;
 		end;
 		if opType = 1 then
 		do;
-			b$905E = 1;
-			w$906A = symHighMark;
+			b905E = 1;
+			w906A = symHighMark;
 		end;
 	end;
 	else
@@ -473,17 +473,17 @@ end;
 
 sub$78CE: procedure public;
 	jj = mem(tmac$w12);
-	bp6BE0(0) = 1 - (jj = 21h and b$9062 = 2);
-	if b$9062 = 0 or (tmac$w14 := tmac$w14 - bp6BE0(0)) = 0 then
+	bp6BE0(0) = 1 - (jj = 21h and b9062 = 2);
+	if b9062 = 0 or (tmac$w14 := tmac$w14 - bp6BE0(0)) = 0 then
 		call unnestIF(1);
 	else
 	do;
-		if b$9062 = 1 then
-			w$9199 = tmac$w12 - (jj and 7Fh);
+		if b9062 = 1 then
+			w9199 = tmac$w12 - (jj and 7Fh);
 		else
-			w$9199 = tmac$w12 + bp6BE0(0);
+			w9199 = tmac$w12 + bp6BE0(0);
 
-		tmac$mtype = b$9062;
+		tmac$mtype = b9062;
 		call sub$720A;
 	end;
 	lookAhead = 0;

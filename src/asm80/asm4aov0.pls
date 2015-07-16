@@ -299,7 +299,7 @@ processControl: procedure;
 			end;
 		end;
 /* 7 */		do;			/* INCLUDE */
-			if not b6C21 then
+			if not needToOpenFile then
 			do;
 				w6BE2 = 1;
 				if fileIdx = 5 then
@@ -309,7 +309,7 @@ processControl: procedure;
 					fileIdx = fileIdx + 1;
 					curFileName$p = .files(fileIdx);
 					call getFileParam;
-					b6C21 = 0FFh;
+					needToOpenFile = 0FFh;
 					if scanCmdLine then
 						b6C22 = 0FFh;
 					return;
@@ -395,7 +395,7 @@ $ENDIF
 	if ctlLIST <> b7464 then
 		b6A6F = 0FFh;
 $IF OVL4
-	else if ctlGEN <> b7465 and b$905B then
+	else if ctlGEN <> b7465 and expandingMacro then
 		b6A6F = 0;
 $ENDIF
 

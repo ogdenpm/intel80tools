@@ -29,10 +29,10 @@ end;
 
 
 sub$3FA9: procedure byte public;
-	declare w$9B5A address,
-		wrd based w$9B5A address;
+	declare w9B5A address,
+		wrd based w9B5A address;
 
-	w$9B5A = curTokenSym$p - 6;
+	w9B5A = curTokenSym$p - 6;
 	return (wrd < 4679h) or ctlMACRODEBUG or (4682h < wrd);
 end;
 
@@ -60,21 +60,21 @@ end;
 
 readM: procedure(arg1w) public;
 	declare arg1w address;
-	declare w$9B60 address;
+	declare w9B60 address;
 
 	if arg1w >= maxMacroBlk then
-		w$9B60 = 0;
+		w9B60 = 0;
 	else if arg1w = curMacroBlk then
 		return;
 	else
 	do;
 		call seekM(arg1w);
-		call read(macrofd, .macroBuf, 128, .w$9B60, .statusIO);
+		call read(macrofd, .macroBuf, 128, .w9B60, .statusIO);
 		call ioErrChk;
 	end;
 
 	tmac$blk, curMacroBlk = arg1w;
-	macroBuf(w$9B60) = 0FEh;	/* flag end of macro buffer */
+	macroBuf(w9B60) = 0FEh;	/* flag end of macro buffer */
 end;
 
 
@@ -86,23 +86,23 @@ writeM: procedure public;
 		call write(macrofd, symHighMark, 128, .statusIO);
 		call ioErrChk;
 	end;
-	w$9114 = w$9114 + 1;
+	w9114 = w9114 + 1;
 end;
 
 
 
 sub$40B9: procedure public;
-	declare w$9B62 address;
+	declare w9B62 address;
 
-	if b$905E then
+	if b905E then
 	do;
-		do while (w$9B62 := w$906A - symHighMark) >= 128;
+		do while (w9B62 := w906A - symHighMark) >= 128;
 			call writeM;
 			symHighMark = symHighMark + 128;
 		end;
-		if w$9B62 <> 0 then
-			call move(w$9B62, symHighMark, endSymTab(2));
-		w$906A = (symHighMark := endSymTab(2)) + w$9B62;
+		if w9B62 <> 0 then
+			call move(w9B62, symHighMark, endSymTab(2));
+		w906A = (symHighMark := endSymTab(2)) + w9B62;
 	end;
 end;
 
@@ -151,15 +151,15 @@ sub$3F19: procedure public;
 		;				/* CC$WS */
 		do;				/* CC$SEMI */
 $IF OVL4
-			if not b$9058 then
+			if not b9058 then
 $ENDIF
 			do;
 				b6742 = 0FFh;
 $IF OVL4
-				if getChClass = CC$SEMI and b$905E then
+				if getChClass = CC$SEMI and b905E then
 				do;
-					b$9059 = 0FFh;
-					w$906A = w$906A - 2;
+					b9059 = 0FFh;
+					w906A = w906A - 2;
 				end;
 $ENDIF
 				call skip2NextLine;
@@ -172,7 +172,7 @@ $ENDIF
 			do;
 				if skipping(0)
 $IF OVL4
-				   or b$905E
+				   or b905E
 $ENDIF
 				then
 					call popToken;
@@ -191,15 +191,15 @@ $ENDIF
 				call popToken;
 			end;
 
-			call sub$467F(0, .b6873);
-			b6880 = 0;
+			call sub$467F(0, .extName);
+			haveUserSymbol = FALSE;
 			opType = 3;
 		end;
 		do;				/* CC$CR */
 			call chkLF;
 			b6B29 = 1;
 $IF OVL4
-			b$9058 = 0;
+			b9058 = 0;
 $ENDIF
 			return;
 		end;
@@ -229,8 +229,8 @@ $IF OVL4
 				call illegalCharError;
 				return;
 			end;
-			if b$905E then
-				b$9058 = not b$9058;
+			if b905E then
+				b9058 = not b9058;
 			else
 $ENDIF
 			do;
@@ -248,7 +248,7 @@ $ENDIF
 		end;
 		do;				/* CC$LET */
 $IF OVL4
-			w$919F = w$906A - 1;
+			w919F = w906A - 1;
 $ENDIF
 			call getId(9);
 			if tokenSize(0) > 6 then
@@ -256,39 +256,39 @@ $ENDIF
 
 			if ctlXREF then
 			do;
-				call move(6, .b6873, .b6879);
-				call move(6, .spaces6, .b6873);
+				call move(6, .extName, .b6879);
+				call move(6, .spaces6, .extName);
 			end;
 
-			call move(tokenSize(0), curTokStart, .b6873);
-			b6744 = tokenSize(0);
+			call move(tokenSize(0), curTokStart, .extName);
+			nameLen = tokenSize(0);
 			call packToken;
-			if b6880 then
+			if haveUserSymbol then
 			do;
 				b687F = 0FFh;
-				b6880 = 0;
+				haveUserSymbol = FALSE;
 			end;
 
 
 $IF OVL4
-			if lookup(2) <> 9 and b$905E then
+			if lookup(2) <> 9 and b905E then
 			do;
-				if not b$9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w$919F-1) = 26h) then
+				if not b9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w919F-1) = 26h) then
 				do;
-					w$906A = w$919F;
+					w906A = w919F;
 					call sub$3D55(jj + 81h);
 					call sub$3D34(sub$43DD);
 					call sub$3D55(curChar);
 					b6B29 = 9;
 				end;
 			end;
-			else if b6B29 <> 37h and not b$905E = 2 then
+			else if b6B29 <> 37h and not b905E = 2 then
 $ENDIF
 			do;
 				if lookup(0) = 9 then		/* not a key word */
 				do;
 					tokenType(0) = lookup(1);	/* look up in symbol space */
-					b6880 = 0FFh;		/* not a key word */
+					haveUserSymbol = TRUE;		/* not a key word */
 				end;
 
 				b6B29 = tokenType(0);
@@ -303,11 +303,11 @@ $ENDIF
 				end;
 			end;
 $IF OVL4
-			if b$905E = 1 then
+			if b905E = 1 then
 			do;
 				if b6B29 = 3Fh then
 				do;
-					b$905E = 2;
+					b905E = 2;
 					if b6897 then
 						call syntaxError;
 					b6897 = 0;
@@ -315,7 +315,7 @@ $IF OVL4
 				else
 				do;
 					b6897 = 0;
-					b$905E = 0FFh;
+					b905E = 0FFh;
 				end;
 			end;
 
@@ -342,7 +342,7 @@ $IF OVL4
 				return;
 		end;
 		do;				/* CC$ESC */
-			if b$905B then
+			if expandingMacro then
 			do;
 				skipping(0) = 0;
 				b6B29 = 40h;

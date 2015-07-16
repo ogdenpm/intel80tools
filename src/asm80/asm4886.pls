@@ -146,7 +146,7 @@ $ENDIF
 			do;
 				if curTokenSym.type >= 80h
 $IF OVL4
-					 or arg2b = 3Ah and curTokenSym.val <> w6A4E
+					 or arg2b = 3Ah and curTokenSym.val <> srcLineCnt
 $ENDIF
 				then
 				do;
@@ -358,7 +358,7 @@ lookup: procedure(tableId) byte public;
 	do;
 		b6883 = 0;
 		b6EC4$9C3A = 0;
-		call sub5819$5CE8(w6A4E, (b6885 and 80h) or 9);
+		call sub5819$5CE8(srcLineCnt, (b6885 and 80h) or 9);
 		w6BE0 = .tokenSym;
 		do i = 1 to tokenSP;
 			w6BE0 = w6BE0 + 2;
@@ -377,7 +377,7 @@ getCh: procedure byte public;
 	declare (curCH, prevCH) byte;
 $IF OVL4
 	declare ch based tmac$buf$p byte;
-	declare ch1 based off9056 byte;
+	declare ch1 based macro$p byte;
 $ENDIF
 
 L6339:
@@ -388,7 +388,7 @@ L6339:
 	L6347:
 		curCH = lookAhead;
 $IF OVL4
-		if b$905B then
+		if expandingMacro then
 		do;
 			do while (lookAhead := ch) = 0FEh;
 				call readM(curMacroBlk + 1);
@@ -400,15 +400,15 @@ $IF OVL4
 		else
 $ENDIF
 	        if scanCmdLine then
-			lookAhead = nxtCmdCh;
+			lookAhead = getCmdCh;
 		else
-			lookAhead = sub$4879;
+			lookAhead = getSrcCh;
 
 		if chClass(curCH) = CC$BAD then
-			if curCH = 0 or curCH = 7Fh or curCH = 0Ch then
+			if curCH = 0 or curCH = 7Fh or curCH = FF then
 				goto L6347;
 $IF OVL4
-		if b$905B then
+		if expandingMacro then
 		do;
 			if curCH = 1Bh then
 			do;
@@ -421,7 +421,7 @@ $IF OVL4
 			end;
 			else if curCH = '!' and prevCH <> 0 then
 			do;
-				if not (b$905D or b$905E) and b$905C then
+				if not (b905D or b905E) and b905C then
 				do;
 					curCH = 0;
 					goto L6339;
@@ -429,22 +429,22 @@ $IF OVL4
 			end;
 			else if curCH >= 128 then
 			do;
-				if not (b$905C := not b$905C) then
-					tmac$buf$p = w$9197;
+				if not (b905C := not b905C) then
+					tmac$buf$p = w9197;
 				else
 				do;
-					w$9197 = tmac$buf$p;
+					w9197 = tmac$buf$p;
 					if curCH = 80h then
 					do;
 						tmac$buf$p = tmac$w12;
-						if b$9062 = 2 then
+						if b9062 = 2 then
 						do;
-							b$91A2 = ch;
-							tmac$buf$p = .b$91A2;
+							b91A2 = ch;
+							tmac$buf$p = .b91A2;
 							if ch = '!' then
 							do;
-								b$91A1 = 21h;
-								b$91A2 = mem(tmac$w12 + 1);
+								b91A1 = 21h;
+								b91A2 = mem(tmac$w12 + 1);
 								tmac$buf$p = tmac$buf$p - 1;
 							end;
 						end;
@@ -459,10 +459,10 @@ $IF OVL4
 					end;
 					else
 					do;
-						tmac$buf$p = .b$91A4;
+						tmac$buf$p = .b91A4;
 						w6BE0 = lookAhead + tmac$w4;
 						do ii = 1 to 4;
-							b$91A4(6 - ii) = w6BE0 mod 10 + '0';
+							b91A4(6 - ii) = w6BE0 mod 10 + '0';
 							w6BE0 = w6BE0 / 10;
 						end;
 					end;
@@ -473,16 +473,16 @@ $IF OVL4
 			end;
 		end;
 
-		if b$905B > 1 then
+		if expandingMacro > 1 then
 			if isPhase2Print then
-				if off$9056 < .w$9054 then
+				if macro$p < .endMacroLine then	/* append character */
 				do;
 					ch1 = curCH;	
-					off$9056 = off$9056 + 1;
+					macro$p = macro$p + 1;
 				end;
 
-		if b$905E then
-			if w$919D <> w$906A and curCH = 0Dh or not b$9059 then
+		if b905E then
+			if w919D <> w906A and curCH = 0Dh or not b9059 then
 			call sub$3D55(curCH);
 
 		if not(prevCH = '!' or b6742) then
@@ -503,7 +503,7 @@ end;
 getChClass: procedure byte public;
 	curChar = getCh;
 $IF OVL4
-	if b$905D then
+	if b905D then
 		return 0Ah;
 $ENDIF
 
@@ -518,11 +518,11 @@ chkLF: procedure public;
 	else
 	do;
 $IF OVL4 
-		b$905E = b$905E and 0FEh;
+		b905E = b905E and 0FEh;
 $ENDIF
 		call illegalCharError;
 $IF OVL4
-		b$905E = b$905E > 0;
+		b905E = b905E > 0;
 $ENDIF
 	end;
 end;

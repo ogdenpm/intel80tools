@@ -284,7 +284,7 @@ end;
 sub$465B: procedure byte public;
 	return ((not b6B20$9A77) and ctlLIST or b6A6F and b6B20$9A77)
 $IF OVL4
-	        and (not (b$905B > 1) or ctlGEN)
+	        and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
 		and (not(b6B32 or skipping(0)) or ctlCOND);
 end;

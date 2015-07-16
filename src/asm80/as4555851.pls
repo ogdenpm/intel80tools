@@ -38,26 +38,26 @@ end;
 isSkipping: procedure byte public;
 	return 
 $IF OVL4
-	b$905E or
+	b905E or
 $ENDIF
 		 skipping(0);
 end;
 
 sub$546F: procedure public;
-	b6A56 = sub$4646;
+	spIdx = sub$4646;
 	if b6B30 then
 		call syntaxError;
 	if haveTokens then
-		if not(tokenType(b6A56) = 0Bh or b68AD) then
+		if not(tokenType(spIdx) = 0Bh or b68AD) then
 			call syntaxError;
-	if b6B23 or b6B24 then
+	if inDB or inDW then
 	do;
 		if tokenSP = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
 			tokenSize(0) = 2;
 	end;
 	else if not blankAsmErrCode and haveTokens then
-		if tokenSize(b6A56) > 3 then
-			tokenSize(b6A56) = 3;
+		if tokenSize(spIdx) > 3 then
+			tokenSize(spIdx) = 3;
 end;
 
 
@@ -102,7 +102,7 @@ sub4C1E$54FD: procedure public;
 	if not b6B20$9A77 then
 	do;
 		ii = 2;
-		if tokenSP < 2 or b6B23 or b6B24 then
+		if tokenSP < 2 or inDB or inDW then
 			ii = 0;
 
 		w6BCE = tokStart(ii) + tokenSize(ii);
@@ -118,9 +118,9 @@ sub4C1E$54FD: procedure public;
 		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
-	if ctlXREF and b6880 then
+	if ctlXREF and haveUserSymbol then
 		if phase = 1 then
-			call sub$467F(1, .b6873);
+			call sub$467F(1, .extName);
 
 $IF OVL4
 	call sub$40B9;
@@ -130,7 +130,7 @@ $ENDIF
 		call popToken;
 	end;
 
-	call sub3DCE$3DFB;
+	call initLine;
 	if b6B33 then
 	do;
 		finished = 0FFh;
@@ -140,11 +140,11 @@ $ENDIF
 			call sub7041$8447;
 		end;
 
-		call sub$467F(2, .b6873);
+		call sub$467F(2, .extName);
 		if chkGenObj then
 		do;
 			CHKOVL$2;
-			call sub$6E32;
+			call reinitFixupRecs;
 		end;
 	end;
 end;

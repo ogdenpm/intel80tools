@@ -1,133 +1,137 @@
 asm46: do;
 $include(asm46.ipx)
 
-declare	b6C21 byte public initial(0),
+declare	needToOpenFile byte public initial(0),
 	b6C22 byte public initial(0),
 	b6C23 byte public,
 	fileIdx byte public initial(0),
-	off6C25 address public initial(.b68B8),
-	b6C27 byte public initial(0),
-	includefd address public,
+	endInBuf$p address public initial(.inBuf),
+	missingEnd bool public initial(FALSE),
+	srcfd address public,
 	rootfd address public,
-	off6C2C address public initial(.b68B8 - 1),
-	off6C2E address public initial(.b68B8),
-	b6C30 byte public initial(0), 
+	inCh$p address public initial(.inBuf - 1),
+	startLine$p address public initial(.inBuf),
+	lineChCnt byte public initial(0), 
 	files(6) FILE$T public,
 	seekIBlk address,
 	seekIByte address,
 	pad6CAD byte,  
-	w6CAE address,
-	w6CB0 address,
+	savInBuf$p address,
+	savEndInBuf$p address,
 	pad6CB2(4) address,
 	readFActual address,
 	pad6CBC address;
 
 
-readF: procedure(arg1b, arg2w, arg3w) public;
-	declare arg1b byte, (arg2w, arg3w) address;
-	call read(arg1b, arg2w, arg3w, .readFActual, .statusIO);
+readF: procedure(conn, buff$p, count) public;
+	declare conn byte, (buff$p, count) address;
+	call read(conn, buff$p, count, .readFActual, .statusIO);
 	call ioErrChk;
 end;
 
 seekI: procedure(seekOp) public;
 	declare seekOP byte;
-	call seek(includefd, seekOp, .seekIBlk, .seekIByte, .statusIO);
+	call seek(srcfd, seekOp, .seekIBlk, .seekIByte, .statusIO);
 	call ioErrChk;
 end;
 
 
-readI: procedure(arg1w) public;
-	declare arg1w address;
+readSrc: procedure(bufLoc) public;
+	declare bufLoc address;
 	declare pad byte;
 
-	call readF(includefd, arg1w, .b68B8(w68B6) - arg1w);
-	off6C25 = arg1w + readFActual;
+	call readF(srcfd, bufLoc, .inBuf(sizeInBuf) - bufLoc);
+	endInBuf$p = bufLoc + readFActual;
 end;
 
 
 
-closeI: procedure public;
-	call close(includefd, .statusIO);
+closeSrc: procedure public;
+	call close(srcfd, .statusIO);
 	call ioErrChk;
 	if fileIdx = 0 then
 	do;
-		b6C27 = 0FFh;
+		missingEnd = TRUE;
 		call ioError(.files(0).name);
 		return;
 	end;
 	fileIdx = fileIdx - 1;
+	/* open the previous file */
 	if fileIdx = 0 then
-		includefd = rootfd;
+		srcfd = rootfd;
 	else
-		includefd = inOpen(.files(fileIdx).name, 1);
+		srcfd = inOpen(.files(fileIdx).name, 1);
 
-	seekIByte = files(fileIdx).byt;
+	seekIByte = files(fileIdx).byt;	/* move to saved location */
 	seekIBlk = files(fileIdx).blk;
 	call seekI(SEEKABS);
-	off6C25 = .b68B8;
-	off6C2C = .b68B8 - 1;
+	endInBuf$p = .inBuf;		/* force read */
+	inCh$p = .inBuf - 1;
 end;
 
 
-sub$4879: procedure byte public;
-	declare ch based off6C2C byte;
-	declare w6CC7 address;
+getSrcCh: procedure byte public;
+	declare ch based inCh$p byte;
+	declare insertPt address;
     loop:
-	off6C2C = off6C2C + 1;
-	if off6C2C = off6C25 then
+	inCh$p = inCh$p + 1;
+
+	if inCh$p = endInBuf$p then	/* buffer all used */
 	do;
-		w6CAE = off6C2E;
-		w6CB0 = off6C25;
-		if w6CB0 - w6CAE > 0 then
-			call move(w6CB0 - w6CAE, off6C2E, .b68B8);
-		off6C2E = .b68B8;
-		call readI(w6CC7 := off6C2E + (w6CB0 - w6CAE));
-		off6C2C = w6CC7;
+		savInBuf$p = startLine$p;
+		savEndInBuf$p = endInBuf$p;
+		/* copy the current line down to start of buffer */
+		if savEndInBuf$p - savInBuf$p > 0 then
+			call move(savEndInBuf$p - savInBuf$p, startLine$p, .inBuf);
+		startLine$p = .inBuf;
+		/* read in  characters to rest of inBuf */
+		call readSrc(insertPt := startLine$p + (savEndInBuf$p - savInBuf$p));
+		inCh$p = insertPt;
 	end;
 
 	if readFActual = 0 then
 	do;
-		call closeI;
+		call closeSrc;
 		goto loop;
 	end;
 
-	b6C30 = b6C30 + 1;
+	lineChCnt = lineChCnt + 1;
 	return ch and 7Fh;
 end;
 
 
-sub$4904: procedure public;
-	declare b6CC9 byte, w6CCA address;
+openSrc: procedure public;
+	declare curByteLoc byte, curBlkLoc address;
 
-	b6C21 = 0;
+	needToOpenFile = 0;
 	call seekI(SEEKTELL);
-	if seekIByte = 128 then
+	if seekIByte = 128 then		/* adjust for 128 boundary */
 	do;
 		seekIBlk = seekIBlk + 1;
 		seekIByte = 0;
 	end;
 
-	w6CCA = off6C25 - off6C2E;
+	curBlkLoc = endInBuf$p - startLine$p;	/* un-used characters */
 x:						/* forces code alignment */
-	if (b6CC9 := w6CCA mod 128) > seekIByte then
+	if (curByteLoc := curBlkLoc mod 128) > seekIByte then
 	do;
-		seekIByte = seekIByte + 128;
+		seekIByte = seekIByte + 128;	/* adjust to allow for un-used chars */
 		seekIBlk = seekIBlk - 1;
 	end;
-
-	files(fileIdx - 1).byt = seekIByte - b6CC9;
-	files(fileIdx - 1).blk = seekIBlk - w6CCA / 128;
-	if includefd <> rootfd then
+	/* save the current file location */
+	files(fileIdx - 1).byt = seekIByte - curByteLoc;
+	files(fileIdx - 1).blk = seekIBlk - curBlkLoc / 128;
+	if srcfd <> rootfd then		/* close if include file */
 	do;
-		call close(includefd, .statusIO);
+		call close(srcfd, .statusIO);
 		call ioErrChk;
 	end;
 
-	off6C25 = .b68B8;
-	off6C2C = off6C25 - 1;
-	off6C2E = .b68B8;
-	files(fileIdx).blk = 0;	
+	endInBuf$p = .inBuf;			/* force read */
+	inCh$p = endInBuf$p - 1;
+	startLine$p = .inBuf;
+	files(fileIdx).blk = 0;			/* record at start of file */
 	files(fileIdx).byt = 0;	
-	includefd = inOpen(.files(fileIdx).name, 1);
+	srcfd = inOpen(.files(fileIdx).name, 1);	/* open the file */
 end;
 end;

@@ -63,7 +63,7 @@ physmem: procedure address public;
 end;
 
 
-nxtCmdCh: procedure byte public;
+getCmdCh: procedure byte public;
 	declare cmdch based cmdch$p byte;
 	declare ch byte;
 
@@ -238,7 +238,7 @@ runtimeError: procedure(arg1b) public;
 				call skip2NextLine;
 				outfd = 0;
 				CHKOVL$1;
-				call printDecimal(w6A4E);	/* overlay 1 */
+				call printDecimal(srcLineCnt);	/* overlay 1 */
 				call outch(LF);
 			end;
 		end;
@@ -269,7 +269,7 @@ ioError: procedure(arg1w) public;
 		tokBufIdx = tokBufIdx + 1;
 		arg1w = arg1w + 1;
 	end;
-	if b6C27 then
+	if missingEnd then
 		call runtimeError(3);	/* EOF error*/
 	call runtimeError(4);		/* file error */
 end;
@@ -342,10 +342,10 @@ $IF OVL4
 
 sub$3D34: procedure(arg1b) public;
 	declare arg1b byte;
-	declare ch based w$906A byte;
+	declare ch based w906A byte;
 
 	ch = arg1b;
-	if (w$906A := w$906A + 1) > w6870 then
+	if (w906A := w906A + 1) > w6870 then
 		call runtimeError(1);	/* table error */
 end;
 
@@ -369,7 +369,7 @@ preStatementControls: procedure public;
 			call skip2NextLine;
 			b6B20$9A77 = 0FFh;
 $IF OVL4
-			if b$905E = 1 then
+			if b905E = 1 then
 				b6897 = 0FFh;
 $ENDIF
 		end;
@@ -394,10 +394,10 @@ initialControls: procedure public;
 		CHKOVL$1;
 		call printCmdLine;
 	end;
-	if b6C21 then
-		call sub$4904;
+	if needToOpenFile then
+		call openSrc;
 
-	b6C21, b6B20$9A77, scanCmdLine = bZERO;
+	needToOpenFile, b6B20$9A77, scanCmdLine = bZERO;
 	call preStatementControls;
 	primaryValid = 0;
 	ctlDEBUG = ctlDEBUG and ctlOBJECT;
@@ -407,35 +407,36 @@ initialControls: procedure public;
 end;
 
 
-sub3DCE$3DFB: procedure public;
-	off$6C2E = off$6C2C + 1;
-	b6C30 = 0;
-	if b6C21 then
-		call sub$4904;
+initLine: procedure public;
+	startLine$p = inCh$p + 1;	
+	lineChCnt = 0;
+	if needToOpenFile then
+		call openSrc;
 
-	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, b6880,
-	b6B23, b6B24, b6B32, b68AB, b6884,
+	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, haveUserSymbol,
+	inDB, inDW, b6B32, b68AB, b6884,
 $IF OVL4
-	b$9059, b$9060, 
+	b9059, b9060, 
 $ENDIF
 	b6885 = bZERO;
 
 	b689C, b6B31, b6B34, b6B35 = bTRUE;
 	ctlEJECT, b6857, tokenSP,
 $IF OVL4
-	b$9058, argNestCnt,
+	b9058, argNestCnt,
 $ENDIF
 	tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
-	asmErrCode = 20h;
+
+	asmErrCode = ' ';
 $IF OVL4
-	off$9056 = .b$8FD5;
-	w$919D = w$906A;
-	b$905B = b$905B > 0;
+	macro$p = .macroLine;
+	w919D = w906A;
+	expandingMacro = expandingMacro > 0;
 $ENDIF
 	b689A = 1;
-	w6A4E = w6A4E + 1;
+	srcLineCnt = srcLineCnt + 1;
 $IF OVL4
-	off$9056 = .b$8FD5;
+	macro$p = .macroLine;
 $ENDIF
 	skipping(0) = skipping(0) > 0;
 end;
@@ -451,8 +452,8 @@ $IF BASE
 	do;
 		if physmem < 8001h then
 			call runtimeError(5);	 /* memory error */
-		if includefd <> rootfd then
-			call closeF(includefd);
+		if srcfd <> rootfd then
+			call closeF(srcfd);
 		call closeF(infd);
 		ovlFile(12) = '4';		/* use macro asm version */
 		call load(.ovlFile, 0, 1, 0, .statusIO);
@@ -460,8 +461,8 @@ $IF BASE
 	end;
 	if physmem > 8001h then
 	do;
-		if includefd <> rootfd then
-			call closeF(includefd);
+		if srcfd <> rootfd then
+			call closeF(srcfd);
 		call closeF(infd);
 		ovlFile(12) = '5';		/* use big memory asm version */
 		call load(.ovlFile, 0, 1, 0, .statusIO);

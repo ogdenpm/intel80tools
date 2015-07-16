@@ -61,9 +61,21 @@ TARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
 # the default rule will force the makefile to be up to date
-all: $(TARGETS)
+all: .extract
+
+all:
+	$(MAKE) $(TARGETS)
+
+rebuild: uclean all
+
+.extract: asm80_all.plm
+	..\..\unpack.pl
+	date /t >.extract
 
 # checking targets
+# note if you change these two rules then you should do a nmake all or namke .extract first
+# otherwise whilst the build will be ok the old verify/compare rules will be run
+
 verify: all
 	for %i in ($(TARGETS)) do $(TOOLS:/=\)diffbin %i $(V4)\%i
 
@@ -284,7 +296,7 @@ to $*.rel map print($*.la3)
 # pex file and makefile dependencies
 $(P3SRCS:.pl3=.obj): $(PEXFILE) makefile
 $(P4SRCS:.plm=.obj): $(PEXFILE) makefile
-$(ASRCS:.asm=.obj): makefile
+$(ASRCS:.asm=.obj): makefile 
 
 # housekeeping rules
 clean:
@@ -294,7 +306,7 @@ vclean: clean
 	del asm80 asm80.ov?
 
 uclean: vclean
-	del ??????.* makefile *.pls .depend
+	del ??????.* makefile *.pls .extract
 
 gitprep: uclean
 	..\..\unpack.pl

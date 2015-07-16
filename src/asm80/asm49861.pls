@@ -98,17 +98,17 @@ $IF OVL4
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
 	if (macroCondStk(0) := arg1b) = 1 then
 	do;
-		if (b$9063 := b$9063 + 1) > 9 then
+		if (b9063 := b9063 + 1) > 9 then
 		do;
 			call stackError;
-			b$9063 = 0;
+			b9063 = 0;
 		end;
 		else
 		do;
-			call move(16, .macroStk(0), .macroStk(b$9063));
+			call move(16, .macroStk(0), .macroStk(b9063));
 			tmac$macroCondSP = macroCondSP;
 			tmac$ifDepth = ifDepth;
-			b$9061 = 0FFh;
+			b9061 = 0FFh;
 		end;
 	end;
 	else
@@ -145,12 +145,12 @@ $IF OVL4
 	macroCondSP = macroCondSP - 1;
 	if arg1b = 1 then
 	do;
-		call move(16, .macroStk(b$9063), .macroStk(0));
+		call move(16, .macroStk(b9063), .macroStk(0));
 		call readM(tmac$blk);
-		b$9062 = tmac$mtype;
-		if (b$9063 := b$9063 - 1) = 0 then
+		b9062 = tmac$mtype;
+		if (b9063 := b9063 - 1) = 0 then
 		do;
-			b$905B = 0;
+			expandingMacro = 0;
 			w6870 = physmem + 0BFh;
 		end;
 	end;

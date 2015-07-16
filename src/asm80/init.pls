@@ -28,9 +28,9 @@ getDrive: procedure byte public;
         return cmdch;
     end;
     else
-        do ii = 0 to 4;
+        do ii = 0 to 4;		/* case insensitive compare to DEBUG */
         if cmdch <> aDebug(ii) and aDebug(ii) + 20h <> cmdch then
-                return '0';
+                return '0';	/* must be a file name so drive 0 */
             cmdch$p = cmdch$p + 1;
         end;
     call cmdSkipWhite;
@@ -95,7 +95,7 @@ $ENDIF
 		call runtimeError(4);
 
 	infd = inOpen(cmdch$p, 1);	/* open file for reading */
-	rootfd, includefd = infd;
+	rootfd, srcfd = infd;
 	ii = TRUE;
 	jj = 0;
 
@@ -130,54 +130,54 @@ end;
 
 resetData: procedure public;	/* extended initialisation */
 
-    call sub3DCE$3DFB;
+    call initLine;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
 $IF OVL4
-    b$905B, b$905C, b$905E,
+    expandingMacro, b905C, b905E,
 $ENDIF
-    b6857, b6C21 = bZERO;
+    b6857, needToOpenFile = bZERO;
     b6743, primaryValid, ctlLIST, b6A6F,
 $IF OVL4
     ctlGEN,
 $ENDIF
     ctlCOND = bTRUE;
 $IF OVL4
-    b$9063, b$9064, macroCondStk(0), macroCondSP, 
+    b9063, b9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 $IF OVL4
-    w$9114,
+    w9114,
 $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
     maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), w68A6,
 $IF OVL4
-    w$919B,
+    w919B,
 $ENDIF
     externId, errCnt = wZERO;
     b6882 = b6882 + 1;
-    w6A4E, opType, pageCnt, lineCnt = 1;
+    srcLineCnt, opType, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';
-    do ii = 0 to 11;
+    do ii = 0 to 11;		/* reset all the control seen flags */
         controlSeen(ii) = 0;
     end;
 $IF OVL4
     curMacroBlk = 0FFFFh;
 $ENDIF
-    if not isPhase1 then
+    if not isPhase1 then	/* close any open include file */
     do;
         if fileIdx <> 0 then
         do;
-            call closeF(includefd);
+            call closeF(srcfd);
             call ioErrChk;
-            includefd = rootfd;
+            srcfd = rootfd;
         end;
 
-        fileIdx = bZERO;
-        off6C25 = .b68B8;
-        off6C2C = off6C25 - 1;
-        off6C2E = .b68B8;
+        fileIdx = bZERO;	/* reset files for another pass */
+        endInBuf$p = .inBuf;
+        inCh$p = endInBuf$p - 1;
+        startLine$p = .inBuf;
         call seek(infd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
         call ioErrChk;
     end;
@@ -187,13 +187,13 @@ $ENDIF
 end;
 
 initRecTypes: procedure public;
-    r$content.type = 6;
+    r$content.type = OMF$CONTENT;
     r$content.len = 3;
-    r$publics.type = 22h;
+    r$publics.type = OMF$RELOC;
     r$publics.len = 1;
-    r$interseg.type = 24h;
+    r$interseg.type = OMF$INTERSEG;
     r$interseg.len = 2;
-    r$extref.type = 20h;
+    r$extref.type = OMF$EXTREF;
     r$extref.len = 1;
 end;
 end;
