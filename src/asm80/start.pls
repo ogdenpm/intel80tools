@@ -326,7 +326,7 @@ sourceError: procedure(arg1b) public;
 
 	if not isSkipping or op = 22h then	/* ELSE */
 	do;
-		if b6749 then
+		if inExtrn then
 			b6754 = TRUE;
 		if blankAsmErrCode then
 			errCnt = errCnt + 1;
@@ -340,34 +340,34 @@ end;
 
 $IF OVL4
 
-sub$3D34: procedure(arg1b) public;
-	declare arg1b byte;
+sub$3D34: procedure(c) public;
+	declare c byte;
 	declare ch based w906A byte;
 
-	ch = arg1b;
+	ch = c;
 	if (w906A := w906A + 1) > w6870 then
 		call runtimeError(1);	/* table error */
 end;
 
 
-sub$3D55: procedure(arg1b) public;
-	declare arg1b byte;
+sub$3D55: procedure(c) public;
+	declare c byte;
 
-	call sub$3D34(arg1b);
-	if arg1b = 0Dh then
-		call sub$3D34(0Ah);
+	call sub$3D34(c);
+	if c = CR then
+		call sub$3D34(LF);
 end;
 
 $ENDIF
 
 
-preStatementControls: procedure public;
+parseControlLines: procedure public;
 
 	do while getCh = '$';
 		if isSkipping then
 		do;
 			call skip2NextLine;
-			b6B20$9A77 = 0FFh;
+			isControlLine = TRUE;
 $IF OVL4
 			if b905E = 1 then
 				b6897 = 0FFh;
@@ -378,7 +378,7 @@ $ENDIF
 			CHKOVL$0;
 			call parseControls;
 		end;
-		call sub4C1E$54FD;
+		call finishLine;
 	end;
 	reget = 1;
 end;
@@ -397,11 +397,11 @@ initialControls: procedure public;
 	if needToOpenFile then
 		call openSrc;
 
-	needToOpenFile, b6B20$9A77, scanCmdLine = bZERO;
-	call preStatementControls;
-	primaryValid = 0;
-	ctlDEBUG = ctlDEBUG and ctlOBJECT;
-	ctlXREF = ctlXREF and ctlPRINT;
+	needToOpenFile, isControlLine, scanCmdLine = bZERO;
+	call parseControlLines;			/* initial control lines allow primary controls */
+	primaryValid = FALSE;			/* not allowed from now on */
+	ctlDEBUG = ctlDEBUG and ctlOBJECT;	/* debug doesn't make sense if no object code */
+	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls that require printing */
 	ctlSYMBOLS = ctlSYMBOLS and ctlPRINT;
 	ctlPAGING = ctlPAGING and ctlPRINT;
 end;
@@ -413,19 +413,19 @@ initLine: procedure public;
 	if needToOpenFile then
 		call openSrc;
 
-	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, haveUserSymbol,
+	b68AD, has16bitOperand, isControlLine, b689B, b687F, b6B25, expectingOperands, b6881, gotLabel, haveUserSymbol,
 	inDB, inDW, b6B32, b68AB, b6884,
 $IF OVL4
 	b9059, b9060, 
 $ENDIF
 	b6885 = bZERO;
 
-	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	ctlEJECT, b6857, tokenSP,
+	atStartLine, expectingOpcode, b6B34, b6B35 = bTRUE;
+	ctlEJECT, b6857, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
 $ENDIF
-	tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
+	tokenSize(0), tokenType(0), valType, b6859, b6742, b6855 = bZERO;
 
 	asmErrCode = ' ';
 $IF OVL4
@@ -433,7 +433,7 @@ $IF OVL4
 	w919D = w906A;
 	expandingMacro = expandingMacro > 0;
 $ENDIF
-	b689A = 1;
+	tokI = 1;
 	srcLineCnt = srcLineCnt + 1;
 $IF OVL4
 	macro$p = .macroLine;
@@ -487,7 +487,7 @@ $ENDIF
 		outfd = xreffd;
 	end;
 
-	call sub$540D;
+	call doPass;
 	phase = 2;
 	if ctlOBJECT then
 	do;
@@ -510,7 +510,7 @@ $ENDIF
 		CHKOVL$3;
 		call resetData;
 		call initialControls;
-		call sub$540D;
+		call doPass;
 	end;
 	if ctlPRINT then
 	do;
@@ -527,7 +527,7 @@ $IF BASE
 		call resetData;
 		call initRecTypes;
 		call initialControls;
-		call sub$540D;
+		call doPass;
 		CHKOVL2;
 $ENDIF
 		call ovl11;

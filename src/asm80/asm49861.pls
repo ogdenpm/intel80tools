@@ -75,19 +75,19 @@ operandError: procedure public;
 end;
 
 haveTokens: procedure byte public;
-	return tokenSP <> 0;
+	return tokenIdx <> 0;
 end;
 
 
 popToken: procedure public;
-	tokStart(0) = tokStart(tokenSP);
-	tokenSym(0) = tokenSym(tokenSP);
-	tokenType(0) = tokenType(tokenSP);
-	tokenAttr(0) = tokenAttr(tokenSP);
-	tokenSize(0) = tokenSize(tokenSP);
-	tokenSymId(0) = tokenSymId(tokenSP);
+	tokStart(0) = tokStart(tokenIdx);
+	tokenSym(0) = tokenSym(tokenIdx);
+	tokenType(0) = tokenType(tokenIdx);
+	tokenAttr(0) = tokenAttr(tokenIdx);
+	tokenSize(0) = tokenSize(tokenIdx);
+	tokenSymId(0) = tokenSymId(tokenIdx);
 	if haveTokens then
-		tokenSP = tokenSP - 1;
+		tokenIdx = tokenIdx - 1;
 end;
 
 
@@ -98,14 +98,14 @@ $IF OVL4
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
 	if (macroCondStk(0) := arg1b) = 1 then
 	do;
-		if (b9063 := b9063 + 1) > 9 then
+		if (macroDepth := macroDepth + 1) > 9 then
 		do;
 			call stackError;
-			b9063 = 0;
+			macroDepth = 0;
 		end;
 		else
 		do;
-			call move(16, .macroStk(0), .macroStk(b9063));
+			call move(16, .macroStk(0), .macroStk(macroDepth));
 			tmac$macroCondSP = macroCondSP;
 			tmac$ifDepth = ifDepth;
 			b9061 = 0FFh;
@@ -145,10 +145,10 @@ $IF OVL4
 	macroCondSP = macroCondSP - 1;
 	if arg1b = 1 then
 	do;
-		call move(16, .macroStk(b9063), .macroStk(0));
+		call move(16, .macroStk(macroDepth), .macroStk(0));
 		call readM(tmac$blk);
 		b9062 = tmac$mtype;
-		if (b9063 := b9063 - 1) = 0 then
+		if (macroDepth := macroDepth - 1) = 0 then
 		do;
 			expandingMacro = 0;
 			w6870 = physmem + 0BFh;
@@ -160,8 +160,8 @@ $ELSE
 $ENDIF
 	else
 	do;
-		skipping(0) = skipping(ifDepth);
-		inElse(0) = inElse(ifDepth);
+			skipping(0) = skipping(ifDepth);
+			inElse(0) = inElse(ifDepth);
 		ifDepth = ifDepth - 1;
 	end;
 end;
@@ -169,17 +169,17 @@ end;
 pushToken: procedure(type) public;
 	declare type byte;
 
-	if tokenSP >= 8 then
+	if tokenIdx >= 8 then
 		call stackError;
 	else
 	do;
-		tokenSP = tokenSP + 1;
-		tokStart(tokenSP) = tokStart(0);
-		tokenSym(tokenSP) = tokenSym(0);
-		tokenType(tokenSP) = tokenType(0);
-		tokenAttr(tokenSP) = tokenAttr(0);
-		tokenSize(tokenSP) = tokenSize(0);
-		tokenSymId(tokenSP) = tokenSymId(0);	
+		tokenIdx = tokenIdx + 1;
+		tokStart(tokenIdx) = tokStart(0);
+		tokenSym(tokenIdx) = tokenSym(0);
+		tokenType(tokenIdx) = tokenType(0);
+		tokenAttr(tokenIdx) = tokenAttr(0);
+		tokenSize(tokenIdx) = tokenSize(0);
+		tokenSymId(tokenIdx) = tokenSymId(0);	
 		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
 		tokenType(0) = type;
 		tokenAttr(0), tokenSize(0) = bZERO;
@@ -198,7 +198,7 @@ collectByte: procedure(c) public;
 	declare ch based s byte;
 
 
-	if (s := curTokStart + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
+	if (s := tokPtr + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
 		ch = c;
 		tokenSize(0) = tokenSize(0) + 1;
@@ -210,24 +210,24 @@ end;
 getId: procedure(type) public;
 	declare type byte;
 
-	call pushToken(type);
-	reget = 1;
+	call pushToken(type);	/* save any previous token and initialise this one */
+	reget = 1;		/* force re get of first character */
 
 	do while (type := getChClass) = CC$DIGIT or type = CC$LET;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
 	end;
-	reget = 1;
+	reget = 1;		/* force re get of exit char */
 end;
 
 
 getNum: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
-	declare chrs based curTokStart (1) byte;
+	declare chrs based tokPtr (1) byte;
 
-	call getId(12);
+	call getId(O$NUMBER);
 	radix = chrs(tokenSize(0):= tokenSize(0) - 1);
 	if radix = 'H' then
 		radix = 16;
@@ -274,7 +274,7 @@ getNum: procedure public;
 end;
 
 getStr: procedure public;
-	call pushToken(0Ah);
+	call pushToken(O$STRING);
 
 	do while getCh <> CR;
 		if curChar = '''' then

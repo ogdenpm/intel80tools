@@ -30,7 +30,7 @@ end;
 
 getTok: procedure byte;
 	tokBufLen = 0;
-	tokType = TT$ID;
+	tokType = O$NONE;
 	if isCR then
 		return curChar;
 
@@ -46,7 +46,7 @@ getTok: procedure byte;
 		call getNum;
 		if blankAsmErrCode then
 		do;
-			w6B1E = sub$43DD;
+			tokNumVal = sub$43DD;
 			tokType = TT$NUM;
 			tokBuf(0) = ' ';
 		end;
@@ -150,7 +150,7 @@ end;
 
 
 
-sub$702B: procedure byte;
+getControlNumArg: procedure byte;
 	if chkParen(0) then	/* ( */
 	do;
 		b7463 = getTok;
@@ -206,7 +206,7 @@ lookupControl: procedure byte;
 			end;
 
 			if cmdIdx = tokBufLen then		/* found it */
-				goto break;
+				goto found;
 		end;
 		control$p = nextControl$p;
 		controlId = controlId + 1;
@@ -214,12 +214,12 @@ lookupControl: procedure byte;
 	end;
 	return 255;						/* not found */
 
-break:
+found:
 $IF OVL0 
 	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
 	do;
 		if scanCmdLine then			/* only valid on command line not $ line */
-			MacroDebugOrGen = 0FFh;
+			MacroDebugOrGen = TRUE;
 		else
 			return 255;			/* error otherwise */
 	end;
@@ -258,19 +258,19 @@ processControl: procedure;
 			return;
 		end;
 /* 2 */		do;			/* PRINT */
-			w6BE2 = 2;
+			controlFileType = 2;
 			curFileName$p = .lstFile;
 			call getFileParam;
 			return;
 		end;
 /* 3 */		do;			/* OBJECT */
-			w6BE2 = 3;
+			controlFileType = 3;
 			curFileName$p = .objFile;
 			call getFileParam;
 			return;
 		end;
 /* 4 */		do;			/* MACROFILE */
-			w6BE2 = 3;
+			controlFileType = 3;
 			if chkParen(0) then	/* optional drive for tmp file */
 				call getMacroFileDrive;
 			else
@@ -279,9 +279,9 @@ processControl: procedure;
 			return;
 		end;
 /* 5 */		do;			/* PAGEWIDTH */
-			if sub$702B then
+			if getControlNumArg then
 			do;
-				ctlPAGEWIDTH = w6B1E;
+				ctlPAGEWIDTH = tokNumVal;
 				if ctlPAGEWIDTH > 132 then
 					ctlPAGEWIDTH = 132;
 				if ctlPAGEWIDTH < 72 then
@@ -290,9 +290,9 @@ processControl: procedure;
 			end;
 		end;
 /* 6 */		do;			/* PAGELENGTH */
-			if sub$702B then
+			if getControlNumArg then
 			do;
-				ctlPAGELENGTH = w6B1E;
+				ctlPAGELENGTH = tokNumVal;
 				if ctlPAGELENGTH < 15 then
 					ctlPAGELENGTH = 15;
 				return;
@@ -301,7 +301,7 @@ processControl: procedure;
 /* 7 */		do;			/* INCLUDE */
 			if not needToOpenFile then
 			do;
-				w6BE2 = 1;
+				controlFileType = 1;
 				if fileIdx = 5 then
 					call stackError;
 				else
@@ -309,9 +309,9 @@ processControl: procedure;
 					fileIdx = fileIdx + 1;
 					curFileName$p = .files(fileIdx);
 					call getFileParam;
-					needToOpenFile = 0FFh;
+					needToOpenFile = TRUE;
 					if scanCmdLine then
-						b6C22 = 0FFh;
+						includeOnCmdLine = TRUE;
 					return;
 				end;
 			end;
@@ -361,14 +361,14 @@ processControl: procedure;
 end;
 
 parseControls: procedure public;
-	b6B20$9A77 = TRUE;
+	isControlLine = TRUE;
 	b6A6F, b7464 = ctlLIST;
 $IF OVL4
 	b7465 = ctlGEN;
 $ENDIF
 	controlError = 0;
 
-	do while getTok <> 0Dh and not controlError;
+	do while getTok <> CR and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
 		else if lookupControl = 255 then	/* error ? */

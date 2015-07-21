@@ -64,19 +64,19 @@ end;
 
 sub$4274: procedure public;
 	if testBit(op, .b41B7) then
-		if sub$425B(b6858) then
+		if sub$425B(valType) then
 			call operandError;
 end;
 
 sub$4291: procedure public;
-	if sub$425B(b6858) then
+	if sub$425B(valType) then
 		call operandError;
 	if (b4181(op) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
 		call operandError;
 
-	b6858 = 0Ch;
+	valType = 0Ch;
 	bp6BE0(0) = (b6855 and 18h) <> 0;
 	bp6BE0(1) = (b6856 and 18h) <> 0;
 	if (b6855 and 7) <> 0 then
@@ -115,47 +115,47 @@ end;
 
 
 swapAccBytes: procedure public;
-	declare b6C17 byte;
-	b6C17 = accum1$lb;
+	declare tmp byte;
+	tmp = accum1$lb;
 	accum1$lb = accum1$hb;
-	accum1$hb = b6C17;
+	accum1$hb = tmp;
 end;
 
 
 
-sub$43D2: procedure public;
-	b6B30 = 0FFh;
-	b6B31 = 0;
+setExpectOperands: procedure public;
+	expectingOperands = 0FFh;
+	expectingOpcode = 0;
 end;
 
 
 
 sub$43DD: procedure address public;
-	declare s based curTokStart(1) byte,
-		wrd$p address,
-		wrd based wrd$p address;
+	declare tokByte based tokPtr (1) byte,	/* and high byte if not a register */
+		val$p address,
+		val based val$p address;
 $IF OVL4
 	logError: procedure(arg1b);
 		declare arg1b byte;
 
-		if tokenType(tokenSP) <> 40h then
+		if tokenType(tokenIdx) <> 40h then
 		do;
 			call sourceError(arg1b);
 			return;
 		end;
 		if tokenSize(0) = 0 then
-			tokenType(tokenSP) = 41h;
+			tokenType(tokenIdx) = 41h;
 	end;
 $ENDIF
 
 	b6855 = 0;
 	accum1 = 0;
-	b6858 = 9;
+	valType = O$ID;
 $IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
-	if tokenSP = 0 or tokenType(0) = 11 and not b6B36 then
+	if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
 $IF OVL4
 		call logError('Q');
 $ELSE
@@ -163,7 +163,7 @@ $ELSE
 $ENDIF
 	else
 	do;
-		if tokenType(0) = 9 or tokenType(0) = 6 then
+		if tokenType(0) = O$ID or tokenType(0) = T$COMMA then
 $IF OVL4
 			call logError('U');
 $ELSE
@@ -171,13 +171,13 @@ $ELSE
 $ENDIF
 		else
 		do;
-			b6858 = tokenType(0);
-			if testBit(b6858, .b41DE) then
+			valType = tokenType(0);
+			if testBit(valType, .b41DE) then
 			do;
-				curTokStart = curTokenSym$p + 7;
-				b6855 = s(0) and 0DFh;
-				curTokStart, wrd$p = curTokenSym$p + 4;
-				w685A = wrd;
+				tokPtr = curTokenSym$p + 7;	/* point to flags */
+				b6855 = tokByte(0) and 0DFh;
+				tokPtr, val$p = curTokenSym$p + 4;
+				w685A = val;			/* pick up value */
 				tokenSize(0) = 2;
 
 			end;
@@ -199,15 +199,15 @@ $ENDIF
 				w685A = tokenSymId(0);
 			end;
 
-			if tokenSize(0) > 0 then
-				accum1$lb = s(0);
-			if tokenSize(0) > 1 then
-				accum1$hb = s(1) and tokenType(0) <> 7;
+			if tokenSize(0) > 0 then	/* get low byte */
+				accum1$lb = tokByte(0);
+			if tokenSize(0) > 1 then	/* and high byte if not a register */
+				accum1$hb = tokByte(1) and tokenType(0) <> 7;
 		end;	
 
 		if has16bitOperand then
 			if tokenSize(0) = 2 then
-				if tokenType(0) = 10 then
+				if tokenType(0) = O$STRING then
 					call swapAccBytes;
 
 		if (b6855 and 40h) <> 0 then
@@ -236,15 +236,15 @@ sub$450F: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not sub$425B(b6859) and op <> 2Eh) then    /* RST */
+		   or (not sub$425B(b6859) and op <> K$RST) then    /* RST */
 			call operandError;
-		else if sub$425B(b6859) and op = 2Eh then	     /* RST */
+		else if sub$425B(b6859) and op = K$RST then	     /* RST */
 			call operandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
-	else if op <> 2Dh then		/* single byte op */
+	else if op <> K$SINGLE then		/* single byte op */
 		if sub$425B(b6859) then
 			call operandError;
 
@@ -258,7 +258,7 @@ sub$450F: procedure(arg1b) public;
 		if accum2$hb + 1 > 1 then
 			call valueError;
 	end;
-	if op = 28h or op = 2Ch then	/* Imm8 or imm16 */
+	if op = K$IMM8 or op = K$IMM16 then	/* Imm8 or imm16 */
 	do;
 		b6855 = b6856;
 		w685A = w685C;
@@ -266,56 +266,63 @@ sub$450F: procedure(arg1b) public;
 	else
 		b6855 = 0;
 
-	if op <> 2Dh then		     /* single byte op */
-		if accum1$lb = 76h then
+	if op <> K$SINGLE then		     /* single byte op */
+		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
 			call operandError;
 	if (op := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
 		b6B2D = 0Bh;
 end;
 
-sub$4646: procedure byte public;
-	if b689A >= tokenSP then
+nxtTokI: procedure byte public;
+	if tokI >= tokenIdx then
 		return 0;
-	return (b689A := b689A + 1);
+	return (tokI := tokI + 1);
 end;
 
 
 
-sub$465B: procedure byte public;
-	return ((not b6B20$9A77) and ctlLIST or b6A6F and b6B20$9A77)
+showLine: procedure byte public;
+	return ((not isControlLine) and ctlLIST or b6A6F and isControlLine)
 $IF OVL4
 	        and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
 		and (not(b6B32 or skipping(0)) or ctlCOND);
 end;
 
-sub$467F: procedure(arg1b, arg2w) public;
-	declare arg1b byte, arg2w address;
-	declare (b6C1F, b6C20) byte;
+/*
+	xrefMode= 0 -> defined
+		= 1 -> used
+		= 2 -> finalise
+*/
+emitXref: procedure(xrefMode, name) public;
+	declare xrefMode byte, name address;
+	declare (i, byteval) byte;
+	declare (srcLineLow, srcLineHigh) byte at(.srcLineCnt);
 
 	if not isPhase1 or not ctlXREF or isSkipping and not b6881 then
 		return;
 
-	call outch(arg1b + '0');
-	if arg1b <> 2 then
+	call outch(xrefMode + '0');
+	if xrefMode <> 2 then	/* not finalise */
 	do;
-		call outStrN(arg2w, 6);
-		b6881 = 0;
-		b6C20 = bp6A4E(1);
-		b6C1F = 0;
-		do while b6C1F < 4;
-			b6C1F = b6C1F + 1;
-			if b6C1F then
+		call outStrN(name, 6);
+		b6881 = FALSE;
+		byteval = srcLineHigh;	/* high byte */
+		i = 0;
+		do while i < 4;
+			i = i + 1;
+			if i then	/* high nibble ? */
 			do;
-				if b6C1F = 3 then
-					b6C20 = bp6A4E(0);
-				call outch(nibble2Ascii(shr(b6C20, 4)));
+				if i = 3 then	/* get low byte */
+					byteval = srcLineLow;
+				/* emit high nibble */
+				call outch(nibble2Ascii(shr(byteval, 4)));
 			end;
-			else
-				call outch(nibble2Ascii(b6C20));
+			else	/* emit low nibble */
+				call outch(nibble2Ascii(byteval));
 		end;
 	end;
-	else
+	else	/* finalise */
 	do;
 		call outStrN(.lstFile, 15);
 		if ctlPAGING then

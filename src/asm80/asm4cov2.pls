@@ -62,7 +62,7 @@ reinitFixupRecs: procedure public;
 		if curFixupType <>  ii then
 			initFixupReq(ii) = TRUE;
 	end;
-	r$content.offset = w6752 + segSize(r$content.segid := activeSeg);
+	r$content.offset = itemOffset + segSize(r$content.segid := activeSeg);
 	r$publics.segid = curFixupHiLoSegId;
 	r$interseg.segid = tokenAttr(spIdx) and 7;
 	r$interseg.hilo, r$extref.hilo = curFixupHiLoSegId;
@@ -82,10 +82,10 @@ sub$6EE1: procedure;
 	if firstContent then
 	do;
 		firstContent = FALSE;
-		r$content.offset = segSize(r$content.segid := activeSeg) + w6752;
+		r$content.offset = segSize(r$content.segid := activeSeg) + itemOffset;
 	end;
 	else if r$content.segid <> activeSeg
-	      or (effectiveOffset := r$content.offset + fix6Idx) <> segSize(activeSeg) + w6752
+	      or (effectiveOffset := r$content.offset + fix6Idx) <> segSize(activeSeg) + itemOffset
 	      or effectiveOffset < r$content.offset then
 		call reinitFixupRecs;
 
@@ -162,11 +162,11 @@ end;
 
 sub$7131: procedure;
 	curFixupHiLoSegId = shr(tokenAttr(spIdx) and 18h, 3);
-	fixOffset = segSize(activeSeg) + w6752;
+	fixOffset = segSize(activeSeg) + itemOffset;
 	if not (inDB or inDW) and (tokenSize(spIdx) = 2 or tokenSize(spIdx) = 3) then
 		fixOffset = fixOffset + 1;
 	call sub$6EE1;
-	contentBytePtr = w68A2;
+	contentBytePtr = startItem;
 	call recAddContentBytes;
 	do case getFixupType;
 /* 0 */ 	call intraSegFix;
@@ -180,7 +180,7 @@ end;
 writeExtName: procedure public;
 	declare i byte;
 
-	if r$extnames1.len + 9 > 125 then	/* check room for extName */
+	if r$extnames1.len + 9 > 125 then	/* check room for name */
 	do;
 		call writeRec(.r$extnames1);	/* flush existing extNam Record */
 		r$extnames1.type = OMF$EXTNAMES;
@@ -191,7 +191,7 @@ writeExtName: procedure public;
 	r$extnames1.dta(extNamIdx) = nameLen;		/* write len */
 	extNamIdx = extNamIdx + 1;
 	do i = 0 to nameLen;			/* and name */
-		r$extnames1.dta(extNamIdx + i) = extName(i);
+		r$extnames1.dta(extNamIdx + i) = name(i);
 	end;
 
 	r$extnames1.dta(extNamIdx + nameLen) = 0;	/* and terminating 0 */
@@ -245,7 +245,7 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
 
             if (symb(1) and 7) = segId
 $IF OVL4
-               and symb(0) <> 3Ah and sub$3FA9
+               and symb(0) <> O$3A and sub$3FA9
 $ENDIF
                and not testBit(symb(0), .b6D7E) and
                (not isPublic or (symb(1) and 20h) <> 0) then
@@ -296,22 +296,22 @@ writeModend: procedure public;
 end;
 
 ovl8: procedure public;
-	w6752 = 0;
-	b689A = 1;
+	itemOffset = 0;
+	tokI = 1;
 	spIdx = 1;
 	if b6B33 then
 		;
 	else
 	do while spIdx <> 0;
-		spIdx = sub$4646;
-		w68A0 = tokStart(spIdx) + tokenSize(spIdx);
-		w68A2 = tokStart(spIdx);
+		spIdx = nxtTokI;
+		endItem = tokStart(spIdx) + tokenSize(spIdx);
+		startItem = tokStart(spIdx);
 		if isSkipping or not b6B34 then
-			w68A0 = w68A2;
-		if w68A0 > w68A2 then
+			endItem = startItem;
+		if endItem > startItem then
 		do;
 			call sub$7131;
-			w6752 = w6752 + tokenSize(spIdx);
+			itemOffset = itemOffset + tokenSize(spIdx);
 		end;
 		if not(inDB or inDW) then
 			spIdx = 0;
@@ -324,7 +324,7 @@ ovl11: procedure public;
 	do;
 		call seek(objfd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
 		call writeModhdr;
-		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);
+		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);	/* back to end */
 	end;
 	r$publics.type = OMF$PUBLICS;		  /* public declarations record */
 	r$publics.len = 1;

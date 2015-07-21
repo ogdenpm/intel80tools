@@ -35,7 +35,7 @@ end;
 sub$71F2: procedure;
 	symTab(2), endSymTab(2) = symHighMark;
 	b9065, tmac$b3 = bZERO;
-	b6B29 = 37h;
+	effectiveToken = 37h;
 end;
 
 
@@ -45,11 +45,11 @@ sub$720A: procedure;
 	if not expandingMacro then
 		expandingMacro = 1;
 
-	if b9063 = 0 then
+	if macroDepth = 0 then
 		expandingMacro = 0FFh;
 
 	if b9061 then
-		call move(4, .macroStk(0).buf$p, .macroStk(b9063).buf$p);
+		call move(4, .macroStk(0).buf$p, .macroStk(macroDepth).buf$p);
 
 	b9061 = 0;
 	tmac$w12 = w9199;
@@ -65,7 +65,7 @@ sub$727F: procedure byte;
 		return TRUE;
 	b9064 = b9064 + 1;
 	b6B2C = op <> 3Eh;
-	b6B29 = 37h;
+	effectiveToken = 37h;
 	return FALSE;
 end;
 
@@ -102,7 +102,7 @@ end;
 
 sub$7327: procedure public;
 	w9199 = w6870;
-	b6B29 = 3Dh;
+	effectiveToken = 3Dh;
 	b905D = TRUE;
 	b9060 = 0;
 end;
@@ -141,11 +141,11 @@ end;
 
 
 sub$73AD: procedure public;
-	declare b9C83 byte;
+	declare isPercent byte;
 
-	b9C77 = tokenSP;
+	b9C77 = tokenIdx;
 	call skipWhite;
-	if not (b9C83 := curChar = 25h) then
+	if not (isPercent := curChar = '%') then
 	do;
 		b9066 = argNestCnt - 1;
 		if (b905A := isLT) then
@@ -154,9 +154,9 @@ sub$73AD: procedure public;
 		call pushToken(0Dh);
 
 	L73E2:	do while not sub$7192;
-			if curChar = 27h then
+			if curChar = '''' then
 			do;
-				if (curChar := getCh) = 27h then
+				if (curChar := getCh) = '''' then
 				do;
 					curChar = getCh;
 					call skipWhite;
@@ -164,13 +164,13 @@ sub$73AD: procedure public;
 						goto L7463;
 					else
 					do;
-						call collectByte(27h);
-						call collectByte(27h);
+						call collectByte('''');
+						call collectByte('''');
 					end;
 				end;
 				else
 				do;
-					call collectByte(27h);
+					call collectByte('''');
 					goto L73E2;
 				end;
 			end;
@@ -178,7 +178,7 @@ sub$73AD: procedure public;
 			if tmac$mtype = 2 then
 				tmac$w14 = tmac$w14 + 1;
 
-			if curChar = 21h and getCh <> 0Dh then
+			if curChar = '!' and getCh <> CR then
 			do;
 				call collectByte(curChar);
 				curChar = getCh;
@@ -202,14 +202,14 @@ sub$73AD: procedure public;
 	if tmac$mtype = 4 then
 	do;
 		if not b905A and tokenSize(0) = 5 then
-			if strUCequ(.aMacro, curTokStart) then
+			if strUCequ(.aMacro, tokPtr) then
 			do;
-				b6B29 = 36h;
+				effectiveToken = 36h;
 				call popToken;
 				w9199 = tmac$w12;
 				opSP = opSP - 1;
 				reget = 1;
-				call sub$467F(0, .extName);
+				call emitXref(0, .name);
 				haveUserSymbol = FALSE;
 				b6BDA = 0FFh;
 				return;
@@ -219,7 +219,7 @@ sub$73AD: procedure public;
 		tmac$mtype = 0;
 	end;
 
-	if not b9C83 then
+	if not isPercent then
 		if not testBit(curChar, .b7183) then	/* not CR, COMMA or SEMI */
 		do;
 			call skip2EOL;
@@ -233,9 +233,9 @@ end;
 sub$7517: procedure public;
 	if sub$727F then
 	do;
-		b6B30 = 0;
+		expectingOperands = 0;
 		w9068 = curTokenSym$p + 4;
-		call sub5819$5CE8(0, 3Ah);
+		call sub5819$5CE8(0, O$3A);
 		tmac$mtype = 0;
 		call sub$71F2;
 	end;
@@ -286,7 +286,7 @@ sub$753E: procedure public;
 			tmac$mtype = 5;
 			w9068 = w9068 + 2;
 			if (ch and 7Fh) = 3Ah then
-				ch = (asmErrCode = 4Ch) and 80h or 9;
+				ch = (asmErrCode = 'L') and 80h or 9;
 		end;
 		call sub$7383;
 	end;
@@ -308,7 +308,7 @@ sub$75FF: procedure public;
 					w9199 = w6870 + 3;
 
 				do w6BE0 = w919D to w919F - 1;
-					curChar = mem(w6BE0);
+					curChar = byteAt(w6BE0);
 					if not isWhite then
 						call syntaxError;
 				end;
@@ -360,7 +360,7 @@ end;
 
 
 sub$770B: procedure public;
-	if b9C77 + 1 <> tokenSP then
+	if b9C77 + 1 <> tokenIdx then
 		call syntaxError;
 	else if not b9060 then
 	do;
@@ -374,7 +374,7 @@ sub$770B: procedure public;
 			tmac$w14 = tokenSize(0) - (tokenSize(0) = 0);
 
 		call collectByte((tokenSize(0) + 1) or 80h);
-		w6870 = sub$733D(curTokStart, curTokStart + tokenSize(0) - 1);
+		w6870 = sub$733D(tokPtr, tokPtr + tokenSize(0) - 1);
 		call popToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
@@ -428,7 +428,7 @@ end;
 
 sub$7844: procedure public;
 	call sub$72A4(3);
-	if (b6B29 := opType) <> 1 then
+	if (effectiveToken := opType) <> 1 then
 		call syntaxError;
 
 	if not b905E then
@@ -472,7 +472,7 @@ end;
 
 
 sub$78CE: procedure public;
-	jj = mem(tmac$w12);
+	jj = byteAt(tmac$w12);
 	bp6BE0(0) = 1 - (jj = 21h and b9062 = 2);
 	if b9062 = 0 or (tmac$w14 := tmac$w14 - bp6BE0(0)) = 0 then
 		call unnestIF(1);
@@ -487,7 +487,7 @@ sub$78CE: procedure public;
 		call sub$720A;
 	end;
 	lookAhead = 0;
-	b6B2C, b689C = bTRUE;
+	b6B2C, atStartLine = bTRUE;
 end;
 
 end;

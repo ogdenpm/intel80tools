@@ -82,6 +82,81 @@ OMF$LIBDICT     '2AH'
 OMF$LIBHDR      '2CH'
 OMF$COMDEF      '2EH'
 
+/* op types */
+T$CR            '1'
+T$LPAREN        '2'
+T$RPAREN        '3'
+T$STAR          '4'
+T$PLUS          '5'
+T$COMMA         '6'
+T$MINUS         '7'
+T$UPLUS         '8'
+T$SLASH         '9'
+T$UMINUS        '0Ah'
+O$NONE          '0'
+O$LABEL         '3'
+O$ID            '9'
+O$STRING        '0Ah'
+O$DATA          '0Bh'
+O$NUMBER        '0Ch'
+K$SPECIAL       '5'
+K$REGNAME       '7'
+K$SP            '8'
+K$EQ            '0Bh'
+K$LT            '0Ch'
+K$LE            '0Dh'
+K$GT            '0Eh'
+K$GE            '0Fh'
+K$NE            '10h'
+K$NOT           '11h'
+K$AND           '12h'
+K$OR            '13h'
+K$XOR           '14h'
+K$MOD           '15h'
+K$SHL           '16h'
+K$SHR           '17h'
+K$HIGH          '18h'
+K$LOW           '19h'
+K$DB            '1Ah'
+K$DW            '1Bh'
+K$DS            '1Ch'
+K$EQU           '1Dh'
+K$SET           '1Eh'
+K$ORG           '1Fh'
+K$END           '20h'
+K$IF            '21h'
+K$ELSE          '22h'
+K$ENDIF         '23h'
+K$LXI           '24h'
+K$REG16         '25h'
+K$LDSTAX        '26h'
+K$ARITH         '27h'
+K$IMM8          '28h'
+K$MVI           '29h'
+K$INRDCR        '2Ah'
+K$MOV           '2Bh'
+K$IMM16         '2Ch'
+K$SINGLE        '2Dh'
+K$RST           '2Eh'
+K$ASEG          '2Fh'
+K$CSEG          '30h'
+K$DSEG          '31h'
+K$PUBLIC        '32h'
+K$EXTRN         '33h'
+K$NAME          '34h'
+K$STKLN         '35h'
+K$MACRO         '36h'
+O$37            '37h'
+K$ENDM          '38h'
+K$EXITM         '39h'
+O$3A            '3Ah'
+K$IRP           '3Bh'
+K$IRPC          '3Ch'
+K$REPT          '3Eh'
+K$LOCAL         '3Fh'
+K$NUL           '41h'
+O$64            '64h'
+
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
 FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
@@ -97,7 +172,7 @@ MODEND$T        'structure(type byte, len address, modtyp byte, segid byte, offs
 MODHDR$T	'structure(type byte, len address, dta(26) byte)'
 PUBLICS$T       'structure(type byte, len address, segid byte, dta(124) byte, crc byte)'
 RELOC$T         'structure(type byte, len address, hilo byte, dta(62) address)'
-SYMENTRY$T	'structure(tok(2) address, b4 byte, delta byte, type byte, flags byte)'
+KEYWORD$T	'structure(tok(2) address, base byte, delta byte, type byte, flags byte)'
 
 /* common based variables */
 curTokenSym     "TOKENSYM$T"..curTokenSym$p
@@ -159,7 +234,7 @@ getCmdCh        PB
 outch           P(B c)
 outStrN         P(A s,B n)
 physmem         PA
-preStatementControls P
+parseControlLines P
 put2Hex         P(A arg1w,B arg2b)
 runtimeError    P(B arg1b)
 skip2EOL        P
@@ -178,7 +253,7 @@ $file(asm43.pl3,asm82.pl3)
 skip2NextLine   P
 skipWhite       P
 skipWhite$2     P
-sub$3F19        P
+tokeniseLine        P
 
 /* $file(asm44.plm) */
 
@@ -188,12 +263,12 @@ getPrec         P(B arg1b)B
 sub$425B        P(B arg1b)B
 sub$4274        P
 sub$4291        P
-sub$43D2        P
+setExpectOperands        P
 sub$43DD        PA
 sub$450F        P(B arg1b)
-sub$4646        PB
-sub$465B        PB
-sub$467F        P(B arg1b,A arg2w)
+nxtTokI        PB
+showLine        PB
+emitXref        P(B arg1b,A arg2w)
 swapAccBytes    P
 testBit         P(B arg1b,A arg2w)B
 
@@ -202,12 +277,12 @@ testBit         P(B arg1b,A arg2w)B
 $file(asm45.plm,asm55.plm,asm851.plm)
 isSkipping      PB
 strUCequ        P(A arg1w,A arg2w)B
-sub4C1E$54FD    P
+finishLine    P
 sub$546F        P
 
 $file(asm46.pl3)
-needToOpenFile           B
-b6C22           B
+needToOpenFile   "bool"
+includeOnCmdLine "bool"
 b6C23           B
 missingEnd      "bool"
 lineChCnt           B
@@ -231,7 +306,7 @@ $file(asm47.pl3,asm85.pl3)
 cond2Acc        P(B arg1b)
 sub$4AAA        P(B arg1b)
 sub$4B57        P(B arg1b)
-sub$540D        P
+doPass        P
 
 $file(asm48.pl3)
 sub$5CAD        P(A arg1w,B type)
@@ -311,13 +386,13 @@ asmComplete     P
 newPage         P
 newPageHeader   P
 outStr          P(A arg1w)
-ovl3            P
+printLine            P
 ovl9            P
 ovl10           P
 printCmdLine    P
 printDecimal    P(A arg1w)
 skipToEOP       P
-sub$6F4D        P
+doEject        P
 sub7041$8447    P
 sub$721E        PB
 sub$7229        P
@@ -346,7 +421,7 @@ initRecTypes        P
 /* $file(asm57.pl3) */
 $file(asm57.pl3,asm85.pl3)
 handleOp        P
-sub$518F        P
+parseLine        P
 
 /* $file(asm5D.plm) */
 
@@ -413,29 +488,29 @@ firstContent           "bool"
 b6742           B
 b6743           B
 nameLen         B
-b6748           B
-b6749           B
-b674A           BS
+inPublic           B
+inExtrn           B
+segHasData           BS
 b6754           B
 b6855           B
 b6856           B
 b6857           B
-b6858           B
+valType           B
 b6859           B
-b6872           B
-extName         BS
-b6879           BS
+gotLabel           B
+name         BS
+savName           BS
 b687F           B
 haveUserSymbol  "bool"
-b6881           B
+b6881           "bool"
 b6882           B
 b6883           B
 b6884           B
 b6885           B
 b6897           B
-b689A           B
+tokI           B
 b689B           B
-b689C           B
+atStartLine           B
 b68AB           B
 b68AD           B
 b68AE           B
@@ -445,18 +520,18 @@ spIdx           B
 b6A57           BS
 b6A6F           B
 b6A71           B
-b6B20$9A77      B		
+isControlLine      B		
 inDB           B
 inDW           B
 b6B25           B
 b6B28           B
-b6B29           B
+effectiveToken           B
 op              B
 b6B2C           B
 b6B2D           B
 b6B2F           B
-b6B30           B
-b6B31           B
+expectingOperands           B
+expectingOpcode           B
 b6B32           B
 b6B33           B
 b6B34           B
@@ -476,7 +551,7 @@ b905E          B		/* glb4 */
 b9060          B		/* glb4 */
 b9061          B		/* glb4 */
 b9062          B		/* glb4 */
-b9063          B		/* glb4 */
+macroDepth          B		/* glb4 */
 b9064          B		/* glb4 */
 b9065          B		/* glb4 */
 b9066          B		/* glb4 */
@@ -515,7 +590,7 @@ curCol          B
 curFileName$p   A
 curMacroBlk     A		/* glb4 */
 curTokenSym$p   A
-curTokStart     A
+tokPtr     A
 endLineBuf      A
 endOutBuf       A
 endSymTab       AS
@@ -544,7 +619,7 @@ macrofd         A
 macroStk        "MACRO$T"S	/* glb4 */
 maxMacroBlk     A		/* glb4 */
 maxSegSize      AS
-mem             BS		/* glb4 */
+byteAt          BS		/* glb4 */
 moduleNameLen   B
 nxtMacroBlk     A		/* glb4 */
 objfd           A
@@ -595,7 +670,7 @@ tokBuf          BS
 tokBufIdx       B
 tokBufLen       B
 tokenAttr       BS
-tokenSP         B
+tokenIdx         B
 tokStr          BS
 tokenSym        AS
 tokenSymId      AS
@@ -606,20 +681,20 @@ tokType         B
 contentBytePtr           A
 fixOffset           A
 externId           A
-w6752           A
+itemOffset           A
 w685A           A
 w685C           A
 symHighMark           A
 w6870           A
-w68A0           A
-w68A2           A
+endItem           A
+startItem           A
 w68A6           A
 sizeInBuf           A
 srcLineCnt           A
-w6B1E           A
+tokNumVal           A
 w6BCE           A
 w6BE0           A
-w6BE2           A
+controlFileType           A
 endMacroLine   BS		/* glb4 */
 w9068          A		/* glb4 */
 w906A          A		/* glb4 */
@@ -690,7 +765,7 @@ declare	IN$BUF$SIZE lit '200',
 $ENDIF
 
 $IF OVL4
-declare	mem(1) byte public at(0),
+declare	byteAt(1) byte public at(0),
 	macroLine(127) byte public,
 	endMacroLine(2) byte public,			/* space for 0 and a guard byte */
 	macro$p address public initial(.macroLine),
@@ -705,7 +780,7 @@ declare	mem(1) byte public at(0),
 	b9060 byte public,
 	b9061 byte public,
 	b9062 byte public,
-	b9063 byte public,
+	macroDepth byte public,
 	b9064 byte public,
 	b9065 byte public,
 	b9066 byte public,
@@ -772,19 +847,19 @@ declare	contentBytePtr address public,
 	startSeg byte public initial(1),
 	padb6746 byte,
 	activeSeg byte public,
-	b6748 byte public initial(0),
-	b6749 byte public initial(0),
-	b674A(2) byte public,
+	inPublic byte public initial(0),
+	inExtrn byte public initial(0),
+	segHasData(2) byte public,
 	alignTypes(4) byte public initial(3, 3, 3, 3),
 	externId address public,
-	w6752 address public,
+	itemOffset address public,
 	b6754 byte public initial(0),
 	startDefined byte public initial(0),
 	startOffset address public initial(0),
-	tokenSP byte public initial(0),
+	tokenIdx byte public initial(0),
 	lineBuf(128) byte public,
 	tokStart(9) address public initial(.lineBuf),
-	curTokStart address public at(.tokStart),
+	tokPtr address public at(.tokStart),
 	tokenSym(9) address public initial(0),
 	curTokenSym$p address public at(.tokenSym(0)),
 	curTokenSym based curTokenSym$p TOKENSYM$T,
@@ -810,7 +885,7 @@ declare	opSP byte public,
 	b6855 byte public,
 	b6856 byte public,
 	b6857 byte public,
-	b6858 byte public,
+	valType byte public,
 	b6859 byte public,
 	w685A address public,
 	w685C address public,
@@ -822,12 +897,12 @@ declare	opSP byte public,
 	endSymTab(3) address public,
 	symHighMark address public,
 	w6870 address public,
-	b6872 byte public initial(0),
-	extName(6) byte public,
-	b6879(6) byte public,
+	gotLabel byte public initial(0),
+	name(6) byte public,
+	savName(6) byte public,
 	b687F byte public,
 	haveUserSymbol bool public,
-	b6881 byte public initial(0),
+	b6881 bool public initial(FALSE),
 	b6882 byte public initial(0),
 	b6883 byte public initial(0),
 	b6884 byte public initial(0),
@@ -848,13 +923,13 @@ $IF BASE
 declare	pad6899 byte initial(0);
 $ENDIF
 /* ov4 compat 2C9F */
-declare	b689A byte public,
+declare	tokI byte public,
 	b689B byte public,
-	b689C byte public,
+	atStartLine byte public,
 	pad689D(2) byte,
 	curCol byte public initial(1),
-	w68A0 address public,
-	w68A2 address public,
+	endItem address public,
+	startItem address public,
 	pageLineCnt address public,
 	w68A6 address public,
 	pageCnt address public,
@@ -880,7 +955,6 @@ declare	b689A byte public,
 	asxref(*) byte public initial(':F0:ASXREF '),
 	asmax$ref(*) byte public initial(':F0:ASMAC.TMP '),
 	srcLineCnt address public initial(1),
-	bp6A4E(2) byte public at(.srcLineCnt),
 	pad6A50(2) byte initial('  '),		/* protects for very big files */
 	asciiLineNo(4) byte public initial('   0'),
 	spIdx byte public,
@@ -919,9 +993,9 @@ declare	b689A byte public,
 	controlId byte public,
 	tokBuf(64) byte public,
 	tokBufIdx byte public initial(0),
-	w6B1E address public,
+	tokNumVal address public,
 /* end */
-	b6B20$9A77 byte public initial(FALSE);
+	isControlLine byte public initial(FALSE);
 $IF NOT OVL4
 declare	MacroDebugOrGen byte public initial(0);
 $ENDIF
@@ -933,15 +1007,15 @@ declare	scanCmdLine byte public,
 	has16bitOperand byte public,
 	phase byte public,
 	b6B28 byte public,
-	b6B29 byte public,
+	effectiveToken byte public,
 	opType byte public,
 	op byte public,
 	b6B2C byte public,
 	b6B2D byte public,
 	finished byte public,
 	b6B2F byte public,
-	b6B30 byte public,
-	b6B31 byte public,
+	expectingOperands byte public,
+	expectingOpcode byte public,
 	b6B32 byte public,
 	b6B33 byte public,
 	b6B34 byte public initial(TRUE),
@@ -971,7 +1045,7 @@ $ENDIF
 declare	curFileName$p address public,
 	w6BE0 address public,
 	bp6BE0(2) byte public at(.w6BE0),
-	w6BE2 address public;
+	controlFileType address public;	 /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
 /* end */
 end;
 asm475785.pls
@@ -1007,28 +1081,28 @@ declare pad byte;
 declare	accum(4) byte at(.accum1);
 
 
-sub$4AAA: procedure(arg1b) public;
-	declare arg1b byte;
+sub$4AAA: procedure(seg) public;	/* seg = 0 => CSEG, seg = 1 => DSEG */
+	declare seg byte;
 
-	if b674A(arg1b) then
+	if segHasData(seg) then
 	do;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1$lb then
+			if alignTypes(seg) <> accum1$lb then
 				call expressionError;
 		end;
-		else if alignTypes(arg1b) <> 3 then
+		else if alignTypes(seg) <> 3 then	/* no speficier - check byte algined */
 			call expressionError;
 	end;
 	else
 	do;
-		b674A(arg1b) = TRUE;
+		segHasData(seg) = TRUE;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if accum1 = 1 or accum1 = 2 then
-				alignTypes(arg1b) = low(accum1);
+			if accum1 = 1 or accum1 = 2 then	/* only allow inPage and Page */
+				alignTypes(seg) = low(accum1);
 			else
 				call expressionError;
 		end;
@@ -1054,10 +1128,10 @@ end;
 handleOp: procedure public;
 	do case op;
 /* 0 */		;
-/* 1 */		call sub4C1E$54FD;		/* white space ? */
+/* 1 */		call finishLine;		/* white space ? */
 /* 2 */		goto case3;			/* ( */
-/* 3 */ case3:	do;				/* : or ) */
-			if not (op = 2 and opType = 3) then
+/* 3 */ case3:	do;				/* ) */
+			if not (op = T$LPAREN and opType = 3) then
 				call balanceError;
 
 			if tokenType(0) = 11 then
@@ -1118,7 +1192,7 @@ handleOp: procedure public;
 			call sub$4B57(8);
 		end;
 /* 26 */	do;					/* DB ? */
-			if tokenType(0) <> 10 then
+			if tokenType(0) <> O$STRING then
 			do;
 				accum1 = sub$43DD;
 				if accum1$hb - 1 < 0FEh then
@@ -1133,16 +1207,16 @@ handleOp: procedure public;
 			else
 			do;
 				b6855 = 0;
-				tokenType(0) = 0Bh;
+				tokenType(0) = O$DATA;
 			end;
 
-			if sub$425B(b6858) then
+			if sub$425B(valType) then
 				call operandError;
-			b6B2D = 0Bh;
+			b6B2D = O$DATA;
 			inDB = TRUE;
 		end;
 /* 27 */	do;					/* DW ? */
-			b6B2D = 0Bh;
+			b6B2D = O$DATA;
 			inDW = TRUE;
 		end;
 /* 28 */	do;					/* DS ? */
@@ -1159,7 +1233,7 @@ handleOp: procedure public;
 			end;
 			b6EC4$9C3A = 1;
 			call sub5819$5CE8(accum1, 34 - op);	/* 4 for set, 5 for equ */
-			b6B30 = 0;
+			expectingOperands = 0;
 		end;
 /* 30 */	goto case29;				/* SET ? */
 /* 31 */	do;					/* ORG ? */
@@ -1179,14 +1253,14 @@ handleOp: procedure public;
 			segSize(activeSeg) = accum1;
 		end;
 /* 32 */	do;					/* END ? */
-			if tokenSP > 0 then
+			if tokenIdx > 0 then
 			do;
 				startOffset = sub$43DD;
 				startDefined = 1;
 				startSeg = b6855 and 7;
 				if (b6855 and 40h) = 40h then
 					call expressionError;
-				if sub$425B(b6858) then
+				if sub$425B(valType) then
 					call operandError;
 
 				b68AB = 0FFh;
@@ -1213,7 +1287,7 @@ $ENDIF
 			do;
 				b6B32 = 0FFh;
 				call nestIF(2);
-				b6881 = 0FFh;
+				b6881 = TRUE;
 				if skipping(0) = 0 then
 					skipping(0) = not ((low(accum1) and 1) = 1);
 				inElse(0) = 0;
@@ -1247,13 +1321,13 @@ $ENDIF
 		end;
 /* 36 */	do;					/* LXI ? */
 			if nameLen = 1 then
-				if extName(0) = 4Dh then
+				if name(0) = 'M' then
 					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;				/* POP DAD PUSH INX DCX ? */
 			if nameLen = 1 then
-				if extName(0) = 4Dh then
+				if name(0) = 'M' then
 					call syntaxError;
 			call sub$450F(5);
 		end;
@@ -1282,12 +1356,12 @@ $ENDIF
 		end;
 
 /* 50 */	do;				/* PUBLIC */
-			b6748 = 0FFh;
+			inPublic = TRUE;
 			b6EC4$9C3A = 0;
 			call sub5819$5CE8(0, 6);
 		end;
 /* 51 */	do;				/* EXTRN ? */
-			b6749 = 0FFh;
+			inExtrn = TRUE;
 			if externId = 0 and isPhase1 and ctlOBJECT then
 			do;
 				CHKOVL$2;
@@ -1305,10 +1379,10 @@ $ENDIF
 			b6754 = 0;
 		end;
 /* 52 */	do;				/* NAME */
-			if tokenSP <> 0 and b6743 then
+			if tokenIdx <> 0 and b6743 then
 			do;
 				call move(6, .spaces6, .aModulePage);
-				call move(moduleNameLen := nameLen, .extName, .aModulePage);
+				call move(moduleNameLen := nameLen, .name, .aModulePage);
 			end;
 			else
 				call sourceError('R');
@@ -1343,19 +1417,19 @@ $ENDIF
 		b6743 = 0;
 end;
 
-sub$518F: procedure public;
+parseLine: procedure public;
 
 	sub$53C0: procedure byte;
-		if b6B29 > 3 then
-			if b6B29 <> 6 then
-				if b6B29 < 1Ah then
+		if effectiveToken > 3 then
+			if effectiveToken <> T$COMMA then
+				if effectiveToken < 1Ah then
 					return TRUE;
 		return FALSE;
 	end;
 
 	sub$53DF: procedure(arg1b) byte;
 		declare arg1b byte;
-		return arg1b = 9 or arg1b = 64h;
+		return arg1b = O$ID or arg1b = O$64;
 	end;
 
 
@@ -1367,9 +1441,9 @@ sub$518F: procedure public;
 
 
 	do while 1;
-		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0)
+		if not (effectiveToken = 1 or effectiveToken >= 20h and effectiveToken <= 23h) and skipping(0)
 $IF OVL4
-	           or (b4181(b6B29) < 128 or b9058) and b905E
+	           or (b4181(effectiveToken) < 128 or b9058) and b905E
 
 $ENDIF
 	        then
@@ -1382,10 +1456,10 @@ $ENDIF
 		if phase <> 1 then
 			if b6B25 then
 				if sub$53C0 then
-					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
+					if getPrec(effectiveToken) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
-		if getPrec(opType := b6B29) > getPrec(op := opStack(opSP)) or opType = 2 then
+		if getPrec(opType := effectiveToken) > getPrec(op := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
@@ -1419,14 +1493,14 @@ $ENDIF
 			accum2 = sub$43DD;
 			b6856 = b6855;
 			w685C = w685A;
-			b6859 = b6858;
+			b6859 = valType;
 		end;
 
 		if (b6B28 := ror(b6B28, 1)) then
 			accum1 = sub$43DD;
 
 		if not b6857 then
-			b6857 = sub$53DF(b6858) or sub$53DF(b6859);
+			b6857 = sub$53DF(valType) or sub$53DF(b6859);
 
 		b6B2D = 0Ch;
 		if op > 3 and op < 1Ah then	/* expression op */
@@ -1447,7 +1521,7 @@ $ENDIF
 			return;
 		end;
 
-		if op <> 1Ch and b68AB then		/* DS */
+		if op <> K$DS and b68AB then		/* DS */
 			w68A6 = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
@@ -1463,7 +1537,7 @@ $ENDIF
 		if ror(b6B28, 1) then
 			if opType = 6 then
 			do;
-				b6B29 = op;
+				effectiveToken = op;
 				b6B35 = 0FFh;
 			end;
 	end;
@@ -1471,10 +1545,10 @@ end;
 
 
 
-sub$540D: procedure public;
+doPass: procedure public;
 	do while finished = 0;
-		call sub$3F19;
-		call sub$518F;
+		call tokeniseLine;
+		call parseLine;
 	end;
 end;
 
@@ -1544,7 +1618,7 @@ reinitFixupRecs: procedure public;
 		if curFixupType <>  ii then
 			initFixupReq(ii) = TRUE;
 	end;
-	r$content.offset = w6752 + segSize(r$content.segid := activeSeg);
+	r$content.offset = itemOffset + segSize(r$content.segid := activeSeg);
 	r$publics.segid = curFixupHiLoSegId;
 	r$interseg.segid = tokenAttr(spIdx) and 7;
 	r$interseg.hilo, r$extref.hilo = curFixupHiLoSegId;
@@ -1564,10 +1638,10 @@ sub$6EE1: procedure;
 	if firstContent then
 	do;
 		firstContent = FALSE;
-		r$content.offset = segSize(r$content.segid := activeSeg) + w6752;
+		r$content.offset = segSize(r$content.segid := activeSeg) + itemOffset;
 	end;
 	else if r$content.segid <> activeSeg
-	      or (effectiveOffset := r$content.offset + fix6Idx) <> segSize(activeSeg) + w6752
+	      or (effectiveOffset := r$content.offset + fix6Idx) <> segSize(activeSeg) + itemOffset
 	      or effectiveOffset < r$content.offset then
 		call reinitFixupRecs;
 
@@ -1644,11 +1718,11 @@ end;
 
 sub$7131: procedure;
 	curFixupHiLoSegId = shr(tokenAttr(spIdx) and 18h, 3);
-	fixOffset = segSize(activeSeg) + w6752;
+	fixOffset = segSize(activeSeg) + itemOffset;
 	if not (inDB or inDW) and (tokenSize(spIdx) = 2 or tokenSize(spIdx) = 3) then
 		fixOffset = fixOffset + 1;
 	call sub$6EE1;
-	contentBytePtr = w68A2;
+	contentBytePtr = startItem;
 	call recAddContentBytes;
 	do case getFixupType;
 /* 0 */ 	call intraSegFix;
@@ -1662,7 +1736,7 @@ end;
 writeExtName: procedure public;
 	declare i byte;
 
-	if r$extnames1.len + 9 > 125 then	/* check room for extName */
+	if r$extnames1.len + 9 > 125 then	/* check room for name */
 	do;
 		call writeRec(.r$extnames1);	/* flush existing extNam Record */
 		r$extnames1.type = OMF$EXTNAMES;
@@ -1673,7 +1747,7 @@ writeExtName: procedure public;
 	r$extnames1.dta(extNamIdx) = nameLen;		/* write len */
 	extNamIdx = extNamIdx + 1;
 	do i = 0 to nameLen;			/* and name */
-		r$extnames1.dta(extNamIdx + i) = extName(i);
+		r$extnames1.dta(extNamIdx + i) = name(i);
 	end;
 
 	r$extnames1.dta(extNamIdx + nameLen) = 0;	/* and terminating 0 */
@@ -1727,7 +1801,7 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
 
             if (symb(1) and 7) = segId
 $IF OVL4
-               and symb(0) <> 3Ah and sub$3FA9
+               and symb(0) <> O$3A and sub$3FA9
 $ENDIF
                and not testBit(symb(0), .b6D7E) and
                (not isPublic or (symb(1) and 20h) <> 0) then
@@ -1778,22 +1852,22 @@ writeModend: procedure public;
 end;
 
 ovl8: procedure public;
-	w6752 = 0;
-	b689A = 1;
+	itemOffset = 0;
+	tokI = 1;
 	spIdx = 1;
 	if b6B33 then
 		;
 	else
 	do while spIdx <> 0;
-		spIdx = sub$4646;
-		w68A0 = tokStart(spIdx) + tokenSize(spIdx);
-		w68A2 = tokStart(spIdx);
+		spIdx = nxtTokI;
+		endItem = tokStart(spIdx) + tokenSize(spIdx);
+		startItem = tokStart(spIdx);
 		if isSkipping or not b6B34 then
-			w68A0 = w68A2;
-		if w68A0 > w68A2 then
+			endItem = startItem;
+		if endItem > startItem then
 		do;
 			call sub$7131;
-			w6752 = w6752 + tokenSize(spIdx);
+			itemOffset = itemOffset + tokenSize(spIdx);
 		end;
 		if not(inDB or inDW) then
 			spIdx = 0;
@@ -1806,7 +1880,7 @@ ovl11: procedure public;
 	do;
 		call seek(objfd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
 		call writeModhdr;
-		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);
+		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);	/* back to end */
 	end;
 	r$publics.type = OMF$PUBLICS;		  /* public declarations record */
 	r$publics.len = 1;
@@ -1819,167 +1893,169 @@ end;
 end;
 keywrd.plm
 keywords: do;
+$include(keywrd.ipx)
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
-declare stdKeywords(*) address public initial(
+declare stdKeywords(151) KEYWORD$T public initial(
 /*
 	4 byte packed keyword
 	byte opcode base
 	byte offset to next entry or 0 if end
 	byte type
-	byte special location
+	byte flags
 */
-	0A528h,	0,	0,	10h,	/* NE */
-	63B0h,	0,	0CCh,	2Ch,	/* CZ */
-	0,	0,	0,	0,	/* */
-	0BFB6h,	0,	0C0h,	2Dh,	/* RNZ */
-	0B354h,	0,	0C1h,	25h,	/* POP */
-	6EE9h,	0,	0,	1Dh,	/* EQU */
-	0AD70h,	0,	0E800h,	13h,	/* OR */
-	0A1A5h,	0,	0E806h,	29h,	/* MVI */
-	0C6CFh,	0,	37h,	2Dh,	/* STC */
-	0C6CDh,	6158h,	0,	1B05h,	/* STACK */
-	6615h,	0,	27h,	2Dh,	/* DAA */
-	988Dh,	0E100h,	0Ah,	26h,	/* LDAX */
-	61F6h,	0,	0C4h,	2Ch,	/* CNZ */
-	53CFh,	0,	0D888h,	27h,	/* ADC */
-	53D0h,	0,	80h,	27h,	/* ADD */
-	6748h,	0,	0D0F3h,	2Dh,	/* DI */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	53D5h,	0,	0C8C6h,	28h,	/* ADI */
-	6A40h,	0,	0F003h,	7,	/* E */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	0A088h,	0,	0,	15h,	/* MOD */
-	0AD83h,	0,	0,	1Fh,	/* ORG */
-	0,	0,	0,	0,	/* */
-	8F70h,	0,	0E8CAh,	2Ch,	/* JZ */
-	68E9h,	76C0h,	0,	31h,	/* DSEG */
-	0C488h,	0,	0,	1Eh,	/* SET */
-	0,	0,	0,	0,	/* */
-	0C521h,	0,	30h,	22Dh,	/* SIM */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	0A4A1h,	6A40h,	0,	34h,	/* NAME */
-	0C6CDh,	0,	32h,	2Ch,	/* STA */
-	0AE08h,	0,	0D3h,	28h,	/* OUT */
-	6630h,	0,	0,	1Ah,	/* DB */
-	8DB6h,	0,	0C2h,	2Ch,	/* JNZ */
-	0,	0,	0,	0,	/* */
-	6618h,	0,	0C009h,	25h,	/* DAD */
-	8D9Fh,	0,	0D2h,	2Ch,	/* JNC */
-	0A09Ah,	0,	0C040h,	2Bh,	/* MOV */
-	8610h,	0,	0C000h,	21h,	/* IF */
-	6E60h,	0,	0A800h,	20h,	/* END */
-	9938h,	6400h,	0B82Ah,	2Ch,	/* LHLD */
-	9600h,	0,	0C005h,	7,	/* L */
-	0C6F6h,	0,	90h,	27h,	/* SUB */
-	0C634h,	9600h,	0F9h,	2Dh,	/* SPHL */
-	0C405h,	0,	0DEh,	28h,	/* SBI */
-	0B3FBh,	0,	6,	7,	/* PSW */
-	0BF4Fh,	0,	7,	2Dh,	/* RLC */
-	5780h,	0,	0,	7,	/* B */
-	0,	0,	0,	0,	/* */
-	6220h,	0,	0F0F4h,	2Ch,	/* CP */
-	0,	0,	0,	0,	/* */
-	0AD85h,	0,	0F6h,	28h,	/* ORI */
-	0B11Bh,	6A40h,	2,	5,	/* PAGE */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	5629h,	76C0h,	0,	2Fh,	/* ASEG */
-	8750h,	0,	0DBh,	28h,	/* IN */
-	6E60h,	8610h,	0D000h,	23h,	/* ENDIF */
-	0,	0,	0,	0,	/* */
-	8BD8h,	0,	0F0DAh,	2Ch,	/* JC */
-	0AD7Dh,	0,	0B0h,	27h,	/* ORA */
-	0C3FEh,	0,	98h,	27h,	/* SBB */
-	0C6D7h,	9A10h,	0,	35h,	/* STKLN */
-	0BFE0h,	0,	0F0h,	2Dh,	/* RP */
-	0C4F8h,	6400h,	22h,	2Ch,	/* SHLD */
-	0C078h,	0,	0C7h,	2Eh,	/* RST */
-	6231h,	0,	0ECh,	2Ch,	/* CPE */
-	0B436h,	9957h,	0E800h,	32h,	/* PUBLIC */
-	0BDA0h,	0,	0E817h,	2Dh,	/* RAL */
-	80E0h,	0,	0E876h,	2Dh,	/* HLT */
-	6235h,	0,	0FEh,	28h,	/* CPI */
-	0BF68h,	0,	0F8h,	2Dh,	/* RM */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	0BDA6h,	0,	1Fh,	2Dh,	/* RAR */
-	805Bh,	7D00h,	0D000h,	18h,	/* HIGH */
-	623Bh,	0,	0D8E4h,	2Ch,	/* CPO */
-	0B447h,	7D00h,	0E0C5h,	25h,	/* PUSH */
-	0,	0,	0,	0,	/* */
-	0C6FDh,	0,	0F0D6h,	28h,	/* SUI */
-	61A8h,	0,	0FCh,	2Ch,	/* CM */
-	0,	0,	0,	0,	/* */
-	0,	0,	0,	0,	/* */
-	0BFF1h,	0,	0E8h,	2Dh,	/* RPE */
-	62A9h,	76C0h,	0,	30h,	/* CSEG */
-	0BE48h,	0,	0C9h,	2Dh,	/* RET */
-	876Eh,	0,	4,	2Ah,	/* INR */
-	0BEE1h,	0,	20h,	22Dh,	/* RIM */
-	0,	0,	0,	0,	/* */
-	0B16Ch,	9600h,	0E9h,	2Dh,	/* PCHL */
-	988Dh,	0,	3Ah,	2Ch,	/* LDA */
-	7000h,	0BF90h,	0,	33h,	/* EXTRN */
-	8774h,	0,	0B003h,	25h,	/* INX */
-	61B5h,	0,	2Fh,	2Dh,	/* CMA */
-	0,	0,	0,	0,	/* */
-	61B7h,	0,	3Fh,	2Dh,	/* CNC */
-	0BFFBh,	0,	0E0h,	2Dh,	/* RPO */
-	0C6CDh,	0E100h,	7002h,	26h,	/* STAX */
-	0E5BDh,	0,	0A8h,	27h,	/* XRA */
-	9A5Bh,	0,	0,	19h,	/* LOW */
-	6D88h,	0,	0FBh,	2Dh,	/* EI */
-	8DE0h,	0,	0F2h,	2Ch,	/* JP */
-	6676h,	0,	0D005h,	2Ah,	/* DCR */
-	6400h,	0,	2,	7,	/* D */
-	555Dh,	0,	0A0h,	27h,	/* ANA */
-	0E5C5h,	0,	0EEh,	28h,	/* XRI */
-	8D68h,	0,	0FAh,	2Ch,	/* JM */
-	5560h,	0,	0,	12h,	/* AND */
-	5140h,	0,	3807h,	7,	/* A */
-	0E614h,	9600h,	0E3h,	2Dh,	/* XTHL */
-	0,	0,	0,	0,	/* */
-	876Ch,	5449h,	1,	5,	/* INPAGE */
-	5565h,	0,	0E6h,	28h,	/* ANI */
-	9B00h,	0,	0,	0Ch,	/* LT */
-	8DF1h,	0,	0EAh,	2Ch,	/* JPE */
-	61C4h,	0,	20B8h,	27h,	/* CMP */
-	7BC0h,	0,	0,	0Eh,	/* GT */
-	6978h,	0,	7800h,	1Bh,	/* DW */
-	6EC8h,	0,	0,	0Bh,	/* EQ */
-	667Ch,	0,	500Bh,	25h,	/* DCX */
-	6E1Fh,	6A40h,	0A000h,	22h,	/* ELSE */
-	0A6D4h,	0,	0,	2Dh,	/* NOP */
-	9F01h,	0AD95h,	0,	1C05h,	/* MEMORY */
-	5FE0h,	9600h,	0CDh,	2Ch,	/* CALL */
-	0BDD8h,	0,	0D8h,	2Dh,	/* RC */
-	53ADh,	0,	80CEh,	28h,	/* ACI */
-	0BF9Fh,	0,	0D0h,	2Dh,	/* RNC */
-	0E36Ch,	76C0h,	0EBh,	2Dh,	/* XCHG */
-	8DFBh,	0,	0E2h,	2Ch,	/* JPO */
-	68D8h,	0,	0,	1Ch,	/* DS */
-	0C620h,	0,	6,	8,	/* SP */
-	9C40h,	0,	6,	7,	/* M */
-	98A8h,	0,	3800h,	0Dh,	/* LE */
-	6018h,	0,	0DCh,	2Ch,	/* CC */
-	7D00h,	0,	5004h,	7,	/* H */
-	61DFh,	0,	50D4h,	2Ch,	/* CNC */
-	0C4F8h,	0,	0,	16h,	/* SHL */
-	5DC0h,	0,	1,	7,	/* C */
-	0C170h,	0,	0C8h,	2Dh,	/* RZ */
-	0E556h,	0,	0,	14h,	/* XOR */
-	7968h,	0,	0,	0Fh,	/* GE */
-	0A6D8h,	0,	0,	11h,	/* NOT */
-	0C4FEh,	0,	0,	17h,	/* SHR */
-	9BB5h,	0,	1,	24h,	/* LXI */
-	8D84h,	0,	0C3h,	2Ch,	/* JMP */
-	0C03Fh,	0,	0Fh,	2Dh	/* RRC */
+	/* token	opBase	offset	type	flags */
+	0A528h,	0,	0,	0,	10h,	0,	/* NE */
+	63B0h,	0,	0CCh,	0,	2Ch,	0,	/* CZ */
+	0,	0,	0,	0,	0,	0,	/* */
+	0BFB6h,	0,	0C0h,	0,	2Dh,	0,	/* RNZ */
+	0B354h,	0,	0C1h,	0,	25h,	0,	/* POP */
+	6EE9h,	0,	0,	0,	1Dh,	0,	/* EQU */
+	0AD70h,	0,	0,	0E8h,	13h,	0,	/* OR */
+	0A1A5h,	0,	6,	0E8h,	29h,	0,	/* MVI */
+	0C6CFh,	0,	37h,	0,	2Dh,	0,	/* STC */
+	0C6CDh,	6158h,	0,	0,	5,	1Bh,	/* STACK */
+	6615h,	0,	27h,	0,	2Dh,	0,	/* DAA */
+	988Dh,	0E100h,	0Ah,	0,	26h,	0,	/* LDAX */
+	61F6h,	0,	0C4h,	0,	2Ch,	0,	/* CNZ */
+	53CFh,	0,	88h,	0D8h,	27h,	0,	/* ADC */
+	53D0h,	0,	80h,	0,	27h,	0,	/* ADD */
+	6748h,	0,	0F3h,	0D0h,	2Dh,	0,	/* DI */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	53D5h,	0,	0C6h,	0C8h,	28h,	0,	/* ADI */
+	6A40h,	0,	3,	0F0h,	7,	0,	/* E */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	0A088h,	0,	0,	0,	15h,	0,	/* MOD */
+	0AD83h,	0,	0,	0,	1Fh,	0,	/* ORG */
+	0,	0,	0,	0,	0,	0,	/* */
+	8F70h,	0,	0CAh,	0E8h,	2Ch,	0,	/* JZ */
+	68E9h,	76C0h,	0,	0,	31h,	0,	/* DSEG */
+	0C488h,	0,	0,	0,	1Eh,	0,	/* SET */
+	0,	0,	0,	0,	0,	0,	/* */
+	0C521h,	0,	30h,	0,	2Dh,	2,	/* SIM */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	0A4A1h,	6A40h,	0,	0,	34h,	0,	/* NAME */
+	0C6CDh,	0,	32h,	0,	2Ch,	0,	/* STA */
+	0AE08h,	0,	0D3h,	0,	28h,	0,	/* OUT */
+	6630h,	0,	0,	0,	1Ah,	0,	/* DB */
+	8DB6h,	0,	0C2h,	0,	2Ch,	0,	/* JNZ */
+	0,	0,	0,	0,	0,	0,	/* */
+	6618h,	0,	9,	0C0h,	25h,	0,	/* DAD */
+	8D9Fh,	0,	0D2h,	0,	2Ch,	0,	/* JNC */
+	0A09Ah,	0,	40h,	0C0h,	2Bh,	0,	/* MOV */
+	8610h,	0,	0,	0C0h,	21h,	0,	/* IF */
+	6E60h,	0,	0,	0A8h,	20h,	0,	/* END */
+	9938h,	6400h,	2Ah,	0B8h,	2Ch,	0,	/* LHLD */
+	9600h,	0,	5,	0C0h,	7,	0,	/* L */
+	0C6F6h,	0,	90h,	0,	27h,	0,	/* SUB */
+	0C634h,	9600h,	0F9h,	0,	2Dh,	0,	/* SPHL */
+	0C405h,	0,	0DEh,	0,	28h,	0,	/* SBI */
+	0B3FBh,	0,	6,	0,	7,	0,	/* PSW */
+	0BF4Fh,	0,	7,	0,	2Dh,	0,	/* RLC */
+	5780h,	0,	0,	0,	7,	0,	/* B */
+	0,	0,	0,	0,	0,	0,	/* */
+	6220h,	0,	0F4h,	0F0h,	2Ch,	0,	/* CP */
+	0,	0,	0,	0,	0,	0,	/* */
+	0AD85h,	0,	0F6h,	0,	28h,	0,	/* ORI */
+	0B11Bh,	6A40h,	2,	0,	5,	0,	/* PAGE */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	5629h,	76C0h,	0,	0,	2Fh,	0,	/* ASEG */
+	8750h,	0,	0DBh,	0,	28h,	0,	/* IN */
+	6E60h,	8610h,	0,	0D0h,	23h,	0,	/* ENDIF */
+	0,	0,	0,	0,	0,	0,	/* */
+	8BD8h,	0,	0DAh,	0F0h,	2Ch,	0,	/* JC */
+	0AD7Dh,	0,	0B0h,	0,	27h,	0,	/* ORA */
+	0C3FEh,	0,	98h,	0,	27h,	0,	/* SBB */
+	0C6D7h,	9A10h,	0,	0,	35h,	0,	/* STKLN */
+	0BFE0h,	0,	0F0h,	0,	2Dh,	0,	/* RP */
+	0C4F8h,	6400h,	22h,	0,	2Ch,	0,	/* SHLD */
+	0C078h,	0,	0C7h,	0,	2Eh,	0,	/* RST */
+	6231h,	0,	0ECh,	0,	2Ch,	0,	/* CPE */
+	0B436h,	9957h,	0,	0E8h,	32h,	0,	/* PUBLIC */
+	0BDA0h,	0,	17h,	0E8h,	2Dh,	0,	/* RAL */
+	80E0h,	0,	76h,	0E8h,	2Dh,	0,	/* HLT */
+	6235h,	0,	0FEh,	0,	28h,	0,	/* CPI */
+	0BF68h,	0,	0F8h,	0,	2Dh,	0,	/* RM */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	0BDA6h,	0,	1Fh,	0,	2Dh,	0,	/* RAR */
+	805Bh,	7D00h,	0,	0D0h,	18h,	0,	/* HIGH */
+	623Bh,	0,	0E4h,	0D8h,	2Ch,	0,	/* CPO */
+	0B447h,	7D00h,	0C5h,	0E0h,	25h,	0,	/* PUSH */
+	0,	0,	0,	0,	0,	0,	/* */
+	0C6FDh,	0,	0D6h,	0F0h,	28h,	0,	/* SUI */
+	61A8h,	0,	0FCh,	0,	2Ch,	0,	/* CM */
+	0,	0,	0,	0,	0,	0,	/* */
+	0,	0,	0,	0,	0,	0,	/* */
+	0BFF1h,	0,	0E8h,	0,	2Dh,	0,	/* RPE */
+	62A9h,	76C0h,	0,	0,	30h,	0,	/* CSEG */
+	0BE48h,	0,	0C9h,	0,	2Dh,	0,	/* RET */
+	876Eh,	0,	4,	0,	2Ah,	0,	/* INR */
+	0BEE1h,	0,	20h,	0,	2Dh,	2,	/* RIM */
+	0,	0,	0,	0,	0,	0,	/* */
+	0B16Ch,	9600h,	0E9h,	0,	2Dh,	0,	/* PCHL */
+	988Dh,	0,	3Ah,	0,	2Ch,	0,	/* LDA */
+	7000h,	0BF90h,	0,	0,	33h,	0,	/* EXTRN */
+	8774h,	0,	3,	0B0h,	25h,	0,	/* INX */
+	61B5h,	0,	2Fh,	0,	2Dh,	0,	/* CMA */
+	0,	0,	0,	0,	0,	0,	/* */
+	61B7h,	0,	3Fh,	0,	2Dh,	0,	/* CNC */
+	0BFFBh,	0,	0E0h,	0,	2Dh,	0,	/* RPO */
+	0C6CDh,	0E100h,	2,	70h,	26h,	0,	/* STAX */
+	0E5BDh,	0,	0A8h,	0,	27h,	0,	/* XRA */
+	9A5Bh,	0,	0,	0,	19h,	0,	/* LOW */
+	6D88h,	0,	0FBh,	0,	2Dh,	0,	/* EI */
+	8DE0h,	0,	0F2h,	0,	2Ch,	0,	/* JP */
+	6676h,	0,	5,	0D0h,	2Ah,	0,	/* DCR */
+	6400h,	0,	2,	0,	7,	0,	/* D */
+	555Dh,	0,	0A0h,	0,	27h,	0,	/* ANA */
+	0E5C5h,	0,	0EEh,	0,	28h,	0,	/* XRI */
+	8D68h,	0,	0FAh,	0,	2Ch,	0,	/* JM */
+	5560h,	0,	0,	0,	12h,	0,	/* AND */
+	5140h,	0,	7,	38h,	7,	0,	/* A */
+	0E614h,	9600h,	0E3h,	0,	2Dh,	0,	/* XTHL */
+	0,	0,	0,	0,	0,	0,	/* */
+	876Ch,	5449h,	1,	0,	5,	0,	/* INPAGE */
+	5565h,	0,	0E6h,	0,	28h,	0,	/* ANI */
+	9B00h,	0,	0,	0,	0Ch,	0,	/* LT */
+	8DF1h,	0,	0EAh,	0,	2Ch,	0,	/* JPE */
+	61C4h,	0,	0B8h,	20h,	27h,	0,	/* CMP */
+	7BC0h,	0,	0,	0,	0Eh,	0,	/* GT */
+	6978h,	0,	0,	78h,	1Bh,	0,	/* DW */
+	6EC8h,	0,	0,	0,	0Bh,	0,	/* EQ */
+	667Ch,	0,	0Bh,	50h,	25h,	0,	/* DCX */
+	6E1Fh,	6A40h,	0,	0A0h,	22h,	0,	/* ELSE */
+	0A6D4h,	0,	0,	0,	2Dh,	0,	/* NOP */
+	9F01h,	0AD95h,	0,	0,	5,	1Ch,	/* MEMORY */
+	5FE0h,	9600h,	0CDh,	0,	2Ch,	0,	/* CALL */
+	0BDD8h,	0,	0D8h,	0,	2Dh,	0,	/* RC */
+	53ADh,	0,	0CEh,	80h,	28h,	0,	/* ACI */
+	0BF9Fh,	0,	0D0h,	0,	2Dh,	0,	/* RNC */
+	0E36Ch,	76C0h,	0EBh,	0,	2Dh,	0,	/* XCHG */
+	8DFBh,	0,	0E2h,	0,	2Ch,	0,	/* JPO */
+	68D8h,	0,	0,	0,	1Ch,	0,	/* DS */
+	0C620h,	0,	6,	0,	8,	0,	/* SP */
+	9C40h,	0,	6,	0,	7,	0,	/* M */
+	98A8h,	0,	0,	38h,	0Dh,	0,	/* LE */
+	6018h,	0,	0DCh,	0,	2Ch,	0,	/* CC */
+	7D00h,	0,	4,	50h,	7,	0,	/* H */
+	61DFh,	0,	0D4h,	50h,	2Ch,	0,	/* CNC */
+	0C4F8h,	0,	0,	0,	16h,	0,	/* SHL */
+	5DC0h,	0,	1,	0,	7,	0,	/* C */
+	0C170h,	0,	0C8h,	0,	2Dh,	0,	/* RZ */
+	0E556h,	0,	0,	0,	14h,	0,	/* XOR */
+	7968h,	0,	0,	0,	0Fh,	0,	/* GE */
+	0A6D8h,	0,	0,	0,	11h,	0,	/* NOT */
+	0C4FEh,	0,	0,	0,	17h,	0,	/* SHR */
+	9BB5h,	0,	1,	0,	24h,	0,	/* LXI */
+	8D84h,	0,	0C3h,	0,	2Ch,	0,	/* JMP */
+	0C03Fh,	0,	0Fh,	0,	2Dh,	0	/* RRC */
 );
 
 
@@ -2313,7 +2389,7 @@ sourceError: procedure(arg1b) public;
 
 	if not isSkipping or op = 22h then	/* ELSE */
 	do;
-		if b6749 then
+		if inExtrn then
 			b6754 = TRUE;
 		if blankAsmErrCode then
 			errCnt = errCnt + 1;
@@ -2327,34 +2403,34 @@ end;
 
 $IF OVL4
 
-sub$3D34: procedure(arg1b) public;
-	declare arg1b byte;
+sub$3D34: procedure(c) public;
+	declare c byte;
 	declare ch based w906A byte;
 
-	ch = arg1b;
+	ch = c;
 	if (w906A := w906A + 1) > w6870 then
 		call runtimeError(1);	/* table error */
 end;
 
 
-sub$3D55: procedure(arg1b) public;
-	declare arg1b byte;
+sub$3D55: procedure(c) public;
+	declare c byte;
 
-	call sub$3D34(arg1b);
-	if arg1b = 0Dh then
-		call sub$3D34(0Ah);
+	call sub$3D34(c);
+	if c = CR then
+		call sub$3D34(LF);
 end;
 
 $ENDIF
 
 
-preStatementControls: procedure public;
+parseControlLines: procedure public;
 
 	do while getCh = '$';
 		if isSkipping then
 		do;
 			call skip2NextLine;
-			b6B20$9A77 = 0FFh;
+			isControlLine = TRUE;
 $IF OVL4
 			if b905E = 1 then
 				b6897 = 0FFh;
@@ -2365,7 +2441,7 @@ $ENDIF
 			CHKOVL$0;
 			call parseControls;
 		end;
-		call sub4C1E$54FD;
+		call finishLine;
 	end;
 	reget = 1;
 end;
@@ -2384,11 +2460,11 @@ initialControls: procedure public;
 	if needToOpenFile then
 		call openSrc;
 
-	needToOpenFile, b6B20$9A77, scanCmdLine = bZERO;
-	call preStatementControls;
-	primaryValid = 0;
-	ctlDEBUG = ctlDEBUG and ctlOBJECT;
-	ctlXREF = ctlXREF and ctlPRINT;
+	needToOpenFile, isControlLine, scanCmdLine = bZERO;
+	call parseControlLines;			/* initial control lines allow primary controls */
+	primaryValid = FALSE;			/* not allowed from now on */
+	ctlDEBUG = ctlDEBUG and ctlOBJECT;	/* debug doesn't make sense if no object code */
+	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls that require printing */
 	ctlSYMBOLS = ctlSYMBOLS and ctlPRINT;
 	ctlPAGING = ctlPAGING and ctlPRINT;
 end;
@@ -2400,19 +2476,19 @@ initLine: procedure public;
 	if needToOpenFile then
 		call openSrc;
 
-	b68AD, has16bitOperand, b6B20$9A77, b689B, b687F, b6B25, b6B30, b6881, b6872, haveUserSymbol,
+	b68AD, has16bitOperand, isControlLine, b689B, b687F, b6B25, expectingOperands, b6881, gotLabel, haveUserSymbol,
 	inDB, inDW, b6B32, b68AB, b6884,
 $IF OVL4
 	b9059, b9060, 
 $ENDIF
 	b6885 = bZERO;
 
-	b689C, b6B31, b6B34, b6B35 = bTRUE;
-	ctlEJECT, b6857, tokenSP,
+	atStartLine, expectingOpcode, b6B34, b6B35 = bTRUE;
+	ctlEJECT, b6857, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
 $ENDIF
-	tokenSize(0), tokenType(0), b6858, b6859, b6742, b6855 = bZERO;
+	tokenSize(0), tokenType(0), valType, b6859, b6742, b6855 = bZERO;
 
 	asmErrCode = ' ';
 $IF OVL4
@@ -2420,7 +2496,7 @@ $IF OVL4
 	w919D = w906A;
 	expandingMacro = expandingMacro > 0;
 $ENDIF
-	b689A = 1;
+	tokI = 1;
 	srcLineCnt = srcLineCnt + 1;
 $IF OVL4
 	macro$p = .macroLine;
@@ -2474,7 +2550,7 @@ $ENDIF
 		outfd = xreffd;
 	end;
 
-	call sub$540D;
+	call doPass;
 	phase = 2;
 	if ctlOBJECT then
 	do;
@@ -2497,7 +2573,7 @@ $ENDIF
 		CHKOVL$3;
 		call resetData;
 		call initialControls;
-		call sub$540D;
+		call doPass;
 	end;
 	if ctlPRINT then
 	do;
@@ -2514,7 +2590,7 @@ $IF BASE
 		call resetData;
 		call initRecTypes;
 		call initialControls;
-		call sub$540D;
+		call doPass;
 		CHKOVL2;
 $ENDIF
 		call ovl11;
@@ -2539,18 +2615,22 @@ $ELSE
 $include(asm82.ipx)
 $ENDIF
 
-declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0),
+			/* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			   0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+			   0, 0),
 	b3EA0(*) byte data(36h, 0, 0, 0, 6, 0, 0, 2),
 		/* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
 		/* 29, 30, 55 */
-	b3EA8(*) byte data(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0, 0, 0FFh,
-			   0, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0,
-			   0FFh, 0, 0, 0);
+			/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+	b3EA8(*) byte data(0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+		 	   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0,   0,   0FFh,
+			   0,   0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
+			   0,   0);
+	/* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
 $IF OVL4
 declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
 	/* bit vector 66 -> 10010000 0 x 56 01 */
@@ -2662,7 +2742,7 @@ end;
 
 
 
-sub$3F19: procedure public;
+tokeniseLine: procedure public;
 
 	sub$416B: procedure;
 		if opType = 0 then
@@ -2673,10 +2753,10 @@ sub$3F19: procedure public;
 
 
     do while 1;
-	if b689C then
+	if atStartLine then
 	do;
-		call preStatementControls;
-		b689C = 0;
+		call parseControlLines;
+		atStartLine = 0;
 	end;
 
 	do case getChClass;
@@ -2696,12 +2776,12 @@ $IF OVL4
 				end;
 $ENDIF
 				call skip2NextLine;
-				b6B29 = 1;
+				effectiveToken = 1;
 				return;
 			end;
 		end;
 		do;				/* CC$COLON */
-			if not b6872 then
+			if not gotLabel then
 			do;
 				if skipping(0)
 $IF OVL4
@@ -2715,8 +2795,8 @@ $ENDIF
 					call sub5819$5CE8(segSize(activeSeg), 2);
 				end;
 
-				b6B30 = 0;
-				b6872, b6B31 = bTRUE;
+				expectingOperands = 0;
+				gotLabel, expectingOpcode = bTRUE;
 			end;
 			else
 			do;
@@ -2724,13 +2804,13 @@ $ENDIF
 				call popToken;
 			end;
 
-			call sub$467F(0, .extName);
+			call emitXref(0, .name);
 			haveUserSymbol = FALSE;
 			opType = 3;
 		end;
 		do;				/* CC$CR */
 			call chkLF;
-			b6B29 = 1;
+			effectiveToken = T$CR;
 $IF OVL4
 			b9058 = 0;
 $ENDIF
@@ -2739,16 +2819,16 @@ $ENDIF
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
 $IF OVL4
-				if not testBit(opType, .b$3F88) then /* not 0, 3 or 65 */
+				if not testBit(opType, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
-				if opType <> 0 and opType <> 3 then
+				if opType <> O$NONE and opType <> T$RPAREN then
 $ENDIF
-					curChar = curChar + 3;
-			b6B29 = curChar - '(' + 2;
+					curChar = curChar + 3;	/* make unary versions */
+			effectiveToken = curChar - '(' + 2;
 			return;
 		end;
 		do;				/* CC$DOLLAR */
-			call pushToken(0Ch);
+			call pushToken(O$NUMBER);
 			call collectByte(low(segSize(activeSeg)));
 			call collectByte(high(segSize(activeSeg)));
 			if activeSeg <> 0 then
@@ -2757,7 +2837,7 @@ $ENDIF
 		end;
 		do;				/* CC$QUOTE */
 $IF OVL4
-			if b6B29 = 37h then
+			if effectiveToken = 37h then
 			do;
 				call illegalCharError;
 				return;
@@ -2768,34 +2848,34 @@ $IF OVL4
 $ENDIF
 			do;
 				call getStr;
-				if b6B31 then
-					call sub$43D2;
+				if expectingOpcode then
+					call setExpectOperands;
 				call sub$416B;
 			end;
 		end;
 		do;				/* CC$DIGIT */
 			call getNum;
-			if b6B31 then
-				call sub$43D2;
+			if expectingOpcode then
+				call setExpectOperands;
 			call sub$416B;
 		end;
 		do;				/* CC$LET */
 $IF OVL4
 			w919F = w906A - 1;
 $ENDIF
-			call getId(9);
-			if tokenSize(0) > 6 then
+			call getId(O$ID);	/* assume it's an id */
+			if tokenSize(0) > 6 then	/* cap length */
 				tokenSize(0) = 6;
 
 			if ctlXREF then
 			do;
-				call move(6, .extName, .b6879);
-				call move(6, .spaces6, .extName);
+				call move(6, .name, .savName);
+				call move(6, .spaces6, .name);
 			end;
-
-			call move(tokenSize(0), curTokStart, .extName);
+			/* copy the token to name */
+			call move(tokenSize(0), tokPtr, .name);
 			nameLen = tokenSize(0);
-			call packToken;
+			call packToken;		/* make into 4 byte name */
 			if haveUserSymbol then
 			do;
 				b687F = 0FFh;
@@ -2804,41 +2884,41 @@ $ENDIF
 
 
 $IF OVL4
-			if lookup(2) <> 9 and b905E then
+			if lookup(2) <> O$ID and b905E then
 			do;
-				if not b9058 or (jj := tokenType(0) = 0) and (curChar = 26h or mem(w919F-1) = 26h) then
+				if not b9058 or (jj := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
 				do;
 					w906A = w919F;
 					call sub$3D55(jj + 81h);
 					call sub$3D34(sub$43DD);
 					call sub$3D55(curChar);
-					b6B29 = 9;
+					effectiveToken = O$ID;
 				end;
 			end;
-			else if b6B29 <> 37h and not b905E = 2 then
+			else if effectiveToken <> O$37 and not b905E = 2 then
 $ENDIF
 			do;
-				if lookup(0) = 9 then		/* not a key word */
+				if lookup(0) = O$ID then		/* not a key word */
 				do;
 					tokenType(0) = lookup(1);	/* look up in symbol space */
 					haveUserSymbol = TRUE;		/* not a key word */
 				end;
 
-				b6B29 = tokenType(0);
-				b6885 = b3EA8(tokenType(0));
-				if not b3E5E(tokenType(0)) then
+				effectiveToken = tokenType(0);
+				b6885 = b3EA8(tokenType(0));		/* DS, ORG, IF, O$3A, IRP, IRPC REPT */
+				if not b3E5E(tokenType(0)) then		/* i.e. not instruction, reg or O$37 or 1,2,3,4,6,A */
 					call popToken;
 
 				if b687F then
-				do;
-					call sub$467F((not testBit(b6B29, .b3EA0)) and 1, .b6879);
+				do;			   /* EQU, SET or O$37 */
+					call emitXref((not testBit(effectiveToken, .b3EA0)) and 1, .savName);
 					b687F = 0;
 				end;
 			end;
 $IF OVL4
 			if b905E = 1 then
 			do;
-				if b6B29 = 3Fh then
+				if effectiveToken = K$LOCAL then
 				do;
 					b905E = 2;
 					if b6897 then
@@ -2852,18 +2932,18 @@ $IF OVL4
 				end;
 			end;
 
-			if b6B29 = 41h then
+			if effectiveToken = K$NUL then
 				call pushToken(40h);
 $ENDIF
-			if b6B29 < 0Ah or b6B29 = 9 or 80h then
+			if effectiveToken < 10 or effectiveToken = 9 or 80h then /* !! only first term contributes */
 			do;
 				call sub$416B;
-				if b6B31 then
-					call sub$43D2;
+				if expectingOpcode then
+					call setExpectOperands;
 			end;
 			else
 			do;
-				b6B31 = 0;
+				expectingOpcode = 0;
 				return;
 			end;
 		end;
@@ -2878,7 +2958,7 @@ $IF OVL4
 			if expandingMacro then
 			do;
 				skipping(0) = 0;
-				b6B29 = 40h;
+				effectiveToken = 40h;
 				return;
 			end;
 			else
@@ -2957,19 +3037,19 @@ end;
 
 sub$4274: procedure public;
 	if testBit(op, .b41B7) then
-		if sub$425B(b6858) then
+		if sub$425B(valType) then
 			call operandError;
 end;
 
 sub$4291: procedure public;
-	if sub$425B(b6858) then
+	if sub$425B(valType) then
 		call operandError;
 	if (b4181(op) and 2) = 0 then
 		b6856 = 0;
 	else if sub$425B(b6859) then
 		call operandError;
 
-	b6858 = 0Ch;
+	valType = 0Ch;
 	bp6BE0(0) = (b6855 and 18h) <> 0;
 	bp6BE0(1) = (b6856 and 18h) <> 0;
 	if (b6855 and 7) <> 0 then
@@ -3008,47 +3088,47 @@ end;
 
 
 swapAccBytes: procedure public;
-	declare b6C17 byte;
-	b6C17 = accum1$lb;
+	declare tmp byte;
+	tmp = accum1$lb;
 	accum1$lb = accum1$hb;
-	accum1$hb = b6C17;
+	accum1$hb = tmp;
 end;
 
 
 
-sub$43D2: procedure public;
-	b6B30 = 0FFh;
-	b6B31 = 0;
+setExpectOperands: procedure public;
+	expectingOperands = 0FFh;
+	expectingOpcode = 0;
 end;
 
 
 
 sub$43DD: procedure address public;
-	declare s based curTokStart(1) byte,
-		wrd$p address,
-		wrd based wrd$p address;
+	declare tokByte based tokPtr (1) byte,	/* and high byte if not a register */
+		val$p address,
+		val based val$p address;
 $IF OVL4
 	logError: procedure(arg1b);
 		declare arg1b byte;
 
-		if tokenType(tokenSP) <> 40h then
+		if tokenType(tokenIdx) <> 40h then
 		do;
 			call sourceError(arg1b);
 			return;
 		end;
 		if tokenSize(0) = 0 then
-			tokenType(tokenSP) = 41h;
+			tokenType(tokenIdx) = 41h;
 	end;
 $ENDIF
 
 	b6855 = 0;
 	accum1 = 0;
-	b6858 = 9;
+	valType = O$ID;
 $IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
 $ENDIF
-	if tokenSP = 0 or tokenType(0) = 11 and not b6B36 then
+	if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
 $IF OVL4
 		call logError('Q');
 $ELSE
@@ -3056,7 +3136,7 @@ $ELSE
 $ENDIF
 	else
 	do;
-		if tokenType(0) = 9 or tokenType(0) = 6 then
+		if tokenType(0) = O$ID or tokenType(0) = T$COMMA then
 $IF OVL4
 			call logError('U');
 $ELSE
@@ -3064,13 +3144,13 @@ $ELSE
 $ENDIF
 		else
 		do;
-			b6858 = tokenType(0);
-			if testBit(b6858, .b41DE) then
+			valType = tokenType(0);
+			if testBit(valType, .b41DE) then
 			do;
-				curTokStart = curTokenSym$p + 7;
-				b6855 = s(0) and 0DFh;
-				curTokStart, wrd$p = curTokenSym$p + 4;
-				w685A = wrd;
+				tokPtr = curTokenSym$p + 7;	/* point to flags */
+				b6855 = tokByte(0) and 0DFh;
+				tokPtr, val$p = curTokenSym$p + 4;
+				w685A = val;			/* pick up value */
 				tokenSize(0) = 2;
 
 			end;
@@ -3092,15 +3172,15 @@ $ENDIF
 				w685A = tokenSymId(0);
 			end;
 
-			if tokenSize(0) > 0 then
-				accum1$lb = s(0);
-			if tokenSize(0) > 1 then
-				accum1$hb = s(1) and tokenType(0) <> 7;
+			if tokenSize(0) > 0 then	/* get low byte */
+				accum1$lb = tokByte(0);
+			if tokenSize(0) > 1 then	/* and high byte if not a register */
+				accum1$hb = tokByte(1) and tokenType(0) <> 7;
 		end;	
 
 		if has16bitOperand then
 			if tokenSize(0) = 2 then
-				if tokenType(0) = 10 then
+				if tokenType(0) = O$STRING then
 					call swapAccBytes;
 
 		if (b6855 and 40h) <> 0 then
@@ -3129,15 +3209,15 @@ sub$450F: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not sub$425B(b6859) and op <> 2Eh) then    /* RST */
+		   or (not sub$425B(b6859) and op <> K$RST) then    /* RST */
 			call operandError;
-		else if sub$425B(b6859) and op = 2Eh then	     /* RST */
+		else if sub$425B(b6859) and op = K$RST then	     /* RST */
 			call operandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
-	else if op <> 2Dh then		/* single byte op */
+	else if op <> K$SINGLE then		/* single byte op */
 		if sub$425B(b6859) then
 			call operandError;
 
@@ -3151,7 +3231,7 @@ sub$450F: procedure(arg1b) public;
 		if accum2$hb + 1 > 1 then
 			call valueError;
 	end;
-	if op = 28h or op = 2Ch then	/* Imm8 or imm16 */
+	if op = K$IMM8 or op = K$IMM16 then	/* Imm8 or imm16 */
 	do;
 		b6855 = b6856;
 		w685A = w685C;
@@ -3159,56 +3239,63 @@ sub$450F: procedure(arg1b) public;
 	else
 		b6855 = 0;
 
-	if op <> 2Dh then		     /* single byte op */
-		if accum1$lb = 76h then
+	if op <> K$SINGLE then		     /* single byte op */
+		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
 			call operandError;
 	if (op := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
 		b6B2D = 0Bh;
 end;
 
-sub$4646: procedure byte public;
-	if b689A >= tokenSP then
+nxtTokI: procedure byte public;
+	if tokI >= tokenIdx then
 		return 0;
-	return (b689A := b689A + 1);
+	return (tokI := tokI + 1);
 end;
 
 
 
-sub$465B: procedure byte public;
-	return ((not b6B20$9A77) and ctlLIST or b6A6F and b6B20$9A77)
+showLine: procedure byte public;
+	return ((not isControlLine) and ctlLIST or b6A6F and isControlLine)
 $IF OVL4
 	        and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
 		and (not(b6B32 or skipping(0)) or ctlCOND);
 end;
 
-sub$467F: procedure(arg1b, arg2w) public;
-	declare arg1b byte, arg2w address;
-	declare (b6C1F, b6C20) byte;
+/*
+	xrefMode= 0 -> defined
+		= 1 -> used
+		= 2 -> finalise
+*/
+emitXref: procedure(xrefMode, name) public;
+	declare xrefMode byte, name address;
+	declare (i, byteval) byte;
+	declare (srcLineLow, srcLineHigh) byte at(.srcLineCnt);
 
 	if not isPhase1 or not ctlXREF or isSkipping and not b6881 then
 		return;
 
-	call outch(arg1b + '0');
-	if arg1b <> 2 then
+	call outch(xrefMode + '0');
+	if xrefMode <> 2 then	/* not finalise */
 	do;
-		call outStrN(arg2w, 6);
-		b6881 = 0;
-		b6C20 = bp6A4E(1);
-		b6C1F = 0;
-		do while b6C1F < 4;
-			b6C1F = b6C1F + 1;
-			if b6C1F then
+		call outStrN(name, 6);
+		b6881 = FALSE;
+		byteval = srcLineHigh;	/* high byte */
+		i = 0;
+		do while i < 4;
+			i = i + 1;
+			if i then	/* high nibble ? */
 			do;
-				if b6C1F = 3 then
-					b6C20 = bp6A4E(0);
-				call outch(nibble2Ascii(shr(b6C20, 4)));
+				if i = 3 then	/* get low byte */
+					byteval = srcLineLow;
+				/* emit high nibble */
+				call outch(nibble2Ascii(shr(byteval, 4)));
 			end;
-			else
-				call outch(nibble2Ascii(b6C20));
+			else	/* emit low nibble */
+				call outch(nibble2Ascii(byteval));
 		end;
 	end;
-	else
+	else	/* finalise */
 	do;
 		call outStrN(.lstFile, 15);
 		if ctlPAGING then
@@ -3273,15 +3360,15 @@ $ENDIF
 end;
 
 sub$546F: procedure public;
-	spIdx = sub$4646;
-	if b6B30 then
+	spIdx = nxtTokI;
+	if expectingOperands then
 		call syntaxError;
 	if haveTokens then
-		if not(tokenType(spIdx) = 0Bh or b68AD) then
+		if not(tokenType(spIdx) = O$DATA or b68AD) then
 			call syntaxError;
 	if inDB or inDW then
 	do;
-		if tokenSP = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
+		if tokenIdx = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
 			tokenSize(0) = 2;
 	end;
 	else if not blankAsmErrCode and haveTokens then
@@ -3290,14 +3377,14 @@ sub$546F: procedure public;
 end;
 
 
-sub4C1E$54FD: procedure public;
+finishLine: procedure public;
 	declare lineno$p address,
 		updating byte,
 		ch based lineno$p byte;
 
 	call sub$546F;
 	if isPhase2Print then
-	do;
+	do;	/* update the ascii line number */
 		lineno$p = .asciiLineNo(3);	/* point to last digit */
 		updating = TRUE;
 
@@ -3314,10 +3401,11 @@ sub4C1E$54FD: procedure public;
 			end;
 			lineno$p = lineno$p - 1;
 		end;
-		if sub$465B or not blankAsmErrCode then
+
+		if showLine or not blankAsmErrCode then
 		do;
 			CHKOVL$1;
-			call ovl3;
+			call printLine;
 		end;
 	end;
 
@@ -3328,10 +3416,10 @@ sub4C1E$54FD: procedure public;
 		call exit;
 	end;
 
-	if not b6B20$9A77 then
+	if not isControlLine then
 	do;
 		ii = 2;
-		if tokenSP < 2 or inDB or inDW then
+		if tokenIdx < 2 or inDB or inDW then
 			ii = 0;
 
 		w6BCE = tokStart(ii) + tokenSize(ii);
@@ -3349,13 +3437,13 @@ sub4C1E$54FD: procedure public;
 
 	if ctlXREF and haveUserSymbol then
 		if phase = 1 then
-			call sub$467F(1, .extName);
+			call emitXref(1, .name);
 
 $IF OVL4
 	call sub$40B9;
 $ENDIF
 
-	do while tokenSP > 0;
+	do while tokenIdx > 0;
 		call popToken;
 	end;
 
@@ -3369,7 +3457,7 @@ $ENDIF
 			call sub7041$8447;
 		end;
 
-		call sub$467F(2, .extName);
+		call emitXref(2, .name);	/* finalise xref file */
 		if chkGenObj then
 		do;
 			CHKOVL$2;
@@ -3383,8 +3471,8 @@ end;
 asm46: do;
 $include(asm46.ipx)
 
-declare	needToOpenFile byte public initial(0),
-	b6C22 byte public initial(0),
+declare	needToOpenFile bool public initial(FALSE),
+	includeOnCmdLine bool public initial(FALSE),
 	b6C23 byte public,
 	fileIdx byte public initial(0),
 	endInBuf$p address public initial(.inBuf),
@@ -3538,7 +3626,7 @@ declare	b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
 $IF OVL4
 			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
 $ELSE
-			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
+			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 */
 $ENDIF
 			     1, 0, 0, 0, 6, 0, 0, 7, 5, 5, 5, 5, 5, 5, 0, 5,	/* 20 */
 			     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 2, 0, 0, 0, 9,	/* 30 */
@@ -3596,7 +3684,7 @@ insertSym: procedure public;
 		ch1 = ch2;
 	end;
 	/* insert the new symbol name */
-	call move(4, curTokStart, curTokenSym$p);
+	call move(4, tokPtr, curTokenSym$p);
 $IF OVL4
 	endSymTab(2) = endSymTab(2) + 8;	/* mark new top of macro table */
 $ENDIF
@@ -3630,18 +3718,18 @@ $ENDIF
 
 declare b6EC4$9C3A byte public;
 
-sub5819$5CE8: procedure(arg1w, arg2b) public;
-	declare arg1w address, arg2b byte;
-	declare (b6CE8, b6CE9, b6CEA, b6CEB, b6CEC) byte;
+sub5819$5CE8: procedure(arg1w, type) public;
+	declare arg1w address, type byte;
+	declare (b6CE8, b6CE9, b6CEA, isSetOrEqu, b6CEC) byte;
 
 	sub$5B9A: procedure;
-		tokenType(0) = arg2b;
-		if (b6858 = 7 or b6858 = 8) and b6CEB then
-			tokenType(0) = 12 - arg2b;
+		tokenType(0) = type;
+		if (valType = K$REGNAME or valType = K$SP) and isSetOrEqu then
+			tokenType(0) = 12 - type;
 	end;
 
 	b6CEC = tokenType(0);
-	b6CEB = arg2b = 5 or arg2b = 4;
+	isSetOrEqu = type = 5 or type = 4;
 	b6CE9 = 0;
 	b6CE8 = curTokenSym.flags;
 	b6CEA = 0;
@@ -3656,7 +3744,7 @@ $ENDIF
 		return;
 	end;
 
-	if tokenSP > 1 then
+	if tokenIdx > 1 then
 		call syntaxError;
 
 	if isPhase1 then
@@ -3666,7 +3754,7 @@ $ENDIF
 			do;
 				if curTokenSym.type >= 80h
 $IF OVL4
-					 or arg2b = 3Ah and curTokenSym.val <> srcLineCnt
+					 or type = O$3A and curTokenSym.val <> srcLineCnt
 $ENDIF
 				then
 				do;
@@ -3684,15 +3772,15 @@ $ENDIF
 				b6CE8 = 0;
 			end;
 
-			b6CE8 = (activeSeg <> 0 and 18h) or (b6748 and 20h) or (b6749 and 58h);
+			b6CE8 = (activeSeg <> 0 and 18h) or (inPublic and 20h) or (inExtrn and 58h);
 			if b6EC4$9C3A = 1 then
 				b6CE8 = b6855;
 
 			if b6EC4$9C3A = 2 then
 				b6CE8 = b6CE8 or activeSeg;
 
-			if b6857 and b6CEB then
-				tokenType(0) = 64h;
+			if b6857 and isSetOrEqu then
+				tokenType(0) = O$64;
 			else
 				call sub$5B9A;
 
@@ -3700,9 +3788,9 @@ $ENDIF
 		end;
 
 	if b6882 = 2 then
-		if tokenType(0) = 9 then
-			if b6858 <> 9 then
-				if b6CEB then
+		if tokenType(0) = O$ID then
+			if valType <> O$ID then
+				if isSetOrEqu then
 				do;
 					call sub$5B9A;
 					if curTokenSym.type < 128 then
@@ -3717,13 +3805,13 @@ $ENDIF
 
 	if isPhase1 then
 		if tokenType(0) = 6 then
-			if testBit(arg2b, .b5666) then
+			if testBit(type, .b5666) then
 			do;
-				if b6749 then
+				if inExtrn then
 					tokenType(0) = 3;
 				else
 				do;
-					tokenType(0) = arg2b;
+					tokenType(0) = type;
 					b6CE8 = b6CE8 and 0E0h;
 					if b6EC4$9C3A = 1 then
 						b6CE8 = b6855 or 20h;
@@ -3736,7 +3824,7 @@ $ENDIF
 			end;
 
 	if isPhase1 then
-		if arg2b = 6 then
+		if type = 6 then
 			if testBit(tokenType(0), .b5666) then
 			do;
 				if (b6CE8 and 60h) <> 0 then
@@ -3747,17 +3835,17 @@ $ENDIF
 			end;
 
 	if isPhase1 then
-		if tokenType(0) <> arg2b and tokenType(0) <> 8 or arg2b = 5 then
+		if tokenType(0) <> type and tokenType(0) <> 8 or type = 5 then
 			tokenType(0) = 3;
 
-	if not b6748 and testBit(tokenType(0), .b5669) then
-		b6CE8 = (b6CE8 and 20h) and tokenType(0) <> 3Ah or b6855;
+	if not inPublic and testBit(tokenType(0), .b5669) then
+		b6CE8 = (b6CE8 and 20h) and tokenType(0) <> O$3A or b6855;
 	else
 	do;
 		if isPhase1 then
 			tokenType(0) = 3;
 
-		if not (b6748 or b6749) then
+		if not (inPublic or inExtrn) then
 			if curTokenSym.val <> arg1w then
 				call phaseError;
 	end;
@@ -3765,7 +3853,7 @@ $ENDIF
 L5A9B$5F82:
 	b6CE9 = b6CE9 or (curTokenSym.type and 80h);
 
-	if isPhase1 and (arg2b = 9 or arg2b = 6 or b6CEC <> tokenType(0)) then
+	if isPhase1 and (type = 9 or type = 6 or b6CEC <> tokenType(0)) then
 		curTokenSym.type = tokenType(0) or b6CE9;
 
 	jj = curTokenSym.type;
@@ -3775,17 +3863,17 @@ L5A9B$5F82:
 	if jj >= 80h then
 		call locationError;
 
-	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7)
-	   or arg2b = 4 and blankAsmErrCode or b6CEA
+	if isPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
+	   or type = 4 and blankAsmErrCode or b6CEA
 $IF OVL4
-	   or arg2b = 3Ah
+	   or type = O$3A
 $ENDIF
 	then
 		curTokenSym.val = arg1w;
 
 	curTokenSym.flags = b6CE8;
-	b6748 = 0;
-	b6749 = 0;
+	inPublic = 0;
+	inExtrn = 0;
 	if curTokenSym.type = 6 then
 		call undefinedSymbolError;
 
@@ -3801,11 +3889,11 @@ lookup: procedure(tableId) byte public;
 	declare tableId byte;
 	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
 		(i, gt) byte;
-	declare symEntry based entryOffset SYMENTRY$T,
+	declare symEntry based entryOffset KEYWORD$T,
 		packedTok based packedTok$p (2) address;
 	declare addr based w6BE0 address;
 
-	packedTok$p = curTokStart;
+	packedTok$p = tokPtr;
 	if tableId = 0 then		/* hash chain look up key word */
 	do;
 		entryOffset = 0;	/* offset to current symbol to compare */
@@ -3819,7 +3907,7 @@ lookup: procedure(tableId) byte public;
 				do;
 					curTokenSym$p = entryOffset;
 					tokenType(0) = curTokenSym.type;
-					if tokenType(0) < 2Dh then	/* not pseudo op */
+					if tokenType(0) < 2Dh then	/* instruction with arg */
 						if op16(tokenType(0)) then
 							has16bitOperand = TRUE;
 
@@ -3852,10 +3940,10 @@ lookup: procedure(tableId) byte public;
 			do;
 				curTokenSym$p = entryOffset;
 				tokenType(0) = curTokenSym.type;
-				if tokenType(0) = 64h then
-					tokenType(0) = 9;
+				if tokenType(0) = O$64 then
+					tokenType(0) = O$ID;
 
-				if (b6884 := (jj := (tokenType(0) and 7Fh)) = 9) then
+				if (b6884 := (jj := (tokenType(0) and 7Fh)) = O$ID) then
 					if b6885 then
 						curTokenSym.type = 89h;
 				return jj;
@@ -3880,7 +3968,7 @@ lookup: procedure(tableId) byte public;
 		b6EC4$9C3A = 0;
 		call sub5819$5CE8(srcLineCnt, (b6885 and 80h) or 9);
 		w6BE0 = .tokenSym;
-		do i = 1 to tokenSP;
+		do i = 1 to tokenIdx;
 			w6BE0 = w6BE0 + 2;
 			if addr >= curTokenSym$p then
 				addr = addr + 8;
@@ -3888,7 +3976,7 @@ lookup: procedure(tableId) byte public;
 
 		b6883 = 0FFh;
 	end;
-	return 9;
+	return O$ID;
 end;
 
 
@@ -3964,7 +4052,7 @@ $IF OVL4
 							if ch = '!' then
 							do;
 								b91A1 = 21h;
-								b91A2 = mem(tmac$w12 + 1);
+								b91A2 = byteAt(tmac$w12 + 1);
 								tmac$buf$p = tmac$buf$p - 1;
 							end;
 						end;
@@ -4127,19 +4215,19 @@ operandError: procedure public;
 end;
 
 haveTokens: procedure byte public;
-	return tokenSP <> 0;
+	return tokenIdx <> 0;
 end;
 
 
 popToken: procedure public;
-	tokStart(0) = tokStart(tokenSP);
-	tokenSym(0) = tokenSym(tokenSP);
-	tokenType(0) = tokenType(tokenSP);
-	tokenAttr(0) = tokenAttr(tokenSP);
-	tokenSize(0) = tokenSize(tokenSP);
-	tokenSymId(0) = tokenSymId(tokenSP);
+	tokStart(0) = tokStart(tokenIdx);
+	tokenSym(0) = tokenSym(tokenIdx);
+	tokenType(0) = tokenType(tokenIdx);
+	tokenAttr(0) = tokenAttr(tokenIdx);
+	tokenSize(0) = tokenSize(tokenIdx);
+	tokenSymId(0) = tokenSymId(tokenIdx);
 	if haveTokens then
-		tokenSP = tokenSP - 1;
+		tokenIdx = tokenIdx - 1;
 end;
 
 
@@ -4150,14 +4238,14 @@ $IF OVL4
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
 	if (macroCondStk(0) := arg1b) = 1 then
 	do;
-		if (b9063 := b9063 + 1) > 9 then
+		if (macroDepth := macroDepth + 1) > 9 then
 		do;
 			call stackError;
-			b9063 = 0;
+			macroDepth = 0;
 		end;
 		else
 		do;
-			call move(16, .macroStk(0), .macroStk(b9063));
+			call move(16, .macroStk(0), .macroStk(macroDepth));
 			tmac$macroCondSP = macroCondSP;
 			tmac$ifDepth = ifDepth;
 			b9061 = 0FFh;
@@ -4197,10 +4285,10 @@ $IF OVL4
 	macroCondSP = macroCondSP - 1;
 	if arg1b = 1 then
 	do;
-		call move(16, .macroStk(b9063), .macroStk(0));
+		call move(16, .macroStk(macroDepth), .macroStk(0));
 		call readM(tmac$blk);
 		b9062 = tmac$mtype;
-		if (b9063 := b9063 - 1) = 0 then
+		if (macroDepth := macroDepth - 1) = 0 then
 		do;
 			expandingMacro = 0;
 			w6870 = physmem + 0BFh;
@@ -4212,8 +4300,8 @@ $ELSE
 $ENDIF
 	else
 	do;
-		skipping(0) = skipping(ifDepth);
-		inElse(0) = inElse(ifDepth);
+			skipping(0) = skipping(ifDepth);
+			inElse(0) = inElse(ifDepth);
 		ifDepth = ifDepth - 1;
 	end;
 end;
@@ -4221,17 +4309,17 @@ end;
 pushToken: procedure(type) public;
 	declare type byte;
 
-	if tokenSP >= 8 then
+	if tokenIdx >= 8 then
 		call stackError;
 	else
 	do;
-		tokenSP = tokenSP + 1;
-		tokStart(tokenSP) = tokStart(0);
-		tokenSym(tokenSP) = tokenSym(0);
-		tokenType(tokenSP) = tokenType(0);
-		tokenAttr(tokenSP) = tokenAttr(0);
-		tokenSize(tokenSP) = tokenSize(0);
-		tokenSymId(tokenSP) = tokenSymId(0);	
+		tokenIdx = tokenIdx + 1;
+		tokStart(tokenIdx) = tokStart(0);
+		tokenSym(tokenIdx) = tokenSym(0);
+		tokenType(tokenIdx) = tokenType(0);
+		tokenAttr(tokenIdx) = tokenAttr(0);
+		tokenSize(tokenIdx) = tokenSize(0);
+		tokenSymId(tokenIdx) = tokenSymId(0);	
 		tokStart(0) = tokStart(0) + tokenSize(0);	/* advance for next token */
 		tokenType(0) = type;
 		tokenAttr(0), tokenSize(0) = bZERO;
@@ -4250,7 +4338,7 @@ collectByte: procedure(c) public;
 	declare ch based s byte;
 
 
-	if (s := curTokStart + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
+	if (s := tokPtr + tokenSize(0)) < endLineBuf then	/* check for lineBuf overrun */
 	do;
 		ch = c;
 		tokenSize(0) = tokenSize(0) + 1;
@@ -4262,24 +4350,24 @@ end;
 getId: procedure(type) public;
 	declare type byte;
 
-	call pushToken(type);
-	reget = 1;
+	call pushToken(type);	/* save any previous token and initialise this one */
+	reget = 1;		/* force re get of first character */
 
 	do while (type := getChClass) = CC$DIGIT or type = CC$LET;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
 		call collectByte(curChar);
 	end;
-	reget = 1;
+	reget = 1;		/* force re get of exit char */
 end;
 
 
 getNum: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
-	declare chrs based curTokStart (1) byte;
+	declare chrs based tokPtr (1) byte;
 
-	call getId(12);
+	call getId(O$NUMBER);
 	radix = chrs(tokenSize(0):= tokenSize(0) - 1);
 	if radix = 'H' then
 		radix = 16;
@@ -4326,7 +4414,7 @@ getNum: procedure public;
 end;
 
 getStr: procedure public;
-	call pushToken(0Ah);
+	call pushToken(O$STRING);
 
 	do while getCh <> CR;
 		if curChar = '''' then
@@ -4375,7 +4463,7 @@ end;
 
 getTok: procedure byte;
 	tokBufLen = 0;
-	tokType = TT$ID;
+	tokType = O$NONE;
 	if isCR then
 		return curChar;
 
@@ -4391,7 +4479,7 @@ getTok: procedure byte;
 		call getNum;
 		if blankAsmErrCode then
 		do;
-			w6B1E = sub$43DD;
+			tokNumVal = sub$43DD;
 			tokType = TT$NUM;
 			tokBuf(0) = ' ';
 		end;
@@ -4495,7 +4583,7 @@ end;
 
 
 
-sub$702B: procedure byte;
+getControlNumArg: procedure byte;
 	if chkParen(0) then	/* ( */
 	do;
 		b7463 = getTok;
@@ -4551,7 +4639,7 @@ lookupControl: procedure byte;
 			end;
 
 			if cmdIdx = tokBufLen then		/* found it */
-				goto break;
+				goto found;
 		end;
 		control$p = nextControl$p;
 		controlId = controlId + 1;
@@ -4559,12 +4647,12 @@ lookupControl: procedure byte;
 	end;
 	return 255;						/* not found */
 
-break:
+found:
 $IF OVL0 
 	if controlId = 1 or controlId = 12h then	/* MACRODEBUG or GEN */
 	do;
 		if scanCmdLine then			/* only valid on command line not $ line */
-			MacroDebugOrGen = 0FFh;
+			MacroDebugOrGen = TRUE;
 		else
 			return 255;			/* error otherwise */
 	end;
@@ -4603,19 +4691,19 @@ processControl: procedure;
 			return;
 		end;
 /* 2 */		do;			/* PRINT */
-			w6BE2 = 2;
+			controlFileType = 2;
 			curFileName$p = .lstFile;
 			call getFileParam;
 			return;
 		end;
 /* 3 */		do;			/* OBJECT */
-			w6BE2 = 3;
+			controlFileType = 3;
 			curFileName$p = .objFile;
 			call getFileParam;
 			return;
 		end;
 /* 4 */		do;			/* MACROFILE */
-			w6BE2 = 3;
+			controlFileType = 3;
 			if chkParen(0) then	/* optional drive for tmp file */
 				call getMacroFileDrive;
 			else
@@ -4624,9 +4712,9 @@ processControl: procedure;
 			return;
 		end;
 /* 5 */		do;			/* PAGEWIDTH */
-			if sub$702B then
+			if getControlNumArg then
 			do;
-				ctlPAGEWIDTH = w6B1E;
+				ctlPAGEWIDTH = tokNumVal;
 				if ctlPAGEWIDTH > 132 then
 					ctlPAGEWIDTH = 132;
 				if ctlPAGEWIDTH < 72 then
@@ -4635,9 +4723,9 @@ processControl: procedure;
 			end;
 		end;
 /* 6 */		do;			/* PAGELENGTH */
-			if sub$702B then
+			if getControlNumArg then
 			do;
-				ctlPAGELENGTH = w6B1E;
+				ctlPAGELENGTH = tokNumVal;
 				if ctlPAGELENGTH < 15 then
 					ctlPAGELENGTH = 15;
 				return;
@@ -4646,7 +4734,7 @@ processControl: procedure;
 /* 7 */		do;			/* INCLUDE */
 			if not needToOpenFile then
 			do;
-				w6BE2 = 1;
+				controlFileType = 1;
 				if fileIdx = 5 then
 					call stackError;
 				else
@@ -4654,9 +4742,9 @@ processControl: procedure;
 					fileIdx = fileIdx + 1;
 					curFileName$p = .files(fileIdx);
 					call getFileParam;
-					needToOpenFile = 0FFh;
+					needToOpenFile = TRUE;
 					if scanCmdLine then
-						b6C22 = 0FFh;
+						includeOnCmdLine = TRUE;
 					return;
 				end;
 			end;
@@ -4706,14 +4794,14 @@ processControl: procedure;
 end;
 
 parseControls: procedure public;
-	b6B20$9A77 = TRUE;
+	isControlLine = TRUE;
 	b6A6F, b7464 = ctlLIST;
 $IF OVL4
 	b7465 = ctlGEN;
 $ENDIF
 	controlError = 0;
 
-	do while getTok <> 0Dh and not controlError;
+	do while getTok <> CR and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
 			call skip2EOL;
 		else if lookupControl = 255 then	/* error ? */
@@ -4786,7 +4874,7 @@ end;
 sub$71F2: procedure;
 	symTab(2), endSymTab(2) = symHighMark;
 	b9065, tmac$b3 = bZERO;
-	b6B29 = 37h;
+	effectiveToken = 37h;
 end;
 
 
@@ -4796,11 +4884,11 @@ sub$720A: procedure;
 	if not expandingMacro then
 		expandingMacro = 1;
 
-	if b9063 = 0 then
+	if macroDepth = 0 then
 		expandingMacro = 0FFh;
 
 	if b9061 then
-		call move(4, .macroStk(0).buf$p, .macroStk(b9063).buf$p);
+		call move(4, .macroStk(0).buf$p, .macroStk(macroDepth).buf$p);
 
 	b9061 = 0;
 	tmac$w12 = w9199;
@@ -4816,7 +4904,7 @@ sub$727F: procedure byte;
 		return TRUE;
 	b9064 = b9064 + 1;
 	b6B2C = op <> 3Eh;
-	b6B29 = 37h;
+	effectiveToken = 37h;
 	return FALSE;
 end;
 
@@ -4853,7 +4941,7 @@ end;
 
 sub$7327: procedure public;
 	w9199 = w6870;
-	b6B29 = 3Dh;
+	effectiveToken = 3Dh;
 	b905D = TRUE;
 	b9060 = 0;
 end;
@@ -4892,11 +4980,11 @@ end;
 
 
 sub$73AD: procedure public;
-	declare b9C83 byte;
+	declare isPercent byte;
 
-	b9C77 = tokenSP;
+	b9C77 = tokenIdx;
 	call skipWhite;
-	if not (b9C83 := curChar = 25h) then
+	if not (isPercent := curChar = '%') then
 	do;
 		b9066 = argNestCnt - 1;
 		if (b905A := isLT) then
@@ -4905,9 +4993,9 @@ sub$73AD: procedure public;
 		call pushToken(0Dh);
 
 	L73E2:	do while not sub$7192;
-			if curChar = 27h then
+			if curChar = '''' then
 			do;
-				if (curChar := getCh) = 27h then
+				if (curChar := getCh) = '''' then
 				do;
 					curChar = getCh;
 					call skipWhite;
@@ -4915,13 +5003,13 @@ sub$73AD: procedure public;
 						goto L7463;
 					else
 					do;
-						call collectByte(27h);
-						call collectByte(27h);
+						call collectByte('''');
+						call collectByte('''');
 					end;
 				end;
 				else
 				do;
-					call collectByte(27h);
+					call collectByte('''');
 					goto L73E2;
 				end;
 			end;
@@ -4929,7 +5017,7 @@ sub$73AD: procedure public;
 			if tmac$mtype = 2 then
 				tmac$w14 = tmac$w14 + 1;
 
-			if curChar = 21h and getCh <> 0Dh then
+			if curChar = '!' and getCh <> CR then
 			do;
 				call collectByte(curChar);
 				curChar = getCh;
@@ -4953,14 +5041,14 @@ sub$73AD: procedure public;
 	if tmac$mtype = 4 then
 	do;
 		if not b905A and tokenSize(0) = 5 then
-			if strUCequ(.aMacro, curTokStart) then
+			if strUCequ(.aMacro, tokPtr) then
 			do;
-				b6B29 = 36h;
+				effectiveToken = 36h;
 				call popToken;
 				w9199 = tmac$w12;
 				opSP = opSP - 1;
 				reget = 1;
-				call sub$467F(0, .extName);
+				call emitXref(0, .name);
 				haveUserSymbol = FALSE;
 				b6BDA = 0FFh;
 				return;
@@ -4970,7 +5058,7 @@ sub$73AD: procedure public;
 		tmac$mtype = 0;
 	end;
 
-	if not b9C83 then
+	if not isPercent then
 		if not testBit(curChar, .b7183) then	/* not CR, COMMA or SEMI */
 		do;
 			call skip2EOL;
@@ -4984,9 +5072,9 @@ end;
 sub$7517: procedure public;
 	if sub$727F then
 	do;
-		b6B30 = 0;
+		expectingOperands = 0;
 		w9068 = curTokenSym$p + 4;
-		call sub5819$5CE8(0, 3Ah);
+		call sub5819$5CE8(0, O$3A);
 		tmac$mtype = 0;
 		call sub$71F2;
 	end;
@@ -5037,7 +5125,7 @@ sub$753E: procedure public;
 			tmac$mtype = 5;
 			w9068 = w9068 + 2;
 			if (ch and 7Fh) = 3Ah then
-				ch = (asmErrCode = 4Ch) and 80h or 9;
+				ch = (asmErrCode = 'L') and 80h or 9;
 		end;
 		call sub$7383;
 	end;
@@ -5059,7 +5147,7 @@ sub$75FF: procedure public;
 					w9199 = w6870 + 3;
 
 				do w6BE0 = w919D to w919F - 1;
-					curChar = mem(w6BE0);
+					curChar = byteAt(w6BE0);
 					if not isWhite then
 						call syntaxError;
 				end;
@@ -5111,7 +5199,7 @@ end;
 
 
 sub$770B: procedure public;
-	if b9C77 + 1 <> tokenSP then
+	if b9C77 + 1 <> tokenIdx then
 		call syntaxError;
 	else if not b9060 then
 	do;
@@ -5125,7 +5213,7 @@ sub$770B: procedure public;
 			tmac$w14 = tokenSize(0) - (tokenSize(0) = 0);
 
 		call collectByte((tokenSize(0) + 1) or 80h);
-		w6870 = sub$733D(curTokStart, curTokStart + tokenSize(0) - 1);
+		w6870 = sub$733D(tokPtr, tokPtr + tokenSize(0) - 1);
 		call popToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
@@ -5179,7 +5267,7 @@ end;
 
 sub$7844: procedure public;
 	call sub$72A4(3);
-	if (b6B29 := opType) <> 1 then
+	if (effectiveToken := opType) <> 1 then
 		call syntaxError;
 
 	if not b905E then
@@ -5223,7 +5311,7 @@ end;
 
 
 sub$78CE: procedure public;
-	jj = mem(tmac$w12);
+	jj = byteAt(tmac$w12);
 	bp6BE0(0) = 1 - (jj = 21h and b9062 = 2);
 	if b9062 = 0 or (tmac$w14 := tmac$w14 - bp6BE0(0)) = 0 then
 		call unnestIF(1);
@@ -5238,7 +5326,7 @@ sub$78CE: procedure public;
 		call sub$720A;
 	end;
 	lookAhead = 0;
-	b6B2C, b689C = bTRUE;
+	b6B2C, atStartLine = bTRUE;
 end;
 
 end;
@@ -5377,8 +5465,8 @@ newPage: procedure public;
 end;
 
 
-sub$6F4D: procedure public;
-    if sub$465B then
+doEject: procedure public;
+    if showLine then
     do while ctlEJECT > 0;
         call newPage;
         ctlEJECT = ctlEJECT - 1;
@@ -5490,7 +5578,7 @@ $ENDIF
                                     call printStr(.tokStr);
                                     call printChar(' ');
 $IF OVL4
-                                    if type = 3Ah then
+                                    if type = O$3A then
                                         call printChar('+');
                                     else
 $ENDIF
@@ -5520,7 +5608,7 @@ printCmdLine: procedure public;
     declare ch based actRead byte;
 
     call outch(FF);
-    call sub$6F4D;
+    call doEject;
     ch = 0;
     call printStr(.cmdLineBuf);
     call newPageHeader;
@@ -5550,13 +5638,13 @@ end;
 
 
 sub$721E: procedure byte public;
-    return w68A2 < w68A0;
+    return startItem < endItem;
 end;
 
 
 
 sub$7229: procedure public;
-    declare ch based w68A2 byte;
+    declare ch based startItem byte;
     declare b7568 byte;
 
     if (b68AB := sub$721E or b68AB) then
@@ -5577,7 +5665,7 @@ sub$7229: procedure public;
         else
             call outStr(.spaces2);
 
-        w68A2 = w68A2 + 1;
+        startItem = startItem + 1;
     end;
 
     call outch(' ');
@@ -5603,15 +5691,15 @@ end;
 
 
 
-ovl3: procedure public;
+printLine: procedure public;
     declare ch based inCh$p byte;
 $IF OVL4
     declare ch1 based macro$p byte;
 $ENDIF
 loop:
-    w68A0 = (w68A2 := tokStart(spIdx)) + tokenSize(spIdx);
+    endItem = (startItem := tokStart(spIdx)) + tokenSize(spIdx);
     if isSkipping then
-        w68A0 = w68A2;
+        endItem = startItem;
 
     call outch(asmErrCode);
 $IF OVL4
@@ -5624,15 +5712,16 @@ $ENDIF
     if not blankAsmErrCode then
     do;
         asmErrCode = ' ';
-        b689B = 0FFh;
+        b689B = TRUE;
     end;
-    if b6B20$9A77 then
+    if isControlLine then
         call outStr(.spaces15);
     else
         call sub$7229;
 
     if fileIdx > 0 then
     do;
+	/* note byte arith used so needToOpenFile = TRUE(255h) treated as -1 */
         call outch(a1234(ii := needToOpenFile + fileIdx));
         if ii > 0 then    
             call outch('=');
@@ -5677,10 +5766,10 @@ $IF OVL4
 $ENDIF
     end;
 
-    if b6B20$9A77 then
+    if isControlLine then
     do;
         if ctlPAGING then
-            call sub$6F4D;
+            call doEject;
     end;
     else
     do;
@@ -5881,7 +5970,7 @@ resetData: procedure public;	/* extended initialisation */
 
     call initLine;
 
-    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
+    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), b6742,
 $IF OVL4
     expandingMacro, b905C, b905E,
 $ENDIF
@@ -5892,7 +5981,7 @@ $IF OVL4
 $ENDIF
     ctlCOND = bTRUE;
 $IF OVL4
-    b9063, b9064, macroCondStk(0), macroCondSP, 
+    macroDepth, b9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 $IF OVL4
@@ -5948,167 +6037,169 @@ end;
 end;
 key4.plm
 keywords: do;
+$include(key4.ipx)
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
-declare extKeywords(*) address public initial(
+declare extKeywords(151) KEYWORD$T public initial(
 /*
 	4 byte packed keyword
 	byte opcode base
 	byte offset to next entry or 0 if end
 	byte type
-	byte special location
+	byte flags
 */
-	0A528h,	00000h,	00h,	010h,	/* NE */
-	063B0h,	00000h,	0CCh,	02Ch,	/* CZ */
-	06E60h,	09C40h,	00h,	038h,	/* ENDM */
-	0BFB6h,	00000h,	0C0h,	02Dh,	/* RNZ */
-	0B354h,	00000h,	0C1h,	025h,	/* POP */
-	06EE9h,	00000h,	00h,	01Dh,	/* EQU */
-	0C6CDh,	00000h,	08032h,	02Ch,	/* STA */
-	0A1A5h,	00000h,	08006h,	029h,	/* MVI */
-	0C6CFh,	00000h,	037h,	02Dh,	/* STC */
-	0C6CDh,	06158h,	00h,	01B05h,	/* STACK */
-	06615h,	00000h,	027h,	02Dh,	/* DAA */
-	0988Dh,	0E100h,	0Ah,	026h,	/* LDAX */
-	061F6h,	00000h,	0C4h,	02Ch,	/* CNZ */
-	053CFh,	00000h,	08888h,	027h,	/* ADC */
-	053D0h,	00000h,	080h,	027h,	/* ADD */
-	08D9Fh,	00000h,	0A0D2h,	02Ch,	/* JNC */
-	00000h,	00000h,	00h,	00h,	/*  */
-	00000h,	00000h,	00h,	00h,	/*  */
-	00000h,	00000h,	00h,	00h,	/*  */
-	06E60h,	00000h,	08800h,	020h,	/* END */
-	06A40h,	00000h,	0A003h,	07h,	/* E */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0AD70h,	00000h,	00h,	013h,	/* OR */
-	0AE08h,	00000h,	0D3h,	028h,	/* OUT */
-	0A088h,	00000h,	00h,	015h,	/* MOD */
-	0AD83h,	00000h,	00h,	01Fh,	/* ORG */
-	00000h,	00000h,	00h,	00h,	/*  */
-	08F70h,	00000h,	070CAh,	02Ch,	/* JZ */
-	068E9h,	076C0h,	00h,	031h,	/* DSEG */
-	0C488h,	00000h,	00h,	01Eh,	/* SET */
-	08BD8h,	00000h,	010DAh,	02Ch,	/* JC */
-	0C521h,	00000h,	030h,	022Dh,	/* SIM */
-	06618h,	00000h,	0809h,	025h,	/* DAD */
-	0B16Ch,	09600h,	0E9h,	02Dh,	/* PCHL */
-	0A4A1h,	06A40h,	00h,	034h,	/* NAME */
-	06748h,	00000h,	0F3h,	02Dh,	/* DI */
-	053D5h,	00000h,	018C6h,	028h,	/* ADI */
-	06630h,	00000h,	00h,	01Ah,	/* DB */
-	08DB6h,	00000h,	0C2h,	02Ch,	/* JNZ */
-	0AD7Dh,	00000h,	0B0h,	027h,	/* ORA */
-	0B3FBh,	00000h,	06h,	07h,	/* PSW */
-	0AD85h,	00000h,	0F6h,	028h,	/* ORI */
-	0A09Ah,	00000h,	0B840h,	02Bh,	/* MOV */
-	08610h,	00000h,	0B800h,	021h,	/* IF */
-	00000h,	00000h,	00h,	00h,	/*  */
-	09938h,	06400h,	0B02Ah,	02Ch,	/* LHLD */
-	09600h,	00000h,	0B005h,	07h,	/* L */
-	0C6F6h,	00000h,	090h,	027h,	/* SUB */
-	0C634h,	09600h,	0F9h,	02Dh,	/* SPHL */
-	0C405h,	00000h,	0DEh,	028h,	/* SBI */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0BF4Fh,	00000h,	07h,	02Dh,	/* RLC */
-	05780h,	00000h,	00h,	07h,	/* B */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0E614h,	09600h,	0E8E3h,	02Dh,	/* XTHL */
-	00000h,	00000h,	00h,	00h,	/*  */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0B11Bh,	06A40h,	02h,	05h,	/* PAGE */
-	00000h,	00000h,	00h,	00h,	/*  */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0A7C0h,	00000h,	0D800h,	041h,	/* NUL */
-	08750h,	00000h,	0DBh,	028h,	/* IN */
-	06E60h,	08610h,	0D000h,	023h,	/* ENDIF */
-	00000h,	00000h,	00h,	00h,	/*  */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0C3FEh,	00000h,	098h,	027h,	/* SBB */
-	0C6D7h,	09A10h,	00h,	035h,	/* STKLN */
-	0BFE0h,	00000h,	0F0h,	02Dh,	/* RP */
-	0C078h,	00000h,	0C7h,	02Eh,	/* RST */
-	0C4F8h,	06400h,	022h,	02Ch,	/* SHLD */
-	09E57h,	0BFB8h,	00h,	036h,	/* MACRO */
-	06231h,	00000h,	0ECh,	02Ch,	/* CPE */
-	0B436h,	09957h,	0A800h,	032h,	/* PUBLIC */
-	0BDA0h,	00000h,	0A817h,	02Dh,	/* RAL */
-	06FF5h,	0CBE8h,	0D800h,	039h,	/* EXITM */
-	06235h,	00000h,	0FEh,	028h,	/* CPI */
-	0BF68h,	00000h,	0F8h,	02Dh,	/* RM */
-	00000h,	00000h,	00h,	00h,	/*  */
-	00000h,	00000h,	00h,	00h,	/*  */
-	0BDA6h,	00000h,	01Fh,	02Dh,	/* RAR */
-	0805Bh,	07D00h,	0B800h,	018h,	/* HIGH */
-	06400h,	00000h,	0C802h,	07h,	/* D */
-	0B447h,	07D00h,	0D0C5h,	025h,	/* PUSH */
-	0C6FDh,	00000h,	08D6h,	028h,	/* SUI */
-	06220h,	00000h,	0F4h,	02Ch,	/* CP */
-	061A8h,	00000h,	0FCh,	02Ch,	/* CM */
-	00000h,	00000h,	00h,	00h,	/*  */
-	05629h,	076C0h,	00h,	02Fh,	/* ASEG */
-	0BFF1h,	00000h,	0E8h,	02Dh,	/* RPE */
-	0880Ch,	05DC0h,	0A800h,	03Ch,	/* IRPC */
-	0BE48h,	00000h,	0C9h,	02Dh,	/* RET */
-	0876Eh,	00000h,	04h,	02Ah,	/* INR */
-	0BEE1h,	00000h,	020h,	022Dh,	/* RIM */
-	0BFFBh,	00000h,	0E0h,	02Dh,	/* RPO */
-	0C6CDh,	0E100h,	02802h,	026h,	/* STAX */
-	0988Dh,	00000h,	0983Ah,	02Ch,	/* LDA */
-	07000h,	0BF90h,	00h,	033h,	/* EXTRN */
-	08774h,	00000h,	09003h,	025h,	/* INX */
-	061B5h,	00000h,	0902Fh,	02Dh,	/* CMA */
-	0876Ch,	05449h,	01h,	05h,	/* INPAGE */
-	09A47h,	05500h,	09800h,	03Fh,	/* LOCAL */
-	0E5BDh,	00000h,	08A8h,	027h,	/* XRA */
-	080E0h,	00000h,	076h,	02Dh,	/* HLT */
-	08DE0h,	00000h,	0F2h,	02Ch,	/* JP */
-	09A5Bh,	00000h,	00h,	019h,	/* LOW */
-	06D88h,	00000h,	0FBh,	02Dh,	/* EI */
-	0623Bh,	00000h,	0E4h,	02Ch,	/* CPO */
-	06676h,	00000h,	06805h,	02Ah,	/* DCR */
-	0E5C5h,	00000h,	0EEh,	028h,	/* XRI */
-	0555Dh,	00000h,	0A0h,	027h,	/* ANA */
-	062A9h,	076C0h,	00h,	030h,	/* CSEG */
-	08D68h,	00000h,	0FAh,	02Ch,	/* JM */
-	05560h,	00000h,	00h,	012h,	/* AND */
-	05140h,	00000h,	05807h,	07h,	/* A */
-	0BE44h,	0C800h,	00h,	03Eh,	/* REPT */
-	08DF1h,	00000h,	0EAh,	02Ch,	/* JPE */
-	0880Ch,	00000h,	00h,	03Bh,	/* IRP */
-	05565h,	00000h,	0E6h,	028h,	/* ANI */
-	09B00h,	00000h,	00h,	0Ch,	/* LT */
-	061B7h,	00000h,	03Fh,	02Dh,	/* CMC */
-	08DFBh,	00000h,	0E2h,	02Ch,	/* JPO */
-	07BC0h,	00000h,	00h,	0Eh,	/* GT */
-	06978h,	00000h,	07800h,	01Bh,	/* DW */
-	06EC8h,	00000h,	00h,	0Bh,	/* EQ */
-	068D8h,	00000h,	04800h,	01Ch,	/* DS */
-	07968h,	00000h,	0A000h,	0Fh,	/* GE */
-	0A6D4h,	00000h,	00h,	02Dh,	/* NOP */
-	09F01h,	0AD95h,	00h,	01C05h,	/* MEMORY */
-	05FE0h,	09600h,	0CDh,	02Ch,	/* CALL */
-	0BDD8h,	00000h,	0D8h,	02Dh,	/* RC */
-	053ADh,	00000h,	080CEh,	028h,	/* ACI */
-	0BF9Fh,	00000h,	0D0h,	02Dh,	/* RNC */
-	0E36Ch,	076C0h,	0EBh,	02Dh,	/* XCHG */
-	061C4h,	00000h,	08B8h,	027h,	/* CMP */
-	0667Ch,	00000h,	0Bh,	025h,	/* DCX */
-	0C620h,	00000h,	06h,	08h,	/* SP */
-	09C40h,	00000h,	06h,	07h,	/* M */
-	098A8h,	00000h,	03800h,	0Dh,	/* LE */
-	06018h,	00000h,	0DCh,	02Ch,	/* CC */
-	07D00h,	00000h,	05004h,	07h,	/* H */
-	0C03Fh,	00000h,	0500Fh,	02Dh,	/* RRC */
-	0C4F8h,	00000h,	00h,	016h,	/* SHL */
-	05DC0h,	00000h,	01h,	07h,	/* C */
-	0C170h,	00000h,	0C8h,	02Dh,	/* RZ */
-	0E556h,	00000h,	00h,	014h,	/* XOR */
-	06E1Fh,	06A40h,	00h,	022h,	/* ELSE */
-	0A6D8h,	00000h,	00h,	011h,	/* NOT */
-	0C4FEh,	00000h,	00h,	017h,	/* SHR */
-	09BB5h,	00000h,	01h,	024h,	/* LXI */
-	08D84h,	00000h,	0C3h,	02Ch,	/* JMP */
-	061DFh,	00000h,	0D4h,	02Ch	/* CNC */
+	/* token        opBase	offset	type		flags */
+	0A528h,	0,	0,	0,	K$NE,		0,	/* NE */
+	63B0h,	0,	0CCh,	0,	K$IMM16,	0,	/* CZ */
+	6E60h,	9C40h,	0,	0,	K$ENDM,		0,	/* ENDM */
+	0BFB6h,	0,	0C0h,	0,	K$SINGLE,	0,	/* RNZ */
+	0B354h,	0,	0C1h,	0,	K$REG16,	0,	/* POP */
+	6EE9h,	0,	0,	0,	K$EQU,		0,	/* EQU */
+	0C6CDh,	0,	32h,	80h,	K$IMM16,	0,	/* STA */
+	0A1A5h,	0,	6,	80h,	K$MVI,		0,	/* MVI */
+	0C6CFh,	0,	37h,	0,	K$SINGLE,	0,	/* STC */
+	0C6CDh,	6158h,	0,	0,	K$SPECIAL,	1Bh,	/* STACK */
+	6615h,	0,	27h,	0,	K$SINGLE,	0,	/* DAA */
+	988Dh,	0E100h,	0Ah,	0,	K$LDSTAX,	0,	/* LDAX */
+	61F6h,	0,	0C4h,	0,	K$IMM16,	0,	/* CNZ */
+	53CFh,	0,	88h,	88h,	K$ARITH,	0,	/* ADC */
+	53D0h,	0,	80h,	0,	K$ARITH,	0,	/* ADD */
+	8D9Fh,	0,	0D2h,	0A0h,	K$IMM16,	0,	/* JNC */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0,	0,	0,	0,	0,		0,	/*  */
+	6E60h,	0,	0,	88h,	K$END,		0,	/* END */
+	6A40h,	0,	3,	0A0h,	K$REGNAME,	0,	/* E */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0AD70h,	0,	0,	0,	K$OR,		0,	/* OR */
+	0AE08h,	0,	0D3h,	0,	K$IMM8,		0,	/* OUT */
+	0A088h,	0,	0,	0,	K$MOD,		0,	/* MOD */
+	0AD83h,	0,	0,	0,	K$ORG,		0,	/* ORG */
+	0,	0,	0,	0,	0,		0,	/*  */
+	8F70h,	0,	0CAh,	70h,	K$IMM16,	0,	/* JZ */
+	68E9h,	76C0h,	0,	0,	K$DSEG,		0,	/* DSEG */
+	0C488h,	0,	0,	0,	K$SET,		0,	/* SET */
+	8BD8h,	0,	0DAh,	10h,	K$IMM16,	0,	/* JC */
+	0C521h,	0,	30h,	0,	K$SINGLE,	2,	/* SIM */
+	6618h,	0,	9,	8,	K$REG16,	0,	/* DAD */
+	0B16Ch,	9600h,	0E9h,	0,	K$SINGLE,	0,	/* PCHL */
+	0A4A1h,	6A40h,	0,	0,	K$NAME,		0,	/* NAME */
+	6748h,	0,	0F3h,	0,	K$SINGLE,	0,	/* DI */
+	53D5h,	0,	0C6h,	18h,	K$IMM8,		0,	/* ADI */
+	6630h,	0,	0,	0,	K$DB,		0,	/* DB */
+	8DB6h,	0,	0C2h,	0,	K$IMM16,	0,	/* JNZ */
+	0AD7Dh,	0,	0B0h,	0,	K$ARITH,	0,	/* ORA */
+	0B3FBh,	0,	6,	0,	K$REGNAME,	0,	/* PSW */
+	0AD85h,	0,	0F6h,	0,	K$IMM8,		0,	/* ORI */
+	0A09Ah,	0,	40h,	0B8h,	K$MOV,		0,	/* MOV */
+	8610h,	0,	0,	0B8h,	K$IF,		0,	/* IF */
+	0,	0,	0,	0,	0,		0,	/*  */
+	9938h,	6400h,	2Ah,	0B0h,	K$IMM16,	0,	/* LHLD */
+	9600h,	0,	5,	0B0h,	K$REGNAME,	0,	/* L */
+	0C6F6h,	0,	90h,	0,	K$ARITH,	0,	/* SUB */
+	0C634h,	9600h,	0F9h,	0,	K$SINGLE,	0,	/* SPHL */
+	0C405h,	0,	0DEh,	0,	K$IMM8,		0,	/* SBI */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0BF4Fh,	0,	7,	0,	K$SINGLE,	0,	/* RLC */
+	5780h,	0,	0,	0,	K$REGNAME,	0,	/* B */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0E614h,	9600h,	0E3h,	0E8h,	K$SINGLE,	0,	/* XTHL */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0B11Bh,	6A40h,	2,	0,	K$SPECIAL,	0,	/* PAGE */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0A7C0h,	0,	0,	0D8h,	K$NUL,		0,	/* NUL */
+	8750h,	0,	0DBh,	0,	K$IMM8,		0,	/* IN */
+	6E60h,	8610h,	0,	0D0h,	K$ENDIF,	0,	/* ENDIF */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0C3FEh,	0,	98h,	0,	K$ARITH,	0,	/* SBB */
+	0C6D7h,	9A10h,	0,	0,	K$STKLN,	0,	/* STKLN */
+	0BFE0h,	0,	0F0h,	0,	K$SINGLE,	0,	/* RP */
+	0C078h,	0,	0C7h,	0,	K$RST,		0,	/* RST */
+	0C4F8h,	6400h,	22h,	0,	K$IMM16,	0,	/* SHLD */
+	9E57h,	0BFB8h,	0,	0,	K$MACRO,	0,	/* MACRO */
+	6231h,	0,	0ECh,	0,	K$IMM16,	0,	/* CPE */
+	0B436h,	9957h,	0,	0A8h,	K$PUBLIC,	0,	/* PUBLIC */
+	0BDA0h,	0,	17h,	0A8h,	K$SINGLE,	0,	/* RAL */
+	6FF5h,	0CBE8h,	0,	0D8h,	K$EXITM,	0,	/* EXITM */
+	6235h,	0,	0FEh,	0,	K$IMM8,		0,	/* CPI */
+	0BF68h,	0,	0F8h,	0,	K$SINGLE,	0,	/* RM */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0,	0,	0,	0,	0,		0,	/*  */
+	0BDA6h,	0,	1Fh,	0,	K$SINGLE,	0,	/* RAR */
+	805Bh,	7D00h,	0,	0B8h,	K$HIGH,		0,	/* HIGH */
+	6400h,	0,	2,	0C8h,	K$REGNAME,	0,	/* D */
+	0B447h,	7D00h,	0C5h,	0D0h,	K$REG16,	0,	/* PUSH */
+	0C6FDh,	0,	0D6h,	8,	K$IMM8,		0,	/* SUI */
+	6220h,	0,	0F4h,	0,	K$IMM16,	0,	/* CP */
+	61A8h,	0,	0FCh,	0,	K$IMM16,	0,	/* CM */
+	0,	0,	0,	0,	0,		0,	/*  */
+	5629h,	76C0h,	0,	0,	K$ASEG,		0,	/* ASEG */
+	0BFF1h,	0,	0E8h,	0,	K$SINGLE,	0,	/* RPE */
+	880Ch,	5DC0h,	0,	0A8h,	K$IRPC,		0,	/* IRPC */
+	0BE48h,	0,	0C9h,	0,	K$SINGLE,	0,	/* RET */
+	876Eh,	0,	4,	0,	K$INRDCR,	0,	/* INR */
+	0BEE1h,	0,	20h,	0,	K$SINGLE,	2,	/* RIM */
+	0BFFBh,	0,	0E0h,	0,	K$SINGLE,	0,	/* RPO */
+	0C6CDh,	0E100h,	2,	28h,	K$LDSTAX,	0,	/* STAX */
+	988Dh,	0,	3Ah,	98h,	K$IMM16,	0,	/* LDA */
+	7000h,	0BF90h,	0,	0,	K$EXTRN,	0,	/* EXTRN */
+	8774h,	0,	3,	90h,	K$REG16,	0,	/* INX */
+	61B5h,	0,	2Fh,	90h,	K$SINGLE,	0,	/* CMA */
+	876Ch,	5449h,	1,	0,	K$SPECIAL,	0,	/* INPAGE */
+	9A47h,	5500h,	0,	98h,	K$LOCAL,	0,	/* LOCAL */
+	0E5BDh,	0,	0A8h,	8,	K$ARITH,	0,	/* XRA */
+	80E0h,	0,	76h,	0,	K$SINGLE,	0,	/* HLT */
+	8DE0h,	0,	0F2h,	0,	K$IMM16,	0,	/* JP */
+	9A5Bh,	0,	0,	0,	K$LOW,		0,	/* LOW */
+	6D88h,	0,	0FBh,	0,	K$SINGLE,	0,	/* EI */
+	623Bh,	0,	0E4h,	0,	K$IMM16,	0,	/* CPO */
+	6676h,	0,	5,	68h,	K$INRDCR,	0,	/* DCR */
+	0E5C5h,	0,	0EEh,	0,	K$IMM8,		0,	/* XRI */
+	555Dh,	0,	0A0h,	0,	K$ARITH,	0,	/* ANA */
+	62A9h,	76C0h,	0,	0,	K$CSEG,		0,	/* CSEG */
+	8D68h,	0,	0FAh,	0,	K$IMM16,	0,	/* JM */
+	5560h,	0,	0,	0,	K$AND,		0,	/* AND */
+	5140h,	0,	7,	58h,	K$REGNAME,	0,	/* A */
+	0BE44h,	0C800h,	0,	0,	K$REPT,		0,	/* REPT */
+	8DF1h,	0,	0EAh,	0,	K$IMM16,	0,	/* JPE */
+	880Ch,	0,	0,	0,	K$IRP,		0,	/* IRP */
+	5565h,	0,	0E6h,	0,	K$IMM8,		0,	/* ANI */
+	9B00h,	0,	0,	0,	K$LT,		0,	/* LT */
+	61B7h,	0,	3Fh,	0,	K$SINGLE,	0,	/* CMC */
+	8DFBh,	0,	0E2h,	0,	K$IMM16,	0,	/* JPO */
+	7BC0h,	0,	0,	0,	K$GT,		0,	/* GT */
+	6978h,	0,	0,	78h,	K$DW,		0,	/* DW */
+	6EC8h,	0,	0,	0,	K$EQ,		0,	/* EQ */
+	68D8h,	0,	0,	48h,	K$DS,		0,	/* DS */
+	7968h,	0,	0,	0A0h,	K$GE,		0,	/* GE */
+	0A6D4h,	0,	0,	0,	K$SINGLE,	0,	/* NOP */
+	9F01h,	0AD95h,	0,	0,	K$SPECIAL,	1Ch,	/* MEMORY */
+	5FE0h,	9600h,	0CDh,	0,	K$IMM16,	0,	/* CALL */
+	0BDD8h,	0,	0D8h,	0,	K$SINGLE,	0,	/* RC */
+	53ADh,	0,	0CEh,	80h,	K$IMM8,		0,	/* ACI */
+	0BF9Fh,	0,	0D0h,	0,	K$SINGLE,	0,	/* RNC */
+	0E36Ch,	76C0h,	0EBh,	0,	K$SINGLE,	0,	/* XCHG */
+	61C4h,	0,	0B8h,	8,	K$ARITH,	0,	/* CMP */
+	667Ch,	0,	0BH,	0,	K$REG16,	0,	/* DCX */
+	0C620h,	0,	6,	0,	K$SP,		0,	/* SP */
+	9C40h,	0,	6,	0,	K$REGNAME,	0,	/* M */
+	98A8h,	0,	0,	38h,	K$LE,		0,	/* LE */
+	6018h,	0,	0DCh,	0,	K$IMM16,	0,	/* CC */
+	7D00h,	0,	4,	50h,	K$REGNAME,	0,	/* H */
+	0C03Fh,	0,	0Fh,	50h,	K$SINGLE,	0,	/* RRC */
+	0C4F8h,	0,	0,	0,	K$SHL,		0,	/* SHL */
+	5DC0h,	0,	1,	0,	K$REGNAME,	0,	/* C */
+	0C170h,	0,	0C8h,	0,	K$SINGLE,	0,	/* RZ */
+	0E556h,	0,	0,	0,	K$XOR,		0,	/* XOR */
+	6E1Fh,	6A40h,	0,	0,	K$ELSE,		0,	/* ELSE */
+	0A6D8h,	0,	0,	0,	K$NOT,		0,	/* NOT */
+	0C4FEh,	0,	0,	0,	K$SHR,		0,	/* SHR */
+	9BB5h,	0,	1,	0,	K$LXI,		0,	/* LXI */
+	8D84h,	0,	0C3h,	0,	K$IMM16,	0,	/* JMP */
+	61DFh,	0,	0D4h,	0,	K$IMM16,	0	/* CNC */
 );
 
 

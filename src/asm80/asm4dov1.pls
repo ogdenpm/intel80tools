@@ -132,8 +132,8 @@ newPage: procedure public;
 end;
 
 
-sub$6F4D: procedure public;
-    if sub$465B then
+doEject: procedure public;
+    if showLine then
     do while ctlEJECT > 0;
         call newPage;
         ctlEJECT = ctlEJECT - 1;
@@ -245,7 +245,7 @@ $ENDIF
                                     call printStr(.tokStr);
                                     call printChar(' ');
 $IF OVL4
-                                    if type = 3Ah then
+                                    if type = O$3A then
                                         call printChar('+');
                                     else
 $ENDIF
@@ -275,7 +275,7 @@ printCmdLine: procedure public;
     declare ch based actRead byte;
 
     call outch(FF);
-    call sub$6F4D;
+    call doEject;
     ch = 0;
     call printStr(.cmdLineBuf);
     call newPageHeader;
@@ -305,13 +305,13 @@ end;
 
 
 sub$721E: procedure byte public;
-    return w68A2 < w68A0;
+    return startItem < endItem;
 end;
 
 
 
 sub$7229: procedure public;
-    declare ch based w68A2 byte;
+    declare ch based startItem byte;
     declare b7568 byte;
 
     if (b68AB := sub$721E or b68AB) then
@@ -332,7 +332,7 @@ sub$7229: procedure public;
         else
             call outStr(.spaces2);
 
-        w68A2 = w68A2 + 1;
+        startItem = startItem + 1;
     end;
 
     call outch(' ');
@@ -358,15 +358,15 @@ end;
 
 
 
-ovl3: procedure public;
+printLine: procedure public;
     declare ch based inCh$p byte;
 $IF OVL4
     declare ch1 based macro$p byte;
 $ENDIF
 loop:
-    w68A0 = (w68A2 := tokStart(spIdx)) + tokenSize(spIdx);
+    endItem = (startItem := tokStart(spIdx)) + tokenSize(spIdx);
     if isSkipping then
-        w68A0 = w68A2;
+        endItem = startItem;
 
     call outch(asmErrCode);
 $IF OVL4
@@ -379,15 +379,16 @@ $ENDIF
     if not blankAsmErrCode then
     do;
         asmErrCode = ' ';
-        b689B = 0FFh;
+        b689B = TRUE;
     end;
-    if b6B20$9A77 then
+    if isControlLine then
         call outStr(.spaces15);
     else
         call sub$7229;
 
     if fileIdx > 0 then
     do;
+	/* note byte arith used so needToOpenFile = TRUE(255h) treated as -1 */
         call outch(a1234(ii := needToOpenFile + fileIdx));
         if ii > 0 then    
             call outch('=');
@@ -432,10 +433,10 @@ $IF OVL4
 $ENDIF
     end;
 
-    if b6B20$9A77 then
+    if isControlLine then
     do;
         if ctlPAGING then
-            call sub$6F4D;
+            call doEject;
     end;
     else
     do;

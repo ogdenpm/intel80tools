@@ -18,7 +18,7 @@ declare	b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
 $IF OVL4
 			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
 $ELSE
-			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 - ESC maps to 0Bh */
+			     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,	/* 10 */
 $ENDIF
 			     1, 0, 0, 0, 6, 0, 0, 7, 5, 5, 5, 5, 5, 5, 0, 5,	/* 20 */
 			     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 2, 0, 0, 0, 9,	/* 30 */
@@ -76,7 +76,7 @@ insertSym: procedure public;
 		ch1 = ch2;
 	end;
 	/* insert the new symbol name */
-	call move(4, curTokStart, curTokenSym$p);
+	call move(4, tokPtr, curTokenSym$p);
 $IF OVL4
 	endSymTab(2) = endSymTab(2) + 8;	/* mark new top of macro table */
 $ENDIF
@@ -110,18 +110,18 @@ $ENDIF
 
 declare b6EC4$9C3A byte public;
 
-sub5819$5CE8: procedure(arg1w, arg2b) public;
-	declare arg1w address, arg2b byte;
-	declare (b6CE8, b6CE9, b6CEA, b6CEB, b6CEC) byte;
+sub5819$5CE8: procedure(arg1w, type) public;
+	declare arg1w address, type byte;
+	declare (b6CE8, b6CE9, b6CEA, isSetOrEqu, b6CEC) byte;
 
 	sub$5B9A: procedure;
-		tokenType(0) = arg2b;
-		if (b6858 = 7 or b6858 = 8) and b6CEB then
-			tokenType(0) = 12 - arg2b;
+		tokenType(0) = type;
+		if (valType = K$REGNAME or valType = K$SP) and isSetOrEqu then
+			tokenType(0) = 12 - type;
 	end;
 
 	b6CEC = tokenType(0);
-	b6CEB = arg2b = 5 or arg2b = 4;
+	isSetOrEqu = type = 5 or type = 4;
 	b6CE9 = 0;
 	b6CE8 = curTokenSym.flags;
 	b6CEA = 0;
@@ -136,7 +136,7 @@ $ENDIF
 		return;
 	end;
 
-	if tokenSP > 1 then
+	if tokenIdx > 1 then
 		call syntaxError;
 
 	if isPhase1 then
@@ -146,7 +146,7 @@ $ENDIF
 			do;
 				if curTokenSym.type >= 80h
 $IF OVL4
-					 or arg2b = 3Ah and curTokenSym.val <> srcLineCnt
+					 or type = O$3A and curTokenSym.val <> srcLineCnt
 $ENDIF
 				then
 				do;
@@ -164,15 +164,15 @@ $ENDIF
 				b6CE8 = 0;
 			end;
 
-			b6CE8 = (activeSeg <> 0 and 18h) or (b6748 and 20h) or (b6749 and 58h);
+			b6CE8 = (activeSeg <> 0 and 18h) or (inPublic and 20h) or (inExtrn and 58h);
 			if b6EC4$9C3A = 1 then
 				b6CE8 = b6855;
 
 			if b6EC4$9C3A = 2 then
 				b6CE8 = b6CE8 or activeSeg;
 
-			if b6857 and b6CEB then
-				tokenType(0) = 64h;
+			if b6857 and isSetOrEqu then
+				tokenType(0) = O$64;
 			else
 				call sub$5B9A;
 
@@ -180,9 +180,9 @@ $ENDIF
 		end;
 
 	if b6882 = 2 then
-		if tokenType(0) = 9 then
-			if b6858 <> 9 then
-				if b6CEB then
+		if tokenType(0) = O$ID then
+			if valType <> O$ID then
+				if isSetOrEqu then
 				do;
 					call sub$5B9A;
 					if curTokenSym.type < 128 then
@@ -197,13 +197,13 @@ $ENDIF
 
 	if isPhase1 then
 		if tokenType(0) = 6 then
-			if testBit(arg2b, .b5666) then
+			if testBit(type, .b5666) then
 			do;
-				if b6749 then
+				if inExtrn then
 					tokenType(0) = 3;
 				else
 				do;
-					tokenType(0) = arg2b;
+					tokenType(0) = type;
 					b6CE8 = b6CE8 and 0E0h;
 					if b6EC4$9C3A = 1 then
 						b6CE8 = b6855 or 20h;
@@ -216,7 +216,7 @@ $ENDIF
 			end;
 
 	if isPhase1 then
-		if arg2b = 6 then
+		if type = 6 then
 			if testBit(tokenType(0), .b5666) then
 			do;
 				if (b6CE8 and 60h) <> 0 then
@@ -227,17 +227,17 @@ $ENDIF
 			end;
 
 	if isPhase1 then
-		if tokenType(0) <> arg2b and tokenType(0) <> 8 or arg2b = 5 then
+		if tokenType(0) <> type and tokenType(0) <> 8 or type = 5 then
 			tokenType(0) = 3;
 
-	if not b6748 and testBit(tokenType(0), .b5669) then
-		b6CE8 = (b6CE8 and 20h) and tokenType(0) <> 3Ah or b6855;
+	if not inPublic and testBit(tokenType(0), .b5669) then
+		b6CE8 = (b6CE8 and 20h) and tokenType(0) <> O$3A or b6855;
 	else
 	do;
 		if isPhase1 then
 			tokenType(0) = 3;
 
-		if not (b6748 or b6749) then
+		if not (inPublic or inExtrn) then
 			if curTokenSym.val <> arg1w then
 				call phaseError;
 	end;
@@ -245,7 +245,7 @@ $ENDIF
 L5A9B$5F82:
 	b6CE9 = b6CE9 or (curTokenSym.type and 80h);
 
-	if isPhase1 and (arg2b = 9 or arg2b = 6 or b6CEC <> tokenType(0)) then
+	if isPhase1 and (type = 9 or type = 6 or b6CEC <> tokenType(0)) then
 		curTokenSym.type = tokenType(0) or b6CE9;
 
 	jj = curTokenSym.type;
@@ -255,17 +255,17 @@ L5A9B$5F82:
 	if jj >= 80h then
 		call locationError;
 
-	if isPhase1 and (tokenType(0) = arg2b or arg2b = 5 and tokenType(0) = 7)
-	   or arg2b = 4 and blankAsmErrCode or b6CEA
+	if isPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
+	   or type = 4 and blankAsmErrCode or b6CEA
 $IF OVL4
-	   or arg2b = 3Ah
+	   or type = O$3A
 $ENDIF
 	then
 		curTokenSym.val = arg1w;
 
 	curTokenSym.flags = b6CE8;
-	b6748 = 0;
-	b6749 = 0;
+	inPublic = 0;
+	inExtrn = 0;
 	if curTokenSym.type = 6 then
 		call undefinedSymbolError;
 
@@ -281,11 +281,11 @@ lookup: procedure(tableId) byte public;
 	declare tableId byte;
 	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
 		(i, gt) byte;
-	declare symEntry based entryOffset SYMENTRY$T,
+	declare symEntry based entryOffset KEYWORD$T,
 		packedTok based packedTok$p (2) address;
 	declare addr based w6BE0 address;
 
-	packedTok$p = curTokStart;
+	packedTok$p = tokPtr;
 	if tableId = 0 then		/* hash chain look up key word */
 	do;
 		entryOffset = 0;	/* offset to current symbol to compare */
@@ -299,7 +299,7 @@ lookup: procedure(tableId) byte public;
 				do;
 					curTokenSym$p = entryOffset;
 					tokenType(0) = curTokenSym.type;
-					if tokenType(0) < 2Dh then	/* not pseudo op */
+					if tokenType(0) < 2Dh then	/* instruction with arg */
 						if op16(tokenType(0)) then
 							has16bitOperand = TRUE;
 
@@ -332,10 +332,10 @@ lookup: procedure(tableId) byte public;
 			do;
 				curTokenSym$p = entryOffset;
 				tokenType(0) = curTokenSym.type;
-				if tokenType(0) = 64h then
-					tokenType(0) = 9;
+				if tokenType(0) = O$64 then
+					tokenType(0) = O$ID;
 
-				if (b6884 := (jj := (tokenType(0) and 7Fh)) = 9) then
+				if (b6884 := (jj := (tokenType(0) and 7Fh)) = O$ID) then
 					if b6885 then
 						curTokenSym.type = 89h;
 				return jj;
@@ -360,7 +360,7 @@ lookup: procedure(tableId) byte public;
 		b6EC4$9C3A = 0;
 		call sub5819$5CE8(srcLineCnt, (b6885 and 80h) or 9);
 		w6BE0 = .tokenSym;
-		do i = 1 to tokenSP;
+		do i = 1 to tokenIdx;
 			w6BE0 = w6BE0 + 2;
 			if addr >= curTokenSym$p then
 				addr = addr + 8;
@@ -368,7 +368,7 @@ lookup: procedure(tableId) byte public;
 
 		b6883 = 0FFh;
 	end;
-	return 9;
+	return O$ID;
 end;
 
 
@@ -444,7 +444,7 @@ $IF OVL4
 							if ch = '!' then
 							do;
 								b91A1 = 21h;
-								b91A2 = mem(tmac$w12 + 1);
+								b91A2 = byteAt(tmac$w12 + 1);
 								tmac$buf$p = tmac$buf$p - 1;
 							end;
 						end;

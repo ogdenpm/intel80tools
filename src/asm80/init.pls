@@ -132,7 +132,7 @@ resetData: procedure public;	/* extended initialisation */
 
     call initLine;
 
-    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, b674A(0), b674A(1), b6742,
+    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), b6742,
 $IF OVL4
     expandingMacro, b905C, b905E,
 $ENDIF
@@ -143,7 +143,7 @@ $IF OVL4
 $ENDIF
     ctlCOND = bTRUE;
 $IF OVL4
-    b9063, b9064, macroCondStk(0), macroCondSP, 
+    macroDepth, b9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 $IF OVL4

@@ -81,6 +81,81 @@ OMF$LIBDICT     '2AH'
 OMF$LIBHDR      '2CH'
 OMF$COMDEF      '2EH'
 
+/* op types */
+T$CR            '1'
+T$LPAREN        '2'
+T$RPAREN        '3'
+T$STAR          '4'
+T$PLUS          '5'
+T$COMMA         '6'
+T$MINUS         '7'
+T$UPLUS         '8'
+T$SLASH         '9'
+T$UMINUS        '0Ah'
+O$NONE          '0'
+O$LABEL         '3'
+O$ID            '9'
+O$STRING        '0Ah'
+O$DATA          '0Bh'
+O$NUMBER        '0Ch'
+K$SPECIAL       '5'
+K$REGNAME       '7'
+K$SP            '8'
+K$EQ            '0Bh'
+K$LT            '0Ch'
+K$LE            '0Dh'
+K$GT            '0Eh'
+K$GE            '0Fh'
+K$NE            '10h'
+K$NOT           '11h'
+K$AND           '12h'
+K$OR            '13h'
+K$XOR           '14h'
+K$MOD           '15h'
+K$SHL           '16h'
+K$SHR           '17h'
+K$HIGH          '18h'
+K$LOW           '19h'
+K$DB            '1Ah'
+K$DW            '1Bh'
+K$DS            '1Ch'
+K$EQU           '1Dh'
+K$SET           '1Eh'
+K$ORG           '1Fh'
+K$END           '20h'
+K$IF            '21h'
+K$ELSE          '22h'
+K$ENDIF         '23h'
+K$LXI           '24h'
+K$REG16         '25h'
+K$LDSTAX        '26h'
+K$ARITH         '27h'
+K$IMM8          '28h'
+K$MVI           '29h'
+K$INRDCR        '2Ah'
+K$MOV           '2Bh'
+K$IMM16         '2Ch'
+K$SINGLE        '2Dh'
+K$RST           '2Eh'
+K$ASEG          '2Fh'
+K$CSEG          '30h'
+K$DSEG          '31h'
+K$PUBLIC        '32h'
+K$EXTRN         '33h'
+K$NAME          '34h'
+K$STKLN         '35h'
+K$MACRO         '36h'
+O$37            '37h'
+K$ENDM          '38h'
+K$EXITM         '39h'
+O$3A            '3Ah'
+K$IRP           '3Bh'
+K$IRPC          '3Ch'
+K$REPT          '3Eh'
+K$LOCAL         '3Fh'
+K$NUL           '41h'
+O$64            '64h'
+
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
 FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
@@ -96,7 +171,7 @@ MODEND$T        'structure(type byte, len address, modtyp byte, segid byte, offs
 MODHDR$T	'structure(type byte, len address, dta(26) byte)'
 PUBLICS$T       'structure(type byte, len address, segid byte, dta(124) byte, crc byte)'
 RELOC$T         'structure(type byte, len address, hilo byte, dta(62) address)'
-SYMENTRY$T	'structure(tok(2) address, b4 byte, delta byte, type byte, flags byte)'
+KEYWORD$T	'structure(tok(2) address, base byte, delta byte, type byte, flags byte)'
 
 /* common based variables */
 curTokenSym     "TOKENSYM$T"..curTokenSym$p
@@ -158,7 +233,7 @@ getCmdCh        PB
 outch           P(B c)
 outStrN         P(A s,B n)
 physmem         PA
-preStatementControls P
+parseControlLines P
 put2Hex         P(A arg1w,B arg2b)
 runtimeError    P(B arg1b)
 skip2EOL        P
@@ -177,7 +252,7 @@ $file(asm43.pl3,asm82.pl3)
 skip2NextLine   P
 skipWhite       P
 skipWhite$2     P
-sub$3F19        P
+tokeniseLine        P
 
 /* $file(asm44.plm) */
 
@@ -187,12 +262,12 @@ getPrec         P(B arg1b)B
 sub$425B        P(B arg1b)B
 sub$4274        P
 sub$4291        P
-sub$43D2        P
+setExpectOperands        P
 sub$43DD        PA
 sub$450F        P(B arg1b)
-sub$4646        PB
-sub$465B        PB
-sub$467F        P(B arg1b,A arg2w)
+nxtTokI        PB
+showLine        PB
+emitXref        P(B arg1b,A arg2w)
 swapAccBytes    P
 testBit         P(B arg1b,A arg2w)B
 
@@ -201,12 +276,12 @@ testBit         P(B arg1b,A arg2w)B
 $file(asm45.plm,asm55.plm,asm851.plm)
 isSkipping      PB
 strUCequ        P(A arg1w,A arg2w)B
-sub4C1E$54FD    P
+finishLine    P
 sub$546F        P
 
 $file(asm46.pl3)
-needToOpenFile           B
-b6C22           B
+needToOpenFile   "bool"
+includeOnCmdLine "bool"
 b6C23           B
 missingEnd      "bool"
 lineChCnt           B
@@ -230,7 +305,7 @@ $file(asm47.pl3,asm85.pl3)
 cond2Acc        P(B arg1b)
 sub$4AAA        P(B arg1b)
 sub$4B57        P(B arg1b)
-sub$540D        P
+doPass        P
 
 $file(asm48.pl3)
 sub$5CAD        P(A arg1w,B type)
@@ -310,13 +385,13 @@ asmComplete     P
 newPage         P
 newPageHeader   P
 outStr          P(A arg1w)
-ovl3            P
+printLine            P
 ovl9            P
 ovl10           P
 printCmdLine    P
 printDecimal    P(A arg1w)
 skipToEOP       P
-sub$6F4D        P
+doEject        P
 sub7041$8447    P
 sub$721E        PB
 sub$7229        P
@@ -345,7 +420,7 @@ initRecTypes        P
 /* $file(asm57.pl3) */
 $file(asm57.pl3,asm85.pl3)
 handleOp        P
-sub$518F        P
+parseLine        P
 
 /* $file(asm5D.plm) */
 
@@ -412,29 +487,29 @@ firstContent           "bool"
 b6742           B
 b6743           B
 nameLen         B
-b6748           B
-b6749           B
-b674A           BS
+inPublic           B
+inExtrn           B
+segHasData           BS
 b6754           B
 b6855           B
 b6856           B
 b6857           B
-b6858           B
+valType           B
 b6859           B
-b6872           B
-extName         BS
-b6879           BS
+gotLabel           B
+name         BS
+savName           BS
 b687F           B
 haveUserSymbol  "bool"
-b6881           B
+b6881           "bool"
 b6882           B
 b6883           B
 b6884           B
 b6885           B
 b6897           B
-b689A           B
+tokI           B
 b689B           B
-b689C           B
+atStartLine           B
 b68AB           B
 b68AD           B
 b68AE           B
@@ -444,18 +519,18 @@ spIdx           B
 b6A57           BS
 b6A6F           B
 b6A71           B
-b6B20$9A77      B		
+isControlLine      B		
 inDB           B
 inDW           B
 b6B25           B
 b6B28           B
-b6B29           B
+effectiveToken           B
 op              B
 b6B2C           B
 b6B2D           B
 b6B2F           B
-b6B30           B
-b6B31           B
+expectingOperands           B
+expectingOpcode           B
 b6B32           B
 b6B33           B
 b6B34           B
@@ -475,7 +550,7 @@ b905E          B		/* glb4 */
 b9060          B		/* glb4 */
 b9061          B		/* glb4 */
 b9062          B		/* glb4 */
-b9063          B		/* glb4 */
+macroDepth          B		/* glb4 */
 b9064          B		/* glb4 */
 b9065          B		/* glb4 */
 b9066          B		/* glb4 */
@@ -514,7 +589,7 @@ curCol          B
 curFileName$p   A
 curMacroBlk     A		/* glb4 */
 curTokenSym$p   A
-curTokStart     A
+tokPtr     A
 endLineBuf      A
 endOutBuf       A
 endSymTab       AS
@@ -543,7 +618,7 @@ macrofd         A
 macroStk        "MACRO$T"S	/* glb4 */
 maxMacroBlk     A		/* glb4 */
 maxSegSize      AS
-mem             BS		/* glb4 */
+byteAt          BS		/* glb4 */
 moduleNameLen   B
 nxtMacroBlk     A		/* glb4 */
 objfd           A
@@ -594,7 +669,7 @@ tokBuf          BS
 tokBufIdx       B
 tokBufLen       B
 tokenAttr       BS
-tokenSP         B
+tokenIdx         B
 tokStr          BS
 tokenSym        AS
 tokenSymId      AS
@@ -605,20 +680,20 @@ tokType         B
 contentBytePtr           A
 fixOffset           A
 externId           A
-w6752           A
+itemOffset           A
 w685A           A
 w685C           A
 symHighMark           A
 w6870           A
-w68A0           A
-w68A2           A
+endItem           A
+startItem           A
 w68A6           A
 sizeInBuf           A
 srcLineCnt           A
-w6B1E           A
+tokNumVal           A
 w6BCE           A
 w6BE0           A
-w6BE2           A
+controlFileType           A
 endMacroLine   BS		/* glb4 */
 w9068          A		/* glb4 */
 w906A          A		/* glb4 */

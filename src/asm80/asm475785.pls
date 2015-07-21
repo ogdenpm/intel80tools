@@ -30,28 +30,28 @@ declare pad byte;
 declare	accum(4) byte at(.accum1);
 
 
-sub$4AAA: procedure(arg1b) public;
-	declare arg1b byte;
+sub$4AAA: procedure(seg) public;	/* seg = 0 => CSEG, seg = 1 => DSEG */
+	declare seg byte;
 
-	if b674A(arg1b) then
+	if segHasData(seg) then
 	do;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if alignTypes(arg1b) <> accum1$lb then
+			if alignTypes(seg) <> accum1$lb then
 				call expressionError;
 		end;
-		else if alignTypes(arg1b) <> 3 then
+		else if alignTypes(seg) <> 3 then	/* no speficier - check byte algined */
 			call expressionError;
 	end;
 	else
 	do;
-		b674A(arg1b) = TRUE;
+		segHasData(seg) = TRUE;
 		if haveTokens then
 		do;
 			accum1 = sub$43DD;
-			if accum1 = 1 or accum1 = 2 then
-				alignTypes(arg1b) = low(accum1);
+			if accum1 = 1 or accum1 = 2 then	/* only allow inPage and Page */
+				alignTypes(seg) = low(accum1);
 			else
 				call expressionError;
 		end;
@@ -77,10 +77,10 @@ end;
 handleOp: procedure public;
 	do case op;
 /* 0 */		;
-/* 1 */		call sub4C1E$54FD;		/* white space ? */
+/* 1 */		call finishLine;		/* white space ? */
 /* 2 */		goto case3;			/* ( */
-/* 3 */ case3:	do;				/* : or ) */
-			if not (op = 2 and opType = 3) then
+/* 3 */ case3:	do;				/* ) */
+			if not (op = T$LPAREN and opType = 3) then
 				call balanceError;
 
 			if tokenType(0) = 11 then
@@ -141,7 +141,7 @@ handleOp: procedure public;
 			call sub$4B57(8);
 		end;
 /* 26 */	do;					/* DB ? */
-			if tokenType(0) <> 10 then
+			if tokenType(0) <> O$STRING then
 			do;
 				accum1 = sub$43DD;
 				if accum1$hb - 1 < 0FEh then
@@ -156,16 +156,16 @@ handleOp: procedure public;
 			else
 			do;
 				b6855 = 0;
-				tokenType(0) = 0Bh;
+				tokenType(0) = O$DATA;
 			end;
 
-			if sub$425B(b6858) then
+			if sub$425B(valType) then
 				call operandError;
-			b6B2D = 0Bh;
+			b6B2D = O$DATA;
 			inDB = TRUE;
 		end;
 /* 27 */	do;					/* DW ? */
-			b6B2D = 0Bh;
+			b6B2D = O$DATA;
 			inDW = TRUE;
 		end;
 /* 28 */	do;					/* DS ? */
@@ -182,7 +182,7 @@ handleOp: procedure public;
 			end;
 			b6EC4$9C3A = 1;
 			call sub5819$5CE8(accum1, 34 - op);	/* 4 for set, 5 for equ */
-			b6B30 = 0;
+			expectingOperands = 0;
 		end;
 /* 30 */	goto case29;				/* SET ? */
 /* 31 */	do;					/* ORG ? */
@@ -202,14 +202,14 @@ handleOp: procedure public;
 			segSize(activeSeg) = accum1;
 		end;
 /* 32 */	do;					/* END ? */
-			if tokenSP > 0 then
+			if tokenIdx > 0 then
 			do;
 				startOffset = sub$43DD;
 				startDefined = 1;
 				startSeg = b6855 and 7;
 				if (b6855 and 40h) = 40h then
 					call expressionError;
-				if sub$425B(b6858) then
+				if sub$425B(valType) then
 					call operandError;
 
 				b68AB = 0FFh;
@@ -236,7 +236,7 @@ $ENDIF
 			do;
 				b6B32 = 0FFh;
 				call nestIF(2);
-				b6881 = 0FFh;
+				b6881 = TRUE;
 				if skipping(0) = 0 then
 					skipping(0) = not ((low(accum1) and 1) = 1);
 				inElse(0) = 0;
@@ -270,13 +270,13 @@ $ENDIF
 		end;
 /* 36 */	do;					/* LXI ? */
 			if nameLen = 1 then
-				if extName(0) = 4Dh then
+				if name(0) = 'M' then
 					call syntaxError;
 			call sub$450F(85h);
 		end;
 /* 37 */	do;				/* POP DAD PUSH INX DCX ? */
 			if nameLen = 1 then
-				if extName(0) = 4Dh then
+				if name(0) = 'M' then
 					call syntaxError;
 			call sub$450F(5);
 		end;
@@ -305,12 +305,12 @@ $ENDIF
 		end;
 
 /* 50 */	do;				/* PUBLIC */
-			b6748 = 0FFh;
+			inPublic = TRUE;
 			b6EC4$9C3A = 0;
 			call sub5819$5CE8(0, 6);
 		end;
 /* 51 */	do;				/* EXTRN ? */
-			b6749 = 0FFh;
+			inExtrn = TRUE;
 			if externId = 0 and isPhase1 and ctlOBJECT then
 			do;
 				CHKOVL$2;
@@ -328,10 +328,10 @@ $ENDIF
 			b6754 = 0;
 		end;
 /* 52 */	do;				/* NAME */
-			if tokenSP <> 0 and b6743 then
+			if tokenIdx <> 0 and b6743 then
 			do;
 				call move(6, .spaces6, .aModulePage);
-				call move(moduleNameLen := nameLen, .extName, .aModulePage);
+				call move(moduleNameLen := nameLen, .name, .aModulePage);
 			end;
 			else
 				call sourceError('R');
@@ -366,19 +366,19 @@ $ENDIF
 		b6743 = 0;
 end;
 
-sub$518F: procedure public;
+parseLine: procedure public;
 
 	sub$53C0: procedure byte;
-		if b6B29 > 3 then
-			if b6B29 <> 6 then
-				if b6B29 < 1Ah then
+		if effectiveToken > 3 then
+			if effectiveToken <> T$COMMA then
+				if effectiveToken < 1Ah then
 					return TRUE;
 		return FALSE;
 	end;
 
 	sub$53DF: procedure(arg1b) byte;
 		declare arg1b byte;
-		return arg1b = 9 or arg1b = 64h;
+		return arg1b = O$ID or arg1b = O$64;
 	end;
 
 
@@ -390,9 +390,9 @@ sub$518F: procedure public;
 
 
 	do while 1;
-		if not (b6B29 = 1 or b6B29 >= 20h and b6B29 <= 23h) and skipping(0)
+		if not (effectiveToken = 1 or effectiveToken >= 20h and effectiveToken <= 23h) and skipping(0)
 $IF OVL4
-	           or (b4181(b6B29) < 128 or b9058) and b905E
+	           or (b4181(effectiveToken) < 128 or b9058) and b905E
 
 $ENDIF
 	        then
@@ -405,10 +405,10 @@ $ENDIF
 		if phase <> 1 then
 			if b6B25 then
 				if sub$53C0 then
-					if getPrec(b6B29) <= getPrec(opStack(opSP)) then
+					if getPrec(effectiveToken) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
-		if getPrec(opType := b6B29) > getPrec(op := opStack(opSP)) or opType = 2 then
+		if getPrec(opType := effectiveToken) > getPrec(op := opStack(opSP)) or opType = 2 then
 		do;
 			if opSP >= 10h then
 			do;
@@ -442,14 +442,14 @@ $ENDIF
 			accum2 = sub$43DD;
 			b6856 = b6855;
 			w685C = w685A;
-			b6859 = b6858;
+			b6859 = valType;
 		end;
 
 		if (b6B28 := ror(b6B28, 1)) then
 			accum1 = sub$43DD;
 
 		if not b6857 then
-			b6857 = sub$53DF(b6858) or sub$53DF(b6859);
+			b6857 = sub$53DF(valType) or sub$53DF(b6859);
 
 		b6B2D = 0Ch;
 		if op > 3 and op < 1Ah then	/* expression op */
@@ -470,7 +470,7 @@ $ENDIF
 			return;
 		end;
 
-		if op <> 1Ch and b68AB then		/* DS */
+		if op <> K$DS and b68AB then		/* DS */
 			w68A6 = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
@@ -486,7 +486,7 @@ $ENDIF
 		if ror(b6B28, 1) then
 			if opType = 6 then
 			do;
-				b6B29 = op;
+				effectiveToken = op;
 				b6B35 = 0FFh;
 			end;
 	end;
@@ -494,10 +494,10 @@ end;
 
 
 
-sub$540D: procedure public;
+doPass: procedure public;
 	do while finished = 0;
-		call sub$3F19;
-		call sub$518F;
+		call tokeniseLine;
+		call parseLine;
 	end;
 end;
 

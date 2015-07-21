@@ -44,15 +44,15 @@ $ENDIF
 end;
 
 sub$546F: procedure public;
-	spIdx = sub$4646;
-	if b6B30 then
+	spIdx = nxtTokI;
+	if expectingOperands then
 		call syntaxError;
 	if haveTokens then
-		if not(tokenType(spIdx) = 0Bh or b68AD) then
+		if not(tokenType(spIdx) = O$DATA or b68AD) then
 			call syntaxError;
 	if inDB or inDW then
 	do;
-		if tokenSP = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
+		if tokenIdx = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
 			tokenSize(0) = 2;
 	end;
 	else if not blankAsmErrCode and haveTokens then
@@ -61,14 +61,14 @@ sub$546F: procedure public;
 end;
 
 
-sub4C1E$54FD: procedure public;
+finishLine: procedure public;
 	declare lineno$p address,
 		updating byte,
 		ch based lineno$p byte;
 
 	call sub$546F;
 	if isPhase2Print then
-	do;
+	do;	/* update the ascii line number */
 		lineno$p = .asciiLineNo(3);	/* point to last digit */
 		updating = TRUE;
 
@@ -85,10 +85,11 @@ sub4C1E$54FD: procedure public;
 			end;
 			lineno$p = lineno$p - 1;
 		end;
-		if sub$465B or not blankAsmErrCode then
+
+		if showLine or not blankAsmErrCode then
 		do;
 			CHKOVL$1;
-			call ovl3;
+			call printLine;
 		end;
 	end;
 
@@ -99,10 +100,10 @@ sub4C1E$54FD: procedure public;
 		call exit;
 	end;
 
-	if not b6B20$9A77 then
+	if not isControlLine then
 	do;
 		ii = 2;
-		if tokenSP < 2 or inDB or inDW then
+		if tokenIdx < 2 or inDB or inDW then
 			ii = 0;
 
 		w6BCE = tokStart(ii) + tokenSize(ii);
@@ -120,13 +121,13 @@ sub4C1E$54FD: procedure public;
 
 	if ctlXREF and haveUserSymbol then
 		if phase = 1 then
-			call sub$467F(1, .extName);
+			call emitXref(1, .name);
 
 $IF OVL4
 	call sub$40B9;
 $ENDIF
 
-	do while tokenSP > 0;
+	do while tokenIdx > 0;
 		call popToken;
 	end;
 
@@ -140,7 +141,7 @@ $ENDIF
 			call sub7041$8447;
 		end;
 
-		call sub$467F(2, .extName);
+		call emitXref(2, .name);	/* finalise xref file */
 		if chkGenObj then
 		do;
 			CHKOVL$2;
