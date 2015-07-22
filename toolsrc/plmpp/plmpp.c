@@ -310,7 +310,7 @@ void doSetReset(int isSet)
 	}
 
 
-	for (;;) {
+	do {
 		if (getToken() != ID) {
 			fprintf(stderr, "missing or invalid conditional compilation parameter %s\n", line);
 			skiptoRPorEOL();
@@ -329,13 +329,10 @@ void doSetReset(int isSet)
 			inCh = ts;		/* reparse later */
 			setSym(token, isSet ? 255 : 0);
 		}
-		if ((tok = getToken()) != COMMA) {
-			if (tok != RP) {
-				fprintf(stderr, "bad conditional %s missing , or )\n", line);
-				skiptoRPorEOL();
-			}
-			return;
-		}
+	} while ((tok = getToken()) != COMMA);
+	if (tok != RP) {
+		fprintf(stderr, "bad conditional %s missing , or )\n", line);
+		skiptoRPorEOL();
 	}
 
 }
