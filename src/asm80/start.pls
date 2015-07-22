@@ -413,8 +413,8 @@ initLine: procedure public;
 	if needToOpenFile then
 		call openSrc;
 
-	b68AD, has16bitOperand, isControlLine, b689B, b687F, b6B25, expectingOperands, b6881, gotLabel, haveUserSymbol,
-	inDB, inDW, b6B32, b68AB, b6884,
+	b68AD, has16bitOperand, isControlLine, b689B, b687F, inExpression, expectingOperands, b6881, gotLabel, haveUserSymbol,
+	inDB, inDW, b6B32, showAddr, b6884,
 $IF OVL4
 	b9059, b9060, 
 $ENDIF

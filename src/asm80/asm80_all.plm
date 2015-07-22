@@ -394,7 +394,7 @@ printDecimal    P(A arg1w)
 skipToEOP       P
 doEject        P
 sub7041$8447    P
-sub$721E        PB
+moreBytes        PB
 sub$7229        P
 sub$72D8        P
 
@@ -511,7 +511,7 @@ b6897           B
 tokI           B
 b689B           B
 atStartLine           B
-b68AB           B
+showAddr           B
 b68AD           B
 b68AE           B
 inBuf           BS
@@ -523,7 +523,7 @@ b6A71           B
 isControlLine      B		
 inDB           B
 inDW           B
-b6B25           B
+inExpression           "bool"
 b6B28           B
 effectiveToken           B
 op              B
@@ -688,7 +688,7 @@ symHighMark           A
 w6870           A
 endItem           A
 startItem           A
-w68A6           A
+effectiveAddr           A
 sizeInBuf           A
 srcLineCnt           A
 tokNumVal           A
@@ -931,10 +931,10 @@ declare	tokI byte public,
 	endItem address public,
 	startItem address public,
 	pageLineCnt address public,
-	w68A6 address public,
+	effectiveAddr address public,
 	pageCnt address public,
 	pad68AA byte,
-	b68AB byte public,
+	showAddr byte public,
 	pad68AC byte,
 	b68AD byte public initial(0),
 	b68AE byte public initial(FALSE),
@@ -1003,7 +1003,7 @@ $ENDIF
 declare	scanCmdLine byte public,
 	inDB byte public,
 	inDW byte public,
-	b6B25 byte public,
+	inExpression bool public,
 	has16bitOperand byte public,
 	phase byte public,
 	b6B28 byte public,
@@ -1070,11 +1070,12 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0, 0FFh, 0FFh, 0FFh),
-	b4A68(*) byte data(0, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh);
+			/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+	b4A68(*) byte data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+		           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
+			   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
+			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+			   0FFh,0FFh);
 
 declare pad byte;
 
@@ -1221,11 +1222,11 @@ handleOp: procedure public;
 		end;
 /* 28 */	do;					/* DS ? */
 			segSize(activeSeg) = segSize(activeSeg) + accum1;
-			b68AB = 0FFh;
+			showAddr = 0FFh;
 		end;
 /* 29 */ case29:					/* EQU ? */
 		do;
-			b68AB = 0FFh;
+			showAddr = 0FFh;
 			if (b6855 and 40h) = 40h then
 			do;
 				call expressionError;
@@ -1237,7 +1238,7 @@ handleOp: procedure public;
 		end;
 /* 30 */	goto case29;				/* SET ? */
 /* 31 */	do;					/* ORG ? */
-			b68AB = 0FFh;
+			showAddr = 0FFh;
 			if (b6855 and 40h) <> 40h then
 			do;
 				if (b6855 and 18h) <> 0 then
@@ -1263,7 +1264,7 @@ handleOp: procedure public;
 				if sub$425B(valType) then
 					call operandError;
 
-				b68AB = 0FFh;
+				showAddr = 0FFh;
 			end;
 $IF OVL4
 			jj = b905E;
@@ -1419,7 +1420,7 @@ end;
 
 parseLine: procedure public;
 
-	sub$53C0: procedure byte;
+	isExpressionOp: procedure byte;
 		if effectiveToken > 3 then
 			if effectiveToken <> T$COMMA then
 				if effectiveToken < 1Ah then
@@ -1454,8 +1455,8 @@ $ENDIF
 		end;
 		
 		if phase <> 1 then
-			if b6B25 then
-				if sub$53C0 then
+			if inExpression then
+				if isExpressionOp then
 					if getPrec(effectiveToken) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
@@ -1474,11 +1475,11 @@ $ENDIF
 				b6B35 = 0FFh;
 			end;
 			if phase > 1 then
-				b6B25 = sub$53C0;
+				inExpression = isExpressionOp;
 			return;
 		end;
 
-		b6B25 = 0;
+		inExpression = 0;
 		if not b6B35 and op > 3 then
 			call syntaxError;
 
@@ -1521,8 +1522,8 @@ $ENDIF
 			return;
 		end;
 
-		if op <> K$DS and b68AB then		/* DS */
-			w68A6 = accum1;
+		if op <> K$DS and showAddr then		/* DS */
+			effectiveAddr = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
 			call pushToken(b6B2D);
@@ -2476,8 +2477,8 @@ initLine: procedure public;
 	if needToOpenFile then
 		call openSrc;
 
-	b68AD, has16bitOperand, isControlLine, b689B, b687F, b6B25, expectingOperands, b6881, gotLabel, haveUserSymbol,
-	inDB, inDW, b6B32, b68AB, b6884,
+	b68AD, has16bitOperand, isControlLine, b689B, b687F, inExpression, expectingOperands, b6881, gotLabel, haveUserSymbol,
+	inDB, inDW, b6B32, showAddr, b6884,
 $IF OVL4
 	b9059, b9060, 
 $ENDIF
@@ -2747,7 +2748,7 @@ tokeniseLine: procedure public;
 	sub$416B: procedure;
 		if opType = 0 then
 			call expressionError;
-		b6B25 = 0;
+		inExpression = 0;
 		opType = 0;
 	end;
 
@@ -3432,7 +3433,7 @@ finishLine: procedure public;
 			call ovl8;
 		end;
 		b6B2C = 0FFh;
-		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
+		segSize(activeSeg), effectiveAddr = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
 	if ctlXREF and haveUserSymbol then
@@ -5637,7 +5638,7 @@ outNStr: procedure(cnt, s) reentrant;
 end;
 
 
-sub$721E: procedure byte public;
+moreBytes: procedure byte public;
     return startItem < endItem;
 end;
 
@@ -5645,21 +5646,21 @@ end;
 
 sub$7229: procedure public;
     declare ch based startItem byte;
-    declare b7568 byte;
+    declare i byte;
 
-    if (b68AB := sub$721E or b68AB) then
-    do;
-        call out2Hex(high(w68A6));
-        call out2Hex(low(w68A6));
+    if (showAddr := moreBytes or showAddr) then
+    do;	/* print the address */
+        call out2Hex(high(effectiveAddr));
+        call out2Hex(low(effectiveAddr));
     end;
     else
         call outStr(.spaces4);
 
     call outch(' ');
-    do  b7568 = 1 to 4;
-        if sub$721E and b6B34 then
+    do  i = 1 to 4;
+        if moreBytes and b6B34 then
         do;
-            w68A6 = w68A6 + 1;
+            effectiveAddr = effectiveAddr + 1;
             call out2Hex(ch);
         end;
         else
@@ -5671,7 +5672,7 @@ sub$7229: procedure public;
     call outch(' ');
     if shr(jj := tokenAttr(spIdx), 6) then
         call outch('E');
-    else if not b68AB then
+    else if not showAddr then
         call outch(' ');
     else
         call outch(segChar(jj and 7));
@@ -5773,7 +5774,7 @@ $ENDIF
     end;
     else
     do;
-        do while sub$721E;
+        do while moreBytes;
             call outStr(.spaces2);
             call sub$7229;
             call printCRLF;
@@ -5812,7 +5813,7 @@ ovl9: procedure public;
 end;
 
 ovl10: procedure public;
-    declare ch based w68A6 byte;
+    declare ch based effectiveAddr byte;
 
     call closeF(infd);
 $IF OVL4
@@ -5823,7 +5824,7 @@ $IF OVL4
 $ENDIF
     if ctlXREF then
     do;
-        w68A6 = physmem - 1;
+        effectiveAddr = physmem - 1;
         ch = '0';
         if asxref$tmp(0) = ':' then
             ch = asxref$tmp(2);
@@ -5988,7 +5989,7 @@ $IF OVL4
     w9114,
 $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
-    maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), w68A6,
+    maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), effectiveAddr,
 $IF OVL4
     w919B,
 $ENDIF

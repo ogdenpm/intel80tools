@@ -304,7 +304,7 @@ outNStr: procedure(cnt, s) reentrant;
 end;
 
 
-sub$721E: procedure byte public;
+moreBytes: procedure byte public;
     return startItem < endItem;
 end;
 
@@ -312,21 +312,21 @@ end;
 
 sub$7229: procedure public;
     declare ch based startItem byte;
-    declare b7568 byte;
+    declare i byte;
 
-    if (b68AB := sub$721E or b68AB) then
-    do;
-        call out2Hex(high(w68A6));
-        call out2Hex(low(w68A6));
+    if (showAddr := moreBytes or showAddr) then
+    do;	/* print the address */
+        call out2Hex(high(effectiveAddr));
+        call out2Hex(low(effectiveAddr));
     end;
     else
         call outStr(.spaces4);
 
     call outch(' ');
-    do  b7568 = 1 to 4;
-        if sub$721E and b6B34 then
+    do  i = 1 to 4;
+        if moreBytes and b6B34 then
         do;
-            w68A6 = w68A6 + 1;
+            effectiveAddr = effectiveAddr + 1;
             call out2Hex(ch);
         end;
         else
@@ -338,7 +338,7 @@ sub$7229: procedure public;
     call outch(' ');
     if shr(jj := tokenAttr(spIdx), 6) then
         call outch('E');
-    else if not b68AB then
+    else if not showAddr then
         call outch(' ');
     else
         call outch(segChar(jj and 7));
@@ -440,7 +440,7 @@ $ENDIF
     end;
     else
     do;
-        do while sub$721E;
+        do while moreBytes;
             call outStr(.spaces2);
             call sub$7229;
             call printCRLF;
@@ -479,7 +479,7 @@ ovl9: procedure public;
 end;
 
 ovl10: procedure public;
-    declare ch based w68A6 byte;
+    declare ch based effectiveAddr byte;
 
     call closeF(infd);
 $IF OVL4
@@ -490,7 +490,7 @@ $IF OVL4
 $ENDIF
     if ctlXREF then
     do;
-        w68A6 = physmem - 1;
+        effectiveAddr = physmem - 1;
         ch = '0';
         if asxref$tmp(0) = ':' then
             ch = asxref$tmp(2);

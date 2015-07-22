@@ -19,11 +19,12 @@ declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh,
 			   0FFh, 0FFh, 0FFh, 0FFh, 0, 0FFh, 0FFh, 0FFh),
-	b4A68(*) byte data(0, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh);
+			/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+	b4A68(*) byte data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+		           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
+			   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
+			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+			   0FFh,0FFh);
 
 declare pad byte;
 
@@ -170,11 +171,11 @@ handleOp: procedure public;
 		end;
 /* 28 */	do;					/* DS ? */
 			segSize(activeSeg) = segSize(activeSeg) + accum1;
-			b68AB = 0FFh;
+			showAddr = 0FFh;
 		end;
 /* 29 */ case29:					/* EQU ? */
 		do;
-			b68AB = 0FFh;
+			showAddr = 0FFh;
 			if (b6855 and 40h) = 40h then
 			do;
 				call expressionError;
@@ -186,7 +187,7 @@ handleOp: procedure public;
 		end;
 /* 30 */	goto case29;				/* SET ? */
 /* 31 */	do;					/* ORG ? */
-			b68AB = 0FFh;
+			showAddr = 0FFh;
 			if (b6855 and 40h) <> 40h then
 			do;
 				if (b6855 and 18h) <> 0 then
@@ -212,7 +213,7 @@ handleOp: procedure public;
 				if sub$425B(valType) then
 					call operandError;
 
-				b68AB = 0FFh;
+				showAddr = 0FFh;
 			end;
 $IF OVL4
 			jj = b905E;
@@ -368,7 +369,7 @@ end;
 
 parseLine: procedure public;
 
-	sub$53C0: procedure byte;
+	isExpressionOp: procedure byte;
 		if effectiveToken > 3 then
 			if effectiveToken <> T$COMMA then
 				if effectiveToken < 1Ah then
@@ -403,8 +404,8 @@ $ENDIF
 		end;
 		
 		if phase <> 1 then
-			if b6B25 then
-				if sub$53C0 then
+			if inExpression then
+				if isExpressionOp then
 					if getPrec(effectiveToken) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
@@ -423,11 +424,11 @@ $ENDIF
 				b6B35 = 0FFh;
 			end;
 			if phase > 1 then
-				b6B25 = sub$53C0;
+				inExpression = isExpressionOp;
 			return;
 		end;
 
-		b6B25 = 0;
+		inExpression = 0;
 		if not b6B35 and op > 3 then
 			call syntaxError;
 
@@ -470,8 +471,8 @@ $ENDIF
 			return;
 		end;
 
-		if op <> K$DS and b68AB then		/* DS */
-			w68A6 = accum1;
+		if op <> K$DS and showAddr then		/* DS */
+			effectiveAddr = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
 			call pushToken(b6B2D);

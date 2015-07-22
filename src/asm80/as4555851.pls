@@ -116,7 +116,7 @@ finishLine: procedure public;
 			call ovl8;
 		end;
 		b6B2C = 0FFh;
-		segSize(activeSeg), w68A6 = segSize(activeSeg) + (w6BCE - .lineBuf);
+		segSize(activeSeg), effectiveAddr = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
 	if ctlXREF and haveUserSymbol then

@@ -138,7 +138,7 @@ tokeniseLine: procedure public;
 	sub$416B: procedure;
 		if opType = 0 then
 			call expressionError;
-		b6B25 = 0;
+		inExpression = 0;
 		opType = 0;
 	end;
 
