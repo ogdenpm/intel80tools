@@ -41,6 +41,10 @@ OBJ =	lib.obj lib1.obj isis1.obj isisa.obj isis2.obj lib3.obj lib4.obj
 	@SET ISIS_F1=$(V4)
 	$(TOOLS)\ngenpex $(PEXFILE) $<
 
+all:	.depend
+all:
+	$(MAKE) $(TARGET)
+
 $(TARGET): $(OBJ)
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
@@ -54,6 +58,11 @@ $(OBJ: =,&
 
 $(OBJ:.obj=.ipx) : $(PEXFILE)
 
+.depend: lib80_all.plm
+	..\..\unpack.pl
+	..\..\mkdepend.pl
+	date /t >.depend
+
 clean:
 	del *.obj *lst *.map *.abs *.rel *.*~ *~ *.lmp
 
@@ -61,16 +70,11 @@ vclean: clean
 	del *.ipx $(TARGET) 
 
 uclean: vclean
-	del $(OBJ:.obj=.plm) *.asm *.pex makefile
+	del ??????.*  makefile .depend
 
-clean:
-	del *.obj *lst *.map $(TARGET)
+gitprep: uclean
+	..\..\unpack.pl
 
-verify: $(TARGET)
+verify: all
 	$(TOOLS:/=\)\diffbin $(TARGET) $(V4)$(TARGET)
 
-# auto generated
-isis1.obj: isis1.plm isis1.ipx
-isis2.obj: isis2.plm isis2.ipx
-lib.obj: lib.plm lib.ipx
-lib1.obj: lib1.plm lib1.ipx
