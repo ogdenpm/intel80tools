@@ -48,6 +48,10 @@ HICODE=6656H
 
 # locate build rules
 # default target
+all:	.depend
+all:
+	$(MAKE) $(TARGET)
+
 $(TARGET): loctmp.abs $(HIGHOBJ)
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
@@ -75,6 +79,11 @@ $(**: =,&
 $(LOWOBJ:.obj=.ipx) : $(PEXFILE)
 $(HIGHOBJ:.obj=.ipx) : $(PEXFILE)
 
+.depend: loc80_all.plm
+	..\..\unpack.pl
+	..\..\mkdepend.pl
+	date /t >.depend
+
 clean:
 	del *.obj *lst *.map *.abs *.rel *.*~ *~
 
@@ -82,24 +91,14 @@ vclean: clean
 	del *.ipx $(TARGET) 
 
 uclean: vclean
-	del $(LOWOBJ:.obj=.plm) $(HIGHOBJ:.obj=.plm) *.asm *.pex makefile
+	del $(LOWOBJ:.obj=.plm) $(HIGHOBJ:.obj=.plm) *.asm *.pex makefile .depend
+
+gitprep: uclean
+	..\..\unpack.pl
 
 # make this target to check the build matches the original binary
-verify: locate
-	fc /b locate $(V4)$(TARGET)
+verify: all
+	fc /b $(TARGET) $(V4)$(TARGET)
 
 
 
-# auto generated
-isis.obj: isis.plm isis.ipx
-loc1.obj: loc1.plm loc1.ipx
-loc2a.obj: loc2a.plm loc2a.ipx
-loc2b.obj: loc2b.plm loc2b.ipx
-loc3.obj: loc3.plm loc3.ipx
-loc4.obj: loc4.plm loc4.ipx
-loc4a.obj: loc4a.plm loc4a.ipx
-loc5a.obj: loc5a.plm loc5a.ipx
-loc6.obj: loc6.plm loc6.ipx
-loc7.obj: loc7.plm loc7.ipx
-loc8.obj: loc8.plm loc8.ipx
-loc8a.obj: loc8a.plm loc8a.ipx
