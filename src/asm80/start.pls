@@ -99,7 +99,7 @@ outch: procedure(c) public;
 end;
 
 outStrN: procedure(s, n) public;
-	declare s address, n byte;
+	declare s pointer, n byte;
 	declare ch based s byte;
 
 	do while n > 0;
@@ -258,16 +258,16 @@ runtimeError: procedure(arg1b) public;
 	call exit;
 end;
 
-ioError: procedure(arg1w) public;
-	declare arg1w address;
-	declare ch based arg1w byte;
+ioError: procedure(s) public;
+	declare s pointer;
+	declare ch based s byte;
 
 	tokBufIdx = 0;
-	curFileName$p = arg1w;
+	curFileName$p = s;
 
 	do while ch <> ' ' and ch <> 0dh and ch <> 9;
 		tokBufIdx = tokBufIdx + 1;
-		arg1w = arg1w + 1;
+		s = s + 1;
 	end;
 	if missingEnd then
 		call runtimeError(3);	/* EOF error*/
@@ -310,7 +310,7 @@ end;
 
 
 getNibble: procedure(bp, idx) byte public;
-	declare bp address, idx byte;
+	declare bp pointer, idx byte;
 	declare b based bp byte;
 	declare n byte;
 
@@ -370,7 +370,7 @@ parseControlLines: procedure public;
 			isControlLine = TRUE;
 $IF OVL4
 			if b905E = 1 then
-				b6897 = 0FFh;
+				b6897 = TRUE;
 $ENDIF
 		end;
 		else

@@ -163,7 +163,7 @@ end;
 
 lookupControl: procedure byte;
 	declare (cmdIdx, cmdStartIdx, ctlVal, cmdLen, ctlFlags, noInvalid) byte,
-		(control$p, nextControl$p, ctlSeen$p) address;
+		(control$p, nextControl$p, ctlSeen$p) pointer;
 	declare twoch address at(.tokBuf);
 	declare ch based control$p byte;
 	declare ctlSeen based ctlSeen$p byte;

@@ -108,8 +108,8 @@ sub$7327: procedure public;
 end;
 
 
-sub$733D: procedure(arg1w, arg2w) address;
-	declare (arg1w, arg2w) address;
+enterMacro: procedure(arg1w, arg2w) address;
+	declare (arg1w, arg2w) pointer;
 	declare ch1 based w6870 byte,
 		ch2 based arg2w byte;
 
@@ -211,7 +211,7 @@ sub$73AD: procedure public;
 				reget = 1;
 				call emitXref(0, .name);
 				haveUserSymbol = FALSE;
-				b6BDA = 0FFh;
+				b6BDA = TRUE;
 				return;
 			end;
 		tmac$mtype = b9062;
@@ -344,7 +344,7 @@ sub$76CE: procedure public;
 	do;
 		if opType = 1 then
 		do;
-			b6B32 = 0FFh;
+			b6B32 = TRUE;
 			macroCondSP = tmac$macroCondSP;
 			ifDepth = tmac$ifDepth;
 			tmac$w14 = 1;
@@ -374,7 +374,7 @@ sub$770B: procedure public;
 			tmac$w14 = tokenSize(0) - (tokenSize(0) = 0);
 
 		call collectByte((tokenSize(0) + 1) or 80h);
-		w6870 = sub$733D(tokPtr, tokPtr + tokenSize(0) - 1);
+		w6870 = enterMacro(tokPtr, tokPtr + tokenSize(0) - 1);
 		call popToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
@@ -408,7 +408,7 @@ sub$770B: procedure public;
 		end;
 		else
 		do;
-			w6870 = sub$733D(.b$3782, .b$3783);
+			w6870 = enterMacro(.b$3782, .b$3783);
 			if tmac$mtype = 0 then
 			do;
 				tmac$b3 = curTokenSym.flags;

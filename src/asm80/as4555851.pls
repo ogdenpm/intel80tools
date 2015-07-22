@@ -20,16 +20,16 @@ declare pad1 address data(40h),
 	pad2 address;
 
 
-strUCequ: procedure(arg1w, arg2w) byte public;
-	declare (arg1w, arg2w) address;
-	declare ch1 based arg1w byte,
-		ch2 based arg2w byte;
+strUCequ: procedure(s, t) byte public;
+	declare (s, t) address;
+	declare ch1 based s byte,
+		ch2 based t byte;
 
 	do while ch1 <> 0;
 		if ch1 <> ch2 and ch1 <> (ch2 and 5Fh) then
 			return FALSE;
-		arg1w = arg1w + 1;
-		arg2w = arg2w + 1;
+		s = s + 1;
+		t = t + 1;
 	end;
 	return TRUE;
 end;
@@ -62,7 +62,7 @@ end;
 
 
 finishLine: procedure public;
-	declare lineno$p address,
+	declare lineno$p pointer,
 		updating byte,
 		ch based lineno$p byte;
 
@@ -115,7 +115,7 @@ finishLine: procedure public;
 			CHKOVL$2;
 			call ovl8;
 		end;
-		b6B2C = 0FFh;
+		b6B2C = TRUE;
 		segSize(activeSeg), effectiveAddr = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 

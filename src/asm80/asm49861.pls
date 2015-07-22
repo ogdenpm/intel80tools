@@ -194,7 +194,7 @@ end;
 
 collectByte: procedure(c) public;
 	declare c byte;
-	declare s address;
+	declare s pointer;
 	declare ch based s byte;
 
 

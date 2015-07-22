@@ -13,14 +13,14 @@ $ELSE
 declare	CHKOVL$2 lit	' ';
 $ENDIF
 
-declare b4A26(*) byte data(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0FFh, 0FFh, 0FFh, 0FFh,
-			   0FFh, 0FFh, 0FFh, 0FFh, 0, 0FFh, 0FFh, 0FFh),
 			/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-	b4A68(*) byte data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+declare isExprOrMacroMap(*) byte data(
+			   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,
+			   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,
+			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+			   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh, 0,  0FFh,
+			   0FFh,0FFh),
+   isInstrMap(*) byte data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 		           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
 			   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
 			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -88,12 +88,12 @@ handleOp: procedure public;
 			do;
 				tokenSize(0) = 1;
 				tokenAttr(0) = 0;
-				b6B36 = 0FFh;
+				b6B36 = TRUE;
 			end;
 
 			b6B35 = b6B2F;
 			if opType = 3 then
-				b6B2C = 0FFh;
+				b6B2C = TRUE;
 		end;
 /* 4 */		accum1 = accum1 * accum2;	/* * */
 /* 5 */		accum1 = accum1 + accum2;	/* + */
@@ -171,11 +171,11 @@ handleOp: procedure public;
 		end;
 /* 28 */	do;					/* DS ? */
 			segSize(activeSeg) = segSize(activeSeg) + accum1;
-			showAddr = 0FFh;
+			showAddr = TRUE;
 		end;
 /* 29 */ case29:					/* EQU ? */
 		do;
-			showAddr = 0FFh;
+			showAddr = TRUE;
 			if (b6855 and 40h) = 40h then
 			do;
 				call expressionError;
@@ -187,7 +187,7 @@ handleOp: procedure public;
 		end;
 /* 30 */	goto case29;				/* SET ? */
 /* 31 */	do;					/* ORG ? */
-			showAddr = 0FFh;
+			showAddr = TRUE;
 			if (b6855 and 40h) <> 40h then
 			do;
 				if (b6855 and 18h) <> 0 then
@@ -213,7 +213,7 @@ handleOp: procedure public;
 				if sub$425B(valType) then
 					call operandError;
 
-				showAddr = 0FFh;
+				showAddr = TRUE;
 			end;
 $IF OVL4
 			jj = b905E;
@@ -227,7 +227,7 @@ $ENDIF
 			if opType <> 1 then
 				call syntaxError;
 			if b6B35 then
-				b6B33 = 0FFh;
+				b6B33 = TRUE;
 			else
 				call syntaxError;
 
@@ -235,16 +235,16 @@ $ENDIF
 /* 33 */	do;					/* IF ? */
 			if b6B35 then
 			do;
-				b6B32 = 0FFh;
+				b6B32 = TRUE;
 				call nestIF(2);
 				b6881 = TRUE;
-				if skipping(0) = 0 then
+				if skipping(0) = FALSE then
 					skipping(0) = not ((low(accum1) and 1) = 1);
-				inElse(0) = 0;
+				inElse(0) = FALSE;
 			end;
 		end;
 /* 34 */	do;					/* ELSE ? */
-			b6B32 = 0FFh;
+			b6B32 = TRUE;
 $IF OVL4
 			if macroCondStk(0) <> 2 then
 $ELSE
@@ -254,10 +254,10 @@ $ENDIF
 			else if not inElse(0) then
 			do;
 				if not skipping(0) then
-					skipping(0) = 0FFh;
+					skipping(0) = TRUE;
 				else
 					skipping(0) = skipping(ifDepth);
-				inElse(0) = 0FFh;
+				inElse(0) = TRUE;
 			end;
 			else
 				call nestingError;
@@ -265,7 +265,7 @@ $ENDIF
 /* 35 */	do;					/* ENDIF ? */
 			if b6B35 then
 			do;
-				b6B32 = 0FFh;
+				b6B32 = TRUE;
 				call unnestIF(2);
 			end;
 		end;
@@ -384,8 +384,8 @@ parseLine: procedure public;
 
 
 	sub$53F8: procedure;
-		if not b4A68(op) then
-			b6B34 = 0;
+		if not isInstrMap(op) then
+			b6B34 = FALSE;
 	end;
 
 
@@ -421,7 +421,7 @@ $ENDIF
 			if opType = 2 then
 			do;
 				b6B2F = b6B35;
-				b6B35 = 0FFh;
+				b6B35 = TRUE;
 			end;
 			if phase > 1 then
 				inExpression = isExpressionOp;
@@ -462,12 +462,12 @@ $ENDIF
 		end;
 
 		call handleOp;
-		if not b4A26(op) then
-			b6B35 = 0;
+		if not isExprOrMacroMap(op) then
+			b6B35 = FALSE;
 
 		if b6B2C then
 		do;
-			b6B2C = 0;
+			b6B2C = FALSE;
 			return;
 		end;
 
@@ -488,7 +488,7 @@ $ENDIF
 			if opType = 6 then
 			do;
 				effectiveToken = op;
-				b6B35 = 0FFh;
+				b6B35 = TRUE;
 			end;
 	end;
 end;

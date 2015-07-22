@@ -329,7 +329,7 @@ void doSetReset(int isSet)
 			inCh = ts;		/* reparse later */
 			setSym(token, isSet ? 255 : 0);
 		}
-	} while ((tok = getToken()) != COMMA);
+	} while ((tok = getToken()) == COMMA);
 	if (tok != RP) {
 		fprintf(stderr, "bad conditional %s missing , or )\n", line);
 		skiptoRPorEOL();

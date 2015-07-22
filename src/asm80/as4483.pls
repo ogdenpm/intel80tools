@@ -46,7 +46,7 @@ $ENDIF
 
 
 testBit: procedure(bitIdx, bitVector) byte public;
-	declare bitIdx byte, bitVector address;
+	declare bitIdx byte, bitVector pointer;
 	declare ch based bitVector byte;
 
 	if ch < bitIdx then
@@ -132,7 +132,7 @@ end;
 
 sub$43DD: procedure address public;
 	declare tokByte based tokPtr (1) byte,	/* and high byte if not a register */
-		val$p address,
+		val$p pointer,
 		val based val$p address;
 $IF OVL4
 	logError: procedure(arg1b);
@@ -217,7 +217,7 @@ $ENDIF
 		call popToken;
 	end;
 
-	b6B36 = 0;
+	b6B36 = FALSE;
 	return accum1;
 end;
 

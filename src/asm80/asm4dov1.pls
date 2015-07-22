@@ -405,7 +405,7 @@ $ENDIF
     end;
     else
     do;
-        b68AD = 0FFh;
+        b68AD = TRUE;
         call outNStr(4, .asciiLineNo);
 $IF OVL4
         if expandingMacro > 1 then

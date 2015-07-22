@@ -28,7 +28,7 @@ $ENDIF
 			     9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);	/* 70 */
 
 unpackToken: procedure(src, dst) public;
-	declare (src, dst) address;
+	declare (src, dst) pointer;
 	declare wrd based src address;
 	declare ch based dst byte;
 	declare packedword address;
@@ -61,7 +61,7 @@ end;
 
 
 insertSym: procedure public;
-	declare (q, p) address;
+	declare (q, p) pointer;
 	declare ch1 based q byte;
 	declare ch2 based p byte;
 
@@ -279,7 +279,8 @@ end;
 
 lookup: procedure(tableId) byte public;
 	declare tableId byte;
-	declare (lowOffset, highOffset, midOffset, deltaToNext, entryOffset, packedTok$p) address,
+	declare (lowOffset, highOffset, midOffset, deltaToNext) address,
+		(entryOffset, packedTok$p) pointer,
 		(i, gt) byte;
 	declare symEntry based entryOffset KEYWORD$T,
 		packedTok based packedTok$p (2) address;

@@ -11,13 +11,14 @@ declare	fixupInitialLen(*) byte data(1, 2, 1, 3),
 	b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
 
 
-declare	r$modhdr MODHDR$T initial(2), (dta$p, recSym$p) address;
+declare	r$modhdr MODHDR$T initial(2),
+	(dta$p, recSym$p) pointer;
 
 
 
 writeRec: procedure(rec$p) public;
 	declare rec$p address,
-		len$p address, recLen address,
+		len$p pointer, recLen address,
 		i byte, crc byte;
 	declare len based len$p address;
 	declare ch based len$p byte;
@@ -204,7 +205,7 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
     declare symb based curTokenSym$p (1) byte;
 
     addSymbol: procedure;
-        declare offsetInSeg$p address;
+        declare offsetInSeg$p pointer;
         declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
         declare symOffset based recSym$p address;

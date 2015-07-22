@@ -33,7 +33,7 @@ end;
 
 
 sub$3FA9: procedure byte public;
-	declare w9B5A address,
+	declare w9B5A pointer,
 		wrd based w9B5A address;
 
 	w9B5A = curTokenSym$p - 6;
@@ -314,11 +314,11 @@ $IF OVL4
 					b905E = 2;
 					if b6897 then
 						call syntaxError;
-					b6897 = 0;
+					b6897 = FALSE;
 				end;
 				else
 				do;
-					b6897 = 0;
+					b6897 = FALSE;
 					b905E = 0FFh;
 				end;
 			end;
@@ -340,7 +340,7 @@ $ENDIF
 		end;
 $IF OVL4
 		do;				/* 10? */
-			b6BDA = 0;
+			b6BDA = FALSE;
 			call sub$73AD;
 			if b6BDA then
 				return;
@@ -348,7 +348,7 @@ $IF OVL4
 		do;				/* CC$ESC */
 			if expandingMacro then
 			do;
-				skipping(0) = 0;
+				skipping(0) = FALSE;
 				effectiveToken = 40h;
 				return;
 			end;
