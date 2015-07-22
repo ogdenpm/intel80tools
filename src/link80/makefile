@@ -52,7 +52,9 @@ OBJOVL =linkov.obj
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
 
 
-all: $(TARGET) $(OVERLAY)
+all:	.depend
+all:
+	$(MAKE) $(TARGET) $(OVERLAY)
 
 
 # link build rule
@@ -120,6 +122,10 @@ $(OBJ1:.obj=.ipx) : $(PEXFILE)
 $(OBJ2:.obj=.ipx) : $(PEXFILE)
 $(OBJOVL:.obj=.ipx) : $(PEXFILE)
 
+.depend: link80_all.plm
+	..\..\unpack.pl
+	..\..\mkdepend.pl
+	date /t >.depend
 
 clean:
 	del *.obj *lst *.map *.*~ *~ *.abs *.rel
@@ -127,10 +133,14 @@ clean:
 vclean: clean
 	del *.ipx $(TARGET) $(OVERLAY)
 
+uclean: vclean
+	del makefile .depend ??????.* *.asm
 verify: all
 	$(TOOLS)\diffbin $(TARGET) $(V4)$(TARGET)
 	$(TOOLS)\diffbin $(OVERLAY) $(V4)$(OVERLAY)
 
+gitprep: uclean
+	..\..\unpack.pl
 
 
 # auto generated
