@@ -20,8 +20,8 @@ declare pad1 address data(40h),
 	pad2 address;
 
 
-strUCequ: procedure(s, t) byte public;
-	declare (s, t) address;
+strUCequ: procedure(s, t) bool public;
+	declare (s, t) pointer;
 	declare ch1 based s byte,
 		ch2 based t byte;
 
@@ -134,7 +134,7 @@ $ENDIF
 	call initLine;
 	if b6B33 then
 	do;
-		finished = 0FFh;
+		finished = TRUE;
 		if isPhase2Print and ctlSYMBOLS then
 		do;
 			CHKOVL$1;

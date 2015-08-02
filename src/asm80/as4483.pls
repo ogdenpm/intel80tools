@@ -9,14 +9,14 @@ $include(asm44.ipx)
 $ELSE
 $include(asm83.ipx)
 $ENDIF
-declare b4181(*) byte public data(0, 80h, 0, 0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh,
-			   0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Fh, 0Fh,
-			   0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh, 1, 1,
-			   1, 1, 80h, 1, 0, 0, 47h, 7, 7, 7,
-			   17h, 47h, 7, 47h, 37h, 5, 7, 0, 0, 0,
-			   40h, 40h, 0, 1
+				/* 0   1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+declare b4181(*) byte public data(0, 80h,   0,   0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh,
+				0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh,   1,   1,   1,   1,
+				80h,   1,   0,   0, 47h,   7,   7,   7, 17h, 47h,   7, 47h, 37h,   5,   7,   0,
+				  0,   0, 40h, 40h,   0,   1
 $IF OVL4
-			   ,80h, 40h, 80h, 0, 40h, 80h, 80h, 40h, 81h, 0C0h, 80h, 0Dh
+							    , 80h, 40h, 80h,   0, 40h, 80h, 80h, 40h, 81h,0C0h,
+				80h, 0Dh
 $ENDIF
 			   ),
 
@@ -24,39 +24,55 @@ $ENDIF
 		/* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
 	b41C1(*) byte data(1Ah, 5, 80h, 0, 0C0h),
 		/* bit vector 27 -> 00000101 10000000 00000000 110 */
-	b41C6(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
+	opCompat(*) byte data(57h, 71h, 0F4h, 57h, 76h, 66h, 66h, 67h, 77h, 77h, 77h, 55h),
 		/* bit vector 88 -> 01110001 11110100 01010111 01110110
                                     01100110 01100110 01100111 01110111
 				    01110111 01110111 01010101 */
-	b41D2(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
+	propagateFlags(*) byte data(57h, 6, 2, 20h, 0, 0, 0, 0, 0, 0, 0, 22h),
 		/* bit vector 88 -> 00000110 00000010 00100000 00000000
 				    00000000 00000000 00000000 00000000
 				    00000000 00000000 00100010 */ 
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
 		/* bit vector 59 -> 11111111 10000000 00000000 00000000
 				    00001111 11111110 00000000 001 */
-	precedence(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6, 6,
-			   5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1, 1, 1,
-			   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-			   1, 1, 1
+/* precedence table */
+/*
+   10 - NULL
+    9 - HIGH, LOW
+    8 - *, /, MOD, SHL, SHR
+    7 - +, -, UPLUS, UMINUS
+    6 - =, <, <=, >, >=, <>
+    5 - NOT
+    4 - AND
+    3 - OR, XOR,
+    2 - not used
+    1 - COMMA, DB - STKLEN, O$37, ENDM, EXITM, O$3D, REPT, LOCAL
+    0 - all others
+*/
+			     /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+	precedence(*) byte data(0, 0, 0, 0, 8, 7, 1, 7, 7, 8, 7, 6, 6, 6, 6, 6,
+				6, 5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1,
+				1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+				1, 1, 1, 1, 1, 1
 $IF OVL4
-	       /* extra */ ,0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0Ah
+	       /* for macro ver */ 		, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1,
+				0, 0Ah
 $ENDIF
 			   );
 
 
-testBit: procedure(bitIdx, bitVector) byte public;
+testBit: procedure(bitIdx, bitVector) bool public;
 	declare bitIdx byte, bitVector pointer;
 	declare ch based bitVector byte;
 
 	if ch < bitIdx then
-		return 0;
+		return FALSE;
 	
 	bitVector = bitVector + shr(bitIdx, 3) + 1;
 	return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
-sub$425B: procedure(arg1b) byte public;
+isReg: procedure(arg1b) bool public;
 	declare arg1b byte;
 
 	return arg1b = 7 or arg1b = 8;
@@ -64,53 +80,53 @@ end;
 
 sub$4274: procedure public;
 	if testBit(op, .b41B7) then
-		if sub$425B(valType) then
+		if isReg(acc1ValType) then
 			call operandError;
 end;
 
 sub$4291: procedure public;
-	if sub$425B(valType) then
+	if isReg(acc1ValType) then
 		call operandError;
 	if (b4181(op) and 2) = 0 then
-		b6856 = 0;
-	else if sub$425B(b6859) then
+		acc2Flags = 0;
+	else if isReg(acc2ValType) then
 		call operandError;
 
-	valType = 0Ch;
-	bp6BE0(0) = (b6855 and 18h) <> 0;
-	bp6BE0(1) = (b6856 and 18h) <> 0;
-	if (b6855 and 7) <> 0 then
-		if (b6856 and 7) <> 0 then
-			if ((b6855 xor b6856) and 1Fh) <> 0 then
+	acc1ValType = O$NUMBER;
+	accFixFlags(0) = (acc1Flags and UF$BOTH) <> 0;
+	accFixFlags(1) = (acc2Flags and UF$BOTH) <> 0;
+	if (acc1Flags and UF$SEGMASK) <> SEG$ABS then
+		if (acc2Flags and UF$SEGMASK) <> SEG$ABS then
+			if ((acc1Flags xor acc2Flags) and 1Fh) <> 0 then
 				call expressionError;
-	if (ii := (b6855 and 40h) <> 0) or (b6BDC := (b6856 and 40h) <> 0) then
+	if (ii := (acc1Flags and UF$EXTRN) <> 0) or (jj := (acc2Flags and UF$EXTRN) <> 0) then
 	do;
 		if op = 5 then	/* +? (PAGE INPAGE)? */
-			if not (ii or bp6BE0(0)) then
+			if not (ii or accFixFlags(0)) then
 			do;
-				w685A = w685C;
-				b6855 = b6856;
+				acc1NumVal = acc2NumVal;
+				acc1Flags = acc2Flags;
 				return;
 			end;
-		if b6BDC or bp6BE0(1) or not testBit(op, .b41C1) then
+		if jj or accFixFlags(1) or not testBit(op, .b41C1) then
 			goto L4394;
 		else
 			return;
 	end;
-	jj = shl(op - 4, 2) or (bp6BE0(0) and 2) or (bp6BE0(1) and 1);
-	if testBit(jj, .b41C6) then
+	kk = shl(op - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
+	if testBit(kk, .opCompat) then
 L4394:	do;
 		call expressionError;
-		b6855 = 0;
+		acc1Flags = 0;
 		return;
 	end;
-	if testBit(jj, .b41D2) then
+	if testBit(kk, .propagateFlags) then
 	do;
-		if not bp6BE0(0) then
-			b6855 = b6856;
+		if not accFixFlags(0) then
+			acc1Flags = acc2Flags;
 		return;
 	end;
-	b6855 = 0;
+	acc1Flags = 0;
 end;
 
 
@@ -124,13 +140,13 @@ end;
 
 
 setExpectOperands: procedure public;
-	expectingOperands = 0FFh;
-	expectingOpcode = 0;
+	expectingOperands = TRUE;
+	expectingOpcode = FALSE;
 end;
 
 
 
-sub$43DD: procedure address public;
+getNumVal: procedure address public;
 	declare tokByte based tokPtr (1) byte,	/* and high byte if not a register */
 		val$p pointer,
 		val based val$p address;
@@ -148,9 +164,9 @@ $IF OVL4
 	end;
 $ENDIF
 
-	b6855 = 0;
+	acc1Flags = 0;
 	accum1 = 0;
-	valType = O$ID;
+	acc1ValType = O$ID;
 $IF OVL4
 	if tokenType(0) = 40h then
 		call pushToken(0Dh);
@@ -171,13 +187,13 @@ $ELSE
 $ENDIF
 		else
 		do;
-			valType = tokenType(0);
-			if testBit(valType, .b41DE) then
+			acc1ValType = tokenType(0);
+			if testBit(acc1ValType, .b41DE) then
 			do;
 				tokPtr = curTokenSym$p + 7;	/* point to flags */
-				b6855 = tokByte(0) and 0DFh;
+				acc1Flags = tokByte(0) and 0DFh;
 				tokPtr, val$p = curTokenSym$p + 4;
-				w685A = val;			/* pick up value */
+				acc1NumVal = val;			/* pick up value */
 				tokenSize(0) = 2;
 
 			end;
@@ -195,8 +211,8 @@ $IF OVL4
 $ELSE
 					call valueError;
 $ENDIF
-				b6855 = tokenAttr(0) and 0DFh;
-				w685A = tokenSymId(0);
+				acc1Flags = tokenAttr(0) and 0DFh;
+				acc1NumVal = tokenSymId(0);
 			end;
 
 			if tokenSize(0) > 0 then	/* get low byte */
@@ -210,7 +226,7 @@ $ENDIF
 				if tokenType(0) = O$STRING then
 					call swapAccBytes;
 
-		if (b6855 and 40h) <> 0 then
+		if (acc1Flags and 40h) <> 0 then
 			if tokenType(0) < 9 then
 				accum1 = 0;
 
@@ -227,7 +243,14 @@ getPrec: procedure(arg1b) byte public;
 	return precedence(arg1b);
 end;
 
-sub$450F: procedure(arg1b) public;
+/*
+   arg1b
+   xxxx1xxx	single byte arg
+   xxxxx11x	acc1 = acc1 | (acc2 << 3) 
+   xxxxx01x	acc1 = acc1 | acc2
+   
+*/   
+mkCode: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if (arg1b and 3) <> 0 then
@@ -236,41 +259,41 @@ sub$450F: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not sub$425B(b6859) and op <> K$RST) then    /* RST */
+		   or (not isReg(acc2ValType) and op <> K$RST) then    /* RST */
 			call operandError;
-		else if sub$425B(b6859) and op = K$RST then	     /* RST */
+		else if isReg(acc2ValType) and op = K$RST then	     /* RST */
 			call operandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
 	else if op <> K$SINGLE then		/* single byte op */
-		if sub$425B(b6859) then
+		if isReg(acc2ValType) then
 			call operandError;
 
 	if shr(arg1b, 3) then
 	do;
-		if (b6856 and 18h) = 18h then
+		if (acc2Flags and UF$BOTH) = UF$BOTH then
 		do;
 			call valueError;
-			b6856 = b6856 and 0E7h or 8;
+			acc2Flags = acc2Flags and 0E7h or UF$LOW;
 		end;
-		if accum2$hb + 1 > 1 then
+		if accum2$hb + 1 > 1 then	/* error if not FF or 00 */
 			call valueError;
 	end;
 	if op = K$IMM8 or op = K$IMM16 then	/* Imm8 or imm16 */
 	do;
-		b6855 = b6856;
-		w685A = w685C;
+		acc1Flags = acc2Flags;
+		acc1NumVal = acc2NumVal;
 	end;
 	else
-		b6855 = 0;
+		acc1Flags = 0;
 
 	if op <> K$SINGLE then		     /* single byte op */
 		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
 			call operandError;
-	if (op := shr(arg1b, 4) + 24h) = 24h then	/* LXI */
-		b6B2D = 0Bh;
+	if (op := shr(arg1b, 4) + 24h) = 24h then
+		b6B2D = O$DATA;
 end;
 
 nxtTokI: procedure byte public;

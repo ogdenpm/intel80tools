@@ -51,7 +51,7 @@ sub$720A: procedure;
 	if b9061 then
 		call move(4, .macroStk(0).buf$p, .macroStk(macroDepth).buf$p);
 
-	b9061 = 0;
+	b9061 = FALSE;
 	tmac$w12 = w9199;
 	tmac$w4 = w919B;
 	w919B = w919B + tmac$b3;
@@ -60,11 +60,11 @@ sub$720A: procedure;
 end;
 
 
-sub$727F: procedure byte;
+sub$727F: procedure bool;
 	if not b905E then
 		return TRUE;
 	b9064 = b9064 + 1;
-	b6B2C = op <> 3Eh;
+	b6B2C = op <> K$REPT;
 	effectiveToken = 37h;
 	return FALSE;
 end;
@@ -86,16 +86,16 @@ sub$72C4: procedure;
 	declare b9C79(6) byte;
 
 	call pushToken(0Dh);
-	jj = 0;
+	kk = 0;
 
 L72CE:
-	b9C79(jj := jj + 1) = accum1 mod 10 + '0';
+	b9C79(kk := kk + 1) = accum1 mod 10 + '0';
 	if (accum1 := accum1 / 10) > 0 then
 		goto L72CE;
 
-	do while jj > 0;
-		call collectByte(b9C79(jj));
-		jj = jj - 1;
+	do while kk > 0;
+		call collectByte(b9C79(kk));
+		kk = kk - 1;
 	end;
 end;
 
@@ -104,21 +104,21 @@ sub$7327: procedure public;
 	w9199 = w6870;
 	effectiveToken = 3Dh;
 	b905D = TRUE;
-	b9060 = 0;
+	b9060 = FALSE;
 end;
 
 
-enterMacro: procedure(arg1w, arg2w) address;
-	declare (arg1w, arg2w) pointer;
+enterMacro: procedure(lowAddr, highAddr) address;
+	declare (lowAddr, highAddr) pointer;
 	declare ch1 based w6870 byte,
-		ch2 based arg2w byte;
+		ch2 based highAddr byte;
 
-	do while arg1w <= arg2w;
+	do while lowAddr <= highAddr;
 		if w6870 <= symHighMark then
 			call runtimeError(1);	/* table error */
 		ch1 = ch2;
 		w6870 = w6870 - 1;
-		arg2w = arg2w - 1;
+		highAddr = highAddr - 1;
 	end;
 	return w6870;
 end;
@@ -128,14 +128,14 @@ sub$7383: procedure;
 	b9064 = 1;
 	w906A = symHighMark;
 	b905E = 1;
-	w9C75 = w9114;
+	w9C75 = macroBlkCnt;
 end;
 
 
 
 sub$739A: procedure;
 	if b6884 then
-		if asmErrCode <> 55h then
+		if asmErrCode <> 'U' then
 			call locationError;
 end;
 
@@ -204,7 +204,7 @@ sub$73AD: procedure public;
 		if not b905A and tokenSize(0) = 5 then
 			if strUCequ(.aMacro, tokPtr) then
 			do;
-				effectiveToken = 36h;
+				effectiveToken = K$MACRO;
 				call popToken;
 				w9199 = tmac$w12;
 				opSP = opSP - 1;
@@ -233,7 +233,7 @@ end;
 sub$7517: procedure public;
 	if sub$727F then
 	do;
-		expectingOperands = 0;
+		expectingOperands = FALSE;
 		w9068 = curTokenSym$p + 4;
 		call sub5819$5CE8(0, O$3A);
 		tmac$mtype = 0;
@@ -366,7 +366,7 @@ sub$770B: procedure public;
 	do;
 		if tokenType(0) <> 0Dh then
 		do;
-			accum1 = sub$43DD;
+			accum1 = getNumVal;
 			call sub$72C4;
 		end;
 
@@ -380,7 +380,7 @@ sub$770B: procedure public;
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
 			b905D = TRUE;
 		else
-			b9060 = 0FFh;
+			b9060 = TRUE;
 
 		if tmac$mtype = 1 then
 			tmac$w14 = tmac$w14 + 1;
@@ -412,7 +412,7 @@ sub$770B: procedure public;
 			if tmac$mtype = 0 then
 			do;
 				tmac$b3 = curTokenSym.flags;
-				tmac$w10 = sub$43DD;
+				tmac$w10 = getNumVal;
 				call sub$720A;
 			end;
 			else if tmac$w14 = 0 then
@@ -428,7 +428,7 @@ end;
 
 sub$7844: procedure public;
 	call sub$72A4(3);
-	if (effectiveToken := opType) <> 1 then
+	if (effectiveToken := opType) <> T$CR then
 		call syntaxError;
 
 	if not b905E then
@@ -472,16 +472,16 @@ end;
 
 
 sub$78CE: procedure public;
-	jj = byteAt(tmac$w12);
-	bp6BE0(0) = 1 - (jj = 21h and b9062 = 2);
-	if b9062 = 0 or (tmac$w14 := tmac$w14 - bp6BE0(0)) = 0 then
+	kk = byteAt(tmac$w12);
+	accFixFlags(0) = 1 - (kk = 21h and b9062 = 2);
+	if b9062 = 0 or (tmac$w14 := tmac$w14 - accFixFlags(0)) = 0 then
 		call unnestIF(1);
 	else
 	do;
 		if b9062 = 1 then
-			w9199 = tmac$w12 - (jj and 7Fh);
+			w9199 = tmac$w12 - (kk and 7Fh);
 		else
-			w9199 = tmac$w12 + bp6BE0(0);
+			w9199 = tmac$w12 + accFixFlags(0);
 
 		tmac$mtype = b9062;
 		call sub$720A;

@@ -42,8 +42,8 @@ end;
 
 addExtents: procedure public;
     do ii = 1 to 3;
-        lstFile(jj + ii) = aExtents(ii);
-        objFile(jj + ii) = aExtents(ii+3);
+        lstFile(kk + ii) = aExtents(ii);
+        objFile(kk + ii) = aExtents(ii+3);
     end;
 end;
 
@@ -97,29 +97,29 @@ $ENDIF
 	infd = inOpen(cmdch$p, 1);	/* open file for reading */
 	rootfd, srcfd = infd;
 	ii = TRUE;
-	jj = 0;
+	kk = 0;
 
 	do while not cmdIsWhite;	/* copy file name over to the files list */
-		files(0).name(jj) = cmdch;
+		files(0).name(kk) = cmdch;
 		if ii then		/* and the name for the lst and obj files */
-			lstFile(jj), objFile(jj) = cmdch;
+			lstFile(kk), objFile(kk) = cmdch;
 		if cmdch = '.' then
 		do;
 			ii = FALSE;
 			call addExtents;	/* add lst and obj file extents */
 		end;
-		jj = jj + 1;
+		kk = kk + 1;
 		cmdch$p = cmdch$p + 1;
 	end;
 	controls$p = cmdch$p;		/* controls start after file name */
 	if ii then			/* no extent in source file */
 	do;
-		lstFile(jj) = '.';	/* add the . and the extents */
-		objFile(jj) = '.';
+		lstFile(kk) = '.';	/* add the . and the extents */
+		objFile(kk) = '.';
 		call addExtents;
 	end;
 
-	files(0).name(jj) = ' ';	/* override current drive for tmp if explict in source file */
+	files(0).name(kk) = ' ';	/* override current drive for tmp if explict in source file */
 	if lstFile(0) = ':' and lstFile(2) <> '0' then
 $IF OVL4
 		asmax$ref(2),
@@ -147,7 +147,7 @@ $IF OVL4
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 $IF OVL4
-    w9114,
+    macroBlkCnt,
 $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
     maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), effectiveAddr,

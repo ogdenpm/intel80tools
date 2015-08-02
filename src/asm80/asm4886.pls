@@ -84,14 +84,14 @@ $ENDIF
 end;
 
 $IF OVL4
-sub$5C73: procedure(arg1b) byte;
+sub$5C73: procedure(arg1b) bool;
 	declare arg1b byte;
 
 	if endSymTab(arg1b) >= curTokenSym$p and curTokenSym$p >= symTab(arg1b) then
-		return 0;
+		return FALSE;
 
 	call syntaxError;
-	return 0FFh;
+	return TRUE;
 end;
 
 
@@ -112,11 +112,13 @@ declare b6EC4$9C3A byte public;
 
 sub5819$5CE8: procedure(arg1w, type) public;
 	declare arg1w address, type byte;
-	declare (b6CE8, b6CE9, b6CEA, isSetOrEqu, b6CEC) byte;
+	declare (b6CE8, b6CE9) byte,
+		(b6CEA, isSetOrEqu) bool,
+		b6CEC byte;
 
 	sub$5B9A: procedure;
 		tokenType(0) = type;
-		if (valType = K$REGNAME or valType = K$SP) and isSetOrEqu then
+		if (acc1ValType = K$REGNAME or acc1ValType = K$SP) and isSetOrEqu then
 			tokenType(0) = 12 - type;
 	end;
 
@@ -124,7 +126,7 @@ sub5819$5CE8: procedure(arg1w, type) public;
 	isSetOrEqu = type = 5 or type = 4;
 	b6CE9 = 0;
 	b6CE8 = curTokenSym.flags;
-	b6CEA = 0;
+	b6CEA = FALSE;
 $IF OVL4
 	if sub$5C73(1) then
 	do;
@@ -164,9 +166,9 @@ $ENDIF
 				b6CE8 = 0;
 			end;
 
-			b6CE8 = (activeSeg <> 0 and 18h) or (inPublic and 20h) or (inExtrn and 58h);
+			b6CE8 = (activeSeg <> SEG$ABS and 18h) or (inPublic and 20h) or (inExtrn and 58h);
 			if b6EC4$9C3A = 1 then
-				b6CE8 = b6855;
+				b6CE8 = acc1Flags;
 
 			if b6EC4$9C3A = 2 then
 				b6CE8 = b6CE8 or activeSeg;
@@ -181,7 +183,7 @@ $ENDIF
 
 	if b6882 = 2 then
 		if tokenType(0) = O$ID then
-			if valType <> O$ID then
+			if acc1ValType <> O$ID then
 				if isSetOrEqu then
 				do;
 					call sub$5B9A;
@@ -189,8 +191,8 @@ $ENDIF
 					do;
 						curTokenSym.type = tokenType(0);
 						curTokenSym.val = arg1w;
-						b6CE8 = b6855;
-						b6CEA = 0FFh;
+						b6CE8 = acc1Flags;
+						b6CEA = TRUE;
 					end;
 					goto L5A9B$5F82;
 				end;
@@ -206,7 +208,7 @@ $ENDIF
 					tokenType(0) = type;
 					b6CE8 = b6CE8 and 0E0h;
 					if b6EC4$9C3A = 1 then
-						b6CE8 = b6855 or 20h;
+						b6CE8 = acc1Flags or 20h;
 
 					if b6EC4$9C3A = 2 then
 						if activeSeg <> 0 then
@@ -231,7 +233,7 @@ $ENDIF
 			tokenType(0) = 3;
 
 	if not inPublic and testBit(tokenType(0), .b5669) then
-		b6CE8 = (b6CE8 and 20h) and tokenType(0) <> O$3A or b6855;
+		b6CE8 = (b6CE8 and UF$PUBLIC) and tokenType(0) <> O$3A or acc1Flags;
 	else
 	do;
 		if isPhase1 then
@@ -248,11 +250,11 @@ L5A9B$5F82:
 	if isPhase1 and (type = 9 or type = 6 or b6CEC <> tokenType(0)) then
 		curTokenSym.type = tokenType(0) or b6CE9;
 
-	jj = curTokenSym.type;
-	if tokenType(0) = 3 or jj = 3 then
+	kk = curTokenSym.type;
+	if tokenType(0) = 3 or kk = 3 then
 		call multipleDefError;
 
-	if jj >= 80h then
+	if kk >= 80h then
 		call locationError;
 
 	if isPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
@@ -300,18 +302,18 @@ lookup: procedure(tableId) byte public;
 				do;
 					curTokenSym$p = entryOffset;
 					tokenType(0) = curTokenSym.type;
-					if tokenType(0) < 2Dh then	/* instruction with arg */
+					if tokenType(0) < K$SINGLE then	/* instruction with arg */
 						if op16(tokenType(0)) then
 							has16bitOperand = TRUE;
 
 					if curTokenSym.flags = 2 and not ctlMOD85 then	/* RIM/SIM only valid on 8085 */
 						call sourceError('O');
 
-					if tokenType(0) = 8 then		/* SP */
+					if tokenType(0) = K$SP then		/* SP */
 					do;
-						if not(opType = 24h or opType = 25h) then /* lxi or push/pop/dad/inx/dcx */
+						if not(opType = K$LXI or opType = K$REG16) then 
 							call sourceError('X');
-						tokenType(0) = 7;		/* reg */
+						tokenType(0) = K$REGNAME;	/* reg */
 					end;
 					return tokenType(0) and 7Fh;
 				end;
@@ -336,10 +338,10 @@ lookup: procedure(tableId) byte public;
 				if tokenType(0) = O$64 then
 					tokenType(0) = O$ID;
 
-				if (b6884 := (jj := (tokenType(0) and 7Fh)) = O$ID) then
+				if (b6884 := (kk := (tokenType(0) and 7Fh)) = O$ID) then
 					if b6885 then
 						curTokenSym.type = 89h;
-				return jj;
+				return kk;
 			end;
 			else
 				gt = symEntry.tok(1) > packedTok(1);
@@ -357,7 +359,7 @@ lookup: procedure(tableId) byte public;
 	curTokenSym$p = highOffset;
 	if tableId = 1 and not isSkipping then
 	do;
-		b6883 = 0;
+		b6883 = FALSE;
 		b6EC4$9C3A = 0;
 		call sub5819$5CE8(srcLineCnt, (b6885 and 80h) or 9);
 		w6BE0 = .tokenSym;
@@ -367,7 +369,7 @@ lookup: procedure(tableId) byte public;
 				addr = addr + 8;
 		end;
 
-		b6883 = 0FFh;
+		b6883 = TRUE;
 	end;
 	return O$ID;
 end;
@@ -391,7 +393,7 @@ L6339:
 $IF OVL4
 		if expandingMacro then
 		do;
-			do while (lookAhead := ch) = 0FEh;
+			do while (lookAhead := ch) = MACROEOB;
 				call readM(curMacroBlk + 1);
 				tmac$buf$p = .macroBuf;
 			end;

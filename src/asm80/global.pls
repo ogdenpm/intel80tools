@@ -24,22 +24,22 @@ declare	byteAt(1) byte public at(0),
 	endMacroLine(2) byte public,			/* space for 0 and a guard byte */
 	macro$p pointer public initial(.macroLine),
 	b9058 bool public initial(FALSE),
-	b9059 byte public,
+	b9059 bool public,
 	b905A byte public,
 	expandingMacro byte public,
 	b905C byte public,
 	b905D bool public initial(FALSE),
 	b905E byte public,
 	b905F byte,
-	b9060 byte public,
-	b9061 byte public,
+	b9060 bool public,
+	b9061 bool public,
 	b9062 byte public,
 	macroDepth byte public,
 	b9064 byte public,
 	b9065 byte public,
 	b9066 byte public,
 	argNestCnt byte public initial(0),
-	w9068 address public,
+	w9068 pointer public,
 	w906A pointer public,
 	/*
 		mtype has the following values
@@ -59,7 +59,7 @@ declare	byteAt(1) byte public at(0),
 	curMacroBlk address public initial(0FFFFh),
 	nxtMacroBlk address public initial(0),
 	maxMacroBlk address public initial(0),
-	w9114 address public,
+	macroBlkCnt address public,
 	macroBuf(129) byte public,
 	w9197 address public,
 	w9199 address public,
@@ -95,8 +95,8 @@ declare	contentBytePtr pointer public,
 	r$modend MODEND$T public initial( 4, 4, 0),
 	wZERO address public initial(0),
 	pad6741 byte initial(0ah),
-	b6742 byte public initial(0),
-	b6743 byte public initial(0),
+	b6742 bool public initial(FALSE),
+	b6743 bool public initial(FALSE),
 	nameLen byte public,
 	startSeg byte public initial(1),
 	padb6746 byte,
@@ -135,13 +135,13 @@ declare	opSP byte public,
 /* ov4 compat 2CA0 */
 	(accum1, accum2) address public,
 	(accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte public at(.accum1),
-	b6855 byte public,
-	b6856 byte public,
+	acc1Flags byte public,
+	acc2Flags byte public,
 	b6857 byte public,
-	valType byte public,
-	b6859 byte public,
-	w685A address public,
-	w685C address public,
+	acc1ValType byte public,
+	acc2ValType byte public,
+	acc1NumVal address public,
+	acc2NumVal address public,
 	curChar byte public initial(0),
 	reget byte public initial(0),
 	lookAhead byte public,
@@ -153,13 +153,13 @@ declare	opSP byte public,
 	gotLabel byte public initial(0),
 	name(6) byte public,
 	savName(6) byte public,
-	b687F byte public,
+	b687F bool public,
 	haveUserSymbol bool public,
 	b6881 bool public initial(FALSE),
 	b6882 byte public initial(0),
-	b6883 byte public initial(0),
-	b6884 byte public initial(0),
-	b6885 byte public initial(0),
+	b6883 bool public initial(FALSE),
+	b6884 bool public initial(FALSE),
+	b6885 bool public initial(FALSE),
 	objfd address public,
 	xreffd address public,
 	infd address public,
@@ -211,8 +211,8 @@ declare	tokI byte public,
 	pad6A50(2) byte initial('  '),		/* protects for very big files */
 	asciiLineNo(4) byte public initial('   0'),
 	spIdx byte public,
-	b6A57(4) bool public initial('   0'),
-	ctlDEBUG bool public initial(0),	/* DEBUG */
+	b6A57(4) byte public initial('   0'),
+	ctlDEBUG bool public initial(FALSE),	/* DEBUG */
 	controls(1) byte public at(.ctlDEBUG),
 	ctlMACRODEBUG bool public initial(FALSE),	/* MACRODEBUG */
 	ctlXREF bool public initial(FALSE),	/* XREF */
@@ -226,14 +226,14 @@ declare	tokI byte public,
 	ctlPAGEWIDTH byte public initial(120),	/* PAGEWIDTH */
 	ctlPAGELENGTH byte public initial(66),	/* PAGELENGTH */
 	ctlINLCUDE byte initial(0),		/* INCLUDE */
-	ctlTITLE bool public initial(0),	/* TITLE */
+	ctlTITLE bool public initial(FALSE),	/* TITLE */
 	ctlSAVE byte,				/* SAVE */
 	ctlRESTORE byte,			/* RESTORE */
-	ctlEJECT bool public initial(FALSE),	/* EJECT */
+	ctlEJECT byte public initial(0),	/* EJECT */
 	ctlLIST bool public initial(TRUE),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
 	ctlGEN bool public initial(TRUE),	/* GEN */
 	ctlCOND bool public initial(TRUE),	/* COND */
-	b6A6F byte public initial(TRUE),
+	b6A6F bool public initial(TRUE),
 	titleLen byte public initial(0),
 	b6A71 byte public,
 	pad6A72(3) byte initial(120, TRUE),
@@ -265,19 +265,19 @@ declare	scanCmdLine byte public,
 	op byte public,
 	b6B2C bool public,
 	b6B2D byte public,
-	finished byte public,
-	b6B2F byte public,
-	expectingOperands byte public,
-	expectingOpcode byte public,
+	finished bool public,
+	inNestedParen byte public,
+	expectingOperands bool public,
+	expectingOpcode bool public,
 	b6B32 bool public,
 	b6B33 bool public,
 	b6B34 bool public initial(TRUE),
-	b6B35 bool public initial(TRUE),
+	inParen bool public initial(TRUE),
 	b6B36 bool public initial(FALSE),
 	segSize(5) address public initial(0, 0, 0, 0, 0),	/* note treated as array */
 	maxSegSize(3) address public initial(0, 0, 0),
 	cmdLineBuf(129) byte public,
-	actRead address public,
+	actRead pointer public,
 	errCnt address public,
 	padw6BCB(2) byte,
 	w6BCE address public,
@@ -288,8 +288,8 @@ declare	scanCmdLine byte public,
 	b6BD9 bool public initial(FALSE),
 	b6BDA bool public,
 	ii byte public,
-	b6BDC byte public,
-	jj byte public;
+	jj byte public,
+	kk byte public;
 /* end */
 $IF OVL4
 declare	b9B34 byte initial(0);
@@ -297,7 +297,7 @@ $ENDIF
 /* ov4 compat 2F57 */
 declare	curFileName$p address public,
 	w6BE0 pointer public,
-	bp6BE0(2) byte public at(.w6BE0),
+	accFixFlags(2) byte public at(.w6BE0),
 	controlFileType address public;	 /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
 /* end */
 end;

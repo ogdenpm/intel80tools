@@ -16,10 +16,11 @@ declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   5, 'EJECT', 14h, 'LIST',
 			   13h, 'GEN', 14h, 'COND');
 
-declare (b7463, b7464, b7465, controlError) byte;
+declare (b7463, b7464, b7465) byte,
+	controlError bool;
 
 
-chkParen: procedure(arg1b) byte;
+chkParen: procedure(arg1b) bool;
 	declare arg1b byte;
 	call skipWhite;
 	reget = 0;
@@ -43,10 +44,10 @@ getTok: procedure byte;
 	end;
 	else if curChar > '0'-1  and  '9'+1 > curChar then	/* digit ? */
 	do;
-		call getNum;
+		call atoi;
 		if blankAsmErrCode then
 		do;
-			tokNumVal = sub$43DD;
+			tokNumVal = getNumVal;
 			tokType = TT$NUM;
 			tokBuf(0) = ' ';
 		end;
@@ -77,18 +78,18 @@ end;
 
 
 
-sub$6F07: procedure(arg1w) byte;
+sub$6F07: procedure(arg1w) bool;
 	declare arg1w address;
 	declare pad address;
 
 	if tokBufIdx = 0 then
-		return 0;
+		return FALSE;
 
 	tokBuf(tokBufIdx) = 20h;
 	tokBufLen = tokBufIdx;
 	if isWhite then
 		return chkParen(1);
-	return 0FFh;
+	return TRUE;
 end;
 
 sub$6F39: procedure;
@@ -150,19 +151,21 @@ end;
 
 
 
-getControlNumArg: procedure byte;
+getControlNumArg: procedure bool;
 	if chkParen(0) then	/* ( */
 	do;
 		b7463 = getTok;
 		if tokType = TT$NUM then
 			return chkParen(1);	/* ) */
 	end;
-	return 0;
+	return FALSE;
 end;
 
 
 lookupControl: procedure byte;
-	declare (cmdIdx, cmdStartIdx, ctlVal, cmdLen, ctlFlags, noInvalid) byte,
+	declare (cmdIdx, cmdStartIdx) byte, 
+		ctlVal bool,
+		(cmdLen, ctlFlags, noInvalid) byte,
 		(control$p, nextControl$p, ctlSeen$p) pointer;
 	declare twoch address at(.tokBuf);
 	declare ch based control$p byte;
@@ -180,11 +183,11 @@ lookupControl: procedure byte;
 
 	cmdLen = tokBufLen;
 	cmdStartIdx = 0;
-	ctlVal = 0FFh;
+	ctlVal = TRUE;
 	if twoch = 'ON' then	/* NO stored with bytes swapped */
 	do;
 		cmdStartIdx = 2;	/* don't match the NO in the table */
-		ctlVal = 0;		/* control will be set as false */
+		ctlVal = FALSE;		/* control will be set as false */
 		cmdLen = tokBufLen - 2;	/* length of string to match excludes the NO */
 	end;
 
@@ -250,11 +253,11 @@ processControl: procedure;
 
 	do case controlId - 5;
 /* 0 */		do;			/* TTY */
-			ctlTTY = 0FFh;
+			ctlTTY = TRUE;
 			return;
 		end;
 /* 1 */		do;			/* MOD85 */
-			ctlMOD85 = 0FFh;
+			ctlMOD85 = TRUE;
 			return;
 		end;
 /* 2 */		do;			/* PRINT */
@@ -275,7 +278,7 @@ processControl: procedure;
 				call getMacroFileDrive;
 			else
 				reget = 1;
-			ctlMACROFILE = 0FFh;
+			ctlMACROFILE = TRUE;
 			return;
 		end;
 /* 5 */		do;			/* PAGEWIDTH */
@@ -328,7 +331,7 @@ processControl: procedure;
 						ctlTITLESTR(titleLen := tokBufLen) = 0;
 						if chkParen(1) then
 						do;
-							ctlTITLE = 0FFh;
+							ctlTITLE = TRUE;
 							return;
 						end;
 					end;
@@ -357,7 +360,7 @@ processControl: procedure;
 			return;
 		end;
 	end;
-	controlError = 0FFh;
+	controlError = TRUE;
 end;
 
 parseControls: procedure public;
@@ -366,7 +369,7 @@ parseControls: procedure public;
 $IF OVL4
 	b7465 = ctlGEN;
 $ENDIF
-	controlError = 0;
+	controlError = FALSE;
 
 	do while getTok <> CR and not controlError;
 		if tokBuf(0) = ';' then		/* skip comments */
@@ -393,10 +396,10 @@ $ENDIF
 
 	call chkLF;			/* eat the LF */
 	if ctlLIST <> b7464 then
-		b6A6F = 0FFh;
+		b6A6F = TRUE;
 $IF OVL4
 	else if ctlGEN <> b7465 and expandingMacro then
-		b6A6F = 0;
+		b6A6F = FALSE;
 $ENDIF
 
 	reget = 0;

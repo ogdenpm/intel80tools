@@ -108,7 +108,7 @@ $IF OVL4
 			call move(16, .macroStk(0), .macroStk(macroDepth));
 			tmac$macroCondSP = macroCondSP;
 			tmac$ifDepth = ifDepth;
-			b9061 = 0FFh;
+			b9061 = TRUE;
 		end;
 	end;
 	else
@@ -222,7 +222,7 @@ getId: procedure(type) public;
 end;
 
 
-getNum: procedure public;
+atoi: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
 	declare chrs based tokPtr (1) byte;

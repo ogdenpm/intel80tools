@@ -45,7 +45,7 @@ end;
 
 
 printStr: procedure(str) reentrant;
-    declare str address;
+    declare str pointer;
     declare ch based str byte;
 
     do while ch <> 0;
@@ -55,7 +55,7 @@ printStr: procedure(str) reentrant;
 end;
 
 printNStr: procedure(cnt, str) reentrant;
-    declare cnt byte, str address;
+    declare cnt byte, str pointer;
     declare ch based str byte;
 
     do while cnt > 0;
@@ -75,7 +75,7 @@ declare aNumStr(*) byte initial('     ', 0);
 
 
 itoa: procedure(n, buf);
-    declare (n, buf) address;
+    declare n address, buf pointer;
     declare ch based buf byte;
 
     call move(5, .spaces5, buf);
@@ -218,7 +218,7 @@ sub7041$8447: procedure public;
 
     segChar(0) = 'A';		/* show A instead of space for absolute */
     do symGrp = 0 to 2;
-        jj = isPhase2Print and ctlSYMBOLS;
+        kk = isPhase2Print and ctlSYMBOLS;
 $IF OVL4
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
@@ -237,9 +237,9 @@ $ENDIF
                             if symGrp = 2 or (flags and b6DC1(symGrp)) <> 0 then
                             do;
                                 call unpackToken(curTokenSym$p - 6, .tokStr);
-                                if jj then
+                                if kk then
                                 do;
-                                    if (ctlPAGEWIDTH - curCol) < 11h then
+                                    if (ctlPAGEWIDTH - curCol) < 17 then
                                         call printCRLF;
 
                                     call printStr(.tokStr);
@@ -249,10 +249,10 @@ $IF OVL4
                                         call printChar('+');
                                     else
 $ENDIF
-				    if (zeroAddr := (flags and 40h) <> 0) then
+				    if (zeroAddr := (flags and UF$EXTRN) <> 0) then
                                         call printChar('E');
                                     else
-                                        call printChar(segChar(flags and 7));
+                                        call printChar(segChar(flags and UF$SEGMASK));
 
                                     call printChar(' ');
                                     call printAddr2(.print2Hex);
@@ -267,7 +267,7 @@ $ENDIF
     if ctlDEBUG then
         b68AE = FALSE;
 
-    if jj then
+    if kk then
         call printCRLF;
 end;
 
@@ -336,12 +336,12 @@ sub$7229: procedure public;
     end;
 
     call outch(' ');
-    if shr(jj := tokenAttr(spIdx), 6) then
+    if shr(kk := tokenAttr(spIdx), 6) then
         call outch('E');
     else if not showAddr then
         call outch(' ');
     else
-        call outch(segChar(jj and 7));
+        call outch(segChar(kk and 7));
 end;
 
 

@@ -129,10 +129,10 @@ ovlMgr: procedure(ovl) public;
 end;
 $ENDIF
 
-closeF: procedure(arg1w) public;
-	declare arg1w address;
+closeF: procedure(conn) public;
+	declare conn address;
 
-	call close(arg1w, .statusIO);
+	call close(conn, .statusIO);
 end;
 
 isSpace: procedure byte public;
@@ -204,31 +204,31 @@ wrConsole: procedure(buf$p, count) public;
 end;
 
 
-runtimeError: procedure(arg1b) public;
-	declare arg1b byte;
+runtimeError: procedure(errCode) public;
+	declare errCode byte;
 
 	if b6BD9 then
 		return;
 
-	if isPhase1 and arg1b = 0 then
+	if isPhase1 and errCode = 0 then
 	do;
 		b6B33 = TRUE;
 		return;
 	end;
 
 	w6BE0 = .aError;		/* assume " ERROR\r\n" */
-	if arg1b = 4 then		/* file error */
+	if errCode = 4 then		/* file error */
 		w6BE0 = .aError$0;	/* replace with " ERROR, " */
 
-	call wrConsole(errStrs(arg1b), errStrsLen(arg1b));	/* write the ERROR type */
+	call wrConsole(errStrs(errCode), errStrsLen(errCode));	/* write the ERROR type */
 	call wrConsole(w6BE0, 8);	/* write the ERROR string */
 	if isPhase2Print then		/* repeat to the print file if required */
 	do;
-		call outStrN(errStrs(arg1b), errStrsLen(arg1b));
+		call outStrN(errStrs(errCode), errStrsLen(errCode));
 		call outStrN(w6BE0, 8);
 	end;
 
-	if arg1b = 4 or arg1b = 3 then	/* file or EOF error */
+	if errCode = 4 or errCode = 3 then	/* file or EOF error */
 	do;
 		if tokBufIdx = 0 then
 		do;
@@ -249,7 +249,7 @@ runtimeError: procedure(arg1b) public;
 		end;
 	end;
 
-	if arg1b = 0 then	/* stack error */
+	if errCode = 0 then	/* stack error */
 	do;
 		b6BD9 = TRUE;
 		return;
@@ -265,7 +265,7 @@ ioError: procedure(s) public;
 	tokBufIdx = 0;
 	curFileName$p = s;
 
-	do while ch <> ' ' and ch <> 0dh and ch <> 9;
+	do while ch <> ' ' and ch <> CR and ch <> TAB;
 		tokBufIdx = tokBufIdx + 1;
 		s = s + 1;
 	end;
@@ -293,11 +293,11 @@ nibble2Ascii: procedure(n) byte public;
 	return n;
 end;
 
-put2Hex: procedure(arg1w, arg2b) public;
-	declare arg1w address, arg2b byte;
+put2Hex: procedure(pfunc, val) public;
+	declare pfunc address, val byte;
 
-	call arg1w(nibble2Ascii(ror(arg2b, 4)));
-	call arg1w(nibble2Ascii(arg2b));
+	call pfunc(nibble2Ascii(ror(val, 4)));
+	call pfunc(nibble2Ascii(val));
 end;
 
 blankAsmErrCode: procedure byte public;
@@ -321,8 +321,8 @@ getNibble: procedure(bp, idx) byte public;
 	return n and 0Fh;	/* mask to leave just the nibble */
 end;
 
-sourceError: procedure(arg1b) public;
-	declare arg1b byte;
+sourceError: procedure(errCh) public;
+	declare errCh byte;
 
 	if not isSkipping or op = 22h then	/* ELSE */
 	do;
@@ -331,9 +331,9 @@ sourceError: procedure(arg1b) public;
 		if blankAsmErrCode then
 			errCnt = errCnt + 1;
 
-		if blankMorPAsmErrCode or arg1b = 'L' or arg1b = 'U' then	/* no error or M, P L or U */
+		if blankMorPAsmErrCode or errCh = 'L' or errCh = 'U' then	/* no error or M, P L or U */
 			if asmErrCode <> 'L' then	/* override unless already location counter error */
-				asmErrCode = arg1b;
+				asmErrCode = errCh;
 
 	end;
 end;
@@ -420,12 +420,12 @@ $IF OVL4
 $ENDIF
 	b6885 = bZERO;
 
-	atStartLine, expectingOpcode, b6B34, b6B35 = bTRUE;
+	atStartLine, expectingOpcode, b6B34, inParen = bTRUE;
 	ctlEJECT, b6857, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
 $ENDIF
-	tokenSize(0), tokenType(0), valType, b6859, b6742, b6855 = bZERO;
+	tokenSize(0), tokenType(0), acc1ValType, acc2ValType, b6742, acc1Flags = bZERO;
 
 	asmErrCode = ' ';
 $IF OVL4

@@ -16,7 +16,7 @@ declare b3E5E(*) byte data(0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
 		/* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
 		/* 29, 30, 55 */
 			/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-	b3EA8(*) byte data(0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+	b3EA8(*) bool data(0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 		 	   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0,   0,   0FFh,
 			   0,   0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
@@ -42,43 +42,43 @@ end;
 
 
 
-seekM: procedure(arg1w);
-	declare arg1w address;
+seekM: procedure(blk);
+	declare blk address;
 
-	if (w6BE0 := arg1w - nxtMacroBlk) <> 0 then
+	if (w6BE0 := blk - nxtMacroBlk) <> 0 then
 	do;
-		jj = SEEKFWD;
-		if arg1w < nxtMacroBlk then
+		kk = SEEKFWD;
+		if blk < nxtMacroBlk then
 		do;
 			w6BE0 = - w6BE0;
-			jj = SEEKBACK;
+			kk = SEEKBACK;
 		end;
 
-		call seek(macrofd, jj, .w6BE0, .w$3780, .statusIO);
+		call seek(macrofd, kk, .w6BE0, .w$3780, .statusIO);
 		call ioErrChk;
 	end;
-	nxtMacroBlk = arg1w + 1;
+	nxtMacroBlk = blk + 1;
 end;
 
 
 
-readM: procedure(arg1w) public;
-	declare arg1w address;
-	declare w9B60 address;
+readM: procedure(blk) public;
+	declare blk address;
+	declare actual address;
 
-	if arg1w >= maxMacroBlk then
-		w9B60 = 0;
-	else if arg1w = curMacroBlk then
+	if blk >= maxMacroBlk then
+		actual = 0;
+	else if blk = curMacroBlk then
 		return;
 	else
 	do;
-		call seekM(arg1w);
-		call read(macrofd, .macroBuf, 128, .w9B60, .statusIO);
+		call seekM(blk);
+		call read(macrofd, .macroBuf, 128, .actual, .statusIO);
 		call ioErrChk;
 	end;
 
-	tmac$blk, curMacroBlk = arg1w;
-	macroBuf(w9B60) = 0FEh;	/* flag end of macro buffer */
+	tmac$blk, curMacroBlk = blk;
+	macroBuf(actual) = 0FEh;	/* flag end of macro buffer */
 end;
 
 
@@ -90,7 +90,7 @@ writeM: procedure public;
 		call write(macrofd, symHighMark, 128, .statusIO);
 		call ioErrChk;
 	end;
-	w9114 = w9114 + 1;
+	macroBlkCnt = macroBlkCnt + 1;
 end;
 
 
@@ -158,16 +158,16 @@ $IF OVL4
 			if not b9058 then
 $ENDIF
 			do;
-				b6742 = 0FFh;
+				b6742 = TRUE;
 $IF OVL4
 				if getChClass = CC$SEMI and b905E then
 				do;
-					b9059 = 0FFh;
+					b9059 = TRUE;
 					w906A = w906A - 2;
 				end;
 $ENDIF
 				call skip2NextLine;
-				effectiveToken = 1;
+				effectiveToken = T$CR;
 				return;
 			end;
 		end;
@@ -186,7 +186,7 @@ $ENDIF
 					call sub5819$5CE8(segSize(activeSeg), 2);
 				end;
 
-				expectingOperands = 0;
+				expectingOperands = FALSE;
 				gotLabel, expectingOpcode = bTRUE;
 			end;
 			else
@@ -197,7 +197,7 @@ $ENDIF
 
 			call emitXref(0, .name);
 			haveUserSymbol = FALSE;
-			opType = 3;
+			opType = O$LABEL;
 		end;
 		do;				/* CC$CR */
 			call chkLF;
@@ -214,15 +214,15 @@ $IF OVL4
 $ELSE
 				if opType <> O$NONE and opType <> T$RPAREN then
 $ENDIF
-					curChar = curChar + 3;	/* make unary versions */
-			effectiveToken = curChar - '(' + 2;
+					curChar = curChar + (T$UPLUS - T$PLUS);	/* make unary versions */
+			effectiveToken = curChar - '(' + T$LPAREN;
 			return;
 		end;
 		do;				/* CC$DOLLAR */
 			call pushToken(O$NUMBER);
 			call collectByte(low(segSize(activeSeg)));
 			call collectByte(high(segSize(activeSeg)));
-			if activeSeg <> 0 then
+			if activeSeg <> SEG$ABS then
 				tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
 			call sub$416B;
 		end;
@@ -245,7 +245,7 @@ $ENDIF
 			end;
 		end;
 		do;				/* CC$DIGIT */
-			call getNum;
+			call atoi;
 			if expectingOpcode then
 				call setExpectOperands;
 			call sub$416B;
@@ -269,7 +269,7 @@ $ENDIF
 			call packToken;		/* make into 4 byte name */
 			if haveUserSymbol then
 			do;
-				b687F = 0FFh;
+				b687F = TRUE;
 				haveUserSymbol = FALSE;
 			end;
 
@@ -277,11 +277,11 @@ $ENDIF
 $IF OVL4
 			if lookup(2) <> O$ID and b905E then
 			do;
-				if not b9058 or (jj := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
+				if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
 				do;
 					w906A = w919F;
-					call sub$3D55(jj + 81h);
-					call sub$3D34(sub$43DD);
+					call sub$3D55(kk + 81h);
+					call sub$3D34(getNumVal);
 					call sub$3D55(curChar);
 					effectiveToken = O$ID;
 				end;
@@ -303,7 +303,7 @@ $ENDIF
 				if b687F then
 				do;			   /* EQU, SET or O$37 */
 					call emitXref((not testBit(effectiveToken, .b3EA0)) and 1, .savName);
-					b687F = 0;
+					b687F = FALSE;
 				end;
 			end;
 $IF OVL4
@@ -334,7 +334,7 @@ $ENDIF
 			end;
 			else
 			do;
-				expectingOpcode = 0;
+				expectingOpcode = FALSE;
 				return;
 			end;
 		end;

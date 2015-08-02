@@ -15,6 +15,7 @@ CR              '0Dh'
 FF              '0Ch'
 LF              '0Ah'
 TAB             '9'
+MACROEOB	'0FEh'
 
 # primiative types
 bool             'byte'
@@ -151,10 +152,19 @@ K$EXITM         '39h'
 O$3A            '3Ah'
 K$IRP           '3Bh'
 K$IRPC          '3Ch'
+O$3D            '3Dh'
 K$REPT          '3Eh'
 K$LOCAL         '3Fh'
 K$NUL           '41h'
 O$64            '64h'
+
+/* type flags */
+UF$SEGMASK	'7'
+UF$LOW          '8'
+UF$HIGH         '10h'
+UF$BOTH         '18h'
+UF$PUBLIC       '20h'
+UF$EXTRN        '40h'
 
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
@@ -182,8 +192,8 @@ b$3783          B
 w$3780          A
 isGT            PB
 isLT            PB
-sub$3D34        P(B arg1b)
-sub$3D55        P(B arg1b)
+sub$3D34        P(B c)
+sub$3D55        P(B c)
 
 $file(asm41.plm,asm51.plm,asm801.plm)
 aBadSyntax      BS
@@ -213,13 +223,13 @@ spaces6         BS
 blankAsmErrCode PB
 blankMorPAsmErrCode PB
 chkGenObj       PB
-closeF          P(A arg1w)
+closeF          P(A conn)
 flushout        P
 getNibble       P(A bp,B idx)B
 initialControls P
 inOpen          P(A path$p,A access)A
 ioErrChk        P
-ioError         P(A arg1w)
+ioError         P("pointer" s)
 isComma         PB
 isCR            PB
 isPhase1        PB
@@ -234,16 +244,16 @@ outch           P(B c)
 outStrN         P(A s,B n)
 physmem         PA
 parseControlLines P
-put2Hex         P(A arg1w,B arg2b)
-runtimeError    P(B arg1b)
+put2Hex         P(A pfunc,B val)
+runtimeError    P(B errCode)
 skip2EOL        P
-sourceError     P(B arg1b)
+sourceError     P(B errCh)
 initLine        P
 wrConsole       P(A buf$p,A count)
 
 
 $file(asm43.pl3)
-readM           P(A arg1w)
+readM           P(A blk)
 sub$3FA9        PB
 sub$40B9        P
 writeM          P
@@ -259,23 +269,23 @@ tokeniseLine        P
 $file(asm44.plm,asm83.plm)
 b4181           BS
 getPrec         P(B arg1b)B
-sub$425B        P(B arg1b)B
+isReg        P(B arg1b)"bool"
 sub$4274        P
 sub$4291        P
 setExpectOperands        P
-sub$43DD        PA
-sub$450F        P(B arg1b)
+getNumVal        PA
+mkCode        P(B arg1b)
 nxtTokI        PB
 showLine        PB
 emitXref        P(B arg1b,A arg2w)
 swapAccBytes    P
-testBit         P(B arg1b,A arg2w)B
+testBit         P(B bitIdx,"pointer" bitVector)"bool"
 
 /* $file(asm45.plm) */
 
 $file(asm45.plm,asm55.plm,asm851.plm)
 isSkipping      PB
-strUCequ        P(A arg1w,A arg2w)B
+strUCequ        P("pointer" s,"pointer" t)"bool"
 finishLine    P
 sub$546F        P
 
@@ -304,7 +314,7 @@ openSrc        P
 $file(asm47.pl3,asm85.pl3)
 cond2Acc        P(B arg1b)
 sub$4AAA        P(B arg1b)
-sub$4B57        P(B arg1b)
+updateHiLo        P(B hilo)
 doPass        P
 
 $file(asm48.pl3)
@@ -317,7 +327,7 @@ getCh           PB
 getChClass      PB
 lookup          P(B tableId)B
 sub5819$5CE8        P(A arg1w,B arg2b)
-unpackToken     P(A src,A dst)
+unpackToken     P("pointer" src,"pointer" dst)
 
 /* $file(asm49.pl3) */
 
@@ -329,7 +339,7 @@ doubleDefError  P
 expressionError P
 fileError       P
 getId           P(B arg1b)
-getNum          P
+atoi          P
 getStr          P
 haveTokens      PB
 illegalCharError P
@@ -469,7 +479,7 @@ accum2          A
 accum2$hb       B
 accum2$lb       B
 activeSeg       B
-actRead         A
+actRead         "pointer"
 asmax$ref    BS
 asxref       BS
 asxref$tmp   BS
@@ -483,29 +493,29 @@ curFixupHiLoSegId B
 curFixupType    B
 fixIdxs         BS
 initFixupReq    "bool"S
-firstContent           "bool"
-b6742           B
-b6743           B
+firstContent    "bool"
+b6742           "bool"
+b6743           "bool"
 nameLen         B
 inPublic           B
 inExtrn           B
 segHasData           BS
 b6754           B
-b6855           B
-b6856           B
+acc1Flags           B
+acc2Flags           B
 b6857           B
-valType           B
-b6859           B
+acc1ValType           B
+acc2ValType           B
 gotLabel           B
 name         BS
 savName           BS
-b687F           B
+b687F           "bool"
 haveUserSymbol  "bool"
 b6881           "bool"
 b6882           B
-b6883           B
-b6884           B
-b6885           B
+b6883           "bool"
+b6884           "bool"
+b6885           "bool"
 b6897           "bool"
 tokI           B
 b689B           B
@@ -517,7 +527,7 @@ inBuf           BS
 b6A00           B
 spIdx           B
 b6A57           BS
-b6A6F           B
+b6A6F           "bool"
 b6A71           B
 isControlLine      B		
 inDB           B
@@ -528,27 +538,27 @@ effectiveToken           B
 op              B
 b6B2C           "bool"
 b6B2D           B
-b6B2F           B
-expectingOperands           B
-expectingOpcode           B
+inNestedParen           B
+expectingOperands     "bool"
+expectingOpcode       "bool"
 b6B32           "bool"
 b6B33           "bool"
 b6B34           "bool"
-b6B35           "bool"
+inParen           "bool"
 b6B36           "bool"
 b6BD9           "bool"
 b6BDA           "bool"
-b6BDC           B
+jj           B
 macroLine          BS		/* glb4 */
 b9058          "bool"		/* glb4 */
-b9059          B		/* glb4 */
+b9059          "bool"		/* glb4 */
 b905A          B		/* glb4 */
-expandingMacro          B		/* glb4 */
+expandingMacro B		/* glb4 */
 b905C          B		/* glb4 */
 b905D          "bool"		/* glb4 */
 b905E          B		/* glb4 */
-b9060          B		/* glb4 */
-b9061          B		/* glb4 */
+b9060          "bool"		/* glb4 */
+b9061          "bool"		/* glb4 */
 b9062          B		/* glb4 */
 macroDepth          B		/* glb4 */
 b9064          B		/* glb4 */
@@ -559,7 +569,7 @@ b91A2          B		/* glb4 */
 b91A3          B		/* glb4 */
 b91A4          BS		/* glb4 */
 bp6A4E          BS
-bp6BE0          BS
+accFixFlags          BS
 cmdch$p         "pointer"
 cmdLineBuf      BS
 controlId       B
@@ -568,7 +578,7 @@ controlSeen     "bool"S
 controls$p      A
 ctlCOND         "bool"
 ctlDEBUG        "bool"
-ctlEJECT        "bool"
+ctlEJECT        B
 ctlGEN          "bool"
 ctlLIST         "bool"
 ctlMACRODEBUG   "bool"
@@ -595,7 +605,7 @@ endOutBuf       A
 endSymTab       AS
 errCnt          A
 extNamIdx       B
-finished        B
+finished        "bool"
 fix20Idx        B
 fix22Idx        B
 fix24Idx        B
@@ -605,7 +615,7 @@ ifDepth         B
 ii              B
 inElse          "bool"S
 infd            A
-jj              B
+kk              B
 lineBuf         BS
 pageLineCnt         A
 lookAhead       B
@@ -681,8 +691,8 @@ contentBytePtr  "pointer"
 fixOffset           A
 externId           A
 itemOffset           A
-w685A           A
-w685C           A
+acc1NumVal           A
+acc2NumVal           A
 symHighMark           A
 w6870           "pointer"
 endItem           A
@@ -695,9 +705,9 @@ w6BCE           A
 w6BE0          "pointer" 
 controlFileType           A
 endMacroLine   BS		/* glb4 */
-w9068          A		/* glb4 */
+w9068          "pointer"	/* glb4 */
 w906A          "pointer"	/* glb4 */
-w9114          A		/* glb4 */
+macroBlkCnt          A		/* glb4 */
 w9197          A		/* glb4 */
 w9199          A		/* glb4 */
 w919B          A		/* glb4 */

@@ -14,13 +14,13 @@ declare	CHKOVL$2 lit	' ';
 $ENDIF
 
 			/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-declare isExprOrMacroMap(*) byte data(
+declare isExprOrMacroMap(*) bool data(
 			   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,
 			   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,
 			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 			   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh, 0,  0FFh,
 			   0FFh,0FFh),
-   isInstrMap(*) byte data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+   isInstrMap(*) bool data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
 		           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
 			   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
 			   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -38,7 +38,7 @@ sub$4AAA: procedure(seg) public;	/* seg = 0 => CSEG, seg = 1 => DSEG */
 	do;
 		if haveTokens then
 		do;
-			accum1 = sub$43DD;
+			accum1 = getNumVal;
 			if alignTypes(seg) <> accum1$lb then
 				call expressionError;
 		end;
@@ -50,7 +50,7 @@ sub$4AAA: procedure(seg) public;	/* seg = 0 => CSEG, seg = 1 => DSEG */
 		segHasData(seg) = TRUE;
 		if haveTokens then
 		do;
-			accum1 = sub$43DD;
+			accum1 = getNumVal;
 			if accum1 = 1 or accum1 = 2 then	/* only allow inPage and Page */
 				alignTypes(seg) = low(accum1);
 			else
@@ -68,11 +68,11 @@ cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
 		accum1 = 0FFFFh;
 end;
 
-sub$4B57: procedure(arg1b) public;
-	declare arg1b byte;
+updateHiLo: procedure(hilo) public;
+	declare hilo byte;
 
-	if (b6855 and 47h) <> 0 then
-		b6855 = b6855 and 0E7h or arg1b;
+	if (acc1Flags and (UF$EXTRN + UF$SEGMASK)) <> 0 then
+		acc1Flags = acc1Flags and 0E7h or hilo;
 end;
 
 handleOp: procedure public;
@@ -84,15 +84,15 @@ handleOp: procedure public;
 			if not (op = T$LPAREN and opType = 3) then
 				call balanceError;
 
-			if tokenType(0) = 11 then
+			if tokenType(0) = O$DATA then
 			do;
 				tokenSize(0) = 1;
 				tokenAttr(0) = 0;
 				b6B36 = TRUE;
 			end;
 
-			b6B35 = b6B2F;
-			if opType = 3 then
+			inParen = inNestedParen;
+			if opType = T$RPAREN then
 				b6B2C = TRUE;
 		end;
 /* 4 */		accum1 = accum1 * accum2;	/* * */
@@ -135,32 +135,32 @@ handleOp: procedure public;
 		end;
 /* 24 */	do;					/* HIGH */
 			accum1 = high(accum1);
-			call sub$4B57(10h);
+			call updateHiLo(UF$HIGH);
 		end;
 /* 25 */	do;					/* LOW */
 			accum1 = low(accum1);
-			call sub$4B57(8);
+			call updateHiLo(UF$LOW);
 		end;
 /* 26 */	do;					/* DB ? */
 			if tokenType(0) <> O$STRING then
 			do;
-				accum1 = sub$43DD;
-				if accum1$hb - 1 < 0FEh then
+				accum1 = getNumVal;
+				if accum1$hb - 1 < 0FEh then	/* not 0 or FF */
 					call valueError;
 				b6B28 = 22h;
-				if (b6855 and 18h) = 18h then
+				if (acc1Flags and UF$BOTH) = UF$BOTH then
 				do;
 					call valueError;
-					b6855 = b6855 and 0E7h or 8;
+					acc1Flags = acc1Flags and 0E7h or UF$LOW;
 				end;
 			end;
 			else
 			do;
-				b6855 = 0;
+				acc1Flags = 0;
 				tokenType(0) = O$DATA;
 			end;
 
-			if sub$425B(valType) then
+			if isReg(acc1ValType) then
 				call operandError;
 			b6B2D = O$DATA;
 			inDB = TRUE;
@@ -176,22 +176,23 @@ handleOp: procedure public;
 /* 29 */ case29:					/* EQU ? */
 		do;
 			showAddr = TRUE;
-			if (b6855 and 40h) = 40h then
+			if (acc1Flags and UF$EXTRN) = UF$EXTRN then
 			do;
 				call expressionError;
-				b6855 = 0;
+				acc1Flags = 0;
 			end;
 			b6EC4$9C3A = 1;
 			call sub5819$5CE8(accum1, 34 - op);	/* 4 for set, 5 for equ */
-			expectingOperands = 0;
+			expectingOperands = FALSE;
 		end;
 /* 30 */	goto case29;				/* SET ? */
 /* 31 */	do;					/* ORG ? */
 			showAddr = TRUE;
-			if (b6855 and 40h) <> 40h then
+			if (acc1Flags and UF$EXTRN) <> UF$EXTRN then
 			do;
-				if (b6855 and 18h) <> 0 then
-					if (b6855 and 7) <> activeSeg or (b6855 and 18h) <> 18h then
+				if (acc1Flags and UF$BOTH) <> 0 then
+					if (acc1Flags and UF$SEGMASK) <> activeSeg
+					    or (acc1Flags and UF$BOTH) <> UF$BOTH then
 						call expressionError;
 			end;
 			else
@@ -205,35 +206,35 @@ handleOp: procedure public;
 /* 32 */	do;					/* END ? */
 			if tokenIdx > 0 then
 			do;
-				startOffset = sub$43DD;
+				startOffset = getNumVal;
 				startDefined = 1;
-				startSeg = b6855 and 7;
-				if (b6855 and 40h) = 40h then
+				startSeg = acc1Flags and 7;
+				if (acc1Flags and UF$EXTRN) = UF$EXTRN then
 					call expressionError;
-				if sub$425B(valType) then
+				if isReg(acc1ValType) then
 					call operandError;
 
 				showAddr = TRUE;
 			end;
 $IF OVL4
-			jj = b905E;
+			kk = b905E;
 			b905E = 0;
 
-			if macroCondSP > 0 or jj then
+			if macroCondSP > 0 or kk then
 $ELSE
 			if ifDepth > 0 then
 $ENDIF
 				call nestingError;
 			if opType <> 1 then
 				call syntaxError;
-			if b6B35 then
+			if inParen then
 				b6B33 = TRUE;
 			else
 				call syntaxError;
 
 		end;
 /* 33 */	do;					/* IF ? */
-			if b6B35 then
+			if inParen then
 			do;
 				b6B32 = TRUE;
 				call nestIF(2);
@@ -263,7 +264,7 @@ $ENDIF
 				call nestingError;
 		end;
 /* 35 */	do;					/* ENDIF ? */
-			if b6B35 then
+			if inParen then
 			do;
 				b6B32 = TRUE;
 				call unnestIF(2);
@@ -273,28 +274,28 @@ $ENDIF
 			if nameLen = 1 then
 				if name(0) = 'M' then
 					call syntaxError;
-			call sub$450F(85h);
+			call mkCode(85h);
 		end;
 /* 37 */	do;				/* POP DAD PUSH INX DCX ? */
 			if nameLen = 1 then
 				if name(0) = 'M' then
 					call syntaxError;
-			call sub$450F(5);
+			call mkCode(5);
 		end;
-/* 38 */	call sub$450F(7);		/* LDAX STAX ? */
-/* 39 */	call sub$450F(2);		/* ADC ADD SUB ORA SBB XRA ANA CMP ? */
-/* 40 */	call sub$450F(8);		/* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
-/* 41 */	call sub$450F(46h);		/* MVI ? */
-/* 42 */	call sub$450F(6);		/* INR DCR ? */
-/* 43 */	call sub$450F(36h);		/* MOV */
-/* 44 */	call sub$450F(0);		/* CZ CNZ JZ STA JNZ JNC LHLD */
+/* 38 */	call mkCode(7);		/* LDAX STAX ? */
+/* 39 */	call mkCode(2);		/* ADC ADD SUB ORA SBB XRA ANA CMP ? */
+/* 40 */	call mkCode(8);		/* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
+/* 41 */	call mkCode(46h);		/* MVI ? */
+/* 42 */	call mkCode(6);		/* INR DCR ? */
+/* 43 */	call mkCode(36h);		/* MOV */
+/* 44 */	call mkCode(0);		/* CZ CNZ JZ STA JNZ JNC LHLD */
 						/* CP JC SHLD CPE CPO CM LDA JP JM JPE */
 						/* CALL JPO CC CNC JMP */
-/* 45 */	call sub$450F(0);		/* RNZ STC DAA DI SIM SPHL RLC */
+/* 45 */	call mkCode(0);		/* RNZ STC DAA DI SIM SPHL RLC */
 						/* RP RAL HLT RM RAR RPE RET RIM */
 						/* PCHL CMA CNC RPO EI XTHL NOP */
 						/* RC RNX XCHG RZ RRC */
-/* 46 */	call sub$450F(6);		/* RST */
+/* 46 */	call mkCode(6);		/* RST */
 /* 47 */	activeSeg = 0;			/* ASEG ? */
 /* 48 */	do;				/* CSEG ? */
 			activeSeg = 1;
@@ -356,15 +357,15 @@ $IF OVL4
 /* 63 */	call sub$787A;			/* LOCAL */
 /* 64 */	call sub$78CE;
 /* 65 */	do;				/* NUL */
-			call cond2Acc(tokenType(0) = 41h);
+			call cond2Acc(tokenType(0) = K$NUL);
 			call popToken;
-			b6855 = 0;
+			acc1Flags = 0;
 		end;
 $ENDIF
 	end;
 
 	if op <> 1 then
-		b6743 = 0;
+		b6743 = FALSE;
 end;
 
 parseLine: procedure public;
@@ -391,14 +392,14 @@ parseLine: procedure public;
 
 
 	do while 1;
-		if not (effectiveToken = 1 or effectiveToken >= 20h and effectiveToken <= 23h) and skipping(0)
+		if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF) and skipping(0)
 $IF OVL4
 	           or (b4181(effectiveToken) < 128 or b9058) and b905E
 
 $ENDIF
 	        then
 		do;
-			b6885 = 0;
+			b6885 = FALSE;
 			call popToken;
 			return;
 		end;
@@ -409,19 +410,19 @@ $ENDIF
 					if getPrec(effectiveToken) <= getPrec(opStack(opSP)) then
 						call expressionError;
 
-		if getPrec(opType := effectiveToken) > getPrec(op := opStack(opSP)) or opType = 2 then
+		if getPrec(opType := effectiveToken) > getPrec(op := opStack(opSP)) or opType = T$LPAREN then
 		do;
-			if opSP >= 10h then
+			if opSP >= 16 then
 			do;
 				opSP = 0;
 				call stackError;
 			end;
 			else
 				opStack(opSP := opSP + 1) = opType;
-			if opType = 2 then
+			if opType = T$LPAREN then
 			do;
-				b6B2F = b6B35;
-				b6B35 = TRUE;
+				inNestedParen = inParen;
+				inParen = TRUE;
 			end;
 			if phase > 1 then
 				inExpression = isExpressionOp;
@@ -429,7 +430,7 @@ $ENDIF
 		end;
 
 		inExpression = 0;
-		if not b6B35 and op > 3 then
+		if not inParen and op > 3 then
 			call syntaxError;
 
 		if op = 0 then
@@ -440,20 +441,20 @@ $ENDIF
 
 		if (b6B28 := b4181(op)) then
 		do;
-			accum2 = sub$43DD;
-			b6856 = b6855;
-			w685C = w685A;
-			b6859 = valType;
+			accum2 = getNumVal;
+			acc2Flags = acc1Flags;
+			acc2NumVal = acc1NumVal;
+			acc2ValType = acc1ValType;
 		end;
 
 		if (b6B28 := ror(b6B28, 1)) then
-			accum1 = sub$43DD;
+			accum1 = getNumVal;
 
 		if not b6857 then
-			b6857 = sub$53DF(valType) or sub$53DF(b6859);
+			b6857 = sub$53DF(acc1ValType) or sub$53DF(acc2ValType);
 
-		b6B2D = 0Ch;
-		if op > 3 and op < 1Ah then	/* expression op */
+		b6B2D = O$NUMBER;
+		if op > T$RPAREN and op < K$DB then	/* expression op */
 			call sub$4291;
 		else
 		do;
@@ -463,7 +464,7 @@ $ENDIF
 
 		call handleOp;
 		if not isExprOrMacroMap(op) then
-			b6B35 = FALSE;
+			inParen = FALSE;
 
 		if b6B2C then
 		do;
@@ -482,13 +483,13 @@ $ENDIF
 				call collectByte(accum(ii));
 		end;
 
-		tokenAttr(0) = b6855;
-		tokenSymId(0) = w685A;
+		tokenAttr(0) = acc1Flags;
+		tokenSymId(0) = acc1NumVal;
 		if ror(b6B28, 1) then
-			if opType = 6 then
+			if opType = T$COMMA then
 			do;
 				effectiveToken = op;
-				b6B35 = TRUE;
+				inParen = TRUE;
 			end;
 	end;
 end;
@@ -496,7 +497,7 @@ end;
 
 
 doPass: procedure public;
-	do while finished = 0;
+	do while finished = FALSE;
 		call tokeniseLine;
 		call parseLine;
 	end;
