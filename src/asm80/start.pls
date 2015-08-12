@@ -8,10 +8,10 @@ $include(asm51.ipx)
 $ENDIF
 
 $IF BASE
-declare CHKOVL$0 lit	'call ovlMgr(0)',
-	CHKOVL$1 lit	'call ovlMgr(1)',
-	CHKOVL$2 lit	'call ovlMgr(2)',
-	CHKOVL$3 lit	'call ovlMgr(3)';
+declare CHKOVL$0 lit	'call OvlMgr(0)',
+	CHKOVL$1 lit	'call OvlMgr(1)',
+	CHKOVL$2 lit	'call OvlMgr(2)',
+	CHKOVL$3 lit	'call OvlMgr(3)';
 $ELSE
 declare CHKOVL$0 lit	' ',
 	CHKOVL$1 lit	' ',
@@ -56,14 +56,14 @@ declare	loadedOvl byte initial(4),
 	ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 $ENDIF
 
-physmem: procedure address public;
+Physmem: procedure address public;
 	declare top address at(4);
 
 	return (top - 100h) and 0FF00h;
 end;
 
 
-getCmdCh: procedure byte public;
+GetCmdCh: procedure byte public;
 	declare cmdch based cmdch$p byte;
 	declare ch byte;
 
@@ -75,114 +75,114 @@ getCmdCh: procedure byte public;
 end;	
 
 
-ioErrChk: procedure public;
+IoErrChk: procedure public;
 	if statusIO = 0 then
 		return;
-	call error(statusIO);
-	call exit;
+	call Error(statusIO);
+	call Exit;
 end;
 
 
-flushout: procedure public;
-	call write(outfd, .outbuf, out$p - .outbuf, .statusIO);
+Flushout: procedure public;
+	call Write(outfd, .outbuf, out$p - .outbuf, .statusIO);
 	out$p = .outbuf;
 end;
 
-outch: procedure(c) public;
+Outch: procedure(c) public;
 	declare c byte;
 	declare outc based out$p byte;
 
 	if out$p = endOutBuf then
-		call flushout;
+		call Flushout;
 	outc = c;
 	out$p = out$p + 1;
 end;
 
-outStrN: procedure(s, n) public;
+OutStrN: procedure(s, n) public;
 	declare s pointer, n byte;
 	declare ch based s byte;
 
 	do while n > 0;
-		call outch(ch);
+		call Outch(ch);
 		s = s + 1;
 		n = n - 1;
 	end;
 end;
 
 $IF BASE
-ovlMgr: procedure(ovl) public;
+OvlMgr: procedure(ovl) public;
 	declare ovl byte;
 	declare entry$p address;
 
 	if ovl > 4 then
 	do;
 		statusIO = 0Dh;
-		call ioErrChk;
+		call IoErrChk;
 	end;
 	if ovl <> loadedOvl then
 	do;
 		ovlFile(12) = ovl + '0';
-		call load(.ovlFile, 0, 0, .entry$p, .statusIO);
-		call ioErrChk;
+		call Load(.ovlFile, 0, 0, .entry$p, .statusIO);
+		call IoErrChk;
 		loadedOvl = ovl;
 	end;
 end;
 $ENDIF
 
-closeF: procedure(conn) public;
+CloseF: procedure(conn) public;
 	declare conn address;
 
-	call close(conn, .statusIO);
+	call Close(conn, .statusIO);
 end;
 
-isSpace: procedure byte public;
+IsSpace: procedure byte public;
 	return curChar = ' ';
 end;
 
-isTab: procedure byte public;
+IsTab: procedure byte public;
 	return curChar = TAB;
 end;
 
-isWhite: procedure byte public;
-	return isSpace or isTab;
+IsWhite: procedure byte public;
+	return IsSpace or IsTab;
 end;
 
-isRParen: procedure byte public;
+IsRParen: procedure byte public;
 	return curChar = ')';
 end;
 
-isCR: procedure byte public;
+IsCR: procedure byte public;
 	return curChar = CR;
 end;
 
-isComma: procedure byte public;
+IsComma: procedure byte public;
 	return curChar = ',';
 end;
 
 $IF OVL4
-isLT: procedure byte public;
+IsLT: procedure byte public;
 	return curChar = '<';
 end;
 
 
-isGT: procedure byte public;
+IsGT: procedure byte public;
 	return curChar = '>';
 end;
 
 $ENDIF
 
-isPhase1: procedure byte public;
+IsPhase1: procedure byte public;
 	return phase = 1;
 end;
 
-skip2EOL: procedure public;
-	if not isCR then
-		do while getCh <> 0Dh;
+Skip2EOL: procedure public;
+	if not IsCR then
+		do while GetCh <> 0Dh;
 		end;
 end;
 
 
-chkGenObj: procedure byte public;
+ChkGenObj: procedure byte public;
 $IF BASE
 	return (phase > 2) and ctlOBJECT;
 $ELSE
@@ -191,74 +191,74 @@ $ENDIF
 end;
 
 
-isPhase2Print: procedure byte public;
+IsPhase2Print: procedure byte public;
 	return phase = 2 and ctlPRINT;
 end;
 
 
-wrConsole: procedure(buf$p, count) public;
+WrConsole: procedure(buf$p, count) public;
 	declare (buf$p, count) address;
 
-	call write(0, buf$p, count, .statusIO);
-	call ioErrChk;
+	call Write(0, buf$p, count, .statusIO);
+	call IoErrChk;
 end;
 
 
-runtimeError: procedure(errCode) public;
+RuntimeError: procedure(errCode) public;
 	declare errCode byte;
 
 	if b6BD9 then
 		return;
 
-	if isPhase1 and errCode = 0 then
+	if IsPhase1 and errCode = 0 then
 	do;
 		b6B33 = TRUE;
 		return;
 	end;
 
 	w6BE0 = .aError;		/* assume " ERROR\r\n" */
-	if errCode = 4 then		/* file error */
+	if errCode = 4 then		/* file Error */
 		w6BE0 = .aError$0;	/* replace with " ERROR, " */
 
-	call wrConsole(errStrs(errCode), errStrsLen(errCode));	/* write the ERROR type */
-	call wrConsole(w6BE0, 8);	/* write the ERROR string */
-	if isPhase2Print then		/* repeat to the print file if required */
+	call WrConsole(errStrs(errCode), errStrsLen(errCode));	/* Write the ERROR type */
+	call WrConsole(w6BE0, 8);	/* Write the ERROR string */
+	if IsPhase2Print then		/* repeat to the print file if required */
 	do;
-		call outStrN(errStrs(errCode), errStrsLen(errCode));
-		call outStrN(w6BE0, 8);
+		call OutStrN(errStrs(errCode), errStrsLen(errCode));
+		call OutStrN(w6BE0, 8);
 	end;
 
-	if errCode = 4 or errCode = 3 then	/* file or EOF error */
+	if errCode = 4 or errCode = 3 then	/* file or EOF Error */
 	do;
 		if tokBufIdx = 0 then
 		do;
-			call wrConsole(.aBadSyntax, 12);
+			call WrConsole(.aBadSyntax, 12);
 			if not scanCmdLine then
 			do;
-				call skip2NextLine;
+				call Skip2NextLine;
 				outfd = 0;
 				CHKOVL$1;
-				call printDecimal(srcLineCnt);	/* overlay 1 */
-				call outch(LF);
+				call PrintDecimal(srcLineCnt);	/* overlay 1 */
+				call Outch(LF);
 			end;
 		end;
 		else
 		do;
-			call wrConsole(curFileName$p, tokBufIdx);
-			call wrConsole(.ascCRLF, 2);
+			call WrConsole(curFileName$p, tokBufIdx);
+			call WrConsole(.ascCRLF, 2);
 		end;
 	end;
 
-	if errCode = 0 then	/* stack error */
+	if errCode = 0 then	/* stack Error */
 	do;
 		b6BD9 = TRUE;
 		return;
 	end;
 
-	call exit;
+	call Exit;
 end;
 
-ioError: procedure(s) public;
+IoError: procedure(s) public;
 	declare s pointer;
 	declare ch based s byte;
 
@@ -270,22 +270,22 @@ ioError: procedure(s) public;
 		s = s + 1;
 	end;
 	if missingEnd then
-		call runtimeError(3);	/* EOF error*/
-	call runtimeError(4);		/* file error */
+		call RuntimeError(3);	/* EOF Error*/
+	call RuntimeError(4);		/* file Error */
 end;
 
-inOpen: procedure(path$p, access) address public;
+InOpen: procedure(path$p, access) address public;
 	declare (path$p, access) address;
-	declare open$infd address;
+	declare Open$infd address;
 
-	call open(.open$infd, path$p, access, 0, .openStatus);
+	call Open(.Open$infd, path$p, access, 0, .openStatus);
 	if openStatus <> 0 then
-		call ioError(path$p);
-	return open$infd;
+		call IoError(path$p);
+	return Open$infd;
 end;
 
 
-nibble2Ascii: procedure(n) byte public;
+Nibble2Ascii: procedure(n) byte public;
 	declare n byte;
 	n = (n and 0Fh) + '0';
 	if n > '9' then
@@ -293,23 +293,23 @@ nibble2Ascii: procedure(n) byte public;
 	return n;
 end;
 
-put2Hex: procedure(pfunc, val) public;
+Put2Hex: procedure(pfunc, val) public;
 	declare pfunc address, val byte;
 
-	call pfunc(nibble2Ascii(ror(val, 4)));
-	call pfunc(nibble2Ascii(val));
+	call pfunc(Nibble2Ascii(ror(val, 4)));
+	call pfunc(Nibble2Ascii(val));
 end;
 
-blankAsmErrCode: procedure byte public;
+BlankAsmErrCode: procedure byte public;
 	return asmErrCode = ' ';
 end;
 
-blankMorPAsmErrCode: procedure byte public;
-	return blankAsmErrCode or asmErrCode = 'M' or asmErrCode = 'P';
+BlankMorPAsmErrCode: procedure byte public;
+	return BlankAsmErrCode or asmErrCode = 'M' or asmErrCode = 'P';
 end;
 
 
-getNibble: procedure(bp, idx) byte public;
+GetNibble: procedure(bp, idx) byte public;
 	declare bp pointer, idx byte;
 	declare b based bp byte;
 	declare n byte;
@@ -321,18 +321,18 @@ getNibble: procedure(bp, idx) byte public;
 	return n and 0Fh;	/* mask to leave just the nibble */
 end;
 
-sourceError: procedure(errCh) public;
+SourceError: procedure(errCh) public;
 	declare errCh byte;
 
-	if not isSkipping or op = 22h then	/* ELSE */
+	if not IsSkipping or op = K$ELSE then	/* ELSE */
 	do;
 		if inExtrn then
-			b6754 = TRUE;
-		if blankAsmErrCode then
+			badExtrn = TRUE;
+		if BlankAsmErrCode then
 			errCnt = errCnt + 1;
 
-		if blankMorPAsmErrCode or errCh = 'L' or errCh = 'U' then	/* no error or M, P L or U */
-			if asmErrCode <> 'L' then	/* override unless already location counter error */
+		if BlankMorPAsmErrCode or errCh = 'L' or errCh = 'U' then	/* no Error or M, P L or U */
+			if asmErrCode <> 'L' then	/* override unless already location counter Error */
 				asmErrCode = errCh;
 
 	end;
@@ -340,33 +340,33 @@ end;
 
 $IF OVL4
 
-sub$3D34: procedure(c) public;
+Sub3D34: procedure(c) public;
 	declare c byte;
 	declare ch based w906A byte;
 
 	ch = c;
 	if (w906A := w906A + 1) > w6870 then
-		call runtimeError(1);	/* table error */
+		call RuntimeError(1);	/* table Error */
 end;
 
 
-sub$3D55: procedure(c) public;
+Sub3D55: procedure(c) public;
 	declare c byte;
 
-	call sub$3D34(c);
+	call Sub3D34(c);
 	if c = CR then
-		call sub$3D34(LF);
+		call Sub3D34(LF);
 end;
 
 $ENDIF
 
 
-parseControlLines: procedure public;
+ParseControlLines: procedure public;
 
-	do while getCh = '$';
-		if isSkipping then
+	do while GetCh = '$';
+		if IsSkipping then
 		do;
-			call skip2NextLine;
+			call Skip2NextLine;
 			isControlLine = TRUE;
 $IF OVL4
 			if b905E = 1 then
@@ -376,29 +376,29 @@ $ENDIF
 		else
 		do;
 			CHKOVL$0;
-			call parseControls;
+			call ParseControls;
 		end;
-		call finishLine;
+		call FinishLine;
 	end;
 	reget = 1;
 end;
 
 
-initialControls: procedure public;
+InitialControls: procedure public;
 	cmdch$p = controls$p;
 	scanCmdLine = TRUE;
 	CHKOVL$0;
-	call parseControls;
-	if isPhase2Print then
+	call ParseControls;
+	if IsPhase2Print then
 	do;
 		CHKOVL$1;
-		call printCmdLine;
+		call PrintCmdLine;
 	end;
 	if needToOpenFile then
-		call openSrc;
+		call OpenSrc;
 
 	needToOpenFile, isControlLine, scanCmdLine = bZERO;
-	call parseControlLines;			/* initial control lines allow primary controls */
+	call ParseControlLines;			/* initial control lines allow primary controls */
 	primaryValid = FALSE;			/* not allowed from now on */
 	ctlDEBUG = ctlDEBUG and ctlOBJECT;	/* debug doesn't make sense if no object code */
 	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls that require printing */
@@ -407,25 +407,25 @@ initialControls: procedure public;
 end;
 
 
-initLine: procedure public;
+InitLine: procedure public;
 	startLine$p = inCh$p + 1;	
 	lineChCnt = 0;
 	if needToOpenFile then
-		call openSrc;
+		call OpenSrc;
 
-	b68AD, has16bitOperand, isControlLine, b689B, b687F, inExpression, expectingOperands, b6881, gotLabel, haveUserSymbol,
+	b68AD, has16bitOperand, isControlLine, b689B, lhsUserSymbol, inExpression, expectingOperands, b6881, gotLabel, rhsUserSymbol,
 	inDB, inDW, b6B32, showAddr, b6884,
 $IF OVL4
 	b9059, b9060, 
 $ENDIF
-	b6885 = bZERO;
+	needsAbsValue = bZERO;
 
 	atStartLine, expectingOpcode, b6B34, inParen = bTRUE;
 	ctlEJECT, b6857, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
 $ENDIF
-	tokenSize(0), tokenType(0), acc1ValType, acc2ValType, b6742, acc1Flags = bZERO;
+	tokenSize(0), tokenType(0), acc1ValType, acc2ValType, inComment, acc1Flags = bZERO;
 
 	asmErrCode = ' ';
 $IF OVL4
@@ -443,62 +443,62 @@ end;
 
 
 start:
-	call getAsmFile;
+	call GetAsmFile;
 	phase = 1;
-	call resetData;
-	call initialControls;
+	call ResetData;
+	call InitialControls;
 $IF BASE
 	if ctlMACROFILE then
 	do;
-		if physmem < 8001h then
-			call runtimeError(5);	 /* memory error */
+		if Physmem < 8001h then
+			call RuntimeError(5);	 /* memory Error */
 		if srcfd <> rootfd then
-			call closeF(srcfd);
-		call closeF(infd);
+			call CloseF(srcfd);
+		call CloseF(infd);
 		ovlFile(12) = '4';		/* use macro asm version */
-		call load(.ovlFile, 0, 1, 0, .statusIO);
-		call ioErrChk;
+		call Load(.ovlFile, 0, 1, 0, .statusIO);
+		call IoErrChk;
 	end;
-	if physmem > 8001h then
+	if Physmem > 8001h then
 	do;
 		if srcfd <> rootfd then
-			call closeF(srcfd);
-		call closeF(infd);
+			call CloseF(srcfd);
+		call CloseF(infd);
 		ovlFile(12) = '5';		/* use big memory asm version */
-		call load(.ovlFile, 0, 1, 0, .statusIO);
-		call ioErrChk;
+		call Load(.ovlFile, 0, 1, 0, .statusIO);
+		call IoErrChk;
 	end;
 
 	if MacroDebugOrGen then			/* attempt to use macro features */
-		call runtimeError(2);		/* command error */
+		call RuntimeError(2);		/* command Error */
 $ELSEIF OVL4
-	macrofd = inOpen(.asmax$ref, 3);
+	macrofd = InOpen(.asmax$ref, 3);
 $ENDIF
 
 	if ctlOBJECT then
 	do;
-		call delete(.objFile, .statusIO);
-		objfd = inOpen(.objFile, 3);
+		call Delete(.objFile, .statusIO);
+		objfd = InOpen(.objFile, 3);
 	end;
 
 	if ctlXREF then
 	do;
-		xreffd = inOpen(.asxref$tmp, 2);
+		xreffd = InOpen(.asxref$tmp, 2);
 		outfd = xreffd;
 	end;
 
-	call doPass;
+	call DoPass;
 	phase = 2;
 	if ctlOBJECT then
 	do;
-		CHKOVL$2;	/* for small version load in overlay 2 for writeRec & writeModhdr */
+		CHKOVL$2;	/* for small version Load in overlay 2 for writeRec & WriteModhdr */
 		if r$extnames1.len > 0 then
-			call writeRec(.r$extnames1);	/* in overlay 2 */
+			call WriteRec(.r$extnames1);	/* in overlay 2 */
 
 		if externId = 0 then
-			call writeModhdr;		/* in overlay 2 */
+			call WriteModhdr;		/* in overlay 2 */
 $IF NOT BASE
-		call initRecTypes;
+		call InitRecTypes;
 $ENDIF
 	end;
 $IF BASE
@@ -506,17 +506,17 @@ $IF BASE
 $ENDIF
 	do;
 		if ctlPRINT then
-			outfd = inOpen(.lstFile, 2);
+			outfd = InOpen(.lstFile, 2);
 		CHKOVL$3;
-		call resetData;
-		call initialControls;
-		call doPass;
+		call ResetData;
+		call InitialControls;
+		call DoPass;
 	end;
 	if ctlPRINT then
 	do;
 		CHKOVL$1;
-		call asmComplete;
-		call flushout;
+		call AsmComplete;
+		call Flushout;
 	end;
 
 	if ctlOBJECT then
@@ -524,22 +524,22 @@ $ENDIF
 $IF BASE
 		phase = 3;
 		CHKOVL3;
-		call resetData;
-		call initRecTypes;
-		call initialControls;
-		call doPass;
+		call ResetData;
+		call InitRecTypes;
+		call InitialControls;
+		call DoPass;
 		CHKOVL2;
 $ENDIF
-		call ovl11;
-		call writeModend;
+		call Ovl11;
+		call WriteModend;
 	end;
 
-	if not strUCequ(.aCo, .lstFile) then
+	if not StrUCequ(.aCo, .lstFile) then
 	do;
 		CHKOVL$1;
-		call ovl9;
+		call Ovl9;
 	end;
 	CHKOVL$1;
-	call ovl10;
+	call Ovl10;
 end;
 

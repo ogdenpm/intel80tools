@@ -11,7 +11,7 @@ declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
 
 
-cmdSkipWhite: procedure public;
+CmdSkipWhite: procedure public;
     declare cmdch based cmdch$p byte;
     
     do while (cmdch = ' ' or cmdch = TAB) and cmdch$p <> actRead;
@@ -19,7 +19,7 @@ cmdSkipWhite: procedure public;
     end;
 end;
 
-getDrive: procedure byte public;
+GetDrive: procedure byte public;
     declare cmdch based cmdch$p byte;
 
     if cmdch = ':' then
@@ -33,14 +33,14 @@ getDrive: procedure byte public;
                 return '0';	/* must be a file name so drive 0 */
             cmdch$p = cmdch$p + 1;
         end;
-    call cmdSkipWhite;
+    call CmdSkipWhite;
     if cmdch <> ':' then
         return '0';
     cmdch$p = cmdch$p + 2;
     return cmdch;
 end;
 
-addExtents: procedure public;
+AddExtents: procedure public;
     do ii = 1 to 3;
         lstFile(kk + ii) = aExtents(ii);
         objFile(kk + ii) = aExtents(ii+3);
@@ -50,10 +50,10 @@ end;
 
 /* asmov3 usage include overlay file initiatisation */
 
-getAsmFile: procedure public;
+GetAsmFile: procedure public;
 	declare cmdch based cmdch$p byte;
 
-	cmdIsWhite: procedure byte;
+	CmdIsWhite: procedure byte;
 		declare cmdch based cmdch$p byte;
 		return cmdch = ' ' or cmdch = TAB or cmdch = CR;
 	end;
@@ -69,44 +69,44 @@ $IF NOT OVL3
 $ELSE
 						 .EDATA;
 $ENDIF
-	call rescan(1, .statusIO);	/* get the command line */
-	call ioErrChk;
-	call read(1, .cmdLineBuf, 128, .actRead, .statusIO);
-	call ioErrChk;
+	call Rescan(1, .statusIO);	/* get the command line */
+	call IoErrChk;
+	call Read(1, .cmdLineBuf, 128, .actRead, .statusIO);
+	call IoErrChk;
 	actRead = actRead + .cmdLineBuf;	/* convert to pointer */
 	scanCmdLine = TRUE;		/* scanning command line */
 $IF OVL3
-	call write(0, .signonMsg, 29h, .statusIO);
-	call write(0, .signonMsg, 2, .statusIO);
-	call ioErrChk;
+	call Write(0, .signonMsg, 29h, .statusIO);
+	call Write(0, .signonMsg, 2, .statusIO);
+	call IoErrChk;
 $ENDIF
-	call cmdSkipWhite;
+	call CmdSkipWhite;
 $IF OVL3
 	ovlFile(2),
 $ENDIF
-	asxref(2) = getDrive; 	/* tem defaults to current drive */
+	asxref(2) = GetDrive; 	/* tem defaults to current drive */
 
-	do while not cmdIsWhite;
+	do while not CmdIsWhite;
 		cmdch$p = cmdch$p + 1;
 	end;
 
-	call cmdSkipWhite;
+	call CmdSkipWhite;
 	if cmdch = CR then		/* no name !! */
-		call runtimeError(4);
+		call RuntimeError(4);
 
-	infd = inOpen(cmdch$p, 1);	/* open file for reading */
+	infd = InOpen(cmdch$p, 1);	/* Open file for reading */
 	rootfd, srcfd = infd;
 	ii = TRUE;
 	kk = 0;
 
-	do while not cmdIsWhite;	/* copy file name over to the files list */
+	do while not CmdIsWhite;	/* copy file name over to the files list */
 		files(0).name(kk) = cmdch;
 		if ii then		/* and the name for the lst and obj files */
 			lstFile(kk), objFile(kk) = cmdch;
 		if cmdch = '.' then
 		do;
 			ii = FALSE;
-			call addExtents;	/* add lst and obj file extents */
+			call AddExtents;	/* add lst and obj file extents */
 		end;
 		kk = kk + 1;
 		cmdch$p = cmdch$p + 1;
@@ -116,7 +116,7 @@ $ENDIF
 	do;
 		lstFile(kk) = '.';	/* add the . and the extents */
 		objFile(kk) = '.';
-		call addExtents;
+		call AddExtents;
 	end;
 
 	files(0).name(kk) = ' ';	/* override current drive for tmp if explict in source file */
@@ -128,16 +128,16 @@ $ENDIF
 end;
 
 
-resetData: procedure public;	/* extended initialisation */
+ResetData: procedure public;	/* extended initialisation */
 
-    call initLine;
+    call InitLine;
 
-    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), b6742,
+    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
 $IF OVL4
     expandingMacro, b905C, b905E,
 $ENDIF
     b6857, needToOpenFile = bZERO;
-    b6743, primaryValid, ctlLIST, b6A6F,
+    noOpsYet, primaryValid, ctlLIST, b6A6F,
 $IF OVL4
     ctlGEN,
 $ENDIF
@@ -165,12 +165,12 @@ $ENDIF
 $IF OVL4
     curMacroBlk = 0FFFFh;
 $ENDIF
-    if not isPhase1 then	/* close any open include file */
+    if not IsPhase1 then	/* close any Open include file */
     do;
         if fileIdx <> 0 then
         do;
-            call closeF(srcfd);
-            call ioErrChk;
+            call CloseF(srcfd);
+            call IoErrChk;
             srcfd = rootfd;
         end;
 
@@ -178,15 +178,15 @@ $ENDIF
         endInBuf$p = .inBuf;
         inCh$p = endInBuf$p - 1;
         startLine$p = .inBuf;
-        call seek(infd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
-        call ioErrChk;
+        call Seek(infd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
+        call IoErrChk;
     end;
 
-    w6870 = physmem + 0BFh;
+    w6870 = Physmem + 0BFh;
     endOutBuf = .b6A00;
 end;
 
-initRecTypes: procedure public;
+InitRecTypes: procedure public;
     r$content.type = OMF$CONTENT;
     r$content.len = 3;
     r$publics.type = OMF$RELOC;

@@ -8,7 +8,7 @@ $include(asm85.ipx)
 $ENDIF
 
 $IF BASE
-declare	CHKOVL$2 lit	'call ovlMgr(2)';
+declare	CHKOVL$2 lit	'call OvlMgr(2)';
 $ELSE
 declare	CHKOVL$2 lit	' ';
 $ENDIF
@@ -31,36 +31,36 @@ declare pad byte;
 declare	accum(4) byte at(.accum1);
 
 
-sub$4AAA: procedure(seg) public;	/* seg = 0 => CSEG, seg = 1 => DSEG */
+ChkSegAlignment: procedure(seg) public;	/* seg = 0 => CSEG, seg = 1 => DSEG */
 	declare seg byte;
 
 	if segHasData(seg) then
 	do;
-		if haveTokens then
+		if HaveTokens then
 		do;
-			accum1 = getNumVal;
+			accum1 = GetNumVal;
 			if alignTypes(seg) <> accum1$lb then
-				call expressionError;
+				call ExpressionError;
 		end;
 		else if alignTypes(seg) <> 3 then	/* no speficier - check byte algined */
-			call expressionError;
+			call ExpressionError;
 	end;
 	else
 	do;
 		segHasData(seg) = TRUE;
-		if haveTokens then
+		if HaveTokens then
 		do;
-			accum1 = getNumVal;
+			accum1 = GetNumVal;
 			if accum1 = 1 or accum1 = 2 then	/* only allow inPage and Page */
 				alignTypes(seg) = low(accum1);
 			else
-				call expressionError;
+				call ExpressionError;
 		end;
 	end;
 end;
 
 
-cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
+Cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
 	declare cond byte;		/* 0 or 0ffffh */
 
 	accum1 = cond;
@@ -68,21 +68,21 @@ cond2Acc: procedure(cond) public;	/* convert conditional result to accum1 */
 		accum1 = 0FFFFh;
 end;
 
-updateHiLo: procedure(hilo) public;
+UpdateHiLo: procedure(hilo) public;
 	declare hilo byte;
 
 	if (acc1Flags and (UF$EXTRN + UF$SEGMASK)) <> 0 then
 		acc1Flags = acc1Flags and 0E7h or hilo;
 end;
 
-handleOp: procedure public;
+HandleOp: procedure public;
 	do case op;
 /* 0 */		;
-/* 1 */		call finishLine;		/* white space ? */
+/* 1 */		call FinishLine;		/* CR */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* ) */
 			if not (op = T$LPAREN and opType = 3) then
-				call balanceError;
+				call BalanceError;
 
 			if tokenType(0) = O$DATA then
 			do;
@@ -98,31 +98,31 @@ handleOp: procedure public;
 /* 4 */		accum1 = accum1 * accum2;	/* * */
 /* 5 */		accum1 = accum1 + accum2;	/* + */
 /* 6 */		do;				/* , */
-			call syntaxError;
-			call popToken;
+			call SyntaxError;
+			call PopToken;
 		end;
 /* 7 */		accum1 = accum1 - accum2;	/* - */
 /* 8 */		;				/* unary + */
 /* 9 */		do;				/* / */
 			if accum2 = 0 then
-				call valueError;
+				call ValueError;
 
 			accum1 = accum1 / accum2;
 		end;
 /* 10 */	accum1 = -accum1;			/* unary - */
-/* 11 */	call cond2Acc(accum1 = accum2);		/* EQ */
-/* 12 */	call cond2Acc(accum1 < accum2);		/* LT */
-/* 13 */	call cond2Acc(accum1 <= accum2);	/* LE */
-/* 14 */	call cond2Acc(accum1 > accum2);		/* GT */
-/* 15 */	call cond2Acc(accum1 >= accum2);	/* GE */
-/* 16 */	call cond2Acc(accum1 <> accum2);	/* NE */
+/* 11 */	call Cond2Acc(accum1 = accum2);		/* EQ */
+/* 12 */	call Cond2Acc(accum1 < accum2);		/* LT */
+/* 13 */	call Cond2Acc(accum1 <= accum2);	/* LE */
+/* 14 */	call Cond2Acc(accum1 > accum2);		/* GT */
+/* 15 */	call Cond2Acc(accum1 >= accum2);	/* GE */
+/* 16 */	call Cond2Acc(accum1 <> accum2);	/* NE */
 /* 17 */	accum1 = not accum1;			/* NOT */
 /* 18 */	accum1 = accum1 and accum2;		/* AND */
 /* 19 */	accum1 = accum1 or accum2;		/* OR */
 /* 20 */	accum1 = accum1 xor accum2;		/* XOR */
 /* 21 */	do;					/* MOD */
 			if accum2 = 0 then
-				call valueError;
+				call ValueError;
 			accum1 = accum1 mod accum2;
 		end;
 /* 22 */	do;					/* SHL */
@@ -135,22 +135,22 @@ handleOp: procedure public;
 		end;
 /* 24 */	do;					/* HIGH */
 			accum1 = high(accum1);
-			call updateHiLo(UF$HIGH);
+			call UpdateHiLo(UF$HIGH);
 		end;
 /* 25 */	do;					/* LOW */
 			accum1 = low(accum1);
-			call updateHiLo(UF$LOW);
+			call UpdateHiLo(UF$LOW);
 		end;
 /* 26 */	do;					/* DB ? */
 			if tokenType(0) <> O$STRING then
 			do;
-				accum1 = getNumVal;
+				accum1 = GetNumVal;
 				if accum1$hb - 1 < 0FEh then	/* not 0 or FF */
-					call valueError;
+					call ValueError;
 				b6B28 = 22h;
 				if (acc1Flags and UF$BOTH) = UF$BOTH then
 				do;
-					call valueError;
+					call ValueError;
 					acc1Flags = acc1Flags and 0E7h or UF$LOW;
 				end;
 			end;
@@ -160,8 +160,8 @@ handleOp: procedure public;
 				tokenType(0) = O$DATA;
 			end;
 
-			if isReg(acc1ValType) then
-				call operandError;
+			if IsReg(acc1ValType) then
+				call OperandError;
 			b6B2D = O$DATA;
 			inDB = TRUE;
 		end;
@@ -178,11 +178,11 @@ handleOp: procedure public;
 			showAddr = TRUE;
 			if (acc1Flags and UF$EXTRN) = UF$EXTRN then
 			do;
-				call expressionError;
+				call ExpressionError;
 				acc1Flags = 0;
 			end;
-			b6EC4$9C3A = 1;
-			call sub5819$5CE8(accum1, 34 - op);	/* 4 for set, 5 for equ */
+			labelUse = 1;
+			call Sub5819$5CE8(accum1, (K$SET + 4) - op);	/* 4 for set, 5 for equ */
 			expectingOperands = FALSE;
 		end;
 /* 30 */	goto case29;				/* SET ? */
@@ -193,10 +193,10 @@ handleOp: procedure public;
 				if (acc1Flags and UF$BOTH) <> 0 then
 					if (acc1Flags and UF$SEGMASK) <> activeSeg
 					    or (acc1Flags and UF$BOTH) <> UF$BOTH then
-						call expressionError;
+						call ExpressionError;
 			end;
 			else
-				call expressionError;
+				call ExpressionError;
 
 			if ctlOBJECT then
 				if segSize(activeSeg) > maxSegSize(activeSeg) then
@@ -206,13 +206,13 @@ handleOp: procedure public;
 /* 32 */	do;					/* END ? */
 			if tokenIdx > 0 then
 			do;
-				startOffset = getNumVal;
+				startOffset = GetNumVal;
 				startDefined = 1;
 				startSeg = acc1Flags and 7;
 				if (acc1Flags and UF$EXTRN) = UF$EXTRN then
-					call expressionError;
-				if isReg(acc1ValType) then
-					call operandError;
+					call ExpressionError;
+				if IsReg(acc1ValType) then
+					call OperandError;
 
 				showAddr = TRUE;
 			end;
@@ -224,20 +224,20 @@ $IF OVL4
 $ELSE
 			if ifDepth > 0 then
 $ENDIF
-				call nestingError;
+				call NestingError;
 			if opType <> 1 then
-				call syntaxError;
+				call SyntaxError;
 			if inParen then
 				b6B33 = TRUE;
 			else
-				call syntaxError;
+				call SyntaxError;
 
 		end;
 /* 33 */	do;					/* IF ? */
 			if inParen then
 			do;
 				b6B32 = TRUE;
-				call nestIF(2);
+				call NestIF(2);
 				b6881 = TRUE;
 				if skipping(0) = FALSE then
 					skipping(0) = not ((low(accum1) and 1) = 1);
@@ -251,7 +251,7 @@ $IF OVL4
 $ELSE
 			if ifDepth = 0 then
 $ENDIF
-				call nestingError;
+				call NestingError;
 			else if not inElse(0) then
 			do;
 				if not skipping(0) then
@@ -261,116 +261,117 @@ $ENDIF
 				inElse(0) = TRUE;
 			end;
 			else
-				call nestingError;
+				call NestingError;
 		end;
 /* 35 */	do;					/* ENDIF ? */
 			if inParen then
 			do;
 				b6B32 = TRUE;
-				call unnestIF(2);
+				call UnnestIF(2);
 			end;
 		end;
 /* 36 */	do;					/* LXI ? */
 			if nameLen = 1 then
 				if name(0) = 'M' then
-					call syntaxError;
-			call mkCode(85h);
+					call SyntaxError;
+			call MkCode(85h);
 		end;
 /* 37 */	do;				/* POP DAD PUSH INX DCX ? */
 			if nameLen = 1 then
 				if name(0) = 'M' then
-					call syntaxError;
-			call mkCode(5);
+					call SyntaxError;
+			call MkCode(5);
 		end;
-/* 38 */	call mkCode(7);		/* LDAX STAX ? */
-/* 39 */	call mkCode(2);		/* ADC ADD SUB ORA SBB XRA ANA CMP ? */
-/* 40 */	call mkCode(8);		/* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
-/* 41 */	call mkCode(46h);		/* MVI ? */
-/* 42 */	call mkCode(6);		/* INR DCR ? */
-/* 43 */	call mkCode(36h);		/* MOV */
-/* 44 */	call mkCode(0);		/* CZ CNZ JZ STA JNZ JNC LHLD */
+/* 38 */	call MkCode(7);		/* LDAX STAX ? */
+/* 39 */	call MkCode(2);		/* ADC ADD SUB ORA SBB XRA ANA CMP ? */
+/* 40 */	call MkCode(8);		/* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
+/* 41 */	call MkCode(46h);		/* MVI ? */
+/* 42 */	call MkCode(6);		/* INR DCR ? */
+/* 43 */	call MkCode(36h);		/* MOV */
+/* 44 */	call MkCode(0);		/* CZ CNZ JZ STA JNZ JNC LHLD */
 						/* CP JC SHLD CPE CPO CM LDA JP JM JPE */
 						/* CALL JPO CC CNC JMP */
-/* 45 */	call mkCode(0);		/* RNZ STC DAA DI SIM SPHL RLC */
+/* 45 */	call MkCode(0);		/* RNZ STC DAA DI SIM SPHL RLC */
 						/* RP RAL HLT RM RAR RPE RET RIM */
 						/* PCHL CMA CNC RPO EI XTHL NOP */
 						/* RC RNX XCHG RZ RRC */
-/* 46 */	call mkCode(6);		/* RST */
+/* 46 */	call MkCode(6);		/* RST */
 /* 47 */	activeSeg = 0;			/* ASEG ? */
 /* 48 */	do;				/* CSEG ? */
 			activeSeg = 1;
-			call sub$4AAA(0);
+			call ChkSegAlignment(0);
 		end;
 /* 49 */	do;				/* DSEG ? */
 			activeSeg = 2;
-			call sub$4AAA(1);
+			call ChkSegAlignment(1);
 		end;
 
 /* 50 */	do;				/* PUBLIC */
 			inPublic = TRUE;
-			b6EC4$9C3A = 0;
-			call sub5819$5CE8(0, 6);
+			labelUse = 0;
+			call Sub5819$5CE8(0, 6);
 		end;
 /* 51 */	do;				/* EXTRN ? */
 			inExtrn = TRUE;
-			if externId = 0 and isPhase1 and ctlOBJECT then
+			if externId = 0 and IsPhase1 and ctlOBJECT then
 			do;
 				CHKOVL$2;
-				call writeModhdr;
+				call WriteModhdr;
 			end;
-			b6EC4$9C3A = 0;
-			call sub5819$5CE8(externId, 2);
-			if isPhase1 and ctlOBJECT and not b6754 then
+			labelUse = 0;
+			call Sub5819$5CE8(externId, 2);
+			if IsPhase1 and ctlOBJECT and not badExtrn then
 			do;
 				CHKOVL$2;
-				call writeExtName;
+				call WriteExtName;
 			end;
-			if not b6754 then
+			if not badExtrn then
 				externId = externId + 1;
-			b6754 = 0;
+			badExtrn = 0;
 		end;
 /* 52 */	do;				/* NAME */
-			if tokenIdx <> 0 and b6743 then
+			if tokenIdx <> 0 and noOpsYet then
 			do;
+				/* set the module name in the header - padded to 6 chars */
 				call move(6, .spaces6, .aModulePage);
 				call move(moduleNameLen := nameLen, .name, .aModulePage);
 			end;
 			else
-				call sourceError('R');
+				call SourceError('R');
 
-			call popToken;
+			call PopToken;
 		end;
 /* 53 */	segSize(SEG$STACK) = accum1;	/* STKLN ? */
 $IF OVL4
-/* 54 */	call sub$7517;			/* MACRO ? */
-/* 55 */	call sub$753E;
-/* 56 */	call sub$75FF;			/* ENDM */
-/* 57 */	call sub$76CE;			/* EXITM */
+/* 54 */	call Sub7517;			/* MACRO ? */
+/* 55 */	call Sub753E;
+/* 56 */	call Sub75FF;			/* ENDM */
+/* 57 */	call Sub76CE;			/* EXITM */
 /* 58 */	do;
 			tmac$mtype = 4;
-			call sub$7327;
+			call Sub7327;
 		end;
-/* 59 */	call sub$72A4(1);		/* IRP ? */
-/* 60 */	call sub$72A4(2);		/* IRPC */
-/* 61 */	call sub$770B;
-/* 62 */	call sub$7844;			/* REPT ? */
-/* 63 */	call sub$787A;			/* LOCAL */
-/* 64 */	call sub$78CE;
+/* 59 */	call Sub72A4(1);		/* IRP ? */
+/* 60 */	call Sub72A4(2);		/* IRPC */
+/* 61 */	call Sub770B;
+/* 62 */	call Sub7844;			/* REPT ? */
+/* 63 */	call Sub787A;			/* LOCAL */
+/* 64 */	call Sub78CE;
 /* 65 */	do;				/* NUL */
-			call cond2Acc(tokenType(0) = K$NUL);
-			call popToken;
+			call Cond2Acc(tokenType(0) = K$NUL);
+			call PopToken;
 			acc1Flags = 0;
 		end;
 $ENDIF
 	end;
 
-	if op <> 1 then
-		b6743 = FALSE;
+	if op <> T$CR then
+		noOpsYet = FALSE;
 end;
 
-parseLine: procedure public;
+ParseLine: procedure public;
 
-	isExpressionOp: procedure byte;
+	IsExpressionOp: procedure byte;
 		if effectiveToken > 3 then
 			if effectiveToken <> T$COMMA then
 				if effectiveToken < 1Ah then
@@ -378,13 +379,13 @@ parseLine: procedure public;
 		return FALSE;
 	end;
 
-	sub$53DF: procedure(arg1b) byte;
+	Sub53DF: procedure(arg1b) byte;
 		declare arg1b byte;
 		return arg1b = O$ID or arg1b = O$64;
 	end;
 
 
-	sub$53F8: procedure;
+	Sub53F8: procedure;
 		if not isInstrMap(op) then
 			b6B34 = FALSE;
 	end;
@@ -399,23 +400,23 @@ $IF OVL4
 $ENDIF
 	        then
 		do;
-			b6885 = FALSE;
-			call popToken;
+			needsAbsValue = FALSE;
+			call PopToken;
 			return;
 		end;
 		
 		if phase <> 1 then
 			if inExpression then
-				if isExpressionOp then
-					if getPrec(effectiveToken) <= getPrec(opStack(opSP)) then
-						call expressionError;
+				if IsExpressionOp then
+					if GetPrec(effectiveToken) <= GetPrec(opStack(opSP)) then
+						call ExpressionError;
 
-		if getPrec(opType := effectiveToken) > getPrec(op := opStack(opSP)) or opType = T$LPAREN then
+		if GetPrec(opType := effectiveToken) > GetPrec(op := opStack(opSP)) or opType = T$LPAREN then
 		do;
 			if opSP >= 16 then
 			do;
 				opSP = 0;
-				call stackError;
+				call StackError;
 			end;
 			else
 				opStack(opSP := opSP + 1) = opType;
@@ -425,13 +426,13 @@ $ENDIF
 				inParen = TRUE;
 			end;
 			if phase > 1 then
-				inExpression = isExpressionOp;
+				inExpression = IsExpressionOp;
 			return;
 		end;
 
 		inExpression = 0;
 		if not inParen and op > 3 then
-			call syntaxError;
+			call SyntaxError;
 
 		if op = 0 then
 			op = opType;
@@ -441,28 +442,28 @@ $ENDIF
 
 		if (b6B28 := b4181(op)) then
 		do;
-			accum2 = getNumVal;
+			accum2 = GetNumVal;
 			acc2Flags = acc1Flags;
 			acc2NumVal = acc1NumVal;
 			acc2ValType = acc1ValType;
 		end;
 
 		if (b6B28 := ror(b6B28, 1)) then
-			accum1 = getNumVal;
+			accum1 = GetNumVal;
 
 		if not b6857 then
-			b6857 = sub$53DF(acc1ValType) or sub$53DF(acc2ValType);
+			b6857 = Sub53DF(acc1ValType) or Sub53DF(acc2ValType);
 
 		b6B2D = O$NUMBER;
 		if op > T$RPAREN and op < K$DB then	/* expression op */
-			call sub$4291;
+			call Sub4291;
 		else
 		do;
-			call sub$53F8;
-			call sub$4274;
+			call Sub53F8;
+			call Sub4274;
 		end;
 
-		call handleOp;
+		call HandleOp;
 		if not isExprOrMacroMap(op) then
 			inParen = FALSE;
 
@@ -476,11 +477,11 @@ $ENDIF
 			effectiveAddr = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
-			call pushToken(b6B2D);
+			call PushToken(b6B2D);
 
 		do ii = 0 to 3;
 			if (b6B28 := ror(b6B28, 1)) then
-				call collectByte(accum(ii));
+				call CollectByte(accum(ii));
 		end;
 
 		tokenAttr(0) = acc1Flags;
@@ -496,10 +497,10 @@ end;
 
 
 
-doPass: procedure public;
+DoPass: procedure public;
 	do while finished = FALSE;
-		call tokeniseLine;
-		call parseLine;
+		call TokeniseLine;
+		call ParseLine;
 	end;
 end;
 

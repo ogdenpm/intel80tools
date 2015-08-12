@@ -1,4 +1,4 @@
-ISIS=..\..\thames
+isis=..\..\thames
 V4=../../plm80v4/
 V3=../../plm80v3/
 TOOLS=../../tools/
@@ -10,25 +10,25 @@ OVERLAY=6D4Ch
 
 # bulk obj names
 BASEOBJS = glb.obj asm801.obj asm82.obj asm83.obj asm46.obj asm85.obj\
-	asm851.obj asm86.obj asm861.obj pcktkn.obj close.obj delete.obj error.obj\
-       	exit.obj load.obj open.obj read.obj rescan.obj seek.obj write.obj
+	asm851.obj asm86.obj asm861.obj pcktkn.obj close.obj Delete.obj Error.obj\
+       	Exit.obj Load.obj Open.obj Read.obj Rescan.obj Seek.obj Write.obj
 
 OBJS4 =	glb4.obj asm41.obj pcktkn.obj asm43.obj asm44.obj asm45.obj asm46.obj\
 	asm47.obj asm48.obj asm49.obj asm4A.obj asm4B.obj asm4C.obj asm4D.obj asm4E.obj\
-	close.obj delete.obj error.obj exit.obj\
-	load.obj open.obj read.obj rescan.obj\
-	seek.obj write.obj
+	close.obj Delete.obj Error.obj Exit.obj\
+	Load.obj Open.obj Read.obj Rescan.obj\
+	Seek.obj Write.obj
 
 OBJS5 =	glb5.obj asm51.obj pcktkn.obj asm82.obj asm83.obj asm55.obj asm46.obj\
 	asm57.obj asm86.obj asm861.obj asmov0.obj asmov2.obj asmov1.obj asm5D.obj\
-	close.obj delete.obj error.obj exit.obj\
-	load.obj open.obj read.obj rescan.obj\
-	seek.obj write.obj
+	close.obj Delete.obj Error.obj Exit.obj\
+	Load.obj Open.obj Read.obj Rescan.obj\
+	Seek.obj Write.obj
 
 P4SRCS = asm41.plm asm44.plm asm45.plm asm4e.plm asm51.plm asm55.plm asm5d.plm\
-	asm801.plm asm83.plm asm851.plm asm861.plm asmov3.plm close.plm delete.plm\
-	error.plm exit.plm glb.plm glb4.plm glb5.plm key4.plm keywrd.plm load.plm\
-	open.plm read.plm rescan.plm seek.plm write.plm
+	asm801.plm asm83.plm asm851.plm asm861.plm asmov3.plm close.plm Delete.plm\
+	Error.plm Exit.plm glb.plm glb4.plm glb5.plm key4.plm keywrd.plm Load.plm\
+	Open.plm Read.plm Rescan.plm Seek.plm Write.plm
 
 P3SRCS = asm43.pl3 asm46.pl3 asm47.pl3 asm48.pl3 asm49.pl3 asm4a.pl3 asm4B.pl3 asm4c.pl3\
 	asm4d.pl3 asm57.pl3 asm82.pl3 asm85.pl3 asm86.pl3 asmov0.pl3 asmov1.pl3 asmov2.pl3
@@ -44,21 +44,21 @@ TARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
 	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
-	$(ISIS) :F1:PLM80 $< code
-	@if not exist $*.obj exit /b 1
+	$(isis) :F1:PLM80 $< code
+	@if not exist $*.obj Exit /b 1
 
 .pl3.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	$(TOOLS:/=\)ngenpex $(PEXFILE) $<
-	$(ISIS) :F1:PLM80 $< code
-	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
+	$(isis) :F1:PLM80 $< code
+	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & Exit /b 1)
 
 .asm.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:ASM80 $< 
-	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
+	$(isis) :F1:ASM80 $< 
+	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & Exit /b 1)
 
 # the default rule will force the makefile to be up to date
 all: .extract
@@ -154,80 +154,80 @@ asm4e.plm asm5d.plm asmov3.plm: init.pls
 asm80: base.abs asmov0.abs asmov1.abs asmov2.abs asmov3.abs keywrd.abs 
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link base.abs,publics(asmov0.abs,asmov1.abs,asmov2.abs), "&" < <<
+	$(isis) :F1:link base.abs,publics(asmov0.abs,asmov1.abs,asmov2.abs), "&" < <<
 asmov3.abs,keywrd.abs to $*.rel &
 map print($*.lin)
 <<NOKEEP
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS print($*.map) "&" < <<
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS print($*.map) "&" < <<
 STACKSIZE(0) PURGE NAME(ASM80)
-exit
+Exit
 <<NOKEEP
 	del $*.rel
-	@find $*.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $*.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@find $*.lin "LINK MAP" >nul || (del $@ & Exit /b 1)
+	@(find $*.map "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 asm80.ov0: asmov0.abs 
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov0.map) "&" < <<
+	$(isis) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov0.map) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O0)
 <<NOKEEP
-	@(find $*.mo0 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@(find $*.mo0 "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 asm80.ov1: asmov1.abs 
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov1.map) "&" < <<
+	$(isis) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov1.map) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O1)
 <<NOKEEP	
-	@(find $*.mo1 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@(find $*.mo1 "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 
 asm80.ov2: asmov2.abs 
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov2.map) "&" < <<
+	$(isis) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov2.map) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O2)
 <<NOKEEP	
-	@(find $*.mo2 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@(find $*.mo2 "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 asm80.ov3: asmov3.abs
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov3.map) "&" < <<
+	$(isis) :F1:locate $** to $@ SYMBOLS MAP PUBLICS print(asmov3.map) "&" < <<
 STACKSIZE(0) PURGE NAME(A80O3)
 <<NOKEEP
-	@(find $*.mo3 "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@(find $*.mo3 "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 
 asm80.ov4: $(OBJS4) key4.obj
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link "&" < <<
+	$(isis) :F1:link "&" < <<
 $(OBJS4: =, & 
 ),:f1:plm80.lib,key4.obj to asmov4.rel map print(asmov4.lin)
 <<NOKEEP
-	$(ISIS) :F1:locate asmov4.rel to $@ SYMBOLS NAME(A80O4) PURGE "&" < <<
+	$(isis) :F1:locate asmov4.rel to $@ SYMBOLS NAME(A80O4) PURGE "&" < <<
 MAP PUBLICS code(3780h) STACKSIZE(144) print(asmov4.map)
-exit
+Exit
 <<NOKEEP
-	@find asmov4.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find asmov4.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@find asmov4.lin "LINK MAP" >nul || (del $@ & Exit /b 1)
+	@(find asmov4.map "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 
 asm80.ov5: $(OBJS5) keywrd.obj
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link "&" < <<
+	$(isis) :F1:link "&" < <<
 $(OBJS5: =, &
 ),:f1:plm80.lib,keywrd.obj to asmov5.rel map print(asmov5.lin)
 <<NOKEEP
-	$(ISIS) :F1:locate asmov5.rel to $@ SYMBOLS NAME(A80O5) PURGE "&" < <<
+	$(isis) :F1:locate asmov5.rel to $@ SYMBOLS NAME(A80O5) PURGE "&" < <<
 MAP PUBLICS code(3780h) STACKSIZE(144) print(asmov5.map)
-exit
+Exit
 <<NOKEEP
-	@find asmov5.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find asmov5.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@find asmov5.lin "LINK MAP" >nul || (del $@ & Exit /b 1)
+	@(find asmov5.map "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 
 
@@ -236,62 +236,62 @@ exit
 base.abs: $(BASEOBJS)
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link "&" < <<
+	$(isis) :F1:link "&" < <<
 $(BASEOBJS: =, & 
 ),:f1:plm80.lib to $*.rel print($*.lin)
 <<NOKEEP
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS STACKSIZE(120) print($*.map)
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS STACKSIZE(120) print($*.map)
 	del $*.rel
-	@find $*.lin "UNRESOLVED EXTERNAL" >nul || (del $@ & exit /b 1)
+	@find $*.lin "UNRESOLVED EXTERNAL" >nul || (del $@ & Exit /b 1)
 
 
 keywrd.abs: keywrd.obj memory.obj
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link $(**: =,) to $*.rel map print($*.lin)
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE(075A2h) STACKSIZE(0) print($*.map)
+	$(isis) :F1:link $(**: =,) to $*.rel map print($*.lin)
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE(075A2h) STACKSIZE(0) print($*.map)
 	del $*.rel
-	@find $*.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $*.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	@find $*.lin "LINK MAP" >nul || (del $@ & Exit /b 1)
+	@(find $*.map "UNSATISFIED EXTERNAL" >nul && (del $@ & Exit /b 1)) || Exit /b 0)
 
 asmov0.abs: base.abs cprite.obj asmov0.obj
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov0.obj to $*.rel map print($*.la0)
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma0)
+	$(isis) :F1:link publics(base.abs),cprite.obj,asmov0.obj to $*.rel map print($*.la0)
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma0)
 	del $*.rel
-	@find $*.la0 "LINK MAP" >nul || (del $@ & exit /b 1)
+	@find $*.la0 "LINK MAP" >nul || (del $@ & Exit /b 1)
 
 
 asmov1.abs: base.abs cprite.obj asmov1.obj
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov1.obj,:F1:plm80.lib "&" < <<
+	$(isis) :F1:link publics(base.abs),cprite.obj,asmov1.obj,:F1:plm80.lib "&" < <<
 to $*.rel map print($*.la1)
 <<NOKEEP
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma1)
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma1)
 	del $*.rel
-	@find $*.la1 "LINK MAP" >nul || (del $@ & exit /b 1)
+	@find $*.la1 "LINK MAP" >nul || (del $@ & Exit /b 1)
 
 
 asmov2.abs: base.abs cprite.obj asmov2.obj
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov2.obj to $*.rel map print($*.la2)
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma2)
+	$(isis) :F1:link publics(base.abs),cprite.obj,asmov2.obj to $*.rel map print($*.la2)
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma2)
 	del $*.rel
-	@find $*.la2 "LINK MAP" >nul || (del $@ & exit /b 1)
+	@find $*.la2 "LINK MAP" >nul || (del $@ & Exit /b 1)
 
 
 asmov3.abs: base.abs cprite.obj asmov3.obj keywrd.abs
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov3.obj,publics(keywrd.abs) "&" < <<
+	$(isis) :F1:link publics(base.abs),cprite.obj,asmov3.obj,publics(keywrd.abs) "&" < <<
 to $*.rel map print($*.la3)
 <<NOKEEP
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma3)
+	$(isis) :F1:locate $*.rel to $@ SYMBOLS MAP PUBLICS CODE($(OVERLAY)) STACKSIZE(0) print($*.ma3)
 	del $*.rel
-	@find $*.la3 "LINK MAP" >nul || (del $@ & exit /b 1)
+	@find $*.la3 "LINK MAP" >nul || (del $@ & Exit /b 1)
 
 # pex file and makefile dependencies
 $(P3SRCS:.pl3=.obj): $(PEXFILE) makefile

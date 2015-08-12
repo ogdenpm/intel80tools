@@ -6,93 +6,93 @@ $ELSE
 $include(asm861.ipx)
 $ENDIF
 
-syntaxError: procedure public;
-	call sourceError('Q');
+SyntaxError: procedure public;
+	call SourceError('Q');
 end;
 
-doubleDefError: procedure public;
-	call sourceError('D');
+DoubleDefError: procedure public;
+	call SourceError('D');
 end;
 
-expressionError: procedure public;
-	call sourceError('E');
+ExpressionError: procedure public;
+	call SourceError('E');
 end;
 
-commandError: procedure public;
-	call sourceError('C');
+CommandError: procedure public;
+	call SourceError('C');
 end;
 
 OpcodeOperandError: procedure public;
-	call sourceError('O');
+	call SourceError('O');
 end;
 
-nameError: procedure public;
-	call sourceError('R');
+NameError: procedure public;
+	call SourceError('R');
 end;
 
-multipleDefError: procedure public;
-	call sourceError('M');
+MultipleDefError: procedure public;
+	call SourceError('M');
 end;
 
-valueError: procedure public;
-	call sourceError('V');
+ValueError: procedure public;
+	call SourceError('V');
 end;
 
-nestingError: procedure public;
-	call sourceError('N');
+NestingError: procedure public;
+	call SourceError('N');
 end;
 
-phaseError: procedure public;
-	call sourceError('P');
+PhaseError: procedure public;
+	call SourceError('P');
 end;
 
-stackError: procedure public;
-	call runtimeError(0);
+StackError: procedure public;
+	call RuntimeError(0);
 end;
 
-fileError: procedure public;
-	call runtimeError(4);
+FileError: procedure public;
+	call RuntimeError(4);
 end;
 
-illegalCharError: procedure public;
-	call sourceError('I');
+IllegalCharError: procedure public;
+	call SourceError('I');
 end;
 
-balanceError: procedure public;
-	call sourceError('B');
+BalanceError: procedure public;
+	call SourceError('B');
 end;
 
-undefinedSymbolError: procedure public;
-	call sourceError('U');
+UndefinedSymbolError: procedure public;
+	call SourceError('U');
 end;
 
-locationError: procedure public;
-	call sourceError('L');
+LocationError: procedure public;
+	call SourceError('L');
 end;
 
-operandError: procedure public;
-	call sourceError('X');
+OperandError: procedure public;
+	call SourceError('X');
 end;
 
-haveTokens: procedure byte public;
+HaveTokens: procedure byte public;
 	return tokenIdx <> 0;
 end;
 
 
-popToken: procedure public;
+PopToken: procedure public;
 	tokStart(0) = tokStart(tokenIdx);
 	tokenSym(0) = tokenSym(tokenIdx);
 	tokenType(0) = tokenType(tokenIdx);
 	tokenAttr(0) = tokenAttr(tokenIdx);
 	tokenSize(0) = tokenSize(tokenIdx);
 	tokenSymId(0) = tokenSymId(tokenIdx);
-	if haveTokens then
+	if HaveTokens then
 		tokenIdx = tokenIdx - 1;
 end;
 
 
 
-nestIF: procedure(arg1b) public;
+NestIF: procedure(arg1b) public;
 	declare arg1b byte;
 $IF OVL4
 	macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
@@ -100,7 +100,7 @@ $IF OVL4
 	do;
 		if (macroDepth := macroDepth + 1) > 9 then
 		do;
-			call stackError;
+			call StackError;
 			macroDepth = 0;
 		end;
 		else
@@ -116,7 +116,7 @@ $ENDIF
 	do;
 		if (ifDepth := ifDepth + 1) > 8 then
 		do;
-			call stackError;
+			call StackError;
 			ifDepth = 0;
 		end;
 		else
@@ -128,13 +128,13 @@ $ENDIF
 end;
 
 
-unnestIF: procedure(arg1b) public;
+UnnestIF: procedure(arg1b) public;
 	declare arg1b byte;
 
 $IF OVL4
 	if arg1b <> macroCondStk(0) then
 	do;
-		call nestingError;
+		call NestingError;
 		if arg1b = 2 then
 			return;
 		macroCondSP = tmac$macroCondSP;
@@ -146,17 +146,17 @@ $IF OVL4
 	if arg1b = 1 then
 	do;
 		call move(16, .macroStk(macroDepth), .macroStk(0));
-		call readM(tmac$blk);
+		call ReadM(tmac$blk);
 		b9062 = tmac$mtype;
 		if (macroDepth := macroDepth - 1) = 0 then
 		do;
 			expandingMacro = 0;
-			w6870 = physmem + 0BFh;
+			w6870 = Physmem + 0BFh;
 		end;
 	end;
 $ELSE
 	if ifDepth = 0 then
-		call nestingError;
+		call NestingError;
 $ENDIF
 	else
 	do;
@@ -166,11 +166,11 @@ $ENDIF
 	end;
 end;
 
-pushToken: procedure(type) public;
+PushToken: procedure(type) public;
 	declare type byte;
 
 	if tokenIdx >= 8 then
-		call stackError;
+		call StackError;
 	else
 	do;
 		tokenIdx = tokenIdx + 1;
@@ -192,7 +192,7 @@ $ENDIF
 	end;
 end;
 
-collectByte: procedure(c) public;
+CollectByte: procedure(c) public;
 	declare c byte;
 	declare s pointer;
 	declare ch based s byte;
@@ -204,30 +204,30 @@ collectByte: procedure(c) public;
 		tokenSize(0) = tokenSize(0) + 1;
 	end;
 	else
-		call stackError;
+		call StackError;
 end;
 
-getId: procedure(type) public;
+GetId: procedure(type) public;
 	declare type byte;
 
-	call pushToken(type);	/* save any previous token and initialise this one */
+	call PushToken(type);	/* save any previous token and initialise this one */
 	reget = 1;		/* force re get of first character */
 
-	do while (type := getChClass) = CC$DIGIT or type = CC$LET;	/* digit or letter */
+	do while (type := GetChClass) = CC$DIGIT or type = CC$LET;	/* digit or letter */
 		if curChar > 60h then	/* make sure upper case */
 			curChar = curChar and 0DFh;
-		call collectByte(curChar);
+		call CollectByte(curChar);
 	end;
-	reget = 1;		/* force re get of exit char */
+	reget = 1;		/* force re get of Exit char */
 end;
 
 
-atoi: procedure public;
+Atoi: procedure public;
 	declare accum address,
 		(radix, digit, i) byte;
 	declare chrs based tokPtr (1) byte;
 
-	call getId(O$NUMBER);
+	call GetId(O$NUMBER);
 	radix = chrs(tokenSize(0):= tokenSize(0) - 1);
 	if radix = 'H' then
 		radix = 16;
@@ -250,7 +250,7 @@ atoi: procedure public;
 	do i = 0 to tokenSize(0);
 		if chrs(i) = '?' or chrs(i) = '@' then
 		do;
-			call illegalCharError;
+			call IllegalCharError;
 			digit = 0;
 		end;
 		else
@@ -260,7 +260,7 @@ atoi: procedure public;
 			if digit >= radix then
 				if not (tokenType(2) = 40h) then /* risk that may be uninitialised */
 				do;
-					call illegalCharError;
+					call IllegalCharError;
 					digit = 0;
 				end;
 		end;
@@ -269,21 +269,21 @@ atoi: procedure public;
 	end;
 	/* replace with packed number */
 	tokenSize(0) = 0;
-	call collectByte(low(accum));
-	call collectByte(high(accum));
+	call CollectByte(low(accum));
+	call CollectByte(high(accum));
 end;
 
-getStr: procedure public;
-	call pushToken(O$STRING);
+GetStr: procedure public;
+	call PushToken(O$STRING);
 
-	do while getCh <> CR;
+	do while GetCh <> CR;
 		if curChar = '''' then
-			if getCh <> '''' then
+			if GetCh <> '''' then
 				goto L6268;
-		call collectByte(curChar);
+		call CollectByte(curChar);
 	end;
 
-	call balanceError;
+	call BalanceError;
 
 L6268:
 	reget = 1;

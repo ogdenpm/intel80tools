@@ -16,7 +16,7 @@ declare	r$modhdr MODHDR$T initial(2),
 
 
 
-writeRec: procedure(rec$p) public;
+WriteRec: procedure(rec$p) public;
 	declare rec$p address,
 		len$p pointer, recLen address,
 		i byte, crc byte;
@@ -32,31 +32,31 @@ writeRec: procedure(rec$p) public;
 		len$p = len$p + 1;
 	end;
 	ch = crc;			/* insert crc byte */
-	call write(objfd, rec$p, recLen, .statusIO);
-	call ioErrChk;
+	call Write(objfd, rec$p, recLen, .statusIO);
+	call IoErrChk;
 end;
 
 
-getFixupType: procedure byte;
+GetFixupType: procedure byte;
 	declare attr byte;
 	if ((attr := tokenAttr(spIdx)) and 5Fh) = 0 then
 		return 3;
-	if (attr and 40h) <> 0 then	/* external */
+	if (attr and UF$EXTRN) <> 0 then	/* external */
 		return 2;
-	if (fixupSeg := attr and 7) = 0 then	/* absolute */
+	if (fixupSeg := attr and UF$SEGMASK) = 0 then	/* absolute */
 		return 3;
 	return (fixupSeg <> activeSeg) and 1;
 end;
 
 
-reinitFixupRecs: procedure public;
+ReinitFixupRecs: procedure public;
 	declare i byte;
 	declare wrd based dta$p address;
 	do i = 0 to 3;
 		ii = (i - 1) and 3;
 		dta$p = fixupRecLenPtrs(ii);
 		if wrd > fixupInitialLen(ii) then
-			call writeRec(dta$p - 1);
+			call WriteRec(dta$p - 1);
 
 		wrd = fixupInitialLen(ii);
 		fixIdxs(ii) = 0;
@@ -71,14 +71,14 @@ end;
 
 
 
-sub$6EE1: procedure;
+Sub6EE1: procedure;
 	declare effectiveOffset address;
 
 	declare wrd based dta$p address;
 
-	dta$p = fixupRecLenPtrs(curFixupType := getFixupType);
+	dta$p = fixupRecLenPtrs(curFixupType := GetFixupType);
 	if wrd > fixupRecLenChks(curFixupType) or r$content.len + tokenSize(spIdx) > 124 then
-		call reinitFixupRecs;
+		call ReinitFixupRecs;
 
 	if firstContent then
 	do;
@@ -88,7 +88,7 @@ sub$6EE1: procedure;
 	else if r$content.segid <> activeSeg
 	      or (effectiveOffset := r$content.offset + fix6Idx) <> segSize(activeSeg) + itemOffset
 	      or effectiveOffset < r$content.offset then
-		call reinitFixupRecs;
+		call ReinitFixupRecs;
 
 
 	do case curFixupType;
@@ -99,7 +99,7 @@ sub$6EE1: procedure;
 				r$publics.segid = curFixupHiLoSegId;
 			end;
 			else if r$publics.segid <> curFixupHiLoSegId then
-				call reinitFixupRecs;
+				call ReinitFixupRecs;
 		end;
 /* 1 */		do;
 			if initFixupReq(1) then
@@ -109,7 +109,7 @@ sub$6EE1: procedure;
 				r$interseg.hilo = curFixupHiLoSegId;
 			end;
 			else if r$interseg.hilo <> curFixupHiLoSegId or (tokenAttr(spIdx) and 7) <> r$interseg.segid then
-				call reinitFixupRecs;
+				call ReinitFixupRecs;
 		end;
 /* 2 */		do;
 			if initFixupReq(2) then
@@ -118,7 +118,7 @@ sub$6EE1: procedure;
 				r$extref.hilo = curFixupHiLoSegId;
 			end;
 			else if r$extref.hilo <> curFixupHiLoSegId then
-				call reinitFixupRecs;
+				call ReinitFixupRecs;
 
 		end;
 /* 3 */		;		/* abs no fixup */
@@ -126,7 +126,7 @@ sub$6EE1: procedure;
 end;
 
 
-recAddContentBytes: procedure;
+RecAddContentBytes: procedure;
 	declare i byte;
 
 	declare ch based contentBytePtr byte;
@@ -141,55 +141,55 @@ end;
 
 
 
-intraSegFix: procedure;
+IntraSegFix: procedure;
 	r$reloc.len = r$reloc.len + 2;
 	r$reloc.dta(fix22Idx) = fixOffset;
 	fix22Idx = fix22Idx + 1;
 end;
 
 
-interSegFix: procedure;
+InterSegFix: procedure;
 	r$interseg.len = r$interseg.len + 2;
 	r$interseg.dta(fix24Idx) = fixOffset;
 	fix24Idx = fix24Idx + 1;
 end;
 
-externalFix: procedure;
+ExternalFix: procedure;
 	r$extref.dta(fix20Idx) = tokenSymId(spIdx);
 	r$extref.dta(fix20Idx + 1) = fixOffset;
 	r$extref.len = r$extref.len + 4;
 	fix20Idx = fix20Idx + 2;
 end;
 
-sub$7131: procedure;
+Sub7131: procedure;
 	curFixupHiLoSegId = shr(tokenAttr(spIdx) and 18h, 3);
 	fixOffset = segSize(activeSeg) + itemOffset;
 	if not (inDB or inDW) and (tokenSize(spIdx) = 2 or tokenSize(spIdx) = 3) then
 		fixOffset = fixOffset + 1;
-	call sub$6EE1;
+	call Sub6EE1;
 	contentBytePtr = startItem;
-	call recAddContentBytes;
-	do case getFixupType;
-/* 0 */ 	call intraSegFix;
-/* 1 */		call interSegFix;
-/* 2 */		call externalFix;
+	call RecAddContentBytes;
+	do case GetFixupType;
+/* 0 */ 	call IntraSegFix;
+/* 1 */		call InterSegFix;
+/* 2 */		call ExternalFix;
 /* 3 */		;			/* no fixup as absolute */
 	end;
 end;
 
 
-writeExtName: procedure public;
+WriteExtName: procedure public;
 	declare i byte;
 
 	if r$extnames1.len + 9 > 125 then	/* check room for name */
 	do;
-		call writeRec(.r$extnames1);	/* flush existing extNam Record */
+		call WriteRec(.r$extnames1);	/* flush existing extNam Record */
 		r$extnames1.type = OMF$EXTNAMES;
 		r$extnames1.len = 0;
 		extNamIdx = 0;
 	end;
 	r$extnames1.len = r$extnames1.len + nameLen + 2;	/* update length for this ref */
-	r$extnames1.dta(extNamIdx) = nameLen;		/* write len */
+	r$extnames1.dta(extNamIdx) = nameLen;		/* Write len */
 	extNamIdx = extNamIdx + 1;
 	do i = 0 to nameLen;			/* and name */
 		r$extnames1.dta(extNamIdx + i) = name(i);
@@ -199,12 +199,12 @@ writeExtName: procedure public;
 	extNamIdx = extNamIdx + nameLen + 1;	/* update where next ref writes */
 end;
 
-writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
+WriteSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
     declare isPublic byte;
     declare segId byte;
     declare symb based curTokenSym$p (1) byte;
 
-    addSymbol: procedure;
+    AddSymbol: procedure;
         declare offsetInSeg$p pointer;
         declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
@@ -215,7 +215,7 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
             return;
         offsetInSeg$p = curTokenSym$p - 2;
         symOffset = offsetInSeg; 
-        call unpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
+        call UnpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
         symNam(6) = ' ';	/* trailing space to ensure end */
         len = 0;
 
@@ -228,8 +228,8 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
     end;
 
     flushSymRec: procedure;
-        if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to write */
-            call writeRec(.r$publics);
+        if (r$publics.len := recSym$p - .r$publics.segid) > 1 then	/* something to Write */
+            call WriteRec(.r$publics);
         r$publics.type = (isPublic and 4) or OMF$LOCALS;		/* PUBLIC or LOCAL */
         r$publics.segid = segId;
         recSym$p = .r$publics.dta;
@@ -237,28 +237,28 @@ writeSymbols: procedure(isPublic);			/* isPublic= TRUE -> PUBLICs else LOCALs */
 
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
-        call flushSymRec;
+        call FlushSymRec;
         curTokenSym$p = symTab(1) - 2;		/* point to type byte of user symbol (-1) */
 
         do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(1);
         	if recSym$p > .r$publics.dta(114) then		/* make sure there is room */
-        		call flushSymRec;
+        		call FlushSymRec;
 
             if (symb(1) and 7) = segId
 $IF OVL4
-               and symb(0) <> O$3A and sub$3FA9
+               and symb(0) <> O$3A and Sub3FA9
 $ENDIF
-               and not testBit(symb(0), .b6D7E) and
+               and not TestBit(symb(0), .b6D7E) and
                (not isPublic or (symb(1) and 20h) <> 0) then
-       	        call addSymbol;
+       	        call AddSymbol;
         end;
-        call flushSymRec;
+        call FlushSymRec;
     end;
 end;
 
 
 
-writeModhdr: procedure public;
+WriteModhdr: procedure public;
 	declare w based dta$p address;
 	declare b based dta$p byte;
 	declare i byte;
@@ -283,20 +283,20 @@ writeModhdr: procedure public;
 		b = alignTypes(i - 1);	/* aln typ */
 	end;
 	r$modhdr.len = moduleNameLen + 19;	/* set record length */
-	call writeRec(.r$modhdr);
+	call WriteRec(.r$modhdr);
 end;
 
-writeModend: procedure public;
+WriteModend: procedure public;
 	declare lenb byte at (.r$eof.len);
 	r$modend.modtyp = startDefined;
 	r$modend.segid = startSeg;
 	r$modend.offset = startOffset;
-	call writeRec(.r$modend);
+	call WriteRec(.r$modend);
 	lenb = 0;
-	call writeRec(.r$eof);
+	call WriteRec(.r$eof);
 end;
 
-ovl8: procedure public;
+Ovl8: procedure public;
 	itemOffset = 0;
 	tokI = 1;
 	spIdx = 1;
@@ -304,14 +304,14 @@ ovl8: procedure public;
 		;
 	else
 	do while spIdx <> 0;
-		spIdx = nxtTokI;
+		spIdx = NxtTokI;
 		endItem = tokStart(spIdx) + tokenSize(spIdx);
 		startItem = tokStart(spIdx);
-		if isSkipping or not b6B34 then
+		if IsSkipping or not b6B34 then
 			endItem = startItem;
 		if endItem > startItem then
 		do;
-			call sub$7131;
+			call Sub7131;
 			itemOffset = itemOffset + tokenSize(spIdx);
 		end;
 		if not(inDB or inDW) then
@@ -320,19 +320,19 @@ ovl8: procedure public;
 end;
 
 
-ovl11: procedure public;
+Ovl11: procedure public;
 	if externId <> 0 then
 	do;
-		call seek(objfd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
-		call writeModhdr;
-		call seek(objfd, SEEKEND, .azero, .azero, .statusIO);	/* back to end */
+		call Seek(objfd, SEEKABS, .azero, .azero, .statusIO);	/* rewind */
+		call WriteModhdr;
+		call Seek(objfd, SEEKEND, .azero, .azero, .statusIO);	/* back to end */
 	end;
 	r$publics.type = OMF$PUBLICS;		  /* public declarations record */
 	r$publics.len = 1;
 	r$publics.segid = SEG$ABS;
 	r$publics.dta(0) = 0;
-	call writeSymbols(TRUE);	  /* EMIT PUBLICS */
+	call WriteSymbols(TRUE);	  /* EMIT PUBLICS */
 	if ctlDEBUG then
-		call writeSymbols(FALSE); /* EMIT LOCALS */
+		call WriteSymbols(FALSE); /* EMIT LOCALS */
 end;
 end;

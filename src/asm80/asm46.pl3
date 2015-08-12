@@ -3,7 +3,7 @@ $include(asm46.ipx)
 
 declare	needToOpenFile bool public initial(FALSE),
 	includeOnCmdLine bool public initial(FALSE),
-	b6C23 byte public,
+	padb6C23 byte,
 	fileIdx byte public initial(0),
 	endInBuf$p address public initial(.inBuf),
 	missingEnd bool public initial(FALSE),
@@ -23,54 +23,54 @@ declare	needToOpenFile bool public initial(FALSE),
 	pad6CBC address;
 
 
-readF: procedure(conn, buff$p, count) public;
+ReadF: procedure(conn, buff$p, count) public;
 	declare conn byte, (buff$p, count) address;
-	call read(conn, buff$p, count, .readFActual, .statusIO);
-	call ioErrChk;
+	call Read(conn, buff$p, count, .readFActual, .statusIO);
+	call IoErrChk;
 end;
 
-seekI: procedure(seekOp) public;
+SeekI: procedure(seekOp) public;
 	declare seekOP byte;
-	call seek(srcfd, seekOp, .seekIBlk, .seekIByte, .statusIO);
-	call ioErrChk;
+	call Seek(srcfd, seekOp, .seekIBlk, .seekIByte, .statusIO);
+	call IoErrChk;
 end;
 
 
-readSrc: procedure(bufLoc) public;
+ReadSrc: procedure(bufLoc) public;
 	declare bufLoc address;
 	declare pad byte;
 
-	call readF(srcfd, bufLoc, .inBuf(sizeInBuf) - bufLoc);
+	call ReadF(srcfd, bufLoc, .inBuf(sizeInBuf) - bufLoc);
 	endInBuf$p = bufLoc + readFActual;
 end;
 
 
 
-closeSrc: procedure public;
-	call close(srcfd, .statusIO);
-	call ioErrChk;
+CloseSrc: procedure public;
+	call Close(srcfd, .statusIO);
+	call IoErrChk;
 	if fileIdx = 0 then
 	do;
 		missingEnd = TRUE;
-		call ioError(.files(0).name);
+		call IoError(.files(0).name);
 		return;
 	end;
 	fileIdx = fileIdx - 1;
-	/* open the previous file */
+	/* Open the previous file */
 	if fileIdx = 0 then
 		srcfd = rootfd;
 	else
-		srcfd = inOpen(.files(fileIdx).name, 1);
+		srcfd = InOpen(.files(fileIdx).name, 1);
 
 	seekIByte = files(fileIdx).byt;	/* move to saved location */
 	seekIBlk = files(fileIdx).blk;
-	call seekI(SEEKABS);
-	endInBuf$p = .inBuf;		/* force read */
+	call SeekI(SEEKABS);
+	endInBuf$p = .inBuf;		/* force Read */
 	inCh$p = .inBuf - 1;
 end;
 
 
-getSrcCh: procedure byte public;
+GetSrcCh: procedure byte public;
 	declare ch based inCh$p byte;
 	declare insertPt address;
     loop:
@@ -84,14 +84,14 @@ getSrcCh: procedure byte public;
 		if savEndInBuf$p - savInBuf$p > 0 then
 			call move(savEndInBuf$p - savInBuf$p, startLine$p, .inBuf);
 		startLine$p = .inBuf;
-		/* read in  characters to rest of inBuf */
-		call readSrc(insertPt := startLine$p + (savEndInBuf$p - savInBuf$p));
+		/* Read in  characters to rest of inBuf */
+		call ReadSrc(insertPt := startLine$p + (savEndInBuf$p - savInBuf$p));
 		inCh$p = insertPt;
 	end;
 
 	if readFActual = 0 then
 	do;
-		call closeSrc;
+		call CloseSrc;
 		goto loop;
 	end;
 
@@ -100,11 +100,11 @@ getSrcCh: procedure byte public;
 end;
 
 
-openSrc: procedure public;
+OpenSrc: procedure public;
 	declare curByteLoc byte, curBlkLoc address;
 
 	needToOpenFile = 0;
-	call seekI(SEEKTELL);
+	call SeekI(SEEKTELL);
 	if seekIByte = 128 then		/* adjust for 128 boundary */
 	do;
 		seekIBlk = seekIBlk + 1;
@@ -123,15 +123,15 @@ x:						/* forces code alignment */
 	files(fileIdx - 1).blk = seekIBlk - curBlkLoc / 128;
 	if srcfd <> rootfd then		/* close if include file */
 	do;
-		call close(srcfd, .statusIO);
-		call ioErrChk;
+		call Close(srcfd, .statusIO);
+		call IoErrChk;
 	end;
 
-	endInBuf$p = .inBuf;			/* force read */
+	endInBuf$p = .inBuf;			/* force Read */
 	inCh$p = endInBuf$p - 1;
 	startLine$p = .inBuf;
 	files(fileIdx).blk = 0;			/* record at start of file */
 	files(fileIdx).byt = 0;	
-	srcfd = inOpen(.files(fileIdx).name, 1);	/* open the file */
+	srcfd = InOpen(.files(fileIdx).name, 1);	/* Open the file */
 end;
 end;

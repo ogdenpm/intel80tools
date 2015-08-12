@@ -2,13 +2,38 @@ as4483: do;
 
 /* force the non standard code generation of outStrN and put2Hex */
 
-outStrN: procedure(s, n) external; declare s address, n address; end;
+OutStrN: procedure(s, n) external; declare s address, n address; end;
 $IF OVL4
-put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(asm44.ipx)
 $ELSE
 $include(asm83.ipx)
 $ENDIF
+/* 
+	0	-> ?
+	1	-> start single word expression
+	5	-> single byte opcode no operand
+	7	-> reg operand
+	0Fh	-> binary op
+	0Dh	-> unary op
+	17h	-> IMM8 operand
+	37h	-> imm16 operand
+	40h	-> ? start byte list
+	47h	-> 2 operand op
+	4Dh	-> start word list
+	80h	-> end expression
+	81h	-> rept operand
+	0C0h	-> local operand
+
+	-------x	-> getnum to acc1 & copy to acc2
+	------x-	-> getnum to acc1
+	-----x--	-> collect low(acc1)
+	----x---	-> collect high(acc1)
+	---x----	-> collect low(acc2)
+	--x-----	-> collect high(acc2)
+	-x------	-> list
+*/
+
 				/* 0   1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
 declare b4181(*) byte public data(0, 80h,   0,   0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh,
 				0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh,   1,   1,   1,   1,
@@ -61,7 +86,7 @@ $ENDIF
 			   );
 
 
-testBit: procedure(bitIdx, bitVector) bool public;
+TestBit: procedure(bitIdx, bitVector) bool public;
 	declare bitIdx byte, bitVector pointer;
 	declare ch based bitVector byte;
 
@@ -72,25 +97,25 @@ testBit: procedure(bitIdx, bitVector) bool public;
 	return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
-isReg: procedure(arg1b) bool public;
+IsReg: procedure(arg1b) bool public;
 	declare arg1b byte;
 
 	return arg1b = 7 or arg1b = 8;
 end;
 
-sub$4274: procedure public;
-	if testBit(op, .b41B7) then
-		if isReg(acc1ValType) then
-			call operandError;
+Sub4274: procedure public;
+	if TestBit(op, .b41B7) then
+		if IsReg(acc1ValType) then
+			call OperandError;
 end;
 
-sub$4291: procedure public;
-	if isReg(acc1ValType) then
-		call operandError;
+Sub4291: procedure public;
+	if IsReg(acc1ValType) then
+		call OperandError;
 	if (b4181(op) and 2) = 0 then
 		acc2Flags = 0;
-	else if isReg(acc2ValType) then
-		call operandError;
+	else if IsReg(acc2ValType) then
+		call OperandError;
 
 	acc1ValType = O$NUMBER;
 	accFixFlags(0) = (acc1Flags and UF$BOTH) <> 0;
@@ -98,7 +123,7 @@ sub$4291: procedure public;
 	if (acc1Flags and UF$SEGMASK) <> SEG$ABS then
 		if (acc2Flags and UF$SEGMASK) <> SEG$ABS then
 			if ((acc1Flags xor acc2Flags) and 1Fh) <> 0 then
-				call expressionError;
+				call ExpressionError;
 	if (ii := (acc1Flags and UF$EXTRN) <> 0) or (jj := (acc2Flags and UF$EXTRN) <> 0) then
 	do;
 		if op = 5 then	/* +? (PAGE INPAGE)? */
@@ -108,19 +133,19 @@ sub$4291: procedure public;
 				acc1Flags = acc2Flags;
 				return;
 			end;
-		if jj or accFixFlags(1) or not testBit(op, .b41C1) then
+		if jj or accFixFlags(1) or not TestBit(op, .b41C1) then
 			goto L4394;
 		else
 			return;
 	end;
 	kk = shl(op - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
-	if testBit(kk, .opCompat) then
+	if TestBit(kk, .opCompat) then
 L4394:	do;
-		call expressionError;
+		call ExpressionError;
 		acc1Flags = 0;
 		return;
 	end;
-	if testBit(kk, .propagateFlags) then
+	if TestBit(kk, .propagateFlags) then
 	do;
 		if not accFixFlags(0) then
 			acc1Flags = acc2Flags;
@@ -130,7 +155,7 @@ L4394:	do;
 end;
 
 
-swapAccBytes: procedure public;
+SwapAccBytes: procedure public;
 	declare tmp byte;
 	tmp = accum1$lb;
 	accum1$lb = accum1$hb;
@@ -139,24 +164,24 @@ end;
 
 
 
-setExpectOperands: procedure public;
+SetExpectOperands: procedure public;
 	expectingOperands = TRUE;
 	expectingOpcode = FALSE;
 end;
 
 
 
-getNumVal: procedure address public;
+GetNumVal: procedure address public;
 	declare tokByte based tokPtr (1) byte,	/* and high byte if not a register */
 		val$p pointer,
 		val based val$p address;
 $IF OVL4
-	logError: procedure(arg1b);
+	LogError: procedure(arg1b);
 		declare arg1b byte;
 
 		if tokenType(tokenIdx) <> 40h then
 		do;
-			call sourceError(arg1b);
+			call SourceError(arg1b);
 			return;
 		end;
 		if tokenSize(0) = 0 then
@@ -169,26 +194,26 @@ $ENDIF
 	acc1ValType = O$ID;
 $IF OVL4
 	if tokenType(0) = 40h then
-		call pushToken(0Dh);
+		call PushToken(0Dh);
 $ENDIF
 	if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
 $IF OVL4
-		call logError('Q');
+		call LogError('Q');
 $ELSE
-		call syntaxError;
+		call SyntaxError;
 $ENDIF
 	else
 	do;
 		if tokenType(0) = O$ID or tokenType(0) = T$COMMA then
 $IF OVL4
-			call logError('U');
+			call LogError('U');
 $ELSE
-			call undefinedSymbolError;
+			call UndefinedSymbolError;
 $ENDIF
 		else
 		do;
 			acc1ValType = tokenType(0);
-			if testBit(acc1ValType, .b41DE) then
+			if TestBit(acc1ValType, .b41DE) then
 			do;
 				tokPtr = curTokenSym$p + 7;	/* point to flags */
 				acc1Flags = tokByte(0) and 0DFh;
@@ -199,17 +224,17 @@ $ENDIF
 			end;
 			else if tokenSize(0) = 0 then
 $IF OVL4
-				call logError('V');
+				call LogError('V');
 $ELSE
-				call valueError;
+				call ValueError;
 $ENDIF
 			else
 			do;
 				if tokenSize(0) > 2 then
 $IF OVL4
-					call logError('V');
+					call LogError('V');
 $ELSE
-					call valueError;
+					call ValueError;
 $ENDIF
 				acc1Flags = tokenAttr(0) and 0DFh;
 				acc1NumVal = tokenSymId(0);
@@ -224,13 +249,13 @@ $ENDIF
 		if has16bitOperand then
 			if tokenSize(0) = 2 then
 				if tokenType(0) = O$STRING then
-					call swapAccBytes;
+					call SwapAccBytes;
 
 		if (acc1Flags and 40h) <> 0 then
 			if tokenType(0) < 9 then
 				accum1 = 0;
 
-		call popToken;
+		call PopToken;
 	end;
 
 	b6B36 = FALSE;
@@ -238,7 +263,7 @@ $ENDIF
 end;
 
 
-getPrec: procedure(arg1b) byte public;
+GetPrec: procedure(arg1b) byte public;
 	declare arg1b byte;
 	return precedence(arg1b);
 end;
@@ -250,7 +275,7 @@ end;
    xxxxx01x	acc1 = acc1 | acc2
    
 */   
-mkCode: procedure(arg1b) public;
+MkCode: procedure(arg1b) public;
 	declare arg1b byte;
 
 	if (arg1b and 3) <> 0 then
@@ -259,27 +284,27 @@ mkCode: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not isReg(acc2ValType) and op <> K$RST) then    /* RST */
-			call operandError;
-		else if isReg(acc2ValType) and op = K$RST then	     /* RST */
-			call operandError;
+		   or (not IsReg(acc2ValType) and op <> K$RST) then    /* RST */
+			call OperandError;
+		else if IsReg(acc2ValType) and op = K$RST then	     /* RST */
+			call OperandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
 	else if op <> K$SINGLE then		/* single byte op */
-		if isReg(acc2ValType) then
-			call operandError;
+		if IsReg(acc2ValType) then
+			call OperandError;
 
 	if shr(arg1b, 3) then
 	do;
 		if (acc2Flags and UF$BOTH) = UF$BOTH then
 		do;
-			call valueError;
+			call ValueError;
 			acc2Flags = acc2Flags and 0E7h or UF$LOW;
 		end;
-		if accum2$hb + 1 > 1 then	/* error if not FF or 00 */
-			call valueError;
+		if accum2$hb + 1 > 1 then	/* Error if not FF or 00 */
+			call ValueError;
 	end;
 	if op = K$IMM8 or op = K$IMM16 then	/* Imm8 or imm16 */
 	do;
@@ -291,12 +316,12 @@ mkCode: procedure(arg1b) public;
 
 	if op <> K$SINGLE then		     /* single byte op */
 		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
-			call operandError;
+			call OperandError;
 	if (op := shr(arg1b, 4) + 24h) = 24h then
 		b6B2D = O$DATA;
 end;
 
-nxtTokI: procedure byte public;
+NxtTokI: procedure byte public;
 	if tokI >= tokenIdx then
 		return 0;
 	return (tokI := tokI + 1);
@@ -304,7 +329,7 @@ end;
 
 
 
-showLine: procedure byte public;
+ShowLine: procedure byte public;
 	return ((not isControlLine) and ctlLIST or b6A6F and isControlLine)
 $IF OVL4
 	        and (not (expandingMacro > 1) or ctlGEN)
@@ -317,18 +342,18 @@ end;
 		= 1 -> used
 		= 2 -> finalise
 */
-emitXref: procedure(xrefMode, name) public;
+EmitXref: procedure(xrefMode, name) public;
 	declare xrefMode byte, name address;
 	declare (i, byteval) byte;
 	declare (srcLineLow, srcLineHigh) byte at(.srcLineCnt);
 
-	if not isPhase1 or not ctlXREF or isSkipping and not b6881 then
+	if not IsPhase1 or not ctlXREF or IsSkipping and not b6881 then
 		return;
 
-	call outch(xrefMode + '0');
+	call Outch(xrefMode + '0');
 	if xrefMode <> 2 then	/* not finalise */
 	do;
-		call outStrN(name, 6);
+		call OutStrN(name, 6);
 		b6881 = FALSE;
 		byteval = srcLineHigh;	/* high byte */
 		i = 0;
@@ -339,27 +364,27 @@ emitXref: procedure(xrefMode, name) public;
 				if i = 3 then	/* get low byte */
 					byteval = srcLineLow;
 				/* emit high nibble */
-				call outch(nibble2Ascii(shr(byteval, 4)));
+				call Outch(Nibble2Ascii(shr(byteval, 4)));
 			end;
 			else	/* emit low nibble */
-				call outch(nibble2Ascii(byteval));
+				call Outch(Nibble2Ascii(byteval));
 		end;
 	end;
 	else	/* finalise */
 	do;
-		call outStrN(.lstFile, 15);
+		call OutStrN(.lstFile, 15);
 		if ctlPAGING then
-			call outch('1');
+			call Outch('1');
 		else
-			call outch('0');
+			call Outch('0');
 
-		call outch(nibble2Ascii(ror(ctlPAGELENGTH, 4)));
-		call outch(nibble2Ascii(ctlPAGELENGTH));
-		call outch(nibble2Ascii(ror(ctlPAGEWIDTH, 4)));
-		call outch(nibble2Ascii(ctlPAGEWIDTH));
-		call outch('3');
-		call flushout;
-		call closeF(xreffd);
+		call Outch(Nibble2Ascii(ror(ctlPAGELENGTH, 4)));
+		call Outch(Nibble2Ascii(ctlPAGELENGTH));
+		call Outch(Nibble2Ascii(ror(ctlPAGEWIDTH, 4)));
+		call Outch(Nibble2Ascii(ctlPAGEWIDTH));
+		call Outch('3');
+		call Flushout;
+		call CloseF(xreffd);
 	end;
 end;
 end;

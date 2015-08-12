@@ -9,8 +9,8 @@ $include(asm851.ipx)
 $ENDIF
 
 $IF BASE
-declare CHKOVL$1 lit	'call ovlMgr(1)',
-	CHKOVL$2 lit	'call ovlMgr(2)';
+declare CHKOVL$1 lit	'call OvlMgr(1)',
+	CHKOVL$2 lit	'call OvlMgr(2)';
 $ELSE
 declare CHKOVL$1 lit	' ',
 	CHKOVL$2 lit	' ';
@@ -20,7 +20,7 @@ declare pad1 address data(40h),
 	pad2 address;
 
 
-strUCequ: procedure(s, t) bool public;
+StrUCequ: procedure(s, t) bool public;
 	declare (s, t) pointer;
 	declare ch1 based s byte,
 		ch2 based t byte;
@@ -35,7 +35,7 @@ strUCequ: procedure(s, t) bool public;
 end;
 
 
-isSkipping: procedure byte public;
+IsSkipping: procedure byte public;
 	return 
 $IF OVL4
 	b905E or
@@ -43,31 +43,31 @@ $ENDIF
 		 skipping(0);
 end;
 
-sub$546F: procedure public;
-	spIdx = nxtTokI;
+Sub546F: procedure public;
+	spIdx = NxtTokI;
 	if expectingOperands then
-		call syntaxError;
-	if haveTokens then
+		call SyntaxError;
+	if HaveTokens then
 		if not(tokenType(spIdx) = O$DATA or b68AD) then
-			call syntaxError;
+			call SyntaxError;
 	if inDB or inDW then
 	do;
-		if tokenIdx = 1 and not blankAsmErrCode and tokenSize(0) <> 1 then
+		if tokenIdx = 1 and not BlankAsmErrCode and tokenSize(0) <> 1 then
 			tokenSize(0) = 2;
 	end;
-	else if not blankAsmErrCode and haveTokens then
+	else if not BlankAsmErrCode and HaveTokens then
 		if tokenSize(spIdx) > 3 then
 			tokenSize(spIdx) = 3;
 end;
 
 
-finishLine: procedure public;
+FinishLine: procedure public;
 	declare lineno$p pointer,
 		updating byte,
 		ch based lineno$p byte;
 
-	call sub$546F;
-	if isPhase2Print then
+	call Sub546F;
+	if IsPhase2Print then
 	do;	/* update the ascii line number */
 		lineno$p = .asciiLineNo(3);	/* point to last digit */
 		updating = TRUE;
@@ -86,18 +86,18 @@ finishLine: procedure public;
 			lineno$p = lineno$p - 1;
 		end;
 
-		if showLine or not blankAsmErrCode then
+		if ShowLine or not BlankAsmErrCode then
 		do;
 			CHKOVL$1;
-			call printLine;
+			call PrintLine;
 		end;
 	end;
 
 	if b6BD9 then
 	do;
 		out$p = out$p + 1;
-		call flushout;
-		call exit;
+		call Flushout;
+		call Exit;
 	end;
 
 	if not isControlLine then
@@ -107,45 +107,45 @@ finishLine: procedure public;
 			ii = 0;
 
 		w6BCE = tokStart(ii) + tokenSize(ii);
-		if isSkipping or not b6B34 then
+		if IsSkipping or not b6B34 then
 			w6BCE = .lineBuf;
 
-		if chkGenObj then
+		if ChkGenObj then
 		do;
 			CHKOVL$2;
-			call ovl8;
+			call Ovl8;
 		end;
 		b6B2C = TRUE;
 		segSize(activeSeg), effectiveAddr = segSize(activeSeg) + (w6BCE - .lineBuf);
 	end;
 
-	if ctlXREF and haveUserSymbol then
+	if ctlXREF and rhsUserSymbol then
 		if phase = 1 then
-			call emitXref(1, .name);
+			call EmitXref(1, .name);
 
 $IF OVL4
-	call sub$40B9;
+	call Sub40B9;
 $ENDIF
 
 	do while tokenIdx > 0;
-		call popToken;
+		call PopToken;
 	end;
 
-	call initLine;
+	call InitLine;
 	if b6B33 then
 	do;
 		finished = TRUE;
-		if isPhase2Print and ctlSYMBOLS then
+		if IsPhase2Print and ctlSYMBOLS then
 		do;
 			CHKOVL$1;
-			call sub7041$8447;
+			call Sub7041$8447;
 		end;
 
-		call emitXref(2, .name);	/* finalise xref file */
-		if chkGenObj then
+		call EmitXref(2, .name);	/* finalise xref file */
+		if ChkGenObj then
 		do;
 			CHKOVL$2;
-			call reinitFixupRecs;
+			call ReinitFixupRecs;
 		end;
 	end;
 end;

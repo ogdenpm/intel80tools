@@ -1,16 +1,16 @@
-	public pckTkn
-	public ISIS
+	public PckTkn
+	public isis
 	extrn toksiz
 	extrn tokst;
 
 	aseg
-ISIS	equ	40h	; definition of ISIS entry, here to avoid another asm file
+isis	equ	40h	; definition of isis entry, here to avoid another asm file
 
 ; pckTkn - packs the token pointed by tokst, with length toksiz into 4 bytes
 ; packed version replaces original and toksize set to 4 bytes
 
 	CSEG
-pckTkn: lhld	tokst	; pointer to the token to pack
+PckTkn: lhld	tokst	; pointer to the token to pack
 	xchg
 	lxi	h, toksiz
 	mov	c, m	; unpacked length

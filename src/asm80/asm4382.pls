@@ -26,13 +26,13 @@ $IF OVL4
 declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
 	/* bit vector 66 -> 10010000 0 x 56 01 */
 
-skipWhite$2: procedure public;
-	do while getCh = ' ' or isTab;
+SkipWhite$2: procedure public;
+	do while GetCh = ' ' or IsTab;
 	end;
 end;
 
 
-sub$3FA9: procedure byte public;
+Sub3FA9: procedure byte public;
 	declare w9B5A pointer,
 		wrd based w9B5A address;
 
@@ -42,7 +42,7 @@ end;
 
 
 
-seekM: procedure(blk);
+SeekM: procedure(blk);
 	declare blk address;
 
 	if (w6BE0 := blk - nxtMacroBlk) <> 0 then
@@ -54,15 +54,15 @@ seekM: procedure(blk);
 			kk = SEEKBACK;
 		end;
 
-		call seek(macrofd, kk, .w6BE0, .w$3780, .statusIO);
-		call ioErrChk;
+		call Seek(macrofd, kk, .w6BE0, .w$3780, .statusIO);
+		call IoErrChk;
 	end;
 	nxtMacroBlk = blk + 1;
 end;
 
 
 
-readM: procedure(blk) public;
+ReadM: procedure(blk) public;
 	declare blk address;
 	declare actual address;
 
@@ -72,9 +72,9 @@ readM: procedure(blk) public;
 		return;
 	else
 	do;
-		call seekM(blk);
-		call read(macrofd, .macroBuf, 128, .actual, .statusIO);
-		call ioErrChk;
+		call SeekM(blk);
+		call Read(macrofd, .macroBuf, 128, .actual, .statusIO);
+		call IoErrChk;
 	end;
 
 	tmac$blk, curMacroBlk = blk;
@@ -82,26 +82,26 @@ readM: procedure(blk) public;
 end;
 
 
-writeM: procedure public;
+WriteM: procedure public;
 	if phase = 1 then
 	do;
-		call seekM(maxMacroBlk);
+		call SeekM(maxMacroBlk);
 		maxMacroBlk = maxMacroBlk + 1;
-		call write(macrofd, symHighMark, 128, .statusIO);
-		call ioErrChk;
+		call Write(macrofd, symHighMark, 128, .statusIO);
+		call IoErrChk;
 	end;
 	macroBlkCnt = macroBlkCnt + 1;
 end;
 
 
 
-sub$40B9: procedure public;
+Sub40B9: procedure public;
 	declare w9B62 address;
 
 	if b905E then
 	do;
 		do while (w9B62 := w906A - symHighMark) >= 128;
-			call writeM;
+			call WriteM;
 			symHighMark = symHighMark + 128;
 		end;
 		if w9B62 <> 0 then
@@ -112,32 +112,32 @@ end;
 
 $ENDIF
 
-skipWhite: procedure public;
-	do while isWhite;
-		curChar = getCh;
+SkipWhite: procedure public;
+	do while IsWhite;
+		curChar = GetCh;
 	end;
 end;
 
 
 $IF BASE
-skipWhite$2: procedure public;
-	do while getCh = ' ' or isTab;
+SkipWhite$2: procedure public;
+	do while GetCh = ' ' or IsTab;
 	end;
 end;
 $ENDIF
 
-skip2NextLine: procedure public;
-	call skip2EOL;
-	call chkLF;
+Skip2NextLine: procedure public;
+	call Skip2EOL;
+	call ChkLF;
 end;
 
 
 
-tokeniseLine: procedure public;
+TokeniseLine: procedure public;
 
-	sub$416B: procedure;
+	Sub416B: procedure;
 		if opType = 0 then
-			call expressionError;
+			call ExpressionError;
 		inExpression = 0;
 		opType = 0;
 	end;
@@ -146,27 +146,27 @@ tokeniseLine: procedure public;
     do while 1;
 	if atStartLine then
 	do;
-		call parseControlLines;
+		call ParseControlLines;
 		atStartLine = 0;
 	end;
 
-	do case getChClass;
-        case0:	call illegalCharError;		/* CC$BAD */
+	do case GetChClass;
+        case0:	call IllegalCharError;		/* CC$BAD */
 		;				/* CC$WS */
 		do;				/* CC$SEMI */
 $IF OVL4
 			if not b9058 then
 $ENDIF
 			do;
-				b6742 = TRUE;
+				inComment = TRUE;
 $IF OVL4
-				if getChClass = CC$SEMI and b905E then
+				if GetChClass = CC$SEMI and b905E then
 				do;
 					b9059 = TRUE;
 					w906A = w906A - 2;
 				end;
 $ENDIF
-				call skip2NextLine;
+				call Skip2NextLine;
 				effectiveToken = T$CR;
 				return;
 			end;
@@ -179,11 +179,11 @@ $IF OVL4
 				   or b905E
 $ENDIF
 				then
-					call popToken;
+					call PopToken;
 				else
 				do;
-					b6EC4$9C3A = 2;
-					call sub5819$5CE8(segSize(activeSeg), 2);
+					labelUse = 2;
+					call Sub5819$5CE8(segSize(activeSeg), 2);
 				end;
 
 				expectingOperands = FALSE;
@@ -191,16 +191,16 @@ $ENDIF
 			end;
 			else
 			do;
-				call syntaxError;
-				call popToken;
+				call SyntaxError;
+				call PopToken;
 			end;
 
-			call emitXref(0, .name);
-			haveUserSymbol = FALSE;
+			call EmitXref(0, .name);
+			rhsUserSymbol = FALSE;
 			opType = O$LABEL;
 		end;
 		do;				/* CC$CR */
-			call chkLF;
+			call ChkLF;
 			effectiveToken = T$CR;
 $IF OVL4
 			b9058 = 0;
@@ -210,7 +210,7 @@ $ENDIF
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
 $IF OVL4
-				if not testBit(opType, .b$3F88) then /* not 0, 3 or 41h */
+				if not TestBit(opType, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
 				if opType <> O$NONE and opType <> T$RPAREN then
 $ENDIF
@@ -219,18 +219,18 @@ $ENDIF
 			return;
 		end;
 		do;				/* CC$DOLLAR */
-			call pushToken(O$NUMBER);
-			call collectByte(low(segSize(activeSeg)));
-			call collectByte(high(segSize(activeSeg)));
+			call PushToken(O$NUMBER);
+			call CollectByte(low(segSize(activeSeg)));
+			call CollectByte(high(segSize(activeSeg)));
 			if activeSeg <> SEG$ABS then
 				tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
-			call sub$416B;
+			call Sub416B;
 		end;
 		do;				/* CC$QUOTE */
 $IF OVL4
 			if effectiveToken = 37h then
 			do;
-				call illegalCharError;
+				call IllegalCharError;
 				return;
 			end;
 			if b905E then
@@ -238,23 +238,23 @@ $IF OVL4
 			else
 $ENDIF
 			do;
-				call getStr;
+				call GetStr;
 				if expectingOpcode then
-					call setExpectOperands;
-				call sub$416B;
+					call SetExpectOperands;
+				call Sub416B;
 			end;
 		end;
 		do;				/* CC$DIGIT */
-			call atoi;
+			call Atoi;
 			if expectingOpcode then
-				call setExpectOperands;
-			call sub$416B;
+				call SetExpectOperands;
+			call Sub416B;
 		end;
 		do;				/* CC$LET */
 $IF OVL4
 			w919F = w906A - 1;
 $ENDIF
-			call getId(O$ID);	/* assume it's an id */
+			call GetId(O$ID);	/* assume it's an id */
 			if tokenSize(0) > 6 then	/* cap length */
 				tokenSize(0) = 6;
 
@@ -266,44 +266,44 @@ $ENDIF
 			/* copy the token to name */
 			call move(tokenSize(0), tokPtr, .name);
 			nameLen = tokenSize(0);
-			call packToken;		/* make into 4 byte name */
-			if haveUserSymbol then
+			call PackToken;		/* make into 4 byte name */
+			if rhsUserSymbol then
 			do;
-				b687F = TRUE;
-				haveUserSymbol = FALSE;
+				lhsUserSymbol = TRUE;
+				rhsUserSymbol = FALSE;
 			end;
 
 
 $IF OVL4
-			if lookup(2) <> O$ID and b905E then
+			if Lookup(2) <> O$ID and b905E then
 			do;
 				if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
 				do;
 					w906A = w919F;
-					call sub$3D55(kk + 81h);
-					call sub$3D34(getNumVal);
-					call sub$3D55(curChar);
+					call Sub3D55(kk + 81h);
+					call Sub3D34(GetNumVal);
+					call Sub3D55(curChar);
 					effectiveToken = O$ID;
 				end;
 			end;
 			else if effectiveToken <> O$37 and not b905E = 2 then
 $ENDIF
 			do;
-				if lookup(0) = O$ID then		/* not a key word */
+				if Lookup(0) = O$ID then		/* not a key word */
 				do;
-					tokenType(0) = lookup(1);	/* look up in symbol space */
-					haveUserSymbol = TRUE;		/* not a key word */
+					tokenType(0) = Lookup(1);	/* look up in symbol space */
+					rhsUserSymbol = TRUE;		/* not a key word */
 				end;
 
 				effectiveToken = tokenType(0);
-				b6885 = b3EA8(tokenType(0));		/* DS, ORG, IF, O$3A, IRP, IRPC REPT */
+				needsAbsValue = b3EA8(tokenType(0));		/* DS, ORG, IF, O$3A, IRP, IRPC REPT */
 				if not b3E5E(tokenType(0)) then		/* i.e. not instruction, reg or O$37 or 1,2,3,4,6,A */
-					call popToken;
+					call PopToken;
 
-				if b687F then
+				if lhsUserSymbol then
 				do;			   /* EQU, SET or O$37 */
-					call emitXref((not testBit(effectiveToken, .b3EA0)) and 1, .savName);
-					b687F = FALSE;
+					call EmitXref((not TestBit(effectiveToken, .b3EA0)) and 1, .savName);
+					lhsUserSymbol = FALSE;
 				end;
 			end;
 $IF OVL4
@@ -313,7 +313,7 @@ $IF OVL4
 				do;
 					b905E = 2;
 					if b6897 then
-						call syntaxError;
+						call SyntaxError;
 					b6897 = FALSE;
 				end;
 				else
@@ -324,13 +324,13 @@ $IF OVL4
 			end;
 
 			if effectiveToken = K$NUL then
-				call pushToken(40h);
+				call PushToken(40h);
 $ENDIF
 			if effectiveToken < 10 or effectiveToken = 9 or 80h then /* !! only first term contributes */
 			do;
-				call sub$416B;
+				call Sub416B;
 				if expectingOpcode then
-					call setExpectOperands;
+					call SetExpectOperands;
 			end;
 			else
 			do;
@@ -341,7 +341,7 @@ $ENDIF
 $IF OVL4
 		do;				/* 10? */
 			b6BDA = FALSE;
-			call sub$73AD;
+			call Sub73AD;
 			if b6BDA then
 				return;
 		end;
