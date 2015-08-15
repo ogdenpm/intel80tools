@@ -346,7 +346,7 @@ end;
 
 
 Sub72D8: procedure public;
-    if not b689B then
+    if not errorOnLine then
         return;
 
     call PrintStr(.ascLParen);    /* " (" */
@@ -379,7 +379,7 @@ $ENDIF
     if not BlankAsmErrCode then
     do;
         asmErrCode = ' ';
-        b689B = TRUE;
+        errorOnLine = TRUE;
     end;
     if isControlLine then
         call OutStr(.spaces15);

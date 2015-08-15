@@ -177,7 +177,7 @@ declare	pad6899 byte initial(0);
 $ENDIF
 /* ov4 compat 2C9F */
 declare	tokI byte public,
-	b689B byte public,
+	errorOnLine bool public,
 	atStartLine byte public,
 	pad689D(2) byte,
 	curCol byte public initial(1),
