@@ -324,7 +324,7 @@ end;
 SourceError: procedure(errCh) public;
 	declare errCh byte;
 
-	if not IsSkipping or op = K$ELSE then	/* ELSE */
+	if not IsSkipping or leftOp = K$ELSE then	/* ELSE */
 	do;
 		if inExtrn then
 			badExtrn = TRUE;

@@ -1,6 +1,6 @@
 asm80.pex
 /* assembler routines & linkage */
-Isis            P(B B,A w)
+Isis            P(B syscall,A param$p)
 PckTkn          P
 EDATA		B
 
@@ -83,7 +83,7 @@ OMF$LIBDICT     '2AH'
 OMF$LIBHDR      '2CH'
 OMF$COMDEF      '2EH'
 
-/* op types */
+/* leftOp types */
 T$CR            '1'
 T$LPAREN        '2'
 T$RPAREN        '3'
@@ -269,8 +269,8 @@ TokeniseLine        P
 
 $file(asm44.plm,asm83.plm)
 b4181           BS
-GetPrec         P(B arg1b)B
-IsReg        P(B arg1b)"bool"
+GetPrec         P(B leftOp)B
+IsReg        P(B leftOp)"bool"
 Sub4274        P
 Sub4291        P
 SetExpectOperands        P
@@ -535,7 +535,7 @@ inDW           B
 inExpression           "bool"
 b6B28           B
 effectiveToken           B
-op              B
+leftOp              B
 b6B2C           "bool"
 b6B2D           B
 inNestedParen           B
@@ -637,7 +637,7 @@ macro$p         "pointer"	/* glb4 */
 openStatus      A
 opSP            B
 opStack         BS
-opType          B
+rightOp          B
 outbuf          BS
 outfd           A
 out$p           "pointer"
@@ -1016,8 +1016,8 @@ declare	scanCmdLine byte public,
 	phase byte public,
 	b6B28 byte public,
 	effectiveToken byte public,
-	opType byte public,
-	op byte public,
+	rightOp byte public,
+	leftOp byte public,
 	b6B2C bool public,
 	b6B2D byte public,
 	finished bool public,
@@ -1135,12 +1135,12 @@ UpdateHiLo: procedure(hilo) public;
 end;
 
 HandleOp: procedure public;
-	do case op;
+	do case leftOp;
 /* 0 */		;
 /* 1 */		call FinishLine;		/* CR */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* ) */
-			if not (op = T$LPAREN and opType = 3) then
+			if not (leftOp = T$LPAREN and rightOp = T$RPAREN) then
 				call BalanceError;
 
 			if tokenType(0) = O$DATA then
@@ -1151,7 +1151,7 @@ HandleOp: procedure public;
 			end;
 
 			inParen = inNestedParen;
-			if opType = T$RPAREN then
+			if rightOp = T$RPAREN then
 				b6B2C = TRUE;
 		end;
 /* 4 */		accum1 = accum1 * accum2;	/* * */
@@ -1241,7 +1241,7 @@ HandleOp: procedure public;
 				acc1Flags = 0;
 			end;
 			labelUse = 1;
-			call Sub5819$5CE8(accum1, (K$SET + 4) - op);	/* 4 for set, 5 for equ */
+			call Sub5819$5CE8(accum1, (K$SET + 4) - leftOp);	/* 4 for set, 5 for equ */
 			expectingOperands = FALSE;
 		end;
 /* 30 */	goto case29;				/* SET ? */
@@ -1284,7 +1284,7 @@ $ELSE
 			if ifDepth > 0 then
 $ENDIF
 				call NestingError;
-			if opType <> 1 then
+			if rightOp <> T$CR then
 				call SyntaxError;
 			if inParen then
 				b6B33 = TRUE;
@@ -1424,7 +1424,7 @@ $IF OVL4
 $ENDIF
 	end;
 
-	if op <> T$CR then
+	if leftOp <> T$CR then
 		noOpsYet = FALSE;
 end;
 
@@ -1445,7 +1445,7 @@ ParseLine: procedure public;
 
 
 	Sub53F8: procedure;
-		if not isInstrMap(op) then
+		if not isInstrMap(leftOp) then
 			b6B34 = FALSE;
 	end;
 
@@ -1470,7 +1470,7 @@ $ENDIF
 					if GetPrec(effectiveToken) <= GetPrec(opStack(opSP)) then
 						call ExpressionError;
 
-		if GetPrec(opType := effectiveToken) > GetPrec(op := opStack(opSP)) or opType = T$LPAREN then
+		if GetPrec(rightOp := effectiveToken) > GetPrec(leftOp := opStack(opSP)) or rightOp = T$LPAREN then
 		do;
 			if opSP >= 16 then
 			do;
@@ -1478,8 +1478,8 @@ $ENDIF
 				call StackError;
 			end;
 			else
-				opStack(opSP := opSP + 1) = opType;
-			if opType = T$LPAREN then
+				opStack(opSP := opSP + 1) = rightOp;
+			if rightOp = T$LPAREN then
 			do;
 				inNestedParen = inParen;
 				inParen = TRUE;
@@ -1490,16 +1490,16 @@ $ENDIF
 		end;
 
 		inExpression = 0;
-		if not inParen and op > 3 then
+		if not inParen and leftOp > 3 then
 			call SyntaxError;
 
-		if op = 0 then
-			op = opType;
+		if leftOp = O$NONE then
+			leftOp = rightOp;
 		else
 			opSP = opSP - 1;
 		
 
-		if (b6B28 := b4181(op)) then
+		if (b6B28 := b4181(leftOp)) then
 		do;
 			accum2 = GetNumVal;
 			acc2Flags = acc1Flags;
@@ -1514,7 +1514,7 @@ $ENDIF
 			b6857 = Sub53DF(acc1ValType) or Sub53DF(acc2ValType);
 
 		b6B2D = O$NUMBER;
-		if op > T$RPAREN and op < K$DB then	/* expression op */
+		if leftOp > T$RPAREN and leftOp < K$DB then	/* expression leftOp */
 			call Sub4291;
 		else
 		do;
@@ -1523,7 +1523,7 @@ $ENDIF
 		end;
 
 		call HandleOp;
-		if not isExprOrMacroMap(op) then
+		if not isExprOrMacroMap(leftOp) then
 			inParen = FALSE;
 
 		if b6B2C then
@@ -1532,7 +1532,7 @@ $ENDIF
 			return;
 		end;
 
-		if op <> K$DS and showAddr then		/* DS */
+		if leftOp <> K$DS and showAddr then		/* DS */
 			effectiveAddr = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
@@ -1546,9 +1546,9 @@ $ENDIF
 		tokenAttr(0) = acc1Flags;
 		tokenSymId(0) = acc1NumVal;
 		if ror(b6B28, 1) then
-			if opType = T$COMMA then
+			if rightOp = T$COMMA then
 			do;
-				effectiveToken = op;
+				effectiveToken = leftOp;
 				inParen = TRUE;
 			end;
 	end;
@@ -2399,7 +2399,7 @@ end;
 SourceError: procedure(errCh) public;
 	declare errCh byte;
 
-	if not IsSkipping or op = K$ELSE then	/* ELSE */
+	if not IsSkipping or leftOp = K$ELSE then	/* ELSE */
 	do;
 		if inExtrn then
 			badExtrn = TRUE;
@@ -2758,10 +2758,10 @@ end;
 TokeniseLine: procedure public;
 
 	Sub416B: procedure;
-		if opType = 0 then
+		if rightOp = O$NONE then
 			call ExpressionError;
 		inExpression = 0;
-		opType = 0;
+		rightOp = O$NONE;
 	end;
 
 
@@ -2819,7 +2819,7 @@ $ENDIF
 
 			call EmitXref(0, .name);
 			rhsUserSymbol = FALSE;
-			opType = O$LABEL;
+			rightOp = O$LABEL;
 		end;
 		do;				/* CC$CR */
 			call ChkLF;
@@ -2832,9 +2832,9 @@ $ENDIF
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
 $IF OVL4
-				if not TestBit(opType, .b$3F88) then /* not 0, 3 or 41h */
+				if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
-				if opType <> O$NONE and opType <> T$RPAREN then
+				if rightOp <> O$NONE and rightOp <> T$RPAREN then
 $ENDIF
 					curChar = curChar + (T$UPLUS - T$PLUS);	/* make unary versions */
 			effectiveToken = curChar - '(' + T$LPAREN;
@@ -2914,7 +2914,7 @@ $ENDIF
 				if Lookup(0) = O$ID then		/* not a key word */
 				do;
 					tokenType(0) = Lookup(1);	/* look up in symbol space */
-					rhsUserSymbol = TRUE;		/* not a key word */
+					rhsUserSymbol = TRUE;		/* note we have a used symbol */
 				end;
 
 				effectiveToken = tokenType(0);
@@ -3000,12 +3000,12 @@ $ENDIF
 	1	-> start single word expression
 	5	-> single byte opcode no operand
 	7	-> reg operand
-	0Fh	-> binary op
-	0Dh	-> unary op
+	0Fh	-> binary leftOp
+	0Dh	-> unary leftOp
 	17h	-> IMM8 operand
 	37h	-> imm16 operand
 	40h	-> ? start byte list
-	47h	-> 2 operand op
+	47h	-> 2 operand leftOp
 	4Dh	-> start word list
 	80h	-> end expression
 	81h	-> rept operand
@@ -3046,6 +3046,10 @@ $ENDIF
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
 		/* bit vector 59 -> 11111111 10000000 00000000 00000000
 				    00001111 11111110 00000000 001 */
+		/* O$NONE, T$CR, T$LPAREN, T$RPAREN/O$LABEL, T$STAR, T$PLUS/K$SPECIAL, T$COMMA, */
+		/* T$MINUS/K$REGNAME, T$UPLUS/K$SP */
+		/* K$LXI, K$REG16, K$LDSTAX, K$ARITH, K$IMM8, K$MVI, K$INRDCR. K$MOV, K$IMM16, K$SINGLE */
+		/* K$RST
 /* precedence table */
 /*
    10 - NULL
@@ -3083,14 +3087,14 @@ TestBit: procedure(bitIdx, bitVector) bool public;
 	return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
-IsReg: procedure(arg1b) bool public;
-	declare arg1b byte;
+IsReg: procedure(leftOp) bool public;
+	declare leftOp byte;
 
-	return arg1b = 7 or arg1b = 8;
+	return leftOp = K$REGNAME or leftOp = K$SP;
 end;
 
 Sub4274: procedure public;
-	if TestBit(op, .b41B7) then
+	if TestBit(leftOp, .b41B7) then
 		if IsReg(acc1ValType) then
 			call OperandError;
 end;
@@ -3098,7 +3102,7 @@ end;
 Sub4291: procedure public;
 	if IsReg(acc1ValType) then
 		call OperandError;
-	if (b4181(op) and 2) = 0 then
+	if (b4181(leftOp) and 2) = 0 then
 		acc2Flags = 0;
 	else if IsReg(acc2ValType) then
 		call OperandError;
@@ -3112,19 +3116,19 @@ Sub4291: procedure public;
 				call ExpressionError;
 	if (ii := (acc1Flags and UF$EXTRN) <> 0) or (jj := (acc2Flags and UF$EXTRN) <> 0) then
 	do;
-		if op = 5 then	/* +? (PAGE INPAGE)? */
+		if leftOp = K$SPECIAL then	/* +? (PAGE INPAGE)? */
 			if not (ii or accFixFlags(0)) then
 			do;
 				acc1NumVal = acc2NumVal;
 				acc1Flags = acc2Flags;
 				return;
 			end;
-		if jj or accFixFlags(1) or not TestBit(op, .b41C1) then
+		if jj or accFixFlags(1) or not TestBit(leftOp, .b41C1) then
 			goto L4394;
 		else
 			return;
 	end;
-	kk = shl(op - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
+	kk = shl(leftOp - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
 	if TestBit(kk, .opCompat) then
 L4394:	do;
 		call ExpressionError;
@@ -3249,9 +3253,9 @@ $ENDIF
 end;
 
 
-GetPrec: procedure(arg1b) byte public;
-	declare arg1b byte;
-	return precedence(arg1b);
+GetPrec: procedure(leftOp) byte public;
+	declare leftOp byte;
+	return precedence(leftOp);
 end;
 
 /*
@@ -3270,15 +3274,15 @@ MkCode: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not IsReg(acc2ValType) and op <> K$RST) then    /* RST */
+		   or (not IsReg(acc2ValType) and leftOp <> K$RST) then    /* RST */
 			call OperandError;
-		else if IsReg(acc2ValType) and op = K$RST then	     /* RST */
+		else if IsReg(acc2ValType) and leftOp = K$RST then	     /* RST */
 			call OperandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
-	else if op <> K$SINGLE then		/* single byte op */
+	else if leftOp <> K$SINGLE then		/* single byte leftOp */
 		if IsReg(acc2ValType) then
 			call OperandError;
 
@@ -3292,7 +3296,7 @@ MkCode: procedure(arg1b) public;
 		if accum2$hb + 1 > 1 then	/* Error if not FF or 00 */
 			call ValueError;
 	end;
-	if op = K$IMM8 or op = K$IMM16 then	/* Imm8 or imm16 */
+	if leftOp = K$IMM8 or leftOp = K$IMM16 then	/* Imm8 or imm16 */
 	do;
 		acc1Flags = acc2Flags;
 		acc1NumVal = acc2NumVal;
@@ -3300,10 +3304,10 @@ MkCode: procedure(arg1b) public;
 	else
 		acc1Flags = 0;
 
-	if op <> K$SINGLE then		     /* single byte op */
+	if leftOp <> K$SINGLE then		     /* single byte leftOp */
 		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
 			call OperandError;
-	if (op := shr(arg1b, 4) + 24h) = 24h then
+	if (leftOp := shr(arg1b, 4) + 24h) = 24h then
 		b6B2D = O$DATA;
 end;
 
@@ -3991,7 +3995,7 @@ Lookup: procedure(tableId) byte public;
 
 					if tokenType(0) = K$SP then		/* SP */
 					do;
-						if not(opType = K$LXI or opType = K$REG16) then 
+						if not(rightOp = K$LXI or rightOp = K$REG16) then 
 							call SourceError('X');
 						tokenType(0) = K$REGNAME;	/* reg */
 					end;
@@ -3999,7 +4003,7 @@ Lookup: procedure(tableId) byte public;
 				end;
 			deltaToNext = symEntry.delta;
 		end;
-		return 9;
+		return O$ID;
 	end;
 
 	lowOffset = symTab(tableId);
@@ -4981,7 +4985,7 @@ Sub727F: procedure bool;
 	if not b905E then
 		return TRUE;
 	b9064 = b9064 + 1;
-	b6B2C = op <> K$REPT;
+	b6B2C = leftOp <> K$REPT;
 	effectiveToken = 37h;
 	return FALSE;
 end;
@@ -5177,7 +5181,7 @@ Sub753E: procedure public;
 		if IsComma then
 		do;
 			reget = 0;
-			opType = 0;
+			rightOp = O$NONE;
 			call Sub7327;
 			if tmac$mtype = 1 then
 			do;
@@ -5196,7 +5200,7 @@ Sub753E: procedure public;
 			call Sub7383;
 		end;
 	end;
-	else if opType = 1 then
+	else if rightOp = T$CR then
 	do;
 		if not BlankMorPAsmErrCode then
 		do;
@@ -5259,7 +5263,7 @@ end;
 Sub76CE: procedure public;
 	if expandingMacro then
 	do;
-		if opType = 1 then
+		if rightOp = T$CR then
 		do;
 			b6B32 = TRUE;
 			macroCondSP = tmac$macroCondSP;
@@ -5305,7 +5309,7 @@ Sub770B: procedure public;
 	else
 		call SyntaxError;
 
-	if opType = 1 then
+	if rightOp = T$CR then
 	do;
 		b905D = FALSE;
 		if argNestCnt > 0 then
@@ -5345,7 +5349,7 @@ end;
 
 Sub7844: procedure public;
 	call Sub72A4(3);
-	if (effectiveToken := opType) <> T$CR then
+	if (effectiveToken := rightOp) <> T$CR then
 		call SyntaxError;
 
 	if not b905E then
@@ -5376,7 +5380,7 @@ Sub787A: procedure public;
 			call Sub5CAD(tmac$b3, 1);
 			w906A = symHighMark;
 		end;
-		if opType = 1 then
+		if rightOp = T$CR then
 		do;
 			b905E = 1;
 			w906A = symHighMark;
@@ -6072,7 +6076,7 @@ $IF OVL4
 $ENDIF
     externId, errCnt = wZERO;
     b6882 = b6882 + 1;
-    srcLineCnt, opType, pageCnt, pageLineCnt = 1;
+    srcLineCnt, rightOp, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;		/* reset all the control seen flags */
@@ -6291,6 +6295,7 @@ F0=./
 F2=.\list
 
 PEXFILE=asm80.pex
+PLMFLAGS=code print(:f2:$*.lst)
 
 OVERLAY=6D4Ch
 
@@ -6330,14 +6335,14 @@ TARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(F2)
-	$(ISIS) :F1:PLM80 $< code print(:F2:$*.lst)
+	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
-	$(ISIS) :F1:PLM80 $< code print(:F2:$*.lst)
+	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
 	@find $(F2)\$*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .plm.ipx:

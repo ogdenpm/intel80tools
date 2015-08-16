@@ -156,7 +156,7 @@ $IF OVL4
 $ENDIF
     externId, errCnt = wZERO;
     b6882 = b6882 + 1;
-    srcLineCnt, opType, pageCnt, pageLineCnt = 1;
+    srcLineCnt, rightOp, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;		/* reset all the control seen flags */

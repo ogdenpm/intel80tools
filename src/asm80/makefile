@@ -6,6 +6,7 @@ F0=./
 F2=.\list
 
 PEXFILE=asm80.pex
+PLMFLAGS=code print(:f2:$*.lst)
 
 OVERLAY=6D4Ch
 
@@ -45,14 +46,14 @@ TARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(F2)
-	$(ISIS) :F1:PLM80 $< code print(:F2:$*.lst)
+	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
 	@if not exist $*.obj exit /b 1
 
 .pl3.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
-	$(ISIS) :F1:PLM80 $< code print(:F2:$*.lst)
+	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
 	@find $(F2)\$*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
 
 .plm.ipx:

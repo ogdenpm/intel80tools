@@ -322,7 +322,7 @@ Lookup: procedure(tableId) byte public;
 
 					if tokenType(0) = K$SP then		/* SP */
 					do;
-						if not(opType = K$LXI or opType = K$REG16) then 
+						if not(rightOp = K$LXI or rightOp = K$REG16) then 
 							call SourceError('X');
 						tokenType(0) = K$REGNAME;	/* reg */
 					end;
@@ -330,7 +330,7 @@ Lookup: procedure(tableId) byte public;
 				end;
 			deltaToNext = symEntry.delta;
 		end;
-		return 9;
+		return O$ID;
 	end;
 
 	lowOffset = symTab(tableId);

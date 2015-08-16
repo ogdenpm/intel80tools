@@ -136,10 +136,10 @@ end;
 TokeniseLine: procedure public;
 
 	Sub416B: procedure;
-		if opType = 0 then
+		if rightOp = O$NONE then
 			call ExpressionError;
 		inExpression = 0;
-		opType = 0;
+		rightOp = O$NONE;
 	end;
 
 
@@ -197,7 +197,7 @@ $ENDIF
 
 			call EmitXref(0, .name);
 			rhsUserSymbol = FALSE;
-			opType = O$LABEL;
+			rightOp = O$LABEL;
 		end;
 		do;				/* CC$CR */
 			call ChkLF;
@@ -210,9 +210,9 @@ $ENDIF
 		do;				/* CC$PUNCT */
 			if curChar = '+' or curChar = '-' then
 $IF OVL4
-				if not TestBit(opType, .b$3F88) then /* not 0, 3 or 41h */
+				if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
-				if opType <> O$NONE and opType <> T$RPAREN then
+				if rightOp <> O$NONE and rightOp <> T$RPAREN then
 $ENDIF
 					curChar = curChar + (T$UPLUS - T$PLUS);	/* make unary versions */
 			effectiveToken = curChar - '(' + T$LPAREN;
@@ -292,7 +292,7 @@ $ENDIF
 				if Lookup(0) = O$ID then		/* not a key word */
 				do;
 					tokenType(0) = Lookup(1);	/* look up in symbol space */
-					rhsUserSymbol = TRUE;		/* not a key word */
+					rhsUserSymbol = TRUE;		/* note we have a used symbol */
 				end;
 
 				effectiveToken = tokenType(0);

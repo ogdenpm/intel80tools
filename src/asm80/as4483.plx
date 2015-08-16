@@ -14,12 +14,12 @@ $ENDIF
 	1	-> start single word expression
 	5	-> single byte opcode no operand
 	7	-> reg operand
-	0Fh	-> binary op
-	0Dh	-> unary op
+	0Fh	-> binary leftOp
+	0Dh	-> unary leftOp
 	17h	-> IMM8 operand
 	37h	-> imm16 operand
 	40h	-> ? start byte list
-	47h	-> 2 operand op
+	47h	-> 2 operand leftOp
 	4Dh	-> start word list
 	80h	-> end expression
 	81h	-> rept operand
@@ -60,6 +60,10 @@ $ENDIF
 	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
 		/* bit vector 59 -> 11111111 10000000 00000000 00000000
 				    00001111 11111110 00000000 001 */
+		/* O$NONE, T$CR, T$LPAREN, T$RPAREN/O$LABEL, T$STAR, T$PLUS/K$SPECIAL, T$COMMA, */
+		/* T$MINUS/K$REGNAME, T$UPLUS/K$SP */
+		/* K$LXI, K$REG16, K$LDSTAX, K$ARITH, K$IMM8, K$MVI, K$INRDCR. K$MOV, K$IMM16, K$SINGLE */
+		/* K$RST
 /* precedence table */
 /*
    10 - NULL
@@ -97,14 +101,14 @@ TestBit: procedure(bitIdx, bitVector) bool public;
 	return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
-IsReg: procedure(arg1b) bool public;
-	declare arg1b byte;
+IsReg: procedure(leftOp) bool public;
+	declare leftOp byte;
 
-	return arg1b = 7 or arg1b = 8;
+	return leftOp = K$REGNAME or leftOp = K$SP;
 end;
 
 Sub4274: procedure public;
-	if TestBit(op, .b41B7) then
+	if TestBit(leftOp, .b41B7) then
 		if IsReg(acc1ValType) then
 			call OperandError;
 end;
@@ -112,7 +116,7 @@ end;
 Sub4291: procedure public;
 	if IsReg(acc1ValType) then
 		call OperandError;
-	if (b4181(op) and 2) = 0 then
+	if (b4181(leftOp) and 2) = 0 then
 		acc2Flags = 0;
 	else if IsReg(acc2ValType) then
 		call OperandError;
@@ -126,19 +130,19 @@ Sub4291: procedure public;
 				call ExpressionError;
 	if (ii := (acc1Flags and UF$EXTRN) <> 0) or (jj := (acc2Flags and UF$EXTRN) <> 0) then
 	do;
-		if op = 5 then	/* +? (PAGE INPAGE)? */
+		if leftOp = K$SPECIAL then	/* +? (PAGE INPAGE)? */
 			if not (ii or accFixFlags(0)) then
 			do;
 				acc1NumVal = acc2NumVal;
 				acc1Flags = acc2Flags;
 				return;
 			end;
-		if jj or accFixFlags(1) or not TestBit(op, .b41C1) then
+		if jj or accFixFlags(1) or not TestBit(leftOp, .b41C1) then
 			goto L4394;
 		else
 			return;
 	end;
-	kk = shl(op - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
+	kk = shl(leftOp - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
 	if TestBit(kk, .opCompat) then
 L4394:	do;
 		call ExpressionError;
@@ -263,9 +267,9 @@ $ENDIF
 end;
 
 
-GetPrec: procedure(arg1b) byte public;
-	declare arg1b byte;
-	return precedence(arg1b);
+GetPrec: procedure(leftOp) byte public;
+	declare leftOp byte;
+	return precedence(leftOp);
 end;
 
 /*
@@ -284,15 +288,15 @@ MkCode: procedure(arg1b) public;
 		   or accum2$lb > 7
 		   or arg1b and accum2$lb
 		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not IsReg(acc2ValType) and op <> K$RST) then    /* RST */
+		   or (not IsReg(acc2ValType) and leftOp <> K$RST) then    /* RST */
 			call OperandError;
-		else if IsReg(acc2ValType) and op = K$RST then	     /* RST */
+		else if IsReg(acc2ValType) and leftOp = K$RST then	     /* RST */
 			call OperandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
 		accum1$lb = accum1$lb or accum2$lb;
 	end;
-	else if op <> K$SINGLE then		/* single byte op */
+	else if leftOp <> K$SINGLE then		/* single byte leftOp */
 		if IsReg(acc2ValType) then
 			call OperandError;
 
@@ -306,7 +310,7 @@ MkCode: procedure(arg1b) public;
 		if accum2$hb + 1 > 1 then	/* Error if not FF or 00 */
 			call ValueError;
 	end;
-	if op = K$IMM8 or op = K$IMM16 then	/* Imm8 or imm16 */
+	if leftOp = K$IMM8 or leftOp = K$IMM16 then	/* Imm8 or imm16 */
 	do;
 		acc1Flags = acc2Flags;
 		acc1NumVal = acc2NumVal;
@@ -314,10 +318,10 @@ MkCode: procedure(arg1b) public;
 	else
 		acc1Flags = 0;
 
-	if op <> K$SINGLE then		     /* single byte op */
+	if leftOp <> K$SINGLE then		     /* single byte leftOp */
 		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
 			call OperandError;
-	if (op := shr(arg1b, 4) + 24h) = 24h then
+	if (leftOp := shr(arg1b, 4) + 24h) = 24h then
 		b6B2D = O$DATA;
 end;
 

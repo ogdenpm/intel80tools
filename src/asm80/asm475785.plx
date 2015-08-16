@@ -76,12 +76,12 @@ UpdateHiLo: procedure(hilo) public;
 end;
 
 HandleOp: procedure public;
-	do case op;
+	do case leftOp;
 /* 0 */		;
 /* 1 */		call FinishLine;		/* CR */
 /* 2 */		goto case3;			/* ( */
 /* 3 */ case3:	do;				/* ) */
-			if not (op = T$LPAREN and opType = 3) then
+			if not (leftOp = T$LPAREN and rightOp = T$RPAREN) then
 				call BalanceError;
 
 			if tokenType(0) = O$DATA then
@@ -92,7 +92,7 @@ HandleOp: procedure public;
 			end;
 
 			inParen = inNestedParen;
-			if opType = T$RPAREN then
+			if rightOp = T$RPAREN then
 				b6B2C = TRUE;
 		end;
 /* 4 */		accum1 = accum1 * accum2;	/* * */
@@ -182,7 +182,7 @@ HandleOp: procedure public;
 				acc1Flags = 0;
 			end;
 			labelUse = 1;
-			call Sub5819$5CE8(accum1, (K$SET + 4) - op);	/* 4 for set, 5 for equ */
+			call Sub5819$5CE8(accum1, (K$SET + 4) - leftOp);	/* 4 for set, 5 for equ */
 			expectingOperands = FALSE;
 		end;
 /* 30 */	goto case29;				/* SET ? */
@@ -225,7 +225,7 @@ $ELSE
 			if ifDepth > 0 then
 $ENDIF
 				call NestingError;
-			if opType <> 1 then
+			if rightOp <> T$CR then
 				call SyntaxError;
 			if inParen then
 				b6B33 = TRUE;
@@ -365,7 +365,7 @@ $IF OVL4
 $ENDIF
 	end;
 
-	if op <> T$CR then
+	if leftOp <> T$CR then
 		noOpsYet = FALSE;
 end;
 
@@ -386,7 +386,7 @@ ParseLine: procedure public;
 
 
 	Sub53F8: procedure;
-		if not isInstrMap(op) then
+		if not isInstrMap(leftOp) then
 			b6B34 = FALSE;
 	end;
 
@@ -411,7 +411,7 @@ $ENDIF
 					if GetPrec(effectiveToken) <= GetPrec(opStack(opSP)) then
 						call ExpressionError;
 
-		if GetPrec(opType := effectiveToken) > GetPrec(op := opStack(opSP)) or opType = T$LPAREN then
+		if GetPrec(rightOp := effectiveToken) > GetPrec(leftOp := opStack(opSP)) or rightOp = T$LPAREN then
 		do;
 			if opSP >= 16 then
 			do;
@@ -419,8 +419,8 @@ $ENDIF
 				call StackError;
 			end;
 			else
-				opStack(opSP := opSP + 1) = opType;
-			if opType = T$LPAREN then
+				opStack(opSP := opSP + 1) = rightOp;
+			if rightOp = T$LPAREN then
 			do;
 				inNestedParen = inParen;
 				inParen = TRUE;
@@ -431,16 +431,16 @@ $ENDIF
 		end;
 
 		inExpression = 0;
-		if not inParen and op > 3 then
+		if not inParen and leftOp > 3 then
 			call SyntaxError;
 
-		if op = 0 then
-			op = opType;
+		if leftOp = O$NONE then
+			leftOp = rightOp;
 		else
 			opSP = opSP - 1;
 		
 
-		if (b6B28 := b4181(op)) then
+		if (b6B28 := b4181(leftOp)) then
 		do;
 			accum2 = GetNumVal;
 			acc2Flags = acc1Flags;
@@ -455,7 +455,7 @@ $ENDIF
 			b6857 = Sub53DF(acc1ValType) or Sub53DF(acc2ValType);
 
 		b6B2D = O$NUMBER;
-		if op > T$RPAREN and op < K$DB then	/* expression op */
+		if leftOp > T$RPAREN and leftOp < K$DB then	/* expression leftOp */
 			call Sub4291;
 		else
 		do;
@@ -464,7 +464,7 @@ $ENDIF
 		end;
 
 		call HandleOp;
-		if not isExprOrMacroMap(op) then
+		if not isExprOrMacroMap(leftOp) then
 			inParen = FALSE;
 
 		if b6B2C then
@@ -473,7 +473,7 @@ $ENDIF
 			return;
 		end;
 
-		if op <> K$DS and showAddr then		/* DS */
+		if leftOp <> K$DS and showAddr then		/* DS */
 			effectiveAddr = accum1;
 
 		if (b6B28 and 1Eh) <> 0 then
@@ -487,9 +487,9 @@ $ENDIF
 		tokenAttr(0) = acc1Flags;
 		tokenSymId(0) = acc1NumVal;
 		if ror(b6B28, 1) then
-			if opType = T$COMMA then
+			if rightOp = T$COMMA then
 			do;
-				effectiveToken = op;
+				effectiveToken = leftOp;
 				inParen = TRUE;
 			end;
 	end;
