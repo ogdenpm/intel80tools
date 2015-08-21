@@ -136,8 +136,8 @@ ResetData: procedure public;	/* extended initialisation */
 $IF OVL4
     expandingMacro, b905C, b905E,
 $ENDIF
-    b6857, needToOpenFile = bZERO;
-    noOpsYet, primaryValid, ctlLIST, b6A6F,
+    hasVarRef, needToOpenFile = bZERO;
+    noOpsYet, primaryValid, ctlLIST, ctlLISTChanged,
 $IF OVL4
     ctlGEN,
 $ENDIF
@@ -155,7 +155,7 @@ $IF OVL4
     w919B,
 $ENDIF
     externId, errCnt = wZERO;
-    b6882 = b6882 + 1;
+    passCnt = passCnt + 1;
     srcLineCnt, rightOp, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';

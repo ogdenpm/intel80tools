@@ -379,7 +379,7 @@ ParseLine: procedure public;
 		return FALSE;
 	end;
 
-	Sub53DF: procedure(arg1b) byte;
+	isVar: procedure(arg1b) byte;
 		declare arg1b byte;
 		return arg1b = O$ID or arg1b = O$64;
 	end;
@@ -451,8 +451,8 @@ $ENDIF
 		if (b6B28 := ror(b6B28, 1)) then
 			accum1 = GetNumVal;
 
-		if not b6857 then
-			b6857 = Sub53DF(acc1ValType) or Sub53DF(acc2ValType);
+		if not hasVarRef then
+			hasVarRef = isVar(acc1ValType) or isVar(acc2ValType);
 
 		b6B2D = O$NUMBER;
 		if leftOp > T$RPAREN and leftOp < K$DB then	/* expression leftOp */

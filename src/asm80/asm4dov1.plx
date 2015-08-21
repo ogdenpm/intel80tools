@@ -398,14 +398,14 @@ $ENDIF
     else
         call OutStr(.spaces2);
 
-    if b68AD then
+    if lineNumberEmitted then
     do;
         call OutStr(.spaces4);
         call PrintCRLF;
     end;
     else
     do;
-        b68AD = TRUE;
+        lineNumberEmitted = TRUE;
         call OutNStr(4, .asciiLineNo);
 $IF OVL4
         if expandingMacro > 1 then

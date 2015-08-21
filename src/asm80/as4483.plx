@@ -334,7 +334,7 @@ end;
 
 
 ShowLine: procedure byte public;
-	return ((not isControlLine) and ctlLIST or b6A6F and isControlLine)
+	return ((not isControlLine) and ctlLIST or ctlLISTChanged and isControlLine)
 $IF OVL4
 	        and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF

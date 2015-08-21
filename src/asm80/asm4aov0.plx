@@ -16,7 +16,7 @@ declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   5, 'EJECT', 14h, 'LIST',
 			   13h, 'GEN', 14h, 'COND');
 
-declare (b7463, b7464, b7465) byte,
+declare (b7463, savedCtlLIST, savedCtlGEN) byte,
 	controlError bool;
 
 
@@ -365,9 +365,9 @@ end;
 
 ParseControls: procedure public;
 	isControlLine = TRUE;
-	b6A6F, b7464 = ctlLIST;
+	ctlLISTChanged, savedCtlLIST = ctlLIST;
 $IF OVL4
-	b7465 = ctlGEN;
+	savedCtlGEN = ctlGEN;
 $ENDIF
 	controlError = FALSE;
 
@@ -395,11 +395,11 @@ $ENDIF
 	end;
 
 	call ChkLF;			/* eat the LF */
-	if ctlLIST <> b7464 then
-		b6A6F = TRUE;
+	if ctlLIST <> savedCtlLIST then
+		ctlLISTChanged = TRUE;
 $IF OVL4
-	else if ctlGEN <> b7465 and expandingMacro then
-		b6A6F = FALSE;
+	else if ctlGEN <> savedCtlGEN and expandingMacro then
+		ctlLISTChanged = FALSE;
 $ENDIF
 
 	reget = 0;

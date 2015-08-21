@@ -401,7 +401,7 @@ InitialControls: procedure public;
 	call ParseControlLines;			/* initial control lines allow primary controls */
 	primaryValid = FALSE;			/* not allowed from now on */
 	ctlDEBUG = ctlDEBUG and ctlOBJECT;	/* debug doesn't make sense if no object code */
-	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls that require printing */
+	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls if not printing */
 	ctlSYMBOLS = ctlSYMBOLS and ctlPRINT;
 	ctlPAGING = ctlPAGING and ctlPRINT;
 end;
@@ -413,7 +413,7 @@ InitLine: procedure public;
 	if needToOpenFile then
 		call OpenSrc;
 
-	b68AD, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
+	lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
 	inExpression, expectingOperands, b6881, gotLabel, rhsUserSymbol,
 	inDB, inDW, b6B32, showAddr, b6884,
 $IF OVL4
@@ -422,7 +422,7 @@ $ENDIF
 	needsAbsValue = bZERO;
 
 	atStartLine, expectingOpcode, b6B34, inParen = bTRUE;
-	ctlEJECT, b6857, tokenIdx,
+	ctlEJECT, hasVarRef, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
 $ENDIF

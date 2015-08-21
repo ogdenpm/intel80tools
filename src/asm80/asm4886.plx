@@ -184,7 +184,7 @@ $ENDIF
 			if labelUse = 2 then	/* label: */
 				flags = flags or activeSeg;
 
-			if b6857 and isSetOrEqu then
+			if hasVarRef and isSetOrEqu then
 				tokenType(0) = O$64;
 			else
 				call Sub5B9A;
@@ -192,7 +192,7 @@ $ENDIF
 			goto L5A9B$5F82;
 		end;
 
-	if b6882 = 2 then
+	if passCnt = 2 then
 		if tokenType(0) = O$ID then
 			if acc1ValType <> O$ID then
 				if isSetOrEqu then
@@ -282,7 +282,7 @@ $ENDIF
 	if curTokenSym.type = 6 then
 		call UndefinedSymbolError;
 
-	b6857 = 0;
+	hasVarRef = 0;
 	if b6883 then
 		call PopToken;
 

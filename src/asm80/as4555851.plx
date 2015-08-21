@@ -48,7 +48,7 @@ Sub546F: procedure public;
 	if expectingOperands then
 		call SyntaxError;
 	if HaveTokens then
-		if not(tokenType(spIdx) = O$DATA or b68AD) then
+		if not(tokenType(spIdx) = O$DATA or lineNumberEmitted) then
 			call SyntaxError;
 	if inDB or inDW then
 	do;

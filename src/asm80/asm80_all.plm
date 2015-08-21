@@ -503,7 +503,7 @@ segHasData           BS
 badExtrn           B
 acc1Flags           B
 acc2Flags           B
-b6857           B
+hasVarRef           B
 acc1ValType           B
 acc2ValType           B
 gotLabel           B
@@ -512,7 +512,7 @@ savName           BS
 lhsUserSymbol           "bool"
 rhsUserSymbol  "bool"
 b6881           "bool"
-b6882           B
+passCnt           B
 b6883           "bool"
 b6884           "bool"
 needsAbsValue           "bool"
@@ -521,13 +521,13 @@ tokI           B
 errorOnLine    "bool"
 atStartLine           B
 showAddr        "bool"
-b68AD           "bool"
+lineNumberEmitted           "bool"
 b68AE           "bool"
 inBuf           BS
 b6A00           B
 spIdx           B
 b6A57           BS
-b6A6F           "bool"
+ctlLISTChanged           "bool"
 b6A71           B
 isControlLine      B		
 inDB           B
@@ -892,7 +892,7 @@ declare	opSP byte public,
 	(accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte public at(.accum1),
 	acc1Flags byte public,
 	acc2Flags byte public,
-	b6857 byte public,
+	hasVarRef byte public,
 	acc1ValType byte public,
 	acc2ValType byte public,
 	acc1NumVal address public,
@@ -911,7 +911,7 @@ declare	opSP byte public,
 	lhsUserSymbol bool public,
 	rhsUserSymbol bool public,
 	b6881 bool public initial(FALSE),
-	b6882 byte public initial(0),
+	passCnt byte public initial(0),
 	b6883 bool public initial(FALSE),
 	b6884 bool public initial(FALSE),
 	needsAbsValue bool public initial(FALSE),
@@ -944,7 +944,7 @@ declare	tokI byte public,
 	pad68AA byte,
 	showAddr bool public,
 	pad68AC byte,
-	b68AD bool public initial(FALSE),
+	lineNumberEmitted bool public initial(FALSE),
 	b68AE bool public initial(FALSE),
 	tokStr(7) byte public initial(0, 0, 0, 0, 0, 0, 0),
 	sizeInBuf address public initial(IN$BUF$SIZE),
@@ -988,7 +988,7 @@ declare	tokI byte public,
 	ctlLIST bool public initial(TRUE),	/* LIST */	/* SAVE/RESTORE act on next 3 opts */
 	ctlGEN bool public initial(TRUE),	/* GEN */
 	ctlCOND bool public initial(TRUE),	/* COND */
-	b6A6F bool public initial(TRUE),
+	ctlLISTChanged bool public initial(TRUE),
 	titleLen byte public initial(0),
 	b6A71 byte public,
 	pad6A72(3) byte initial(120, TRUE),
@@ -1438,7 +1438,7 @@ ParseLine: procedure public;
 		return FALSE;
 	end;
 
-	Sub53DF: procedure(arg1b) byte;
+	isVar: procedure(arg1b) byte;
 		declare arg1b byte;
 		return arg1b = O$ID or arg1b = O$64;
 	end;
@@ -1510,8 +1510,8 @@ $ENDIF
 		if (b6B28 := ror(b6B28, 1)) then
 			accum1 = GetNumVal;
 
-		if not b6857 then
-			b6857 = Sub53DF(acc1ValType) or Sub53DF(acc2ValType);
+		if not hasVarRef then
+			hasVarRef = isVar(acc1ValType) or isVar(acc2ValType);
 
 		b6B2D = O$NUMBER;
 		if leftOp > T$RPAREN and leftOp < K$DB then	/* expression leftOp */
@@ -2476,7 +2476,7 @@ InitialControls: procedure public;
 	call ParseControlLines;			/* initial control lines allow primary controls */
 	primaryValid = FALSE;			/* not allowed from now on */
 	ctlDEBUG = ctlDEBUG and ctlOBJECT;	/* debug doesn't make sense if no object code */
-	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls that require printing */
+	ctlXREF = ctlXREF and ctlPRINT;		/* disable controls if not printing */
 	ctlSYMBOLS = ctlSYMBOLS and ctlPRINT;
 	ctlPAGING = ctlPAGING and ctlPRINT;
 end;
@@ -2488,7 +2488,7 @@ InitLine: procedure public;
 	if needToOpenFile then
 		call OpenSrc;
 
-	b68AD, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
+	lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
 	inExpression, expectingOperands, b6881, gotLabel, rhsUserSymbol,
 	inDB, inDW, b6B32, showAddr, b6884,
 $IF OVL4
@@ -2497,7 +2497,7 @@ $ENDIF
 	needsAbsValue = bZERO;
 
 	atStartLine, expectingOpcode, b6B34, inParen = bTRUE;
-	ctlEJECT, b6857, tokenIdx,
+	ctlEJECT, hasVarRef, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
 $ENDIF
@@ -3320,7 +3320,7 @@ end;
 
 
 ShowLine: procedure byte public;
-	return ((not isControlLine) and ctlLIST or b6A6F and isControlLine)
+	return ((not isControlLine) and ctlLIST or ctlLISTChanged and isControlLine)
 $IF OVL4
 	        and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
@@ -3429,7 +3429,7 @@ Sub546F: procedure public;
 	if expectingOperands then
 		call SyntaxError;
 	if HaveTokens then
-		if not(tokenType(spIdx) = O$DATA or b68AD) then
+		if not(tokenType(spIdx) = O$DATA or lineNumberEmitted) then
 			call SyntaxError;
 	if inDB or inDW then
 	do;
@@ -3857,7 +3857,7 @@ $ENDIF
 			if labelUse = 2 then	/* label: */
 				flags = flags or activeSeg;
 
-			if b6857 and isSetOrEqu then
+			if hasVarRef and isSetOrEqu then
 				tokenType(0) = O$64;
 			else
 				call Sub5B9A;
@@ -3865,7 +3865,7 @@ $ENDIF
 			goto L5A9B$5F82;
 		end;
 
-	if b6882 = 2 then
+	if passCnt = 2 then
 		if tokenType(0) = O$ID then
 			if acc1ValType <> O$ID then
 				if isSetOrEqu then
@@ -3955,7 +3955,7 @@ $ENDIF
 	if curTokenSym.type = 6 then
 		call UndefinedSymbolError;
 
-	b6857 = 0;
+	hasVarRef = 0;
 	if b6883 then
 		call PopToken;
 
@@ -4528,7 +4528,7 @@ declare controlTable(*) byte data(35h, 'DEBUG', 3Ah, 'MACRODEBUG',
 			   5, 'EJECT', 14h, 'LIST',
 			   13h, 'GEN', 14h, 'COND');
 
-declare (b7463, b7464, b7465) byte,
+declare (b7463, savedCtlLIST, savedCtlGEN) byte,
 	controlError bool;
 
 
@@ -4877,9 +4877,9 @@ end;
 
 ParseControls: procedure public;
 	isControlLine = TRUE;
-	b6A6F, b7464 = ctlLIST;
+	ctlLISTChanged, savedCtlLIST = ctlLIST;
 $IF OVL4
-	b7465 = ctlGEN;
+	savedCtlGEN = ctlGEN;
 $ENDIF
 	controlError = FALSE;
 
@@ -4907,11 +4907,11 @@ $ENDIF
 	end;
 
 	call ChkLF;			/* eat the LF */
-	if ctlLIST <> b7464 then
-		b6A6F = TRUE;
+	if ctlLIST <> savedCtlLIST then
+		ctlLISTChanged = TRUE;
 $IF OVL4
-	else if ctlGEN <> b7465 and expandingMacro then
-		b6A6F = FALSE;
+	else if ctlGEN <> savedCtlGEN and expandingMacro then
+		ctlLISTChanged = FALSE;
 $ENDIF
 
 	reget = 0;
@@ -5813,14 +5813,14 @@ $ENDIF
     else
         call OutStr(.spaces2);
 
-    if b68AD then
+    if lineNumberEmitted then
     do;
         call OutStr(.spaces4);
         call PrintCRLF;
     end;
     else
     do;
-        b68AD = TRUE;
+        lineNumberEmitted = TRUE;
         call OutNStr(4, .asciiLineNo);
 $IF OVL4
         if expandingMacro > 1 then
@@ -6056,8 +6056,8 @@ ResetData: procedure public;	/* extended initialisation */
 $IF OVL4
     expandingMacro, b905C, b905E,
 $ENDIF
-    b6857, needToOpenFile = bZERO;
-    noOpsYet, primaryValid, ctlLIST, b6A6F,
+    hasVarRef, needToOpenFile = bZERO;
+    noOpsYet, primaryValid, ctlLIST, ctlLISTChanged,
 $IF OVL4
     ctlGEN,
 $ENDIF
@@ -6075,7 +6075,7 @@ $IF OVL4
     w919B,
 $ENDIF
     externId, errCnt = wZERO;
-    b6882 = b6882 + 1;
+    passCnt = passCnt + 1;
     srcLineCnt, rightOp, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';
