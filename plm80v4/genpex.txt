@@ -1,0 +1,297 @@
+             ISIS-II SOFTWARE TOOLBOX, V1.0                       page 49
+
+
+                          +=================================+
+                          |                                 |
+                          |             GENPEX              |
+                          |              v1.0               |
+                          |                                 |
+                          +=================================+
+                                           
+                                           
+             SUMMARY
+
+                 GENPEX allows one to create a large "database" from
+             which all kinds of external declarations can be created.
+             Genpex will create only those external declarations that
+             are needed by a particular file.
+
+                 Given a plm source file, and a template file containing
+             all the external declarations that might be needed by that
+             source file, Genpex produces a PL/M INCLUDE file containing
+             only those declarations that the source file actually
+             needs.  This helps the user save symbol table space during
+             compilation, and it maintains a level of control over
+             external references.  For any given source file, the PEX
+             file created gives a list of all external procedures,
+             variables, and LITERALLYs.  The template file contains all
+             PUBLIC procedures, variables and LITERALLYs for a given
+             source file.
+
+
+             SAMPLE INVOCATION
+
+                 GENPEX <pex_file> TO <src_file>
+
+
+             SEMANTICS
+
+                 src_file is any PL/M program source file and must
+             contain the command
+
+                           $ INCLUDE (<src_file_root>.IPX).
+
+
+                 pex_file contains text that will define global symbols
+             for a PL/M program source file.
+
+
+
+             ACTIONS PERFORMED
+
+                 After GENPEX has been run, all symbols used in
+             <src_file> that match symbols defined in <pex_file> will
+             have a PL/M declaration inserted for those symbols in the
+             file <src_file_root>.IPX.  Any previous file with that name
+             will be overwritten.  Public symbols include Procedures,
+             Variables, and Literallys.
+
+
+
+             ISIS-II SOFTWARE TOOLBOX, V1.0                       page 50
+
+
+             SAMPLE TEMPLATE FILE
+
+                                                                                                                    
+             These are the pex declarations for the Universal
+             Development Interface (UDI). NOTE THAT ALL LINES IN THE
+             PEXFILE MUST BEGIN AT THE LEFT MARGIN.
+
+
+             /* UDI types */
+             /* these become LITERALLY declarations */
+             TOKEN 'word'
+             CONNECTION 'word'
+             
+             
+             /* UDI  procedural interface */
+             /* these become PROCEDURE declarations */
+             DQ$ALLOCATE              P(W@)"TOKEN"
+             DQ$ATTACH                P(@@)"CONNECTION"
+             DQ$CHANGE$EXTENSION      P(@@@)
+             DQ$CLOSE                 P("CONNECTION"@)
+             DQ$CREATE                P(@@)"CONNECTION"
+             DQ$DECODE$EXCEPTION      P(W@@)
+             DQ$DELETE                P(@@)
+             DQ$DETACH                P("CONNECTION"@)
+             DQ$EXIT                  P(W)
+             DQ$FREE                  P("TOKEN"@)
+             DQ$GET$ARGUMENT          P(@@)B
+             DQ$GET$CONNECTION$STATUS P(W@@)
+             DQ$GET$EXCEPTION$HANDLER P(@@)
+             DQ$GET$SIZE              P("TOKEN"@)
+             DQ$GET$SYSTEM$ID         P(@@)
+             DQ$GET$TIME              P(@@)
+             DQ$OPEN                  P(WBB@)
+             DQ$OVERLAY               P(@@)
+             DQ$READ                  P("CONNECTION"@W@)W
+             DQ$RENAME                P(@@@)
+             DQ$SEEK                  P("CONNECTION"BWW@)
+             DQ$SPECIAL               P(B@@)
+             DQ$SWITCH$BUFFER         P(@@)W
+             DQ$TRAP$CC               P(@@)
+             DQ$TRAP$EXCEPTION        P(@@)
+             DQ$TRUNCATE              P(W@)
+             DQ$WRITE                 P("CONNECTION"@W@)
+             
+             
+             
+                        HOW TO CREATE A PEXFILE (TEMPLATE FILE)
+
+                 The pexfile contains symbol definition information for
+             all possible declarations in a system.  Therefore, the user
+             must categorize the public definitions by source file.  A
+             pexfile contains file definitions, and then the public
+             symbol declarations for that file.  This eliminates having
+             both PUBLIC and EXTERNAL declarations for the same symbol
+             in the same source file.  A pexfile may also contain
+             comments.
+
+             ISIS-II SOFTWARE TOOLBOX, V1.0                       page 51
+
+
+             COMMENTS
+
+                 A comment line is any line that does not begin with a
+             letter or a dollar sign ($).
+
+             FILE DEFINITIONS
+
+                 File definitions in a pexfile have the syntax:
+
+                            '$'  'FILE'  '('  <filename>  ')'
+
+                 For example:
+
+                       $ file (absio.src)
+                       $ FILE (FOO.PLM)
+
+
+             SYMBOL DEFINITIONS:
+
+             1.  LITERALLYs -- A literally declaration takes the form
+
+                               <symbol> <literal_expansion>
+
+                 where the literal_expansion is any string enclosed in
+                 single quotes.  It is clear, then that the declaration
+                 in a pexfile is the same as in the PL/M source, without
+                 the keywords DECLARE and LITERALLY.
+
+             2.  SIMPLE VARIABLES -- A simple variable is is the same as
+                 a PL/M variable declaration without the keyword
+                 DECLARE, so it takes the form
+
+                                     <symbol>  <type>
+
+                 where <type> is one of the following:
+
+                      A for address
+                      B for a byte
+                      W for a word
+                      I for an integer
+                      R for a real
+                      @ for a pointer
+                      any string in double-quotes
+
+                 a double-quoted string is a user-defined-type, and must
+                 be defined in a literally for successful compilation.
+
+             3.  BASED VARIABLES -- A based variable definition takes
+                 the form
+
+                               <symbol>  <type>  '..' <base>
+
+                 where <base> is the variable name of the variable that
+                 <symbol> is based on.  For example,
+
+                       fieldptr @
+                       field    B..fieldptr
+             ISIS-II SOFTWARE TOOLBOX, V1.0                       page 52
+
+
+
+
+      
+                 would expand to 
+
+                       declare FIELDPTR pointer external;
+                       declare FIELD BASED FIELD POINTER byte;
+
+                 in a typical Genpex execution.
+
+             4.  ARRAYS -- An array declaration is the same as a simple
+                 variable, followed by the letter 'S' (not in quotes).
+
+                       array "token"S 
+                       BIGARRAY BS
+
+                 The 'S' stands for "subscripted" and is expanded to a
+                 '1' in the actual external declaration.
+
+             5.  STRUCTURES -- Structures in PL/M must be declared as
+                 literallys when using GENPEX.  Since literallys may be
+                 nested (only once), structures longer than 120
+                 characters may be accomplished similar to this example:
+
+                   linked_list 'STRUCTURE (info_part, link_part)'
+                   info_part 'name (40) BYTE, phone (9) BYTE, birth WORD'
+                   link_part 'last_ptr POINTER, next_ptr POINTER'
+
+                 Incidentally, Genpex will generate external declarations
+                 for symbols used in other Genpex declarations (in this
+                 case, info_part and link_part), even if they are not used
+                 anywhere else in the program.
+
+             6.  PROCEDURES -- Procedures take the form
+
+                          <symbol>  'P' '(' <type>... ')' <type>
+
+                 where the type definition(s) in the parentheses
+                 correspond to procedure parameters.  The parenthetical
+                 clause may be left out if the procedure has no
+                 parameters.  The <type> after the parameter clause is
+                 for a typed procedure; it, too, is optional.  As in the
+                 case of variables, any user-defined type (double-quoted
+                 string) may be used.  Some more examples:
+
+                       sort  P(@@)
+                       dq$allocate    P(W@)"token" 
+                       OUTBUFFER P("BOOLEAN"@BBBW)
+
+                 In the last example, the expansion in the Include file
+                 would be (although on one line):
+
+                 OUTBUFFER: procedure(ZZ1,ZZ2,ZZ3,ZZ4,ZZ5,ZZ6) external;
+                       declare (ZZ3,ZZ4,ZZ5) byte, (ZZ6) word,
+                       (ZZ2) pointer, ZZ1 BOOLEAN; end;
+
+                 Note --a '1' or a '2' may be used in place of <type> 
+                 for PLM80 users.  Genpex will expand this to declare a
+                 procedure of type Byte or Address.
+             ISIS-II SOFTWARE TOOLBOX, V1.0                       page 53
+
+
+
+                 Genpex will generate dummy parameters and variable
+                 declarations of the form  'ZZn' (n is an integer),
+                 according to the parenthesized types in the parameter
+                 clause.
+
+
+
+             FORMAL SYNTACTIC SPECIFICATION OF PEXFILE FORMAT
+             
+             Data in the pexfile has the following syntax:
+             
+             <pexline>      ::=    (<comment_line>
+                                         | <file_line>
+                                         | <data_line>)
+                                           CRLF.
+                                         
+                                         
+             <file_line>   ::=   '$'  'file'  '(' <filename>  ')'.
+             
+             
+             
+             <comment_line>    ::=   /*  any line not beginning with a       
+                                         letter or a '$' */.
+                                                                     
+                                                                     
+             <data_line>   ::=    <valid_PLM_symbol>  (<proc>
+                                          |<var>
+                                          | <literally>).
+                                                                                                  
+             
+             <proc>        ::=   'P' [ '(' <type>+ ')' ] 
+                                          | ['1'
+                                          | '2'] [<type>].
+             
+             
+             <literally>     ::=     <single-quoted-string>
+             
+             
+             <var>           ::=     <type>
+                                          ['S' /* an array */]
+                                          ['..' <valid_symbol> ].
+                                          
+                                          
+             <type>          ::=          ( 'A' /* address */
+                                          | 'B' /* byte */
+                                          | 'I' /* integer */
+                                          | 'R' /* real */
+                                          | 'W' /* word */
+                                          | '@' /* pointer */
+                                          | '"' <valid_PLM_symbol> '"' )
+                                           /* user defined <type> */.
