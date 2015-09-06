@@ -508,7 +508,7 @@ int main(int argc, char **argv)
 		}
 
 	if (argc - optind != 1) {
-		fprintf(stderr, "usage: plmpp [-f] [-F] [-SVAR[=val]] [-RVAR] [-o outfile] srcfile\n");
+		fprintf(stderr, "usage: plmpp [-f] [-F] [-sVAR[=val]] [-rVAR] [-o outfile] srcfile\n");
 		return 1;
 	}
 

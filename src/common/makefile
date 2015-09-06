@@ -62,13 +62,6 @@ OBJ=	:f3:adninf.obj :f3:alloc.obj :f3:allocs.obj :f3:backup.obj :f3:chain.obj :f
 
 all: $(F3)data.abs $(OBJ::f3:=../common/)
 
-$(F3)lstsp5.obj: $(F3)lstsup.plm
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F3=$(F3)
-	$(ISIS) :F1:PLM80 $(<:../common/=:F3:) code SET(OVL=5)
-	@if not exist $*.obj exit /b 1
-
 
 $(F3)data.abs: $(F3)data.obj
 	@SET ISIS_F0=$(F0)
