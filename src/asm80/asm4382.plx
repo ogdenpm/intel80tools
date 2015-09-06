@@ -100,13 +100,13 @@ Sub40B9: procedure public;
 
 	if b905E then
 	do;
-		do while (w9B62 := w906A - symHighMark) >= 128;
+		do while (w9B62 := macroInPtr - symHighMark) >= 128;
 			call WriteM;
 			symHighMark = symHighMark + 128;
 		end;
 		if w9B62 <> 0 then
 			call move(w9B62, symHighMark, endSymTab(2));
-		w906A = (symHighMark := endSymTab(2)) + w9B62;
+		macroInPtr = (symHighMark := endSymTab(2)) + w9B62;
 	end;
 end;
 
@@ -163,7 +163,7 @@ $IF OVL4
 				if GetChClass = CC$SEMI and b905E then
 				do;
 					b9059 = TRUE;
-					w906A = w906A - 2;
+					macroInPtr = macroInPtr - 2;
 				end;
 $ENDIF
 				call Skip2NextLine;
@@ -252,7 +252,7 @@ $ENDIF
 		end;
 		do;				/* CC$LET */
 $IF OVL4
-			w919F = w906A - 1;
+			w919F = macroInPtr - 1;
 $ENDIF
 			call GetId(O$ID);	/* assume it's an id */
 			if tokenSize(0) > 6 then	/* cap length */
@@ -279,10 +279,10 @@ $IF OVL4
 			do;
 				if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
 				do;
-					w906A = w919F;
-					call Sub3D55(kk + 81h);
-					call Sub3D34(GetNumVal);
-					call Sub3D55(curChar);
+					macroInPtr = w919F;
+					call InsertCharInMacroTbl(kk + 81h);
+					call InsertByteInMacroTbl(GetNumVal);
+					call InsertCharInMacroTbl(curChar);
 					effectiveToken = O$ID;
 				end;
 			end;

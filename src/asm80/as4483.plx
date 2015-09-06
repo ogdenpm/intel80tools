@@ -189,7 +189,7 @@ $IF OVL4
 			return;
 		end;
 		if tokenSize(0) = 0 then
-			tokenType(tokenIdx) = 41h;
+			tokenType(tokenIdx) = K$NUL;
 	end;
 $ENDIF
 

@@ -71,7 +71,7 @@ end;
 
 
 
-Sub6EE1: procedure;
+AddFixupRec: procedure;
 	declare effectiveOffset address;
 
 	declare wrd based dta$p address;
@@ -166,7 +166,7 @@ Sub7131: procedure;
 	fixOffset = segSize(activeSeg) + itemOffset;
 	if not (inDB or inDW) and (tokenSize(spIdx) = 2 or tokenSize(spIdx) = 3) then
 		fixOffset = fixOffset + 1;
-	call Sub6EE1;
+	call AddFixupRec;
 	contentBytePtr = startItem;
 	call RecAddContentBytes;
 	do case GetFixupType;
@@ -307,7 +307,7 @@ Ovl8: procedure public;
 		spIdx = NxtTokI;
 		endItem = tokStart(spIdx) + tokenSize(spIdx);
 		startItem = tokStart(spIdx);
-		if IsSkipping or not b6B34 then
+		if IsSkipping or not isInstr then
 			endItem = startItem;
 		if endItem > startItem then
 		do;

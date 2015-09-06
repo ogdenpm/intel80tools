@@ -107,7 +107,7 @@ FinishLine: procedure public;
 			ii = 0;
 
 		w6BCE = tokStart(ii) + tokenSize(ii);
-		if IsSkipping or not b6B34 then
+		if IsSkipping or not isInstr then
 			w6BCE = .lineBuf;
 
 		if ChkGenObj then

@@ -67,7 +67,7 @@ InsertSym: procedure public;
 
 	/* move up the top block of the symbol tables to make room */
 	symHighMark, q = (p := symHighMark) + 8;
-	if w6870 < q then
+	if topMacroTbl < q then
 		call RuntimeError(1);	/* table Error */
 
 	do while p > curTokenSym$p;	/* byte copy */
@@ -496,8 +496,8 @@ $IF OVL4
 				end;
 
 		if b905E then
-			if w919D <> w906A and curCH = 0Dh or not b9059 then
-			call Sub3D55(curCH);
+			if w919D <> macroInPtr and curCH = 0Dh or not b9059 then
+			call InsertCharInMacroTbl(curCH);
 
 		if not(prevCH = '!' or inComment) then
 		do;

@@ -101,7 +101,7 @@ end;
 
 
 Sub7327: procedure public;
-	w9199 = w6870;
+	w9199 = topMacroTbl;
 	effectiveToken = 3Dh;
 	b905D = TRUE;
 	b9060 = FALSE;
@@ -110,23 +110,23 @@ end;
 
 EnterMacro: procedure(lowAddr, highAddr) address;
 	declare (lowAddr, highAddr) pointer;
-	declare ch1 based w6870 byte,
+	declare ch1 based topMacroTbl byte,
 		ch2 based highAddr byte;
 
 	do while lowAddr <= highAddr;
-		if w6870 <= symHighMark then
+		if topMacroTbl <= symHighMark then
 			call RuntimeError(1);	/* table Error */
 		ch1 = ch2;
-		w6870 = w6870 - 1;
+		topMacroTbl = topMacroTbl - 1;
 		highAddr = highAddr - 1;
 	end;
-	return w6870;
+	return topMacroTbl;
 end;
 
 
 Sub7383: procedure;
 	b9064 = 1;
-	w906A = symHighMark;
+	macroInPtr = symHighMark;
 	b905E = 1;
 	w9C75 = macroBlkCnt;
 end;
@@ -293,7 +293,7 @@ Sub753E: procedure public;
 end;
 
 Sub75FF: procedure public;
-	declare ch based w906A byte;
+	declare ch based macroInPtr byte;
 	declare ch2 based w9068 byte;
 	declare wrd based w9068 address;
 
@@ -305,7 +305,7 @@ Sub75FF: procedure public;
 			if not (tmac$mtype = 5) then
 			do;
 				if tmac$mtype = 2 then
-					w9199 = w6870 + 3;
+					w9199 = topMacroTbl + 3;
 
 				do w6BE0 = w919D to w919F - 1;
 					curChar = byteAt(w6BE0);
@@ -313,7 +313,7 @@ Sub75FF: procedure public;
 						call SyntaxError;
 				end;
 
-				w906A = w919D;
+				macroInPtr = w919D;
 				ch = 1Bh;
 				call Sub40B9;
 				call WriteM;
@@ -374,7 +374,7 @@ Sub770B: procedure public;
 			tmac$w14 = tokenSize(0) - (tokenSize(0) = 0);
 
 		call CollectByte((tokenSize(0) + 1) or 80h);
-		w6870 = EnterMacro(tokPtr, tokPtr + tokenSize(0) - 1);
+		topMacroTbl = EnterMacro(tokPtr, tokPtr + tokenSize(0) - 1);
 		call PopToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
@@ -408,7 +408,7 @@ Sub770B: procedure public;
 		end;
 		else
 		do;
-			w6870 = EnterMacro(.b$3782, .b$3783);
+			topMacroTbl = EnterMacro(.b$3782, .b$3783);
 			if tmac$mtype = 0 then
 			do;
 				tmac$b3 = curTokenSym.flags;
@@ -457,12 +457,12 @@ Sub787A: procedure public;
 				call MultipleDefError;
 
 			call Sub5CAD(tmac$b3, 1);
-			w906A = symHighMark;
+			macroInPtr = symHighMark;
 		end;
 		if rightOp = T$CR then
 		do;
 			b905E = 1;
-			w906A = symHighMark;
+			macroInPtr = symHighMark;
 		end;
 	end;
 	else

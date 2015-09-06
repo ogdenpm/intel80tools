@@ -324,7 +324,7 @@ Sub7229: procedure public;
 
     call Outch(' ');
     do  i = 1 to 4;
-        if MoreBytes and b6B34 then
+        if MoreBytes and isInstr then
         do;
             effectiveAddr = effectiveAddr + 1;
             call Out2Hex(ch);

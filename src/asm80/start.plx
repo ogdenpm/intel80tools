@@ -340,22 +340,22 @@ end;
 
 $IF OVL4
 
-Sub3D34: procedure(c) public;
+InsertByteInMacroTbl: procedure(c) public;
 	declare c byte;
-	declare ch based w906A byte;
+	declare ch based macroInPtr byte;
 
 	ch = c;
-	if (w906A := w906A + 1) > w6870 then
+	if (macroInPtr := macroInPtr + 1) > topMacroTbl then
 		call RuntimeError(1);	/* table Error */
 end;
 
 
-Sub3D55: procedure(c) public;
+InsertCharInMacroTbl: procedure(c) public;
 	declare c byte;
 
-	call Sub3D34(c);
+	call InsertByteInMacroTbl(c);
 	if c = CR then
-		call Sub3D34(LF);
+		call InsertByteInMacroTbl(LF);
 end;
 
 $ENDIF
@@ -421,7 +421,7 @@ $IF OVL4
 $ENDIF
 	needsAbsValue = bZERO;
 
-	atStartLine, expectingOpcode, b6B34, inParen = bTRUE;
+	atStartLine, expectingOpcode, isInstr, inParen = bTRUE;
 	ctlEJECT, hasVarRef, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
@@ -431,7 +431,7 @@ $ENDIF
 	asmErrCode = ' ';
 $IF OVL4
 	macro$p = .macroLine;
-	w919D = w906A;
+	w919D = macroInPtr;
 	expandingMacro = expandingMacro > 0;
 $ENDIF
 	tokI = 1;

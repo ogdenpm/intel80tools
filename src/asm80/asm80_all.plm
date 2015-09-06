@@ -193,8 +193,8 @@ b$3783          B
 w$3780          A
 IsGT            PB
 IsLT            PB
-Sub3D34        P(B c)
-Sub3D55        P(B c)
+InsertByteInMacroTbl        P(B c)
+InsertCharInMacroTbl        P(B c)
 
 $file(asm41.plm,asm51.plm,asm801.plm)
 aBadSyntax      BS
@@ -543,7 +543,7 @@ expectingOperands     "bool"
 expectingOpcode       "bool"
 b6B32           "bool"
 b6B33           "bool"
-b6B34           "bool"
+isInstr           "bool"
 inParen           "bool"
 b6B36           "bool"
 b6BD9           "bool"
@@ -694,7 +694,7 @@ itemOffset           A
 acc1NumVal           A
 acc2NumVal           A
 symHighMark           A
-w6870           "pointer"
+topMacroTbl           "pointer"
 endItem           A
 startItem           A
 effectiveAddr           A
@@ -706,7 +706,7 @@ w6BE0          "pointer"
 controlFileType           A
 endMacroLine   BS		/* glb4 */
 w9068          "pointer"	/* glb4 */
-w906A          "pointer"	/* glb4 */
+macroInPtr          "pointer"	/* glb4 */
 macroBlkCnt          A		/* glb4 */
 w9197          A		/* glb4 */
 w9199          A		/* glb4 */
@@ -795,7 +795,7 @@ declare	byteAt(1) byte public at(0),
 	b9066 byte public,
 	argNestCnt byte public initial(0),
 	w9068 pointer public,
-	w906A pointer public,
+	macroInPtr pointer public,
 	/*
 		mtype has the following values
 		1 -> IRP
@@ -904,7 +904,7 @@ declare	opSP byte public,
 	symTab(3) address public,
 	endSymTab(3) address public,
 	symHighMark address public,
-	w6870 pointer public,
+	topMacroTbl pointer public,
 	gotLabel byte public initial(0),
 	name(6) byte public,
 	savName(6) byte public,
@@ -1026,7 +1026,7 @@ declare	scanCmdLine byte public,
 	expectingOpcode bool public,
 	b6B32 bool public,
 	b6B33 bool public,
-	b6B34 bool public initial(TRUE),
+	isInstr bool public initial(TRUE),
 	inParen bool public initial(TRUE),
 	b6B36 bool public initial(FALSE),
 	segSize(5) address public initial(0, 0, 0, 0, 0),	/* note treated as array */
@@ -1444,9 +1444,9 @@ ParseLine: procedure public;
 	end;
 
 
-	Sub53F8: procedure;
+	SetIsInstr: procedure;
 		if not isInstrMap(leftOp) then
-			b6B34 = FALSE;
+			isInstr = FALSE;
 	end;
 
 
@@ -1518,7 +1518,7 @@ $ENDIF
 			call Sub4291;
 		else
 		do;
-			call Sub53F8;
+			call SetIsInstr;
 			call Sub4274;
 		end;
 
@@ -1638,7 +1638,7 @@ end;
 
 
 
-Sub6EE1: procedure;
+AddFixupRec: procedure;
 	declare effectiveOffset address;
 
 	declare wrd based dta$p address;
@@ -1733,7 +1733,7 @@ Sub7131: procedure;
 	fixOffset = segSize(activeSeg) + itemOffset;
 	if not (inDB or inDW) and (tokenSize(spIdx) = 2 or tokenSize(spIdx) = 3) then
 		fixOffset = fixOffset + 1;
-	call Sub6EE1;
+	call AddFixupRec;
 	contentBytePtr = startItem;
 	call RecAddContentBytes;
 	do case GetFixupType;
@@ -1874,7 +1874,7 @@ Ovl8: procedure public;
 		spIdx = NxtTokI;
 		endItem = tokStart(spIdx) + tokenSize(spIdx);
 		startItem = tokStart(spIdx);
-		if IsSkipping or not b6B34 then
+		if IsSkipping or not isInstr then
 			endItem = startItem;
 		if endItem > startItem then
 		do;
@@ -2415,22 +2415,22 @@ end;
 
 $IF OVL4
 
-Sub3D34: procedure(c) public;
+InsertByteInMacroTbl: procedure(c) public;
 	declare c byte;
-	declare ch based w906A byte;
+	declare ch based macroInPtr byte;
 
 	ch = c;
-	if (w906A := w906A + 1) > w6870 then
+	if (macroInPtr := macroInPtr + 1) > topMacroTbl then
 		call RuntimeError(1);	/* table Error */
 end;
 
 
-Sub3D55: procedure(c) public;
+InsertCharInMacroTbl: procedure(c) public;
 	declare c byte;
 
-	call Sub3D34(c);
+	call InsertByteInMacroTbl(c);
 	if c = CR then
-		call Sub3D34(LF);
+		call InsertByteInMacroTbl(LF);
 end;
 
 $ENDIF
@@ -2496,7 +2496,7 @@ $IF OVL4
 $ENDIF
 	needsAbsValue = bZERO;
 
-	atStartLine, expectingOpcode, b6B34, inParen = bTRUE;
+	atStartLine, expectingOpcode, isInstr, inParen = bTRUE;
 	ctlEJECT, hasVarRef, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,
@@ -2506,7 +2506,7 @@ $ENDIF
 	asmErrCode = ' ';
 $IF OVL4
 	macro$p = .macroLine;
-	w919D = w906A;
+	w919D = macroInPtr;
 	expandingMacro = expandingMacro > 0;
 $ENDIF
 	tokI = 1;
@@ -2722,13 +2722,13 @@ Sub40B9: procedure public;
 
 	if b905E then
 	do;
-		do while (w9B62 := w906A - symHighMark) >= 128;
+		do while (w9B62 := macroInPtr - symHighMark) >= 128;
 			call WriteM;
 			symHighMark = symHighMark + 128;
 		end;
 		if w9B62 <> 0 then
 			call move(w9B62, symHighMark, endSymTab(2));
-		w906A = (symHighMark := endSymTab(2)) + w9B62;
+		macroInPtr = (symHighMark := endSymTab(2)) + w9B62;
 	end;
 end;
 
@@ -2785,7 +2785,7 @@ $IF OVL4
 				if GetChClass = CC$SEMI and b905E then
 				do;
 					b9059 = TRUE;
-					w906A = w906A - 2;
+					macroInPtr = macroInPtr - 2;
 				end;
 $ENDIF
 				call Skip2NextLine;
@@ -2874,7 +2874,7 @@ $ENDIF
 		end;
 		do;				/* CC$LET */
 $IF OVL4
-			w919F = w906A - 1;
+			w919F = macroInPtr - 1;
 $ENDIF
 			call GetId(O$ID);	/* assume it's an id */
 			if tokenSize(0) > 6 then	/* cap length */
@@ -2901,10 +2901,10 @@ $IF OVL4
 			do;
 				if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
 				do;
-					w906A = w919F;
-					call Sub3D55(kk + 81h);
-					call Sub3D34(GetNumVal);
-					call Sub3D55(curChar);
+					macroInPtr = w919F;
+					call InsertCharInMacroTbl(kk + 81h);
+					call InsertByteInMacroTbl(GetNumVal);
+					call InsertCharInMacroTbl(curChar);
 					effectiveToken = O$ID;
 				end;
 			end;
@@ -3175,7 +3175,7 @@ $IF OVL4
 			return;
 		end;
 		if tokenSize(0) = 0 then
-			tokenType(tokenIdx) = 41h;
+			tokenType(tokenIdx) = K$NUL;
 	end;
 $ENDIF
 
@@ -3488,7 +3488,7 @@ FinishLine: procedure public;
 			ii = 0;
 
 		w6BCE = tokStart(ii) + tokenSize(ii);
-		if IsSkipping or not b6B34 then
+		if IsSkipping or not isInstr then
 			w6BCE = .lineBuf;
 
 		if ChkGenObj then
@@ -3740,7 +3740,7 @@ InsertSym: procedure public;
 
 	/* move up the top block of the symbol tables to make room */
 	symHighMark, q = (p := symHighMark) + 8;
-	if w6870 < q then
+	if topMacroTbl < q then
 		call RuntimeError(1);	/* table Error */
 
 	do while p > curTokenSym$p;	/* byte copy */
@@ -4169,8 +4169,8 @@ $IF OVL4
 				end;
 
 		if b905E then
-			if w919D <> w906A and curCH = 0Dh or not b9059 then
-			call Sub3D55(curCH);
+			if w919D <> macroInPtr and curCH = 0Dh or not b9059 then
+			call InsertCharInMacroTbl(curCH);
 
 		if not(prevCH = '!' or inComment) then
 		do;
@@ -4370,7 +4370,7 @@ $IF OVL4
 		if (macroDepth := macroDepth - 1) = 0 then
 		do;
 			expandingMacro = 0;
-			w6870 = Physmem + 0BFh;
+			topMacroTbl = Physmem + 0BFh;
 		end;
 	end;
 $ELSE
@@ -4608,18 +4608,18 @@ Sub6F39: procedure;
 	call SkipWhite$2;
 
     do while 1;
-	if IsRParen or IsWhite then
-	do;
-		if Sub6F07(.tokBuf(0)) then
-			return;
-		goto done;
-	end;
+		if IsRParen or IsWhite then
+		do;
+			if Sub6F07(.tokBuf(0)) then
+				return;
+			goto done;
+		end;
 
-	tokBuf(tokBufIdx) = curChar;
-	tokBufIdx = tokBufIdx + 1;
-	if tokBufIdx > 14 then
-		goto done;
-	curChar = GetCh;
+		tokBuf(tokBufIdx) = curChar;
+		tokBufIdx = tokBufIdx + 1;
+		if tokBufIdx > 14 then
+			goto done;
+		curChar = GetCh;
     end;
 done:
 	curFileName$p = .tokBuf;
@@ -5022,7 +5022,7 @@ end;
 
 
 Sub7327: procedure public;
-	w9199 = w6870;
+	w9199 = topMacroTbl;
 	effectiveToken = 3Dh;
 	b905D = TRUE;
 	b9060 = FALSE;
@@ -5031,23 +5031,23 @@ end;
 
 EnterMacro: procedure(lowAddr, highAddr) address;
 	declare (lowAddr, highAddr) pointer;
-	declare ch1 based w6870 byte,
+	declare ch1 based topMacroTbl byte,
 		ch2 based highAddr byte;
 
 	do while lowAddr <= highAddr;
-		if w6870 <= symHighMark then
+		if topMacroTbl <= symHighMark then
 			call RuntimeError(1);	/* table Error */
 		ch1 = ch2;
-		w6870 = w6870 - 1;
+		topMacroTbl = topMacroTbl - 1;
 		highAddr = highAddr - 1;
 	end;
-	return w6870;
+	return topMacroTbl;
 end;
 
 
 Sub7383: procedure;
 	b9064 = 1;
-	w906A = symHighMark;
+	macroInPtr = symHighMark;
 	b905E = 1;
 	w9C75 = macroBlkCnt;
 end;
@@ -5214,7 +5214,7 @@ Sub753E: procedure public;
 end;
 
 Sub75FF: procedure public;
-	declare ch based w906A byte;
+	declare ch based macroInPtr byte;
 	declare ch2 based w9068 byte;
 	declare wrd based w9068 address;
 
@@ -5226,7 +5226,7 @@ Sub75FF: procedure public;
 			if not (tmac$mtype = 5) then
 			do;
 				if tmac$mtype = 2 then
-					w9199 = w6870 + 3;
+					w9199 = topMacroTbl + 3;
 
 				do w6BE0 = w919D to w919F - 1;
 					curChar = byteAt(w6BE0);
@@ -5234,7 +5234,7 @@ Sub75FF: procedure public;
 						call SyntaxError;
 				end;
 
-				w906A = w919D;
+				macroInPtr = w919D;
 				ch = 1Bh;
 				call Sub40B9;
 				call WriteM;
@@ -5295,7 +5295,7 @@ Sub770B: procedure public;
 			tmac$w14 = tokenSize(0) - (tokenSize(0) = 0);
 
 		call CollectByte((tokenSize(0) + 1) or 80h);
-		w6870 = EnterMacro(tokPtr, tokPtr + tokenSize(0) - 1);
+		topMacroTbl = EnterMacro(tokPtr, tokPtr + tokenSize(0) - 1);
 		call PopToken;
 
 		if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
@@ -5329,7 +5329,7 @@ Sub770B: procedure public;
 		end;
 		else
 		do;
-			w6870 = EnterMacro(.b$3782, .b$3783);
+			topMacroTbl = EnterMacro(.b$3782, .b$3783);
 			if tmac$mtype = 0 then
 			do;
 				tmac$b3 = curTokenSym.flags;
@@ -5378,12 +5378,12 @@ Sub787A: procedure public;
 				call MultipleDefError;
 
 			call Sub5CAD(tmac$b3, 1);
-			w906A = symHighMark;
+			macroInPtr = symHighMark;
 		end;
 		if rightOp = T$CR then
 		do;
 			b905E = 1;
-			w906A = symHighMark;
+			macroInPtr = symHighMark;
 		end;
 	end;
 	else
@@ -5739,7 +5739,7 @@ Sub7229: procedure public;
 
     call Outch(' ');
     do  i = 1 to 4;
-        if MoreBytes and b6B34 then
+        if MoreBytes and isInstr then
         do;
             effectiveAddr = effectiveAddr + 1;
             call Out2Hex(ch);
@@ -6102,7 +6102,7 @@ $ENDIF
         call IoErrChk;
     end;
 
-    w6870 = Physmem + 0BFh;
+    topMacroTbl = Physmem + 0BFh;
     endOutBuf = .b6A00;
 end;
 

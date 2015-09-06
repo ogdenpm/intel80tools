@@ -96,18 +96,18 @@ Sub6F39: procedure;
 	call SkipWhite$2;
 
     do while 1;
-	if IsRParen or IsWhite then
-	do;
-		if Sub6F07(.tokBuf(0)) then
-			return;
-		goto done;
-	end;
+		if IsRParen or IsWhite then
+		do;
+			if Sub6F07(.tokBuf(0)) then
+				return;
+			goto done;
+		end;
 
-	tokBuf(tokBufIdx) = curChar;
-	tokBufIdx = tokBufIdx + 1;
-	if tokBufIdx > 14 then
-		goto done;
-	curChar = GetCh;
+		tokBuf(tokBufIdx) = curChar;
+		tokBufIdx = tokBufIdx + 1;
+		if tokBufIdx > 14 then
+			goto done;
+		curChar = GetCh;
     end;
 done:
 	curFileName$p = .tokBuf;

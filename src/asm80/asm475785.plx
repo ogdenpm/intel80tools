@@ -385,9 +385,9 @@ ParseLine: procedure public;
 	end;
 
 
-	Sub53F8: procedure;
+	SetIsInstr: procedure;
 		if not isInstrMap(leftOp) then
-			b6B34 = FALSE;
+			isInstr = FALSE;
 	end;
 
 
@@ -459,7 +459,7 @@ $ENDIF
 			call Sub4291;
 		else
 		do;
-			call Sub53F8;
+			call SetIsInstr;
 			call Sub4274;
 		end;
 

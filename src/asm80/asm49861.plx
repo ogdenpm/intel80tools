@@ -151,7 +151,7 @@ $IF OVL4
 		if (macroDepth := macroDepth - 1) = 0 then
 		do;
 			expandingMacro = 0;
-			w6870 = Physmem + 0BFh;
+			topMacroTbl = Physmem + 0BFh;
 		end;
 	end;
 $ELSE

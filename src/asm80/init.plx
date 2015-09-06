@@ -182,7 +182,7 @@ $ENDIF
         call IoErrChk;
     end;
 
-    w6870 = Physmem + 0BFh;
+    topMacroTbl = Physmem + 0BFh;
     endOutBuf = .b6A00;
 end;
 
