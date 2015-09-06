@@ -1,5 +1,5 @@
 # common makefile info
-ROOT=d:/usr/sandbox/intel80
+ROOT=../..
 ISIS=$(ROOT:/=\)\thames
 TOOLS=$(ROOT:/=\)\tools
 F0=./
@@ -55,7 +55,7 @@ vclean: clean
 	del $(TARGET) 
 
 uclean:	vclean
-	del makefile *.asm ref\*.*
+	del /Q makefile *.asm ref\*.obj
 
 gitprep: uclean
 	..\..\unpack.pl

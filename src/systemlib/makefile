@@ -1,5 +1,5 @@
 # common makefile info
-ROOT=d:/usr/sandbox/intel80
+ROOT=../..
 ISIS=$(ROOT:/=\)\thames
 TOOLS=$(ROOT:/=\)\tools
 F0=./

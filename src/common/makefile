@@ -138,8 +138,6 @@ $(F3)load.obj: $(F3)load.plm $(F3)load.ipx
 $(F3)lookup.obj: $(F3)lookup.plm $(F3)lookup.ipx
 $(F3)lstinf.obj: $(F3)lstinf.plm $(F3)lstinf.ipx
 $(F3)lstlin.obj: $(F3)lstlin.plm $(F3)lstlin.ipx
-$(F3)lstsp5.obj: $(F3)lstsup.plm lstsup.ipx
-$(F3)lstsup.obj: $(F3)lstsup.plm lstsup.ipx
 $(F3)open.obj: $(F3)open.plm $(F3)open.ipx
 $(F3)openf.obj: $(F3)openf.plm $(F3)openf.ipx
 $(F3)prints.obj: $(F3)prints.plm $(F3)prints.ipx

@@ -110,7 +110,7 @@ plm0a.obj: plm0a.plm plm0a.ipx
 plm0b.obj: plm0b.plm plm0b.ipx
 plm0d.obj: plm0d.plm plm0d.ipx
 plm0e.obj: plm0e.plm plm0e.ipx
-plm0f.obj: plm0f.plm plm0f.ipx $(F3)info.inc
+plm0f.obj: plm0f.plm plm0f.ipx
 plm0g.obj: plm0g.plm plm0g.ipx
 plm0h.obj: plm0h.plm plm0h.ipx
 $(F3)adninf.obj: $(F3)adninf.plm $(F3)adninf.ipx

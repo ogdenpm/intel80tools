@@ -14,6 +14,8 @@ cd ..\asm80 & ..\..\unpack.pl & ..\..\nmake
 cd ..\lib80 & ..\..\unpack.pl & ..\..\nmake
 cd ..\isis41 & ..\..\unpack.pl & ..\..\nmake
 cd ..\isist0 & ..\..\unpack.pl & ..\..\nmake
+cd ..\plm80lib & ..\..\unpack.pl & ..\..\nmake
+cd ..\systemlib & ..\..\unpack.pl & ..\..\nmake
 @rem check the builds
 @rem done separately to avoid errors being lost
 @rem inside a long build list
@@ -34,4 +36,6 @@ cd ..\asm80 & ..\..\nmake verify
 cd ..\lib80 & ..\..\nmake verify
 cd ..\isis41 & ..\..\nmake verify
 cd ..\isist0 & ..\..\nmake verify
+cd ..\plm80lib & ..\..\nmake verify
+cd ..\systemlib & ..\..\nmake verify
 cd ..

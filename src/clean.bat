@@ -7,10 +7,12 @@ cd ..\plm3 & ..\..\nmake vclean
 cd ..\plm4 & ..\..\nmake vclean
 cd ..\plm5 & ..\..\nmake vclean
 cd ..\plm6 & ..\..\nmake vclean
-cd ..\link80 & ..\..\nmake clean
-cd ..\loc80 & ..\..\nmake clean
-cd ..\asm80 & ..\..\nmake clean
-cd ..\lib80 & ..\..\nmake clean
+cd ..\link80 & ..\..\nmake gitprep
+cd ..\loc80 & ..\..\nmake gitprep
+cd ..\asm80 & ..\..\nmake gitprep
+cd ..\lib80 & ..\..\nmake gitprep
 cd ..\isis41 & ..\..\nmake clean
 cd ..\isist0 & ..\..\nmake clean
+cd ..\plm80lib & ..\..\nmake gitprep
+cd ..\systemlib & ..\..\nmake gitprep
 cd ..
