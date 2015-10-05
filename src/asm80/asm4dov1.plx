@@ -1,13 +1,11 @@
-asm4D$OV1:
-do;
-/* to force the code generation this needs a non-standard definition
-   of put2Hex
-*/
-Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-
 $IF OVL4
+asm4D: do;
+/* to force the code generation this needs a non-standard definition of put2Hex */
+Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(asm4d.ipx)
 $ELSE
+asmOV1: do;
+Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(asmov1.ipx)
 $ENDIF
 
@@ -310,7 +308,7 @@ end;
 
 
 
-Sub7229: procedure public;
+PrintCodeBytes: procedure public;
     declare ch based startItem byte;
     declare i byte;
 
@@ -336,7 +334,7 @@ Sub7229: procedure public;
     end;
 
     call Outch(' ');
-    if shr(kk := tokenAttr(spIdx), 6) then
+    if shr(kk := tokenAttr(spIdx), 6) then	/* UF$EXTRN */
         call Outch('E');
     else if not showAddr then
         call Outch(' ');
@@ -345,15 +343,15 @@ Sub7229: procedure public;
 end;
 
 
-Sub72D8: procedure public;
+PrintErrorLineChain: procedure public;
     if not errorOnLine then
         return;
 
     call PrintStr(.ascLParen);    /* " (" */
-    call PrintNStr(4, .b6A57);
+    call PrintNStr(4, .lastErrorLine);
     call PrintStr(.ascRParen);    /* ")" */
     call PrintCRLF;
-    call move(4, .asciiLineNo, .b6A57);
+    call move(4, .asciiLineNo, .lastErrorLine);
 end;
 
 
@@ -384,11 +382,11 @@ $ENDIF
     if isControlLine then
         call OutStr(.spaces15);
     else
-        call Sub7229;
+        call PrintCodeBytes;
 
     if fileIdx > 0 then
     do;
-	/* note byte arith used so needToOpenFile = TRUE(255h) treated as -1 */
+	/* note byte arith used so needToOpenFile = TRUE(255) treated as -1 */
         call Outch(a1234(ii := needToOpenFile + fileIdx));
         if ii > 0 then    
             call Outch('=');
@@ -442,7 +440,7 @@ $ENDIF
     do;
         do while MoreBytes;
             call OutStr(.spaces2);
-            call Sub7229;
+            call PrintCodeBytes;
             call PrintCRLF;
         end;
 
@@ -453,7 +451,7 @@ $ENDIF
         end;
     end;
 
-    call Sub72D8;
+    call PrintErrorLineChain;
 end;
 
 AsmComplete: procedure public;
@@ -462,7 +460,7 @@ AsmComplete: procedure public;
     call PrintNStr((errCnt = 1) + 32, .aAssemblyComple);
     if errCnt > 0 then
     do;
-        call move(4, .b6A57, .space5RP);
+        call move(4, .lastErrorLine, .space5RP);
         call PrintNStr(8, .spaceLP);
     end;
     call Outch(CR);

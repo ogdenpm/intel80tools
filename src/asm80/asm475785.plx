@@ -1,9 +1,11 @@
-asm80$47$57$85: do;
 $IF OVL4
+asm47: do;
 $include(asm47.ipx)
 $ELSEIF OVL5
+asm57: do;
 $include(asm57.ipx)
 $ELSE
+asm85: do;
 $include(asm85.ipx)
 $ENDIF
 
@@ -379,7 +381,7 @@ ParseLine: procedure public;
 		return FALSE;
 	end;
 
-	isVar: procedure(arg1b) byte;
+	IsVar: procedure(arg1b) byte;
 		declare arg1b byte;
 		return arg1b = O$ID or arg1b = O$64;
 	end;
@@ -393,7 +395,8 @@ ParseLine: procedure public;
 
 
 	do while 1;
-		if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF) and skipping(0)
+		if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF)
+		   and skipping(0)
 $IF OVL4
 	           or (b4181(effectiveToken) < 128 or b9058) and b905E
 
@@ -452,7 +455,7 @@ $ENDIF
 			accum1 = GetNumVal;
 
 		if not hasVarRef then
-			hasVarRef = isVar(acc1ValType) or isVar(acc2ValType);
+			hasVarRef = IsVar(acc1ValType) or IsVar(acc2ValType);
 
 		b6B2D = O$NUMBER;
 		if leftOp > T$RPAREN and leftOp < K$DB then	/* expression leftOp */

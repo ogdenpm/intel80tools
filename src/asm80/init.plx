@@ -1,9 +1,11 @@
-init: do;
 $IF OVL4
+asm4e: do;
 $include(asm4e.ipx)
 $ELSEIF OVL5
+asm5d: do;
 $include(asm5d.ipx)
 $ELSE
+asmov3: do;
 $include(asmov3.ipx)
 $ENDIF
 

@@ -1,8 +1,8 @@
-asm48$86:
-do;
 $IF OVL4
+asm48: do;
 $include(asm48.ipx)
 $ELSE
+asm86: do;
 $include(asm86.ipx)
 $ENDIF
 declare	b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
@@ -95,13 +95,13 @@ Sub5C73: procedure(arg1b) bool;
 end;
 
 
-Sub5CAD: procedure(arg1w, type) public;
-	declare arg1w address, type byte;
+Sub5CAD: procedure(val, type) public;
+	declare val address, type byte;
 
 	if Sub5C73(2) then
 		return;
 	call InsertSym;
-	curTokenSym.val = arg1w;		/* fill in the rest of the new entry */
+	curTokenSym.val = val;		/* fill in the rest of the new entry */
 	curTokenSym.type = type;
 	curTokenSym.flags = 0;
 	call PopToken;
@@ -110,8 +110,8 @@ $ENDIF
 
 declare labelUse byte public;
 
-Sub5819$5CE8: procedure(arg1w, type) public;
-	declare arg1w address, type byte;
+Sub5819$5CE8: procedure(val, type) public;
+	declare val address, type byte;
 	declare (flags, b6CE9) byte,
 		(b6CEA, isSetOrEqu) bool,
 		b6CEC byte;
@@ -201,7 +201,7 @@ $ENDIF
 					if curTokenSym.type < 128 then
 					do;
 						curTokenSym.type = tokenType(0);
-						curTokenSym.val = arg1w;
+						curTokenSym.val = val;
 						flags = acc1Flags;
 						b6CEA = TRUE;
 					end;
@@ -251,7 +251,7 @@ $ENDIF
 			tokenType(0) = 3;
 
 		if not (inPublic or inExtrn) then
-			if curTokenSym.val <> arg1w then
+			if curTokenSym.val <> val then
 				call PhaseError;
 	end;
 
@@ -274,7 +274,7 @@ $IF OVL4
 	   or type = O$3A
 $ENDIF
 	then
-		curTokenSym.val = arg1w;
+		curTokenSym.val = val;
 
 	curTokenSym.flags = flags;
 	inPublic = 0;

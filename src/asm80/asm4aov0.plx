@@ -1,7 +1,8 @@
-asm4A$OV0: do;
 $IF OVL4
+asm4A: do;
 $include(asm4a.ipx)
 $ELSE
+asmOV0: do;
 $include(asmov0.ipx)
 $ENDIF
 

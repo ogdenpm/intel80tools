@@ -95,6 +95,7 @@ T$SLASH         '9'
 T$UMINUS        '0Ah'
 O$NONE          '0'
 O$LABEL         '3'
+O$PUBLIC	'6'
 O$ID            '9'
 O$STRING        '0Ah'
 O$DATA          '0Bh'
@@ -277,7 +278,7 @@ GetNumVal        PA
 MkCode        P(B arg1b)
 NxtTokI        PB
 ShowLine        PB
-EmitXref        P(B arg1b,A arg2w)
+EmitXref        P(B xrefMode,A name)
 SwapAccBytes    P
 TestBit         P(B bitIdx,"pointer" bitVector)"bool"
 
@@ -302,22 +303,22 @@ inCh$p         "pointer"
 startLine$p         A
 rootfd          A
 CloseSrc          P
-ReadF           P(B arg1b,A arg2w,A arg3w)
-ReadSrc           P(A arg1w)
-SeekI           P(B arg1b)
+ReadF           P(B conn,A buff$p,A count)
+ReadSrc           P(A bufLoc)
+SeekI           P(B seekOP)
 GetSrcCh        PB
 OpenSrc        P
 
 /* $file(asm47.pl3) */
 
 $file(asm47.pl3,asm85.pl3)
-Cond2Acc        P(B arg1b)
-ChkSegAlignment        P(B arg1b)
+Cond2Acc        P(B cond)
+ChkSegAlignment        P(B seg)
 UpdateHiLo        P(B hilo)
 DoPass        P
 
 $file(asm48.pl3)
-Sub5CAD        P(A arg1w,B type)
+Sub5CAD        P(A val,B type)
 Sub65D9        P
 
 $file(asm48.pl3,asm86.pl3)
@@ -325,19 +326,19 @@ labelUse          B
 GetCh           PB
 GetChClass      PB
 Lookup          P(B tableId)B
-Sub5819$5CE8        P(A arg1w,B arg2b)
+Sub5819$5CE8        P(A val,B type)
 UnpackToken     P("pointer" src,"pointer" dst)
 
 /* $file(asm49.pl3) */
 
 $file(asm49.pl3,asm861.plm)
 BalanceError    P
-CollectByte     P(B arg1b)
+CollectByte     P(B rc)
 CommandError    P
 DoubleDefError  P
 ExpressionError P
 FileError       P
-GetId           P(B arg1b)
+GetId           P(B type)
 Atoi          P
 GetStr          P
 HaveTokens      PB
@@ -351,7 +352,7 @@ OPcodeOperandError P
 OperandError    P
 PhaseError      P
 PopToken        P
-PushToken       P(B arg1b)
+PushToken       P(B type)
 StackError      P
 SyntaxError     P
 UndefinedSymbolError P
@@ -393,18 +394,18 @@ $file(asm4D.pl3,asmov1.pl3)
 AsmComplete     P
 NewPage         P
 NewPageHeader   P
-OutStr          P(A arg1w)
+OutStr          P(A s)
 PrintLine            P
 Ovl9            P
 Ovl10           P
 PrintCmdLine    P
-PrintDecimal    P(A arg1w)
+PrintDecimal    P(A n)
 SkipToEOP       P
 DoEject        P
 Sub7041$8447    P
 MoreBytes        PB
-Sub7229        P
-Sub72D8        P
+PrintCodeBytes        P
+PrintErrorLineChain        P
 
 /* $file(asm4E.plm) */
 
@@ -525,7 +526,7 @@ b68AE           "bool"
 inBuf           BS
 b6A00           B
 spIdx           B
-b6A57           BS
+lastErrorLine           BS
 ctlLISTChanged           "bool"
 b6A71           B
 isControlLine      B		

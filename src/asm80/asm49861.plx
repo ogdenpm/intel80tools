@@ -1,8 +1,8 @@
-asm49$861:
-do;
 $IF OVL4
+asm49: do;
 $include(asm49.ipx)
 $ELSE
+asm861: do;
 $include(asm861.ipx)
 $ENDIF
 

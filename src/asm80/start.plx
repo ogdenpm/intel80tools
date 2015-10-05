@@ -1,9 +1,11 @@
-start: do;
 $IF BASE
+asm801: do;
 $include(asm801.ipx)
 $ELSEIF OVL4
+asm41: do;
 $include(asm41.ipx)
 $ELSE
+asm51: do;
 $include(asm51.ipx)
 $ENDIF
 
@@ -380,7 +382,7 @@ $ENDIF
 		end;
 		call FinishLine;
 	end;
-	reget = 1;
+	reget = 1;	/* push back character */
 end;
 
 

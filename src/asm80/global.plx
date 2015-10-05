@@ -1,9 +1,11 @@
-global: do;
 $IF BASE
+glb: do;
 $include(glb.ipx)
 $ELSEIF OVL4
+glb4: do;
 $include(glb4.ipx)
 $ELSE
+glb5: do;
 $include(glb5.ipx)
 $ENDIF
 
@@ -211,7 +213,7 @@ declare	tokI byte public,
 	pad6A50(2) byte initial('  '),		/* protects for very big files */
 	asciiLineNo(4) byte public initial('   0'),
 	spIdx byte public,
-	b6A57(4) byte public initial('   0'),
+	lastErrorLine(4) byte public initial('   0'),
 	ctlDEBUG bool public initial(FALSE),	/* DEBUG */
 	controls(1) byte public at(.ctlDEBUG),
 	ctlMACRODEBUG bool public initial(FALSE),	/* MACRODEBUG */

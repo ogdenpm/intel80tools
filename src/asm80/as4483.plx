@@ -1,12 +1,12 @@
-as4483: do;
-
-/* force the non standard code generation of outStrN and put2Hex */
-
-OutStrN: procedure(s, n) external; declare s address, n address; end;
 $IF OVL4
+as4m4: do;
+/* force the non standard code generation of outStrN and put2Hex */
+OutStrN: procedure(s, n) external; declare s address, n address; end;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(asm44.ipx)
 $ELSE
+asm83: do;
+OutStrN: procedure(s, n) external; declare s address, n address; end;
 $include(asm83.ipx)
 $ENDIF
 /* 
