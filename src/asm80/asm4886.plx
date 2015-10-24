@@ -95,13 +95,13 @@ Sub5C73: procedure(arg1b) bool;
 end;
 
 
-Sub5CAD: procedure(val, type) public;
-	declare val address, type byte;
+Sub5CAD: procedure(line, type) public;
+	declare line address, type byte;
 
 	if Sub5C73(2) then
 		return;
 	call InsertSym;
-	curTokenSym.val = val;		/* fill in the rest of the new entry */
+	curTokenSym.line = line;		/* fill in the rest of the new entry */
 	curTokenSym.type = type;
 	curTokenSym.flags = 0;
 	call PopToken;
@@ -110,32 +110,32 @@ $ENDIF
 
 declare labelUse byte public;
 
-Sub5819$5CE8: procedure(val, type) public;
-	declare val address, type byte;
-	declare (flags, b6CE9) byte,
-		(b6CEA, isSetOrEqu) bool,
-		b6CEC byte;
+UpdateSymbolEntry: procedure(line, type) public;
+	declare line address, type byte;
+	declare (flags, absFlag) byte,
+		(lineSet, isSetOrEqu) bool,
+		origType byte;
 
-	/* type = 2 -> extrn or label def
+	/* type = 2 -> target
 		  4 -> set
 		  5 -> equ
 		  6 -> public
 		  9 -> address ref
 		 3ah-> ??
-	         89h-> none reloc ref
+	         8xh-> needs absolute value
 	*/
 
-	Sub5B9A: procedure;
+	SetTokenType: procedure;
 		tokenType(0) = type;
 		if (acc1ValType = K$REGNAME or acc1ValType = K$SP) and isSetOrEqu then
 			tokenType(0) = 12 - type;	/* set-> K$SP, equ->K$REGNAME */
 	end;
 
-	b6CEC = tokenType(0);
+	origType = tokenType(0);
 	isSetOrEqu = type = 5 or type = 4;
-	b6CE9 = 0;
+	absFlag = 0;
 	flags = curTokenSym.flags;
-	b6CEA = FALSE;
+	lineSet = FALSE;
 $IF OVL4
 	if Sub5C73(1) then
 	do;
@@ -151,18 +151,18 @@ $ENDIF
 		call SyntaxError;
 
 	if IsPhase1 then
-		if tokenType(0) = 9 then
+		if tokenType(0) = O$ID then
 		do;
-			if b6883 then
+			if createdUsrSym then
 			do;
 				if curTokenSym.type >= 80h
 $IF OVL4
-					 or type = O$3A and curTokenSym.val <> srcLineCnt
+					 or type = O$3A and curTokenSym.line <> srcLineCnt
 $ENDIF
 				then
 				do;
 					call LocationError;
-					b6CE9 = 80h;
+					absFlag = 80h;
 				end;
 			end;
 			else
@@ -187,9 +187,9 @@ $ENDIF
 			if hasVarRef and isSetOrEqu then
 				tokenType(0) = O$64;
 			else
-				call Sub5B9A;
+				call SetTokenType;
 
-			goto L5A9B$5F82;
+			goto endUpdateSymbol;
 		end;
 
 	if passCnt = 2 then
@@ -197,19 +197,19 @@ $ENDIF
 			if acc1ValType <> O$ID then
 				if isSetOrEqu then
 				do;
-					call Sub5B9A;
+					call SetTokenType;
 					if curTokenSym.type < 128 then
 					do;
 						curTokenSym.type = tokenType(0);
-						curTokenSym.val = val;
+						curTokenSym.line = line;
 						flags = acc1Flags;
-						b6CEA = TRUE;
+						lineSet = TRUE;
 					end;
-					goto L5A9B$5F82;
+					goto endUpdateSymbol;
 				end;
 
 	if IsPhase1 then
-		if tokenType(0) = 6 then
+		if tokenType(0) = O$REF then
 			if TestBit(type, .b5666) then
 			do;
 				if inExtrn then
@@ -217,26 +217,26 @@ $ENDIF
 				else
 				do;
 					tokenType(0) = type;
-					flags = flags and 0E0h;
-					if labelUse = 1 then
-						flags = acc1Flags or 20h;
+					flags = flags and 0E0h;	/* mask off seg, low, high */
+					if labelUse = 1 then /* set or equ */
+						flags = acc1Flags or UF$PUBLIC;
 
-					if labelUse = 2 then
+					if labelUse = 2 then /* label: */
 						if activeSeg <> 0 then
-							flags = flags or activeSeg or 38h;
+							flags = flags or activeSeg or (UF$PUBLIC + UF$BOTH);
 				end;
-				goto L5A9B$5F82;
+				goto endUpdateSymbol;
 			end;
 
 	if IsPhase1 then
-		if type = 6 then
+		if type = O$REF then
 			if TestBit(tokenType(0), .b5666) then
 			do;
 				if (flags and 60h) <> 0 then
-					tokenType(0) = 3;
+					tokenType(0) = O$LABEL;
 				else
-					flags = flags or 20h;
-				goto L5A9B$5F82;
+					flags = flags or UF$PUBLIC;
+				goto endUpdateSymbol;
 			end;
 
 	if IsPhase1 then
@@ -251,15 +251,15 @@ $ENDIF
 			tokenType(0) = 3;
 
 		if not (inPublic or inExtrn) then
-			if curTokenSym.val <> val then
+			if curTokenSym.line <> line then
 				call PhaseError;
 	end;
 
-L5A9B$5F82:
-	b6CE9 = b6CE9 or (curTokenSym.type and 80h);
+endUpdateSymbol:
+	absFlag = absFlag or (curTokenSym.type and 80h);
 
-	if IsPhase1 and (type = 9 or type = 6 or b6CEC <> tokenType(0)) then
-		curTokenSym.type = tokenType(0) or b6CE9;
+	if IsPhase1 and (type = 9 or type = 6 or origType <> tokenType(0)) then
+		curTokenSym.type = tokenType(0) or absFlag;
 
 	kk = curTokenSym.type;
 	if tokenType(0) = 3 or kk = 3 then
@@ -269,12 +269,12 @@ L5A9B$5F82:
 		call LocationError;
 
 	if IsPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
-	   or type = 4 and BlankAsmErrCode or b6CEA
+	   or type = 4 and BlankAsmErrCode or lineSet
 $IF OVL4
 	   or type = O$3A
 $ENDIF
 	then
-		curTokenSym.val = val;
+		curTokenSym.line = line;
 
 	curTokenSym.flags = flags;
 	inPublic = 0;
@@ -283,7 +283,7 @@ $ENDIF
 		call UndefinedSymbolError;
 
 	hasVarRef = 0;
-	if b6883 then
+	if createdUsrSym then
 		call PopToken;
 
 end;
@@ -349,7 +349,7 @@ Lookup: procedure(tableId) byte public;
 				if tokenType(0) = O$64 then
 					tokenType(0) = O$ID;
 
-				if (b6884 := (kk := (tokenType(0) and 7Fh)) = O$ID) then
+				if (usrLookupIsID := (kk := (tokenType(0) and 7Fh)) = O$ID) then
 					if needsAbsValue then
 						curTokenSym.type = 89h;
 				return kk;
@@ -370,9 +370,9 @@ Lookup: procedure(tableId) byte public;
 	curTokenSym$p = highOffset;
 	if tableId = 1 and not IsSkipping then
 	do;
-		b6883 = FALSE;
+		createdUsrSym = FALSE;
 		labelUse = 0;
-		call Sub5819$5CE8(srcLineCnt, (needsAbsValue and 80h) or 9);
+		call UpdateSymbolEntry(srcLineCnt, (needsAbsValue and 80h) or O$ID);
 		w6BE0 = .tokenSym;
 		do i = 1 to tokenIdx;
 			w6BE0 = w6BE0 + 2;
@@ -380,7 +380,7 @@ Lookup: procedure(tableId) byte public;
 				addr = addr + 8;
 		end;
 
-		b6883 = TRUE;
+		createdUsrSym = TRUE;
 	end;
 	return O$ID;
 end;

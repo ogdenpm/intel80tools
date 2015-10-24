@@ -416,14 +416,14 @@ InitLine: procedure public;
 		call OpenSrc;
 
 	lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
-	inExpression, expectingOperands, b6881, gotLabel, rhsUserSymbol,
-	inDB, inDW, b6B32, showAddr, b6884,
+	inExpression, expectingOperands, ifSeen, gotLabel, rhsUserSymbol,
+	inDB, inDW, condAsmSeen, showAddr, usrLookupIsID,
 $IF OVL4
 	b9059, b9060, 
 $ENDIF
 	needsAbsValue = bZERO;
 
-	atStartLine, expectingOpcode, isInstr, inParen = bTRUE;
+	atStartLine, expectingOpcode, isInstr, expectOp = bTRUE;
 	ctlEJECT, hasVarRef, tokenIdx,
 $IF OVL4
 	b9058, argNestCnt,

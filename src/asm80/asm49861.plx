@@ -160,8 +160,8 @@ $ELSE
 $ENDIF
 	else
 	do;
-			skipping(0) = skipping(ifDepth);
-			inElse(0) = inElse(ifDepth);
+		skipping(0) = skipping(ifDepth);
+		inElse(0) = inElse(ifDepth);
 		ifDepth = ifDepth - 1;
 	end;
 end;

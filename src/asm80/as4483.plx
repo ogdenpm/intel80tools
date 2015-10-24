@@ -18,7 +18,7 @@ $ENDIF
 	0Dh	-> unary leftOp
 	17h	-> IMM8 operand
 	37h	-> imm16 operand
-	40h	-> ? start byte list
+	40h	-> list
 	47h	-> 2 operand leftOp
 	4Dh	-> start word list
 	80h	-> end expression
@@ -34,8 +34,9 @@ $ENDIF
 	-x------	-> list
 */
 
-				/* 0   1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-declare b4181(*) byte public data(0, 80h,   0,   0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh,
+			       /* 0   1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+declare opFlags(*) byte public data(
+				  0, 80h,   0,   0, 0Fh, 0Fh, 80h, 0Fh, 0Dh, 0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh,
 				0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh,   1,   1,   1,   1,
 				80h,   1,   0,   0, 47h,   7,   7,   7, 17h, 47h,   7, 47h, 37h,   5,   7,   0,
 				  0,   0, 40h, 40h,   0,   1
@@ -45,7 +46,7 @@ $IF OVL4
 $ENDIF
 			   ),
 
-	b41B7(*) byte data(41h, 0, 0, 0, 19h, 40h, 0, 1Ch, 0, 0),
+	noRegOperand(*) byte data(41h, 0, 0, 0, 19h, 40h, 0, 1Ch, 0, 0),
 		/* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
 	b41C1(*) byte data(1Ah, 5, 80h, 0, 0C0h),
 		/* bit vector 27 -> 00000101 10000000 00000000 110 */
@@ -57,7 +58,7 @@ $ENDIF
 		/* bit vector 88 -> 00000110 00000010 00100000 00000000
 				    00000000 00000000 00000000 00000000
 				    00000000 00000000 00100010 */ 
-	b41DE(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
+	typeHasValue(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
 		/* bit vector 59 -> 11111111 10000000 00000000 00000000
 				    00001111 11111110 00000000 001 */
 		/* O$NONE, T$CR, T$LPAREN, T$RPAREN/O$LABEL, T$STAR, T$PLUS/K$SPECIAL, T$COMMA, */
@@ -107,8 +108,8 @@ IsReg: procedure(leftOp) bool public;
 	return leftOp = K$REGNAME or leftOp = K$SP;
 end;
 
-Sub4274: procedure public;
-	if TestBit(leftOp, .b41B7) then
+ChkInvalidRegOperand: procedure public;
+	if TestBit(leftOp, .noRegOperand) then
 		if IsReg(acc1ValType) then
 			call OperandError;
 end;
@@ -116,7 +117,7 @@ end;
 Sub4291: procedure public;
 	if IsReg(acc1ValType) then
 		call OperandError;
-	if (b4181(leftOp) and 2) = 0 then
+	if (opFlags(leftOp) and 2) = 0 then
 		acc2Flags = 0;
 	else if IsReg(acc2ValType) then
 		call OperandError;
@@ -176,7 +177,7 @@ end;
 
 
 GetNumVal: procedure address public;
-	declare tokByte based tokPtr (1) byte,	/* and high byte if not a register */
+	declare tokByte based tokPtr (1) byte,	/* ptr into token info */
 		val$p pointer,
 		val based val$p address;
 $IF OVL4
@@ -217,13 +218,13 @@ $ENDIF
 		else
 		do;
 			acc1ValType = tokenType(0);
-			if TestBit(acc1ValType, .b41DE) then
+			if TestBit(acc1ValType, .typeHasValue) then
 			do;
 				tokPtr = curTokenSym$p + 7;	/* point to flags */
-				acc1Flags = tokByte(0) and 0DFh;
-				tokPtr, val$p = curTokenSym$p + 4;
+				acc1Flags = tokByte(0) and 0DFh; /* remove public attribute */
+				tokPtr, val$p = curTokenSym$p + 4;	/* point to value */
 				acc1NumVal = val;			/* pick up value */
-				tokenSize(0) = 2;
+				tokenSize(0) = 2;		/* word value */
 
 			end;
 			else if tokenSize(0) = 0 then
@@ -240,8 +241,8 @@ $IF OVL4
 $ELSE
 					call ValueError;
 $ENDIF
-				acc1Flags = tokenAttr(0) and 0DFh;
-				acc1NumVal = tokenSymId(0);
+				acc1Flags = tokenAttr(0) and 0DFh;	/* remove public attribute */
+				acc1NumVal = tokenSymId(0);		/* use the symbol Id */
 			end;
 
 			if tokenSize(0) > 0 then	/* get low byte */
@@ -255,7 +256,7 @@ $ENDIF
 				if tokenType(0) = O$STRING then
 					call SwapAccBytes;
 
-		if (acc1Flags and 40h) <> 0 then
+		if (acc1Flags and UF$EXTRN) <> 0 then
 			if tokenType(0) < 9 then
 				accum1 = 0;
 
@@ -274,23 +275,25 @@ end;
 
 /*
    arg1b
-   xxxx1xxx	single byte arg
-   xxxxx11x	acc1 = acc1 | (acc2 << 3) 
-   xxxxx01x	acc1 = acc1 | acc2
+   xxxxxxx1	acc2 -> 16 bit reg
+   xxxxxx1x	acc1 = acc1 | acc2
+   xxxxx1xx	acc2 <<= 3
+   xxxx1xxx	acc2 -> 8 bit value
+   nnnnxxxx	leftOp = 24h + nnnn
    
 */   
 MkCode: procedure(arg1b) public;
 	declare arg1b byte;
 
-	if (arg1b and 3) <> 0 then
+	if (arg1b and 3) <> 0 then	/* lxi, ldax, stax, regarith, mvi, mov, rst */
 	do;
-		if accum2$hb <> 0
-		   or accum2$lb > 7
-		   or arg1b and accum2$lb
-		   or (arg1b and 3) = 3 and accum2$lb > 2
-		   or (not IsReg(acc2ValType) and leftOp <> K$RST) then    /* RST */
+		if accum2$hb <> 0	/* reg or rst num <= 7 */
+		   or accum2$lb > 7	 
+		   or arg1b and accum2$lb	/* only B D H SP if lxi, ldax or stax */
+		   or (arg1b and 3) = 3 and accum2$lb > 2	/* B or D if ldax or stax */
+		   or (not IsReg(acc2ValType) and leftOp <> K$RST) then    /* reg unless rst */
 			call OperandError;
-		else if IsReg(acc2ValType) and leftOp = K$RST then	     /* RST */
+		else if IsReg(acc2ValType) and leftOp = K$RST then	     /* cannot be reg for rst */
 			call OperandError;
 		if ror(arg1b, 2) then
 			accum2$lb = rol(accum2$lb, 3);
@@ -322,7 +325,7 @@ MkCode: procedure(arg1b) public;
 		if accum1$lb = 76h then	     /* mov m,m is actually Halt */
 			call OperandError;
 	if (leftOp := shr(arg1b, 4) + 24h) = 24h then
-		b6B2D = O$DATA;
+		nextTokType = O$DATA;
 end;
 
 NxtTokI: procedure byte public;
@@ -338,7 +341,7 @@ ShowLine: procedure byte public;
 $IF OVL4
 	        and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
-		and (not(b6B32 or skipping(0)) or ctlCOND);
+		and (not(condAsmSeen or skipping(0)) or ctlCOND);
 end;
 
 /*
@@ -351,14 +354,14 @@ EmitXref: procedure(xrefMode, name) public;
 	declare (i, byteval) byte;
 	declare (srcLineLow, srcLineHigh) byte at(.srcLineCnt);
 
-	if not IsPhase1 or not ctlXREF or IsSkipping and not b6881 then
+	if not IsPhase1 or not ctlXREF or IsSkipping and not ifSeen then
 		return;
 
 	call Outch(xrefMode + '0');
 	if xrefMode <> 2 then	/* not finalise */
 	do;
 		call OutStrN(name, 6);
-		b6881 = FALSE;
+		ifSeen = FALSE;
 		byteval = srcLineHigh;	/* high byte */
 		i = 0;
 		do while i < 4;

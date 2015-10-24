@@ -34,6 +34,9 @@ isis.doc	and its documentation
 
 thames.exe	John Elliott's intel isis emulator used in the build tree as isis.exe does
 		not work on 64bit windows. It contains the fixes I submitted to John
+		Another change is that now debug level 4 gives out a little
+		more detail on memory changes. This was to help me to trace
+		the intel code.
 
 nmake.exe	the microsoft nmake utility taken from the microsoft web site
 nmake.err
@@ -75,11 +78,6 @@ rebase.pl	(depreciated by relst.pl but may be required if there are no public
 		the tool writes to the console so you most likely want to redirect
 		to a file
 
-
-
-
-
-
 		
 src\clean.bat	cleans out the source tree of recreatable files
 src\mkall.bat	makes all the files in the source tree and checks they
@@ -103,6 +101,11 @@ src\asm80\*.*	plm & asm recreated source for asm80
 		as it makes global find / replace a lot easier.
 		It is a packed file of all of the source. The unpack.pl
 		utility is used to unpack to individual files
+		Recent change is that the listing and object files are now
+		created in separate directories. This makes the makefile more complex
+		but makes finding files easier. Additionally debug versions of
+		the application files are create in the obj directory and the
+		map files in the list directory now have the local symbol detail.
 
 src\lib80\*.*	plm & asm recreated source for lib80
 		note the file lib80_all.plm is the file I personally use to edit
@@ -225,3 +228,4 @@ Mark Ogden
 07-Jan-2007
 updated 1-Apr-2015
 updated 6-Sep-2015
+updated 24-Oct-2015

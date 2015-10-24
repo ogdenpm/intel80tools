@@ -94,8 +94,9 @@ T$UPLUS         '8'
 T$SLASH         '9'
 T$UMINUS        '0Ah'
 O$NONE          '0'
+O$TARGET		'2'
 O$LABEL         '3'
-O$PUBLIC	'6'
+O$REF	'6'
 O$ID            '9'
 O$STRING        '0Ah'
 O$DATA          '0Bh'
@@ -168,7 +169,7 @@ UF$PUBLIC       '20h'
 UF$EXTRN        '40h'
 
 /* user defined types */
-TOKENSYM$T      'structure(tok(2) address, val address, type byte, flags byte)'
+TOKENSYM$T      'structure(tok(2) address, line address, type byte, flags byte)'
 FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
 MACRO$T1	'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 address'
 MACRO$T2        'buf$p address, blk address, w10 address, w12 address, w14 address'
@@ -263,15 +264,15 @@ $file(asm43.pl3,asm82.pl3)
 Skip2NextLine   P
 SkipWhite       P
 SkipWhite$2     P
-TokeniseLine        P
+Tokenise        P
 
 /* $file(asm44.plm) */
 
 $file(asm44.plm,asm83.plm)
-b4181           BS
+opFlags           BS
 GetPrec         P(B leftOp)B
 IsReg        P(B leftOp)"bool"
-Sub4274        P
+ChkInvalidRegOperand        P
 Sub4291        P
 SetExpectOperands        P
 GetNumVal        PA
@@ -326,7 +327,7 @@ labelUse          B
 GetCh           PB
 GetChClass      PB
 Lookup          P(B tableId)B
-Sub5819$5CE8        P(A val,B type)
+UpdateSymbolEntry        P(A val,B type)
 UnpackToken     P("pointer" src,"pointer" dst)
 
 /* $file(asm49.pl3) */
@@ -430,7 +431,7 @@ InitRecTypes        P
 /* $file(asm57.pl3) */
 $file(asm57.pl3,asm85.pl3)
 HandleOp        P
-ParseLine        P
+Parse        P
 
 /* $file(asm5D.plm) */
 
@@ -511,10 +512,10 @@ name         BS
 savName           BS
 lhsUserSymbol           "bool"
 rhsUserSymbol  "bool"
-b6881           "bool"
+ifSeen           "bool"
 passCnt           B
-b6883           "bool"
-b6884           "bool"
+createdUsrSym           "bool"
+usrLookupIsID           "bool"
 needsAbsValue           "bool"
 b6897           "bool"
 tokI           B
@@ -528,23 +529,22 @@ b6A00           B
 spIdx           B
 lastErrorLine           BS
 ctlLISTChanged           "bool"
-b6A71           B
 isControlLine      B		
 inDB           B
 inDW           B
 inExpression           "bool"
-b6B28           B
+curOpFlags           B
 effectiveToken           B
 leftOp              B
 b6B2C           "bool"
-b6B2D           B
+nextTokType           B
 inNestedParen           B
 expectingOperands     "bool"
 expectingOpcode       "bool"
-b6B32           "bool"
+condAsmSeen           "bool"
 b6B33           "bool"
 isInstr           "bool"
-inParen           "bool"
+expectOp           "bool"
 b6B36           "bool"
 b6BD9           "bool"
 b6BDA           "bool"
@@ -568,7 +568,6 @@ b91A1          B		/* glb4 */
 b91A2          B		/* glb4 */
 b91A3          B		/* glb4 */
 b91A4          BS		/* glb4 */
-bp6A4E          BS
 accFixFlags          BS
 cmdch$p         "pointer"
 cmdLineBuf      BS
