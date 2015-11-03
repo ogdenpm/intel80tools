@@ -12,6 +12,7 @@ cd ..\loc80 & ..\..\nmake gitprep
 cd ..\asm80 & ..\..\nmake gitprep
 cd ..\lib80 & ..\..\nmake gitprep
 cd ..\isis41 & ..\..\nmake clean
+cd ..\isis.cli & ..\..\nmake gitprep
 cd ..\isist0 & ..\..\nmake clean
 cd ..\plm80lib & ..\..\nmake gitprep
 cd ..\systemlib & ..\..\nmake gitprep

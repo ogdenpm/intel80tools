@@ -150,6 +150,8 @@ src\isist0\*.*	files to build isis4.1 boot file
 		1) isis.t0.ref - reference file to check build
 		2) m.bat - simple batch file to unpack and build
 
+src\isis.cli\*.* files to build isis4.1 cli file
+
 tools\*.*	tools I wrote to help me decompile / build the files
   delib.pl	tool to split a library out into individual object files
 		usage: delib.pl libraryfile targetdir
@@ -229,3 +231,4 @@ Mark Ogden
 updated 1-Apr-2015
 updated 6-Sep-2015
 updated 24-Oct-2015
+updated 3-Nov-2015 (added cli)
