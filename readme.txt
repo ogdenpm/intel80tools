@@ -62,6 +62,7 @@ unpack.pl	perl script to unpack the combined source files I use personally
 		handle this
 		Note the packed file format is Ctrl-L filename newline file content
 		repeated for all files. The Ctrl-L separates the files
+		Now supports multi level directory expand.
 
 relst.pl	perl script that takes a listing file and a map file and
 		creates new listing file with the addresses relocated to
