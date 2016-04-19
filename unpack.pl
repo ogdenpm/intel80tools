@@ -1,3 +1,5 @@
+use File::Path qw(make_path);
+
 $sfile = glob("*_all.plm");
 
 {
@@ -20,6 +22,7 @@ for ($i = 1; $i < $#files; $i += 2) {
 		# skip if not changed
 		next if ($file eq $files[$i+1]);
 	}
+	make_path($1) if $files[$i] =~ /(.*(\/|\\))/ && ! -d $1; 	# directory
 	print "saving $files[$i]\n";
 	open(FILE, ">$files[$i]") or die "can't create $files[$i]\n";
 	print FILE $files[$i + 1];

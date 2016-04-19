@@ -1,0 +1,2098 @@
+SRCTEXex21:do;
+declare lit literally 'literally',
+        FWRITE	lit	'21',
+        FMAKE	lit	'22',
+        FDMAOFF	lit	'26';
+declare	CR	lit	'0dh',
+        LF	lit	'0ah',
+        FF	lit	'0ch',
+        DC1	lit	'11h',
+        US	lit	'1fh',
+        ESC	lit	'1bh',
+        BELL	lit	'7',
+        TAB	lit	'9',
+        CPMEOF	lit	'1ah';
+declare	TRUE	lit	'0ffh',
+        FALSE	lit	'0';
+
+declare	SRCTEX	lit	'0',
+        SRCNESTED	lit	'1',
+        SRCCMDLINE lit	'4',
+        SRCUSERINPUT	lit	'3';
+
+declare ESCSPACE lit	'5',
+        ESCHYPHEN lit	'6';
+
+declare	NOSPC	lit	'0',
+        JUSTIFYSPC lit	'1',
+        PUNCTSPC lit '2';
+
+declare bool	lit	'byte';
+
+reboot: procedure external; end;
+mon1:	procedure(f, a) external; declare f byte, a address; end;
+mon2:	procedure(f, a) byte external; declare f byte, a address; end;
+
+rdcon: procedure byte external; end;
+wrcon: procedure(c) external; declare c byte; end;
+wrconCRLF: procedure external; end;
+wrlst: procedure(c) external; declare c byte; end;
+wrstr: procedure(str) external; declare str address; end;
+rdstr: procedure(buf) external; declare buf address; end;
+cstat: procedure byte external; end;
+openFile: procedure(fcb) byte external; declare fcb address; end;
+closeFile: procedure(fcb) external; declare fcb address; end;
+deleteFile: procedure(fcb) external; declare fcb address; end;
+readSeq: procedure(fcb, buf) byte external; declare (fcb, buf) address; end;
+
+declare cpmBase address at(6);
+declare defFCB(33) byte at(5ch);
+declare cmdLine(128) byte at(80h);
+
+/* jmp to entry - 3 (to address lxi sp ) */
+declare texjmp byte data(0c3h),
+    texadr address data(.entry - 3);
+declare copyright(*) byte data(' Copyright (c) 1980 Digital Research ');
+declare version(*) byte data('TEX 2.1$');
+declare buildDate(*) byte data('02/13/81');
+declare aFileNotFound(*) byte data('File not found$');
+declare aUndefined(*) byte data('Undefined    Command$');
+declare	(cmdChr1, cmdChr2) byte at(.aUndefined + 10);
+
+declare aWordTooLong(*) byte data('Word too long$');
+declare aInvalidParam(*) byte data('Invalid Parameter$');
+declare aAbortYN(*) byte data(CR, 'Abort (Y/N) ?$');
+declare fileNameBreakChar(*) byte data(CR, ' ,.?*=:<>_[]');
+
+
+declare ii byte initial(6),
+    jj byte	initial(5),
+    charSpacingChanged bool initial(4),
+    pad(*) byte initial(3, 2, 1);
+declare tabstops(*) byte initial(9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105,
+                 113, 121, 129, 137, 145, 153, 255);
+declare patchArea(128) byte;
+
+declare prnFCB(*) byte initial(0, '        PRN', 0, 0, 0, 0, 0, 0, 0, 0,
+                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+declare ixFCB(*) byte initial(0, '        IX ', 0, 0, 0, 0, 0, 0, 0, 0,
+                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+declare texFCB(*) byte initial(0, '        TEX', 0, 0, 0, 0, 0, 0, 0, 0,
+                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+declare (tline, wline, eline, nline, sline) byte initial(0, 0, 0, 0, 0);
+declare lineOutBuf(256) byte;
+declare cmdLineIdx byte initial(0);
+declare	prnBufBase address initial(.memory);
+declare inputBufSize address initial(0);
+declare prnBufIdx address initial(0);
+declare texBufBase address initial(0);
+declare texIdx address initial(0fffeh);
+declare fileBuf address initial(0);
+declare defBufBase address initial(0);
+declare getDefIdx address initial(0FFFEh);	/* -2 */
+declare srcFileOpt byte initial(SRCCMDLINE);
+declare prevSrcFileOpt byte initial(SRCTEX);
+declare getc address initial(.getCmdLine);
+declare inputChar byte initial(0);
+declare altSrcOpt byte initial('X');
+declare altGetc address initial(.getcCon);
+declare prevAltInputChar byte initial(' ');
+declare stdinIdx byte initial(0);
+declare prnToDev byte initial(0);
+declare putc address initial(.putPrn);
+declare dstPutc address initial(0);
+declare leftMargin byte initial(8);
+declare width byte initial(0);
+declare indentThisLine byte initial(0);
+declare marginsChanged bool initial(FALSE);
+declare widthThisLine byte initial(70);
+declare centreWidth byte initial(0);
+declare lineLen byte initial(70);
+declare pageOffset byte initial(8);
+declare ppHangingIndent byte initial(6);
+declare minParaLinesOnPage byte initial(2);
+declare curIndent byte initial(0);
+declare tmpIndent byte initial(0);
+declare leftHangingIndent byte initial(0);
+declare escIdx byte initial(0);
+declare nEsc byte initial(1);
+declare escCodes(128) byte;
+declare escColumn(128) byte;
+declare slackFromRight bool initial(TRUE);
+declare pageLen byte initial(42h);
+declare curLine byte initial(0);
+declare topMargin byte initial(6);
+declare headerMargin byte initial(3);
+declare bottomMargin byte initial(5);
+declare footerMargin byte initial(1);
+declare lineSpacing byte initial(1);
+declare pageNum address initial(1);
+declare firstPage address initial(0);
+declare lastPage address initial(0FFFFh);
+declare formatOpt byte initial(PUNCTSPC);
+declare atBreakLine bool initial(TRUE);
+declare autoJustify bool initial(TRUE);
+declare ignoreRestOfLine bool initial(TRUE);
+declare invalidParam bool initial(FALSE);
+declare isJustified bool initial(TRUE);
+declare printerIsJustifying bool initial(FALSE);
+declare charSpacingOverriden bool initial(FALSE);
+declare charSpacing byte initial(5);
+declare proportionalSpace byte initial(0);
+declare ulCnt byte initial(0);
+declare underscoreCnt byte initial(0);
+declare boCnt byte initial(0);
+declare boldCnt byte initial(0);
+declare printerHMISet bool initial(FALSE);
+declare ixInitialised bool initial(FALSE);
+declare doIX bool initial(TRUE);
+declare centreLinesCnt byte initial(0);
+declare curCol byte initial(1);
+declare wsSpecialSeen bool initial(FALSE);
+declare continueLine bool initial(FALSE);
+declare pageNumMarker byte initial('%');
+declare escapeCharacter byte initial('\');
+declare cmdLeadIn byte initial('.');
+declare litLeadIn byte initial('`');
+declare OOpt bool initial(FALSE);
+declare err$print bool initial(FALSE);
+declare FOpt bool initial(FALSE);
+declare manualFeed bool initial(FALSE);
+declare isPaging bool initial(FALSE);
+declare DOpt bool initial(FALSE);
+declare COpt bool initial(FALSE);
+declare doPageNum bool initial(TRUE);
+declare noUserPageNum bool initial(TRUE);
+declare signPrefix byte initial(0);
+declare footerLine(133) byte;
+declare headerLine(133) byte;					
+declare inBuf(128) byte;	/* initial 0 */
+declare inBufMaxLen byte at(.inBuf);
+declare inBufLen byte at(.inBuf + 1);
+declare inBufBuf(126) byte at (.inBuf + 2);
+
+
+
+wrNLStrNL: procedure(str) public;
+    declare str address;
+    call wrconCRLF;
+    call wrstr(str);
+    call wrconCRLF;
+end;
+
+waitKey: procedure public;
+    declare junk byte;	
+
+    call wrstr(.('Hit any key to continue:$'));
+    junk = rdcon;
+    call wrconCRLF;
+end;	
+
+wrapup: procedure public;
+    if prnToDev = 0 then
+        call deleteFile(.prnFCB);
+    if ixInitialised then
+        call deleteFile(.ixFCB);
+    call wrNLSTRNL(.('Tex Aborted$'));
+    call reboot;
+end;
+
+outchar: procedure(c) public;
+    declare c byte;
+    if errPrint then
+        call wrlst(c);
+    else
+        call wrcon(c);
+end;
+
+outNewLine: procedure public;
+    call outchar(CR);
+    call outchar(LF);
+end;
+
+outStr: procedure(str) public;
+    declare str address;
+    declare (c, cnt) byte;
+    declare s based str (1) byte;
+
+    cnt = 0ffh;
+    do while (c := s(cnt := cnt + 1)) <> '$';
+        call outchar(c);
+    end;
+end;
+
+
+error: procedure(msg) public;
+    declare msg address;
+    declare n byte;
+    declare (buf, len) address;
+    declare s based buf (1) byte;
+
+    call outNewLine;
+    call outStr(.('ERROR: $'));
+    call outStr(msg);
+    call outNewLine;
+    call outNewLine;
+    if srcFileOpt = SRCUSERINPUT then
+        return;
+
+    call outStr(.('CONTEXT:$'));
+    call outNewLine;
+    if srcFileOpt = SRCCMDLINE then
+    do;
+        do n = 1 to cmdLineIdx;
+            call outchar(cmdLine(n));
+        end;
+        call outchar('?');
+    end;
+    else
+    do;
+        if srcFileOpt = SRCTEX then
+        do;
+            buf = texBufBase;
+            len = texIdx;
+        end;
+        else if srcFileOpt = SRCNESTED then
+        do;
+            buf = defBufBase;
+            len = getDefIdx;
+        end;
+        if len < 256 then
+            msg = 0ffffh;
+        else
+        do;
+            msg = len - 256;
+            do while s(msg:= msg + 1) <> CR;
+            end;
+        end;
+        do while msg <> len;
+            call outchar(s(msg := msg + 1));
+        end; 
+    end;
+    call outNewLine;
+end;
+
+
+fatalError: procedure(msg) public;
+    declare msg address;
+    call error(msg);
+    call wrapup;
+end;
+
+putDstEscCode:	procedure(c) public;
+    declare c byte;
+    call dstPutc(ESC);
+    call dstPutc(c);
+end;
+
+enablePS: procedure public;
+    call putDstEscCode('S');
+    call putDstEscCode('P');
+end;
+
+disablePS: procedure(n) public;
+    declare n byte;
+    call putDstEscCode('Q');
+    call dstPutc(US);
+    call dstPutc(n);
+end;
+
+absoluteHT: procedure(n) public;
+    declare n byte;
+    if proportionalSpace then
+        call disablePS(CR);
+    call putDstEscCode(9);	/* initialise absolute HT to print position n */
+    call dstPutc(n + 1);
+    if proportionalSpace then
+        call enablePS;
+end;
+
+
+setMargins: procedure public;
+    declare rightMargin byte;
+
+    if marginsChanged then if DOpt then
+    do;
+        rightMargin = leftMargin + width;
+        if not proportionalSpace then
+            rightMargin = rightMargin - 1;
+        marginsChanged = FALSE;
+        call absoluteHT(leftMargin);
+        call putDstEscCode('9'); /* set left margin */
+        call absoluteHT(rightMargin);
+        call putDstEscCode('0'); /* set right margin */
+        call dstPutc(CR);
+    end;
+end;
+
+memcpy: procedure(src$p, dst$p, len) public;
+    declare (src$p, dst$p) address, len byte;
+    declare src based src$p byte;
+    declare dst based dst$p byte;
+
+    do while (len := len - 1) <> 0ffh;
+        dst = src;
+        src$p = src$p + 1;
+        dst$p = dst$p + 1;
+    end;
+end;
+
+fill:	procedure(buf$p, ch, cnt) public;
+    declare buf$p address, (ch, cnt) byte;
+    declare bch based buf$p byte;
+
+    do while (cnt := cnt - 1) <> 0ffh;
+        bch = ch;
+        buf$p = buf$p + 1;
+    end;
+end;
+
+
+min: procedure(a, b) byte public;
+    declare (a, b) byte;
+    if a < b then
+        return a;
+    return b;
+end;
+
+toUpper: procedure(c) byte public;
+    declare c byte;
+    if c >= 'a' then if c < 'z' + 1 then
+        return c - 20h;
+    return c;
+end;
+
+
+createFile: procedure(fcb) public;
+    declare fcb address;
+
+    call deleteFile(fcb);
+    if mon2(FMAKE, fcb) = 0ffh then
+        call fatalError(.('No Directory Space$'));
+end;
+
+writeSeq: procedure(fcb, buf) public;
+    declare (fcb, buf) address;
+
+    call mon1(FDMAOFF, buf);
+    if mon2(FWRITE, fcb) <> 0 then
+        call fatalError(.('Disk Write$'));
+end;
+
+
+
+getCmdLine: procedure public;
+
+    if cmdLine(cmdLineIdx + 1) <> 0 then
+        inputChar = cmdLine(cmdLineIdx := cmdLineIdx + 1);
+    else
+        inputChar = CR;
+end;
+
+pageInRange: procedure byte public;
+    if pageNum >= firstPage then if pageNum <= lastPage then
+        return 0ffh;
+    return 0;
+end;
+
+
+selectDst: procedure;
+    if prnToDev = 0 then
+        putc = .putPrn;
+    else if prnToDev = 'X' then
+        putc = .wrcon;
+    else if prnToDev = 'Y' then
+        putc = .wrlst;
+    else
+        putc = .nullSub;
+    
+    if OOpt then
+        if not pageInRange then
+            putc = .nullSub;
+        else if DOpt then
+        do;
+            marginsChanged = TRUE;
+            if proportionalSpace then
+                call enablePS;
+        end;
+end;
+
+selectSrc: procedure(n) public;
+    declare n byte;
+
+    prevSrcFileOpt = srcFileOpt;
+    if (srcFileOpt := n) =  SRCTEX then
+        getc = .getTex;
+    else if srcFileOpt = SRCNESTED then
+        getc = .getDef;
+    else if srcFileOpt = SRCCMDLINE then
+        getc = .getCmdLine;
+    else
+        getc = .getRsp;
+end;
+
+selectSrcAndGetc: procedure(n) public;
+    declare n byte;
+    call selectSrc(n);
+    call getc;
+end;
+
+getUCChar: procedure public;
+    call getc;
+    inputChar = toUpper(inputChar);
+end;
+
+
+initFCB: procedure(fcb) byte public;
+    declare fcb address;
+    declare s based fcb (1) byte;
+    declare (nameIdx, hasFileName, n) byte;
+
+    addFileNameCh: procedure;
+        s(nameIdx := nameIdx + 1) = inputChar;
+        hasFileName = 0ffh;
+    end;
+
+    isReservedFileChar: procedure byte;
+        do n = 0 to 12;
+            if inputChar = fileNameBreakChar(n) then
+                return TRUE;
+        end;
+        return FALSE;
+    end;
+
+
+    call fill(fcb + 12, 0, 21);
+    call fill(fcb + 1, ' ', 11);
+    hasFileName = 0;
+    call getUCChar;
+    if inputChar <> CR then
+    do;
+        do while inputChar = ' ';
+            call getUCChar;
+        end;	
+        if inputChar <> '$' then
+        do;
+            do while not isReservedFileChar;
+                nameIdx = 0;
+                do while not isReservedFileChar;
+                    if nameIdx > 8 then
+                        goto isbad;
+                    call addFileNameCh;
+                    call getUCChar;
+                end;
+                if inputChar = ':' then
+                do;
+                    if nameIdx <> 1 then
+                        goto isbad;
+                    if (s(0) := s(1) - 'A' + 1) > 16 then
+                        goto isbad;
+                    s(1) = ' ';
+                    call getUCChar;
+                end;
+                if inputChar = '.' then
+                do;
+                    nameIdx = 8;					
+                    call getUCChar;
+                    do while not isReservedFileChar;
+                        if nameIdx > 11 then
+                            goto isbad;
+                        call addFileNameCh;
+                        call getUCChar;
+                    end;
+                end;
+            end;
+            if not hasFileName then
+                goto isbad;
+
+            if s(9) = ' ' then
+                call memcpy(.('TEX'), .s(9), 3);
+        end;
+    end;
+    return hasFileName;
+isbad:
+    call error(.('Invalid File$'));
+    return 0;
+end;
+
+
+flushPrn: procedure;
+    fileBuf = prnBufBase;
+    do while prnBufBase + prnBufIdx > fileBuf;
+        call writeSeq(.prnFCB, fileBuf);
+        fileBuf = fileBuf + 128;
+    end;
+    prnBufIdx = 0;
+end;
+
+putPrn: procedure(c) public;
+    declare c byte;
+    declare s based prnBufBase (1) byte;
+
+    s(prnBufIdx) = c;
+    if (prnBufIdx := prnBufIdx + 1) = inputBufSize then
+        call flushPrn;
+end;
+
+nullSub: procedure(c);
+    declare c byte;
+    ;
+end;
+
+putTextCh: procedure(c) public;
+    declare c byte;
+    declare (n, tabCol) byte;
+
+    if c = ESCSPACE then
+        c = ' ';
+    else if c = ESCHYPHEN then
+        c = '-';
+    if c >= ' ' then
+    do;
+        call dstPutc(c);
+        curCol = curCol + 1;
+    end;
+    else if c = TAB then
+    do;
+        n = 0ffh;
+        do while curCol >= tabstops(n := n + 1);
+        end;
+        tabCol = tabstops(n);
+        if DOpt then
+        do;
+            call absoluteHT(tabCol + leftMargin /* -1 */);	/* patch 2 */
+            curCol = tabCol;
+        end;
+        else
+            do while tabCol > curCol;
+                call dstPutc(' ');
+                curCol = curCol + 1;
+            end;
+    end;
+    else
+        call dstPutc(c);
+end;
+
+leadingSpaceN: procedure(n) public;
+    declare n byte;
+    if proportionalSpace then
+    do;
+        curCol = n;
+        call absoluteHT(curCol + leftMargin);
+    end;
+    else
+    do while (n := n - 1) <> 0ffh;
+        call putc(' ');
+    end;
+end;
+
+
+newLineN: procedure(n) public;
+    declare n byte;
+    declare ch byte;
+
+    do while (n := n - 1) <> 0ffh;
+        call putc(CR);
+        call putc(LF);
+        curLine = curLine + 1;
+        if isPaging then
+            if curLine mod 22 = 0 then
+                ch = rdcon;
+        if cstat then
+        do;
+            ch = rdcon;
+            call wrstr(.aAbortYN);	
+            if toUpper(rdcon) = 'Y' then
+                call wrapup;
+            call wrconCRLF;
+        end;
+    end;
+end;
+
+screenNewLineN: procedure(cnt) public;
+    declare cnt byte;
+    declare n byte;
+
+    do while (cnt := cnt - 1) <> 0ffh;
+        n = widthThisLine;
+        do while (n := n - 1) <> 0ffh;
+            call putc(' ');
+        end;
+        call newLineN(1);
+    end;
+end;
+
+
+roomOnPage: procedure(n) bool public;
+    declare n byte;
+    if curLine + n <= pageLen - bottomMargin then
+        return TRUE;
+    else
+        return FALSE;
+end;
+
+putcLineOutChar: procedure;
+    call putc(lineOutBuf(sline));
+    sline = sline + 1;
+end;
+
+emitCharItem: procedure;
+    declare ch byte;
+
+    do while escColumn(nEsc) = sline and nEsc <= escIdx;
+        call dstPutc(ch := escCodes(nEsc));
+        if ch = 'E' then
+        do;
+            underscoreCnt = ulCnt;
+            ulCnt = 0;
+        end;
+        else if ch = 'O' then
+        do;
+            boldCnt = boCnt;
+            boCnt = 0;
+        end;
+        else if ch = 'R' then
+            underscoreCnt = 0;
+        else if ch = '&' then
+            boldCnt = 0;
+        nEsc = nEsc + 1;
+    end;
+    call putcLineOutChar;
+end;
+
+
+
+spacingText: procedure(n) public;
+    declare n byte;
+    declare putLineChHandler address;
+
+    if DOpt then
+    do;
+        putLineChHandler = .putcLineOutChar;
+        if escIdx <> 0 then
+            putLineChHandler = .emitCharItem;
+        if boldCnt > 0 then
+            call putDstEscCode('O');	/* set bold print */
+        if leftHangingIndent <> 0 then
+        do;
+            if underscoreCnt > 0 then
+                call putDstEscCode('E');	/* auto underscore */
+            do while (leftHangingIndent := leftHangingIndent - 1) <> 0ffh;
+                if sline <> n then
+                    call putLineChHandler;
+            end;			
+            if underscoreCnt > 0 then
+                call putDstEscCode('R');  /* auto underscore off */
+        end;
+        if printerIsJustifying then
+            call putDstEscCode('M');	/* auto justify */
+        if underscoreCnt > 0 then
+            call putDstEscCode('E');	/* auto underscore */
+        do while sline <> n;
+            call putLineChHandler;
+        end;
+        if underscoreCnt > 0 then
+        do;
+            underscoreCnt = underscoreCnt - 1;
+            call putDstEscCode('R');	/* auto underscore off */
+        end;
+
+        if boldCnt > 0 then
+            boldCnt = boldCnt - 1;
+        if printerHMISet then
+        do;
+            if eline = nline then
+                printerHMISet = FALSE;
+            call putDstEscCode('S');	/* return HMI to spacing switch */
+        end;
+        if nEsc > escIdx then
+        do;
+            nEsc = 1;
+            escIdx = 0;
+        end;
+    end;
+    else
+        do while sline <> n; 
+            call putc(lineOutBuf(sline));
+            sline = sline + 1;
+        end;
+    tmpIndent = 0;
+    leftHangingIndent = 0;
+end;
+
+
+
+centre: procedure(n) public;
+    declare n byte;
+
+    if DOpt then
+        call putDstEscCode('=');	/* auto centre */
+    else				/* patch1: remove + indentThisLine below */
+        call leadingSpaceN(leftMargin + indentThisLine + shr(n - (nline - sline), 1));
+    call spacingText(nline);
+end;
+
+
+emitPageNum: procedure(centreNum) public;
+    declare centreNum bool;
+    declare num address;
+    declare digit byte;
+
+    num = pageNum;
+    tline = nline;
+    nline = sline;
+
+    do while num <> 0;
+        digit = num - (num / 10) * 10;
+        lineOutBuf(sline := sline - 1) = digit + '0';
+        num = num / 10;
+    end;
+    if centreNum then
+    do;
+        leftMargin = pageOffset;
+        call centre(centreWidth);
+    end;
+    else
+        call spacingText(nline);
+    nline = tline;
+    noUserPageNum = FALSE;
+end;
+
+
+emitHeadingOrFooter: procedure(buf, n) public;
+    declare buf address, n byte;
+    declare s based buf (1) byte;
+    declare c byte;
+
+    if s(0) <> 0 then
+    do;
+        call newLineN(n);
+        if not DOpt then
+            call leadingSpaceN(leftMargin);
+        else if proportionalSpace then
+            call putDstEscCode('M');	/* auto justify */
+        n = 0ffh;
+        do while (c := s(n := n + 1)) <> 0;
+            if c = pageNumMarker then
+                call emitPageNum(FALSE);
+            else
+                call putc(c);
+        end;
+    end;
+end;
+
+
+emitEndOfPage: procedure public;
+    declare n byte;
+
+    call setMargins;
+    if curline <> 0 then
+    do;
+        if pageLen - bottomMargin > curline then
+        do;
+            n = pageLen - bottomMargin - curLine;
+            if prnToDev = 'X' then
+                call screenNewLineN(n);
+            else
+                call newLineN(n);
+        end;
+        if bottomMargin <> 0 then
+        do;
+            call emitHeadingOrFooter(.footerLine, footerMargin);
+            if doPageNum then
+                if noUserPageNum then	/* if footer hasn't put page # */
+                    if (n := pageLen - curLine) > 1 then
+                    do;
+                        call newLineN(shr(n, 1));
+                        call emitPageNum(TRUE);	/* put centred page # */
+                    end;
+            if FOpt then
+                call putc(FF);
+            else
+                call newLineN(pageLen - curLine);
+        end;
+        pageNum = pageNum + 1;
+        noUserPageNum = TRUE;
+        curLine = 0;
+        if proportionalSpace then
+            call putDstEscCode('X');	/* cancel all WP modes */
+        if OOpt then
+            call selectDst;
+        if manualFeed then
+        do;
+            call wrstr(.('Insert next page, $'));
+            call waitKey;
+        end;
+    end;
+end;
+
+
+emitHeadingIfAtTop: procedure;
+    call setMargins;
+    if curLine = 0 then
+    do;
+        if centreWidth = 0 then
+            centreWidth = width;
+        if topMargin <> 0 then
+        do;
+            call emitHeadingOrFooter(.headerLine, topMargin - headerMargin - 1);	
+            call newLineN(topMargin - curLine);
+            if proportionalSpace then
+                call putDstEscCode('X');	/* cancel WP modes */
+        end;
+    end;
+end;
+
+
+spacing: procedure(n) public;
+    declare n address;
+    declare nLow byte at(.n);
+
+    call emitHeadingIfAtTop;
+    n = n * lineSpacing;
+    if roomOnPage(nLow + 1) then
+        call newLineN(n);
+    else
+        call emitEndOfPage;
+end;
+
+justify: procedure public;
+    declare (slack, slackAtStart, notFirstPass) byte;
+
+    allocateSlack: procedure(srcIdx, srcEndIdx, dstIdx, step) byte;
+        declare (srcIdx, srcEndIdx, dstIdx, step) byte;
+        declare (c, prevC) byte;
+
+        prevC = ' ';	/* don't add extra space at either end of line */
+        do while srcIdx <> srcEndIdx;
+            c, lineOutBuf(dstIdx := dstIdx + step) = lineOutBuf(srcIdx := srcIdx + step);
+            if c = ' ' then	/* seen a space */
+                if slack <> 0 then /* and have slack */
+                    if prevC <> '.' or notFirstPass then  /* don't add after a . on first pass */
+                        if prevC <> ' ' then	/* don't add more than 1 space per run */
+                        do;
+                            lineOutBuf(dstIdx := dstIdx + step) = ' ';
+                            slack = slack - 1;
+                        end;
+            prevC = lineOutBuf(srcIdx);
+        end;
+        return dstIdx;
+    end;
+
+    moveUpText: procedure(oldEnd, oldStart, newEnd);
+        declare (oldEnd, oldStart, newEnd) byte;
+
+        do while oldEnd <> oldStart;
+            lineOutBuf(newEnd := newEnd - 1) = lineOutBuf(oldEnd := oldEnd - 1);
+        end;
+    end;
+
+    slack = widthThisLine - (eline - sline);
+    sline = (tline := sline) + leftHangingIndent;
+    notFirstPass = FALSE;
+    do while slack <> 0;
+        slackAtStart = slack;
+        if slackFromRight then
+        do;
+            call moveUpText(nline, wline, nline + slack);
+            wline = wline + slack;
+            nline = nline + slack;
+            eline = eline + slack;
+            sline = allocateSlack(eline - slack, sline, eline, -1);
+        end;
+        else
+        do;
+            sline = (tline := sline) - slack;
+            eline = allocateSlack(tline - 1, eline - 1, sline - 1, 1) + 1;
+        end;
+        notFirstPass = TRUE;
+        if slackAtStart = slack then	/* couldn't allocate any slack */
+        do;
+            call error(.aWordTooLong);
+            goto exitLoop;
+        end;
+    end;
+exitLoop:
+    if leftHangingIndent > 0 then
+    do;
+        call moveUpText(tline + leftHangingIndent, tline, sline);
+        sline = sline - leftHangingIndent;
+    end;
+    slackFromRight = not slackFromRight;
+end;
+
+
+outputLine: procedure public;
+    dstPutc = putc;
+    call emitHeadingIfAtTop;
+    if wsSpecialSeen then
+        putc = .putTextCh;
+    if centreLinesCnt > 0 then
+    do;
+        /* patch 1
+        if not DOpt then
+            call sub97D(indentThisLine);
+        */
+        call centre(widthThisLine);
+        centreLinesCnt = centreLinesCnt - 1;
+    end;
+    else if nline <> sline then
+    do;
+        if not DOpt then
+            call leadingSpaceN(leftMargin);
+        curCol = 1;
+        call leadingSpaceN(indentThisLine);
+        if formatOpt > JUSTIFYSPC then
+        do;
+            if eline <> nline then
+            do;
+                if eline = sline then
+                do;
+                    eline, wline = nline;
+                    call error(.aWordTooLong);	
+                end;
+                if isJustified then
+                    if DOpt then
+                        printerIsJustifying = TRUE;
+                    else
+                        call justify;
+            end;
+            call spacingText(eline);
+            if escIdx <> 0 then
+                do while sline <> wline;
+                    lineOutBuf(sline) = 0;
+                    call emitCharItem;
+                end;
+            else
+                sline = wline;
+        end;
+        else
+            call spacingText(nline);
+    end;
+    eline = sline;
+    call spacing(1);
+    if printerIsJustifying then
+    do;
+        printerIsJustifying = FALSE;
+        call putDstEscCode('X');	/* cancel WP modes */
+    end;
+    if wsSpecialSeen then
+    do;
+        call selectDst;
+        if sline = nline then
+            wsSpecialSeen = FALSE;
+    end;
+    if not roomOnPage(1) then
+        call emitEndOfPage;
+end;
+
+
+markEscCode: procedure(c) public;
+    declare c byte;
+    if escIdx < 127 then
+    do;
+        escCodes(escIdx := escIdx + 1) = c;
+        escColumn(escIdx) = nline;
+    end;
+end;
+
+putEscCode: procedure(c) public;
+    declare c byte;
+    call markEscCode(ESC);
+    call markEscCode(c);
+end;
+
+
+trimTrailingSpace: procedure public;
+    do while lineOutBuf(nline - 1) = ' ' and nline <> sline;
+        nline = nline - 1;
+    end;
+end;
+
+break: procedure public;
+    if sline <> nline then
+        if autoJustify then
+        do;
+            call trimTrailingSpace;
+            eline, wline = nline;
+            slackFromRight = TRUE;
+            call outputLine;
+        end;
+    dstPutc = putc;
+end;
+
+finishPage: procedure public;
+    call break;
+    call emitEndOfPage;
+end;
+
+openSrc: procedure(fcb) byte public;
+    declare fcb address;
+
+    call break;
+    if initFCB(fcb) then
+        if openFile(fcb) <> 0ffh then
+            return TRUE;
+        else
+            call error(.aFileNotFound);
+    return FALSE;
+end;
+
+
+nextSrcOrDone: procedure public;
+    call selectSrc(SRCCMDLINE);
+    inputChar = ' ';
+    texIdx = 0fffeh;
+
+    do while inputChar <> CR and inputChar <> '$';
+        if openSrc(.texFCB) then
+        do;
+            call selectSrc(SRCTEX);
+            return;
+        end;
+    end;
+    manualFeed = 0;
+    call emitEndOfPage;
+    if prnToDev = 0 then	/* flush prn file if open */
+    do;
+        call fill(prnBufBase + prnBufIdx, CPMEOF, 128);
+        call flushPrn;
+        call closeFile(.prnFCB);
+    end;
+    if ixInitialised then	/* flush ix file if open */
+        call closeFile(.ixFCB);
+    if prnToDev <> 'X' then		/* not to console */
+        call wrNLStrNL(.('Tex Finished$'));
+    call reboot;
+end;
+
+readFile: procedure(buf, count, fcb) public;
+    declare (buf, count, fcb) address;
+    declare firstCh based fileBuf byte;
+
+    fileBuf = buf;
+
+    do while fileBuf < buf + count;
+        if readSeq(fcb, fileBuf) <> 0 then
+        do;
+            firstCh = CPMEOF;
+            return;
+        end;
+        else
+            fileBuf = fileBuf + 128;
+    end;
+end;
+
+
+
+getTex: procedure public;
+    declare s based texBufBase (1) byte;
+
+    if (texIdx := texIdx + 1) >= inputBufSize then
+    do;
+        call readFile(texBufBase, inputBufSize, .texFCB);
+        texIdx = 0;
+    end;
+    if (inputChar := s(texIdx) /* and 7fh - patch */) = CPMEOF then
+    do;
+        call nextSrcOrDone;
+        call getc;
+    end;
+end;
+
+
+
+getDef: procedure public;
+    declare s based defBufBase (1) byte;
+
+    if (getDefIdx := getDefIdx + 1) >= 800h then
+    do;	/* load next block */
+        call readFile(defBufBase, 800h, .defFCB);
+        getDefIdx = 0;
+    end;
+    if (inputChar := s(getDefIdx) /* and 7fh - patch */) = CPMEOF then
+    do;	/* switch back to console on CPM EOF seen */
+        altGetc = .getcCon;
+        altSrcOpt = 'X';
+        call selectSrcAndGetc(SRCTEX);
+    end;
+end;
+
+getcCon: procedure public;
+    if (stdinIdx := stdinIdx + 1) > inBufLen then
+    do;
+        call rdstr(.inBuf);
+        inBufBuf(inBufLen) = CR;
+        inBufBuf((inBufLen := inBufLen + 1)) = LF;
+        stdinIdx = 0;
+        call wrconCRLF;
+    end;
+    inputChar = inBufBuf(stdinIdx);
+end;
+
+
+getRsp: procedure public;
+    /* get character from alternate stream */
+    call altGetc;
+    /* if we have seen blank line i.e. LF CR then revert to original stream */
+    if inputChar = CR then
+        if prevAltInputChar = LF then
+            call selectSrcAndGetc(prevSrcFileOpt);
+    prevAltInputChar = inputChar;
+end;
+
+
+skipToEOL: procedure public;
+    do while inputChar <> LF;
+        call getc;
+    end;
+    ignoreRestOfLine = FALSE;
+end;
+
+getcProcessEscape: procedure public;
+    declare ucInputChar byte;
+
+loop: do;
+    call getc;
+continue: do;
+        if inputChar < ' ' then
+        do;
+            if inputChar = CR then
+            do;
+                atBreakLine = TRUE;
+                call skipToEOL;
+                inputChar = ' ';
+                return;
+            end;
+            if inputChar <> TAB then
+            do;
+                call markEscCode(inputChar);
+                goto loop;
+            end;
+            wsSpecialSeen = TRUE;
+        end;
+        if inputChar = escapeCharacter then
+        do;
+            call getc;
+            ucInputChar = toUpper(inputChar);
+            if ucInputChar = ' ' then
+            do;
+                inputChar = ESCSPACE;
+                wsSpecialSeen = TRUE;
+                return;
+            end;
+            else if ucInputChar = '-' then
+            do;
+                inputChar = ESCHYPHEN;
+                wsSpecialSeen = TRUE;
+                return;
+            end;
+            else if inputChar = CR then
+                call skipToEOL;
+            else if ucInputChar = '"' then
+            do;
+                inputChar = CR;
+                goto continue;
+            end;
+            else if ucInputCHar = 'C' then
+                continueLine = TRUE;
+            else if ucInputChar = 'B' then
+            do;
+                call markEscCode(8);
+                call getc;
+                call markEscCode(inputChar);
+            end;
+            else if ucInputChar = 'U' then
+                call putEscCode('D');	/* negative 1/2 line feed */
+            else if ucInputChar = 'D' then
+                call putEscCode('U');	/* 1/2 line feed */
+            else
+                return;
+            goto loop;
+        end;
+    end;
+    end;
+end;
+
+setupThisLine: procedure public;
+    declare unused address, oldVal byte;
+
+    oldVal = leftMargin;
+    if (leftMargin := pageOffset) <> oldVal then
+        marginsChanged = TRUE;
+    if formatOpt > NOSPC then
+        indentThisLine = curIndent + tmpIndent;
+    else
+        indentThisLine = 0;
+    if tmpIndent > 132 then
+    do;
+        leftHangingIndent = -tmpIndent;	/* when tmpIndent < curIndent */
+        slackFromRight = TRUE;
+    end;
+    oldVal = width;
+    if (width := lineLen) <> oldVal then
+        marginsChanged = TRUE;
+    widthThisLine = width - indentThisLine;
+    if charSpacingOverriden then
+        widthThisLine = (unused := widthThisLine * charSpacing / 100) + widthThisLine;
+end;
+
+collectLine: procedure byte public;
+    declare ch byte;
+
+    addSpcToLine: procedure;
+        lineOutBuf(nline) = ' ';
+        nline = nline + 1;
+    end;
+
+loop: do;
+    atBreakLine = FALSE;
+    call getcProcessEscape;
+    if inputChar = cmdLeadIn then
+    do;
+        atBreakLine = TRUE;
+        autoJustify = TRUE;
+        return FALSE;
+    end;
+    else if inputChar = litLeadIn then
+    do;
+        atBreakLine = TRUE;
+        autoJustify = FALSE;
+        return FALSE;
+    end;
+    else if inputChar = ' ' then
+    do;
+        autoJustify = TRUE;
+        call break;
+        call setupThisLine;
+        if atBreakLine then
+        do;
+            call spacing(1);
+            call setupThisLine;
+            goto  loop;
+        end;
+    end;
+    continueLine = FALSE;
+    do while not atBreakLine;
+        lineOutBuf(nline) = inputChar;
+        nline = nline + 1;
+        call getcProcessEscape;
+    end;
+    if continueLine then
+        goto loop;
+    if centreLinesCnt = 0 then
+    do;
+        call trimTrailingSpace;
+        if formatOpt = PUNCTSPC then	/* add 2 spaces after . ? or ! */
+        do;
+            if (ch := lineOutBuf(nline - 1)) = '.' or ch = '?' or ch = '!' then
+                call addSpctoLine;
+            call addSpcToLine;
+        end;
+    end;
+    end;
+    return TRUE;
+end;
+
+
+
+collectTextBlock: procedure byte public;
+    if eline = sline then
+        call setupThisLine;
+    /* if not formated or is centred just collect one line */
+    if formatOpt < PUNCTSPC or centreLinesCnt > 0 then
+        return collectLine;
+    /* otherwise collect as many lines as fit in a single output line */
+    do while widthThisLine >= nline - sline;
+        if not collectLine then
+            return FALSE;
+    end;
+    /* back off text if too much collected */
+    eline = sline + widthThisLine;
+    /* look for a space or hyphen */
+    do while lineOutBuf(eline) <> ' '; 
+        if lineOutBuf(eline := eline - 1) = '-' then
+        do;
+            eline, wline = eline + 1;
+            return TRUE;
+        end;
+    end;
+    wline = eline + 1;
+    if lineOutBuf(eline - 1) = ' ' then
+        eline = eline - 1;
+    if lineOutBuf(wline) = ' ' then
+        if wline <> nline then
+            wline = wline + 1;
+    return TRUE;
+end;
+
+undefinedCommandError: procedure public;
+    call error(.aUndefined);
+end;
+
+getNumber: procedure address public;
+    declare val address;
+
+    isdigit: procedure byte;
+        return inputChar - '0' < 10;
+    end;
+
+
+    call getUCChar;
+    signPrefix = 0;
+    val = 0;
+    do while inputChar = ' ';
+        call getUCChar;
+    end;
+    if isdigit then
+        signPrefix = 1;
+    else if inputchar = '+' then
+    do;
+        signPrefix = 2;
+        call getUCChar;
+    end;
+    else if inputChar = '-' then
+    do;
+        signPrefix = 3;
+        call getUCChar;
+    end;
+    do while isdigit;
+        val = val * 10 + (inputChar - '0');
+        call getUCChar;
+    end;
+    return val;
+end;
+
+
+
+get16NewValue: procedure(n) address public;
+    declare n address;
+    declare val address;
+
+    val = getNumber;
+    if signPrefix = 1 then
+        n = val;
+    if signPrefix = 2 then
+        n = n + val;
+    if signPrefix = 3 then
+        n = n - val;	
+    if rol(high(n), 1) then
+        n = 0;
+    return n;
+end;
+
+get8NewValue: procedure(n) byte public;
+    declare n byte;
+    declare val address;
+    if high(val := get16NewValue(double(n))) <> 0 then
+        call undefinedCommandError;
+    return val;
+end;
+
+get8AbsNumber: procedure byte public;
+    declare val byte;
+    
+    val = get8NewValue(0);
+    if signPrefix > 1 then
+        call undefinedCommandError;
+    return val;
+end;
+
+openDefSrc: procedure byte public; /* TRUE if ok */
+    if srcFileOpt = SRCNESTED then	/* cannot nest */
+        invalidParam = TRUE;
+    else if openSrc(.defFCB) then
+    do;
+        getDefIdx = 0fffeh;	/* -2 */
+        return TRUE;
+    end;
+    return FALSE;
+end;
+
+setAltGetcToDefSrc: procedure public;
+    if openDefSrc then
+    do;	/* file opened so set up to read */
+        altSrcOpt = 0;
+        altGetc = .getDef;
+    end;
+end;
+
+
+setupPS: procedure public;
+    if DOpt then
+    do;
+        call break;
+        call enablePS;
+        proportionalSpace = TRUE;
+        charSpacing = 22;
+    end;
+end;
+
+getOptions: procedure public;
+    declare (unused, fileOptChar, dollarSeen) byte,
+        (SOpt, QOpt) byte;
+
+    getDrive: procedure(fcb);
+        declare fcb address,
+            drive based fcb byte;
+
+        if srcFileOpt = SRCCMDLINE then	/* drive options are only valid on cmd line */
+            if inputChar >= 'A' then
+                if inputChar <= 'P' then
+                do;			
+                    drive = inputChar - 40h;	/* convert drive */
+                    return;	
+                end;
+        call fatalError(.aInvalidParam);
+    end;
+
+    SOpt = FALSE;
+    QOpt = FALSE;
+    proportionalSpace = FALSE;
+    OOpt = FALSE;
+    err$print = FALSE;
+    FOpt = FALSE;
+    manualFeed = FALSE;
+    isPaging = FALSE;
+    DOpt = FALSE;
+    dollarSeen = FALSE;
+    fileOptChar = 0;
+    call getUCChar;
+
+    do while inputChar <> CR;
+        if dollarSeen then
+        do;
+            if fileOptChar = 0 then
+            do;
+                if inputChar = 'S' then			/* $S - paging or manual feed for non file */
+                    SOpt = TRUE;
+                else if inputChar = 'F' then		/* $F - use form feed */
+                    FOpt = TRUE;
+                else if inputChar = 'D' then
+                do;
+                    charSpacingOverriden = TRUE;
+                    DOpt = TRUE;
+                end;
+                else if inputChar = 'O' then		/* $Onn [mm] - range to print pages nn-mm */
+                do;
+                    OOpt = TRUE;
+                    firstPage = get16NewValue(0);
+                    if inputChar <> CR then
+                        lastPage = get16NewValue(0ffffh);
+                end;
+                else if inputChar = 'N' then		/* $Nnn - initialise page number to nn */
+                    pageNum = get16NewValue(pageNum);
+                else if inputChar = 'R' then		/* $R - alt getc uses default file */
+                    call setAltGetcToDefSrc;
+                else if inputChar = 'Q' then
+                    QOpt = TRUE;
+                else if inputChar = 'C' then		/* prompt for continue at .NX */
+                    COpt = TRUE;
+                else if inputChar <> '$' then
+                    if inputChar <> ' ' then
+                        if inputChar <> ',' then
+                            fileOptChar = inputChar;
+            end;
+            else
+            do;
+                if fileOptChar = 'T' then		/* $Td where d is tex file drive (A-P) */
+                    call getDrive(.texFCB);
+                else if fileOptChar = 'P' then		/* $Pd if d < 'X' then prn file drive (A-P) */
+                    if inputChar < 'X' then
+                        call getDrive(.prnFCB);
+                    else				/* else use d as device X = console, Y = list */
+                        prnToDev = inputChar;
+                else if fileOptChar = 'E' then		/* $EY - enable error printing */
+                do;
+                    if inputChar = 'Y' then
+                        err$print = 0ffh;
+                    else if inputChar <> 'X' then	/* $EX - no error printing (default) */
+                        goto badOpt;
+                end;
+                else if fileOptChar = 'X' then		/* $XZ - no ix file */
+                    if inputChar = 'Z' then
+                        doIX = FALSE;
+                    else				/* else $Xd where d is ix file drive (A-P) */
+                        call getDrive(.ixFCB);
+                else
+                    goto badOpt;
+                fileOptChar = 0;
+            end;
+        end;
+        else if inputChar = '$' then
+            dollarSeen = TRUE;
+        if inputChar <> CR then
+            call getUCChar;
+    end;
+    if fileOptChar <> 0 then
+        goto badOpt;
+    if prnToDev = 'X' then	/* print to console - no page offset */
+        pageOffset = 0;
+    if SOpt then
+        if prnToDev = 'X' then	/* if $S and $PX then paging */
+            isPaging = TRUE;
+        else
+            manualFeed = TRUE;	/* else if $S then manual feed */
+    call selectDst;
+    dstPutc = putc;
+    if QOpt then
+        if DOpt then
+            call setupPS;
+    if FOpt then
+        call putc(FF);
+    if DOpt then
+    do;
+        call putDstEscCode('X');	/* cancel all WP modes except PS & CR settling time */
+        call putDstEscCode('S');	/* return HMI control to spacing switch */
+    end;
+    return;
+
+badOpt:	call fatalError(.aInvalidParam);
+
+end;
+
+
+
+procDotCmd: procedure public;
+
+    getFirstArgChar: procedure;		/* 1st arg can be proceeded by a space */
+        call getc;
+        if inputChar = ' ' then
+            call getc;
+    end;
+
+    getHeaderOrFooter: procedure(buf, width);
+        declare buf address, width byte;
+        declare s based buf (1) byte;
+
+        addCharToBuf: procedure(c);
+            declare c byte;
+            s(ii) = c;
+            ii = ii + 1;
+        end;		
+        ii = 0;	
+        charSpacingChanged = FALSE;
+        call fill(buf, ' ', width);
+        call getFirstArgChar;
+        do while ii < width;
+            if inputchar = CR then
+                goto done;
+            if inputChar = escapeCharacter then
+            do;
+                call getc;
+                if toUpper(inputChar) = 'S' then
+                do;
+                    jj = get8NewValue(12);
+                    if DOpt then
+                    do;
+                        call addCharToBuf(ESC);
+                        call addCharToBuf('W');	/* shadow print on */
+                        if proportionalSpace then
+                        do;
+                            if jj > 12 then
+                            do;
+                                call addCharToBuf(ESC);	/* set offset to 3/120" */
+                                call addCharToBuf(DC1);
+                                call addCharToBuf(3);
+                            end;
+                        end;
+                        else if jj <> 12 then
+                        do;
+                            call addCharToBuf(ESC);
+                            call addCharToBuf(US);
+                            call addCharToBuf(jj + 1);
+                            charSpacingChanged = TRUE;
+                        end;
+
+                    end;
+                    goto skipInsert;
+                end;
+            end;
+            call addCharToBuf(inputChar);
+            call getc;
+    skipInsert:
+        end;
+        invalidParam = TRUE;
+    done:
+        if charSpacingChanged then
+        do;
+            call addCharToBuf(ESC);
+            call addCharToBuf('S');	/* return HMI to spacing switch */
+        end;
+        s(ii) = 0;
+    end;
+
+    writeIXInfo: procedure;
+        declare iData structure(type byte, page address, len byte, buf(124) byte) at(.inBuf);
+
+        if not doIX then
+            return;
+        if srcFileOpt = SRCUSERINPUT then	/* input from console is invalid */
+            if altSrcOpt = 'X' then
+            do;
+                invalidParam = TRUE;
+                return;
+            end;
+        if not ixInitialised then
+        do;
+            ixInitialised = TRUE;
+            if ixFCB(0) = 0 then
+                ixFCB(0) = texFCB(0);
+            call createFile(.ixFCB);
+        end;
+        iData.type = cmdChr2;
+        iData.page = pageNum;
+        call getHeaderOrFooter(.iData.buf, 124);
+        iData.len = ii;
+        call writeSeq(.ixFCB, .iData);
+    end;
+
+
+    getMax8BitNumber: procedure(oldVal, upper) byte;
+        declare (oldVal, upper) byte;
+
+        if (ii := get8NewValue(oldVal)) < upper then
+            return ii;
+        invalidParam = TRUE;
+        return oldVal;
+    end;
+
+    writePrompt: procedure;
+        call getFirstArgChar;
+        call wrcon(BELL);
+
+        do while inputChar <> CR;
+            call wrcon(inputChar);
+            call getc;
+        end;
+        call wrconCRLF;
+    end;
+
+    getLeadInCH: procedure(c) byte;
+        declare c byte;
+        ii = get8AbsNumber;
+        if inputChar <> CR then
+            return inputChar;
+        return c;
+    end;
+
+    condNewPage: procedure(n);
+        declare n byte;
+        declare junk byte;
+        if not roomOnPage(n + 1) then
+            call finishPage;
+    end;
+
+
+
+loop: do;
+    call getUCChar;
+    cmdChr1 = inputChar;
+    call getUCChar;
+    cmdChr2 = inputChar;
+    ignoreRestOfLine = TRUE;
+    invalidParam = FALSE;
+    if cmdChr1 < 'A' or cmdChr1 > 'U' then
+        call undefinedCommandError;
+    else
+    do case cmdChr1 - 'A';
+        do;	/* DOTA */
+            if cmdChr2 = 'D' then	/* .AD - adjust margins */
+            do;
+                call break;
+                isJustified = TRUE;
+            end;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTB */
+            if cmdChr2 = 'O' then	/* .BO n - bold for next n ?? */
+            do;
+                boCnt = get8NewValue(1);
+                call putEscCode('O');	/* bold on */
+            end;
+            else if cmdChr2 = 'P' then	/* .BP +-n - begin page */
+            do;
+                call finishPage;
+                pageNum = get16NewValue(pageNum);
+                if signPrefix > 1 then
+                    pageNum = pageNum - 1;
+                else if inputChar = 'O' then
+                    if not pageNum then
+                        pageNum = pageNum + 1;
+            end;
+            else if cmdChr2 = 'R' then	/* .BR - break */
+                call break;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTC */
+            if cmdChr2 = '2' then		/* .C2 nc - set literal leadin char to c - n not used */
+                litLeadIn = getLeadInCH('`');
+            else if cmdChr2 = 'C' then		/* .CC nc - set command leadin char to c - n not used */
+                cmdLeadIn = getLeadInCH('.');
+            else if cmdChr2 = 'E' then		/* .CE n - centre lines */
+            do;
+                call break;
+                centreLinesCnt = get8NewValue(1);
+            end;
+            else if cmdChr2 = 'L' then		/* .CL opts - process non file related options opts */
+                call getOptions;
+            else if cmdChr2 = 'P' then		/* .CP n - conditional page */
+                call condNewPage(get8AbsNumber);
+            else if cmdChr2 = 'S' then		/* .CS n - set character spacing? */
+            do;
+                charSpacingOverriden = TRUE;
+                charSpacing = getMax8BitNumber(charSpacing, 101);
+            end;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTD */
+            if cmdChr2 = 'S' then		/* .DS - double space */
+                lineSpacing = 2;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTE */
+            if cmdChr2 = 'C' then		/* .EC nc - set escape char to c - n not used */
+                escapeCharacter = getLeadInCH(.defFCB);
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTF */
+            if cmdChr2 = 'I' then		/* .FI - FILL set formating to add extra space after . ? ! */
+            do;
+                call break;
+                formatOpt = PUNCTSPC;
+            end;
+            else if cmdChr2 = 'M' then		/* .FM +-n - set footer margin */
+                footerMargin = getMax8BitNumber(footerMargin, bottomMargin);
+            else if cmdChr2 = 'T' then		/* .FT text - set footer text */
+                call getHeaderOrFooter(.footerLine, 133);
+            else
+                call undefinedCommandError;
+        end;	
+        call undefinedCommandError;	/* DOTG */
+        do;	/* DOTH */
+            if cmdChr2 = 'E' then		/* .HE text - set heading */
+                call getHeaderOrFooter(.headerLine, 133);
+            else if cmdChr2 = 'M' then		/* .HM +-n - set header margin */
+                headerMargin = getMax8BitNumber(headerMargin, topMargin);
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTI */
+            if cmdChr2 = 'G' then		/* .IG - ignore */
+            do;
+                do while inputChar <> '.';
+                    call skipToEOL;
+                    call getc;
+                end;
+                goto loop;
+            end;
+            else if cmdChr2 = 'N' then		/* .IN +-n - indent */
+            do;
+                call break;
+                curIndent = getMax8BitNumber(curIndent, lineLen);
+            end;
+            else if cmdChr2 = 'X' then		/* .IX text - index - write index line type X */
+                call writeIXInfo;
+            else
+                call undefinedCommandError;
+        end;
+        call undefinedCommandError;	/* DOTJ */
+        call undefinedCommandError;	/* DOTK */
+        do;	/* DOTL */
+            if cmdChr2 = 'I' then		/* .LI - literal */
+            do;
+                call break;
+                call skipToEOL;
+                if proportionalSpace then	/* disable PS and set to no format */
+                    call disablePS(17);
+                ii = formatOpt;
+                formatOpt = NOSPC;
+                do while collectTextBlock;	/* process until next . line */
+                    call outputLine;
+                end;
+                formatOpt = ii;			/* restore original format & PS */
+                if proportionalSpace then
+                    call enablePS;
+                goto loop;
+            end;
+            else if cmdChr2 = 'L' then		/* .LL +-n - line length */
+            do;
+                call break;
+                lineLen = getMax8BitNumber(lineLen, 132);
+            end;
+            else if cmdChr2 = 'S' then		/* .LS n - line spacing */
+                lineSpacing = get8NewValue(lineSpacing);
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTM */
+            if cmdChr2 = 'B' then		/* .MB +-n - margin, bottom */
+            do;
+                bottomMargin = getMax8BitNumber(bottomMargin, pageLen - topMargin);
+                footerMargin = min(footerMargin, bottomMargin - 1);
+            end;
+            else if cmdChr2 = 'T' then		/* .MT +-n - margin, top */
+            do;
+                topMargin = getMax8BitNumber(topMargin, pageLen - bottomMargin);
+                headerMargin = min(headerMargin, topMargin - 1);
+            end;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTN */
+            if cmdChr2 = 'A' then		/* .NA - no adjust */
+            do;
+                call break;
+                isJustified = FALSE;
+            end;
+            else if cmdChr2 = 'E' then		/* .NE n - Need n lines else new page */
+                call condNewPage(get8AbsNumber);
+            else if cmdChr2 = 'F' then		/* .NF - NOFILL - simple space adjust no extra for . ? ! */
+            do;
+                call break;
+                formatOpt = JUSTIFYSPC;
+            end;
+            else if cmdChr2 = 'X' then		/* .NX file - next file */
+            do;
+                if COpt then
+                do;
+                    call wrstr(.('Continue (Y/N) ?$'));
+                    if toUpper(rdcon) <> 'Y' then
+                        call nextSrcOrDone;	/* check for file on command line */
+						/* possible bug falls through to opening src below */
+                    call wrconCRLF;
+                end;
+                if openSrc(.texFCB) then	/* check for file after .NX */
+                    texIdx = 0fffeh;
+                else if srcFileOpt <> SRCTEX then	/* if no file, switch back to tex file if needed */
+                    call selectSrc(SRCTEX);
+                else
+                    call nextSrcOrDone;		/* else get next file from command line */
+                ignoreRestOfLine = FALSE;
+            end;
+            else
+                call undefinedCommandError;	
+        end;
+        do;	/* DOTO */
+            if cmdChr2 = 'P' then		/* .OP - omit page numbers */
+                doPageNum = 0;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTP */
+            if cmdChr2 = 'A' then		/* .PA n - page advance */
+            do;
+                call break;
+                jj = get8NewValue(1);
+                if curLine = 0 then		/* if at top of page */
+                    if jj <> 0 then		/* include this in page count */
+                        jj = jj - 1;
+                do ii = 1 to jj;
+                    call spacing(pageLen);
+                end;
+            end;
+            else if cmdChr2 = 'C' then		/* .PC nc - set page number marker */
+                pageNumMarker = getLeadInCH('%');
+            else if cmdChr2 = 'L' then		/* .PL +-n - set page length */
+            do;
+                if bottomMargin + topMargin < (ii := get8NewValue(pageLen)) then
+                    pageLen = min(ii, 255);
+                else
+                    invalidParam = TRUE;
+            end;
+            else if cmdChr2 = 'N' then		/* .PN +-n - set page number */
+            do;
+                pageNum = get16NewValue(pageNum);
+                doPageNum = 0ffh;
+            end;
+            else if cmdChr2 = 'O' then		/* .PO +-n - set page offset */
+            do;
+                call break;
+                pageOffset = get8NewValue(pageOffset);
+            end;
+            else if cmdChr2 = 'P' then		/* .PP n m - paragraph - n indent, m min line count */
+            do;
+                call break;
+                call spacing(1);
+                call condNewPage(minParaLinesOnPage);
+                tmpIndent, ppHangingIndent = getMax8BitNumber(ppHangingIndent, lineLen);
+                if inputChar <> CR then
+                    minParaLinesOnPage = getMax8BitNumber(minParaLinesOnPage, pageLen);
+            end;
+            else if cmdChr2 = 'S' then		/* .PS - enable proportional space */
+                call setupPS;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTQ */
+            if cmdChr2 = 'B' or cmdChr2 = 'S' then	/* .QB or .QS - quit bold / shadow */
+            do;
+                call putEscCode('&');	/* bold/shadow off */
+                if not proportionalSpace then
+                    call putEscCode('S');	/* return HMI to spacing switch */
+            end;
+            else if cmdChr2 = 'I' then		/* .QI - quit indent */
+            do;
+                call break;
+                curIndent = 0;
+            end;
+            else if cmdChr2 = 'P' then		/* .QP - quit proportional space */
+            do;
+                call break;
+                call putEscCode('Q');	/* disable PS */
+                proportionalSpace = 0;
+                charSpacing = 5;
+            end;
+            else if cmdChr2 = 'U' then		/* .QU - quit underline */
+            do;
+                ii = nline;
+                x:	/* to force compiler code */
+                if escColumn(escIdx) <> nline then
+                    call trimTrailingSpace;
+                call putEscCode('R');	/* underscore off */
+                nline = ii;
+            end;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTR */
+            if cmdChr2 = 'D' then		/* .RD prompt - get used input from response file / command line */
+            do;
+		/* bad if reading from nested file */
+                if srcFileOpt <> SRCNESTED or altSrcOpt <> 0 then
+                do;
+                    call writePrompt;
+                    call skipToEOL;
+                    call selectSrc(SRCUSERINPUT);
+                    inBufMaxLen = 7ch;
+                    stdinIdx = 0;
+                    inBufLen = 0;
+                end;
+                else
+                    invalidParam = TRUE;
+            end;
+            else if cmdChr2 = 'F' then		/* .RF file - set response file - not valid in nested file */
+						/* continues with existing alt file if file not given */
+						/* but will then break if read from file is needed !!!! */
+                call setAltGetcToDefSrc;	/* sets alt getc to use default file */
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTS */
+            if cmdChr2 = 'H' then		/* .SH n - set shadow printing */
+            do;
+                call putEscCode('W');	/* shadow print on */
+                ii = get8NewValue(12);
+                if proportionalSpace then
+                do;
+                    if ii > 12 then
+                    do;	/* add 3/120" to character spacing */
+                        call putEscCode(DC1);
+                        call markEscCode(3);
+                    end;
+                end;
+                else if ii <> 12 then
+                do;	/* set HMI to n-1 */
+                    call putEscCode(US);
+                    call markEscCode(ii);
+                    printerHMISet = TRUE;
+                end;
+            end;
+            else if cmdChr2 = 'O' then		/* .SO file - source from file */
+            do;
+                call break;
+                if openDefSrc then
+                do;
+                    call skipToEOL;
+                    call selectSrc(SRCNESTED);
+                end;
+            end;
+            else if cmdChr2 = 'P' then		/* .SP n - space lines */
+            do;
+                call break;
+                call spacing(get8NewValue(1));
+            end;
+            else if cmdChr2 = 'S' then		/* .SS - single space */
+                lineSpacing = 1;
+            else if cmdChr2 = 'T' then
+            do;
+                call writePrompt;
+                call break;
+                call waitKey;
+            end;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTT */
+            if cmdChr2 = 'A' then		/* .TA n... - set tab stops */
+            do;
+                ii = 0ffh;
+                do while inputChar <> CR;
+                    /* NOTE - ii is updated on RHS before use on LHS */
+                    tabstops(ii) = get8NewValue(tabstops(ii := ii + 1));
+                end;
+            end;
+            else if cmdChr2 = 'C' then		/* .TC text - TOC write index line type T */
+                call writeIXInfo;
+            else if cmdChr2 = 'I' then		/* .TI +-n - temporary indent */
+            do;
+                call break;
+                jj = getMax8BitNumber(curIndent, lineLen);
+                tmpIndent = jj - curIndent;
+            end;
+            else if cmdChr2 = 'M' then		/* .TM msg - type message */
+                call writePrompt;
+            else
+                call undefinedCommandError;
+        end;
+        do;	/* DOTU */
+            if cmdChr2 = 'L' then		/* .UL n - underline */
+            do;
+                ulCnt = get8NewValue(1);
+                call putEscCode('E');	/* underscore on */
+            end;
+            else
+                call undefinedCommandError;
+        end;
+    end;	/* of case */
+    end;
+    if invalidParam then
+        call error(.cmdChr1);
+    if ignoreRestOfLine then
+        call skipToEOL;
+end;
+
+entry:
+    /* split free memory up for buffers */
+    inputBufSize = SHR((cpmBase - 800h - .MEMORY) and 0ff00h, 1);
+    texBufBase = prnBufBase + inputBufSize;
+    defBufBase = texBufBase + inputBufSize;		/* this has 2048 bytes */
+    call getOptions;			/* pick up options from command line */
+    if prnToDev <> 'X' then			/* unless output is to console show version */
+        call wrNLStrNL(.version);
+    cmdLineIdx = 0;				/* reparse command line !! */
+    if not openSrc(.texFCB) then		/* open tex file or exit if nothing */
+        call wrapup;
+    call memcpy(.texFCB(1), .ixFCB(1), 8);	/* initialise base name of ix file */
+    if prnToDev = FALSE then		/* printing to a file? */
+    do;
+        if prnFCB(0) = 0 then	/* if no drive assume source disk */
+            prnFCB(0) = texFCB(0);
+        call memcpy(.texFCB(1), .prnFCB(1), 8);	/* initialise the base name of prn file */
+        call createFile(.prnFCB);	/* create the file */
+    end;
+    call selectSrc(SRCTEX);			/* select from tex file */
+    do while 1;
+        if collectTextBlock then
+            call outputLine;
+        else
+            call procDotCmd;
+    end;
+end;
+eof;		
+

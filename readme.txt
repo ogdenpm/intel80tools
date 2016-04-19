@@ -152,6 +152,10 @@ src\isist0\*.*	files to build isis4.1 boot file
 
 src\isis.cli\*.* files to build isis4.1 cli file
 
+src\kermit\*.*	files to build kermit for isis
+
+src\tex\*.*	files to build tex v2.0 and v2.1 for cpm
+
 tools\*.*	tools I wrote to help me decompile / build the files
   delib.pl	tool to split a library out into individual object files
 		usage: delib.pl libraryfile targetdir
@@ -208,6 +212,14 @@ tools\*.*	tools I wrote to help me decompile / build the files
   obj2bin.exe	convert omf85 to a binary file - used to create image for disassembly
   packisis.exe	convert omf85 to isis4.1 load format used for isis.bin i.e. remove
 		the 06 header and the crc bytes
+  patchbin.exe	a utility to apply patches to an existing .com file
+                usage: patchbin patchfile comfile
+                where
+		format of patch file is
+	        address xx yy ...
+		where address is the cpm location (file offset + 0x100)
+		and xx yy etc. are the new byte values.
+		note all values are entered in hex.
   plmpp.exe	Implements the plm preprocessor for $IF $ELSE $ELSEIF and $END
 		so that plm 3.x version files can include the preprocessor
 		directives. 
@@ -232,3 +244,4 @@ updated 1-Apr-2015
 updated 6-Sep-2015
 updated 24-Oct-2015
 updated 3-Nov-2015 (added cli)
+updated 19-Apr-2016 (added kermit, tex20, tex21 and patchbin tool)
