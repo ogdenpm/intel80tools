@@ -1,0 +1,35 @@
+
+
+                	;TEX PATCH #1: 27 JUN 78
+                
+                	;THIS PATCH CORRECTS AN ERROR WHICH OCCURS DURING 
+                	;".NA" MODE WHERE A WORD IS DUPLICATED WHEN THE 
+                	;OUTPUT LINE IS EQUAL TO THE LINE LENGTH.
+                
+                	;PATCH FOLLOWS:
+                
+ 1D43 =         PATCH	EQU	1D43H
+ 0DAB =         L606	EQU	0DABH
+ 1DE5 =         TLINE	EQU	1DE5H
+ 1DE6 =         WLINE	EQU	1DE6H
+ 1DE8 =         ELINE	EQU	1DE8H
+ 1DEA =         NLINE	EQU	1DEAH
+                
+ 0DAB           ORG	L606
+                
+ 0DAB C3431D    	JMP	PATCH
+                
+                RETPAT:
+                
+ 1D43           ORG	PATCH
+                
+ 1D43 32E51D    	STA	TLINE
+ 1D46 3AE61D    	LDA	WLINE
+ 1D49 21E81D    	LXI	H,ELINE
+ 1D4C BE        	CMP	M
+ 1D4D F2AE0D    	JP	RETPAT
+ 1D50 3AEA1D    	LDA	NLINE
+ 1D53 32E61D    	STA	WLINE
+ 1D56 C3AE0D    	JMP	RETPAT
+ 1D59           END
+
