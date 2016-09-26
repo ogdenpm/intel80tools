@@ -180,6 +180,25 @@ wrNLStrNL: procedure(str) public;
     call wrconCRLF;
 end;
 
+
+debug: procedure(s, n, e);
+	declare (s, n, e) byte;
+
+	nibble: procedure(a);
+		declare a byte;
+		if (a := a + '0') > '9' then a = a + 7;
+		call wrcon(a);
+	end;
+	hex2:	procedure(a);
+		declare a byte;
+		call nibble(shr(a, 4));
+		call nibble(a and 0fh);
+	end;
+	call hex2(s); call wrcon(' ');
+	call hex2(n); call wrcon(' ');
+	call hex2(e); call wrconCRLF;
+end;
+
 waitKey: procedure public;
     declare junk byte;	
 
@@ -640,6 +659,7 @@ emitCharItem: procedure;
     declare ch byte;
 
     do while escColumn(nEsc) = sline and nEsc <= escIdx;
+	call debug(sline, nEsc, escCodes(nEsc));
         call dstPutc(ch := escCodes(nEsc));
         if ch = 'E' then
         do;
@@ -712,10 +732,14 @@ spacingText: procedure(n) public;
         end;
     end;
     else
+    do;
+        nEsc = 1;			/* fix to clear escapes that are not used */
+	escIdx = 0;
         do while sline <> n; 
             call putc(lineOutBuf(sline));
             sline = sline + 1;
         end;
+    end;
     tmpIndent = 0;
     leftHangingIndent = 0;
 end;
@@ -1534,7 +1558,7 @@ getOptions: procedure public;
         else
             manualFeed = TRUE;	/* else if $S then manual feed */
     call selectDst;
-    dstPutc = putc;
+    
     if QOpt then
         if DOpt then
             call setupPS;
