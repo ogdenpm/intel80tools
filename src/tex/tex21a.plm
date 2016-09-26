@@ -560,7 +560,7 @@ putTextCh: procedure(c) public;
         tabCol = tabstops(n);
         if DOpt then
         do;
-            call absoluteHT(tabCol + leftMargin /* -1 */);	/* patch 2 */
+            call absoluteHT(tabCol + leftMargin - 1);	/* patch 2 */
             curCol = tabCol;
         end;
         else
@@ -727,8 +727,8 @@ centre: procedure(n) public;
 
     if DOpt then
         call putDstEscCode('=');	/* auto centre */
-    else				/* patch1: remove + indentThisLine below */
-        call leadingSpaceN(leftMargin + indentThisLine + shr(n - (nline - sline), 1));
+    else				/* patch1: removed + indentThisLine below */
+        call leadingSpaceN(leftMargin + shr(n - (nline - sline), 1));
     call spacingText(nline);
 end;
 
@@ -929,10 +929,10 @@ outputLine: procedure public;
         putc = .putTextCh;
     if centreLinesCnt > 0 then
     do;
-        /* patch 1
+        /* patch */
         if not DOpt then
-            call sub97D(indentThisLine);
-        */
+            call leadingSpaceN(indentThisLine);
+
         call centre(widthThisLine);
         centreLinesCnt = centreLinesCnt - 1;
     end;
@@ -1093,7 +1093,7 @@ getTex: procedure public;
         call readFile(texBufBase, inputBufSize, .texFCB);
         texIdx = 0;
     end;
-    if (inputChar := s(texIdx) /* and 7fh - patch */) = CPMEOF then
+    if (inputChar := s(texIdx) and 7fh /* patch */) = CPMEOF then
     do;
         call nextSrcOrDone;
         call getc;
@@ -1110,7 +1110,7 @@ getDef: procedure public;
         call readFile(defBufBase, 800h, .defFCB);
         getDefIdx = 0;
     end;
-    if (inputChar := s(getDefIdx) /* and 7fh - patch */) = CPMEOF then
+    if (inputChar := s(getDefIdx) and 7fh /* patch */) = CPMEOF then
     do;	/* switch back to console on CPM EOF seen */
         altGetc = .getcCon;
         altSrcOpt = 'X';

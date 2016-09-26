@@ -12,6 +12,10 @@ tex21.plm, cpmio.plm, cpm.asm   source for tex 2.1
 patch10.txt patch locations and values for tex 1.0
 patch21.txt patch locations and values for tex 2.1
 
+tex21a.plm is version of tex21.plm with the changes to the source code
+	   rather than patches
+
+
 makefile    used to build the various versions assuming you have
             installed the inteltools tree from this directory to
             build all the versions issue the command
@@ -27,4 +31,4 @@ readme.txt  this file
 
 regards
 Mark Ogden
-15th July 2016      
+29th September 2016      
