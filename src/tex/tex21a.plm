@@ -181,24 +181,6 @@ wrNLStrNL: procedure(str) public;
 end;
 
 
-debug: procedure(s, n, e);
-	declare (s, n, e) byte;
-
-	nibble: procedure(a);
-		declare a byte;
-		if (a := a + '0') > '9' then a = a + 7;
-		call wrcon(a);
-	end;
-	hex2:	procedure(a);
-		declare a byte;
-		call nibble(shr(a, 4));
-		call nibble(a and 0fh);
-	end;
-	call hex2(s); call wrcon(' ');
-	call hex2(n); call wrcon(' ');
-	call hex2(e); call wrconCRLF;
-end;
-
 waitKey: procedure public;
     declare junk byte;	
 
@@ -659,7 +641,6 @@ emitCharItem: procedure;
     declare ch byte;
 
     do while escColumn(nEsc) = sline and nEsc <= escIdx;
-	call debug(sline, nEsc, escCodes(nEsc));
         call dstPutc(ch := escCodes(nEsc));
         if ch = 'E' then
         do;
