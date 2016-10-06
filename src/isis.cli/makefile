@@ -69,3 +69,8 @@ gitprep: vclean
 	del *.asm *.pl3 $(TARGET) makefile
 	..\..\unpack.pl
 
+# auto generated
+cli.obj: cli.pl3 cli.ipx
+filerr.obj: filerr.pl3 filerr.ipx
+forupp.obj: forupp.pl3 forupp.ipx
+reperr.obj: reperr.pl3 reperr.ipx
