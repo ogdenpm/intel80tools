@@ -1,6 +1,13 @@
 These files are my attempts at decompiling the ISIS plm80 compiler and these
 associated utilities link and locate.
 
+*****************************************************************************
+* WARNING: git stores crlf as lf in line with common usage. When cloning    *
+*          files you need to make sure thar your local git is set to        *
+*          re-expanded lf to crlf otherwise the build will fail             *
+*          alternatively use an external utility to convert the text files  *
+*****************************************************************************
+
 During the course of decompiling the code I have generated variable names
 that at the time seemed sensible. I have not systematically reviewed these
 to see if they are logically correct, so please be aware of this when you
@@ -155,7 +162,8 @@ src\isis.cli\*.* files to build isis4.1 cli file
 
 src\kermit\*.*	files to build kermit for isis
 
-src\tex\*.*	files to build tex v2.0 and v2.1 for cpm
+src\tex\*.*	files to build tex v2.0 and v2.1 for cpm also a patched version
+                of v2.1 that fixes a bug in printing text only
 
 tools\*.*	tools I wrote to help me decompile / build the files
   delib.pl	tool to split a library out into individual object files
@@ -246,3 +254,4 @@ updated 6-Sep-2015
 updated 24-Oct-2015
 updated 3-Nov-2015 (added cli)
 updated 19-Apr-2016 (added kermit, tex20, tex21 and patchbin tool)
+updated 7-Oct-2016 (added warning on crlf expansion)
