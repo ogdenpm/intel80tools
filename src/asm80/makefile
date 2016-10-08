@@ -109,7 +109,7 @@ source: .extract $(ASRCS) $(P3SRCS) $(P4SRCS) $(P3SRCS:.pl3=.ipx) $(P4SRCS:.plm=
 # otherwise whilst the build will be ok the old verify/compare rules will be run
 
 verify: all
-	for %i in ($(RELEASETARGETS)) do $(TOOLS)diffbin %i $(V4)\%i
+	for %i in ($(RELEASETARGETS)) do fc /b %i $(V4)\%i
 
 compare: all
 	for %i in ($(RELEASETARGETS)) do fc /b %i $(V4)%i
@@ -225,57 +225,55 @@ asm80.ov5: $(OBJ)\asm80.ov4
 	$(ISIS) :F1:locate :F3:$@ to $@ PURGE
 
 # The debug targets - keeps local symbols and debug info
-$(OBJ)\asm80: $(OBJ)\base.abs $(OBJ)\asmov0.abs $(OBJ)\asmov1.abs $(OBJ)\asmov2.abs $(OBJ)\asmov3.abs $(OBJ)\keywrd.abs
+$(OBJ)\asm80: $(OBJ)\base.abs $(OBJ)\asm80.ov0 $(OBJ)\asm80.ov1 $(OBJ)\asm80.ov2 $(OBJ)\asm80.ov3 $(OBJ)\keywrd.abs
 	@SET ISIS_F0=$(OBJ)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:link base.abs,publics(asmov0.abs,asmov1.abs,asmov2.abs), "&" < <<
-asmov3.abs,keywrd.abs to $(*B).rel &
-map print(:f2:$(*B).lin) 
-<<NOKEEP
-	$(ISIS) :F1:locate $(*B).rel to $(@F) $(LOCATEOPT) print(:f2:$(*B).map) "&" < <<
-STACKSIZE(0) SYMBOLS  NAME(ASM80)
-exit
-<<NOKEEP
-	del $*.rel
-	@find $(LST)\$(*B).lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(LST)\$(*B).map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	$(ISIS) :F1:link base.abs,publics(asm80.ov0,asm80.ov1,asm80.ov2),asm80.ov3,keywrd.abs to asm80.rel map print(:f2:asm80.lin) 
+	$(ISIS) :F1:locate asm80.rel to $(@F) $(LOCATEOPT) STACKSIZE(0) NAME(ASM80) PRINT(:f2:asm80.map)
+	del asm80.rel
+	@find $(LST)\asm80.lin "LINK MAP" >nul || (del $@ & exit /b 1)
+	@(find $(LST)\asm80.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
-$(OBJ)\asm80.ov0: $(OBJ)\asmov0.abs 
+$(OBJ)\asm80.ov0: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov0.obj 
 	@SET ISIS_F0=$(OBJ)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:locate asmov0.abs to $(@F) $(LOCATEOPT) print(:f2:asmov0.map) "&" < <<
-STACKSIZE(0) symbols NAME(A80O0)
-<<NOKEEP
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov0.obj to asmov0.rel map print(:f2:asmov0.lin)
+	$(ISIS) :F1:locate asmov0.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O0) PRINT(:f2:asmov0.map)
+	del asmov0.rel
+	@find $(LST)\asmov0.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(LST)\asmov0.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
-$(OBJ)\asm80.ov1: $(OBJ)\asmov1.abs 
+$(OBJ)\asm80.ov1: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov1.obj 
 	@SET ISIS_F0=$(OBJ)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:locate asmov1.abs to $(@F) $(LOCATEOPT) print(:f2:asmov1.map) "&" < <<
-STACKSIZE(0) symbols NAME(A80O1)
-<<NOKEEP	
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov1.obj,:F1:plm80.lib to asmov1.rel map print(:f2:asmov1.lin)
+	$(ISIS) :F1:locate asmov1.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O1) PRINT(:f2:asmov1.map)
+	del asmov1.rel
+	@find $(LST)\asmov1.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(LST)\asmov1.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 
-$(OBJ)\asm80.ov2: $(OBJ)\asmov2.abs 
+$(OBJ)\asm80.ov2: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov2.obj 
 	@SET ISIS_F0=$(OBJ)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:locate asmov2.abs to $(@F) $(LOCATEOPT) print(:f2:asmov2.map) "&" < <<
-STACKSIZE(0) SYMBOLS  NAME(A80O2)
-<<NOKEEP	
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov2.obj to asmov2.rel map print(:f2:asmov2.lin)
+	$(ISIS) :F1:locate asmov2.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O2) PRINT(:f2:asmov2.map)
+	del asmov2.rel
+	@find $(LST)\asmov2.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(LST)\asmov2.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
-$(OBJ)\asm80.ov3: $(OBJ)\asmov3.abs
+$(OBJ)\asm80.ov3: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov3.obj $(OBJ)\keywrd.abs
 	@SET ISIS_F0=$(OBJ)
 	@SET ISIS_F1=$(V4)
 	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:locate asmov3.abs to $(@F) $(LOCATEOPT) print(:f2:asmov3.map) "&" < <<
-STACKSIZE(0) SYMBOLS  NAME(A80O3)
-<<NOKEEP
+	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov3.obj,publics(keywrd.abs) to asmov3.rel map print(:f2:asmov3.lin)
+	$(ISIS) :F1:locate asmov3.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O3) PRINT(:f2:asmov3.map)
+	del asmov3.rel
+	@find $(LST)\asmov3.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(LST)\asmov3.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 
@@ -336,49 +334,6 @@ $(OBJ)\keywrd.abs: $(OBJ)\keywrd.obj $(OBJ)\memory.obj
 	del $*.rel
 	@find $(LST)\$(*B).lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(LST)\$(*B).map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-
-$(OBJ)\asmov0.abs: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov0.obj
-	@SET ISIS_F0=$(OBJ)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov0.obj to $(*B).rel map print(:f2:$(*B).la0)
-	$(ISIS) :F1:locate $(*B).rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) print(:f2:$(*B).ma0)
-	del $*.rel
-	@find $(LST)\$(*B).la0 "LINK MAP" >nul || (del $@ & exit /b 1)
-
-
-$(OBJ)\asmov1.abs: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov1.obj
-	@SET ISIS_F0=$(OBJ)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov1.obj,:F1:plm80.lib "&" < <<
-to $(*B).rel map print(:f2:$(*B).la1)
-<<NOKEEP
-	$(ISIS) :F1:locate $(*B).rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) print(:f2:$(*B).ma1)
-	del $*.rel
-	@find $(LST)\$(*B).la1 "LINK MAP" >nul || (del $@ & exit /b 1)
-
-
-$(OBJ)\asmov2.abs: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov2.obj
-	@SET ISIS_F0=$(OBJ)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov2.obj to $(*B).rel map print(:f2:$(*B).la2)
-	$(ISIS) :F1:locate $(*B).rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) print(:f2:$(*B).ma2)
-	del $*.rel
-	@find $(LST)\$(*B).la2 "LINK MAP" >nul || (del $@ & exit /b 1)
-
-
-$(OBJ)\asmov3.abs: $(OBJ)\base.abs $(OBJ)\cprite.obj $(OBJ)\asmov3.obj $(OBJ)\keywrd.abs
-	@SET ISIS_F0=$(OBJ)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F2=$(LST)
-	$(ISIS) :F1:link publics(base.abs),cprite.obj,asmov3.obj,publics(keywrd.abs) "&" < <<
-to $(*B).rel map print(:f2:$(*B).la3)
-<<NOKEEP
-	$(ISIS) :F1:locate $(*B).rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) print(:f2:$(*B).ma3)
-	del $*.rel
-	@find $(LST)\$(*B).la3 "LINK MAP" >nul || (del $@ & exit /b 1)
 
 # pex file and makefile dependencies
 *.ipx: $(PEXFILE) 
