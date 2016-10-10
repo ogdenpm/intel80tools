@@ -1,3 +1,35 @@
+isist0.pex
+CR	'0dh'
+LF	'0ah'
+TRUE	'0ffh'
+FALSE	'0'
+# isis commands
+IWRITE	'4'
+ICONSOL	'8'
+IEXIT	'9'
+
+$file(boot.asm)
+isis	P(B cmd,A  parameter$ptr)
+triopb	P(A iopb)
+CO	P(B val)
+IOCHK	PB
+IOSET	P(B val)
+iocdr1	P(B cmd)B 
+
+$file(memchk.asm)
+memchk	PA
+
+$file(t0boot.plm)
+t0boot	L
+
+$file(consol.plm)
+consol	P(A ci$p,A co$p,A status$p)
+
+$file(exit.plm)
+exit	P
+
+$file(write.plm)
+write	P(A conn,A buff$p,A count,A status$p)
 boot.asm
 	public	iocdr1
 	public	triopb
@@ -50,8 +82,8 @@ trloop:
 
 tb:
 do;
+$include(t0boot.ipx)
 DECLARE t0boot LABEL PUBLIC;
-
 
 /* this version of t0boot has been modified to work on
    single density, double density and hard disk. It will work
@@ -80,10 +112,6 @@ DECLARE	JUNK20	LITERALLY	' ',
 	JUNKCOMMA LITERALLY	' ',
 	JUNKGT LITERALLY	' ';
 $ENDIF
-
-DECLARE	CR	LITERALLY	'0dh',
-	LF	LITERALLY	'0ah',
-	TRUE	LITERALLY	'0ffh';
 
 DECLARE copyright(*) BYTE DATA('(C) 1975,1976,1977,1978,1979,1980 INTEL CORP');
 
@@ -209,24 +237,7 @@ DECLARE aft(18) STRUCTURE (		/* ISIS intenal aft table */
 DECLARE cli(13) BYTE AT (2E4Ah);		/* used to record boot disk */
 /* end of ISIS.BIN interface */
 
-/* BIOS interface */
-CO: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; END;
-IOCHK: PROCEDURE BYTE EXTERNAL; END;
-IOSET: PROCEDURE(val) EXTERNAL; DECLARE val BYTE; END;
 DECLARE CMSK LITERALLY '0fch';
-/* end of BIOS interface */
-
-/* interface to asm code and isis calls */
-IOCDR1: PROCEDURE(cmd) BYTE EXTERNAL; DECLARE cmd BYTE; END;
-memchk: PROCEDURE ADDRESS EXTERNAL; END;
-triopb: PROCEDURE(iopb) EXTERNAL; DECLARE iopb ADDRESS; END;
-consol: procedure (ci$p, co$p, status$p) external;
-    declare (ci$p, co$p, status$p) address;
-end consol;
-write: procedure (conn, buff$p, count, status$p) external;
-    declare (conn, buff$p, count, status$p) address;
-end write;
-exit: procedure external; end exit;
 
 DECLARE	CON$MASK	LITERALLY	'00001000B',	/* disk controller present */
 	DD$MASK		LITERALLY	'00010000B',	/* DD present */
@@ -816,13 +827,7 @@ eof
 consol.plm
 console:
 do;
-
-
-DECLARE ICONSOL LITERALLY '8';
-isis: procedure (rectyp, parameter$ptr) external;
-    declare rectyp byte,
-            parameter$ptr address;
-end isis;
+$include(consol.ipx)
 
 consol: procedure (ci$p, co$p, status$p) public;
     declare (ci$p, co$p, status$p) address;
@@ -834,11 +839,7 @@ eof
 exit.plm
 exit:
 do;
-DECLARE IEXIT LITERALLY '9';
-isis: procedure (rectyp, parameter$ptr) external;
-    declare rectyp byte,
-            parameter$ptr address;
-end isis;
+$include(exit.ipx)
 
 exit: procedure public;
     declare tmp address;
@@ -865,12 +866,7 @@ MEMCHK:
 write.plm
 write:
 do;
-DECLARE IWRITE LITERALLY '4';
-isis: procedure (rectyp, parameter$ptr) external;
-    declare rectyp byte,
-            parameter$ptr address;
-end isis;
-
+$include(write.ipx)
 write: procedure (conn, buff$p, count, status$p) public;
     declare (conn, buff$p, count, status$p) address;
     call ISIS(IWRITE, .conn);
@@ -921,7 +917,7 @@ STACK = 42
 OBJ = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj junk.obj
 
 SRC =	boot.asm t0boot.plm consol.plm exit.plm memchk.asm write.plm \
-	junk.asm makefile
+	junk.asm
 	
 # common makefile info
 ISIS=..\..\thames
@@ -937,6 +933,10 @@ F0=./
 	$(ISIS) :F1:PLM80 $< code optimize SYMBOLS DEBUG
 	@if not exist $*.obj exit /b 1
 
+.plm.ipx:
+	@SET ISIS_F0=$(F0)
+	$(TOOLS:/=\)ngenpex isist0.pex $<
+	
 .pl3.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
@@ -948,6 +948,10 @@ F0=./
 	@SET ISIS_F1=$(V4)
 	$(ISIS) :F1:ASM80 $< 
 	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
+
+all:	.depend
+all:
+	$(MAKE) $(TARGET)
 
 $(TARGET): $(OBJ)
 	@SET ISIS_F0=$(F0)
@@ -966,12 +970,20 @@ $(**: =,&
 	@if not exist $*.bin exit /b 1
 	$(TOOLS:/=\)obj2bin $*.bin $(TARGET)
 
+.depend: isist0_all.plm
+	..\..\unpack.pl
+	..\..\mkdepend.pl
+	date /t >.depend
+
 clean:
 	del *.obj *lst *.map *.rel *.ixi *~ *.*~ *.bin $(TARGET)
 
 vclean: clean
-	del $(SRC)
+	del $(SRC) *.ipx makefile *.pex .depend
+
+gitprep: vclean
 
 verify: $(TARGET)
 	fc /b $(TARGET) $(TARGET).ref
-	
+
+$(OBJ:.obj=.ipx): isist0.pex
