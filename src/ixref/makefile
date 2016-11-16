@@ -42,6 +42,9 @@ ixref: $(OBJS)
 	..\..\unpack.pl
 	date /t >.extract
 
+verify: all
+	fc /b ixref ixref.ref
+
 clean:
 	del /q *.obj *.tmp *.lst *.prn *.rel *.map
 
