@@ -20,6 +20,7 @@ Error		P(a error$num)
 
 ofile$t 'structure(fd address, count address, buf(1280) byte)'
 ifile$t 'structure(fd address, buf(1280) byte, index address, actual address, record(70) byte)'
+record$t 'structure(type byte, len byte, rdata(68) byte)';
 
 $file(ixref.plm)
 outFileName	B(32)
@@ -27,7 +28,7 @@ tmpModnm	BS
 tmpIxin		BS
 tmpIxout	BS
 tmpModnmFd	A
-modRecord	B(70)
+modRecord	"record$t"
 inFile1 	"ifile$t"
 ixinTmpFile 	"ifile$t"
 outFile 	"ofile$t"
@@ -55,15 +56,15 @@ OutNewPage	P
 OutNewLine	P
 OutNNewLines	P(B n)
 OutStr	P(A str,A len)
-sub$3D5F	P
+InitPrint	P
 GetCmdLine	P
 ParseCmdLine	P
-sub$42FE	P
+Signon	P
 
 $file(ixref2.plm)
 sub$433E	P(A arg1w, A arg2w)B
 sub$442F	P(A file$p)
-sub$456E	P(A str,A len)
+IxOutStr	P(A str,A len)
 sub$4589	P
 sub$47EE	P
 
@@ -72,7 +73,7 @@ sub$4BF1	P
 sub$4C79	P
 sub$4F1C	P(B arg1b)
 sub$5141	P
-sub$5317	P
+sub$5317	P IXREF
 SkipFileName	P(A str)A
 FindDirEntry	P(A fd,A path,A dirCnt,A buf)A
 
@@ -85,13 +86,13 @@ $file(ixref5.plm)
 InternalToUserFileName	P(A internalNamePtr,A userNamePtr)
 
 $file(ixref6.plm)
-WPath	P(A arg1w, A arg2w, A arg3w)B
+WPath	P(A name$p, A pn$p, A wcUsed$p)B
 SkipSpace	P(A str)A
 MatchAmbFileNames	P(A ambFileName$p,A fileName$p)B
 
 $file(ixref7.plm)
 ReportError	P(A errNum) public
-sub$5FC4	P(B devNum, A arg2w)B
+TestRange	P(B devNum, A path)B
 Uppercase	P(B ch)B
 SkipAmbFileName	P(A str)A
 
@@ -113,7 +114,7 @@ declare	outFileName(32) byte public,
 	tmpIxout(*) byte public initial(':F1:IXOUT.TMP '),
 	tmpIxin(*) byte public initial(':F1:IXIN.TMP '),
 	tmpModnmFd address public,
-	modRecord(70) byte public,
+	modRecord record$t public,
 	inFile1 ifile$t public,
 	ixinTmpFile ifile$t public,
 	outFile ofile$t public,
@@ -302,7 +303,7 @@ OutStr: procedure(str, len) public;
 end;
 
 
-sub$3D5F: procedure public;
+InitPrint: procedure public;
 	declare (chPtr, status) address;
 	declare ch based chPtr byte;
 	
@@ -317,7 +318,7 @@ sub$3D5F: procedure public;
 	call OutNewLine;
 	call OutStr(.invokeMsg, length(invokeMsg));
 	call OutNewLine;
-	call outstr(.('-'), 1);
+	call OutStr(.('-'), 1);
 	chPtr = .MEMORY;
 
 	do while ch <> CR;
@@ -505,7 +506,7 @@ ParseCmdLine: procedure;
 end;
 
 
-sub$42FE: procedure;
+Signon: procedure;
 	declare status address;
 
 	call Write(0, .signonMsg, 14, .status);
@@ -518,7 +519,7 @@ start:
 	topmem = Memck - 12;
 	cmdLinePtr = .MEMORY;
 	call GetCmdLine;
-	call sub$42FE;
+	call Signon;
 	cmdLinePtr = SkipWS(cmdLinePtr);
 	if Strequ(cmdLinePtr, .('DEBUG'), 5) then
 		cmdLinePtr = cmdLinePtr + 5;
@@ -532,7 +533,7 @@ start:
 	tmpIxin(2) = drive;
 	call ParseCmdLine;
 	if havePrint then
-		call sub$3d5f;
+		call InitPrint;
 	call sub$47ee;
 	call sub$5317;
 	call Exit;
@@ -627,7 +628,7 @@ sub$442F: procedure(file$p) public;
 end;
 
 
-sub$456E: procedure(str, len);
+IxOutStr: procedure(str, len);
 	declare (str, len) address;
 
 	call Fwrite(.ixoutTmpFile, str, len);
@@ -648,7 +649,7 @@ sub$4589: procedure;
 	else
 	do;
 		call MemCpy(.inFile1.record, .modRecord, inFile1.record(1));
-		call Write(tmpModnmFd, .modRecord, modRecord(1), .status);
+		call Write(tmpModnmFd, .modRecord, modRecord.len, .status);
 		b78F7 = TRUE;
 		b78F8 = TRUE;
 		inFile1.record(0) = 0FFh;
@@ -681,26 +682,26 @@ sub$4589: procedure;
 			end;
 			if inFile1.record(0) = 81h and ixinTmpFile.record(0) = 81h then
 				return;
-			if sub$433E(.inFile1.record, .ixinTmpFile.record) <= 1 then
+			if sub$433E(.inFile1.record(0), .ixinTmpFile.record(0)) <= 1 then
 			do;
 				b78FB = inFile1.record(1);
-				inFile1.record(1) = b78FB + modRecord(2) + 1;
-				call sub$456E(.inFile1.record, b78FB);
-				call sub$456E(.modrecord(2), 1);
-				call sub$456E(.modrecord(3), modrecord(2));
+				inFile1.record(1) = b78FB + modRecord.rdata(0) + 1;
+				call IxOutStr(.inFile1.record(0), b78FB);
+				call IxOutStr(.modrecord.rdata, 1);
+				call IxOutStr(.modrecord.rdata(1), modrecord.rdata(0));
 				b78F7 = TRUE;
 			end;
 			else
 			do;
-				call sub$456E(.ixinTmpFIle.record, ixinTmpFile.record(1));
+				call IxOutStr(.ixinTmpFile.record(0), ixinTmpFile.record(1));
 				b78F8 = TRUE;
 			end;
 		end;
 	end;
-	call sub$456E(.ixinTmpFile.buf(ixinTmpFile.index+1), ixinTmpFile.actual - ixinTmpFile.index);
+	call IxOutStr(.ixinTmpFile.buf(ixinTmpFile.index+1), ixinTmpFile.actual - ixinTmpFile.index);
 	call Read(ixinTmpFile.fd, .ixinTmpFile.buf, 1280, .ixinTmpFile.actual, .status);
 	do while ixinTmpFile.actual <> 0; 
-		call sub$456E(.ixinTmpFile.buf, ixinTmpFile.actual);
+		call IxOutStr(.ixinTmpFile.buf, ixinTmpFile.actual);
 		call Read(ixinTmpFile.fd, .ixinTmpFile.buf, 1280, .ixinTmpFile.actual, .status);
 	end;
 end;
@@ -711,7 +712,7 @@ sub$47EE: procedure public;
 		isisFileEntry(10) byte,
 		info(16) byte,
 		(isisDirFd, dirCount) address,
-		(drive, j, b7920, i) byte,
+		(drive, wcUsed, b7920, i) byte,
 		(w7922, dirSize) address;
 		
 	call Spath(.('ISIS.DIR '), .info, .status);
@@ -729,8 +730,8 @@ sub$47EE: procedure public;
 	do while cmdLinePtr < endOfFiles;
 		b7920 = 0;
 		w7922 = cmdLinePtr;
-		j = TRUE;
-		status = WPath(cmdLinePtr, .isisFileEntry, .j);
+		wcUsed = TRUE;
+		status = WPath(cmdLinePtr, .isisFileEntry, .wcUsed);
 		call FileError(status, cmdLinePtr, TRUE);
 		cmdLinePtr = SkipWS(SkipUntilSpaceOrComma(cmdLinePtr));
 		isisDir(2) = (drive := isisFileEntry(0)) +'0';
@@ -751,7 +752,7 @@ sub$47EE: procedure public;
 					info(8) = 'X';
 					info(9) = 'O';
 					call InternalToUserFileName(.info, .outFileName);
-					call sub$3D5F;
+					call InitPrint;
 					i = FALSE;
 					havePrint = TRUE;
 				end;
@@ -811,7 +812,7 @@ sub$4BF1: procedure;
 	declare rec$p address,
 		actual address,
 		ptr based ptrPtr address,
-		record based rec$p (1) byte;
+		record based rec$p record$t;
 
 	rec$p = .MEMORY;
 	call Read(tmpModnmFd, rec$p, topmem - .MEMORY, .actual, .status);
@@ -827,7 +828,7 @@ sub$4BF1: procedure;
 		end;
 		modDirSize = modDirSize + 1;
 		ptr = rec$p;
-		rec$p = rec$p + record(1);	
+		rec$p = rec$p + record.len;	
 	end;
 end;
 
@@ -929,16 +930,16 @@ sub$4F1C: procedure(arg1b);
 	call OutNewLine;
 	outCol = 1;
 	call OutStr(.spaces34, 3);
-	call OutStr(.ixinTmpFile.record(3), ixinTmpFile.record(2));
+	call OutStr(.ixinTmpFile.record(2+1), ixinTmpFile.record(2));
 	call OutStr(.dotSpace32 + ixinTmpFile.record(2), maxIdLen + 1 - ixinTmpFile.record(2));
 	if (dataType := ixinTmpFile.record(ixinTmpFile.record(2) + 3)) = 5 then
 	do;
 		ii = ixinTmpFile.record(ixinTmpFile.record(2) + 4);
 		call OutStr(.(' PROCEDURE'), 10);
 		if ii = 2 then
-			call outstr(.('  BYTE'), 6);
+			call OutStr(.('  BYTE'), 6);
 		if ii = 3 then
-			call outstr(.('  ADDRESS'), 9);
+			call OutStr(.('  ADDRESS'), 9);
 	end;
 	else if dataType >= 1 and dataType <= 9 then
 	do;
@@ -969,12 +970,12 @@ sub$4F1C: procedure(arg1b);
 		do case arg1b;
 		do;
 			call OutStr(.ixinTmpFile.record(k + 1), ixinTmpFile.record(k));
-			if sub$433E(.ixinTmpFile.record, .b792E) = 1 then
+			if sub$433E(.ixinTmpFile.record(0), .b792E) = 1 then
 				call OutStr(.('** DUPLICATE **'), 15);
 		end;
 			call OutStr(.('** UNRESOLVED **'), 16);
 		end;
-	call MemCpy(.ixinTmpFile.record, .b792E, ixinTmpFile.record(1));
+	call MemCpy(.ixinTmpFile.record(0), .b792E, ixinTmpFile.record(1));
 end;
 
 
@@ -1072,7 +1073,7 @@ sub$5317: procedure public;
 		else if b7819 then
 		do;
 			ixinTmpFile.record(0) = 0;
-			if sub$433E(.b792E, .ixinTmpFile.record) <> 1 then
+			if sub$433E(.b792E, .ixinTmpFile.record(0)) <> 1 then
 				call sub$4F1C(1);
 			call OutStr(.spaces34, 2);
 			call OutStr(.ixinTmpFile.record(ixinTmpFile.record(2) + 7), 
@@ -1184,7 +1185,7 @@ end;
 ixref5.plm
 ixref5: do;
 /* no externals */
-declare deviceList1(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
+declare deviceList(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
 
 
 InternalToUserFileName: procedure(internalNamePtr, userNamePtr) public;
@@ -1194,8 +1195,8 @@ InternalToUserFileName: procedure(internalNamePtr, userNamePtr) public;
 		userName based userNamePtr (1) byte;
 
 	userName(0) = ':';
-	userName(1) = deviceList1(internalName(0) + internalName(0));
-	userName(2) = deviceList1(internalName(0) + internalName(0) + 1);
+	userName(1) = deviceList(internalName(0) + internalName(0));
+	userName(2) = deviceList(internalName(0) + internalName(0) + 1);
 	userName(3) = ':';
 	userNamePtr = userNamePtr + 4;
 	do i = 0 to 5;
@@ -1217,108 +1218,110 @@ end;
 ixref6.plm
 ixref6: do;
 $include(ixref6.ipx)
-declare deviceList2(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
+declare deviceList(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
 
-declare b79DC(15) byte;
+declare localName(15) byte;
 
-WPath: procedure(arg1w, arg2w, arg3w) byte public;	/* see cusp6.lib */
-	declare (arg1w, arg2w, arg3w) address;
-	declare ii address, (i, j) byte, jj address, (k, l, m) byte;
-	declare ijPair address at(.i);
-	declare ch1 based arg1w (1) byte;
-	declare ch2 based arg2w (1) byte;
-	declare ch3 based arg3w (1) byte;
-	declare pair based jj address;
-	declare chii based ii byte;
+WPath: procedure(name$p, pn$p, wcUsed$p) byte public;	/* see cusp6.lib */
+	declare (name$p, pn$p, wcUsed$p) address;
+	declare startName address,
+		devName address, (ch1, ch2) byte at (.devName),
+		pair$p address, (noFIle, i, j) byte;
+	declare name based name$p (1) byte;
+	declare nameCh based name$p byte;
+	declare pn based pn$p (1) byte;
+	declare wcUsed based wcUsed$p byte;
+	declare pair based pair$p address;
+	declare startNameCh based startName byte;
 	
 	isAmbFileNameCh: procedure byte;
-		return ('A' <= ch1(0) and ch1(0) <= 'Z') or
-		       ('0' <= ch1(0) and ch1(0) <= '9') or
-		       ch1(0) = '?' or ch1(0) = '*' or
-		       ('a' <= ch1(0) and ch1(0) <= 'z');
+		return ('A' <= nameCh and nameCh <= 'Z') or
+		       ('0' <= nameCh and nameCh <= '9') or
+		       nameCh = '?' or nameCh = '*' or
+		       ('a' <= nameCh and nameCh <= 'z');
 	end;
-	ch3(0) = 0;
-	jj = .deviceList2;
-	do m = 0 to 9;
-		ch2(m) = 0;
+	wcUsed = FALSE;
+	pair$p = .deviceList;
+	do j = 0 to 9;
+		pn(j) = 0;
 	end;
-	do while ch1(0) = ' ';
-		arg1w = arg1w + 1;
+	do while nameCh = ' ';
+		name$p = name$p + 1;
 	end;
 
-	ii = arg1w;
-	if ch1(0) = ':' then
+	startName = name$p;
+	if nameCh = ':' then
 	do;
-		if ch1(3) <> ':' then
-			return 4;
-		arg1w = arg1w + 1;
-		i = Uppercase(ch1(0));
-		arg1w = arg1w + 1;
-		j = Uppercase(ch1(0));
-		arg1w = arg1w + 2;
-		ch2(0) = 0FFh;
-		m = 0;
-		do while m < 57;
-			if pair = ijPair then
-				ch2(0) = shr(m, 1);
-			m = m + 2;
-			jj = jj + 2;
+		if name(3) <> ':' then
+			return 4;	/* incorrectly specified file */
+		name$p = name$p + 1;
+		ch1 = Uppercase(nameCh);
+		name$p = name$p + 1;
+		ch2 = Uppercase(nameCh);
+		name$p = name$p + 2;
+		pn(0) = 0FFh;
+		j = 0;
+		do while j < 57;
+			if pair = devName then
+				pn(0) = shr(j, 1);
+			j = j + 2;
+			pair$p = pair$p + 2;
 		end;
-		if ch2(0) = 0FFh then
-			return 5;
+		if pn(0) = 0FFh then
+			return 5;	/* unrecognized device name */
 	end;
-	k = TRUE;
-	m = 1;
-	do while m < 7;
+	noFIle = TRUE;
+	j = 1;
+	do while j < 7;
 		if isAmbFileNameCh then
 		do;
-			ch2(m) = Uppercase(ch1(0));
-			if ch1(0) = '*' then
-				do while m < 7;
-					ch3(0) = 0FFh;
-					ch2(m) = '*';
-					m = m + 1;
+			pn(j) = Uppercase(nameCh);
+			if nameCh = '*' then
+				do while j < 7;
+					wcUsed = TRUE;
+					pn(j) = '*';
+					j = j + 1;
 				end;
-			else if ch1(0) = '?' then
-				ch3(0) = 0FFh;
-			arg1w = arg1w + 1;
-			k = FALSE;
+			else if nameCh = '?' then
+				wcUsed = TRUE;
+			name$p = name$p + 1;
+			noFIle = FALSE;
 		end;
-		m = m + 1;
+		j = j + 1;
 	end;
-	if ch1(0) = '.' then
+	if nameCh = '.' then
 	do;
-		arg1w = arg1w + 1;
-		m = 7;
-		do while m < 10;
+		name$p = name$p + 1;
+		j = 7;
+		do while j < 10;
 			if isAmbFileNameCh then
 			do;
-				ch2(m) = Uppercase(ch1(0));
-				if ch1(0) = '*' then
-					do while m < 10;
-						ch3(0) = 0FFh;
-						ch2(m) = '*';
-						m = m + 1;
+				pn(j) = Uppercase(nameCh);
+				if nameCh = '*' then
+					do while j < 10;
+						wcUsed = TRUE;
+						pn(j) = '*';
+						j = j + 1;
 					end;
-				else if ch1(0) = '?' then
-					ch3(0) = 0FFh;
-				arg1w = arg1w + 1;
+				else if nameCh = '?' then
+					wcUsed = TRUE;
+				name$p = name$p + 1;
 			end;
-			m = m + 1;
+			j = j + 1;
 		end;
 	end;
-	if sub$5FC4(ch2(0), 1) <= 9 and k then
-		return 17h;
-	l = 0FFh;
-	do while ii < arg1w;
-		b79DC(l := l + 1) = chii;
-		ii = ii + 1;
+	if TestRange(pn(0), 1) <= 9 and noFIle then
+		return 17h;	/*  missing filename */
+	i = 0FFh;
+	do while startName < name$p;
+		localName(i := i + 1) = startNameCh;
+		startName = startName + 1;
 	end;
-	if b79DC(l) = '.' then
-		return 1Ch;
-	b79DC(l + 1) = ' ';
-	if isAmbFileNameCh or ch1(0) = '.' or ch1(0) = ':' then
-		return 4;
+	if localName(i) = '.' then
+		return 1Ch;	/* missing extension */
+	localName(i + 1) = ' ';
+	if isAmbFileNameCh or nameCh = '.' or nameCh = ':' then
+		return 4;	/* incorrectly specified file */
 	return 0;
 end;
 
@@ -1409,7 +1412,7 @@ ReportError: procedure(errNum) public;
 	if errNum <> 0 then
 	do;
 		i = 0;
-		do while i < 982;
+		do while i < size(msg);
 			if errNum = msg(i) and msg(i + 1) <> 0 then
 			do;
 				i = i + 1;
@@ -1418,7 +1421,7 @@ ReportError: procedure(errNum) public;
 					call Write(0, .msg(i), 1, .status);
 					i = i + 1;
 				end;
-				call Write(0, .(0dh, 0ah), 2, .status);
+				call Write(0, .(CR, LF), 2, .status);
 				return;
 			end;
 			else
@@ -1429,21 +1432,21 @@ ReportError: procedure(errNum) public;
 				i = i + 1;
 			end;
 		end;
-	call error(errNum);
+	call Error(errNum);
 	end;
 end;
 
-sub$5FC4: procedure(devNum, arg2w) byte public;
-	declare devNum byte, arg2w address;
+TestRange: procedure(devNum, path) byte public;
+	declare devNum byte, path address;
 
 	if devNum >= 25 then
 		devNum = devNum - 19;
 	else if devNum > 5 then
 		devNum = devNum + 4;
-	if devNum <= 9 or arg2w = 1 then
+	if devNum <= 9 or path = 1 then
 		return devNum;
-	if arg2w <> 0 then
-		call FileError(0EBh, arg2w, TRUE);	/* non-disk device */
+	if path <> 0 then
+		call FileError(0EBh, path, TRUE);	/* non-disk device */
 	else
 	do;
 		call ReportError(0EBh);	/* non-disk device */
@@ -1482,7 +1485,7 @@ ASMDIR=..\..\plm80v4
 OLDPLMDIR=..\..\plm80v3
 TOOLS=..\..\tools
 #PLMFLAGS=optimize symbols code debug
-PLMFLAGS=optimize code
+PLMFLAGS=optimize code IXREF
 OBJS = ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj  
 
 .SUFFIXES: .plm
@@ -1508,7 +1511,6 @@ ixref: $(OBJS)
 	@SET ISIS_F2=$(OLDPLMDIR)
 	$(ISIS) :F1:LINK $(OBJS: =,),:F2:system.lib,:F1:PLM80.LIB TO $*.REL 
 	$(ISIS) :F1:LOCATE $*.REL TO $* CODE(3880H) PRINT($*.map)  SYMBOLS PUBLICS PURGE order(code stack data) stacksize(136)
-	..\..\tools\diffbin ixref ixref.ref >diffs
 	..\..\relst.pl $*.map $(OBJS:.obj=.lst)
 
 *.ipx: ixref.pex

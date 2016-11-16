@@ -6,7 +6,7 @@ ASMDIR=..\..\plm80v4
 OLDPLMDIR=..\..\plm80v3
 TOOLS=..\..\tools
 #PLMFLAGS=optimize symbols code debug
-PLMFLAGS=optimize code
+PLMFLAGS=optimize code IXREF
 OBJS = ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj  
 
 .SUFFIXES: .plm
@@ -32,7 +32,6 @@ ixref: $(OBJS)
 	@SET ISIS_F2=$(OLDPLMDIR)
 	$(ISIS) :F1:LINK $(OBJS: =,),:F2:system.lib,:F1:PLM80.LIB TO $*.REL 
 	$(ISIS) :F1:LOCATE $*.REL TO $* CODE(3880H) PRINT($*.map)  SYMBOLS PUBLICS PURGE order(code stack data) stacksize(136)
-	..\..\tools\diffbin ixref ixref.ref >diffs
 	..\..\relst.pl $*.map $(OBJS:.obj=.lst)
 
 *.ipx: ixref.pex
