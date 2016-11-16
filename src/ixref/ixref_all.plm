@@ -1,0 +1,1537 @@
+ixref.pex
+CR	'0Dh'
+LF	'0Ah'
+TRUE	'0FFh'
+FALSE	'0'
+
+
+Write		P(A conn,A buff$p,A count,A status$p)
+Open		P(A conn$p,A path$p,A access,A echo,A status$p)
+Rescan		P(A conn,A status$p)
+Exit		P
+Read		P(A conn,A buff$p,A count,A actual$p,A status$p)
+Memck		PA
+Spath		P(A path$p,A info$p,A status$p)
+Close		P(A conn,A status$p)
+Delete		P(A path$p,A status$p)
+Rename		P(A old$p,A new$p,A status$p)
+Seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
+Error		P(a error$num)
+
+ofile$t 'structure(fd address, count address, buf(1280) byte)'
+ifile$t 'structure(fd address, buf(1280) byte, index address, actual address, record(70) byte)'
+
+$file(ixref.plm)
+outFileName	B(32)
+tmpModnm	BS
+tmpIxin		BS
+tmpIxout	BS
+tmpModnmFd	A
+modRecord	B(70)
+inFile1 	"ifile$t"
+ixinTmpFile 	"ifile$t"
+outFile 	"ofile$t"
+ixoutTmpFile 	"ofile$t"
+havePrint	B
+b7818		B
+b7819		B
+cmdLinePtr	A
+cmdLineCh	BS..cmdLinePtr
+endOfFiles	A
+outCol		B
+maxIdLen	B
+topmem		A
+driveType	B
+
+SkipUntilSpace	P(A arg1w)A
+SkipUntilSpaceOrComma	P(A arg1w)A
+Fill	P(A dst,B val,A len)
+MemCpy	P(A src,A dst,A len)
+Num2Ascii	P(A num,A ptr)B
+SkipWS:	P(A ptr)A
+Flush	P(A file$p)
+Fwrite	P(A file$p,A str,A len)
+OutNewPage	P
+OutNewLine	P
+OutNNewLines	P(B n)
+OutStr	P(A str,A len)
+sub$3D5F	P
+GetCmdLine	P
+ParseCmdLine	P
+sub$42FE	P
+
+$file(ixref2.plm)
+sub$433E	P(A arg1w, A arg2w)B
+sub$442F	P(A file$p)
+sub$456E	P(A str,A len)
+sub$4589	P
+sub$47EE	P
+
+$file(ixref3.plm)
+sub$4BF1	P
+sub$4C79	P
+sub$4F1C	P(B arg1b)
+sub$5141	P
+sub$5317	P
+SkipFileName	P(A str)A
+FindDirEntry	P(A fd,A path,A dirCnt,A buf)A
+
+$file(ixref4.plm)
+FileError	P(A errcode,A path,B isFatal)
+StrUpper	P(A str)
+Strequ	P(A str1$p,A str2$p,B len)B
+
+$file(ixref5.plm)
+InternalToUserFileName	P(A internalNamePtr,A userNamePtr)
+
+$file(ixref6.plm)
+WPath	P(A arg1w, A arg2w, A arg3w)B
+SkipSpace	P(A str)A
+MatchAmbFileNames	P(A ambFileName$p,A fileName$p)B
+
+$file(ixref7.plm)
+ReportError	P(A errNum) public
+sub$5FC4	P(B devNum, A arg2w)B
+Uppercase	P(B ch)B
+SkipAmbFileName	P(A str)A
+
+ixref.plm
+ixref: do;
+$include(ixref.ipx)
+declare version(*) byte data('V1.2'),
+	copyright(*) byte data('(C) 1977 INTEL CORP'),
+	signonMsg(*) byte data('ISIS-II IXREF '),
+	spaces(*) byte data('                                        '),
+	asciiDigits(*) byte data('0123456789'),
+	ixrefMsg(*) byte data('ISIS-II IXREF, '),
+	invokeMsg(*) byte data('INVOKED BY:  '),
+	insufficientMemory(*) byte data(' ,  NOT ENOUGH MEMORY', CR, LF);
+
+
+declare	outFileName(32) byte public,
+	tmpModnm(*) byte public initial(':F1:MODNM.TMP '),
+	tmpIxout(*) byte public initial(':F1:IXOUT.TMP '),
+	tmpIxin(*) byte public initial(':F1:IXIN.TMP '),
+	tmpModnmFd address public,
+	modRecord(70) byte public,
+	inFile1 ifile$t public,
+	ixinTmpFile ifile$t public,
+	outFile ofile$t public,
+	ixoutTmpFile ofile$t public,
+	b7818 byte public initial(TRUE),
+	b7819 byte public initial(TRUE),
+	haveTitle byte initial(FALSE),
+	havePageWidth byte initial(FALSE),
+	outLineLen byte initial(120),
+	havePrint byte public initial(0),
+	cmdLinePtr address public,
+	cmdLineCh based cmdLinePtr (1) byte,
+	endOfFiles address public,
+	outCol byte public initial(1),
+	maxIdLen byte public initial(11),
+	topmem address public,
+	outLinesLeft byte,
+	outPageLen byte initial(60),
+	pageNumber byte initial(0),
+	title(60) byte,
+	titleLen byte initial(0),
+	driveType byte public;
+
+
+SkipUntilSpace: procedure(arg1w) address public;
+	declare arg1w address;
+	declare ch based arg1w byte;
+
+	do while ch <> ' ';
+		arg1w = arg1w + 1;
+	end;
+	return arg1w;
+end;
+
+
+SkipUntilSpaceOrComma: procedure(arg1w) address public;
+	declare arg1w address;
+	declare ch based arg1w byte;
+
+	do while ch <> ' ' and ch <> ',';
+		arg1w = arg1w + 1;
+	end;
+	return arg1w;
+end;
+
+
+Fill: procedure(dst, val , len);
+	declare dst address, val byte, len address;
+	declare ch based dst byte;
+
+	do while len <> 0;
+		ch = val;
+		len = len - 1;
+		dst = dst + 1;
+	end;
+end;
+
+
+MemCpy: procedure(src, dst, len) public;
+	declare (src, dst, len) address;
+	declare sch based src byte;
+	declare dch based dst byte;
+
+	do while len <> 0;
+		dch = sch;
+		src = src + 1;
+		dst = dst + 1;
+		len = len - 1;
+	end;
+end;
+
+
+Num2Ascii: procedure(num, ptr) byte public;
+	declare (num, ptr) address;
+	declare buf(10) byte,
+		(i, j, k) byte;
+
+	call Fill(.buf, ' ', 10);
+	k = 10;
+	i = 9;
+	do while k <> 0;	
+		buf(i) = asciiDigits(num mod 10);
+		if (num := num / 10) = 0 then
+			k = 0;
+		else
+		do;
+			k = k - 1;
+			i = i - 1;
+		end;
+	end;
+	j = 9 - i + 1;
+	call MemCpy(.buf(i), ptr, j);
+	return j;
+end;
+
+
+SkipWS:	procedure(ptr) address public;
+	declare ptr address,
+		ch based ptr byte;
+	do while ch = ' ' or ch = '&';
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+
+
+Flush: procedure(file$p) public;
+	declare file$p address, status address;
+	declare file based file$p ofile$t;
+
+	if file.count <> 0 then
+	do;
+		call Write(file.fd, .file.buf, file.count, .status);
+		file.count = 0;
+	end;
+end;
+
+
+Fwrite: procedure(file$p, str, len) public;
+	declare (file$p, str, len) address;
+	declare file based file$p ofile$t,
+		ch based str byte;
+
+	do while len <> 0;
+		file.buf(file.count) = ch;
+		file.count = file.count + 1;
+		if file.count = 1280 then
+			call Flush(.file);
+		str = str + 1;
+		len = len - 1;
+	end;
+end;
+
+
+OutNewPage: procedure;
+	declare i byte,
+		buf(6) byte;
+
+	call Fwrite(.outFile, .(0Ch), 1);
+	pageNumber = pageNumber + 1;
+	call Fwrite(.outfile, .('ISIS-II IXREF         '), 22);
+	if haveTitle then
+		call Fwrite(.outfile, .title, titleLen);
+	i = titleLen + 22;
+	do while i < outLineLen - 8;
+		call Fwrite(.outFile, .spaces, 1);
+		i = i + 1;
+	end;
+	call Fwrite(.outFile, .('PAGE'), 4);
+	i = Num2Ascii(pageNumber, .buf);
+	call Fwrite(.outFile, .spaces, 4 - i);
+	call Fwrite(.outFile, .buf, i);
+	call Fwrite(.outFile, .(CR, LF, LF, LF), 4);
+	outLinesLeft = outPageLen - 3;
+end;
+
+
+OutNewLine: procedure public;
+	call Fwrite(.outFile, .(CR, LF), 2);
+	outCol = 1;
+	outLinesLeft = outLinesLeft - 1;
+	if outLinesLeft = 0 then
+		call OutNewPage;
+end;
+
+
+OutNNewLines: procedure(n) public;
+	declare n byte;
+	do while n <> 0;
+		call OutNewLine;
+		n = n - 1;
+	end;
+end;
+
+
+OutStr: procedure(str, len) public;
+	declare (str, len) address;
+	if outCol + len > outLineLen then
+	do;
+		call OutNewLine;
+		call Fwrite(.outfile, .spaces, maxIdLen + 7);
+		outCol = maxIdLen + 8;
+	end;
+	call Fwrite(.outfile, str, len);
+	outCol = outCol + len;
+end;
+
+
+sub$3D5F: procedure public;
+	declare (chPtr, status) address;
+	declare ch based chPtr byte;
+	
+	call Open(.outFile.fd, .outFileName, 2, 0, .status);
+	if status <> 0 then
+		call FileError(status, .outFileName, TRUE);
+
+	outFile.count = 0;
+	call OutNewPage;
+	call OutStr(.ixrefMsg, length(ixrefMsg));
+	call OutStr(.version, length(version));
+	call OutNewLine;
+	call OutStr(.invokeMsg, length(invokeMsg));
+	call OutNewLine;
+	call outstr(.('-'), 1);
+	chPtr = .MEMORY;
+
+	do while ch <> CR;
+		if ch = '&' then
+		do;
+			call OutStr(.('&'), 1);
+			call OutNewLine;
+		end;
+		else
+			call OutStr(chPtr, 1);
+		chPtr = chPtr + 1;
+	end;
+	call OutNewLine;
+end;
+
+declare (status, actual) address;
+declare drive byte initial('0');
+
+GetCmdLine: procedure;
+	declare ch byte;
+	declare cmdCh based cmdLinePtr byte;
+	declare cmdChArray based cmdLinePtr (1) byte;
+
+	call Rescan(1, .status);
+	ch = '&';
+	do while ch = '&';
+		if cmdLinePtr + 129 > topmem then
+		do;
+			call Write(0, .insufficientMemory, 23, .status);
+			call Exit;
+		end;
+		else
+		do;
+			call Read(1, cmdLinePtr, 128, .actual, .status);
+			do while cmdCh <> CR and cmdCh <> '&' and cmdCh <> LF;
+				cmdLinePtr = cmdLinePtr + 1;
+			end;
+			if (ch := cmdCh) = '&' then
+			do;
+				call Write(0, .('**'), 2, .status);
+				cmdLinePtr = cmdLinePtr + 1;
+			end;
+		end;
+	end;
+	cmdCh = ' ';
+	cmdChArray(1) = CR;
+	cmdLinePtr = .MEMORY;
+	call StrUpper(cmdLinePtr);		
+end;
+
+
+ParseCmdLine: procedure;
+	declare (cmdPtr, token) address,
+		tokenLen byte,
+		cmdCh based cmdPtr byte;		
+
+	ParsePageWidth:	procedure;
+		declare pageWidth byte;
+
+		havePageWidth = TRUE;
+		cmdPtr = SkipWS(cmdPtr);
+		if cmdCh <> '(' then
+			call FileError(0CBh, token, TRUE);	/* invalid syntax */
+		cmdPtr = SkipWS(cmdPtr + 1);
+		pageWidth = 0;
+		do while '0' <= cmdCh and cmdCh <= '9';
+			pageWidth = pageWidth * 10 + (cmdCh - '0');
+			if pageWidth > 132 then
+			do;
+				call FileError(0CBh, token, TRUE);	/* invalid syntax */
+				do while cmdCh <> ')' and cmdCh <> CR;
+					cmdPtr = cmdPtr + 1;
+				end;
+				goto break;
+			end;
+			cmdPtr = cmdPtr + 1;
+		end;
+		break:
+		
+		cmdPtr = SkipWS(cmdPtr);
+		if cmdCh <> ')' then
+			call FileError(0CBh, token, TRUE);	/* invalid syntax */
+		if pageWidth < 60 or pageWidth > 132 then
+		do;
+			call FileError(0CBh, token, TRUE);	/* invalid syntax */
+			pageWidth = 120;
+		end;
+		outLineLen = pageWidth;
+		cmdPtr = cmdPtr + 1;
+	end;
+
+	ParseTitle: procedure;
+		declare titlePtr address;
+
+		cmdPtr = SkipWS(cmdPtr);
+		if cmdCh <> '(' then
+			call FileError(0CBh, cmdPtr, TRUE);	/* invalid syntax */
+		
+		cmdPtr = SkipWS(cmdPtr + 1);
+		if cmdCh <> '''' then
+			call FileError(0CBh, cmdPtr, TRUE);	/* invalid syntax */
+		cmdPtr, titlePtr = cmdPtr + 1;
+		do while cmdCh <> '''' and titleLen < 60;
+			cmdPtr = cmdPtr + 1;
+			titleLen = titleLen + 1;
+		end;
+		do while cmdCh <> '''' and cmdCh <> CR;
+			cmdPtr = cmdPtr + 1;
+		end;
+		cmdPtr = SkipWS(cmdPtr + 1);
+		if cmdCh <> ')' then
+			call FileError(0CBh, cmdPtr, TRUE);	/* invalid syntax */
+
+		cmdPtr = cmdPtr + 1;
+		call Fill(.title, ' ', 60);
+		call MemCpy(titlePtr, .title, titleLen);
+		haveTitle = TRUE;
+	end;
+
+	ParsePrint: procedure;
+		declare name address,
+			len byte;
+
+		cmdPtr = SkipWS(cmdPtr);
+		if cmdCh <> '(' then
+			call FileError(0CBh, cmdPtr, TRUE);	/* invalid syntax */
+		else	
+		do;
+			cmdPtr = cmdPtr + 1;
+			name = SkipWS(cmdPtr);
+			cmdPtr = SkipFileName(name);
+			len = cmdPtr - name;
+			if len > 15 then
+				len = 15;
+			cmdPtr = SkipWS(cmdPtr);
+			if cmdCh <> ')' then
+				call FileError(0CBh, cmdPtr, TRUE);	/* invalid syntax */
+			else
+				cmdPtr = cmdPtr + 1;
+
+			call Fill(.outFileName, ' ', 16);
+			call MemCpy(name, .outFileName, len);
+			havePrint = TRUE;
+		end;
+	end;
+
+	cmdPtr = SkipWS(SkipUntilSpaceOrComma(cmdLinePtr));
+	do while Strequ(cmdPtr, .(','), 1);
+		cmdPtr = SkipWS(SkipUntilSpaceOrComma(SkipWS(cmdPtr + 1)));
+	end;	
+	endOfFiles = cmdPtr;
+	do while not Strequ(cmdPtr, .(CR), 1);
+		token = cmdPtr;
+		cmdPtr = SkipFileName(cmdPtr);
+		tokenLen = cmdPtr - token;
+		if tokenLen = 5 and Strequ(token, .('TITLE'), 5) then
+			if haveTitle then
+				call FileError(0CBh, token, TRUE);	/* invalid syntax */
+			else
+				call ParseTitle;
+		else if tokenLen = 5 and Strequ(token, .('PRINT'), 5) then
+			if havePrint then
+				call FileError(0CBh, token, TRUE);	/* invalid syntax */
+			else
+				call ParsePrint;
+		else if tokenLen = 7 and Strequ(token, .('PUBLICS'), 7) then
+			if not (b7818 and b7819) then
+				call FileError(0CBh, token, TRUE);	/* invalid syntax */
+			else
+				b7819 = 0;
+		else if tokenLen = 9 and Strequ(token, .('EXTERNALS'), 9) then
+			if not (b7818 and b7819) then
+				call FileError(0CBh, token, TRUE);	/* invalid syntax */
+			else
+				b7818 = 0;
+		else if tokenLen = 9 and Strequ(token, .('PAGEWIDTH'), 9) then
+			if havePageWidth then
+				call FileError(0CBh, token, TRUE);	/* invalid syntax */
+			else
+				call ParsePageWidth;
+		else
+			call FileError(0CBh, token, TRUE);	/* invalid syntax */
+		cmdPtr = SkipWS(cmdPtr);
+	end;
+end;
+
+
+sub$42FE: procedure;
+	declare status address;
+
+	call Write(0, .signonMsg, 14, .status);
+	call Write(0, .version, 4, .status);
+	call Write(0, .(CR, LF), 2, .status);
+end;
+
+start:
+
+	topmem = Memck - 12;
+	cmdLinePtr = .MEMORY;
+	call GetCmdLine;
+	call sub$42FE;
+	cmdLinePtr = SkipWS(cmdLinePtr);
+	if Strequ(cmdLinePtr, .('DEBUG'), 5) then
+		cmdLinePtr = cmdLinePtr + 5;
+	cmdLinePtr = SkipWS(SkipFileName(SkipWS(cmdLinePtr)));
+	if cmdLineCh(0) = CR then
+		call FileError(0cbh, cmdLinePtr, TRUE);	/* invalid syntax */
+	if cmdLineCh(0) = ':' then
+		drive  = cmdLineCh(2);	/* pick up drive */
+	tmpModnm(2) = drive;
+	tmpIxout(2) = drive;
+	tmpIxin(2) = drive;
+	call ParseCmdLine;
+	if havePrint then
+		call sub$3d5f;
+	call sub$47ee;
+	call sub$5317;
+	call Exit;
+end;
+
+ixref2.plm
+ixref2: do;
+$include(ixref2.ipx)
+declare isisDir(*) byte initial(':F0:ISIS.DIR '),
+	badRecordType(*) byte initial(', BAD RECORD TYPE', CR, LF),
+	b78D6(15) byte;
+
+
+sub$433E: procedure(arg1w, arg2w) byte public;
+	declare (arg1w, arg2w) address,
+		s1 based arg1w structure(b0 byte, b1 byte, b2(1) byte),
+		s2 based arg2w structure(b0 byte, b1 byte, b2(1) byte);
+	declare (i, j) byte;
+
+	if s1.b0 = 81h then
+		return 2;
+	if s2.b0 = 81h then
+		return 0;
+	if s1.b2(0) <= s2.b2(0) then
+		j = s1.b2(0) + 1;
+	else
+		j = s2.b2(0) + 1;
+
+	do i = 1 to j;
+		if s1.b2(i) < s2.b2(i) then
+			return 0;
+		if s1.b2(i) > s2.b2(i) then
+			return 2;
+	end;
+	if s1.b2(0) < s2.b2(0) then
+		return 0;
+	if s1.b2(0) > s2.b2(0) then
+		return 2;
+
+	if s1.b0 < s2.b0 then
+		return 0;
+	if s1.b0 > s2.b0 then
+		return 2;
+	return 1;
+end;
+
+sub$442F: procedure(file$p) public;
+	declare file$p address,
+		file based file$p ifile$t;
+	declare status address,
+		rec$p address, recByte based rec$p byte,
+		i byte, recDataLen byte;
+
+	GetCh: procedure;
+
+		if file.index = file.actual then
+		do;
+			file.index = 0;
+			call Read(file.fd, .file.buf, 1280, .file.actual, .status);
+			if file.actual = 0 then
+			do;
+				recByte = 81h;
+				return;
+			end;
+			else	/* adjust for 0 based index */
+				file.actual = file.actual - 1;
+		end;
+		else
+			file.index = file.index + 1;
+		recByte = file.buf(file.index);	
+	end;
+	rec$p = .file.record(0);
+	call GetCh;
+	if recByte = 81h then
+		return;	
+	if recByte <> 0FFh and recByte <> 0 and recByte <> 1 then
+		return;
+	rec$p = rec$p + 1;
+	call GetCh;
+	if recByte > 70 then
+		recByte = 70;
+	recDataLen = recByte;
+
+	do i = 2 to recDataLen - 1;
+		rec$p = rec$p + 1;
+		call GetCh;
+	end;
+	if file.record(2) > maxIdLen then
+		maxIdLen = file.record(2);
+	if maxIdLen > 31 then
+		maxIdLen = 31;
+end;
+
+
+sub$456E: procedure(str, len);
+	declare (str, len) address;
+
+	call Fwrite(.ixoutTmpFile, str, len);
+end;
+
+sub$4589: procedure;
+	declare (b78F7, b78F8) byte, status address, b78FB byte;
+
+	inFile1.index = inFile1.actual;
+	ixinTmpFile.index = ixinTmpFile.actual;
+	call sub$442F(.inFile1);
+	if inFile1.record(0) <> 0FFh or inFile1.actual < inFile1.record(1) then
+	do;
+		call Write(0, .(' '), 1, .status);
+		call Write(0, .b78D6, SkipUntilSpace(.b78D6) - .b78D6, .status);
+		call Write(0, .badRecordType, 19, .status);
+	end;
+	else
+	do;
+		call MemCpy(.inFile1.record, .modRecord, inFile1.record(1));
+		call Write(tmpModnmFd, .modRecord, modRecord(1), .status);
+		b78F7 = TRUE;
+		b78F8 = TRUE;
+		inFile1.record(0) = 0FFh;
+		ixinTmpFile.record(0) = 0FFh;
+		do while inFile1.record(0) <> 81h;
+			if b78F7 then
+			do;
+				call sub$442F(.inFile1);
+				if inFile1.record(0) <> 81h and inFile1.record(0) <> 0 and inFile1.record(0) <> 1 then
+				do;	
+					call Write(0, .(' '), 1, .status);
+					call Write(0, .b78D6, SkipUntilSpace(.b78D6) - .b78D6, .status);
+					call Write(0, .badRecordType, 19, .status);
+					inFile1.record(0) = 81h;
+				end;
+				b78F7 = FALSE;
+			end;
+			if b78F8 then
+			do;
+				call sub$442F(.ixinTmpFile);
+				if ixinTmpFile.record(0) <> 81h and ixinTmpFile.record(0) <> 0
+				   and ixinTmpFile.record(0) <> 1 then
+				do;
+					call Write(0, .(' '), 1, .status);
+					call Write(0, .tmpIxin, 13, .status);
+					call Write(0, .badRecordType, 19, .status);
+					call Exit;
+				end;
+				b78F8 = FALSE;
+			end;
+			if inFile1.record(0) = 81h and ixinTmpFile.record(0) = 81h then
+				return;
+			if sub$433E(.inFile1.record, .ixinTmpFile.record) <= 1 then
+			do;
+				b78FB = inFile1.record(1);
+				inFile1.record(1) = b78FB + modRecord(2) + 1;
+				call sub$456E(.inFile1.record, b78FB);
+				call sub$456E(.modrecord(2), 1);
+				call sub$456E(.modrecord(3), modrecord(2));
+				b78F7 = TRUE;
+			end;
+			else
+			do;
+				call sub$456E(.ixinTmpFIle.record, ixinTmpFile.record(1));
+				b78F8 = TRUE;
+			end;
+		end;
+	end;
+	call sub$456E(.ixinTmpFile.buf(ixinTmpFile.index+1), ixinTmpFile.actual - ixinTmpFile.index);
+	call Read(ixinTmpFile.fd, .ixinTmpFile.buf, 1280, .ixinTmpFile.actual, .status);
+	do while ixinTmpFile.actual <> 0; 
+		call sub$456E(.ixinTmpFile.buf, ixinTmpFile.actual);
+		call Read(ixinTmpFile.fd, .ixinTmpFile.buf, 1280, .ixinTmpFile.actual, .status);
+	end;
+end;
+
+
+sub$47EE: procedure public;
+	declare (status, w78FE) address,
+		isisFileEntry(10) byte,
+		info(16) byte,
+		(isisDirFd, dirCount) address,
+		(drive, j, b7920, i) byte,
+		(w7922, dirSize) address;
+		
+	call Spath(.('ISIS.DIR '), .info, .status);
+	if (driveType := info(11)) = 4 then	/* 2 board hard disk */
+		dirSize = 992;
+	else
+		dirSize = 200;	
+
+	ixoutTmpFile.count = 0;
+	i = TRUE;
+	call Open(.tmpModnmFd, .tmpModnm, 2, 0, .status);
+	call Open(.ixinTmpFile, .tmpIxin, 2, 0, .status);
+	call Close(ixinTmpFile.fd, .status);
+
+	do while cmdLinePtr < endOfFiles;
+		b7920 = 0;
+		w7922 = cmdLinePtr;
+		j = TRUE;
+		status = WPath(cmdLinePtr, .isisFileEntry, .j);
+		call FileError(status, cmdLinePtr, TRUE);
+		cmdLinePtr = SkipWS(SkipUntilSpaceOrComma(cmdLinePtr));
+		isisDir(2) = (drive := isisFileEntry(0)) +'0';
+		isisFileEntry(0) = 0;
+		call Open(.isisDirFd, .isisDir, 1, 0, .status);
+		dirCount = 0;
+		do while dirCount < dirSize + 1;
+			dirCount = FindDirEntry(isisDirFd, .isisFileEntry, dirCount, .info);
+			if dirCount < dirSize + 1 then
+			do;
+				b7920 = TRUE;
+				info(0) = drive;
+				call InternalToUserFileName(.info, .b78D6);
+				w78FE = SkipFileName(.b78D6) - .b78D6;
+				if not havePrint and i then
+				do;
+					info(7) = 'I';
+					info(8) = 'X';
+					info(9) = 'O';
+					call InternalToUserFileName(.info, .outFileName);
+					call sub$3D5F;
+					i = FALSE;
+					havePrint = TRUE;
+				end;
+				call Open(.ixinTmpFile.fd, .tmpIxin, 1, 0, .status);
+				if status <> 0 then
+					call FileError(status, .tmpIxin, TRUE);
+				call Open(.ixoutTmpFile.fd, .tmpIxOut, 2, 0, .status);
+				if status <> 0 then
+					call FileError(status, .tmpIxout, TRUE);
+				call Open(.inFile1.fd, .b78D6, 1, 0, .status);
+				if status <> 0 then
+					call FileError(status, .b78D6, TRUE);
+				call sub$4589;
+				call Flush(.ixoutTmpFile.fd);
+				call Close(ixinTmpFile.fd, .status);
+				call Close(ixoutTmpFile.fd, .status);
+				call Close(inFile1.fd, .status);
+				call Delete(.tmpIxin, .status);
+				call Rename(.tmpIxOut, .tmpIxin, .status);
+			end;
+		end;
+		call Close(isisDirFd, .status);
+		if not b7920 then
+			call FileError(13, w7922, FALSE);
+		if cmdLineCh(0) = CR or cmdLinePtr >= endOfFiles then
+		do;
+			call Close(tmpModnmFd, .status);
+			return;
+		end;
+		if cmdLineCh(0) = ',' then
+			cmdLinePtr = SkipWs(cmdLinePtr + 1);
+	end;
+end;
+end;
+
+ixref3.plm
+ixref3: do;
+$include(ixref3.ipx)
+declare crossRefMsg(*) byte data('INTER-MODULE CROSS-REFERENCE LISTING'),
+	dashes(*) byte data('----------------------------------------'),
+	dotSpace32(*) byte data(' . .'),
+	dotSpace28(*) byte data(' . . . '),
+	dotSpace21(*) byte data('. . . . . . . . . . .'),
+	spaces34(*) byte data('                                   '),
+	attributesMsg(*) byte data(' ATTRIBUTES;  MODULE NAMES'),
+	modDirectoryMsg(*) byte data('MODULE DIRECTORY'),
+	fileNameMsg(*) byte data(' FILE NAME   DISKETTE NAME');
+
+declare status address,
+	modDirEntries$p address,
+	modDirEntries based modDirEntries$p (1) address,
+	ptrPtr address,
+	modDirSize address,
+	b792E(70) byte;
+
+sub$4BF1: procedure;
+	declare rec$p address,
+		actual address,
+		ptr based ptrPtr address,
+		record based rec$p (1) byte;
+
+	rec$p = .MEMORY;
+	call Read(tmpModnmFd, rec$p, topmem - .MEMORY, .actual, .status);
+	modDirSize = 0;
+	modDirEntries$p, ptrPtr = .MEMORY + actual;
+
+	do while rec$p < .MEMORY + actual;
+		if (ptrPtr := ptrPtr + 2) >= topmem then
+		do;
+			call OutStr(.('INSUFFICIENT MEMORY FOR FULL LISTING'), 36);
+			call OutNewLine;
+			return;
+		end;
+		modDirSize = modDirSize + 1;
+		ptr = rec$p;
+		rec$p = rec$p + record(1);	
+	end;
+end;
+
+
+sub$4C79: procedure;
+	declare (ll, mm, ii, jj, kk, oo, qq, pp, rr, nn, ss) address;
+	
+	if modDirSize = 0 or modDirSize = 1 then
+		return;
+
+	jj = (ii := modDirSize / 2) + 2;
+	kk = 1;
+	ll = 2;
+	mm = ii;
+	nn = modDirSize;
+	pp = modDirEntries(oo := mm);
+
+	do while 1;
+		if (qq := oo * 2) > nn then
+		do;
+			modDirEntries(oo) = pp;
+			if kk = 2 then
+			do;
+				rr = modDIrEntries(1);
+				modDirEntries(1) = modDirEntries(mm);
+				modDirEntries(mm) = rr;
+				if ll >= modDirSize then
+					goto done;
+				mm, nn = ss - (ll := ll + 1);
+				oo = 1;
+			end;
+			else if ll >= ii then 
+			do;
+				kk = 2;
+				ss = modDirSize + 2;
+				ll = 2;
+				mm, nn = modDirSize;
+				oo = 1;
+			end;
+			else
+			do;
+				mm = jj - (ll := ll + 1);
+				nn = modDirSize;
+				oo = mm;
+			end;
+			pp= modDirEntries(oo);
+		end;
+		else
+		do;
+			if qq <> nn then
+				if sub$433E(modDirEntries(qq + 1), modDirEntries(qq)) = 2 then
+					qq = qq + 1;
+			if sub$433E(modDirEntries(qq), pp) <= 1 then
+			do;
+				modDirEntries(oo) = pp;
+				if kk = 2 then
+				do;
+					rr = modDirEntries(1);
+					modDirEntries(1) = modDirEntries(mm);
+					modDirEntries(mm) = rr;
+					if ll >= modDirSize then
+						goto done;
+					mm, nn = ss - (ll := ll + 1);
+					oo = 1;
+				end;
+				else if ll >= ii then
+				do;
+					kk = 2;
+					ss = modDirSize + 2;
+					ll = 2;
+					mm, nn = modDirSize;
+					oo = 1;
+				end;
+				else
+				do;
+					ll = ll + 1;
+					mm = jj - ll;
+					nn = modDirSize;
+					oo = mm;
+				end;
+				pp = modDirEntries(oo);
+			end;
+			else
+			do;
+				modDirEntries(oo) = modDirEntries(qq);
+				oo = qq;
+			end;
+		end;
+	end;
+done:
+end;
+
+sub$4F1C: procedure(arg1b);
+	declare arg1b byte;
+	declare (dataType, numLen, k) byte,
+		(ii, jj) address,
+		numBuf(7) byte;
+
+	call OutNewLine;
+	outCol = 1;
+	call OutStr(.spaces34, 3);
+	call OutStr(.ixinTmpFile.record(3), ixinTmpFile.record(2));
+	call OutStr(.dotSpace32 + ixinTmpFile.record(2), maxIdLen + 1 - ixinTmpFile.record(2));
+	if (dataType := ixinTmpFile.record(ixinTmpFile.record(2) + 3)) = 5 then
+	do;
+		ii = ixinTmpFile.record(ixinTmpFile.record(2) + 4);
+		call OutStr(.(' PROCEDURE'), 10);
+		if ii = 2 then
+			call outstr(.('  BYTE'), 6);
+		if ii = 3 then
+			call outstr(.('  ADDRESS'), 9);
+	end;
+	else if dataType >= 1 and dataType <= 9 then
+	do;
+		do case dataType - 1;
+			call OutStr(.(' LABEL'), 6);
+			call OutStr(.(' BYTE'), 5);
+			call OutStr(.(' ADDRESS'), 8);
+			call OutStr(.(' STRUCTURE'), 10);
+			;
+			call OutStr(.(' WORD'), 5);
+			call OutStr(.(' INTEGER'), 8);
+			call OutStr(.(' REAL'), 5);
+			call OutStr(.(' POINTER'), 8);
+		end;
+		if (jj := shl(double(ixinTmpFile.record(ixinTmpFile.record(2) + 5)), 8) +
+		     ixinTmpFile.record(ixinTmpFile.record(2) + 4)) <> 0 then
+		do;
+			call OutStr(.('('), 1);
+			numLen = Num2Ascii(jj, .numBuf);
+			call OutStr(.numBuf, numLen);
+			call OutStr(.(')'), 1);
+		end;
+	end;
+	call OutStr(.(';'), 1);
+	call OutStr(.spaces34, 2);
+	k = ixinTmpFile.record(2) + 6;
+	if b7818 then
+		do case arg1b;
+		do;
+			call OutStr(.ixinTmpFile.record(k + 1), ixinTmpFile.record(k));
+			if sub$433E(.ixinTmpFile.record, .b792E) = 1 then
+				call OutStr(.('** DUPLICATE **'), 15);
+		end;
+			call OutStr(.('** UNRESOLVED **'), 16);
+		end;
+	call MemCpy(.ixinTmpFile.record, .b792E, ixinTmpFile.record(1));
+end;
+
+
+
+sub$5141: procedure;
+	declare (ii, modNamePtr, fileNamePtr, diskNamePtr) address;
+	declare packedDiskName(10) byte,
+		jj address,
+		(i, j) byte;
+	declare len based modNamePtr byte,
+		diskName based diskNamePtr (9) byte;
+
+	call OutNNewLines(5);
+	call OutStr(.modDirectoryMsg, 16);
+	call OutNewLine;
+	call OutStr(.dashes, 16);
+	call OutNewLine;
+	call OutNNewLines(2);
+	call OutStr(.spaces34, 3);
+	call OutStr(.('MODULE NAME'), 11);
+	call OutStr(.dotSpace21, maxIdLen - 10);
+	call OutStr(.fileNameMsg, 26);
+	call OutNewLine;
+	call OutStr(.spaces34, 3);
+	call OutStr(.dashes, maxIdLen + 1);
+	call OutStr(.dashes, 26);	
+	call OutNewLine;
+	call OutNNewLines(1);
+	do ii = 1 to modDirSize;
+		modNamePtr = (jj := modDirEntries(ii)) + 2;
+		fileNamePtr = modNamePtr + len + 1;
+		diskNamePtr = fileNamePtr + 10;
+		call OutStr(.spaces34, 3);
+		call OutStr(modNamePtr + 1, len);
+		call OutStr(.dotSpace32(len), maxIdLen + 1 - len);
+		call OutStr(.spaces34, 1);
+		call OutStr(fileNamePtr, 10);
+		call OutStr(.spaces34, 2);
+		do i = 0 to 9;
+			packedDiskName(i) = ' ';
+		end;
+		j = 0;
+		do i = 0 to 5;
+			packedDiskName(j) = diskName(i);
+			if diskName(i) <> 0 then
+				j = j + 1;
+		end;
+		if diskName(6) <> 0 then
+		do;
+			packedDiskName(j) = '.';
+			j = j  + 1;
+		end;
+		do i = 6 to 8;
+			packedDiskName(j) = diskName(i);
+			if diskName(i) <> 0 then
+				j = j + 1;
+		end;
+		call OutStr(.packedDiskName, 10);
+		call OutNewLine;
+	end;
+end;
+
+
+
+sub$5317: procedure public;
+	call Open(.tmpModnmFd, .tmpModnm, 1, 0, .status);
+	if status <> 0 then
+		call FileError(status, .tmpModnm, TRUE);
+	call Open(.ixinTmpFile.fd, .tmpIxin, 1, 0, .status);
+	if status <> 0 then
+		call FileError(status, .tmpIxin, TRUE);
+	call OutNNewLines(2);
+	call OutStr(.crossRefMsg, 36);
+	call OutNewLine;
+	call OutStr(.dashes, 36);
+	call OutNNewLines(3);
+	call OutStr(.spaces34, 3);
+	call OutStr(.('NAME'), 4);
+	call OutStr(.dotSpace28, maxIdLen - 3);
+	call OutStr(.attributesMsg, 26);
+	call OutNewLine;
+	call OutStr(.spaces34, 3);
+	call OutStr(.dashes, maxIdLen + 1);
+	call OutStr(.dashes, 26);
+	call OutNewLine;
+	ixinTmpFile.index = ixinTmpFile.actual;
+	ixinTmpFile.record(0) = 0FFh;
+
+	do while 1;
+		call sub$442F(.ixinTmpFile);
+		if ixinTmpFile.record(0) = 81h then
+			goto break;
+		if ixinTmpFile.record(0) = 0 then
+			call sub$4F1C(0);
+		else if b7819 then
+		do;
+			ixinTmpFile.record(0) = 0;
+			if sub$433E(.b792E, .ixinTmpFile.record) <> 1 then
+				call sub$4F1C(1);
+			call OutStr(.spaces34, 2);
+			call OutStr(.ixinTmpFile.record(ixinTmpFile.record(2) + 7), 
+				    ixinTmpFile.record(ixinTmpFile.record(2) + 6)); 
+		end;
+	end;
+break:
+	call sub$4BF1;
+	if modDirSize <> 0 then
+	do;
+		call sub$4C79;
+		call sub$5141;
+	end;
+
+	call Flush(.outFile);
+	call Close(tmpModnmFd, .status);
+	call Close(ixinTmpFile.fd, .status);
+	call Close(outFile.fd, .status);
+	call Delete(.tmpModnm, .status);
+	call Delete(.tmpIxin, .status);
+end;
+
+
+
+SkipFileName: procedure(str) address public;
+	declare str address,
+		ch based str byte;
+
+	do while (ch = ':' or ch = '.' or
+		  ('0' <= ch  and ch <= '9') or
+		  ('A' <= ch and ch <= 'Z'));
+		str = str + 1;
+	end;
+	return str;
+end;
+
+
+FindDirEntry: procedure(fd, path, dirCnt, buf) address public;
+	declare (fd, path, dirCnt, buf) address;
+	declare (byt, blk, actual, status, pastDirCnt) address,
+		notFound byte;
+	declare ch based buf byte;
+
+	blk = 0;
+	byt = dirCnt * 16;
+	call Seek(fd, 2, .blk, .byt, .status);
+	if status <> 0 then
+		;
+	if driveType = 4 then
+		pastDirCnt = 993;
+	else
+		pastDirCnt = 201;
+
+	notFound = TRUE;
+	do while notFound;
+		call Read(fd, buf, 16, .actual, .status);
+		if ch = 7Fh or actual = 0 then
+			return pastDirCnt;
+		notFound = not MatchAmbFileNames(path, buf);
+		dirCnt  = dirCnt + 1;
+	end;
+	return dirCnt;
+end;
+end;
+ixref4.plm
+ixref4: do;
+$include(ixref4.ipx)
+
+FileError: procedure(errcode, path, isfatal) public;
+	declare (errcode, path) address, isfatal byte;
+	declare status address;
+
+	if errcode <> 0 then
+	do;
+		path = SkipSpace(path);
+		call Write(0, .(' '), 1, .status);
+		call Write(0, path, SkipAmbFileName(path) - path, .status);
+		call Write(0, .(','), 1, .status);
+		call ReportError(errcode);
+		if isfatal then
+			call Exit;
+	end;
+end;
+
+StrUpper: procedure(str) public;
+	declare str address, ch based str byte;;
+
+	do while ch <> CR;
+		ch = Uppercase(ch);
+		str = str + 1;
+	end;
+end;
+
+
+Strequ: procedure(str1$p, str2$p, len) byte public;
+	declare (str1$p, str2$p) address;
+	declare len byte;
+	declare i byte;
+	declare str1 based str1$p (1) byte,
+		str2 based str2$p (1) byte;
+	len = len - 1;	/* account for 0 based arrays */
+	do i = 0 to len;
+		if str1(i) <> str2(i) then
+			return FALSE;
+	end;		
+	return TRUE;
+end;
+end;
+ixref5.plm
+ixref5: do;
+/* no externals */
+declare deviceList1(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
+
+
+InternalToUserFileName: procedure(internalNamePtr, userNamePtr) public;
+	declare (internalNamePtr, userNamePtr) address;
+	declare i byte;
+	declare internalName based internalNamePtr (1) byte,
+		userName based userNamePtr (1) byte;
+
+	userName(0) = ':';
+	userName(1) = deviceList1(internalName(0) + internalName(0));
+	userName(2) = deviceList1(internalName(0) + internalName(0) + 1);
+	userName(3) = ':';
+	userNamePtr = userNamePtr + 4;
+	do i = 0 to 5;
+		if (userName(0) := internalName(i + 1)) <> 0 then
+			userNamePtr = userNamePtr + 1;
+	end;
+	if internalName(7) <> 0 then
+	do;
+		userName(0) = '.';
+		userNamePtr = userNamePtr + 1;
+	end;
+	do i = 0 to 2;
+		if (userName(0) := internalName(i + 7)) <> 0 then
+			userNamePtr = userNamePtr + 1;
+	end;
+	userName(0) = ' ';
+end;
+end;
+ixref6.plm
+ixref6: do;
+$include(ixref6.ipx)
+declare deviceList2(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
+
+declare b79DC(15) byte;
+
+WPath: procedure(arg1w, arg2w, arg3w) byte public;	/* see cusp6.lib */
+	declare (arg1w, arg2w, arg3w) address;
+	declare ii address, (i, j) byte, jj address, (k, l, m) byte;
+	declare ijPair address at(.i);
+	declare ch1 based arg1w (1) byte;
+	declare ch2 based arg2w (1) byte;
+	declare ch3 based arg3w (1) byte;
+	declare pair based jj address;
+	declare chii based ii byte;
+	
+	isAmbFileNameCh: procedure byte;
+		return ('A' <= ch1(0) and ch1(0) <= 'Z') or
+		       ('0' <= ch1(0) and ch1(0) <= '9') or
+		       ch1(0) = '?' or ch1(0) = '*' or
+		       ('a' <= ch1(0) and ch1(0) <= 'z');
+	end;
+	ch3(0) = 0;
+	jj = .deviceList2;
+	do m = 0 to 9;
+		ch2(m) = 0;
+	end;
+	do while ch1(0) = ' ';
+		arg1w = arg1w + 1;
+	end;
+
+	ii = arg1w;
+	if ch1(0) = ':' then
+	do;
+		if ch1(3) <> ':' then
+			return 4;
+		arg1w = arg1w + 1;
+		i = Uppercase(ch1(0));
+		arg1w = arg1w + 1;
+		j = Uppercase(ch1(0));
+		arg1w = arg1w + 2;
+		ch2(0) = 0FFh;
+		m = 0;
+		do while m < 57;
+			if pair = ijPair then
+				ch2(0) = shr(m, 1);
+			m = m + 2;
+			jj = jj + 2;
+		end;
+		if ch2(0) = 0FFh then
+			return 5;
+	end;
+	k = TRUE;
+	m = 1;
+	do while m < 7;
+		if isAmbFileNameCh then
+		do;
+			ch2(m) = Uppercase(ch1(0));
+			if ch1(0) = '*' then
+				do while m < 7;
+					ch3(0) = 0FFh;
+					ch2(m) = '*';
+					m = m + 1;
+				end;
+			else if ch1(0) = '?' then
+				ch3(0) = 0FFh;
+			arg1w = arg1w + 1;
+			k = FALSE;
+		end;
+		m = m + 1;
+	end;
+	if ch1(0) = '.' then
+	do;
+		arg1w = arg1w + 1;
+		m = 7;
+		do while m < 10;
+			if isAmbFileNameCh then
+			do;
+				ch2(m) = Uppercase(ch1(0));
+				if ch1(0) = '*' then
+					do while m < 10;
+						ch3(0) = 0FFh;
+						ch2(m) = '*';
+						m = m + 1;
+					end;
+				else if ch1(0) = '?' then
+					ch3(0) = 0FFh;
+				arg1w = arg1w + 1;
+			end;
+			m = m + 1;
+		end;
+	end;
+	if sub$5FC4(ch2(0), 1) <= 9 and k then
+		return 17h;
+	l = 0FFh;
+	do while ii < arg1w;
+		b79DC(l := l + 1) = chii;
+		ii = ii + 1;
+	end;
+	if b79DC(l) = '.' then
+		return 1Ch;
+	b79DC(l + 1) = ' ';
+	if isAmbFileNameCh or ch1(0) = '.' or ch1(0) = ':' then
+		return 4;
+	return 0;
+end;
+
+SkipSpace: procedure(str) address public;
+	declare str address, ch based str byte;
+
+	do while ch = ' ';
+		str = str + 1;
+	end;
+	return str;
+end;
+
+
+MatchAmbFileNames: procedure(ambFileName$p, fileName$p) byte public;
+	declare (ambFileName$p, fileName$p) address;
+	declare ambFileName based ambFileName$p (1) byte,
+		fileName based fileName$p (1) byte;
+	declare i byte;
+
+	do i = 0 to 9;
+		if ambFileName(i) = '?' then
+		do;
+			if fileName(i) = 0 then
+				return FALSE;
+		end;
+		else if ambFileName(i) <> '*' then
+			if ambFileName(i) <> fileName(i) then
+				return FALSE;
+	end;
+	return TRUE;
+end;
+end;
+ixref7.plm
+ixref7: do;
+$include(ixref7.ipx)
+declare msg(*) byte DATA(0, 0,
+	2, 'ILLEGAL AFTN ARGUMENT', 0,
+	4, 'INCORRECTLY SPECIFIED FILE', 0,
+	5, 'UNRECOGNIZED DEVICE NAME', 0,
+	6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+	8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+	9, 'DISK DIRECTORY FULL', 0,
+	0AH, 'NOT ON SAME DISK', 0,
+	0BH, 'FILE ALREADY EXISTS', 0,
+	0CH, 'FILE IS ALREADY OPEN', 0,
+	0DH, 'NO SUCH FILE', 0,
+	0EH, 'WRITE PROTECTED', 0,
+	11H, 'NOT A DISK FILE', 0,
+	12H, 'ILLEGAL ISIS COMMAND', 0,
+	13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+	14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+	15H, 'CAN', 27H, 'T RESCAN', 0,
+	16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+	17H, 'MISSING FILENAME', 0,
+	19H, 'ILLEGAL ECHO FILE', 0,
+	1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+	1BH, 'ILLEGAL SEEK COMMAND', 0,
+	1CH, 'MISSING EXTENSION', 0,
+	1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+	20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+	23H, 'SEEK PAST EOF', 0,
+	0C9H, 'UNRECOGNIZED SWITCH', 0,
+	0CAH, 'UNRECOGNIZED DELIMITER', 0,
+	0CBH, 'INVALID SYNTAX', 0,
+	0CCH, 'PREMATURE EOF', 0,
+	0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+	0D0H, 'CHECKSUM ERROR', 0,
+	0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+	0D2H, 'INSUFFICIENT MEMORY', 0,
+	0D3H, 'RECORD TOO LONG', 0,
+	0D4H, 'ILLEGAL RELO RECORD', 0,
+	0D5H, 'FIXUP BOUNDS ERROR', 0,
+	0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+	0D7H, 'ARGUMENT TOO LONG', 0,
+	0D8H, 'TOO MANY PARAMETERS', 0,
+	0D9H, 'OBJECT RECORD TOO SHORT', 0,
+	0DAH, 'ILLEGAL RECORD FORMAT', 0,
+	0DBH, 'PHASE ERROR', 0,
+	0EAh, 'CANNOT FORMAT FROM TARGET DRIVE', 0,
+	0EBh, 'NON-DISK DEVICE', 0
+	);
+
+ReportError: procedure(errNum) public;
+	declare errNum address;
+	declare numberBuffer(3) byte, i address, status address;
+ 
+
+	if errNum <> 0 then
+	do;
+		i = 0;
+		do while i < 982;
+			if errNum = msg(i) and msg(i + 1) <> 0 then
+			do;
+				i = i + 1;
+				call Write(0, .(' '), 1, .status);
+				do while msg(i) <> 0;
+					call Write(0, .msg(i), 1, .status);
+					i = i + 1;
+				end;
+				call Write(0, .(0dh, 0ah), 2, .status);
+				return;
+			end;
+			else
+			do;
+				do while msg(i) <> 0;
+					i = i + 1;
+				end;
+				i = i + 1;
+			end;
+		end;
+	call error(errNum);
+	end;
+end;
+
+sub$5FC4: procedure(devNum, arg2w) byte public;
+	declare devNum byte, arg2w address;
+
+	if devNum >= 25 then
+		devNum = devNum - 19;
+	else if devNum > 5 then
+		devNum = devNum + 4;
+	if devNum <= 9 or arg2w = 1 then
+		return devNum;
+	if arg2w <> 0 then
+		call FileError(0EBh, arg2w, TRUE);	/* non-disk device */
+	else
+	do;
+		call ReportError(0EBh);	/* non-disk device */
+		call Exit;
+	end;
+end;
+
+Uppercase: procedure(ch) byte public;
+	declare ch byte;
+
+	if ch < 'a' then
+		return ch;
+	if ch > 'z' then
+		return ch;
+	return ch and 0DFh;
+end;
+
+SkipAmbFileName: procedure(str) address public;
+	declare str address;
+	declare ch based str byte;
+
+	do while ch = ':' or ch = '.' or ch = '*' or ch = '?' or
+		 ('0' <= ch and ch <= '9') or
+		 ('A' <= ch and ch <= 'Z');
+		str = str + 1;
+	end;
+	return str;
+end;
+end;
+makefile
+
+# common makefile info
+ISIS=..\..\thames
+PLMDIR=..\..\plm80v4
+ASMDIR=..\..\plm80v4
+OLDPLMDIR=..\..\plm80v3
+TOOLS=..\..\tools
+#PLMFLAGS=optimize symbols code debug
+PLMFLAGS=optimize code
+OBJS = ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj  
+
+.SUFFIXES: .plm
+.plm.obj:
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
+	@if not exist $*.obj exit /b 1
+
+.plm.ipx:
+	@SET ISIS_F0=.
+	$(TOOLS)\ngenpex ixref.pex $<
+
+	
+all: .extract
+
+all:
+	$(MAKE) ixref
+
+ixref: $(OBJS)
+	@SET ISIS_F0=.
+	@SET ISIS_F1=$(PLMDIR)
+	@SET ISIS_F2=$(OLDPLMDIR)
+	$(ISIS) :F1:LINK $(OBJS: =,),:F2:system.lib,:F1:PLM80.LIB TO $*.REL 
+	$(ISIS) :F1:LOCATE $*.REL TO $* CODE(3880H) PRINT($*.map)  SYMBOLS PUBLICS PURGE order(code stack data) stacksize(136)
+	..\..\tools\diffbin ixref ixref.ref >diffs
+	..\..\relst.pl $*.map $(OBJS:.obj=.lst)
+
+*.ipx: ixref.pex
+*.obj: makefile
+
+.extract: ixref_all.plm
+	..\..\unpack.pl
+	date /t >.extract
+
+clean:
+	del /q *.obj *.tmp *.lst *.prn *.rel *.map
+
+vclean: clean
+	del /q ixref *.ipx *.pex .extract
+
+gitprep: vclean
+	..\..\unpack.pl
+	del /q ??????.plm *.pex
+
+# auto generated
+ixref.obj: ixref.plm ixref.ipx
+ixref2.obj: ixref2.plm ixref2.ipx
+ixref3.obj: ixref3.plm ixref3.ipx
+ixref4.obj: ixref4.plm ixref4.ipx
+ixref6.obj: ixref6.plm ixref6.ipx
+ixref7.obj: ixref7.plm ixref7.ipx

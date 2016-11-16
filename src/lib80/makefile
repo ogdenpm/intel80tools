@@ -78,8 +78,3 @@ gitprep: uclean
 verify: all
 	$(TOOLS:/=\)\diffbin $(TARGET) $(V4)$(TARGET)
 
-# auto generated
-isis1.obj: isis1.plm isis1.ipx
-isis2.obj: isis2.plm isis2.ipx
-lib.obj: lib.plm lib.ipx
-lib1.obj: lib1.plm lib1.ipx
