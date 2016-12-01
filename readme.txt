@@ -86,6 +86,9 @@ rebase.pl	(depreciated by relst.pl but may be required if there are no public
 		the tool writes to the console so you most likely want to redirect
 		to a file
 
+mkisisdir.pl	simple script to create a basic ISIS.DIR file based on files
+		matching ??????.???. No link information is included and its
+		main use is to support ixref
 		
 src\clean.bat	cleans out the source tree of recreatable files
 src\mkall.bat	makes all the files in the source tree and checks they
@@ -159,6 +162,11 @@ src\isist0\*.*	files to build isis4.1 boot file
 		2) m.bat - simple batch file to unpack and build
 
 src\isis.cli\*.* files to build isis4.1 cli file
+
+src\ixref\*.*	files to build ixref 1.2. Note ixref 1.3 requires additional
+		isis support including isis0.ovl. So far I have not been able
+		to find a true ISIS 4.3 disk with this support; the current
+		disks appear to contain ISIS 4.2
 
 src\kermit\*.*	files to build kermit for isis
 
@@ -255,3 +263,4 @@ updated 24-Oct-2015
 updated 3-Nov-2015 (added cli)
 updated 19-Apr-2016 (added kermit, tex20, tex21 and patchbin tool)
 updated 7-Oct-2016 (added warning on crlf expansion)
+updated 1-Dec-2016 (added ixref)

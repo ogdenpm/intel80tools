@@ -7,7 +7,8 @@ OLDPLMDIR=..\..\plm80v3
 TOOLS=..\..\tools
 #PLMFLAGS=optimize symbols code debug
 PLMFLAGS=optimize code IXREF
-OBJS = ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj  
+OBJS = ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj
+IXIS= $(OBJS:obj=ixi)
 
 .SUFFIXES: .plm
 .plm.obj:
@@ -30,9 +31,16 @@ ixref: $(OBJS)
 	@SET ISIS_F0=.
 	@SET ISIS_F1=$(PLMDIR)
 	@SET ISIS_F2=$(OLDPLMDIR)
-	$(ISIS) :F1:LINK $(OBJS: =,),:F2:system.lib,:F1:PLM80.LIB TO $*.REL 
+	$(ISIS) :F1:LINK $(OBJS: =,),:F2:system.lib,:F1:PLM80.LIB TO $*.REL
 	$(ISIS) :F1:LOCATE $*.REL TO $* CODE(3880H) PRINT($*.map)  SYMBOLS PUBLICS PURGE order(code stack data) stacksize(136)
 	..\..\relst.pl $*.map $(OBJS:.obj=.lst)
+
+# invokes ixref on itself. Note the library functions are shown as unresolved as
+# their source is not included
+ixref.ixo: all
+	$(TOOLS)\mkisisdir.pl
+	@SET ISIS_F0=.
+	$(ISIS) :F0:ixref $(IXIS: =,) PRINT($@)
 
 *.ipx: ixref.pex
 *.obj: makefile
@@ -45,7 +53,7 @@ verify: all
 	fc /b ixref ixref.ref
 
 clean:
-	del /q *.obj *.tmp *.lst *.prn *.rel *.map
+	del /q *.obj *.tmp *.lst *.prn *.rel *.map *.ix? ISIS.DIR
 
 vclean: clean
 	del /q ixref *.ipx *.pex .extract
