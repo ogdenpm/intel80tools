@@ -1,12 +1,12 @@
 $IF OVL4
 asm45: do;
-$include(asm45.ipx)
+$include(:f3:asm45.ipx)
 $ELSEIF OVL5
 asm55: do;
-$include(asm55.ipx)
+$include(:f3:asm55.ipx)
 $ELSE
 asm851: do;
-$include(asm851.ipx)
+$include(:f3:asm851.ipx)
 $ENDIF
 
 $IF BASE

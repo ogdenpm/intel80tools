@@ -1,12 +1,12 @@
 $IF OVL4
 asm4e: do;
-$include(asm4e.ipx)
+$include(:f3:asm4e.ipx)
 $ELSEIF OVL5
 asm5d: do;
-$include(asm5d.ipx)
+$include(:f3:asm5d.ipx)
 $ELSE
 asmov3: do;
-$include(asmov3.ipx)
+$include(:f3:asmov3.ipx)
 $ENDIF
 
 declare aExtents(*) byte public initial(' LSTOBJ'),

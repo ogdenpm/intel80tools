@@ -1,9 +1,9 @@
 $IF OVL4
 asm48: do;
-$include(asm48.ipx)
+$include(:f3:asm48.ipx)
 $ELSE
 asm86: do;
-$include(asm86.ipx)
+$include(:f3:asm86.ipx)
 $ENDIF
 declare	b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
 	b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),

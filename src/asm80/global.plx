@@ -1,12 +1,12 @@
 $IF BASE
 glb: do;
-$include(glb.ipx)
+$include(:f3:glb.ipx)
 $ELSEIF OVL4
 glb4: do;
-$include(glb4.ipx)
+$include(:f3:glb4.ipx)
 $ELSE
 glb5: do;
-$include(glb5.ipx)
+$include(:f3:glb5.ipx)
 $ENDIF
 
 $IF OVL4

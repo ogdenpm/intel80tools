@@ -1,9 +1,9 @@
 $IF OVL4
 asm43: do;
-$include(asm43.ipx)
+$include(:f3:asm43.ipx)
 $ELSE
 asm82: do;
-$include(asm82.ipx)
+$include(:f3:asm82.ipx)
 $ENDIF
 
 declare tokReq(*) byte data(

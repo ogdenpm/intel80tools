@@ -1,9 +1,9 @@
 $IF OVL4
 asm4c: do;
-$include(asm4c.ipx)
+$include(:f3:asm4c.ipx)
 $ELSE
 asmov2: do;
-$include(asmov2.ipx)
+$include(:f3:asmov2.ipx)
 $ENDIF
 
 declare	fixupInitialLen(*) byte data(1, 2, 1, 3),
