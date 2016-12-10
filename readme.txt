@@ -117,6 +117,7 @@ src\asm80\*.*	plm & asm recreated source for asm80
 		but makes finding files easier. Additionally debug versions of
 		the application files are create in the obj directory and the
 		map files in the list directory now have the local symbol detail.
+		Now includes asxref source
 
 src\lib80\*.*	plm & asm recreated source for lib80
 		note the file lib80_all.plm is the file I personally use to edit
@@ -264,3 +265,5 @@ updated 3-Nov-2015 (added cli)
 updated 19-Apr-2016 (added kermit, tex20, tex21 and patchbin tool)
 updated 7-Oct-2016 (added warning on crlf expansion)
 updated 1-Dec-2016 (added ixref)
+updated 10-Dec-2016 (added asxref to the asm80 directory, stuctural changes to
+		     the makefile for asm80)
