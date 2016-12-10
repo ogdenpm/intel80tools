@@ -1,0 +1,659 @@
+asxref: do;
+
+declare	CR literally '0Dh',
+	LF literally '0Ah',
+	FF literally '0Ch',
+	TRUE literally '0ffh',
+	FALSE literally '0',
+	bool literally 'byte',
+	READONLY literally '1',		/* Open mode */
+	WRITEONLY literally '2',
+	READWRITE literally '3',
+	SEEKEND literally '4',		/* seek mode */
+	TYPEREF literally '1',	/* tmp file types */
+	TYPEDEF literally '0',
+	TYPEFILE literally '2',
+	TYPEEOF literally '3';
+
+declare cpyrite(*) byte data('(C) 1976, 1977,1979 INTEL CORP', 2, 1);
+declare xrefComplete(*) byte data('CROSS REFERENCE COMPLETE');
+declare headerMsg(*) byte data(CR, LF,
+		'ISIS-II ASSEMBLER SYMBOL CROSS REFERENCE, V2.1                     PAGE ');
+declare inputError(*) byte data('INPUT FILE FORMAT ERROR');
+declare noMemory(*) byte data('NOT ENOUGH MEMORY');
+declare isis address data(40h);
+declare maxMem address at(4);
+
+declare errStrs(*) byte data(
+		0, 0,
+		2, 'ILLEGAL AFTN ARGUMENT', 0,
+		4, 'INCORRECTLY SPECIFIED FILE', 0,
+		5, 'UNRECOGNIZED DEVICE NAME', 0,
+		6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+		8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+		0Ah, 'NOT ON SAME DISK', 0,
+		0Bh, 'FILE ALREADY EXISTS', 0,
+		0Ch, 'FILE IS ALREADY OPEN', 0,
+		0Dh, 'NO SUCH FILE', 0,
+		0Eh, 'WRITE PROTECTED', 0,
+		11h, 'NOT A DISK FILE', 0,
+		12h, 'ILLEGAL ISIS COMMAND', 0,
+		13h, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+		14h, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+		15h, 'CAN''T RESCAN', 0,
+		16h, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+		17h, 'MISSING FILENAME', 0,
+		19h, 'ILLEGAL ECHO FILE', 0,
+		1Ah, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+		1Bh, 'ILLEGAL SEEK COMMAND', 0,
+		1Ch, 'MISSING EXTENSION', 0,
+		1Fh, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+		20h, 'CAN''T DELETE OPEN FILE', 0,
+		23h, 'SEEK PAST EOF', 0,
+		0C9h, 'UNRECOGNIZED SWITCH', 0,
+		0CAh, 'UNRECOGNIZED DELIMITER', 0,
+		0CBh, 'INVALID SYNTAX', 0,
+		0CCh, 'PREMATURE EOF', 0,
+		0CEh, 'ILLEGAL DISKETTE LABEL', 0,
+		0D0h, 'CHECKSUM ERROR', 0,
+		0D1h, 'RELO FILE SEQUENCE ERROR', 0,
+		0D2h, 'INSUFFICIENT MEMORY', 0,
+		0D3h, 'RECORD TOO LONG', 0,
+		0D4h, 'ILLEGAL RELO RECORD', 0,
+		0D5h, 'FIXUP BOUNDS ERROR', 0,
+		0D6h, 'ILLEGAL SUBMIT PARAMETER', 0,
+		0D7h, 'ARGUMENT TOO LONG', 0,
+		0D8h, 'TOO MANY PARAMETERS', 0,
+		0D9h, 'OBJECT RECORD TOO SHORT', 0,
+		0DAh, 'ILLEGAL RECORD FORMAT', 0,
+		0DBh, 'PHASE ERROR', 0);
+
+
+
+
+
+declare	
+	topLowHeap address,
+	startMarker address,
+	tmpAFTN address,
+	topHighHeap address, drive based topHighHeap byte,
+	conn$p address,
+	itemCount address,
+	botHighHeap address,
+	status address,
+	outputLine(256) byte,
+	col byte,
+	path(15) byte,
+	row byte,
+	pageLength byte,
+	pageWidth byte,
+	recordType byte,
+	haveFileInfo bool,
+	paging bool,
+	aF0AsxrefTmp(*) byte initial(':F0:ASXREF.TMP ');
+
+
+declare	ISIS$OPEN	literally	'0',
+	ISIS$CLOSE	literally	'1',
+	ISIS$DELETE	literally	'2',
+	ISIS$READ	literally	'3',
+	ISIS$WRITE	literally	'4',
+	ISIS$SEEK	literally	'5',
+	ISIS$EXIT	literally	'9',
+	ISIS$ERROR	literally	'12';
+
+Open: procedure (conn$p, path, access, echo, status$p);
+    declare (conn$p, path, access, echo, status$p) address;
+    call isis(ISIS$OPEN, .conn$p);
+end Open;
+
+Read: procedure (conn, buff$p, count, actual$p, status$p);
+    declare (conn, buff$p, count, actual$p, status$p) address;
+    call isis(ISIS$READ, .conn);
+end Read;
+
+Seek: procedure (conn, mode, block$p, byte$p, status$p);
+    declare (conn, mode, block$p, byte$p, status$p) address;
+    call isis(ISIS$SEEK, .conn);
+end Seek;
+
+Write: procedure (conn, buff$p, count, status$p);
+    declare (conn, buff$p, count, status$p) address;
+    call isis(ISIS$WRITE, .conn);
+end Write;
+
+Close: procedure (conn, status$p);
+    declare (conn, status$p) address;
+    call isis(ISIS$CLOSE, .conn);
+end Close;
+
+Error: procedure (error$num);
+    declare (error$num, status$p) address;
+    status$p = .status$p;
+    call isis(ISIS$ERROR, .error$num);
+end Error;
+
+Exit: procedure;
+    declare status$p address;
+    status$p = .status$p;
+    call isis(ISIS$EXIT, .status$p);
+end Exit;
+
+Delete: procedure (path, status$p);
+    declare (path, status$p) address;
+    call isis(ISIS$DELETE, .path);
+end Delete;
+
+AvailMem: procedure address;
+	return (maxMem - 100h) and 0ff00h;
+end;
+
+
+ReportError: procedure(scode);
+	declare scode address;
+	declare unknown(3) byte;
+	declare i address, wstatus address;
+
+	if scode <> 0 then
+	do;
+		i = 0;
+		do while i < 38Fh;
+			if scode = errStrs(i) and errStrs(i + 1) <> 0 then
+			do;
+				i = i + 1;
+				call Write(0, .(' '), 1, .wstatus);	
+				do while errStrs(i) <> 0;
+					call Write(0, .errStrs(i), 1, .wstatus);
+					i = i + 1;
+				end;
+				call Write(0, .(CR, LF), 2, .wstatus);
+				return;
+			end;
+			else
+			do;
+				do while errStrs(i) <> 0;
+					i = i + 1;
+				end;
+				i = i + 1;
+			end;
+		end;
+		call Error(scode);
+	end;
+end;
+
+StatusChk: procedure(scode);
+	declare scode address;
+
+	if scode <> 0 then
+	do;
+		call ReportError(scode);
+		call Close(tmpAFTN, .status);
+		call Close(conn$p, .status);
+		call Exit;
+	end;
+end;
+
+OpenTmp: procedure;
+	declare tstatus byte;	/* benign bug should be address but next data byte is dummy */
+
+	call Open(.tmpAFTN, .aF0AsxrefTmp, READONLY, 0, .tstatus);
+	call StatusChk(tstatus);	
+end;
+
+
+OpenListFile: procedure;
+	declare dummy byte;
+
+	if path(0) = ':' and (path(1) and 0dfh) <> 'F' then	/* test as UCase */
+	    call Open(.conn$p, .path, WRITEONLY, 0, .status);	/* device */
+	else
+	    call Open(.conn$p, .path, READWRITE, 0, .status);	/* file */
+
+	call StatusChk(status);
+	call Seek(conn$p, SEEKEND, .dummy, .dummy, .status);	/* seek end */
+	if status = 13h then	/* bad seek on non file is ok */
+		return;
+	call StatusChk(status);
+end;
+
+ReadTmp: procedure(buf, cnt) bool;
+	declare buf address, cnt byte;
+	declare actual address;
+
+	call Read(tmpAFTN, buf, cnt, .actual, .status);
+	call StatusChk(status);
+	return actual = cnt;
+end;
+
+
+WriteStr: procedure(str, len);
+	declare str address, len byte;
+	call Write(conn$p, str, len, .status);
+	call StatusChk(status);
+end;
+
+WriteCRLF: procedure;
+	call WriteStr(.(CR, LF), 2);
+end;
+
+
+ToNextPage: procedure;
+	call WriteStr(.(FF), 1);
+	call WriteCRLF;
+	call WriteCRLF;
+	call WriteCRLF;
+end;
+
+
+OutStrCRLF: procedure(str, len);
+	declare str address, len byte;
+	call Write(0, str, len, .status);
+	call Write(0, .(CR, LF), 2, .status);
+end;
+
+
+FatalError: procedure(err);
+	declare err byte;
+
+	if err = 0 then
+		call OutStrCRLF(.inputError, 23);
+	else
+		call OutStrCRLF(.noMemory, 17);
+	call Close(tmpAFTN, .status);
+	call Exit;
+end;
+
+
+AllocLineRef: procedure address;
+	topLowHeap = topLowHeap + 4;
+	if  topLowHeap <= botHighHeap then
+		return topLowHeap - 4;
+	call FatalError(1);
+end;
+
+AllocXref: procedure address;
+	botHighHeap = botHighHeap - 8;
+	if botHighHeap >= topLowHeap then
+		return botHighHeap + 1;
+	call FatalError(1);
+end;
+
+FirstXref: procedure address;
+	return (topHighHeap - 8) + 1;
+end;
+
+
+TestMoreXrefs: procedure(arg1w) byte;
+	declare arg1w address;
+
+	return arg1w > botHighHeap;
+end;
+
+NextXref: procedure(arg1w) address;
+	declare arg1w address;
+	return (arg1w - 8);
+end;
+
+CmpXrefNames: procedure(pstr1, pstr2) bool;
+	declare (pstr1, pstr2) address;
+	declare str1 based pstr1 (6) byte,
+		str2 based pstr2 (6) byte;
+	declare i byte;
+
+	do i = 0 to 5;
+		if str1(i) <> str2(i) then
+			return FALSE;
+	end;
+	return TRUE;
+end;
+		
+FindXref: procedure(pXref, pFound) address;
+	declare (pXref, pFound) address;
+	declare found based pFound bool;
+	declare (pNewXref, pTestXref) address,
+		i byte;
+	declare item based pXref (8) byte,
+		newXref based pNewXref (8) byte;
+
+	found = FALSE;
+	pTestXref = FirstXref;
+	do while not found and TestMoreXrefs(pTestXref);
+		if CmpXrefNames(pXref, pTestXref) then
+			found = TRUE;
+		else
+			pTestXref = nextXref(pTestXref);
+	end;
+
+	if found then
+		return pTestXref;
+	else
+	do;
+		pNewXref = AllocXref;
+		do i = 0 to 5;
+			newXref(i) = item(i);
+		end;
+		itemCount = itemCount + 1;
+		return pNewXref;
+	end;
+end;
+
+
+InsertXref: procedure(isDef, pInRef, lineNum);
+	declare isDef byte, (pInRef, lineNum) address,
+		(pHeadLineRef, pPtr, pLineRef, qPtr, pXref) address,
+		found byte;
+	declare lineNumRef based pLineRef structure(lineNum address, next address),
+		q based	qPtr address, p based pPtr address,
+		headLineRef based pHeadLineRef address;
+
+	pXref = FindXref(pInRef, .found);
+	pHeadLineRef = pXref + 6;
+	pLineRef = AllocLineRef;
+	if isDef then
+		lineNum = lineNum or 8000h;
+	lineNumRef.lineNum = lineNum;
+	qPtr = .lineNumRef.next;
+	if found then
+	do;
+		pPtr = headLineRef + 2;
+		q = p;
+		p = pLineRef;
+	end;
+	else
+		q = pLineRef;
+
+	headLineRef = pLineRef;
+end;
+
+GetPLineRef: procedure(from, ptr, pMoreLineRefs) address;
+	declare from byte, (ptr, pMoreLineRefs) address;
+	declare (ppHead, pNext) address;
+	declare pHead based ppHead address;
+	declare next based pNext address;
+	declare moreLineRefs based pMoreLineRefs bool;
+
+	if from = 0 then	/* ptr -> Xref */
+	do;
+		ppHead = ptr + 6;
+		pNext = pHead + 2;
+		moreLineRefs = TRUE;
+		return startMarker := next;
+	end;
+	else
+	do;			/* ptr -> LineRef */
+		pNext = ptr + 2;
+		moreLineRefs = startMarker <> next;
+		return next;
+	end;
+end;
+
+GetLineNum: procedure(pLineRef, pIsDef) address;
+	declare (pLineRef, pIsDef) address;
+	declare isDef based pIsDef byte;
+	declare lineNum based pLineRef address;
+
+	isDef = ROL(high(lineNum), 1);
+	return 7fffh and lineNum;
+end;
+
+
+CopyXref: procedure(pStr1, pStr2);
+	declare (pStr1, pStr2) address;
+	declare str1 based pStr1 (8) byte,
+		str2 based pStr2 (8) byte;
+	declare i byte;
+
+	do i = 0 to 7;
+		str2(i) = str1(i);	
+	end;
+end;
+
+
+GetPXref: procedure(n) address;	/* get address of Xref(n) */
+	declare n address;
+	return topHighHeap - n * 8 + 1;
+end;
+
+
+GetTmpRecord: procedure byte;
+	if not ReadTmp(.outputLine, 1) then
+		return 3;
+	if outputLine(0) = '0' or outputLine(0) = '1' then
+	do;
+		if not ReadTmp(.outputLine(1), 10) then
+			call FatalError(0);
+	end;
+	else if outputLine(0) = '2' then
+	do;
+		if not ReadTmp(.outputLine(1), 20) then
+			call FatalError(0);
+	end;
+	else
+	do;
+		 if outputLine(0) = '3' then
+			return TYPEEOF;
+		 call FatalError(0);
+	end;
+	return outputLine(0) - '0';
+end;
+
+
+Htoi: procedure(buf, n) address;
+	declare buf address, n byte;
+	declare (val, pCh) address;
+	declare ch based pCh byte;
+
+	val = 0;
+
+	do pCh = buf to  buf + n - 1;
+		if ch <= '9' then
+			val = val * 16 + (ch - '0');
+		else
+			val = val * 16 + (ch - ('A' - 10));
+	end;
+	return val;
+end;
+
+
+GetPSymbol: procedure address;
+	return .outputLine(1);
+end;
+
+GetLineNumber: procedure address;
+	return Htoi(.outputLine(7), 4);
+end;
+
+ProcXrefRecord: procedure(isDef);
+	declare isDef byte;
+	call InsertXref(isDef, GetPSymbol, GetLineNumber);
+end;
+
+CopyFileName: procedure;
+	declare (i, j) byte;
+
+	j = 0;
+	do i = 0 to 14;
+		path(i) = outputLine(j := j + 1);
+	end;
+end;
+
+
+
+ProcFileRecord: procedure;
+	call CopyFileName;
+	paging = outputLine(16);
+	pageLength = htoi(.outputLine(17), 2);
+	pageWidth = htoi(.outputLine(19), 2);
+	haveFileInfo = TRUE;
+end;
+
+SortXrefs: procedure;
+	declare (i, j, k, m, n) address,
+		tmpXref(8) byte;
+
+	IsLessThan: procedure byte;
+		declare pstr address, i byte;
+		declare str based pstr (6) byte;
+
+		pstr = GetPXref(m);
+		do i = 0 to 5;
+			if tmpXref(i) <> str(i) then
+				return tmpXref(i) < str(i);
+		end;
+		return 0;
+	end;
+
+	i, j, k = 1;
+
+	do while k < itemCount;
+		i = j;
+		j = k;
+		k = k * 3 + 1;
+	end;
+
+	k = i;
+
+	do while k <> 0;
+		n = k + 1;
+		do while n <= itemCount;
+			m = n - k;
+			call CopyXref(GetPXref(n), .tmpXref);
+			do while m > 0 and m < 8000h and IsLessThan;
+				call CopyXref(GetPXref(m), GetPXref(m + k));
+				m = m - k;
+			end;
+			call CopyXref(.tmpXref, GetPXref(m + k));
+			n = n + 1;
+		end;
+		k = (k - 1) / 3;
+	end;
+end;
+
+
+Num2Ascii: procedure(val, buf, len);
+	declare (val, buf) address, len byte;
+	declare pc address, c based pc byte;
+
+	pc = buf + len - 1;
+	do while pc >= buf;
+		c = val mod 10 + '0';
+		val = val / 10;
+		pc = pc - 1;
+	end;	
+	pc = buf;
+	do while c = '0' and pc < buf + len - 1;
+		c = ' ';
+		pc = pc + 1;
+	end;
+end;
+
+blankOutputLine: procedure;
+	declare i byte;
+	do i = 0 to 255;
+		outputLine(i) = ' ';
+	end;
+end;
+
+PageHeader: procedure(pageNum);
+	declare pageNum byte, asciiPageNum(3) byte;
+
+	call Num2Ascii(pageNum, .asciiPageNum, 3);
+	call ToNextPage;
+	call WriteStr(.headerMsg+2, 72);
+	call WriteStr(.asciiPageNum, 3);
+	call writeCRLF;
+	call writeCRLF;
+	row = 7;
+end;
+
+
+
+NameToOutputLine: procedure(pName);
+	declare pName address, i byte;
+	declare name based pName (6) byte;
+
+	do i = 0 to 5;
+		outputLine(col) = name(i);
+		col = col + 1;
+	end;
+end;
+
+OutputLineRef: procedure(pLineRef);
+	declare pLineRef address;
+	declare lineNum address, isDefinition byte;
+
+	lineNum = GetLineNum(pLineRef, .isDefinition);
+	call Num2Ascii(lineNum, .outputLine(col), 4);
+	col = col + 4;
+	if isDefinition then
+		outputLine(col) = '#';
+	col = col + 3;
+end;
+
+OutputXref: procedure;
+	declare (refsPerLine, refsCnt, pageNum) byte,
+		(pLineRef, pXref) address, moreLineRefs byte;
+
+	refsPerLine = (pageWidth - 6) / 7;
+	pageNum = 1;
+	call PageHeader(1);
+	pXref = FirstXref;
+	
+	do while TestMoreXrefs(pXref);
+		call blankOutputLine;
+		col = 0;
+		call NameToOutputLine(pXref);
+		pLineRef = GetPLineRef(0, pXref, .moreLineRefs);
+		do while moreLineRefs;
+			col = 7;
+			refsCnt = 0;
+			do while (refsCnt := refsCnt + 1) <= refsPerLine and moreLineRefs;
+				call OutputLineRef(pLineRef);
+				pLineRef = GetPLineRef(1, pLineRef, .moreLineRefs);
+			end;
+			call WriteStr(.outputLine, col - 1);
+			call writeCRLF;
+			if paging then
+				if (row := row + 1) = pageLength - 2 then
+					call PageHeader(pageNum := pageNum + 1);
+			if moreLineRefs then
+				call blankOutputLine;
+		end;
+		pXref = NextXref(pXref);
+	end;
+end;
+
+main:
+	itemCount = 0;
+	topLowHeap = .Memory;
+	botHighHeap, topHighHeap = AvailMem - 1;
+	if drive <> '0' then
+		aF0AsxrefTmp(2) = drive;
+	haveFileInfo = FALSE;
+	call OpenTmp;
+	call outStrCRLF(.headerMsg, 51);
+
+	do while 1 ;
+		recordType = GetTmpRecord;
+		if recordType = TYPEDEF or recordType = TYPEREF then
+			call ProcXrefRecord(recordType = TYPEDEF);
+		else if recordType = TYPEFILE then
+			call ProcFileRecord;
+		else
+		do;
+			if not haveFileInfo then		
+				call FatalError(0);
+			call SortXrefs;
+			call OpenListFile;
+			call OutputXref;
+			call WriteCRLF;
+			call WriteStr(.xrefComplete, 24);
+			call WriteCRLF;
+			call Close(tmpAFTN, .status);
+			call Close(conn$p, .status);
+			call Delete(.aF0AsxrefTmp, .status);
+			call Exit;
+		end;
+	end;
+end;
+
