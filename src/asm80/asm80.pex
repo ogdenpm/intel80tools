@@ -1,7 +1,7 @@
 /* assembler routines & linkage */
 Isis            P(B syscall,A param$p)
 PckTkn          P
-EDATA		B
+EDATA        B
 
 packToken       'PckTkn'
 tokenSize       'toksiz'
@@ -15,7 +15,7 @@ CR              '0Dh'
 FF              '0Ch'
 LF              '0Ah'
 TAB             '9'
-MACROEOB	'0FEh'
+MACROEOB    '0FEh'
 
 # primiative types
 bool             'byte'
@@ -68,7 +68,7 @@ OMF$MODHDR      '2'
 OMF$MODEND      '4'
 OMF$CONTENT     '6'
 OMF$LINENO      '8'
-OMF$EOF	        '0EH'
+OMF$EOF            '0EH'
 OMF$ANCESTOR    '10H'
 OMF$LOCALS      '12H'
 OMF$PUBLICS     '16H'
@@ -94,9 +94,9 @@ T$UPLUS         '8'
 T$SLASH         '9'
 T$UMINUS        '0Ah'
 O$NONE          '0'
-O$TARGET		'2'
+O$TARGET        '2'
 O$LABEL         '3'
-O$REF	'6'
+O$REF    '6'
 O$ID            '9'
 O$STRING        '0Ah'
 O$DATA          '0Bh'
@@ -161,29 +161,39 @@ K$NUL           '41h'
 O$64            '64h'
 
 /* type flags */
-UF$SEGMASK	'7'
+UF$SEGMASK    '7'
 UF$LOW          '8'
 UF$HIGH         '10h'
 UF$BOTH         '18h'
 UF$PUBLIC       '20h'
 UF$EXTRN        '40h'
 
+/* xref types */
+XREF$DEF    '0'
+XREF$REF    '1'
+XREF$FIN    '2'
+
+/* symbol table ids */
+TID$KEYWORD    '0'
+TID$SYMBOL    '1'
+TID$MACRO    '2'
+
 /* user defined types */
 TOKENSYM$T      'structure(tok(2) address, line address, type byte, flags byte)'
 FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
-MACRO$T1	'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 address'
+MACRO$T1    'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 address'
 MACRO$T2        'buf$p address, blk address, w10 address, w12 address, w14 address'
 MACRO$T         'structure(MACRO$T1,MACRO$T2)'
-CONTENT$T       'structure(type byte, len address, segid byte, offset address, dta(122) byte, crc byte)'
+CONTENT$T       'structure(type byte, len address, segid byte, offset address, dta(121) byte, crc byte)'
 EOF$T           'structure(type byte, len address, crc byte)'
-EXTNAMES$T	'structure(type byte, len address, dta(125) byte)'
+EXTNAMES$T    'structure(type byte, len address, dta(124) byte, crc byte)'
 EXTREF$T        'structure(type byte, len address, hilo byte, dta(30) address, crc byte)'
 INTERSEG$T      'structure(type byte, len address, segid byte, hilo byte, dta(29) address, crc byte)'
 MODEND$T        'structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte)'
-MODHDR$T	'structure(type byte, len address, dta(26) byte)'
+MODHDR$T    'structure(type byte, len address, dta(26) byte)'
 PUBLICS$T       'structure(type byte, len address, segid byte, dta(124) byte, crc byte)'
 RELOC$T         'structure(type byte, len address, hilo byte, dta(62) address)'
-KEYWORD$T	'structure(tok(2) address, base byte, delta byte, type byte, flags byte)'
+KEYWORD$T    'structure(tok(2) address, base byte, delta byte, type byte, flags byte)'
 
 /* common based variables */
 curTokenSym     "TOKENSYM$T"..curTokenSym$p
@@ -257,7 +267,7 @@ WrConsole       P(A buf$p,A count)
 $file(asm43.pl3)
 ReadM           P(A blk)
 Sub3FA9        PB
-Sub40B9        P
+FlushM        P
 WriteM          P
 
 $file(asm43.pl3,asm82.pl3)
@@ -287,7 +297,7 @@ TestBit         P(B bitIdx,"pointer" bitVector)"bool"
 
 $file(asm45.plm,asm55.plm,asm851.plm)
 IsSkipping      PB
-StrUCequ        P("pointer" s,"pointer" t)"bool"
+StrUcEqu        P("pointer" s,"pointer" t)"bool"
 FinishLine    P
 Sub546F        P
 
@@ -340,7 +350,7 @@ DoubleDefError  P
 ExpressionError P
 FileError       P
 GetId           P(B type)
-Atoi          P
+GetNum          P
 GetStr          P
 HaveTokens      PB
 IllegalCharError P
@@ -485,7 +495,7 @@ asmax$ref    BS
 asxref       BS
 asxref$tmp   BS
 alignTypes      BS
-argNestCnt      B		/* glb4 */
+argNestCnt      B        /* glb4 */
 asciiLineNo     BS
 asmErrCode      B
 azero           A
@@ -512,7 +522,7 @@ name         BS
 savName           BS
 lhsUserSymbol           "bool"
 rhsUserSymbol  "bool"
-ifSeen           "bool"
+xRefPending           "bool"
 passCnt           B
 createdUsrSym           "bool"
 usrLookupIsID           "bool"
@@ -529,7 +539,7 @@ b6A00           B
 spIdx           B
 lastErrorLine           BS
 ctlLISTChanged           "bool"
-isControlLine      B		
+isControlLine      B        
 inDB           B
 inDW           B
 inExpression           "bool"
@@ -549,25 +559,25 @@ b6B36           "bool"
 b6BD9           "bool"
 b6BDA           "bool"
 jj           B
-macroLine          BS		/* glb4 */
-b9058          "bool"		/* glb4 */
-b9059          "bool"		/* glb4 */
-b905A          B		/* glb4 */
-expandingMacro B		/* glb4 */
-b905C          B		/* glb4 */
-b905D          "bool"		/* glb4 */
-b905E          B		/* glb4 */
-b9060          "bool"		/* glb4 */
-b9061          "bool"		/* glb4 */
-b9062          B		/* glb4 */
-macroDepth          B		/* glb4 */
-b9064          B		/* glb4 */
-b9065          B		/* glb4 */
-b9066          B		/* glb4 */
-b91A1          B		/* glb4 */
-b91A2          B		/* glb4 */
-b91A3          B		/* glb4 */
-b91A4          BS		/* glb4 */
+macroLine          BS        /* glb4 */
+b9058          "bool"        /* glb4 */
+b9059          "bool"        /* glb4 */
+b905A          B        /* glb4 */
+expandingMacro B        /* glb4 */
+b905C          B        /* glb4 */
+b905D          "bool"        /* glb4 */
+b905E          B        /* glb4 */
+b9060          "bool"        /* glb4 */
+b9061          "bool"        /* glb4 */
+b9062          B        /* glb4 */
+macroDepth          B        /* glb4 */
+b9064          B        /* glb4 */
+b9065          B        /* glb4 */
+b9066          B        /* glb4 */
+b91A1          B        /* glb4 */
+b91A2          B        /* glb4 */
+b91A3          B        /* glb4 */
+b91A4          BS        /* glb4 */
 accFixFlags          BS
 cmdch$p         "pointer"
 cmdLineBuf      BS
@@ -596,7 +606,7 @@ ctlXREF         "bool"
 curChar         B
 curCol          B
 curFileName$p   A
-curMacroBlk     A		/* glb4 */
+curMacroBlk     A        /* glb4 */
 curTokenSym$p   "pointer"
 tokPtr          "pointer"
 endLineBuf      A
@@ -619,20 +629,20 @@ lineBuf         BS
 pageLineCnt         A
 lookAhead       B
 lstFile         BS
-macroBuf        BS		/* glb4 */
-macroCondSP     B		/* glb4 */
-macroCondStk    BS		/* glb4 */
-MacroDebugOrGen B		/* glb & glb5 */
+macroBuf        BS        /* glb4 */
+macroCondSP     B        /* glb4 */
+macroCondStk    BS        /* glb4 */
+MacroDebugOrGen B        /* glb & glb5 */
 macrofd         A
-macroStk        "MACRO$T"S	/* glb4 */
-maxMacroBlk     A		/* glb4 */
+macroStk        "MACRO$T"S    /* glb4 */
+maxMacroBlk     A        /* glb4 */
 maxSegSize      AS
-byteAt          BS		/* glb4 */
+byteAt          BS        /* glb4 */
 moduleNameLen   B
-nxtMacroBlk     A		/* glb4 */
+nxtMacroBlk     A        /* glb4 */
 objfd           A
 objFile         BS
-macro$p         "pointer"	/* glb4 */
+macro$p         "pointer"    /* glb4 */
 openStatus      A
 opSP            B
 opStack         BS
@@ -646,8 +656,7 @@ primaryValid    B
 r$content       "CONTENT$T"
 reget           B
 r$eof           "EOF$T"
-r$extnames1     "EXTNAMES$T"
-r$extnames2     "EXTNAMES$T"
+r$extnames     "EXTNAMES$T"
 r$extref        "EXTREF$T"
 r$interseg      "INTERSEG$T"
 r$modend        "MODEND$T"
@@ -664,16 +673,16 @@ startSeg        B
 statusIO        A
 symTab          AS
 titleLen        B
-tmac$b3         B		/* glb4 */
-tmac$blk        A		/* glb4 */
-tmac$buf$p      "pointer"	/* glb4 */
-tmac$ifDepth    B		/* glb4 */
-tmac$macroCondSP B		/* glb4 */
-tmac$mtype      B		/* glb4 */
-tmac$w10        A		/* glb4 */
-tmac$w12        A		/* glb4 */
-tmac$w14        A		/* glb4 */
-tmac$w4         A		/* glb4 */
+tmac$b3         B        /* glb4 */
+tmac$blk        A        /* glb4 */
+tmac$buf$p      "pointer"    /* glb4 */
+tmac$ifDepth    B        /* glb4 */
+tmac$macroCondSP B        /* glb4 */
+tmac$mtype      B        /* glb4 */
+tmac$w10        A        /* glb4 */
+tmac$w12        A        /* glb4 */
+tmac$w14        A        /* glb4 */
+tmac$w4         A        /* glb4 */
 tokBuf          BS
 tokBufIdx       B
 tokBufLen       B
@@ -693,7 +702,7 @@ itemOffset           A
 acc1NumVal           A
 acc2NumVal           A
 symHighMark           A
-topMacroTbl           "pointer"
+baseMacroTbl           "pointer"
 endItem           A
 startItem           A
 effectiveAddr           A
@@ -701,17 +710,17 @@ sizeInBuf           A
 srcLineCnt           A
 tokNumVal           A
 w6BCE           A
-w6BE0          "pointer" 
+pAddr          "pointer" 
 controlFileType           A
-endMacroLine   BS		/* glb4 */
-w9068          "pointer"	/* glb4 */
-macroInPtr          "pointer"	/* glb4 */
-macroBlkCnt          A		/* glb4 */
-w9197          A		/* glb4 */
-w9199          A		/* glb4 */
-w919B          A		/* glb4 */
-w919D          A		/* glb4 */
-w919F          A		/* glb4 */
+endMacroLine   BS        /* glb4 */
+w9068          "pointer"    /* glb4 */
+macroInPtr          "pointer"    /* glb4 */
+macroBlkCnt          A        /* glb4 */
+w9197          A        /* glb4 */
+w9199          A        /* glb4 */
+w919B          A        /* glb4 */
+w919D          A        /* glb4 */
+w919F          A        /* glb4 */
 wZERO           A
 xreffd          A
 

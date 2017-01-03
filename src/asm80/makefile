@@ -30,29 +30,27 @@ PLMFLAGS=CODE PRINT(:f2:$(*B).lst) OBJECT(:f0:$(*B).obj) DEBUG
 # base address of the overlays
 OVERLAY=6D4Ch
 
+# the following are now included from the plm v3.1 system.lib
+#  close.obj delete.obj	error.obj exit.obj load.obj open.obj
+#  read.obj rescan.obj seek.obj write.obj
+# note v4 system.lib orders modules differently
+# an option would be to specify the modules explicitly i.e.
+# system.lib(close,delete,error,exit,load,open,read,rescan,seek,write)
+
 # bulk obj names
 BASEOBJS = glb.obj asm801.obj asm82.obj asm83.obj\
 	asm46.obj asm85.obj asm851.obj asm86.obj\
-	asm861.obj pcktkn.obj close.obj delete.obj\
-	error.obj exit.obj load.obj open.obj\
-	read.obj rescan.obj seek.obj write.obj
+	asm861.obj pcktkn.obj
 
-
-OBJS4 =	glb4.obj asm41.obj pcktkn.obj asm43.obj\
+OBJS4 = glb4.obj asm41.obj pcktkn.obj asm43.obj\
 	asm44.obj asm45.obj asm46.obj asm47.obj\
 	asm48.obj asm49.obj asm4A.obj asm4B.obj\
-	asm4C.obj asm4D.obj asm4E.obj close.obj\
-	delete.obj error.obj exit.obj load.obj\
-	open.obj read.obj rescan.obj seek.obj\
-	write.obj
+	asm4C.obj asm4D.obj asm4E.obj
 
-
-OBJS5 =	glb5.obj asm51.obj pcktkn.obj asm82.obj\
+OBJS5 = glb5.obj asm51.obj pcktkn.obj asm82.obj\
 	asm83.obj asm55.obj asm46.obj asm57.obj\
 	asm86.obj asm861.obj asmov0.obj asmov2.obj\
-	asmov1.obj asm5D.obj close.obj delete.obj\
-	error.obj exit.obj load.obj open.obj\
-	read.obj rescan.obj seek.obj write.obj
+	asmov1.obj asm5D.obj
 
 RELEASETARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
 
@@ -247,12 +245,12 @@ $(F0)\asm80.ov3 asm80.ov3: $(F0)\base.abs $(F0)\cprite.obj $(F0)\asmov3.obj $(F0
 $(F0)\asm80.ov4 asm80.ov4: $(F0)\$(OBJS4: = .\obj\) $(F0)\key4.obj
 # initially set F0 to object directory to avoid losts of :f3: prefixes
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
 	$(LINK) "&" < <<
 $(OBJS4: =, & 
-),:f1:plm80.lib,key4.obj to asmov4.rel map print(:f2:asmov4.lin)
+),:f1:system.lib,:f1:plm80.lib,key4.obj to asmov4.rel map print(:f2:asmov4.lin)
 <<NOKEEP
 	$(LOCATE) asmov4.rel to $(@F) NAME(A80O4) "&" < <<
 $(LOCATEOPT) code(3780h) STACKSIZE(144) print(:f2:asmov4.map)
@@ -266,12 +264,12 @@ exit
 $(F0)\asm80.ov5 asm80.ov5: $(F0)\$(OBJS5: = .\obj\) $(F0)\keywrd.obj
 # initially set F0 to object directory to avoid losts of :f3: prefixes
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
 	$(LINK) "&" < <<
 $(OBJS5: =, &
-),:f1:plm80.lib,keywrd.obj to asmov5.rel map print(:f2:asmov5.lin)
+),:f1:system.lib,:f1:plm80.lib,keywrd.obj to asmov5.rel map print(:f2:asmov5.lin)
 <<NOKEEP
 	$(LOCATE) asmov5.rel to $(@F) NAME(A80O5) "&" < <<
 $(LOCATEOPT) code(3780h) STACKSIZE(144) print(:f2:asmov5.map)
@@ -293,11 +291,11 @@ $(F0)\asxref asxref: $(F0)\asxref.obj
 
 $(F0)\base.abs: $(F0)\$(BASEOBJS: = .\obj\)
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	$(LINK) "&" < <<
 $(BASEOBJS: =, & 
-),:f1:plm80.lib to $(*B).rel print(:f2:$(*B).lin)
+),:f1:system.lib,:f1:plm80.lib to $(*B).rel print(:f2:$(*B).lin)
 <<NOKEEP
 	$(LOCATE) $(*B).rel to $(@F) $(LOCATEOPT) STACKSIZE(120) print(:f2:$(*B).map)
 	del $*.rel

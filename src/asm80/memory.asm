@@ -1,5 +1,5 @@
-	public EDATA
-	DSEG
-EDATA	equ	$
-	end
+    public EDATA
+    DSEG
+EDATA    equ    $
+    end
 

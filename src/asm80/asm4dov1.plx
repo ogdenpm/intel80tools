@@ -10,23 +10,23 @@ $include(:f3:asmov1.ipx)
 $ENDIF
 
 declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
-	aNoErrors(*) byte initial('   NO ERRORS'),
-	spaceLP(*) byte initial(' ('),
-	space5RP(*) byte initial('     )'),
-	aPublicSymbols(*) byte initial(CR, LF, 'PUBLIC SYMBOLS', CR, LF, 0),
-	aExternalSymbol(*) byte initial(CR, LF, 'EXTERNAL SYMBOLS', CR, LF, 0),
-	pad754E address,
+    aNoErrors(*) byte initial('   NO ERRORS'),
+    spaceLP(*) byte initial(' ('),
+    space5RP(*) byte initial('     )'),
+    aPublicSymbols(*) byte initial(CR, LF, 'PUBLIC SYMBOLS', CR, LF, 0),
+    aExternalSymbol(*) byte initial(CR, LF, 'EXTERNAL SYMBOLS', CR, LF, 0),
+    pad754E address,
 
-	aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
-	lstHeader(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
-	symbolMsgTable(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
-	aCRLFLF(*) byte data(CR, LF, LF, 0),
-	aCR(*) byte data(CR),
-	topLFs(*) byte data(LF, LF, LF, 0),
-	b6DC1(2) byte data(20h, 40h),
-	ascLParen(*) byte data(' (', 0),
-	ascRParen(*) byte data(')', 0),
-	a1234(*) byte data('  1234');
+    aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
+    lstHeader(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
+    symbolMsgTable(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
+    aCRLFLF(*) byte data(CR, LF, LF, 0),
+    aCR(*) byte data(CR),
+    topLFs(*) byte data(LF, LF, LF, 0),
+    b6DC1(2) byte data(20h, 40h),
+    ascLParen(*) byte data(' (', 0),
+    ascRParen(*) byte data(')', 0),
+    a1234(*) byte data('  1234');
 
 
 Out2Hex: procedure(n);
@@ -192,7 +192,7 @@ PrintChar: procedure(c) reentrant;
     end;
 end;
 
-declare segChar(*) byte initial(' CDSME');	/* seg id char */
+declare segChar(*) byte initial(' CDSME');    /* seg id char */
 
 Sub7041$8447: procedure public;
     declare symGrp byte,
@@ -205,8 +205,8 @@ Sub7041$8447: procedure public;
         declare printFunc address;
         declare ch based curTokenSym$p byte;
 
-        curTokenSym$p = curTokenSym$p - 1;	/* backup into value */
-        call printFunc(ch and not zeroAddr);	/* print address or 0 */
+        curTokenSym$p = curTokenSym$p - 1;    /* backup into value */
+        call printFunc(ch and not zeroAddr);    /* print address or 0 */
     end;
 
 
@@ -214,17 +214,17 @@ Sub7041$8447: procedure public;
     if not ctlSYMBOLS then
         return;
 
-    segChar(0) = 'A';		/* show A instead of space for absolute */
+    segChar(0) = 'A';        /* show A instead of space for absolute */
     do symGrp = 0 to 2;
         kk = IsPhase2Print and ctlSYMBOLS;
 $IF OVL4
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
-        curTokenSym$p = symTab(1) - 2;		/* address user sym(-1).type */
+        curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
         call PrintCRLF;
         call PrintStr(symbolMsgTable(symGrp));
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(1);
+        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
             flagsAndType = tokBytePair;
             if type <> 9 then
                 if type <> 6 then
@@ -247,7 +247,7 @@ $IF OVL4
                                         call PrintChar('+');
                                     else
 $ENDIF
-				    if (zeroAddr := (flags and UF$EXTRN) <> 0) then
+                    if (zeroAddr := (flags and UF$EXTRN) <> 0) then
                                         call PrintChar('E');
                                     else
                                         call PrintChar(segChar(flags and UF$SEGMASK));
@@ -313,7 +313,7 @@ PrintCodeBytes: procedure public;
     declare i byte;
 
     if (showAddr := MoreBytes or showAddr) then
-    do;	/* print the address */
+    do;    /* print the address */
         call Out2Hex(high(effectiveAddr));
         call Out2Hex(low(effectiveAddr));
     end;
@@ -334,7 +334,7 @@ PrintCodeBytes: procedure public;
     end;
 
     call Outch(' ');
-    if shr(kk := tokenAttr(spIdx), 6) then	/* UF$EXTRN */
+    if shr(kk := tokenAttr(spIdx), 6) then    /* UF$EXTRN */
         call Outch('E');
     else if not showAddr then
         call Outch(' ');
@@ -386,7 +386,7 @@ $ENDIF
 
     if fileIdx > 0 then
     do;
-	/* note byte arith used so needToOpenFile = TRUE(255) treated as -1 */
+    /* note byte arith used so needToOpenFile = TRUE(255) treated as -1 */
         call Outch(a1234(ii := needToOpenFile + fileIdx));
         if ii > 0 then    
             call Outch('=');
@@ -424,7 +424,7 @@ $IF OVL4
 $ENDIF
             curCol = 24;
             call PrintNStr(lineChCnt, startLine$p);
-	    if ch <> LF then
+        if ch <> LF then
                  call PrintChar(LF);
 $IF OVL4
         end;

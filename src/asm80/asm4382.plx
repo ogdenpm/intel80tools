@@ -25,7 +25,7 @@ declare tokReq(*) byte data(
                0,   0);
     /* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
 $IF OVL4
-declare	b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
+declare    b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
     /* bit vector 66 -> 10010000 0 x 56 01 */
 
 SkipWhite$2: procedure public;
@@ -47,16 +47,16 @@ end;
 SeekM: procedure(blk);
     declare blk address;
 
-    if (w6BE0 := blk - nxtMacroBlk) <> 0 then
+    if (pAddr := blk - nxtMacroBlk) <> 0 then
     do;
         kk = SEEKFWD;
         if blk < nxtMacroBlk then
         do;
-            w6BE0 = - w6BE0;
+            pAddr = - pAddr;
             kk = SEEKBACK;
         end;
 
-        call Seek(macrofd, kk, .w6BE0, .w$3780, .statusIO);
+        call Seek(macrofd, kk, .pAddr, .w$3780, .statusIO);
         call IoErrChk;
     end;
     nxtMacroBlk = blk + 1;
@@ -64,6 +64,7 @@ end;
 
 
 
+/* read in macro from disk - located at given block */
 ReadM: procedure(blk) public;
     declare blk address;
     declare actual address;
@@ -80,10 +81,10 @@ ReadM: procedure(blk) public;
     end;
 
     tmac$blk, curMacroBlk = blk;
-    macroBuf(actual) = 0FEh;	/* flag end of macro buffer */
+    macroBuf(actual) = 0FEh;    /* flag end of macro buffer */
 end;
 
-
+/* write the macro to disk */
 WriteM: procedure public;
     if phase = 1 then
     do;
@@ -97,18 +98,19 @@ end;
 
 
 
-Sub40B9: procedure public;
-    declare w9B62 address;
+FlushM: procedure public;
+    declare bytesLeft address;
 
     if b905E then
-    do;
-        do while (w9B62 := macroInPtr - symHighMark) >= 128;
+    do;	/* spool macros to disk in 128 byte blocks */
+        do while (bytesLeft := macroInPtr - symHighMark) >= 128;
             call WriteM;
             symHighMark = symHighMark + 128;
         end;
-        if w9B62 <> 0 then
-            call move(w9B62, symHighMark, endSymTab(2));
-        macroInPtr = (symHighMark := endSymTab(2)) + w9B62;
+    /* move the remaining bytes to start of macro buffer */
+        if bytesLeft <> 0 then
+            call move(bytesLeft, symHighMark, endSymTab(TID$MACRO));
+        macroInPtr = (symHighMark := endSymTab(TID$MACRO)) + bytesLeft;
     end;
 end;
 
@@ -153,9 +155,9 @@ Tokenise: procedure public;
     end;
 
     do case GetChClass;
-        case0:	call IllegalCharError;		/* CC$BAD */
-        ;				/* CC$WS */
-        do;				/* CC$SEMI */
+        case0:    call IllegalCharError;        /* CC$BAD */
+        ;                /* CC$WS */
+        do;                /* CC$SEMI */
 $IF OVL4
             if not b9058 then
 $ENDIF
@@ -173,7 +175,7 @@ $ENDIF
                 return;
             end;
         end;
-        do;				/* CC$COLON */
+        do;                /* CC$COLON */
             if not gotLabel then
             do;
                 if skipping(0)
@@ -197,11 +199,11 @@ $ENDIF
                 call PopToken;
             end;
 
-            call EmitXref(0, .name);
+            call EmitXref(XREF$DEF, .name);
             rhsUserSymbol = FALSE;
             rightOp = O$LABEL;
         end;
-        do;				/* CC$CR */
+        do;                /* CC$CR */
             call ChkLF;
             effectiveToken = T$CR;
 $IF OVL4
@@ -209,18 +211,18 @@ $IF OVL4
 $ENDIF
             return;
         end;
-        do;				/* CC$PUNCT */
+        do;                /* CC$PUNCT */
             if curChar = '+' or curChar = '-' then
 $IF OVL4
                 if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
                 if rightOp <> O$NONE and rightOp <> T$RPAREN then
 $ENDIF
-                    curChar = curChar + (T$UPLUS - T$PLUS);	/* make unary versions */
+                    curChar = curChar + (T$UPLUS - T$PLUS);    /* make unary versions */
             effectiveToken = curChar - '(' + T$LPAREN;
             return;
         end;
-        do;				/* CC$DOLLAR */
+        do;                /* CC$DOLLAR */
             call PushToken(O$NUMBER);
             call CollectByte(low(segSize(activeSeg)));
             call CollectByte(high(segSize(activeSeg)));
@@ -228,7 +230,7 @@ $ENDIF
                 tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
             call Sub416B;
         end;
-        do;				/* CC$QUOTE */
+        do;                /* CC$QUOTE */
 $IF OVL4
             if effectiveToken = 37h then
             do;
@@ -246,18 +248,18 @@ $ENDIF
                 call Sub416B;
             end;
         end;
-        do;				/* CC$DIGIT */
-            call Atoi;
+        do;                /* CC$DIGIT */
+            call GetNum;
             if expectingOpcode then
                 call SetExpectOperands;
             call Sub416B;
         end;
-        do;				/* CC$LET */
+        do;                /* CC$LET */
 $IF OVL4
             w919F = macroInPtr - 1;
 $ENDIF
-            call GetId(O$ID);	/* assume it's an id */
-            if tokenSize(0) > 6 then	/* cap length */
+            call GetId(O$ID);    /* assume it's an id */
+            if tokenSize(0) > 6 then    /* cap length */
                 tokenSize(0) = 6;
 
             if ctlXREF then
@@ -268,7 +270,7 @@ $ENDIF
             /* copy the token to name */
             call move(tokenSize(0), tokPtr, .name);
             nameLen = tokenSize(0);
-            call PackToken;		/* make into 4 byte name */
+            call PackToken;        /* make into 4 byte name */
             if rhsUserSymbol then
             do;
                 lhsUserSymbol = TRUE;
@@ -277,7 +279,7 @@ $ENDIF
 
 
 $IF OVL4
-            if Lookup(2) <> O$ID and b905E then
+            if Lookup(TID$MACRO) <> O$ID and b905E then
             do;
                 if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
                 do;
@@ -291,10 +293,10 @@ $IF OVL4
             else if effectiveToken <> O$37 and not b905E = 2 then
 $ENDIF
             do;
-                if Lookup(0) = O$ID then		/* not a key word */
+                if Lookup(TID$KEYWORD) = O$ID then        /* not a key word */
                 do;
-                    tokenType(0) = Lookup(1);	/* look up in symbol space */
-                    rhsUserSymbol = TRUE;		/* note we have a used symbol */
+                    tokenType(0) = Lookup(TID$SYMBOL);    /* look up in symbol space */
+                    rhsUserSymbol = TRUE;        /* note we have a used symbol */
                 end;
 
                 effectiveToken = tokenType(0);
@@ -303,7 +305,7 @@ $ENDIF
                     call PopToken;
 
                 if lhsUserSymbol then
-                do;			   /* EQU, SET or O$37 */
+                do;               /* EQU, SET or O$37 */
                     call EmitXref((not TestBit(effectiveToken, .b3EA0)) and 1, .savName);
                     lhsUserSymbol = FALSE;
                 end;
@@ -341,13 +343,13 @@ $ENDIF
             end;
         end;
 $IF OVL4
-        do;				/* 10? */
+        do;                /* 10? */
             b6BDA = FALSE;
             call Sub73AD;
             if b6BDA then
                 return;
         end;
-        do;				/* CC$ESC */
+        do;                /* CC$ESC */
             if expandingMacro then
             do;
                 skipping(0) = FALSE;
