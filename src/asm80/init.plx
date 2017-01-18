@@ -1,12 +1,12 @@
 $IF OVL4
-asm4e: do;
-$include(:f3:asm4e.ipx)
+initm: do;
+$include(:f3:initm.ipx)
 $ELSEIF OVL5
-asm5d: do;
-$include(:f3:asm5d.ipx)
+initb: do;
+$include(:f3:initb.ipx)
 $ELSE
-asmov3: do;
-$include(:f3:asmov3.ipx)
+inits: do;
+$include(:f3:inits.ipx)
 $ENDIF
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
@@ -50,7 +50,7 @@ AddExtents: procedure public;
 end;
 
 
-/* asmov3 usage include overlay file initiatisation */
+/* inits usage include overlay file initiatisation */
 
 GetAsmFile: procedure public;
     declare cmdch based cmdch$p byte;

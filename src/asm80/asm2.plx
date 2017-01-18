@@ -1,13 +1,13 @@
 $IF OVL4
-as4m4: do;
+asm2m: do;
 /* force the non standard code generation of outStrN and put2Hex */
 OutStrN: procedure(s, n) external; declare s address, n address; end;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-$include(:f3:asm44.ipx)
+$include(:f3:asm2m.ipx)
 $ELSE
-asm83: do;
+asm2n: do;
 OutStrN: procedure(s, n) external; declare s address, n address; end;
-$include(:f3:asm83.ipx)
+$include(:f3:asm2n.ipx)
 $ENDIF
 /* 
     0    -> ?

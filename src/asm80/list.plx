@@ -1,12 +1,12 @@
 $IF OVL4
-asm4D: do;
+listm: do;
 /* to force the code generation this needs a non-standard definition of put2Hex */
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-$include(:f3:asm4d.ipx)
+$include(:f3:listm.ipx)
 $ELSE
 asmOV1: do;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-$include(:f3:asmov1.ipx)
+$include(:f3:listn.ipx)
 $ENDIF
 
 declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),

@@ -1,12 +1,12 @@
-$IF BASE
-glb: do;
-$include(:f3:glb.ipx)
+$IF SMALL
+globls: do;
+$include(:f3:globls.ipx)
 $ELSEIF OVL4
-glb4: do;
-$include(:f3:glb4.ipx)
+globlm: do;
+$include(:f3:globlm.ipx)
 $ELSE
-glb5: do;
-$include(:f3:glb5.ipx)
+globlb: do;
+$include(:f3:globlb.ipx)
 $ENDIF
 
 /* force rescan to be included from system.lib */
@@ -178,7 +178,7 @@ declare    opSP byte public,
     b6897 bool public initial(FALSE),
     primaryValid byte public initial(TRUE);
 /* end */
-$IF BASE
+$IF SMALL
 declare    pad6899 byte initial(0);
 $ENDIF
 /* ov4 compat 2C9F */

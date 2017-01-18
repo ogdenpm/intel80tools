@@ -1,15 +1,15 @@
-$IF BASE
-asm801: do;
-$include(:f3:asm801.ipx)
+$IF SMALL
+starts: do;
+$include(:f3:starts.ipx)
 $ELSEIF OVL4
-asm41: do;
-$include(:f3:asm41.ipx)
+startm: do;
+$include(:f3:startm.ipx)
 $ELSE
-asm51: do;
-$include(:f3:asm51.ipx)
+startb: do;
+$include(:f3:startb.ipx)
 $ENDIF
 
-$IF BASE
+$IF SMALL
 declare CHKOVL$0 lit    'call OvlMgr(0)',
     CHKOVL$1 lit    'call OvlMgr(1)',
     CHKOVL$2 lit    'call OvlMgr(2)',
@@ -53,7 +53,7 @@ declare    spaces24(*) byte public data('         '),
     aBadSyntax(*) byte public data('BAD SYNTAX', CR, LF),
     aCo(*) byte public data(':CO:', 0);
 
-$IF BASE
+$IF SMALL
 declare    loadedOvl byte initial(4),
     ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 $ENDIF
@@ -111,7 +111,7 @@ OutStrN: procedure(s, n) public;
     end;
 end;
 
-$IF BASE
+$IF SMALL
 OvlMgr: procedure(ovl) public;
     declare ovl byte;
     declare entry$p address;
@@ -185,7 +185,7 @@ end;
 
 
 ChkGenObj: procedure byte public;
-$IF BASE
+$IF SMALL
     return (phase > 2) and ctlOBJECT;
 $ELSE
     return (phase = 2) and ctlOBJECT;
@@ -450,7 +450,7 @@ start:
     phase = 1;
     call ResetData;
     call InitialControls;
-$IF BASE
+$IF SMALL
     if ctlMACROFILE then
     do;
         if Physmem < 8001h then
@@ -500,11 +500,11 @@ $ENDIF
 
         if externId = 0 then
             call WriteModhdr;        /* in overlay 2 */
-$IF NOT BASE
+$IF NOT SMALL
         call InitRecTypes;
 $ENDIF
     end;
-$IF BASE
+$IF SMALL
     if not ctlOBJECT or ctlPRINT then
 $ENDIF
     do;
@@ -524,7 +524,7 @@ $ENDIF
 
     if ctlOBJECT then
     do;
-$IF BASE
+$IF SMALL
         phase = 3;
         CHKOVL3;
         call ResetData;

@@ -1,15 +1,15 @@
 $IF OVL4
-asm47: do;
-$include(:f3:asm47.ipx)
+asm3m: do;
+$include(:f3:asm3m.ipx)
 $ELSEIF OVL5
-asm57: do;
-$include(:f3:asm57.ipx)
+asm3b: do;
+$include(:f3:asm3b.ipx)
 $ELSE
-asm85: do;
-$include(:f3:asm85.ipx)
+asm3s: do;
+$include(:f3:asm3s.ipx)
 $ENDIF
 
-$IF BASE
+$IF SMALL
 declare    CHKOVL$2 lit    'call OvlMgr(2)';
 $ELSE
 declare    CHKOVL$2 lit    ' ';

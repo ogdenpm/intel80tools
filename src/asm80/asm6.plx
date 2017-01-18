@@ -1,9 +1,9 @@
 $IF OVL4
-asm49: do;
-$include(:f3:asm49.ipx)
+asm6m: do;
+$include(:f3:asm6m.ipx)
 $ELSE
-asm861: do;
-$include(:f3:asm861.ipx)
+asm6n: do;
+$include(:f3:asm6n.ipx)
 $ENDIF
 
 SyntaxError: procedure public;

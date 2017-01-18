@@ -1,9 +1,9 @@
 $IF OVL4
-asm4A: do;
-$include(:f3:asm4a.ipx)
+cntrlm: do;
+$include(:f3:cntrlm.ipx)
 $ELSE
 asmOV0: do;
-$include(:f3:asmov0.ipx)
+$include(:f3:cntrln.ipx)
 $ENDIF
 
 declare controlTable(*) byte data(

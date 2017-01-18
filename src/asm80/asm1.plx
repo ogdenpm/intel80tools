@@ -1,9 +1,9 @@
 $IF OVL4
-asm43: do;
-$include(:f3:asm43.ipx)
+asm1m: do;
+$include(:f3:asm1m.ipx)
 $ELSE
-asm82: do;
-$include(:f3:asm82.ipx)
+asm1n: do;
+$include(:f3:asm1n.ipx)
 $ENDIF
 
 declare tokReq(*) byte data(
@@ -123,7 +123,7 @@ SkipWhite: procedure public;
 end;
 
 
-$IF BASE
+$IF SMALL
 SkipWhite$2: procedure public;
     do while GetCh = ' ' or IsTab;
     end;
