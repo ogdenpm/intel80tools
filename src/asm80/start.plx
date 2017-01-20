@@ -1,7 +1,7 @@
 $IF SMALL
 starts: do;
 $include(:f3:starts.ipx)
-$ELSEIF OVL4
+$ELSEIF MACRO
 startm: do;
 $include(:f3:startm.ipx)
 $ELSE
@@ -21,7 +21,7 @@ declare CHKOVL$0 lit    ' ',
     CHKOVL$3 lit    ' ';
 $ENDIF
 
-$IF OVL4
+$IF MACRO
 declare w$3780 address public data(0),
     b$3782 byte public data(80h),
     b$3783 byte public data(81h);
@@ -161,7 +161,7 @@ IsComma: procedure byte public;
     return curChar = ',';
 end;
 
-$IF OVL4
+$IF MACRO
 IsLT: procedure byte public;
     return curChar = '<';
 end;
@@ -340,7 +340,7 @@ SourceError: procedure(errCh) public;
     end;
 end;
 
-$IF OVL4
+$IF MACRO
 
 InsertByteInMacroTbl: procedure(c) public;
     declare c byte;
@@ -370,7 +370,7 @@ ParseControlLines: procedure public;
         do;
             call Skip2NextLine;
             isControlLine = TRUE;
-$IF OVL4
+$IF MACRO
             if b905E = 1 then
                 b6897 = TRUE;
 $ENDIF
@@ -418,27 +418,27 @@ InitLine: procedure public;
     lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
     inExpression, expectingOperands, xRefPending, gotLabel, rhsUserSymbol,
     inDB, inDW, condAsmSeen, showAddr, usrLookupIsID,
-$IF OVL4
+$IF MACRO
     b9059, b9060, 
 $ENDIF
     needsAbsValue = bZERO;
 
     atStartLine, expectingOpcode, isInstr, expectOp = bTRUE;
     ctlEJECT, hasVarRef, tokenIdx,
-$IF OVL4
+$IF MACRO
     b9058, argNestCnt,
 $ENDIF
     tokenSize(0), tokenType(0), acc1ValType, acc2ValType, inComment, acc1Flags = bZERO;
 
     asmErrCode = ' ';
-$IF OVL4
+$IF MACRO
     macro$p = .macroLine;
     w919D = macroInPtr;
     expandingMacro = expandingMacro > 0;
 $ENDIF
     tokI = 1;
     srcLineCnt = srcLineCnt + 1;
-$IF OVL4
+$IF MACRO
     macro$p = .macroLine;
 $ENDIF
     skipping(0) = skipping(0) > 0;
@@ -467,14 +467,14 @@ $IF SMALL
         if srcfd <> rootfd then
             call CloseF(srcfd);
         call CloseF(infd);
-        ovlFile(12) = '5';        /* use big memory asm version */
+        ovlFile(12) = '5';        /* use big edata.asm version */
         call Load(.ovlFile, 0, 1, 0, .statusIO);
         call IoErrChk;
     end;
 
     if MacroDebugOrGen then            /* attempt to use macro features */
         call RuntimeError(2);        /* command Error */
-$ELSEIF OVL4
+$ELSEIF MACRO
     macrofd = InOpen(.asmax$ref, 3);
 $ENDIF
 

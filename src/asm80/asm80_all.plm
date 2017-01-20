@@ -265,13 +265,13 @@ InitLine        P
 WrConsole       P(A buf$p,A count)
 
 
-$file(asm1m.pl3)
+$file(asm1m.plm)
 ReadM           P(A blk)
 Sub3FA9        PB
 FlushM        P
 WriteM          P
 
-$file(asm1m.pl3,asm1n.pl3)
+$file(asm1m.plm,asm1n.plm)
 Skip2NextLine   P
 SkipWhite       P
 SkipWhite$2     P
@@ -302,7 +302,7 @@ StrUcEqu        P("pointer" s,"pointer" t)"bool"
 FinishLine    P
 Sub546F        P
 
-$file(rdsrc.pl3)
+$file(rdsrc.plm)
 needToOpenFile   "bool"
 includeOnCmdLine "bool"
 missingEnd      "bool"
@@ -321,19 +321,19 @@ SeekI           P(B seekOP)
 GetSrcCh        PB
 OpenSrc        P
 
-/* $file(asm3m.pl3) */
+/* $file(asm3m.plm) */
 
-$file(asm3m.pl3,asm3s.pl3)
+$file(asm3m.plm,asm3s.plm)
 Cond2Acc        P(B cond)
 ChkSegAlignment        P(B seg)
 UpdateHiLo        P(B hilo)
 DoPass        P
 
-$file(asm5m.pl3)
+$file(asm5m.plm)
 Sub5CAD        P(A val,B type)
 Sub65D9        P
 
-$file(asm5m.pl3,asm5n.pl3)
+$file(asm5m.plm,asm5n.plm)
 labelUse          B
 GetCh           PB
 GetChClass      PB
@@ -341,9 +341,9 @@ Lookup          P(B tableId)B
 UpdateSymbolEntry        P(A val,B type)
 UnpackToken     P("pointer" src,"pointer" dst)
 
-/* $file(asm6m.pl3) */
+/* $file(asm6m.plm) */
 
-$file(asm6m.pl3,asm6n.plm)
+$file(asm6m.plm,asm6n.plm)
 BalanceError    P
 CollectByte     P(B rc)
 CommandError    P
@@ -371,11 +371,11 @@ UndefinedSymbolError P
 UnnestIF        P(B arg1b)
 ValueError      P
 
-/* $file(cntrlm.pl3) */
-$file(cntrlm.pl3,cntrln.pl3)
+/* $file(cntrlm.plm) */
+$file(cntrlm.plm,cntrln.plm)
 ParseControls   P
 
-$file(asm8m.pl3)
+$file(asm8m.plm)
 b9C77          B
 Sub72A4        P(B arg1b)
 Sub7327        P
@@ -389,9 +389,9 @@ Sub7844        P
 Sub787A        P
 Sub78CE        P
 
-/* $file(emitm.pl3) */
+/* $file(emitm.plm) */
 
-$file(emitm.pl3,emitn.pl3)
+$file(emitm.plm,emitn.plm)
 Ovl11           P
 Ovl8            P
 ReinitFixupRecs        P
@@ -400,9 +400,9 @@ WriteModend     P
 WriteModhdr     P
 WriteRec        P(A rec$p)
 
-/* $file(listm.pl3) */
+/* $file(listm.plm) */
 
-$file(listm.pl3,listn.pl3)
+$file(listm.plm,listn.plm)
 AsmComplete     P
 NewPage         P
 NewPageHeader   P
@@ -439,8 +439,8 @@ InitRecTypes        P
 
 /* $file(asm8m.plm) */
 
-/* $file(asm3b.pl3) */
-$file(asm3b.pl3,asm3s.pl3)
+/* $file(asm3b.plm) */
+$file(asm3b.plm,asm3s.plm)
 HandleOp        P
 Parse        P
 
@@ -451,22 +451,22 @@ $file(starts.plm)
 ovlFile         BS
 OvlMgr          P(B ovl)
 
-/* $file(asm1n.pl3) */
+/* $file(asm1n.plm) */
 /* $file(asm2n.plm) */
-/* $file(asm3s.pl3) */
+/* $file(asm3s.plm) */
 /* $file(asm4s.plm) */
 
-$file(asm5n.pl3)
+$file(asm5n.plm)
 ChkLF           P
 InsertSym       P
 
 /* $file(asm6n.plm) */
 
-/* $file(cntrln.pl3) */
+/* $file(cntrln.plm) */
 
-/* $file(listn.pl3) */
+/* $file(listn.plm) */
 
-/* $file(emitn.pl3) */
+/* $file(emitn.plm) */
 
 /* $file(inits.plm) */
 
@@ -725,10 +725,10 @@ w919F          A        /* globlm */
 wZERO           A
 xreffd          A
 
-$file(key4.plm)
+$file(keym.plm)
 extKeywords     AS
 
-$file(keywrd.plm)
+$file(keyn.plm)
 stdKeywords     AS
 
 $file(Load.plm)
@@ -765,7 +765,7 @@ flags byte keywords xxxxxxrx    r = rim/sim
 $IF SMALL
 globls: do;
 $include(:f3:globls.ipx)
-$ELSEIF OVL4
+$ELSEIF MACRO
 globlm: do;
 $include(:f3:globlm.ipx)
 $ELSE
@@ -778,10 +778,10 @@ rescan: procedure (conn, status$p) external;
     declare (conn, status$p) address;
 end rescan;
 
-$IF OVL4
+$IF MACRO
 declare IN$BUF$SIZE lit '512',
         OUT$BUF$SIZE lit '512';
-$ELSEIF OVL5
+$ELSEIF BIG
 declare IN$BUF$SIZE lit '2048',
         OUT$BUF$SIZE lit '2048';
 $ELSE
@@ -789,7 +789,7 @@ declare IN$BUF$SIZE lit '200',
         OUT$BUF$SIZE lit '128';
 $ENDIF
 
-$IF OVL4
+$IF MACRO
 declare    byteAt(1) byte public at(0),
     macroLine(127) byte public,
     endMacroLine(2) byte public,            /* space for 0 and a guard byte */
@@ -895,7 +895,7 @@ declare    contentBytePtr pointer public,
     ifDepth byte public initial(0),
     skipping(9) bool public,
     inElse(9) bool public;
-$IF OVL4
+$IF MACRO
 declare    macroCondSP byte public initial(0),
     macroCondStk(17) byte public,
     b94DD(2) byte;
@@ -1019,7 +1019,7 @@ declare    tokI byte public,
     tokNumVal address public,
 /* end */
     isControlLine byte public initial(FALSE);
-$IF NOT OVL4
+$IF NOT MACRO
 declare    MacroDebugOrGen byte public initial(0);
 $ENDIF
 /* ov4 compat 2F56 */
@@ -1061,7 +1061,7 @@ declare    scanCmdLine byte public,
     jj byte public,
     kk byte public;
 /* end */
-$IF OVL4
+$IF MACRO
 declare    b9B34 byte initial(0);
 $ENDIF
 /* ov4 compat 2F57 */
@@ -1072,10 +1072,10 @@ declare    curFileName$p address public,
 /* end */
 end;
 asm3.plx
-$IF OVL4
+$IF MACRO
 asm3m: do;
 $include(:f3:asm3m.ipx)
-$ELSEIF OVL5
+$ELSEIF BIG
 asm3b: do;
 $include(:f3:asm3b.ipx)
 $ELSE
@@ -1292,7 +1292,7 @@ HandleOp: procedure public;
 
                 showAddr = TRUE;
             end;
-$IF OVL4
+$IF MACRO
             kk = b905E;
             b905E = 0;
 
@@ -1322,7 +1322,7 @@ $ENDIF
         end;
 /* 34 */    do;                    /* ELSE ? */
             condAsmSeen = TRUE;
-$IF OVL4
+$IF MACRO
             if macroCondStk(0) <> 2 then
 $ELSE
             if ifDepth = 0 then
@@ -1420,7 +1420,7 @@ $ENDIF
             call PopToken;
         end;
 /* 53 */    segSize(SEG$STACK) = accum1;    /* STKLN ? */
-$IF OVL4
+$IF MACRO
 /* 54 */    call Sub7517;            /* MACRO ? */
 /* 55 */    call Sub753E;
 /* 56 */    call Sub75FF;            /* ENDM */
@@ -1473,7 +1473,7 @@ Parse: procedure public;
     do while 1;
         if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF)
            and skipping(0)
-$IF OVL4
+$IF MACRO
                or (opFlags(effectiveToken) < 128 or b9058) and b905E
 
 $ENDIF
@@ -1585,7 +1585,7 @@ end;
 
 end;
 emit.plx
-$IF OVL4
+$IF MACRO
 emitm: do;
 $include(:f3:emitm.ipx)
 $ELSE
@@ -1833,7 +1833,7 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
                 call FlushSymRec;
 
             if (symb(1) and 7) = segId
-$IF OVL4
+$IF MACRO
                and symb(0) <> O$3A and Sub3FA9
 $ENDIF
                and not TestBit(symb(0), .b6D7E) and
@@ -1924,9 +1924,9 @@ Ovl11: procedure public;
         call WriteSymbols(FALSE); /* EMIT LOCALS */
 end;
 end;
-keywrd.plm
-keywrd: do;
-$include(:f3:keywrd.ipx)
+keyn.plm
+keyn: do;
+$include(:f3:keyn.ipx)
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
 declare stdKeywords(151) KEYWORD$T public initial(
@@ -2097,7 +2097,7 @@ end;
 $IF SMALL
 starts: do;
 $include(:f3:starts.ipx)
-$ELSEIF OVL4
+$ELSEIF MACRO
 startm: do;
 $include(:f3:startm.ipx)
 $ELSE
@@ -2117,7 +2117,7 @@ declare CHKOVL$0 lit    ' ',
     CHKOVL$3 lit    ' ';
 $ENDIF
 
-$IF OVL4
+$IF MACRO
 declare w$3780 address public data(0),
     b$3782 byte public data(80h),
     b$3783 byte public data(81h);
@@ -2257,7 +2257,7 @@ IsComma: procedure byte public;
     return curChar = ',';
 end;
 
-$IF OVL4
+$IF MACRO
 IsLT: procedure byte public;
     return curChar = '<';
 end;
@@ -2436,7 +2436,7 @@ SourceError: procedure(errCh) public;
     end;
 end;
 
-$IF OVL4
+$IF MACRO
 
 InsertByteInMacroTbl: procedure(c) public;
     declare c byte;
@@ -2466,7 +2466,7 @@ ParseControlLines: procedure public;
         do;
             call Skip2NextLine;
             isControlLine = TRUE;
-$IF OVL4
+$IF MACRO
             if b905E = 1 then
                 b6897 = TRUE;
 $ENDIF
@@ -2514,27 +2514,27 @@ InitLine: procedure public;
     lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
     inExpression, expectingOperands, xRefPending, gotLabel, rhsUserSymbol,
     inDB, inDW, condAsmSeen, showAddr, usrLookupIsID,
-$IF OVL4
+$IF MACRO
     b9059, b9060, 
 $ENDIF
     needsAbsValue = bZERO;
 
     atStartLine, expectingOpcode, isInstr, expectOp = bTRUE;
     ctlEJECT, hasVarRef, tokenIdx,
-$IF OVL4
+$IF MACRO
     b9058, argNestCnt,
 $ENDIF
     tokenSize(0), tokenType(0), acc1ValType, acc2ValType, inComment, acc1Flags = bZERO;
 
     asmErrCode = ' ';
-$IF OVL4
+$IF MACRO
     macro$p = .macroLine;
     w919D = macroInPtr;
     expandingMacro = expandingMacro > 0;
 $ENDIF
     tokI = 1;
     srcLineCnt = srcLineCnt + 1;
-$IF OVL4
+$IF MACRO
     macro$p = .macroLine;
 $ENDIF
     skipping(0) = skipping(0) > 0;
@@ -2563,14 +2563,14 @@ $IF SMALL
         if srcfd <> rootfd then
             call CloseF(srcfd);
         call CloseF(infd);
-        ovlFile(12) = '5';        /* use big memory asm version */
+        ovlFile(12) = '5';        /* use big edata.asm version */
         call Load(.ovlFile, 0, 1, 0, .statusIO);
         call IoErrChk;
     end;
 
     if MacroDebugOrGen then            /* attempt to use macro features */
         call RuntimeError(2);        /* command Error */
-$ELSEIF OVL4
+$ELSEIF MACRO
     macrofd = InOpen(.asmax$ref, 3);
 $ENDIF
 
@@ -2643,7 +2643,7 @@ $ENDIF
 end;
 
 asm1.plx
-$IF OVL4
+$IF MACRO
 asm1m: do;
 $include(:f3:asm1m.ipx)
 $ELSE
@@ -2669,7 +2669,7 @@ declare tokReq(*) byte data(
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
                0,   0);
     /* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
-$IF OVL4
+$IF MACRO
 declare    b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
     /* bit vector 66 -> 10010000 0 x 56 01 */
 
@@ -2768,7 +2768,7 @@ SkipWhite: procedure public;
 end;
 
 
-$IF SMALL
+$IF NOT MACRO
 SkipWhite$2: procedure public;
     do while GetCh = ' ' or IsTab;
     end;
@@ -2803,12 +2803,12 @@ Tokenise: procedure public;
         case0:    call IllegalCharError;        /* CC$BAD */
         ;                /* CC$WS */
         do;                /* CC$SEMI */
-$IF OVL4
+$IF MACRO
             if not b9058 then
 $ENDIF
             do;
                 inComment = TRUE;
-$IF OVL4
+$IF MACRO
                 if GetChClass = CC$SEMI and b905E then
                 do;
                     b9059 = TRUE;
@@ -2824,7 +2824,7 @@ $ENDIF
             if not gotLabel then
             do;
                 if skipping(0)
-$IF OVL4
+$IF MACRO
                    or b905E
 $ENDIF
                 then
@@ -2851,14 +2851,14 @@ $ENDIF
         do;                /* CC$CR */
             call ChkLF;
             effectiveToken = T$CR;
-$IF OVL4
+$IF MACRO
             b9058 = 0;
 $ENDIF
             return;
         end;
         do;                /* CC$PUNCT */
             if curChar = '+' or curChar = '-' then
-$IF OVL4
+$IF MACRO
                 if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
                 if rightOp <> O$NONE and rightOp <> T$RPAREN then
@@ -2876,7 +2876,7 @@ $ENDIF
             call Sub416B;
         end;
         do;                /* CC$QUOTE */
-$IF OVL4
+$IF MACRO
             if effectiveToken = 37h then
             do;
                 call IllegalCharError;
@@ -2900,7 +2900,7 @@ $ENDIF
             call Sub416B;
         end;
         do;                /* CC$LET */
-$IF OVL4
+$IF MACRO
             w919F = macroInPtr - 1;
 $ENDIF
             call GetId(O$ID);    /* assume it's an id */
@@ -2923,7 +2923,7 @@ $ENDIF
             end;
 
 
-$IF OVL4
+$IF MACRO
             if Lookup(TID$MACRO) <> O$ID and b905E then
             do;
                 if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
@@ -2955,7 +2955,7 @@ $ENDIF
                     lhsUserSymbol = FALSE;
                 end;
             end;
-$IF OVL4
+$IF MACRO
             if b905E = 1 then
             do;
                 if effectiveToken = K$LOCAL then
@@ -2987,7 +2987,7 @@ $ENDIF
                 return;
             end;
         end;
-$IF OVL4
+$IF MACRO
         do;                /* 10? */
             b6BDA = FALSE;
             call Sub73AD;
@@ -3011,7 +3011,7 @@ end;
 
 end;
 asm2.plx
-$IF OVL4
+$IF MACRO
 asm2m: do;
 /* force the non standard code generation of outStrN and put2Hex */
 OutStrN: procedure(s, n) external; declare s address, n address; end;
@@ -3053,7 +3053,7 @@ declare opFlags(*) byte public data(
         0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh,   1,   1,   1,   1,
         80h,   1,   0,   0, 47h,   7,   7,   7, 17h, 47h,   7, 47h, 37h,   5,   7,   0,
           0,   0, 40h, 40h,   0,   1
-$IF OVL4
+$IF MACRO
                                     , 80h, 40h, 80h,   0, 40h, 80h, 80h, 40h, 81h,0C0h,
         80h, 0Dh
 $ENDIF
@@ -3098,7 +3098,7 @@ $ENDIF
         6, 5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1
-$IF OVL4 
+$IF MACRO 
 /* for macro ver */     , 0, 1, 1, 1, 0, 0, 0, 1, 1, 1,
         0, 0Ah
 $ENDIF
@@ -3194,7 +3194,7 @@ GetNumVal: procedure address public;
     declare tokByte based tokPtr (1) byte,    /* ptr into token info */
         val$p pointer,
         val based val$p address;
-$IF OVL4
+$IF MACRO
     LogError: procedure(arg1b);
         declare arg1b byte;
 
@@ -3211,12 +3211,12 @@ $ENDIF
     acc1Flags = 0;
     accum1 = 0;
     acc1ValType = O$ID;
-$IF OVL4
+$IF MACRO
     if tokenType(0) = 40h then
         call PushToken(0Dh);
 $ENDIF
     if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
-$IF OVL4
+$IF MACRO
         call LogError('Q');
 $ELSE
         call SyntaxError;
@@ -3224,7 +3224,7 @@ $ENDIF
     else
     do;
         if tokenType(0) = O$ID or tokenType(0) = T$COMMA then
-$IF OVL4
+$IF MACRO
             call LogError('U');
 $ELSE
             call UndefinedSymbolError;
@@ -3242,7 +3242,7 @@ $ENDIF
 
             end;
             else if tokenSize(0) = 0 then
-$IF OVL4
+$IF MACRO
                 call LogError('V');
 $ELSE
                 call ValueError;
@@ -3250,7 +3250,7 @@ $ENDIF
             else
             do;
                 if tokenSize(0) > 2 then
-$IF OVL4
+$IF MACRO
                     call LogError('V');
 $ELSE
                     call ValueError;
@@ -3352,7 +3352,7 @@ end;
 
 ShowLine: procedure byte public;
     return ((not isControlLine) and ctlLIST or ctlLISTChanged and isControlLine)
-$IF OVL4
+$IF MACRO
             and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
         and (not(condAsmSeen or skipping(0)) or ctlCOND);
@@ -3410,10 +3410,10 @@ EmitXref: procedure(xrefMode, name) public;
 end;
 end;
 asm4.plx
-$IF OVL4
+$IF MACRO
 asm4m: do;
 $include(:f3:asm4m.ipx)
-$ELSEIF OVL5
+$ELSEIF BIG
 asm4b: do;
 $include(:f3:asm4b.ipx)
 $ELSE
@@ -3450,7 +3450,7 @@ end;
 
 IsSkipping: procedure byte public;
     return 
-$IF OVL4
+$IF MACRO
         b905E or
 $ENDIF
         skipping(0);
@@ -3536,7 +3536,7 @@ FinishLine: procedure public;
         if phase = 1 then
             call EmitXref(XREF$REF, .name);
 
-$IF OVL4
+$IF MACRO
     call FlushM;
 $ENDIF
 
@@ -3564,7 +3564,7 @@ $ENDIF
 end;
 
 end;
-rdsrc.pl3
+rdsrc.plm
 rdsrc: do;
 $include(:f3:rdsrc.ipx)
 
@@ -3703,7 +3703,7 @@ x:                        /* forces code alignment */
 end;
 end;
 asm5.plx
-$IF OVL4
+$IF MACRO
 asm5m: do;
 $include(:f3:asm5m.ipx)
 $ELSE
@@ -3722,7 +3722,7 @@ declare    b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
     chClass(*) byte data(
        /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
           0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,    /* 00 */
-$IF OVL4
+$IF MACRO
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,    /* 10 - ESC maps to 0Bh */
 $ELSE
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,    /* 10 */
@@ -3784,13 +3784,13 @@ InsertSym: procedure public;
     end;
     /* insert the new symbol name */
     call move(4, tokPtr, curTokenSym$p);
-$IF OVL4
+$IF MACRO
     endSymTab(TID$MACRO) = endSymTab(TID$MACRO) + 8;    /* mark new top of macro table */
 $ENDIF
     curTokenSym.type = 0;            /* clear the type */
 end;
 
-$IF OVL4
+$IF MACRO
 OutSideTable: procedure(tableId) bool;        /* check if curTokenSym$p is outside table bounds */
     declare tableId byte;
 
@@ -3843,7 +3843,7 @@ UpdateSymbolEntry: procedure(line, type) public;
     absFlag = 0;
     flags = curTokenSym.flags;
     lineSet = FALSE;
-$IF OVL4
+$IF MACRO
     if OutSideTable(TID$SYMBOL) then        /* oops if outside normal symbol table */
     do;
 $ELSE                    /* same for non macro version */
@@ -3863,7 +3863,7 @@ $ENDIF
             if createdUsrSym then
             do;
                 if curTokenSym.type >= 80h
-$IF OVL4
+$IF MACRO
                      or type = O$3A and curTokenSym.line <> srcLineCnt
 $ENDIF
                 then
@@ -3875,7 +3875,7 @@ $ENDIF
             else
             do;
                 call InsertSym;
-$IF OVL4
+$IF MACRO
                 symTab(TID$MACRO) = symTab(TID$MACRO) + 8;        /* adjust the base of the macro table */
 $ENDIF
                 endSymTab(TID$SYMBOL) = endSymTab(TID$SYMBOL) + 8;    /* adjust the end of the user symbol table */
@@ -3977,7 +3977,7 @@ endUpdateSymbol:
 
     if IsPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
        or type = 4 and BlankAsmErrCode or lineSet
-$IF OVL4
+$IF MACRO
        or type = O$3A
 $ENDIF
     then
@@ -4113,7 +4113,7 @@ end;
 
 GetCh: procedure byte public;
     declare (curCH, prevCH) byte;
-$IF OVL4
+$IF MACRO
     declare ch based tmac$buf$p byte;
     declare ch1 based macro$p byte;
 $ENDIF
@@ -4125,7 +4125,7 @@ L6339:
 
     L6347:
         curCH = lookAhead;
-$IF OVL4
+$IF MACRO
         if expandingMacro then
         do;
             do while (lookAhead := ch) = MACROEOB;
@@ -4145,7 +4145,7 @@ $ENDIF
         if chClass(curCH) = CC$BAD then
             if curCH = 0 or curCH = 7Fh or curCH = FF then
                 goto L6347;
-$IF OVL4
+$IF MACRO
         if expandingMacro then
         do;
             if curCH = 1Bh then
@@ -4240,7 +4240,7 @@ end;
 
 GetChClass: procedure byte public;
     curChar = GetCh;
-$IF OVL4
+$IF MACRO
     if b905D then
         return 0Ah;
 $ENDIF
@@ -4255,11 +4255,11 @@ ChkLF: procedure public;
         lookAhead = 0;
     else
     do;
-$IF OVL4 
+$IF MACRO 
         b905E = b905E and 0FEh;
 $ENDIF
         call IllegalCharError;
-$IF OVL4
+$IF MACRO
         b905E = b905E > 0;
 $ENDIF
     end;
@@ -4268,7 +4268,7 @@ end;
 end;
 
 asm6.plx
-$IF OVL4
+$IF MACRO
 asm6m: do;
 $include(:f3:asm6m.ipx)
 $ELSE
@@ -4364,7 +4364,7 @@ end;
 
 NestIF: procedure(arg1b) public;
     declare arg1b byte;
-$IF OVL4
+$IF MACRO
     macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
     if (macroCondStk(0) := arg1b) = 1 then
     do;
@@ -4401,7 +4401,7 @@ end;
 UnnestIF: procedure(arg1b) public;
     declare arg1b byte;
 
-$IF OVL4
+$IF MACRO
     if arg1b <> macroCondStk(0) then
     do;
         call NestingError;
@@ -4454,7 +4454,7 @@ PushToken: procedure(type) public;
         tokenType(0) = type;
         tokenAttr(0), tokenSize(0) = bZERO;
         tokenSym(0) = wZERO;
-$IF OVL4
+$IF MACRO
         tokenSymId(0) = wZERO;
 $ELSE
         tokenSymId(0) = tokenSym(0);
@@ -4561,7 +4561,7 @@ end;
 
 end;
 cntrl.plx
-$IF OVL4
+$IF MACRO
 cntrlm: do;
 $include(:f3:cntrlm.ipx)
 $ELSE
@@ -4783,7 +4783,7 @@ LookupControl: procedure byte;
     return 255;                        /* not found */
 
 found:
-$IF OVL0 
+$IF NOT MACRO 
     if controlId = 1 or controlId = 12h then    /* MACRODEBUG or GEN */
     do;
         if scanCmdLine then            /* only valid on command line not $ line */
@@ -4931,7 +4931,7 @@ end;
 ParseControls: procedure public;
     isControlLine = TRUE;
     ctlLISTChanged, savedCtlLIST = ctlLIST;
-$IF OVL4
+$IF MACRO
     savedCtlGEN = ctlGEN;
 $ENDIF
     controlError = FALSE;
@@ -4962,7 +4962,7 @@ $ENDIF
     call ChkLF;            /* eat the LF */
     if ctlLIST <> savedCtlLIST then
         ctlLISTChanged = TRUE;
-$IF OVL4
+$IF MACRO
     else if ctlGEN <> savedCtlGEN and expandingMacro then
         ctlLISTChanged = FALSE;
 $ENDIF
@@ -4971,7 +4971,7 @@ $ENDIF
 end;
 
 end;
-asm8m.pl3
+asm8m.plm
 asm8m: do;
 $include(:f3:asm8m.ipx)
 
@@ -5466,7 +5466,7 @@ end;
 
 end;
 list.plx
-$IF OVL4
+$IF MACRO
 listm: do;
 /* to force the code generation this needs a non-standard definition of put2Hex */
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
@@ -5685,7 +5685,7 @@ Sub7041$8447: procedure public;
     segChar(0) = 'A';        /* show A instead of space for absolute */
     do symGrp = 0 to 2;
         kk = IsPhase2Print and ctlSYMBOLS;
-$IF OVL4
+$IF MACRO
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
         curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
@@ -5696,7 +5696,7 @@ $ENDIF
             flagsAndType = tokBytePair;
             if type <> 9 then
                 if type <> 6 then
-$IF OVL4
+$IF MACRO
                     if Sub3FA9 then
 $ENDIF
                         if symGrp <> 0 or type <> 3 then
@@ -5710,7 +5710,7 @@ $ENDIF
 
                                     call PrintStr(.tokStr);
                                     call PrintChar(' ');
-$IF OVL4
+$IF MACRO
                                     if type = O$3A then
                                         call PrintChar('+');
                                     else
@@ -5826,7 +5826,7 @@ end;
 
 PrintLine: procedure public;
     declare ch based inCh$p byte;
-$IF OVL4
+$IF MACRO
     declare ch1 based macro$p byte;
 $ENDIF
 loop:
@@ -5835,7 +5835,7 @@ loop:
         endItem = startItem;
 
     call Outch(asmErrCode);
-$IF OVL4
+$IF MACRO
     if b905E = 0FFh then
         call Outch('-');
     else
@@ -5873,13 +5873,13 @@ $ENDIF
     do;
         lineNumberEmitted = TRUE;
         call OutNStr(4, .asciiLineNo);
-$IF OVL4
+$IF MACRO
         if expandingMacro > 1 then
             call Outch('+');
         else
 $ENDIF
             call Outch(' ');
-$IF OVL4
+$IF MACRO
         if expandingMacro > 1 then
         do;
             curCol = 24;
@@ -5894,7 +5894,7 @@ $ENDIF
             call PrintNStr(lineChCnt, startLine$p);
         if ch <> LF then
                  call PrintChar(LF);
-$IF OVL4
+$IF MACRO
         end;
 $ENDIF
     end;
@@ -5948,7 +5948,7 @@ Ovl10: procedure public;
     declare ch based effectiveAddr byte;
 
     call CloseF(infd);
-$IF OVL4
+$IF MACRO
     call CloseF(macrofd);
     call Delete(.asmax$ref, .statusIO);
     if ctlOBJECT then
@@ -5969,10 +5969,10 @@ $ENDIF
 end;
 end;
 init.plx
-$IF OVL4
+$IF MACRO
 initm: do;
 $include(:f3:initm.ipx)
-$ELSEIF OVL5
+$ELSEIF BIG
 initb: do;
 $include(:f3:initb.ipx)
 $ELSE
@@ -6031,13 +6031,13 @@ GetAsmFile: procedure public;
         return cmdch = ' ' or cmdch = TAB or cmdch = CR;
     end;
 
-$IF OVL4
+$IF MACRO
     symTab(TID$KEYWORD) = .extKeywords;    /* extended key words */
 $ELSE
     symTab(TID$KEYWORD) = .stdKeywords;    /* no extended key words */
 $ENDIF
     symHighMark, endSymTab(TID$KEYWORD), symTab(TID$SYMBOL), endSymTab(TID$SYMBOL) =
-$IF NOT OVL3
+$IF NOT SMALL
                          .MEMORY;
 $ELSE
                          .EDATA;
@@ -6048,13 +6048,13 @@ $ENDIF
     call IoErrChk;
     actRead = actRead + .cmdLineBuf;    /* convert to pointer */
     scanCmdLine = TRUE;        /* scanning command line */
-$IF OVL3
+$IF SMALL
     call Write(0, .signonMsg, 29h, .statusIO);
     call Write(0, .signonMsg, 2, .statusIO);
     call IoErrChk;
 $ENDIF
     call CmdSkipWhite;
-$IF OVL3
+$IF SMALL
     ovlFile(2),
 $ENDIF
     asxref(2) = GetDrive;     /* tem defaults to current drive */
@@ -6094,7 +6094,7 @@ $ENDIF
 
     files(0).name(kk) = ' ';    /* override current drive for tmp if explict in source file */
     if lstFile(0) = ':' and lstFile(2) <> '0' then
-$IF OVL4
+$IF MACRO
         asmax$ref(2),
 $ENDIF
         asxref$tmp(2) = lstFile(2);
@@ -6106,25 +6106,25 @@ ResetData: procedure public;    /* extended initialisation */
     call InitLine;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
-$IF OVL4
+$IF MACRO
     expandingMacro, b905C, b905E,
 $ENDIF
     hasVarRef, needToOpenFile = bZERO;
     noOpsYet, primaryValid, ctlLIST, ctlLISTChanged,
-$IF OVL4
+$IF MACRO
     ctlGEN,
 $ENDIF
     ctlCOND = bTRUE;
-$IF OVL4
+$IF MACRO
     macroDepth, b9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
-$IF OVL4
+$IF MACRO
     macroBlkCnt,
 $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
     maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), effectiveAddr,
-$IF OVL4
+$IF MACRO
     w919B,
 $ENDIF
     externId, errCnt = wZERO;
@@ -6135,7 +6135,7 @@ $ENDIF
     do ii = 0 to 11;        /* reset all the control seen flags */
         controlSeen(ii) = 0;
     end;
-$IF OVL4
+$IF MACRO
     curMacroBlk = 0FFFFh;
 $ENDIF
     if not IsPhase1 then    /* close any Open include file */
@@ -6170,9 +6170,9 @@ InitRecTypes: procedure public;
     r$extref.len = 1;
 end;
 end;
-key4.plm
+keym.plm
 keywords: do;
-$include(:f3:key4.ipx)
+$include(:f3:keym.ipx)
 declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
 declare extKeywords(151) KEYWORD$T public initial(
@@ -6380,7 +6380,7 @@ OVERLAY=6D4Ch
 # system.lib(close,delete,error,exit,load,open,read,rescan,seek,write)
 
 # bulk obj names
-SMALLOBJS = globls.obj starts.obj asm1n.obj asm2n.obj\
+ROOTOBJS = globls.obj starts.obj asm1n.obj asm2n.obj\
 	rdsrc.obj asm3s.obj asm4s.obj asm5n.obj\
 	asm6n.obj pcktok.obj
 
@@ -6397,16 +6397,9 @@ OBJS5 = globlb.obj startb.obj pcktok.obj asm1n.obj\
 RELEASETARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
 
 # compilation and assembly rules
-.SUFFIXES: .plm .pl3 .asm
-.plm{$(F0)}.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(PLM) :f3:$< $(PLMFLAGS)
-	@if not exist $@ exit /b 1
+.SUFFIXES: .plm .asm
 
-.pl3{$(F0)}.obj:
+.plm{$(F0)}.obj:
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
@@ -6418,13 +6411,9 @@ RELEASETARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.o
 	@SET ISIS_F3=$(F3)
 	$(NGENPEX) :f3:$(PEXFILE) :f3:$<
 
-.pl3.ipx:
-	@SET ISIS_F3=$(F3)
-	$(NGENPEX) :f3:$(PEXFILE) :f3:$<
-	
 .asm{$(F0)}.obj:
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
 	$(ASM) :f3:$< PRINT(:f2:$(*B).lst) OBJECT(:f0:$(*B).obj)
@@ -6454,137 +6443,137 @@ _verify:
 
 
 # source files generated from shared code
-asm1m.pl3 asm1n.pl3: asm1.plx
+asm1m.plm asm1n.plm: asm1.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o asm1m.pl3 $(**F)
-	$(PLMPP) -sSMALL -o asm1n.pl3 $(**F)
+	$(PLMPP) -sMACRO -o asm1m.plm $(**F)
+	$(PLMPP) -o asm1n.plm $(**F)
 
-asm5m.pl3 asm5n.pl3: asm5.plx
+asm5m.plm asm5n.plm: asm5.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o asm5m.pl3 $(**F)
-	$(PLMPP) -sSMALL -o asm5n.pl3 $(**F)
+	$(PLMPP) -sMACRO -o asm5m.plm $(**F)
+	$(PLMPP) -o asm5n.plm $(**F)
 
-asm6m.pl3 asm6n.plm: asm6.plx
+asm6m.plm asm6n.plm: asm6.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o asm6m.pl3 $(**F)
-	$(PLMPP) -sSMALL -o asm6n.plm $(**F)
+	$(PLMPP) -sMACRO -o asm6m.plm $(**F)
+	$(PLMPP) -o asm6n.plm $(**F)
 
 asm2m.plm asm2n.plm: asm2.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o asm2m.plm $(**F)
-	$(PLMPP) -sSMALL -o asm2n.plm $(**F)
+	$(PLMPP) -sMACRO -o asm2m.plm $(**F)
+	$(PLMPP) -o asm2n.plm $(**F)
 
 asm4m.plm asm4b.plm asm4s.plm: asm4.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o asm4m.plm $(**F)
-	$(PLMPP) -sOVL5 -o asm4b.plm $(**F)
+	$(PLMPP) -sMACRO -o asm4m.plm $(**F)
+	$(PLMPP) -sBIG -o asm4b.plm $(**F)
 	$(PLMPP) -sSMALL -o asm4s.plm $(**F)
 
-cntrlm.pl3 cntrln.pl3: cntrl.plx
+cntrlm.plm cntrln.plm: cntrl.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o cntrlm.pl3 $(**F)
-	$(PLMPP) -sOVL0 -o cntrln.pl3 $(**F)
+	$(PLMPP) -sMACRO -o cntrlm.plm $(**F)
+	$(PLMPP) -o cntrln.plm $(**F)
 
-listm.pl3 listn.pl3: list.plx
+listm.plm listn.plm: list.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o listm.pl3 $(**F)
-	$(PLMPP) -sOVL1 -o listn.pl3 $(**F)
+	$(PLMPP) -sMACRO -o listm.plm $(**F)
+	$(PLMPP) -o listn.plm $(**F)
 
-emitm.pl3 emitn.pl3: emit.plx
+emitm.plm emitn.plm: emit.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o emitm.pl3 $(**F)
-	$(PLMPP) -sOVL2 -o emitn.pl3 $(**F)
+	$(PLMPP) -sMACRO -o emitm.plm $(**F)
+	$(PLMPP) -o emitn.plm $(**F)
 
-asm3m.pl3 asm3b.pl3 asm3s.pl3: asm3.plx
+asm3m.plm asm3b.plm asm3s.plm: asm3.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o asm3m.pl3 $(**F)
-	$(PLMPP) -sOVL5 -o asm3b.pl3 $(**F)
-	$(PLMPP) -sSMALL -o asm3s.pl3 $(**F)
+	$(PLMPP) -sMACRO -o asm3m.plm $(**F)
+	$(PLMPP) -sBIG -o asm3b.plm $(**F)
+	$(PLMPP) -sSMALL -o asm3s.plm $(**F)
 
 starts.plm startm.plm startb.plm: start.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o startm.plm $**
-	$(PLMPP) -sOVL5 -o startb.plm $**
+	$(PLMPP) -sMACRO -o startm.plm $**
+	$(PLMPP) -sBIG -o startb.plm $**
 	$(PLMPP) -sSMALL -o starts.plm $**
 
 globls.plm globlm.plm globlb.plm: globl.plx
 	SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o globlm.plm $**
-	$(PLMPP) -sOVL5 -o globlb.plm $**
+	$(PLMPP) -sMACRO -o globlm.plm $**
+	$(PLMPP) -sBIG -o globlb.plm $**
 	$(PLMPP) -sSMALL -o globls.plm $**
 
 initm.plm initb.plm inits.plm: init.plx
 	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sOVL4 -o initm.plm $(**F)
-	$(PLMPP) -sOVL5 -o initb.plm $(**F)
-	$(PLMPP) -sOVL3 -o inits.plm $(**F)
+	$(PLMPP) -sMACRO -o initm.plm $(**F)
+	$(PLMPP) -sBIG -o initb.plm $(**F)
+	$(PLMPP) -sSMALL -o inits.plm $(**F)
 
 # build rules to make the program and overlays
 # creates the debug file versions in $(F0) and purged versions in the $(F3) directory
-$(F0)\asm80 asm80: $(F0)\base.abs $(F0)\asm80.ov0 $(F0)\asm80.ov1 $(F0)\asm80.ov2 $(F0)\asm80.ov3 $(F0)\keywrd.abs
+$(F0)\asm80 asm80: $(F0)\root.abs $(F0)\asm80.ov0 $(F0)\asm80.ov1 $(F0)\asm80.ov2 $(F0)\asm80.ov3 $(F0)\keyn.abs 
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) base.abs,publics(asm80.ov0,asm80.ov1,asm80.ov2),asm80.ov3,keywrd.abs to asm80.rel map print(:f2:asm80.lin)
+	$(LINK) root.abs,publics(asm80.ov0,asm80.ov1,asm80.ov2),asm80.ov3,keyn.abs to asm80.rel map print(:f2:asm80.lin)
 	$(LOCATE) asm80.rel to $(@F) $(LOCATEOPT) STACKSIZE(0) NAME(ASM80) PRINT(:f2:asm80.map)
 	del $(F0)\asm80.rel
 	@find $(F2)\asm80.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(F2)\asm80.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
-$(F0)\asm80.ov0 asm80.ov0: $(F0)\base.abs $(F0)\cprite.obj $(F0)\cntrln.obj 
+$(F0)\asm80.ov0 asm80.ov0: $(F0)\root.abs $(F0)\cprite.obj $(F0)\cntrln.obj 
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(base.abs),cprite.obj,cntrln.obj to cntrln.rel map print(:f2:cntrln.lin)
-	$(LOCATE) cntrln.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O0) PRINT(:f2:cntrln.map)
-	del $(F0)\cntrln.rel
-	@find $(F2)\cntrln.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\cntrln.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	$(LINK) publics(root.abs),cprite.obj,cntrln.obj to asmov0.rel map print(:f2:asmov0.lin)
+	$(LOCATE) asmov0.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O0) PRINT(:f2:asmov0.map)
+	del $(F0)\asmov0.rel
+	@find $(F2)\asmov0.lin "LINK MAP" >nul || (del $@ & exit /b 1)
+	@(find $(F2)\asmov0.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$(@F) PURGE
 
 
-$(F0)\asm80.ov1 asm80.ov1: $(F0)\base.abs $(F0)\cprite.obj $(F0)\listn.obj 
+$(F0)\asm80.ov1 asm80.ov1: $(F0)\root.abs $(F0)\cprite.obj $(F0)\listn.obj 
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(base.abs),cprite.obj,listn.obj,:F1:plm80.lib to listn.rel map print(:f2:listn.lin)
-	$(LOCATE) listn.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O1) PRINT(:f2:listn.map)
-	del $(F0)\listn.rel
-	@find $(F2)\listn.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\listn.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	$(LINK) publics(root.abs),cprite.obj,listn.obj,:F1:plm80.lib to asmov1.rel map print(:f2:asmov1.lin)
+	$(LOCATE) asmov1.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O1) PRINT(:f2:asmov1.map)
+	del $(F0)\asmov1.rel
+	@find $(F2)\asmov1.lin "LINK MAP" >nul || (del $@ & exit /b 1)
+	@(find $(F2)\asmov1.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
 
-$(F0)\asm80.ov2 asm80.ov2: $(F0)\base.abs $(F0)\cprite.obj $(F0)\emitn.obj 
+$(F0)\asm80.ov2 asm80.ov2: $(F0)\root.abs $(F0)\cprite.obj $(F0)\emitn.obj 
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(base.abs),cprite.obj,emitn.obj to emitn.rel map print(:f2:emitn.lin)
-	$(LOCATE) emitn.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O2) PRINT(:f2:emitn.map)
-	del $(F0)\emitn.rel
-	@find $(F2)\emitn.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\emitn.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	$(LINK) publics(root.abs),cprite.obj,emitn.obj to asmov2.rel map print(:f2:asmov2.lin)
+	$(LOCATE) asmov2.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O2) PRINT(:f2:asmov2.map)
+	del $(F0)\asmov2.rel
+	@find $(F2)\asmov2.lin "LINK MAP" >nul || (del $@ & exit /b 1)
+	@(find $(F2)\asmov2.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
-$(F0)\asm80.ov3 asm80.ov3: $(F0)\base.abs $(F0)\cprite.obj $(F0)\inits.obj $(F0)\keywrd.abs
+$(F0)\asm80.ov3 asm80.ov3: $(F0)\root.abs $(F0)\cprite.obj $(F0)\inits.obj $(F0)\keyn.abs
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(base.abs),cprite.obj,inits.obj,publics(keywrd.abs) to inits.rel map print(:f2:inits.lin)
-	$(LOCATE) inits.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O3) PRINT(:f2:inits.map)
-	del $(F0)\inits.rel
-	@find $(F2)\inits.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\inits.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
+	$(LINK) publics(root.abs),cprite.obj,inits.obj,publics(keyn.abs) to asmov3.rel map print(:f2:asmov3.lin)
+	$(LOCATE) asmov3.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O3) PRINT(:f2:asmov3.map)
+	del $(F0)\asmov3.rel
+	@find $(F2)\asmov3.lin "LINK MAP" >nul || (del $@ & exit /b 1)
+	@(find $(F2)\asmov3.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
 
-$(F0)\asm80.ov4 asm80.ov4: $(F0)\$(OBJS4: = .\obj\) $(F0)\key4.obj
+$(F0)\asm80.ov4 asm80.ov4: $(F0)\$(OBJS4: = .\obj\) $(F0)\keym.obj
 # initially set F0 to object directory to avoid losts of :f3: prefixes
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
@@ -6592,7 +6581,7 @@ $(F0)\asm80.ov4 asm80.ov4: $(F0)\$(OBJS4: = .\obj\) $(F0)\key4.obj
 	@SET ISIS_F3=$(F3)
 	$(LINK) "&" < <<
 $(OBJS4: =, & 
-),:f1:system.lib,:f1:plm80.lib,key4.obj to asmov4.rel map print(:f2:asmov4.lin)
+),:f1:system.lib,:f1:plm80.lib,keym.obj to asmov4.rel map print(:f2:asmov4.lin)
 <<NOKEEP
 	$(LOCATE) asmov4.rel to $(@F) NAME(A80O4) "&" < <<
 $(LOCATEOPT) code(3780h) STACKSIZE(144) print(:f2:asmov4.map)
@@ -6603,7 +6592,7 @@ exit
 	$(LOCATE) $@ to :f3:$@ PURGE
 
 
-$(F0)\asm80.ov5 asm80.ov5: $(F0)\$(OBJS5: = .\obj\) $(F0)\keywrd.obj
+$(F0)\asm80.ov5 asm80.ov5: $(F0)\$(OBJS5: = .\obj\) $(F0)\keyn.obj
 # initially set F0 to object directory to avoid losts of :f3: prefixes
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
@@ -6611,7 +6600,7 @@ $(F0)\asm80.ov5 asm80.ov5: $(F0)\$(OBJS5: = .\obj\) $(F0)\keywrd.obj
 	@SET ISIS_F3=$(F3)
 	$(LINK) "&" < <<
 $(OBJS5: =, &
-),:f1:system.lib,:f1:plm80.lib,keywrd.obj to asmov5.rel map print(:f2:asmov5.lin)
+),:f1:system.lib,:f1:plm80.lib,keyn.obj to asmov5.rel map print(:f2:asmov5.lin)
 <<NOKEEP
 	$(LOCATE) asmov5.rel to $(@F) NAME(A80O5) "&" < <<
 $(LOCATEOPT) code(3780h) STACKSIZE(144) print(:f2:asmov5.map)
@@ -6623,7 +6612,7 @@ exit
 
 $(F0)\asxref asxref: $(F0)\asxref.obj
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
 	$(LOCATE) asxref.obj to $(@F) $(LOCATEOPT) code(3680h) order(code,stack,data) stacksize(32) print(:f2:asxref.map)
@@ -6631,12 +6620,12 @@ $(F0)\asxref asxref: $(F0)\asxref.obj
 
 # rules for intermediate files
 
-$(F0)\base.abs: $(F0)\$(SMALLOBJS: = .\obj\)
+$(F0)\root.abs: $(F0)\$(ROOTOBJS: = .\obj\)
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	$(LINK) "&" < <<
-$(SMALLOBJS: =, & 
+$(ROOTOBJS: =, & 
 ),:f1:system.lib,:f1:plm80.lib to $(*B).rel print(:f2:$(*B).lin)
 <<NOKEEP
 	$(LOCATE) $(*B).rel to $(@F) $(LOCATEOPT) STACKSIZE(120) print(:f2:$(*B).map)
@@ -6644,11 +6633,11 @@ $(SMALLOBJS: =, &
 	@find $(F2)\$(*B).lin "UNRESOLVED EXTERNAL" >nul || (del $@ & exit /b 1)
 
 
-$(F0)\keywrd.abs: $(F0)\keywrd.obj $(F0)\memory.obj
+$(F0)\keyn.abs: $(F0)\keyn.obj $(F0)\edata.obj
 	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
+	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
-	$(LINK) keywrd.obj,memory.obj to $(*B).rel map print(:f2:$(*B).lin)
+	$(LINK) keyn.obj,edata.obj to $(*B).rel map print(:f2:$(*B).lin)
 	$(LOCATE) $(*B).rel to $(@F) $(LOCATEOPT) CODE(075A2h) STACKSIZE(0) print(:f2:$(*B).map)
 	del $*.rel
 	@find $(F2)\$(*B).lin "LINK MAP" >nul || (del $@ & exit /b 1)
@@ -6676,49 +6665,39 @@ gitprep: uclean
 
 
 # modified from auto generated to include $(F0) prefix
-$(F0)\startm.obj: startm.plm startm.ipx
-$(F0)\asm1m.obj: asm1m.pl3 asm1m.ipx
+$(F0)\asm1m.obj: asm1m.plm asm1m.ipx
+$(F0)\asm1n.obj: asm1n.plm asm1n.ipx
 $(F0)\asm2m.obj: asm2m.plm asm2m.ipx
-$(F0)\asm4m.obj: asm4m.plm asm4m.ipx
-$(F0)\rdsrc.obj: rdsrc.pl3 rdsrc.ipx
-$(F0)\asm3m.obj: asm3m.pl3 asm3m.ipx
-$(F0)\asm5m.obj: asm5m.pl3 asm5m.ipx
-$(F0)\asm6m.obj: asm6m.pl3 asm6m.ipx
-$(F0)\cntrlm.obj: cntrlm.pl3 cntrlm.ipx
-$(F0)\asm8m.obj: asm8m.pl3 asm8m.ipx
-$(F0)\emitm.obj: emitm.pl3 emitm.ipx
-$(F0)\listm.obj: listm.pl3 listm.ipx
-$(F0)\initm.obj: initm.plm initm.ipx
-$(F0)\startb.obj: startb.plm startb.ipx
-$(F0)\asm4b.obj: asm4b.plm asm4b.ipx
-$(F0)\asm3b.obj: asm3b.pl3 asm3b.ipx
-$(F0)\initb.obj: initb.plm initb.ipx
-$(F0)\starts.obj: starts.plm starts.ipx
-$(F0)\asm1n.obj: asm1n.pl3 asm1n.ipx
 $(F0)\asm2n.obj: asm2n.plm asm2n.ipx
-$(F0)\asm3s.obj: asm3s.pl3 asm3s.ipx
+$(F0)\asm3b.obj: asm3b.plm asm3b.ipx
+$(F0)\asm3m.obj: asm3m.plm asm3m.ipx
+$(F0)\asm3s.obj: asm3s.plm asm3s.ipx
+$(F0)\asm4b.obj: asm4b.plm asm4b.ipx
+$(F0)\asm4m.obj: asm4m.plm asm4m.ipx
 $(F0)\asm4s.obj: asm4s.plm asm4s.ipx
-$(F0)\asm5n.obj: asm5n.pl3 asm5n.ipx
+$(F0)\asm5m.obj: asm5m.plm asm5m.ipx
+$(F0)\asm5n.obj: asm5n.plm asm5n.ipx
+$(F0)\asm6m.obj: asm6m.plm asm6m.ipx
 $(F0)\asm6n.obj: asm6n.plm asm6n.ipx
-$(F0)\cntrln.obj: cntrln.pl3 cntrln.ipx
-$(F0)\listn.obj: listn.pl3 listn.ipx
-$(F0)\emitn.obj: emitn.pl3 emitn.ipx
-$(F0)\inits.obj: inits.plm inits.ipx
-$(F0)\close.obj: close.plm close.ipx
-$(F0)\delete.obj: delete.plm delete.ipx
-$(F0)\error.obj: error.plm error.ipx
-$(F0)\exit.obj: exit.plm exit.ipx
-$(F0)\globls.obj: globls.plm globls.ipx
-$(F0)\globlm.obj: globlm.plm globlm.ipx
+$(F0)\asm8m.obj: asm8m.plm asm8m.ipx
+$(F0)\cntrlm.obj: cntrlm.plm cntrlm.ipx
+$(F0)\cntrln.obj: cntrln.plm cntrln.ipx
+$(F0)\emitm.obj: emitm.plm emitm.ipx
+$(F0)\emitn.obj: emitn.plm emitn.ipx
 $(F0)\globlb.obj: globlb.plm globlb.ipx
-$(F0)\key4.obj: key4.plm key4.ipx
-$(F0)\keywrd.obj: keywrd.plm keywrd.ipx
-$(F0)\load.obj: load.plm load.ipx
-$(F0)\open.obj: open.plm open.ipx
-$(F0)\read.obj: read.plm read.ipx
-$(F0)\rescan.obj: rescan.plm rescan.ipx
-$(F0)\seek.obj: seek.plm seek.ipx
-$(F0)\write.obj: write.plm write.ipx
+$(F0)\globlm.obj: globlm.plm globlm.ipx
+$(F0)\globls.obj: globls.plm globls.ipx
+$(F0)\initb.obj: initb.plm initb.ipx
+$(F0)\initm.obj: initm.plm initm.ipx
+$(F0)\inits.obj: inits.plm inits.ipx
+$(F0)\keym.obj: keym.plm keym.ipx
+$(F0)\keyn.obj: keyn.plm keyn.ipx
+$(F0)\listm.obj: listm.plm listm.ipx
+$(F0)\listn.obj: listn.plm listn.ipx
+$(F0)\rdsrc.obj: rdsrc.plm rdsrc.ipx
+$(F0)\startb.obj: startb.plm startb.ipx
+$(F0)\startm.obj: startm.plm startm.ipx
+$(F0)\starts.obj: starts.plm starts.ipx
 lib/close.plm
 close: DO;
 $include(:f3:close.ipx)
@@ -6892,13 +6871,13 @@ L62B7:
     CSEG
 cprite:    db '(C) 1976,1977,1979,1980 INTEL CORP'
     end;
-memory.asm
+edata.asm
     public EDATA
     DSEG
 EDATA    equ    $
     end
 
-asxref.pl3
+asxref.plm
 asxref: do;
 
 declare    CR literally '0Dh',

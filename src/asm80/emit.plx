@@ -1,4 +1,4 @@
-$IF OVL4
+$IF MACRO
 emitm: do;
 $include(:f3:emitm.ipx)
 $ELSE
@@ -246,7 +246,7 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
                 call FlushSymRec;
 
             if (symb(1) and 7) = segId
-$IF OVL4
+$IF MACRO
                and symb(0) <> O$3A and Sub3FA9
 $ENDIF
                and not TestBit(symb(0), .b6D7E) and

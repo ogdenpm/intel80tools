@@ -1,7 +1,7 @@
-$IF OVL4
+$IF MACRO
 asm4m: do;
 $include(:f3:asm4m.ipx)
-$ELSEIF OVL5
+$ELSEIF BIG
 asm4b: do;
 $include(:f3:asm4b.ipx)
 $ELSE
@@ -38,7 +38,7 @@ end;
 
 IsSkipping: procedure byte public;
     return 
-$IF OVL4
+$IF MACRO
         b905E or
 $ENDIF
         skipping(0);
@@ -124,7 +124,7 @@ FinishLine: procedure public;
         if phase = 1 then
             call EmitXref(XREF$REF, .name);
 
-$IF OVL4
+$IF MACRO
     call FlushM;
 $ENDIF
 

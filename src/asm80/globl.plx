@@ -1,7 +1,7 @@
 $IF SMALL
 globls: do;
 $include(:f3:globls.ipx)
-$ELSEIF OVL4
+$ELSEIF MACRO
 globlm: do;
 $include(:f3:globlm.ipx)
 $ELSE
@@ -14,10 +14,10 @@ rescan: procedure (conn, status$p) external;
     declare (conn, status$p) address;
 end rescan;
 
-$IF OVL4
+$IF MACRO
 declare IN$BUF$SIZE lit '512',
         OUT$BUF$SIZE lit '512';
-$ELSEIF OVL5
+$ELSEIF BIG
 declare IN$BUF$SIZE lit '2048',
         OUT$BUF$SIZE lit '2048';
 $ELSE
@@ -25,7 +25,7 @@ declare IN$BUF$SIZE lit '200',
         OUT$BUF$SIZE lit '128';
 $ENDIF
 
-$IF OVL4
+$IF MACRO
 declare    byteAt(1) byte public at(0),
     macroLine(127) byte public,
     endMacroLine(2) byte public,            /* space for 0 and a guard byte */
@@ -131,7 +131,7 @@ declare    contentBytePtr pointer public,
     ifDepth byte public initial(0),
     skipping(9) bool public,
     inElse(9) bool public;
-$IF OVL4
+$IF MACRO
 declare    macroCondSP byte public initial(0),
     macroCondStk(17) byte public,
     b94DD(2) byte;
@@ -255,7 +255,7 @@ declare    tokI byte public,
     tokNumVal address public,
 /* end */
     isControlLine byte public initial(FALSE);
-$IF NOT OVL4
+$IF NOT MACRO
 declare    MacroDebugOrGen byte public initial(0);
 $ENDIF
 /* ov4 compat 2F56 */
@@ -297,7 +297,7 @@ declare    scanCmdLine byte public,
     jj byte public,
     kk byte public;
 /* end */
-$IF OVL4
+$IF MACRO
 declare    b9B34 byte initial(0);
 $ENDIF
 /* ov4 compat 2F57 */

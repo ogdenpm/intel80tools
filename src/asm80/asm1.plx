@@ -1,4 +1,4 @@
-$IF OVL4
+$IF MACRO
 asm1m: do;
 $include(:f3:asm1m.ipx)
 $ELSE
@@ -24,7 +24,7 @@ declare tokReq(*) byte data(
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
                0,   0);
     /* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
-$IF OVL4
+$IF MACRO
 declare    b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
     /* bit vector 66 -> 10010000 0 x 56 01 */
 
@@ -123,7 +123,7 @@ SkipWhite: procedure public;
 end;
 
 
-$IF SMALL
+$IF NOT MACRO
 SkipWhite$2: procedure public;
     do while GetCh = ' ' or IsTab;
     end;
@@ -158,12 +158,12 @@ Tokenise: procedure public;
         case0:    call IllegalCharError;        /* CC$BAD */
         ;                /* CC$WS */
         do;                /* CC$SEMI */
-$IF OVL4
+$IF MACRO
             if not b9058 then
 $ENDIF
             do;
                 inComment = TRUE;
-$IF OVL4
+$IF MACRO
                 if GetChClass = CC$SEMI and b905E then
                 do;
                     b9059 = TRUE;
@@ -179,7 +179,7 @@ $ENDIF
             if not gotLabel then
             do;
                 if skipping(0)
-$IF OVL4
+$IF MACRO
                    or b905E
 $ENDIF
                 then
@@ -206,14 +206,14 @@ $ENDIF
         do;                /* CC$CR */
             call ChkLF;
             effectiveToken = T$CR;
-$IF OVL4
+$IF MACRO
             b9058 = 0;
 $ENDIF
             return;
         end;
         do;                /* CC$PUNCT */
             if curChar = '+' or curChar = '-' then
-$IF OVL4
+$IF MACRO
                 if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
                 if rightOp <> O$NONE and rightOp <> T$RPAREN then
@@ -231,7 +231,7 @@ $ENDIF
             call Sub416B;
         end;
         do;                /* CC$QUOTE */
-$IF OVL4
+$IF MACRO
             if effectiveToken = 37h then
             do;
                 call IllegalCharError;
@@ -255,7 +255,7 @@ $ENDIF
             call Sub416B;
         end;
         do;                /* CC$LET */
-$IF OVL4
+$IF MACRO
             w919F = macroInPtr - 1;
 $ENDIF
             call GetId(O$ID);    /* assume it's an id */
@@ -278,7 +278,7 @@ $ENDIF
             end;
 
 
-$IF OVL4
+$IF MACRO
             if Lookup(TID$MACRO) <> O$ID and b905E then
             do;
                 if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
@@ -310,7 +310,7 @@ $ENDIF
                     lhsUserSymbol = FALSE;
                 end;
             end;
-$IF OVL4
+$IF MACRO
             if b905E = 1 then
             do;
                 if effectiveToken = K$LOCAL then
@@ -342,7 +342,7 @@ $ENDIF
                 return;
             end;
         end;
-$IF OVL4
+$IF MACRO
         do;                /* 10? */
             b6BDA = FALSE;
             call Sub73AD;

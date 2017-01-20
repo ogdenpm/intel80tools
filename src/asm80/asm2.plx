@@ -1,4 +1,4 @@
-$IF OVL4
+$IF MACRO
 asm2m: do;
 /* force the non standard code generation of outStrN and put2Hex */
 OutStrN: procedure(s, n) external; declare s address, n address; end;
@@ -40,7 +40,7 @@ declare opFlags(*) byte public data(
         0Fh, 0Dh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Fh, 0Dh, 0Dh, 40h, 4Dh,   1,   1,   1,   1,
         80h,   1,   0,   0, 47h,   7,   7,   7, 17h, 47h,   7, 47h, 37h,   5,   7,   0,
           0,   0, 40h, 40h,   0,   1
-$IF OVL4
+$IF MACRO
                                     , 80h, 40h, 80h,   0, 40h, 80h, 80h, 40h, 81h,0C0h,
         80h, 0Dh
 $ENDIF
@@ -85,7 +85,7 @@ $ENDIF
         6, 5, 4, 3, 3, 8, 8, 8, 9, 9, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1
-$IF OVL4 
+$IF MACRO 
 /* for macro ver */     , 0, 1, 1, 1, 0, 0, 0, 1, 1, 1,
         0, 0Ah
 $ENDIF
@@ -181,7 +181,7 @@ GetNumVal: procedure address public;
     declare tokByte based tokPtr (1) byte,    /* ptr into token info */
         val$p pointer,
         val based val$p address;
-$IF OVL4
+$IF MACRO
     LogError: procedure(arg1b);
         declare arg1b byte;
 
@@ -198,12 +198,12 @@ $ENDIF
     acc1Flags = 0;
     accum1 = 0;
     acc1ValType = O$ID;
-$IF OVL4
+$IF MACRO
     if tokenType(0) = 40h then
         call PushToken(0Dh);
 $ENDIF
     if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
-$IF OVL4
+$IF MACRO
         call LogError('Q');
 $ELSE
         call SyntaxError;
@@ -211,7 +211,7 @@ $ENDIF
     else
     do;
         if tokenType(0) = O$ID or tokenType(0) = T$COMMA then
-$IF OVL4
+$IF MACRO
             call LogError('U');
 $ELSE
             call UndefinedSymbolError;
@@ -229,7 +229,7 @@ $ENDIF
 
             end;
             else if tokenSize(0) = 0 then
-$IF OVL4
+$IF MACRO
                 call LogError('V');
 $ELSE
                 call ValueError;
@@ -237,7 +237,7 @@ $ENDIF
             else
             do;
                 if tokenSize(0) > 2 then
-$IF OVL4
+$IF MACRO
                     call LogError('V');
 $ELSE
                     call ValueError;
@@ -339,7 +339,7 @@ end;
 
 ShowLine: procedure byte public;
     return ((not isControlLine) and ctlLIST or ctlLISTChanged and isControlLine)
-$IF OVL4
+$IF MACRO
             and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
         and (not(condAsmSeen or skipping(0)) or ctlCOND);

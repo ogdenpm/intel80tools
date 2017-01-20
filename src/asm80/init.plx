@@ -1,7 +1,7 @@
-$IF OVL4
+$IF MACRO
 initm: do;
 $include(:f3:initm.ipx)
-$ELSEIF OVL5
+$ELSEIF BIG
 initb: do;
 $include(:f3:initb.ipx)
 $ELSE
@@ -60,13 +60,13 @@ GetAsmFile: procedure public;
         return cmdch = ' ' or cmdch = TAB or cmdch = CR;
     end;
 
-$IF OVL4
+$IF MACRO
     symTab(TID$KEYWORD) = .extKeywords;    /* extended key words */
 $ELSE
     symTab(TID$KEYWORD) = .stdKeywords;    /* no extended key words */
 $ENDIF
     symHighMark, endSymTab(TID$KEYWORD), symTab(TID$SYMBOL), endSymTab(TID$SYMBOL) =
-$IF NOT OVL3
+$IF NOT SMALL
                          .MEMORY;
 $ELSE
                          .EDATA;
@@ -77,13 +77,13 @@ $ENDIF
     call IoErrChk;
     actRead = actRead + .cmdLineBuf;    /* convert to pointer */
     scanCmdLine = TRUE;        /* scanning command line */
-$IF OVL3
+$IF SMALL
     call Write(0, .signonMsg, 29h, .statusIO);
     call Write(0, .signonMsg, 2, .statusIO);
     call IoErrChk;
 $ENDIF
     call CmdSkipWhite;
-$IF OVL3
+$IF SMALL
     ovlFile(2),
 $ENDIF
     asxref(2) = GetDrive;     /* tem defaults to current drive */
@@ -123,7 +123,7 @@ $ENDIF
 
     files(0).name(kk) = ' ';    /* override current drive for tmp if explict in source file */
     if lstFile(0) = ':' and lstFile(2) <> '0' then
-$IF OVL4
+$IF MACRO
         asmax$ref(2),
 $ENDIF
         asxref$tmp(2) = lstFile(2);
@@ -135,25 +135,25 @@ ResetData: procedure public;    /* extended initialisation */
     call InitLine;
 
     b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
-$IF OVL4
+$IF MACRO
     expandingMacro, b905C, b905E,
 $ENDIF
     hasVarRef, needToOpenFile = bZERO;
     noOpsYet, primaryValid, ctlLIST, ctlLISTChanged,
-$IF OVL4
+$IF MACRO
     ctlGEN,
 $ENDIF
     ctlCOND = bTRUE;
-$IF OVL4
+$IF MACRO
     macroDepth, b9064, macroCondStk(0), macroCondSP, 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
-$IF OVL4
+$IF MACRO
     macroBlkCnt,
 $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
     maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), effectiveAddr,
-$IF OVL4
+$IF MACRO
     w919B,
 $ENDIF
     externId, errCnt = wZERO;
@@ -164,7 +164,7 @@ $ENDIF
     do ii = 0 to 11;        /* reset all the control seen flags */
         controlSeen(ii) = 0;
     end;
-$IF OVL4
+$IF MACRO
     curMacroBlk = 0FFFFh;
 $ENDIF
     if not IsPhase1 then    /* close any Open include file */
