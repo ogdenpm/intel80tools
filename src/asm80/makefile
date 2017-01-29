@@ -62,12 +62,9 @@ RELEASETARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.o
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
+	$(NGENPEX) :f3:$(PEXFILE) :f3:$<
 	$(PLM) :f3:$< $(PLMFLAGS)
 	@find $(F2)\$(*B).lst "     0 PROGRAM ERROR(S)" >nul || (del $@ & exit /b 1)
-
-.plm.ipx:
-	@SET ISIS_F3=$(F3)
-	$(NGENPEX) :f3:$(PEXFILE) :f3:$<
 
 .asm{$(F0)}.obj:
 	@SET ISIS_F0=$(F0)
@@ -302,8 +299,7 @@ $(F0)\keyn.abs: $(F0)\keyn.obj $(F0)\edata.obj
 	@(find $(F2)\$(*B).map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 
 # pex file and makefile dependencies
-*.ipx: $(PEXFILE) 
-$(F0)\*.obj: makefile
+$(F0)\*.obj: makefile $(PEXFILE)
 
 # housekeeping rules
 clean:
@@ -320,39 +316,3 @@ uclean: vclean
 gitprep: uclean
 	..\..\unpack.pl
 
-
-
-# modified from auto generated to include $(F0) prefix
-$(F0)\asm1m.obj: asm1m.plm asm1m.ipx
-$(F0)\asm1n.obj: asm1n.plm asm1n.ipx
-$(F0)\asm2m.obj: asm2m.plm asm2m.ipx
-$(F0)\asm2n.obj: asm2n.plm asm2n.ipx
-$(F0)\asm3b.obj: asm3b.plm asm3b.ipx
-$(F0)\asm3m.obj: asm3m.plm asm3m.ipx
-$(F0)\asm3s.obj: asm3s.plm asm3s.ipx
-$(F0)\asm4b.obj: asm4b.plm asm4b.ipx
-$(F0)\asm4m.obj: asm4m.plm asm4m.ipx
-$(F0)\asm4s.obj: asm4s.plm asm4s.ipx
-$(F0)\asm5m.obj: asm5m.plm asm5m.ipx
-$(F0)\asm5n.obj: asm5n.plm asm5n.ipx
-$(F0)\asm6m.obj: asm6m.plm asm6m.ipx
-$(F0)\asm6n.obj: asm6n.plm asm6n.ipx
-$(F0)\asm8m.obj: asm8m.plm asm8m.ipx
-$(F0)\cntrlm.obj: cntrlm.plm cntrlm.ipx
-$(F0)\cntrln.obj: cntrln.plm cntrln.ipx
-$(F0)\emitm.obj: emitm.plm emitm.ipx
-$(F0)\emitn.obj: emitn.plm emitn.ipx
-$(F0)\globlb.obj: globlb.plm globlb.ipx
-$(F0)\globlm.obj: globlm.plm globlm.ipx
-$(F0)\globls.obj: globls.plm globls.ipx
-$(F0)\initb.obj: initb.plm initb.ipx
-$(F0)\initm.obj: initm.plm initm.ipx
-$(F0)\inits.obj: inits.plm inits.ipx
-$(F0)\keym.obj: keym.plm keym.ipx
-$(F0)\keyn.obj: keyn.plm keyn.ipx
-$(F0)\listm.obj: listm.plm listm.ipx
-$(F0)\listn.obj: listn.plm listn.ipx
-$(F0)\rdsrc.obj: rdsrc.plm rdsrc.ipx
-$(F0)\startb.obj: startb.plm startb.ipx
-$(F0)\startm.obj: startm.plm startm.ipx
-$(F0)\starts.obj: starts.plm starts.ipx
