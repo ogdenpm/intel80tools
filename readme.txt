@@ -118,6 +118,7 @@ src\asm80\*.*	plm & asm recreated source for asm80
 		the application files are create in the obj directory and the
 		map files in the list directory now have the local symbol detail.
 		Now includes asxref source
+		Files renamed & makefile simplified
 
 src\lib80\*.*	plm & asm recreated source for lib80
 		note the file lib80_all.plm is the file I personally use to edit
@@ -267,3 +268,6 @@ updated 7-Oct-2016 (added warning on crlf expansion)
 updated 1-Dec-2016 (added ixref)
 updated 10-Dec-2016 (added asxref to the asm80 directory, stuctural changes to
 		     the makefile for asm80)
+updated 29-Jan-2017 (renamed asm80 files to be more consistent and simpified
+		     makefile. Note may move to gnu make at some point to
+		     simplifiy further)
