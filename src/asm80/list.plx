@@ -1,12 +1,12 @@
-$IF OVL4
-asm4D: do;
+$IF MACRO
+listm: do;
 /* to force the code generation this needs a non-standard definition of put2Hex */
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-$include(:f3:asm4d.ipx)
+$include(:f3:listm.ipx)
 $ELSE
-asmOV1: do;
+listn: do;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
-$include(:f3:asmov1.ipx)
+$include(:f3:listn.ipx)
 $ENDIF
 
 declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
@@ -217,7 +217,7 @@ Sub7041$8447: procedure public;
     segChar(0) = 'A';        /* show A instead of space for absolute */
     do symGrp = 0 to 2;
         kk = IsPhase2Print and ctlSYMBOLS;
-$IF OVL4
+$IF MACRO
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
         curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
@@ -228,7 +228,7 @@ $ENDIF
             flagsAndType = tokBytePair;
             if type <> 9 then
                 if type <> 6 then
-$IF OVL4
+$IF MACRO
                     if Sub3FA9 then
 $ENDIF
                         if symGrp <> 0 or type <> 3 then
@@ -242,7 +242,7 @@ $ENDIF
 
                                     call PrintStr(.tokStr);
                                     call PrintChar(' ');
-$IF OVL4
+$IF MACRO
                                     if type = O$3A then
                                         call PrintChar('+');
                                     else
@@ -358,7 +358,7 @@ end;
 
 PrintLine: procedure public;
     declare ch based inCh$p byte;
-$IF OVL4
+$IF MACRO
     declare ch1 based macro$p byte;
 $ENDIF
 loop:
@@ -367,7 +367,7 @@ loop:
         endItem = startItem;
 
     call Outch(asmErrCode);
-$IF OVL4
+$IF MACRO
     if b905E = 0FFh then
         call Outch('-');
     else
@@ -405,13 +405,13 @@ $ENDIF
     do;
         lineNumberEmitted = TRUE;
         call OutNStr(4, .asciiLineNo);
-$IF OVL4
+$IF MACRO
         if expandingMacro > 1 then
             call Outch('+');
         else
 $ENDIF
             call Outch(' ');
-$IF OVL4
+$IF MACRO
         if expandingMacro > 1 then
         do;
             curCol = 24;
@@ -426,7 +426,7 @@ $ENDIF
             call PrintNStr(lineChCnt, startLine$p);
         if ch <> LF then
                  call PrintChar(LF);
-$IF OVL4
+$IF MACRO
         end;
 $ENDIF
     end;
@@ -480,7 +480,7 @@ Ovl10: procedure public;
     declare ch based effectiveAddr byte;
 
     call CloseF(infd);
-$IF OVL4
+$IF MACRO
     call CloseF(macrofd);
     call Delete(.asmax$ref, .statusIO);
     if ctlOBJECT then

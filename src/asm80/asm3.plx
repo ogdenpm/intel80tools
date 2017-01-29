@@ -1,15 +1,15 @@
-$IF OVL4
-asm47: do;
-$include(:f3:asm47.ipx)
-$ELSEIF OVL5
-asm57: do;
-$include(:f3:asm57.ipx)
+$IF MACRO
+asm3m: do;
+$include(:f3:asm3m.ipx)
+$ELSEIF BIG
+asm3b: do;
+$include(:f3:asm3b.ipx)
 $ELSE
-asm85: do;
-$include(:f3:asm85.ipx)
+asm3s: do;
+$include(:f3:asm3s.ipx)
 $ENDIF
 
-$IF BASE
+$IF SMALL
 declare    CHKOVL$2 lit    'call OvlMgr(2)';
 $ELSE
 declare    CHKOVL$2 lit    ' ';
@@ -218,7 +218,7 @@ HandleOp: procedure public;
 
                 showAddr = TRUE;
             end;
-$IF OVL4
+$IF MACRO
             kk = b905E;
             b905E = 0;
 
@@ -248,7 +248,7 @@ $ENDIF
         end;
 /* 34 */    do;                    /* ELSE ? */
             condAsmSeen = TRUE;
-$IF OVL4
+$IF MACRO
             if macroCondStk(0) <> 2 then
 $ELSE
             if ifDepth = 0 then
@@ -346,7 +346,7 @@ $ENDIF
             call PopToken;
         end;
 /* 53 */    segSize(SEG$STACK) = accum1;    /* STKLN ? */
-$IF OVL4
+$IF MACRO
 /* 54 */    call Sub7517;            /* MACRO ? */
 /* 55 */    call Sub753E;
 /* 56 */    call Sub75FF;            /* ENDM */
@@ -399,7 +399,7 @@ Parse: procedure public;
     do while 1;
         if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF)
            and skipping(0)
-$IF OVL4
+$IF MACRO
                or (opFlags(effectiveToken) < 128 or b9058) and b905E
 
 $ENDIF

@@ -1,15 +1,15 @@
-$IF OVL4
-asm45: do;
-$include(:f3:asm45.ipx)
-$ELSEIF OVL5
-asm55: do;
-$include(:f3:asm55.ipx)
+$IF MACRO
+asm4m: do;
+$include(:f3:asm4m.ipx)
+$ELSEIF BIG
+asm4b: do;
+$include(:f3:asm4b.ipx)
 $ELSE
-asm851: do;
-$include(:f3:asm851.ipx)
+asm4s: do;
+$include(:f3:asm4s.ipx)
 $ENDIF
 
-$IF BASE
+$IF SMALL
 declare CHKOVL$1 lit    'call OvlMgr(1)',
     CHKOVL$2 lit    'call OvlMgr(2)';
 $ELSE
@@ -38,7 +38,7 @@ end;
 
 IsSkipping: procedure byte public;
     return 
-$IF OVL4
+$IF MACRO
         b905E or
 $ENDIF
         skipping(0);
@@ -124,7 +124,7 @@ FinishLine: procedure public;
         if phase = 1 then
             call EmitXref(XREF$REF, .name);
 
-$IF OVL4
+$IF MACRO
     call FlushM;
 $ENDIF
 

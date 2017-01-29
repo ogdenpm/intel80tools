@@ -1,9 +1,9 @@
-$IF OVL4
-asm48: do;
-$include(:f3:asm48.ipx)
+$IF MACRO
+asm5m: do;
+$include(:f3:asm5m.ipx)
 $ELSE
-asm86: do;
-$include(:f3:asm86.ipx)
+asm5n: do;
+$include(:f3:asm5n.ipx)
 $ENDIF
 declare    b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
     b5669(*) byte data(3Ah, 8, 80h, 0, 0, 0, 0, 0, 20h),
@@ -17,7 +17,7 @@ declare    b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
     chClass(*) byte data(
        /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
           0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,    /* 00 */
-$IF OVL4
+$IF MACRO
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,    /* 10 - ESC maps to 0Bh */
 $ELSE
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,    /* 10 */
@@ -79,13 +79,13 @@ InsertSym: procedure public;
     end;
     /* insert the new symbol name */
     call move(4, tokPtr, curTokenSym$p);
-$IF OVL4
+$IF MACRO
     endSymTab(TID$MACRO) = endSymTab(TID$MACRO) + 8;    /* mark new top of macro table */
 $ENDIF
     curTokenSym.type = 0;            /* clear the type */
 end;
 
-$IF OVL4
+$IF MACRO
 OutSideTable: procedure(tableId) bool;        /* check if curTokenSym$p is outside table bounds */
     declare tableId byte;
 
@@ -138,7 +138,7 @@ UpdateSymbolEntry: procedure(line, type) public;
     absFlag = 0;
     flags = curTokenSym.flags;
     lineSet = FALSE;
-$IF OVL4
+$IF MACRO
     if OutSideTable(TID$SYMBOL) then        /* oops if outside normal symbol table */
     do;
 $ELSE                    /* same for non macro version */
@@ -158,7 +158,7 @@ $ENDIF
             if createdUsrSym then
             do;
                 if curTokenSym.type >= 80h
-$IF OVL4
+$IF MACRO
                      or type = O$3A and curTokenSym.line <> srcLineCnt
 $ENDIF
                 then
@@ -170,7 +170,7 @@ $ENDIF
             else
             do;
                 call InsertSym;
-$IF OVL4
+$IF MACRO
                 symTab(TID$MACRO) = symTab(TID$MACRO) + 8;        /* adjust the base of the macro table */
 $ENDIF
                 endSymTab(TID$SYMBOL) = endSymTab(TID$SYMBOL) + 8;    /* adjust the end of the user symbol table */
@@ -272,7 +272,7 @@ endUpdateSymbol:
 
     if IsPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
        or type = 4 and BlankAsmErrCode or lineSet
-$IF OVL4
+$IF MACRO
        or type = O$3A
 $ENDIF
     then
@@ -408,7 +408,7 @@ end;
 
 GetCh: procedure byte public;
     declare (curCH, prevCH) byte;
-$IF OVL4
+$IF MACRO
     declare ch based tmac$buf$p byte;
     declare ch1 based macro$p byte;
 $ENDIF
@@ -420,7 +420,7 @@ L6339:
 
     L6347:
         curCH = lookAhead;
-$IF OVL4
+$IF MACRO
         if expandingMacro then
         do;
             do while (lookAhead := ch) = MACROEOB;
@@ -440,7 +440,7 @@ $ENDIF
         if chClass(curCH) = CC$BAD then
             if curCH = 0 or curCH = 7Fh or curCH = FF then
                 goto L6347;
-$IF OVL4
+$IF MACRO
         if expandingMacro then
         do;
             if curCH = 1Bh then
@@ -535,7 +535,7 @@ end;
 
 GetChClass: procedure byte public;
     curChar = GetCh;
-$IF OVL4
+$IF MACRO
     if b905D then
         return 0Ah;
 $ENDIF
@@ -550,11 +550,11 @@ ChkLF: procedure public;
         lookAhead = 0;
     else
     do;
-$IF OVL4 
+$IF MACRO 
         b905E = b905E and 0FEh;
 $ENDIF
         call IllegalCharError;
-$IF OVL4
+$IF MACRO
         b905E = b905E > 0;
 $ENDIF
     end;

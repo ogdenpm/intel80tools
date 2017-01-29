@@ -1,9 +1,9 @@
-$IF OVL4
-asm4A: do;
-$include(:f3:asm4a.ipx)
+$IF MACRO
+cntrlm: do;
+$include(:f3:cntrlm.ipx)
 $ELSE
-asmOV0: do;
-$include(:f3:asmov0.ipx)
+cntrln: do;
+$include(:f3:cntrln.ipx)
 $ENDIF
 
 declare controlTable(*) byte data(
@@ -220,7 +220,7 @@ LookupControl: procedure byte;
     return 255;                        /* not found */
 
 found:
-$IF OVL0 
+$IF NOT MACRO 
     if controlId = 1 or controlId = 12h then    /* MACRODEBUG or GEN */
     do;
         if scanCmdLine then            /* only valid on command line not $ line */
@@ -368,7 +368,7 @@ end;
 ParseControls: procedure public;
     isControlLine = TRUE;
     ctlLISTChanged, savedCtlLIST = ctlLIST;
-$IF OVL4
+$IF MACRO
     savedCtlGEN = ctlGEN;
 $ENDIF
     controlError = FALSE;
@@ -399,7 +399,7 @@ $ENDIF
     call ChkLF;            /* eat the LF */
     if ctlLIST <> savedCtlLIST then
         ctlLISTChanged = TRUE;
-$IF OVL4
+$IF MACRO
     else if ctlGEN <> savedCtlGEN and expandingMacro then
         ctlLISTChanged = FALSE;
 $ENDIF

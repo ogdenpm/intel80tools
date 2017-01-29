@@ -1,15 +1,15 @@
-$IF BASE
-asm801: do;
-$include(:f3:asm801.ipx)
-$ELSEIF OVL4
-asm41: do;
-$include(:f3:asm41.ipx)
+$IF SMALL
+starts: do;
+$include(:f3:starts.ipx)
+$ELSEIF MACRO
+startm: do;
+$include(:f3:startm.ipx)
 $ELSE
-asm51: do;
-$include(:f3:asm51.ipx)
+startb: do;
+$include(:f3:startb.ipx)
 $ENDIF
 
-$IF BASE
+$IF SMALL
 declare CHKOVL$0 lit    'call OvlMgr(0)',
     CHKOVL$1 lit    'call OvlMgr(1)',
     CHKOVL$2 lit    'call OvlMgr(2)',
@@ -21,7 +21,7 @@ declare CHKOVL$0 lit    ' ',
     CHKOVL$3 lit    ' ';
 $ENDIF
 
-$IF OVL4
+$IF MACRO
 declare w$3780 address public data(0),
     b$3782 byte public data(80h),
     b$3783 byte public data(81h);
@@ -53,7 +53,7 @@ declare    spaces24(*) byte public data('         '),
     aBadSyntax(*) byte public data('BAD SYNTAX', CR, LF),
     aCo(*) byte public data(':CO:', 0);
 
-$IF BASE
+$IF SMALL
 declare    loadedOvl byte initial(4),
     ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 $ENDIF
@@ -111,7 +111,7 @@ OutStrN: procedure(s, n) public;
     end;
 end;
 
-$IF BASE
+$IF SMALL
 OvlMgr: procedure(ovl) public;
     declare ovl byte;
     declare entry$p address;
@@ -161,7 +161,7 @@ IsComma: procedure byte public;
     return curChar = ',';
 end;
 
-$IF OVL4
+$IF MACRO
 IsLT: procedure byte public;
     return curChar = '<';
 end;
@@ -185,7 +185,7 @@ end;
 
 
 ChkGenObj: procedure byte public;
-$IF BASE
+$IF SMALL
     return (phase > 2) and ctlOBJECT;
 $ELSE
     return (phase = 2) and ctlOBJECT;
@@ -340,7 +340,7 @@ SourceError: procedure(errCh) public;
     end;
 end;
 
-$IF OVL4
+$IF MACRO
 
 InsertByteInMacroTbl: procedure(c) public;
     declare c byte;
@@ -370,7 +370,7 @@ ParseControlLines: procedure public;
         do;
             call Skip2NextLine;
             isControlLine = TRUE;
-$IF OVL4
+$IF MACRO
             if b905E = 1 then
                 b6897 = TRUE;
 $ENDIF
@@ -418,27 +418,27 @@ InitLine: procedure public;
     lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
     inExpression, expectingOperands, xRefPending, gotLabel, rhsUserSymbol,
     inDB, inDW, condAsmSeen, showAddr, usrLookupIsID,
-$IF OVL4
+$IF MACRO
     b9059, b9060, 
 $ENDIF
     needsAbsValue = bZERO;
 
     atStartLine, expectingOpcode, isInstr, expectOp = bTRUE;
     ctlEJECT, hasVarRef, tokenIdx,
-$IF OVL4
+$IF MACRO
     b9058, argNestCnt,
 $ENDIF
     tokenSize(0), tokenType(0), acc1ValType, acc2ValType, inComment, acc1Flags = bZERO;
 
     asmErrCode = ' ';
-$IF OVL4
+$IF MACRO
     macro$p = .macroLine;
     w919D = macroInPtr;
     expandingMacro = expandingMacro > 0;
 $ENDIF
     tokI = 1;
     srcLineCnt = srcLineCnt + 1;
-$IF OVL4
+$IF MACRO
     macro$p = .macroLine;
 $ENDIF
     skipping(0) = skipping(0) > 0;
@@ -450,7 +450,7 @@ start:
     phase = 1;
     call ResetData;
     call InitialControls;
-$IF BASE
+$IF SMALL
     if ctlMACROFILE then
     do;
         if Physmem < 8001h then
@@ -467,14 +467,14 @@ $IF BASE
         if srcfd <> rootfd then
             call CloseF(srcfd);
         call CloseF(infd);
-        ovlFile(12) = '5';        /* use big memory asm version */
+        ovlFile(12) = '5';        /* use big edata.asm version */
         call Load(.ovlFile, 0, 1, 0, .statusIO);
         call IoErrChk;
     end;
 
     if MacroDebugOrGen then            /* attempt to use macro features */
         call RuntimeError(2);        /* command Error */
-$ELSEIF OVL4
+$ELSEIF MACRO
     macrofd = InOpen(.asmax$ref, 3);
 $ENDIF
 
@@ -500,11 +500,11 @@ $ENDIF
 
         if externId = 0 then
             call WriteModhdr;        /* in overlay 2 */
-$IF NOT BASE
+$IF NOT SMALL
         call InitRecTypes;
 $ENDIF
     end;
-$IF BASE
+$IF SMALL
     if not ctlOBJECT or ctlPRINT then
 $ENDIF
     do;
@@ -524,7 +524,7 @@ $ENDIF
 
     if ctlOBJECT then
     do;
-$IF BASE
+$IF SMALL
         phase = 3;
         CHKOVL3;
         call ResetData;

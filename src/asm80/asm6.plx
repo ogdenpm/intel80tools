@@ -1,9 +1,9 @@
-$IF OVL4
-asm49: do;
-$include(:f3:asm49.ipx)
+$IF MACRO
+asm6m: do;
+$include(:f3:asm6m.ipx)
 $ELSE
-asm861: do;
-$include(:f3:asm861.ipx)
+asm6n: do;
+$include(:f3:asm6n.ipx)
 $ENDIF
 
 SyntaxError: procedure public;
@@ -94,7 +94,7 @@ end;
 
 NestIF: procedure(arg1b) public;
     declare arg1b byte;
-$IF OVL4
+$IF MACRO
     macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
     if (macroCondStk(0) := arg1b) = 1 then
     do;
@@ -131,7 +131,7 @@ end;
 UnnestIF: procedure(arg1b) public;
     declare arg1b byte;
 
-$IF OVL4
+$IF MACRO
     if arg1b <> macroCondStk(0) then
     do;
         call NestingError;
@@ -184,7 +184,7 @@ PushToken: procedure(type) public;
         tokenType(0) = type;
         tokenAttr(0), tokenSize(0) = bZERO;
         tokenSym(0) = wZERO;
-$IF OVL4
+$IF MACRO
         tokenSymId(0) = wZERO;
 $ELSE
         tokenSymId(0) = tokenSym(0);

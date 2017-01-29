@@ -1,9 +1,9 @@
-$IF OVL4
-asm4c: do;
-$include(:f3:asm4c.ipx)
+$IF MACRO
+emitm: do;
+$include(:f3:emitm.ipx)
 $ELSE
-asmov2: do;
-$include(:f3:asmov2.ipx)
+emitn: do;
+$include(:f3:emitn.ipx)
 $ENDIF
 
 declare    fixupInitialLen(*) byte data(1, 2, 1, 3),
@@ -246,7 +246,7 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
                 call FlushSymRec;
 
             if (symb(1) and 7) = segId
-$IF OVL4
+$IF MACRO
                and symb(0) <> O$3A and Sub3FA9
 $ENDIF
                and not TestBit(symb(0), .b6D7E) and
