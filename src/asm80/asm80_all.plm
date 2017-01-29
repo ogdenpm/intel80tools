@@ -1927,8 +1927,8 @@ end;
 keyn.plm
 keyn: do;
 $include(:f3:keyn.ipx)
-declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
+declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 declare stdKeywords(151) KEYWORD$T public initial(
 /*
     4 byte packed keyword
@@ -4565,7 +4565,7 @@ $IF MACRO
 cntrlm: do;
 $include(:f3:cntrlm.ipx)
 $ELSE
-asmOV0: do;
+cntrln: do;
 $include(:f3:cntrln.ipx)
 $ENDIF
 
@@ -5472,7 +5472,7 @@ listm: do;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(:f3:listm.ipx)
 $ELSE
-asmOV1: do;
+listn: do;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(:f3:listn.ipx)
 $ENDIF
@@ -6171,10 +6171,10 @@ InitRecTypes: procedure public;
 end;
 end;
 keym.plm
-keywords: do;
+keym: do;
 $include(:f3:keym.ipx)
-declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 
+declare copyright(*) byte data('(C) 1976,1977,1979,1980 INTEL CORP');
 declare extKeywords(151) KEYWORD$T public initial(
 /*
     4 byte packed keyword
@@ -6384,12 +6384,12 @@ ROOTOBJS = globls.obj starts.obj asm1n.obj asm2n.obj\
 	rdsrc.obj asm3s.obj asm4s.obj asm5n.obj\
 	asm6n.obj pcktok.obj
 
-OBJS4 = globlm.obj startm.obj pcktok.obj asm1m.obj\
+MACROOBJS = globlm.obj startm.obj pcktok.obj asm1m.obj\
 	asm2m.obj asm4m.obj rdsrc.obj asm3m.obj\
 	asm5m.obj asm6m.obj cntrlm.obj asm8m.obj\
 	emitm.obj listm.obj initm.obj
 
-OBJS5 = globlb.obj startb.obj pcktok.obj asm1n.obj\
+BIGOBJS = globlb.obj startb.obj pcktok.obj asm1n.obj\
 	asm2n.obj asm4b.obj rdsrc.obj asm3b.obj\
 	asm5n.obj asm6n.obj cntrln.obj emitn.obj\
 	listn.obj initb.obj
@@ -6515,19 +6515,19 @@ $(F0)\asm80 asm80: $(F0)\root.abs $(F0)\asm80.ov0 $(F0)\asm80.ov1 $(F0)\asm80.ov
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) root.abs,publics(asm80.ov0,asm80.ov1,asm80.ov2),asm80.ov3,keyn.abs to asm80.rel map print(:f2:asm80.lin)
+	$(LINK) root.abs,asm80.ov3,keyn.abs,publics(asm80.ov0,asm80.ov1,asm80.ov2) to asm80.rel map print(:f2:asm80.lin)
 	$(LOCATE) asm80.rel to $(@F) $(LOCATEOPT) STACKSIZE(0) NAME(ASM80) PRINT(:f2:asm80.map)
 	del $(F0)\asm80.rel
 	@find $(F2)\asm80.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(F2)\asm80.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
-$(F0)\asm80.ov0 asm80.ov0: $(F0)\root.abs $(F0)\cprite.obj $(F0)\cntrln.obj 
+$(F0)\asm80.ov0 asm80.ov0: $(F0)\cprite.obj $(F0)\cntrln.obj $(F0)\root.abs
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(root.abs),cprite.obj,cntrln.obj to asmov0.rel map print(:f2:asmov0.lin)
+	$(LINK) cprite.obj,cntrln.obj,publics(root.abs) to asmov0.rel map print(:f2:asmov0.lin)
 	$(LOCATE) asmov0.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O0) PRINT(:f2:asmov0.map)
 	del $(F0)\asmov0.rel
 	@find $(F2)\asmov0.lin "LINK MAP" >nul || (del $@ & exit /b 1)
@@ -6535,12 +6535,12 @@ $(F0)\asm80.ov0 asm80.ov0: $(F0)\root.abs $(F0)\cprite.obj $(F0)\cntrln.obj
 	$(LOCATE) $@ to :f3:$(@F) PURGE
 
 
-$(F0)\asm80.ov1 asm80.ov1: $(F0)\root.abs $(F0)\cprite.obj $(F0)\listn.obj 
+$(F0)\asm80.ov1 asm80.ov1: $(F0)\cprite.obj $(F0)\listn.obj $(F0)\root.abs
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(root.abs),cprite.obj,listn.obj,:F1:plm80.lib to asmov1.rel map print(:f2:asmov1.lin)
+	$(LINK) cprite.obj,listn.obj,publics(root.abs),:F1:plm80.lib to asmov1.rel map print(:f2:asmov1.lin)
 	$(LOCATE) asmov1.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O1) PRINT(:f2:asmov1.map)
 	del $(F0)\asmov1.rel
 	@find $(F2)\asmov1.lin "LINK MAP" >nul || (del $@ & exit /b 1)
@@ -6548,24 +6548,24 @@ $(F0)\asm80.ov1 asm80.ov1: $(F0)\root.abs $(F0)\cprite.obj $(F0)\listn.obj
 	$(LOCATE) $@ to :f3:$@ PURGE
 
 
-$(F0)\asm80.ov2 asm80.ov2: $(F0)\root.abs $(F0)\cprite.obj $(F0)\emitn.obj 
+$(F0)\asm80.ov2 asm80.ov2: $(F0)\cprite.obj $(F0)\emitn.obj $(F0)\root.abs 
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(root.abs),cprite.obj,emitn.obj to asmov2.rel map print(:f2:asmov2.lin)
+	$(LINK) cprite.obj,emitn.obj,publics(root.abs) to asmov2.rel map print(:f2:asmov2.lin)
 	$(LOCATE) asmov2.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O2) PRINT(:f2:asmov2.map)
 	del $(F0)\asmov2.rel
 	@find $(F2)\asmov2.lin "LINK MAP" >nul || (del $@ & exit /b 1)
 	@(find $(F2)\asmov2.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
-$(F0)\asm80.ov3 asm80.ov3: $(F0)\root.abs $(F0)\cprite.obj $(F0)\inits.obj $(F0)\keyn.abs
+$(F0)\asm80.ov3 asm80.ov3: $(F0)\cprite.obj $(F0)\inits.obj $(F0)\root.abs $(F0)\keyn.abs
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
-	$(LINK) publics(root.abs),cprite.obj,inits.obj,publics(keyn.abs) to asmov3.rel map print(:f2:asmov3.lin)
+	$(LINK) cprite.obj,inits.obj,publics(root.abs,keyn.abs) to asmov3.rel map print(:f2:asmov3.lin)
 	$(LOCATE) asmov3.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O3) PRINT(:f2:asmov3.map)
 	del $(F0)\asmov3.rel
 	@find $(F2)\asmov3.lin "LINK MAP" >nul || (del $@ & exit /b 1)
@@ -6573,14 +6573,14 @@ $(F0)\asm80.ov3 asm80.ov3: $(F0)\root.abs $(F0)\cprite.obj $(F0)\inits.obj $(F0)
 	$(LOCATE) $@ to :f3:$@ PURGE
 
 
-$(F0)\asm80.ov4 asm80.ov4: $(F0)\$(OBJS4: = .\obj\) $(F0)\keym.obj
+$(F0)\asm80.ov4 asm80.ov4: $(F0)\$(MACROOBJS: = .\obj\) $(F0)\keym.obj
 # initially set F0 to object directory to avoid losts of :f3: prefixes
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
 	$(LINK) "&" < <<
-$(OBJS4: =, & 
+$(MACROOBJS: =, & 
 ),:f1:system.lib,:f1:plm80.lib,keym.obj to asmov4.rel map print(:f2:asmov4.lin)
 <<NOKEEP
 	$(LOCATE) asmov4.rel to $(@F) NAME(A80O4) "&" < <<
@@ -6592,14 +6592,14 @@ exit
 	$(LOCATE) $@ to :f3:$@ PURGE
 
 
-$(F0)\asm80.ov5 asm80.ov5: $(F0)\$(OBJS5: = .\obj\) $(F0)\keyn.obj
+$(F0)\asm80.ov5 asm80.ov5: $(F0)\$(BIGOBJS: = .\obj\) $(F0)\keyn.obj
 # initially set F0 to object directory to avoid losts of :f3: prefixes
 	@SET ISIS_F0=$(F0)
 	@SET ISIS_F1=$(V3)
 	@SET ISIS_F2=$(F2)
 	@SET ISIS_F3=$(F3)
 	$(LINK) "&" < <<
-$(OBJS5: =, &
+$(BIGOBJS: =, &
 ),:f1:system.lib,:f1:plm80.lib,keyn.obj to asmov5.rel map print(:f2:asmov5.lin)
 <<NOKEEP
 	$(LOCATE) asmov5.rel to $(@F) NAME(A80O5) "&" < <<
@@ -6868,9 +6868,10 @@ L62B7:
 
     end
 cprite.asm
-    CSEG
-cprite:    db '(C) 1976,1977,1979,1980 INTEL CORP'
-    end;
+    cseg
+cprite:
+    db '(C) 1976,1977,1979,1980 INTEL CORP'
+    end
 edata.asm
     public EDATA
     DSEG

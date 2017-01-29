@@ -2,7 +2,7 @@ $IF MACRO
 cntrlm: do;
 $include(:f3:cntrlm.ipx)
 $ELSE
-asmOV0: do;
+cntrln: do;
 $include(:f3:cntrln.ipx)
 $ENDIF
 

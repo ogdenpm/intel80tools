@@ -4,7 +4,7 @@ listm: do;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(:f3:listm.ipx)
 $ELSE
-asmOV1: do;
+listn: do;
 Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
 $include(:f3:listn.ipx)
 $ENDIF
