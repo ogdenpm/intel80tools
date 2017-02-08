@@ -87,7 +87,7 @@ Sub6F07: procedure(arg1w) bool;
     if tokBufIdx = 0 then
         return FALSE;
 
-    tokBuf(tokBufIdx) = 20h;
+    tokBuf(tokBufIdx) = ' ';
     tokBufLen = tokBufIdx;
     if IsWhite then
         return ChkParen(1);

@@ -238,19 +238,19 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
 
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
-        call FlushSymRec;
+        call FlushSymRec;    /* also sets up segid for new record */
         curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* point to type byte of user symbol (-1) */
 
         do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
-            if recSym$p > .r$publics.dta(114) then        /* make sure there is room */
+            if recSym$p > .r$publics.crc - 10 then        /* make sure there is room */
                 call FlushSymRec;
 
-            if (symb(1) and 7) = segId
+            if (symb(1) and UF$SEGMASK) = segId
 $IF MACRO
-               and symb(0) <> O$3A and Sub3FA9
+               and symb(0) <> O$3A and nonHiddenSymbol
 $ENDIF
                and not TestBit(symb(0), .b6D7E) and
-               (not isPublic or (symb(1) and 20h) <> 0) then
+               (not isPublic or (symb(1) and UF$PUBLIC) <> 0) then
                    call AddSymbol;
         end;
         call FlushSymRec;

@@ -134,7 +134,7 @@ ResetData: procedure public;    /* extended initialisation */
 
     call InitLine;
 
-    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
+    b6B33, scanCmdLine, skipIf(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
 $IF MACRO
     expandingMacro, b905C, b905E,
 $ENDIF
@@ -158,7 +158,7 @@ $IF MACRO
 $ENDIF
     externId, errCnt = wZERO;
     passCnt = passCnt + 1;
-    srcLineCnt, rightOp, pageCnt, pageLineCnt = 1;
+    srcLineCnt, newOp, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;        /* reset all the control seen flags */

@@ -14,12 +14,12 @@ $ENDIF
     1    -> start single word expression
     5    -> single byte opcode no operand
     7    -> reg operand
-    0Fh    -> binary leftOp
-    0Dh    -> unary leftOp
+    0Fh    -> binary topOp
+    0Dh    -> unary topOp
     17h    -> IMM8 operand
     37h    -> imm16 operand
     40h    -> list
-    47h    -> 2 operand leftOp
+    47h    -> 2 operand topOp
     4Dh    -> start word list
     80h    -> end expression
     81h    -> rept operand
@@ -103,14 +103,14 @@ TestBit: procedure(bitIdx, bitVector) bool public;
     return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
-IsReg: procedure(leftOp) bool public;
-    declare leftOp byte;
+IsReg: procedure(topOp) bool public;
+    declare topOp byte;
 
-    return leftOp = K$REGNAME or leftOp = K$SP;
+    return topOp = K$REGNAME or topOp = K$SP;
 end;
 
 ChkInvalidRegOperand: procedure public;
-    if TestBit(leftOp, .noRegOperand) then
+    if TestBit(topOp, .noRegOperand) then
         if IsReg(acc1ValType) then
             call OperandError;
 end;
@@ -118,7 +118,7 @@ end;
 Sub4291: procedure public;
     if IsReg(acc1ValType) then
         call OperandError;
-    if (opFlags(leftOp) and 2) = 0 then
+    if (opFlags(topOp) and 2) = 0 then
         acc2Flags = 0;
     else if IsReg(acc2ValType) then
         call OperandError;
@@ -132,19 +132,19 @@ Sub4291: procedure public;
                 call ExpressionError;
     if (ii := (acc1Flags and UF$EXTRN) <> 0) or (jj := (acc2Flags and UF$EXTRN) <> 0) then
     do;
-        if leftOp = K$SPECIAL then    /* +? (PAGE INPAGE)? */
+        if topOp = K$SPECIAL then    /* +? (PAGE INPAGE)? */
             if not (ii or accFixFlags(0)) then
             do;
                 acc1NumVal = acc2NumVal;
                 acc1Flags = acc2Flags;
                 return;
             end;
-        if jj or accFixFlags(1) or not TestBit(leftOp, .b41C1) then
+        if jj or accFixFlags(1) or not TestBit(topOp, .b41C1) then
             goto L4394;
         else
             return;
     end;
-    kk = shl(leftOp - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
+    kk = shl(topOp - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
     if TestBit(kk, .opCompat) then
 L4394:    do;
         call ExpressionError;
@@ -182,12 +182,12 @@ GetNumVal: procedure address public;
         val$p pointer,
         val based val$p address;
 $IF MACRO
-    LogError: procedure(arg1b);
-        declare arg1b byte;
+    LogError: procedure(ch);
+        declare ch byte;
 
-        if tokenType(tokenIdx) <> 40h then
+        if tokenType(tokenIdx) <> O$OPTVAL then
         do;
-            call SourceError(arg1b);
+            call SourceError(ch);
             return;
         end;
         if tokenSize(0) = 0 then
@@ -199,8 +199,8 @@ $ENDIF
     accum1 = 0;
     acc1ValType = O$ID;
 $IF MACRO
-    if tokenType(0) = 40h then
-        call PushToken(0Dh);
+    if tokenType(0) = O$OPTVAL then
+        call PushToken(CR);
 $ENDIF
     if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
 $IF MACRO
@@ -222,7 +222,7 @@ $ENDIF
             if TestBit(acc1ValType, .typeHasValue) then
             do;
                 tokPtr = curTokenSym$p + 7;    /* point to flags */
-                acc1Flags = tokByte(0) and 0DFh; /* remove public attribute */
+                acc1Flags = tokByte(0) and not UF$PUBLIC; /* remove public attribute */
                 tokPtr, val$p = curTokenSym$p + 4;    /* point to value */
                 acc1NumVal = val;            /* pick up value */
                 tokenSize(0) = 2;        /* word value */
@@ -242,7 +242,7 @@ $IF MACRO
 $ELSE
                     call ValueError;
 $ENDIF
-                acc1Flags = tokenAttr(0) and 0DFh;    /* remove public attribute */
+                acc1Flags = tokenAttr(0) and not UF$PUBLIC;    /* remove public attribute */
                 acc1NumVal = tokenSymId(0);        /* use the symbol Id */
             end;
 
@@ -269,9 +269,9 @@ $ENDIF
 end;
 
 
-GetPrec: procedure(leftOp) byte public;
-    declare leftOp byte;
-    return precedence(leftOp);
+GetPrec: procedure(topOp) byte public;
+    declare topOp byte;
+    return precedence(topOp);
 end;
 
 /*
@@ -280,7 +280,7 @@ end;
    xxxxxx1x    acc1 = acc1 | acc2
    xxxxx1xx    acc2 <<= 3
    xxxx1xxx    acc2 -> 8 bit value
-   nnnnxxxx    leftOp = 24h + nnnn
+   nnnnxxxx    topOp = 24h + nnnn
    
 */   
 MkCode: procedure(arg1b) public;
@@ -292,15 +292,15 @@ MkCode: procedure(arg1b) public;
            or accum2$lb > 7     
            or arg1b and accum2$lb    /* only B D H SP if lxi, ldax or stax */
            or (arg1b and 3) = 3 and accum2$lb > 2    /* B or D if ldax or stax */
-           or (not IsReg(acc2ValType) and leftOp <> K$RST) then    /* reg unless rst */
+           or (not IsReg(acc2ValType) and topOp <> K$RST) then    /* reg unless rst */
             call OperandError;
-        else if IsReg(acc2ValType) and leftOp = K$RST then         /* cannot be reg for rst */
+        else if IsReg(acc2ValType) and topOp = K$RST then         /* cannot be reg for rst */
             call OperandError;
         if ror(arg1b, 2) then
             accum2$lb = rol(accum2$lb, 3);
         accum1$lb = accum1$lb or accum2$lb;
     end;
-    else if leftOp <> K$SINGLE then        /* single byte leftOp */
+    else if topOp <> K$SINGLE then        /* single byte topOp */
         if IsReg(acc2ValType) then
             call OperandError;
 
@@ -309,12 +309,12 @@ MkCode: procedure(arg1b) public;
         if (acc2Flags and UF$BOTH) = UF$BOTH then
         do;
             call ValueError;
-            acc2Flags = acc2Flags and 0E7h or UF$LOW;
+            acc2Flags = (acc2Flags and not UF$BOTH)  or UF$LOW;
         end;
         if accum2$hb + 1 > 1 then    /* Error if not FF or 00 */
             call ValueError;
     end;
-    if leftOp = K$IMM8 or leftOp = K$IMM16 then    /* Imm8 or imm16 */
+    if topOp = K$IMM8 or topOp = K$IMM16 then    /* Imm8 or imm16 */
     do;
         acc1Flags = acc2Flags;
         acc1NumVal = acc2NumVal;
@@ -322,10 +322,10 @@ MkCode: procedure(arg1b) public;
     else
         acc1Flags = 0;
 
-    if leftOp <> K$SINGLE then             /* single byte leftOp */
+    if topOp <> K$SINGLE then             /* single byte topOp */
         if accum1$lb = 76h then         /* mov m,m is actually Halt */
             call OperandError;
-    if (leftOp := shr(arg1b, 4) + 24h) = 24h then
+    if (topOp := shr(arg1b, 4) + 24h) = 24h then
         nextTokType = O$DATA;
 end;
 
@@ -342,7 +342,7 @@ ShowLine: procedure byte public;
 $IF MACRO
             and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
-        and (not(condAsmSeen or skipping(0)) or ctlCOND);
+        and (not(condAsmSeen or skipIf(0)) or ctlCOND);
 end;
 
 /*

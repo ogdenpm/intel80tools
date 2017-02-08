@@ -14,6 +14,7 @@ FALSE           '0'
 CR              '0Dh'
 FF              '0Ch'
 LF              '0Ah'
+ESC		'1Bh'
 TAB             '9'
 MACROEOB    '0FEh'
 
@@ -28,11 +29,12 @@ CC$WS           '1'
 CC$SEMI         '2'
 CC$COLON        '3'
 CC$CR           '4'
-CC$PUNCT        '5'
+CC$PUN        '5'
 CC$DOLLAR       '6'
 CC$QUOTE        '7'
-CC$DIGIT        '8'
+CC$DIG        '8'
 CC$LET          '9'
+CC$MAC		'10'
 CC$ESC          '11'
 
 TT$ID           '0'
@@ -82,7 +84,7 @@ OMF$LIBDICT     '2AH'
 OMF$LIBHDR      '2CH'
 OMF$COMDEF      '2EH'
 
-/* leftOp types */
+/* Op types */
 T$CR            '1'
 T$LPAREN        '2'
 T$RPAREN        '3'
@@ -157,10 +159,11 @@ K$IRPC          '3Ch'
 O$3D            '3Dh'
 K$REPT          '3Eh'
 K$LOCAL         '3Fh'
+O$OPTVAL		'40h'
 K$NUL           '41h'
-O$64            '64h'
+O$MACROID       '64h'
 
-/* type flags */
+/* sym flags */
 UF$SEGMASK    '7'
 UF$LOW          '8'
 UF$HIGH         '10h'
@@ -266,7 +269,7 @@ WrConsole       P(A buf$p,A count)
 
 $file(asm1m.plm)
 ReadM           P(A blk)
-Sub3FA9        PB
+nonHiddenSymbol        PB
 FlushM        P
 WriteM          P
 
@@ -280,8 +283,8 @@ Tokenise        P
 
 $file(asm2m.plm,asm2n.plm)
 opFlags           BS
-GetPrec         P(B leftOp)B
-IsReg        P(B leftOp)"bool"
+GetPrec         P(B topOp)B
+IsReg        P(B topOp)"bool"
 ChkInvalidRegOperand        P
 Sub4291        P
 SetExpectOperands        P
@@ -357,7 +360,7 @@ IllegalCharError P
 LocationError   P
 MultipleDefError P
 NameError       P
-NestIF         P(B arg1b)
+Nest         P(B arg1b)
 NestingError    P
 OPcodeOperandError P
 OperandError    P
@@ -367,7 +370,7 @@ PushToken       P(B type)
 StackError      P
 SyntaxError     P
 UndefinedSymbolError P
-UnnestIF        P(B arg1b)
+UnNest        P(B arg1b)
 ValueError      P
 
 /* $file(cntrlm.plm) */
@@ -407,8 +410,8 @@ NewPage         P
 NewPageHeader   P
 OutStr          P(A s)
 PrintLine            P
-Ovl9            P
-Ovl10           P
+FinishPrint            P
+FinishAssembly           P
 PrintCmdLine    P
 PrintDecimal    P(A n)
 SkipToEOP       P
@@ -545,7 +548,7 @@ inDW           B
 inExpression           "bool"
 curOpFlags           B
 effectiveToken           B
-leftOp              B
+topOp              B
 b6B2C           "bool"
 nextTokType           B
 inNestedParen           B
@@ -646,7 +649,7 @@ macro$p         "pointer"    /* globlm */
 openStatus      A
 opSP            B
 opStack         BS
-rightOp          B
+newOp          B
 outbuf          BS
 outfd           A
 out$p           "pointer"
@@ -666,7 +669,7 @@ saveIdx         B
 saveStack       BS
 scanCmdLine     B
 segSize         AS
-skipping        "bool"S
+skipIf        "bool"S
 startDefined    B
 startOffset     A
 startSeg        B

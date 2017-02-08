@@ -17,12 +17,12 @@ declare tokReq(*) byte data(
         /* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
         /* 29, 30, 55 */
     absValueReq(*) bool data(
-            /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0,   0,   0FFh,
-               0,   0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
-               0,   0);
+        /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0,   0,   0FFh,
+           0,   0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
+           0,   0);
     /* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
 $IF MACRO
 declare    b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
@@ -34,12 +34,13 @@ SkipWhite$2: procedure public;
 end;
 
 
-Sub3FA9: procedure byte public;
-    declare w9B5A pointer,
-        wrd based w9B5A address;
+nonHiddenSymbol: procedure byte public;
+    declare name$p pointer,
+        name based name$p address;
 
-    w9B5A = curTokenSym$p - 6;
-    return (wrd < 4679h) or ctlMACRODEBUG or (4682h < wrd);
+    name$p = curTokenSym$p - 6;
+    /* check name < '??0' or '??9' < name */
+    return (name < 4679h) or ctlMACRODEBUG or (4682h < name);
 end;
 
 
@@ -140,10 +141,10 @@ end;
 Tokenise: procedure public;
 
     Sub416B: procedure;
-        if rightOp = O$NONE then
+        if newOp = O$NONE then
             call ExpressionError;
         inExpression = 0;
-        rightOp = O$NONE;
+        newOp = O$NONE;
     end;
 
 
@@ -178,7 +179,7 @@ $ENDIF
         do;                /* CC$COLON */
             if not gotLabel then
             do;
-                if skipping(0)
+                if skipIf(0)
 $IF MACRO
                    or b905E
 $ENDIF
@@ -201,22 +202,22 @@ $ENDIF
 
             call EmitXref(XREF$DEF, .name);
             rhsUserSymbol = FALSE;
-            rightOp = O$LABEL;
+            newOp = O$LABEL;
         end;
         do;                /* CC$CR */
             call ChkLF;
             effectiveToken = T$CR;
 $IF MACRO
-            b9058 = 0;
+            b9058 = FALSE;
 $ENDIF
             return;
         end;
-        do;                /* CC$PUNCT */
+        do;                /* CC$PUN */
             if curChar = '+' or curChar = '-' then
 $IF MACRO
-                if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
+                if not TestBit(newOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
-                if rightOp <> O$NONE and rightOp <> T$RPAREN then
+                if newOp <> O$NONE and newOp <> T$RPAREN then
 $ENDIF
                     curChar = curChar + (T$UPLUS - T$PLUS);    /* make unary versions */
             effectiveToken = curChar - '(' + T$LPAREN;
@@ -248,7 +249,7 @@ $ENDIF
                 call Sub416B;
             end;
         end;
-        do;                /* CC$DIGIT */
+        do;                /* CC$DIG */
             call GetNum;
             if expectingOpcode then
                 call SetExpectOperands;
@@ -328,7 +329,7 @@ $IF MACRO
             end;
 
             if effectiveToken = K$NUL then
-                call PushToken(40h);
+                call PushToken(O$OPTVAL);
 $ENDIF
             if effectiveToken < 10 or effectiveToken = 9 or 80h then /* !! only first term contributes */
             do;
@@ -352,7 +353,7 @@ $IF MACRO
         do;                /* CC$ESC */
             if expandingMacro then
             do;
-                skipping(0) = FALSE;
+                skipIf(0) = FALSE;
                 effectiveToken = 40h;
                 return;
             end;

@@ -22,8 +22,9 @@ declare isExprOrMacroMap(*) bool data(
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh, 0,  0FFh,
                0FFh,0FFh),
-   isInstrMap(*) bool data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
+   isInstrMap(*) bool data(
+               0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
                0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                0FFh,0FFh);
@@ -74,16 +75,16 @@ UpdateHiLo: procedure(hilo) public;
     declare hilo byte;
 
     if (acc1Flags and (UF$EXTRN + UF$SEGMASK)) <> 0 then
-        acc1Flags = acc1Flags and 0E7h or hilo;
+        acc1Flags = (acc1Flags and not UF$BOTH) or hilo;
 end;
 
 HandleOp: procedure public;
-    do case leftOp;
+    do case topOp;
 /* 0 */        ;
 /* 1 */        call FinishLine;        /* CR */
 /* 2 */        goto case3;            /* ( */
 /* 3 */ case3:    do;                /* ) */
-            if not (leftOp = T$LPAREN and rightOp = T$RPAREN) then
+            if not (topOp = T$LPAREN and newOp = T$RPAREN) then
                 call BalanceError;
 
             if tokenType(0) = O$DATA then
@@ -94,7 +95,7 @@ HandleOp: procedure public;
             end;
 
             expectOp = inNestedParen;
-            if rightOp = T$RPAREN then
+            if newOp = T$RPAREN then
                 b6B2C = TRUE;
         end;
 /* 4 */        accum1 = accum1 * accum2;    /* * */
@@ -149,11 +150,11 @@ HandleOp: procedure public;
                 accum1 = GetNumVal;
                 if accum1$hb - 1 < 0FEh then    /* not 0 or FF */
                     call ValueError;
-                curOpFlags = 22h;
+                curOpFlags = 22h;	/* never used -- getnum to acc1 & collect high(acc2) */
                 if (acc1Flags and UF$BOTH) = UF$BOTH then
                 do;
                     call ValueError;
-                    acc1Flags = acc1Flags and 0E7h or UF$LOW;
+                    acc1Flags = (acc1Flags and not UF$BOTH) or UF$LOW;
                 end;
             end;
             else
@@ -184,7 +185,7 @@ HandleOp: procedure public;
                 acc1Flags = 0;
             end;
             labelUse = 1;
-            call UpdateSymbolEntry(accum1, (K$SET + 4) - leftOp);    /* 4 for set, 5 for equ */
+            call UpdateSymbolEntry(accum1, (K$SET + 4) - topOp);    /* 4 for set, 5 for equ */
             expectingOperands = FALSE;
         end;
 /* 30 */    goto case29;                /* SET ? */
@@ -227,7 +228,7 @@ $ELSE
             if ifDepth > 0 then
 $ENDIF
                 call NestingError;
-            if rightOp <> T$CR then
+            if newOp <> T$CR then
                 call SyntaxError;
             if expectOp then
                 b6B33 = TRUE;
@@ -239,27 +240,27 @@ $ENDIF
             if expectOp then
             do;
                 condAsmSeen = TRUE;
-                call NestIF(2);        /* push current skip/else status */
+                call Nest(2);        /* push current skip/else status */
                 xRefPending = TRUE;        /* push current skip/else status */
-                if skipping(0) = FALSE then    /* if not skipping set new status */
-                    skipping(0) = not ((low(accum1) and 1) = 1);
+                if skipIf(0) = FALSE then    /* if not skipping set new status */
+                    skipIf(0) = not ((low(accum1) and 1) = 1);
                 inElse(0) = FALSE;        /* not in else at this nesting level */
             end;
         end;
 /* 34 */    do;                    /* ELSE ? */
             condAsmSeen = TRUE;
 $IF MACRO
-            if macroCondStk(0) <> 2 then
+            if macroCondStk(0) <> 2 then	/* check not mid macro nest */
 $ELSE
-            if ifDepth = 0 then
+            if ifDepth = 0 then			/* invalid if not in if */
 $ENDIF
                 call NestingError;
             else if not inElse(0) then    /* shouldn't be in else at this level */
             do;
-                if not skipping(0) then    /* IF was active so ELSE forces skip */
-                    skipping(0) = TRUE;
+                if not skipIf(0) then    /* IF was active so ELSE forces skip */
+                    skipIf(0) = TRUE;
                 else            /* IF inactive so revert to previous skipping status */
-                    skipping(0) = skipping(ifDepth);
+                    skipIf(0) = skipIf(ifDepth);
                 inElse(0) = TRUE;    /* in else at this nesting level */
             end;
             else
@@ -269,16 +270,16 @@ $ENDIF
             if expectOp then
             do;
                 condAsmSeen = TRUE;
-                call UnnestIF(2);    /* revert to previous status */
+                call UnNest(2);    /* revert to previous status */
             end;
         end;
-        /* in the following leftOp = 36 and nextTokType = O$DATA
+        /* in the following topOp = 36 and nextTokType = O$DATA
            except where noted on return from MkCode */
 /* 36 */    do;                    /* LXI ? */
             if nameLen = 1 then
                 if name(0) = 'M' then
                     call SyntaxError;
-            call MkCode(85h);    /* leftOp = 2Ch on return */
+            call MkCode(85h);    /* topOp = 2Ch on return */
         end;
 /* 37 */    do;                /* POP DAD PUSH INX DCX ? */
             if nameLen = 1 then
@@ -289,9 +290,9 @@ $ENDIF
 /* 38 */    call MkCode(7);        /* LDAX STAX ? */
 /* 39 */    call MkCode(2);        /* ADC ADD SUB ORA SBB XRA ANA CMP ? */
 /* 40 */    call MkCode(8);        /* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
-/* 41 */    call MkCode(46h);    /* MVI ?  leftOp = 40 on return */
+/* 41 */    call MkCode(46h);    /* MVI ?  topOp = 40 on return */
 /* 42 */    call MkCode(6);        /* INR DCR ? */
-/* 43 */    call MkCode(36h);    /* MOV   leftOp = 39 on return*/
+/* 43 */    call MkCode(36h);    /* MOV   topOp = 39 on return*/
 /* 44 */    call MkCode(0);        /* CZ CNZ JZ STA JNZ JNC LHLD */
                         /* CP JC SHLD CPE CPO CM LDA JP JM JPE */
                         /* CALL JPO CC CNC JMP */
@@ -369,28 +370,28 @@ $IF MACRO
 $ENDIF
     end;
 
-    if leftOp <> T$CR then
+    if topOp <> T$CR then
         noOpsYet = FALSE;
 end;
 
 Parse: procedure public;
 
     IsExpressionOp: procedure byte;
-        if effectiveToken > 3 then
+        if effectiveToken > T$RPAREN then
             if effectiveToken <> T$COMMA then
-                if effectiveToken < 1Ah then
+                if effectiveToken < K$DB then
                     return TRUE;
         return FALSE;
     end;
 
-    IsVar: procedure(arg1b) byte;
-        declare arg1b byte;
-        return arg1b = O$ID or arg1b = O$64;
+    IsVar: procedure(type) byte;
+        declare type byte;
+        return type = O$ID or type = O$MACROID;
     end;
 
 
-    SetIsInstrVar: procedure;
-        if not isInstrMap(leftOp) then
+    UpdateIsInstr: procedure;
+        if not isInstrMap(topOp) then
             isInstr = FALSE;
     end;
 
@@ -398,7 +399,7 @@ Parse: procedure public;
 
     do while 1;
         if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF)
-           and skipping(0)
+           and skipIf(0)
 $IF MACRO
                or (opFlags(effectiveToken) < 128 or b9058) and b905E
 
@@ -416,7 +417,7 @@ $ENDIF
                     if GetPrec(effectiveToken) <= GetPrec(opStack(opSP)) then
                         call ExpressionError;
 
-        if GetPrec(rightOp := effectiveToken) > GetPrec(leftOp := opStack(opSP)) or rightOp = T$LPAREN then
+        if GetPrec(newOp := effectiveToken) > GetPrec(topOp := opStack(opSP)) or newOp = T$LPAREN then
         do;    /* SHIFT */
             if opSP >= 16 then
             do;
@@ -424,8 +425,8 @@ $ENDIF
                 call StackError;
             end;
             else
-                opStack(opSP := opSP + 1) = rightOp;
-            if rightOp = T$LPAREN then
+                opStack(opSP := opSP + 1) = newOp;
+            if newOp = T$LPAREN then
             do;
                 inNestedParen = expectOp;
                 expectOp = TRUE;
@@ -435,17 +436,18 @@ $ENDIF
             return;
         end;
 
+	/* REDUCE */
         inExpression = 0;
-        if not expectOp and leftOp > 3 then
+        if not expectOp and topOp > T$RPAREN then
             call SyntaxError;
 
-        if leftOp = O$NONE then
-            leftOp = rightOp;
+        if topOp = O$NONE then	/* topOp used so set to newOp */
+            topOp = newOp;
         else
-            opSP = opSP - 1;
+            opSP = opSP - 1;	/* pop Op */
         
 
-        if (curOpFlags := opFlags(leftOp)) then
+        if (curOpFlags := opFlags(topOp)) then		/* -------x -> getnum to acc1 & copy to acc2 */
         do;
             accum2 = GetNumVal;
             acc2Flags = acc1Flags;
@@ -453,23 +455,23 @@ $ENDIF
             acc2ValType = acc1ValType;
         end;
 
-        if (curOpFlags := ror(curOpFlags, 1)) then
+        if (curOpFlags := ror(curOpFlags, 1)) then	/* ------x- -> getnum to acc1 */
             accum1 = GetNumVal;
 
         if not hasVarRef then
             hasVarRef = IsVar(acc1ValType) or IsVar(acc2ValType);
 
         nextTokType = O$NUMBER;
-        if leftOp > T$RPAREN and leftOp < K$DB then    /* expression leftOp */
+        if topOp > T$RPAREN and topOp < K$DB then    /* expression topOp */
             call Sub4291;
         else
         do;
-            call SetIsInstrVar;
+            call UpdateIsInstr;
             call ChkInvalidRegOperand;
         end;
 
         call HandleOp;
-        if not isExprOrMacroMap(leftOp) then
+        if not isExprOrMacroMap(topOp) then
             expectOp = FALSE;
 
         if b6B2C then
@@ -478,23 +480,23 @@ $ENDIF
             return;
         end;
 
-        if leftOp <> K$DS and showAddr then
+        if topOp <> K$DS and showAddr then
             effectiveAddr = accum1;
 
-        if (curOpFlags and 1Eh) <> 0 then
+        if (curOpFlags and 1Eh) <> 0 then		/* -xxxxx-- -> collect list or bytes */
             call PushToken(nextTokType);
 
         do ii = 0 to 3;
-            if (curOpFlags := ror(curOpFlags, 1)) then
+            if (curOpFlags := ror(curOpFlags, 1)) then	/* --xxxx-- -> collect high/low acc1/acc2 */
                 call CollectByte(accum(ii));
         end;
 
         tokenAttr(0) = acc1Flags;
         tokenSymId(0) = acc1NumVal;
-        if ror(curOpFlags, 1) then
-            if rightOp = T$COMMA then
+        if ror(curOpFlags, 1) then			/* -x------ -> list */
+            if newOp = T$COMMA then
             do;
-                effectiveToken = leftOp;
+                effectiveToken = topOp;
                 expectOp = TRUE;
             end;
     end;

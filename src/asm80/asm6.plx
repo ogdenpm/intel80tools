@@ -92,11 +92,13 @@ end;
 
 
 
-NestIF: procedure(arg1b) public;
-    declare arg1b byte;
+/* nest - sw = 1 -> nest macro sw = 2 -> nest if */
+Nest: procedure(sw) public;
+    declare sw byte;
 $IF MACRO
     macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
-    if (macroCondStk(0) := arg1b) = 1 then
+    /* record whether current nest is macro of if */
+    if (macroCondStk(0) := sw) = 1 then
     do;
         if (macroDepth := macroDepth + 1) > 9 then
         do;
@@ -121,46 +123,46 @@ $ENDIF
         end;
         else
         do;
-            skipping(ifDepth) = skipping(0);
+            skipIf(ifDepth) = skipIf(0);
             inElse(ifDepth) = inElse(0);
         end;
     end;
 end;
 
 
-UnnestIF: procedure(arg1b) public;
-    declare arg1b byte;
+UnNest: procedure(sw) public;
+    declare sw byte;
 
 $IF MACRO
-    if arg1b <> macroCondStk(0) then
+    if sw <> macroCondStk(0) then	/* check for unbalanced unnest */
     do;
         call NestingError;
-        if arg1b = 2 then
+        if sw = 2 then			/* not macro unnest */
             return;
         macroCondSP = tmac$macroCondSP;
         ifDepth = tmac$ifDepth;
     end;
 
-    macroCondStk(0) = macroCondStk(macroCondSP);
+    macroCondStk(0) = macroCondStk(macroCondSP);	/* restore macro stack */
     macroCondSP = macroCondSP - 1;
-    if arg1b = 1 then
+    if sw = 1 then			/* is unnest macro */
     do;
         call move(16, .macroStk(macroDepth), .macroStk(0));
         call ReadM(tmac$blk);
         b9062 = tmac$mtype;
-        if (macroDepth := macroDepth - 1) = 0 then
+        if (macroDepth := macroDepth - 1) = 0 then	/* end of macro nest */
         do;
-            expandingMacro = 0;
+            expandingMacro = 0;		/* not expanding */
             baseMacroTbl = Physmem + 0BFh;
         end;
     end;
 $ELSE
-    if ifDepth = 0 then
+    if ifDepth = 0 then			/* nothing to unnest */
         call NestingError;
 $ENDIF
     else
     do;
-        skipping(0) = skipping(ifDepth);
+        skipIf(0) = skipIf(ifDepth);	/* pop skipIf and inElse status */
         inElse(0) = inElse(ifDepth);
         ifDepth = ifDepth - 1;
     end;
@@ -213,7 +215,7 @@ GetId: procedure(type) public;
     call PushToken(type);    /* save any previous token and initialise this one */
     reget = 1;        /* force re get of first character */
 
-    do while (type := GetChClass) = CC$DIGIT or type = CC$LET;    /* digit or letter */
+    do while (type := GetChClass) = CC$DIG or type = CC$LET;    /* digit or letter */
         if curChar > 60h then    /* make sure upper case */
             curChar = curChar and 0DFh;
         call CollectByte(curChar);

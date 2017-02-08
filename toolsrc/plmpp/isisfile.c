@@ -35,8 +35,8 @@ static void mapIsisName(const char *isisName, char *mappedName)
 	const char *path;
 	int drv;
 
-	/* if the isisname starts with a . or / assume it is a unix/windows file so don't handle :Fx: */
-	if (*isisName == '.' || *isisName == '/' || *isisName == '\\')
+	/* only make :Fx: names */
+	if (*isisName != ':')
 		strcpy(mappedName, isisName);
 	else {
 		/* check ISIS filename - if it doesn't start with a device
@@ -68,7 +68,7 @@ static void mapIsisName(const char *isisName, char *mappedName)
 			// make sure a directory separator is present
 			if (*(s = strchr(mappedName, 0) - 1) != '/' && *s != '\\') {
 				*++s = '/';
-				*s = 0;
+				*++s = 0;
 			}
 		}
 		s = strchr(mappedName, 0);

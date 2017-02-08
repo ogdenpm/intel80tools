@@ -229,7 +229,7 @@ $ENDIF
             if type <> 9 then
                 if type <> 6 then
 $IF MACRO
-                    if Sub3FA9 then
+                    if nonHiddenSymbol then
 $ENDIF
                         if symGrp <> 0 or type <> 3 then
                             if symGrp = 2 or (flags and b6DC1(symGrp)) <> 0 then
@@ -467,7 +467,7 @@ AsmComplete: procedure public;
     call Outch(LF);
 end;
 
-Ovl9: procedure public;
+FinishPrint: procedure public;
     if ctlPRINT then
         call CloseF(outfd);
     outfd = 0;
@@ -476,22 +476,22 @@ Ovl9: procedure public;
     call Flushout;
 end;
 
-Ovl10: procedure public;
-    declare ch based effectiveAddr byte;
+FinishAssembly: procedure public;
+    declare drive based effectiveAddr byte;
 
     call CloseF(infd);
 $IF MACRO
     call CloseF(macrofd);
     call Delete(.asmax$ref, .statusIO);
-    if ctlOBJECT then
+    if ctlOBJECT then	/* ?? why only for MACRO version */
         call CloseF(objfd);
 $ENDIF
-    if ctlXREF then
+    if ctlXREF then	/* invoke asxref ?? */
     do;
         effectiveAddr = Physmem - 1;
-        ch = '0';
+        drive = '0';	/* put drive in a known location */
         if asxref$tmp(0) = ':' then
-            ch = asxref$tmp(2);
+            drive = asxref$tmp(2);
     
         call Load(.asxref, 0, 1, 0, .statusIO);
         call IoErrChk;

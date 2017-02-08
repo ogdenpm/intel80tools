@@ -15,19 +15,28 @@ declare    b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
           0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
     chClass(*) byte data(
-       /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,    /* 00 */
+     /*    0       1       2       3       4       5       6       7
+           8       9       A       B       C       D       E       F */
+/*00*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
+/*08*/ CC$BAD,  CC$WS, CC$BAD, CC$BAD,  CC$WS,  CC$CR, CC$BAD, CC$BAD,
+/*10*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 $IF MACRO
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,    /* 10 - ESC maps to 0Bh */
+/*18*/ CC$BAD, CC$BAD, CC$BAD, CC$ESC, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 $ELSE
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,    /* 10 */
+/*18*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 $ENDIF
-          1, 0, 0, 0, 6, 0, 0, 7, 5, 5, 5, 5, 5, 5, 0, 5,    /* 20 */
-          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 2, 0, 0, 0, 9,    /* 30 */
-          9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,    /* 40 */
-          9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0,    /* 50 */
-          0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,    /* 60 */
-          9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);    /* 70 */
+/*20*/ CC$WS, CC$BAD, CC$BAD, CC$BAD, CC$DOLLAR, CC$BAD, CC$BAD, CC$QUOTE,
+/*28*/ CC$PUN, CC$PUN, CC$PUN, CC$PUN, CC$PUN, CC$PUN, CC$BAD, CC$PUN,
+/*30*/ CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG,
+/*38*/ CC$DIG, CC$DIG, CC$COLON, CC$SEMI, CC$BAD, CC$BAD, CC$BAD, CC$LET,
+/*40*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*48*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, 
+/*50*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*58*/ CC$LET, CC$LET, CC$LET, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
+/*60*/ CC$BAD, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*68*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*70*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*78*/ CC$LET, CC$LET, CC$LET, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD);
 
 UnpackToken: procedure(src, dst) public;
     declare (src, dst) pointer;
@@ -187,7 +196,7 @@ $ENDIF
                 flags = flags or activeSeg;
 
             if hasVarRef and isSetOrEqu then
-                tokenType(0) = O$64;
+                tokenType(0) = O$MACROID;
             else
                 call SetTokenType;
 
@@ -340,7 +349,7 @@ Lookup: procedure(tableId) byte public;
 
                     if tokenType(0) = K$SP then        /* SP */
                     do;
-                        if not(rightOp = K$LXI or rightOp = K$REG16) then 
+                        if not(newOp = K$LXI or newOp = K$REG16) then 
                             call SourceError('X');
                         tokenType(0) = K$REGNAME;    /* reg */
                     end;
@@ -364,7 +373,7 @@ Lookup: procedure(tableId) byte public;
             do;
                 curTokenSym$p = entryOffset;
                 tokenType(0) = curTokenSym.type;
-                if tokenType(0) = O$64 then
+                if tokenType(0) = O$MACROID then
                     tokenType(0) = O$ID;
 
                 if (usrLookupIsID := (kk := (tokenType(0) and 7Fh)) = O$ID) then
@@ -413,12 +422,12 @@ $IF MACRO
     declare ch1 based macro$p byte;
 $ENDIF
 
-L6339:
+reGetCh:
     if not reget then
     do;
         prevCH = curCH;
 
-    L6347:
+    nextCh:
         curCH = lookAhead;
 $IF MACRO
         if expandingMacro then
@@ -439,25 +448,25 @@ $ENDIF
 
         if chClass(curCH) = CC$BAD then
             if curCH = 0 or curCH = 7Fh or curCH = FF then
-                goto L6347;
+                goto nextCh;
 $IF MACRO
         if expandingMacro then
         do;
-            if curCH = 1Bh then
+            if curCH = ESC then
             do;
-                goto L65B2;
+                goto doneGetCh;
             end;
             else if curCH = '&' then
             do;
                 if not prevCH < 80h or lookAhead = 80h then
-                    goto L6339;
+                    goto reGetCh;
             end;
             else if curCH = '!' and prevCH <> 0 then
             do;
                 if not (b905D or b905E) and b905C then
                 do;
                     curCH = 0;
-                    goto L6339;
+                    goto reGetCh;
                 end;
             end;
             else if curCH >= 128 then
@@ -502,7 +511,7 @@ $IF MACRO
                 end;
 
                 lookAhead = 0;
-                goto L6339;
+                goto reGetCh;
             end;
         end;
 
@@ -515,7 +524,7 @@ $IF MACRO
                 end;
 
         if b905E then
-            if w919D <> macroInPtr and curCH = 0Dh or not b9059 then
+            if w919D <> macroInPtr and curCH = CR or not b9059 then
             call InsertCharInMacroTbl(curCH);
 
         if not(prevCH = '!' or inComment) then
@@ -528,7 +537,7 @@ $IF MACRO
         end;
 $ENDIF
     end;
-L65B2:
+doneGetCh:
     reget = 0;
     return (curChar := curCH);
 end;
@@ -537,7 +546,7 @@ GetChClass: procedure byte public;
     curChar = GetCh;
 $IF MACRO
     if b905D then
-        return 0Ah;
+        return CC$MAC;
 $ENDIF
 
     return chClass(curChar);

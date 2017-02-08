@@ -1,10 +1,9 @@
 asm8m: do;
 $include(:f3:asm8m.ipx)
 
-declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h),
+declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h);
     /* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
     /*                 CR, COMMA, SEMI */                                  
-    aMacro(*) byte data('MACRO', 0);
 
 declare w9C75 address,
     b9C77 byte public;
@@ -63,7 +62,7 @@ Sub727F: procedure bool;
     if not b905E then
         return TRUE;
     b9064 = b9064 + 1;
-    b6B2C = leftOp <> K$REPT;
+    b6B2C = topOp <> K$REPT;
     effectiveToken = 37h;
     return FALSE;
 end;
@@ -75,7 +74,7 @@ Sub72A4: procedure(arg1b) public;    /* 1 -> IRP, 2 -> IRPC */
     if Sub727F then
     do;
         call Sub71F2;
-        call NestIF(1);
+        call Nest(1);
         tmac$w14 = 0;
         tmac$mtype = arg1b;
     end;
@@ -84,7 +83,7 @@ end;
 Acc1ToDecimal: procedure;
     declare buf(6) byte;
 
-    call PushToken(0Dh);
+    call PushToken(CR);
     kk = 0;
     /* build number in reverse digit order */
 loop:
@@ -151,7 +150,7 @@ Sub73AD: procedure public;
         if (b905A := IsLT) then
             curChar = GetCh;
 
-        call PushToken(0Dh);
+        call PushToken(CR);
 
     L73E2:    do while not Sub7192;
             if curChar = '''' then
@@ -202,7 +201,7 @@ Sub73AD: procedure public;
     if tmac$mtype = 4 then
     do;
         if not b905A and tokenSize(0) = 5 then
-            if StrUcEqu(.aMacro, tokPtr) then
+            if StrUcEqu(.('MACRO', 0), tokPtr) then
             do;
                 effectiveToken = K$MACRO;
                 call PopToken;
@@ -215,7 +214,7 @@ Sub73AD: procedure public;
                 return;
             end;
         tmac$mtype = b9062;
-        call NestIF(1);
+        call Nest(1);
         tmac$mtype = 0;
     end;
 
@@ -260,7 +259,7 @@ Sub753E: procedure public;
         if IsComma then
         do;
             reget = 0;
-            rightOp = O$NONE;
+            newOp = O$NONE;
             call Sub7327;
             if tmac$mtype = 1 then
             do;
@@ -279,7 +278,7 @@ Sub753E: procedure public;
             call Sub7383;
         end;
     end;
-    else if rightOp = T$CR then
+    else if newOp = T$CR then
     do;
         if not BlankMorPAsmErrCode then
         do;
@@ -329,7 +328,7 @@ Sub75FF: procedure public;
                     tmac$w10 = w9C75;
                     call Sub720A;
                     if tmac$w14 = 0 then
-                        call UnnestIF(1);
+                        call UnNest(1);
                 end;
             end;
         end;
@@ -342,7 +341,7 @@ end;
 Sub76CE: procedure public;
     if expandingMacro then
     do;
-        if rightOp = T$CR then
+        if newOp = T$CR then
         do;
             condAsmSeen = TRUE;
             macroCondSP = tmac$macroCondSP;
@@ -388,7 +387,7 @@ Sub770B: procedure public;
     else
         call SyntaxError;
 
-    if rightOp = T$CR then
+    if newOp = T$CR then
     do;
         b905D = FALSE;
         if argNestCnt > 0 then
@@ -400,7 +399,7 @@ Sub770B: procedure public;
             if tmac$mtype = 0 then
             do;
                 call Sub720A;
-                call UnnestIF(1);
+                call UnNest(1);
                 return;
             end;
             else
@@ -428,7 +427,7 @@ end;
 
 Sub7844: procedure public;
     call Sub72A4(3);
-    if (effectiveToken := rightOp) <> T$CR then
+    if (effectiveToken := newOp) <> T$CR then
         call SyntaxError;
 
     if not b905E then
@@ -459,7 +458,7 @@ Sub787A: procedure public;
             call Sub5CAD(tmac$b3, 1);
             macroInPtr = symHighMark;
         end;
-        if rightOp = T$CR then
+        if newOp = T$CR then
         do;
             b905E = 1;
             macroInPtr = symHighMark;
@@ -475,7 +474,7 @@ Sub78CE: procedure public;
     kk = byteAt(tmac$w12);
     accFixFlags(0) = 1 - (kk = 21h and b9062 = 2);
     if b9062 = 0 or (tmac$w14 := tmac$w14 - accFixFlags(0)) = 0 then
-        call UnnestIF(1);
+        call UnNest(1);
     else
     do;
         if b9062 = 1 then

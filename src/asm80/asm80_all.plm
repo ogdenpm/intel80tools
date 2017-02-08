@@ -15,6 +15,7 @@ FALSE           '0'
 CR              '0Dh'
 FF              '0Ch'
 LF              '0Ah'
+ESC		'1Bh'
 TAB             '9'
 MACROEOB    '0FEh'
 
@@ -29,11 +30,12 @@ CC$WS           '1'
 CC$SEMI         '2'
 CC$COLON        '3'
 CC$CR           '4'
-CC$PUNCT        '5'
+CC$PUN        '5'
 CC$DOLLAR       '6'
 CC$QUOTE        '7'
-CC$DIGIT        '8'
+CC$DIG        '8'
 CC$LET          '9'
+CC$MAC		'10'
 CC$ESC          '11'
 
 TT$ID           '0'
@@ -83,7 +85,7 @@ OMF$LIBDICT     '2AH'
 OMF$LIBHDR      '2CH'
 OMF$COMDEF      '2EH'
 
-/* leftOp types */
+/* Op types */
 T$CR            '1'
 T$LPAREN        '2'
 T$RPAREN        '3'
@@ -158,10 +160,11 @@ K$IRPC          '3Ch'
 O$3D            '3Dh'
 K$REPT          '3Eh'
 K$LOCAL         '3Fh'
+O$OPTVAL		'40h'
 K$NUL           '41h'
-O$64            '64h'
+O$MACROID       '64h'
 
-/* type flags */
+/* sym flags */
 UF$SEGMASK    '7'
 UF$LOW          '8'
 UF$HIGH         '10h'
@@ -267,7 +270,7 @@ WrConsole       P(A buf$p,A count)
 
 $file(asm1m.plm)
 ReadM           P(A blk)
-Sub3FA9        PB
+nonHiddenSymbol        PB
 FlushM        P
 WriteM          P
 
@@ -281,8 +284,8 @@ Tokenise        P
 
 $file(asm2m.plm,asm2n.plm)
 opFlags           BS
-GetPrec         P(B leftOp)B
-IsReg        P(B leftOp)"bool"
+GetPrec         P(B topOp)B
+IsReg        P(B topOp)"bool"
 ChkInvalidRegOperand        P
 Sub4291        P
 SetExpectOperands        P
@@ -358,7 +361,7 @@ IllegalCharError P
 LocationError   P
 MultipleDefError P
 NameError       P
-NestIF         P(B arg1b)
+Nest         P(B arg1b)
 NestingError    P
 OPcodeOperandError P
 OperandError    P
@@ -368,7 +371,7 @@ PushToken       P(B type)
 StackError      P
 SyntaxError     P
 UndefinedSymbolError P
-UnnestIF        P(B arg1b)
+UnNest        P(B arg1b)
 ValueError      P
 
 /* $file(cntrlm.plm) */
@@ -408,8 +411,8 @@ NewPage         P
 NewPageHeader   P
 OutStr          P(A s)
 PrintLine            P
-Ovl9            P
-Ovl10           P
+FinishPrint            P
+FinishAssembly           P
 PrintCmdLine    P
 PrintDecimal    P(A n)
 SkipToEOP       P
@@ -546,7 +549,7 @@ inDW           B
 inExpression           "bool"
 curOpFlags           B
 effectiveToken           B
-leftOp              B
+topOp              B
 b6B2C           "bool"
 nextTokType           B
 inNestedParen           B
@@ -647,7 +650,7 @@ macro$p         "pointer"    /* globlm */
 openStatus      A
 opSP            B
 opStack         BS
-rightOp          B
+newOp          B
 outbuf          BS
 outfd           A
 out$p           "pointer"
@@ -667,7 +670,7 @@ saveIdx         B
 saveStack       BS
 scanCmdLine     B
 segSize         AS
-skipping        "bool"S
+skipIf        "bool"S
 startDefined    B
 startOffset     A
 startSeg        B
@@ -893,7 +896,7 @@ declare    contentBytePtr pointer public,
 /* end */
     endLineBuf address public initial(.tokStart),
     ifDepth byte public initial(0),
-    skipping(9) bool public,
+    skipIf(9) bool public,
     inElse(9) bool public;
 $IF MACRO
 declare    macroCondSP byte public initial(0),
@@ -1031,8 +1034,8 @@ declare    scanCmdLine byte public,
     phase byte public,
     curOpFlags byte public,
     effectiveToken byte public,
-    rightOp byte public,
-    leftOp byte public,
+    newOp byte public,
+    topOp byte public,
     b6B2C bool public,
     nextTokType byte public,
     finished bool public,
@@ -1096,8 +1099,9 @@ declare isExprOrMacroMap(*) bool data(
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh, 0,  0FFh,
                0FFh,0FFh),
-   isInstrMap(*) bool data(0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-                   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
+   isInstrMap(*) bool data(
+               0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
                0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
                0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
                0FFh,0FFh);
@@ -1148,16 +1152,16 @@ UpdateHiLo: procedure(hilo) public;
     declare hilo byte;
 
     if (acc1Flags and (UF$EXTRN + UF$SEGMASK)) <> 0 then
-        acc1Flags = acc1Flags and 0E7h or hilo;
+        acc1Flags = (acc1Flags and not UF$BOTH) or hilo;
 end;
 
 HandleOp: procedure public;
-    do case leftOp;
+    do case topOp;
 /* 0 */        ;
 /* 1 */        call FinishLine;        /* CR */
 /* 2 */        goto case3;            /* ( */
 /* 3 */ case3:    do;                /* ) */
-            if not (leftOp = T$LPAREN and rightOp = T$RPAREN) then
+            if not (topOp = T$LPAREN and newOp = T$RPAREN) then
                 call BalanceError;
 
             if tokenType(0) = O$DATA then
@@ -1168,7 +1172,7 @@ HandleOp: procedure public;
             end;
 
             expectOp = inNestedParen;
-            if rightOp = T$RPAREN then
+            if newOp = T$RPAREN then
                 b6B2C = TRUE;
         end;
 /* 4 */        accum1 = accum1 * accum2;    /* * */
@@ -1223,11 +1227,11 @@ HandleOp: procedure public;
                 accum1 = GetNumVal;
                 if accum1$hb - 1 < 0FEh then    /* not 0 or FF */
                     call ValueError;
-                curOpFlags = 22h;
+                curOpFlags = 22h;	/* never used -- getnum to acc1 & collect high(acc2) */
                 if (acc1Flags and UF$BOTH) = UF$BOTH then
                 do;
                     call ValueError;
-                    acc1Flags = acc1Flags and 0E7h or UF$LOW;
+                    acc1Flags = (acc1Flags and not UF$BOTH) or UF$LOW;
                 end;
             end;
             else
@@ -1258,7 +1262,7 @@ HandleOp: procedure public;
                 acc1Flags = 0;
             end;
             labelUse = 1;
-            call UpdateSymbolEntry(accum1, (K$SET + 4) - leftOp);    /* 4 for set, 5 for equ */
+            call UpdateSymbolEntry(accum1, (K$SET + 4) - topOp);    /* 4 for set, 5 for equ */
             expectingOperands = FALSE;
         end;
 /* 30 */    goto case29;                /* SET ? */
@@ -1301,7 +1305,7 @@ $ELSE
             if ifDepth > 0 then
 $ENDIF
                 call NestingError;
-            if rightOp <> T$CR then
+            if newOp <> T$CR then
                 call SyntaxError;
             if expectOp then
                 b6B33 = TRUE;
@@ -1313,27 +1317,27 @@ $ENDIF
             if expectOp then
             do;
                 condAsmSeen = TRUE;
-                call NestIF(2);        /* push current skip/else status */
+                call Nest(2);        /* push current skip/else status */
                 xRefPending = TRUE;        /* push current skip/else status */
-                if skipping(0) = FALSE then    /* if not skipping set new status */
-                    skipping(0) = not ((low(accum1) and 1) = 1);
+                if skipIf(0) = FALSE then    /* if not skipping set new status */
+                    skipIf(0) = not ((low(accum1) and 1) = 1);
                 inElse(0) = FALSE;        /* not in else at this nesting level */
             end;
         end;
 /* 34 */    do;                    /* ELSE ? */
             condAsmSeen = TRUE;
 $IF MACRO
-            if macroCondStk(0) <> 2 then
+            if macroCondStk(0) <> 2 then	/* check not mid macro nest */
 $ELSE
-            if ifDepth = 0 then
+            if ifDepth = 0 then			/* invalid if not in if */
 $ENDIF
                 call NestingError;
             else if not inElse(0) then    /* shouldn't be in else at this level */
             do;
-                if not skipping(0) then    /* IF was active so ELSE forces skip */
-                    skipping(0) = TRUE;
+                if not skipIf(0) then    /* IF was active so ELSE forces skip */
+                    skipIf(0) = TRUE;
                 else            /* IF inactive so revert to previous skipping status */
-                    skipping(0) = skipping(ifDepth);
+                    skipIf(0) = skipIf(ifDepth);
                 inElse(0) = TRUE;    /* in else at this nesting level */
             end;
             else
@@ -1343,16 +1347,16 @@ $ENDIF
             if expectOp then
             do;
                 condAsmSeen = TRUE;
-                call UnnestIF(2);    /* revert to previous status */
+                call UnNest(2);    /* revert to previous status */
             end;
         end;
-        /* in the following leftOp = 36 and nextTokType = O$DATA
+        /* in the following topOp = 36 and nextTokType = O$DATA
            except where noted on return from MkCode */
 /* 36 */    do;                    /* LXI ? */
             if nameLen = 1 then
                 if name(0) = 'M' then
                     call SyntaxError;
-            call MkCode(85h);    /* leftOp = 2Ch on return */
+            call MkCode(85h);    /* topOp = 2Ch on return */
         end;
 /* 37 */    do;                /* POP DAD PUSH INX DCX ? */
             if nameLen = 1 then
@@ -1363,9 +1367,9 @@ $ENDIF
 /* 38 */    call MkCode(7);        /* LDAX STAX ? */
 /* 39 */    call MkCode(2);        /* ADC ADD SUB ORA SBB XRA ANA CMP ? */
 /* 40 */    call MkCode(8);        /* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
-/* 41 */    call MkCode(46h);    /* MVI ?  leftOp = 40 on return */
+/* 41 */    call MkCode(46h);    /* MVI ?  topOp = 40 on return */
 /* 42 */    call MkCode(6);        /* INR DCR ? */
-/* 43 */    call MkCode(36h);    /* MOV   leftOp = 39 on return*/
+/* 43 */    call MkCode(36h);    /* MOV   topOp = 39 on return*/
 /* 44 */    call MkCode(0);        /* CZ CNZ JZ STA JNZ JNC LHLD */
                         /* CP JC SHLD CPE CPO CM LDA JP JM JPE */
                         /* CALL JPO CC CNC JMP */
@@ -1443,28 +1447,28 @@ $IF MACRO
 $ENDIF
     end;
 
-    if leftOp <> T$CR then
+    if topOp <> T$CR then
         noOpsYet = FALSE;
 end;
 
 Parse: procedure public;
 
     IsExpressionOp: procedure byte;
-        if effectiveToken > 3 then
+        if effectiveToken > T$RPAREN then
             if effectiveToken <> T$COMMA then
-                if effectiveToken < 1Ah then
+                if effectiveToken < K$DB then
                     return TRUE;
         return FALSE;
     end;
 
-    IsVar: procedure(arg1b) byte;
-        declare arg1b byte;
-        return arg1b = O$ID or arg1b = O$64;
+    IsVar: procedure(type) byte;
+        declare type byte;
+        return type = O$ID or type = O$MACROID;
     end;
 
 
-    SetIsInstrVar: procedure;
-        if not isInstrMap(leftOp) then
+    UpdateIsInstr: procedure;
+        if not isInstrMap(topOp) then
             isInstr = FALSE;
     end;
 
@@ -1472,7 +1476,7 @@ Parse: procedure public;
 
     do while 1;
         if not (effectiveToken = T$CR or effectiveToken >= K$END and effectiveToken <= K$ENDIF)
-           and skipping(0)
+           and skipIf(0)
 $IF MACRO
                or (opFlags(effectiveToken) < 128 or b9058) and b905E
 
@@ -1490,7 +1494,7 @@ $ENDIF
                     if GetPrec(effectiveToken) <= GetPrec(opStack(opSP)) then
                         call ExpressionError;
 
-        if GetPrec(rightOp := effectiveToken) > GetPrec(leftOp := opStack(opSP)) or rightOp = T$LPAREN then
+        if GetPrec(newOp := effectiveToken) > GetPrec(topOp := opStack(opSP)) or newOp = T$LPAREN then
         do;    /* SHIFT */
             if opSP >= 16 then
             do;
@@ -1498,8 +1502,8 @@ $ENDIF
                 call StackError;
             end;
             else
-                opStack(opSP := opSP + 1) = rightOp;
-            if rightOp = T$LPAREN then
+                opStack(opSP := opSP + 1) = newOp;
+            if newOp = T$LPAREN then
             do;
                 inNestedParen = expectOp;
                 expectOp = TRUE;
@@ -1509,17 +1513,18 @@ $ENDIF
             return;
         end;
 
+	/* REDUCE */
         inExpression = 0;
-        if not expectOp and leftOp > 3 then
+        if not expectOp and topOp > T$RPAREN then
             call SyntaxError;
 
-        if leftOp = O$NONE then
-            leftOp = rightOp;
+        if topOp = O$NONE then	/* topOp used so set to newOp */
+            topOp = newOp;
         else
-            opSP = opSP - 1;
+            opSP = opSP - 1;	/* pop Op */
         
 
-        if (curOpFlags := opFlags(leftOp)) then
+        if (curOpFlags := opFlags(topOp)) then		/* -------x -> getnum to acc1 & copy to acc2 */
         do;
             accum2 = GetNumVal;
             acc2Flags = acc1Flags;
@@ -1527,23 +1532,23 @@ $ENDIF
             acc2ValType = acc1ValType;
         end;
 
-        if (curOpFlags := ror(curOpFlags, 1)) then
+        if (curOpFlags := ror(curOpFlags, 1)) then	/* ------x- -> getnum to acc1 */
             accum1 = GetNumVal;
 
         if not hasVarRef then
             hasVarRef = IsVar(acc1ValType) or IsVar(acc2ValType);
 
         nextTokType = O$NUMBER;
-        if leftOp > T$RPAREN and leftOp < K$DB then    /* expression leftOp */
+        if topOp > T$RPAREN and topOp < K$DB then    /* expression topOp */
             call Sub4291;
         else
         do;
-            call SetIsInstrVar;
+            call UpdateIsInstr;
             call ChkInvalidRegOperand;
         end;
 
         call HandleOp;
-        if not isExprOrMacroMap(leftOp) then
+        if not isExprOrMacroMap(topOp) then
             expectOp = FALSE;
 
         if b6B2C then
@@ -1552,23 +1557,23 @@ $ENDIF
             return;
         end;
 
-        if leftOp <> K$DS and showAddr then
+        if topOp <> K$DS and showAddr then
             effectiveAddr = accum1;
 
-        if (curOpFlags and 1Eh) <> 0 then
+        if (curOpFlags and 1Eh) <> 0 then		/* -xxxxx-- -> collect list or bytes */
             call PushToken(nextTokType);
 
         do ii = 0 to 3;
-            if (curOpFlags := ror(curOpFlags, 1)) then
+            if (curOpFlags := ror(curOpFlags, 1)) then	/* --xxxx-- -> collect high/low acc1/acc2 */
                 call CollectByte(accum(ii));
         end;
 
         tokenAttr(0) = acc1Flags;
         tokenSymId(0) = acc1NumVal;
-        if ror(curOpFlags, 1) then
-            if rightOp = T$COMMA then
+        if ror(curOpFlags, 1) then			/* -x------ -> list */
+            if newOp = T$COMMA then
             do;
-                effectiveToken = leftOp;
+                effectiveToken = topOp;
                 expectOp = TRUE;
             end;
     end;
@@ -1825,19 +1830,19 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
 
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
-        call FlushSymRec;
+        call FlushSymRec;    /* also sets up segid for new record */
         curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* point to type byte of user symbol (-1) */
 
         do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
-            if recSym$p > .r$publics.dta(114) then        /* make sure there is room */
+            if recSym$p > .r$publics.crc - 10 then        /* make sure there is room */
                 call FlushSymRec;
 
-            if (symb(1) and 7) = segId
+            if (symb(1) and UF$SEGMASK) = segId
 $IF MACRO
-               and symb(0) <> O$3A and Sub3FA9
+               and symb(0) <> O$3A and nonHiddenSymbol
 $ENDIF
                and not TestBit(symb(0), .b6D7E) and
-               (not isPublic or (symb(1) and 20h) <> 0) then
+               (not isPublic or (symb(1) and UF$PUBLIC) <> 0) then
                    call AddSymbol;
         end;
         call FlushSymRec;
@@ -1937,10 +1942,10 @@ declare stdKeywords(151) KEYWORD$T public initial(
     byte type
     byte flags
 */
-    /* token	opBase	offset	type		flags */
+    /* token	        opBase	offset	type		flags */
     0A528h,	0,	0,	0,	K$NE,		0,	/* NE */
     63B0h,	0,	0CCh,	0,	K$IMM16,	0,	/* CZ */
-    0,	0,	0,	0,	0,		0,	/* */
+    0,	        0,	0,	0,	0,		0,	/* */
     0BFB6h,	0,	0C0h,	0,	K$SINGLE,	0,	/* RNZ */
     0B354h,	0,	0C1h,	0,	K$REG16,	0,	/* POP */
     6EE9h,	0,	0,	0,	K$EQU,		0,	/* EQU */
@@ -2422,7 +2427,7 @@ end;
 SourceError: procedure(errCh) public;
     declare errCh byte;
 
-    if not IsSkipping or leftOp = K$ELSE then    /* ELSE */
+    if not IsSkipping or topOp = K$ELSE then    /* ELSE */
     do;
         if inExtrn then
             badExtrn = TRUE;
@@ -2537,7 +2542,7 @@ $ENDIF
 $IF MACRO
     macro$p = .macroLine;
 $ENDIF
-    skipping(0) = skipping(0) > 0;
+    skipIf(0) = skipIf(0) > 0;
 end;
 
 
@@ -2636,10 +2641,10 @@ $ENDIF
     if not StrUcEqu(.aCo, .lstFile) then
     do;
         CHKOVL$1;
-        call Ovl9;
+        call FinishPrint;
     end;
     CHKOVL$1;
-    call Ovl10;
+    call FinishAssembly;
 end;
 
 asm1.plx
@@ -2662,12 +2667,12 @@ declare tokReq(*) byte data(
         /* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
         /* 29, 30, 55 */
     absValueReq(*) bool data(
-            /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0,   0,   0FFh,
-               0,   0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
-               0,   0);
+        /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0,   0,   0FFh,
+           0,   0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+           0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0,   0FFh,0,
+           0,   0);
     /* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
 $IF MACRO
 declare    b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
@@ -2679,12 +2684,13 @@ SkipWhite$2: procedure public;
 end;
 
 
-Sub3FA9: procedure byte public;
-    declare w9B5A pointer,
-        wrd based w9B5A address;
+nonHiddenSymbol: procedure byte public;
+    declare name$p pointer,
+        name based name$p address;
 
-    w9B5A = curTokenSym$p - 6;
-    return (wrd < 4679h) or ctlMACRODEBUG or (4682h < wrd);
+    name$p = curTokenSym$p - 6;
+    /* check name < '??0' or '??9' < name */
+    return (name < 4679h) or ctlMACRODEBUG or (4682h < name);
 end;
 
 
@@ -2785,10 +2791,10 @@ end;
 Tokenise: procedure public;
 
     Sub416B: procedure;
-        if rightOp = O$NONE then
+        if newOp = O$NONE then
             call ExpressionError;
         inExpression = 0;
-        rightOp = O$NONE;
+        newOp = O$NONE;
     end;
 
 
@@ -2823,7 +2829,7 @@ $ENDIF
         do;                /* CC$COLON */
             if not gotLabel then
             do;
-                if skipping(0)
+                if skipIf(0)
 $IF MACRO
                    or b905E
 $ENDIF
@@ -2846,22 +2852,22 @@ $ENDIF
 
             call EmitXref(XREF$DEF, .name);
             rhsUserSymbol = FALSE;
-            rightOp = O$LABEL;
+            newOp = O$LABEL;
         end;
         do;                /* CC$CR */
             call ChkLF;
             effectiveToken = T$CR;
 $IF MACRO
-            b9058 = 0;
+            b9058 = FALSE;
 $ENDIF
             return;
         end;
-        do;                /* CC$PUNCT */
+        do;                /* CC$PUN */
             if curChar = '+' or curChar = '-' then
 $IF MACRO
-                if not TestBit(rightOp, .b$3F88) then /* not 0, 3 or 41h */
+                if not TestBit(newOp, .b$3F88) then /* not 0, 3 or 41h */
 $ELSE
-                if rightOp <> O$NONE and rightOp <> T$RPAREN then
+                if newOp <> O$NONE and newOp <> T$RPAREN then
 $ENDIF
                     curChar = curChar + (T$UPLUS - T$PLUS);    /* make unary versions */
             effectiveToken = curChar - '(' + T$LPAREN;
@@ -2893,7 +2899,7 @@ $ENDIF
                 call Sub416B;
             end;
         end;
-        do;                /* CC$DIGIT */
+        do;                /* CC$DIG */
             call GetNum;
             if expectingOpcode then
                 call SetExpectOperands;
@@ -2973,7 +2979,7 @@ $IF MACRO
             end;
 
             if effectiveToken = K$NUL then
-                call PushToken(40h);
+                call PushToken(O$OPTVAL);
 $ENDIF
             if effectiveToken < 10 or effectiveToken = 9 or 80h then /* !! only first term contributes */
             do;
@@ -2997,7 +3003,7 @@ $IF MACRO
         do;                /* CC$ESC */
             if expandingMacro then
             do;
-                skipping(0) = FALSE;
+                skipIf(0) = FALSE;
                 effectiveToken = 40h;
                 return;
             end;
@@ -3027,12 +3033,12 @@ $ENDIF
     1    -> start single word expression
     5    -> single byte opcode no operand
     7    -> reg operand
-    0Fh    -> binary leftOp
-    0Dh    -> unary leftOp
+    0Fh    -> binary topOp
+    0Dh    -> unary topOp
     17h    -> IMM8 operand
     37h    -> imm16 operand
     40h    -> list
-    47h    -> 2 operand leftOp
+    47h    -> 2 operand topOp
     4Dh    -> start word list
     80h    -> end expression
     81h    -> rept operand
@@ -3116,14 +3122,14 @@ TestBit: procedure(bitIdx, bitVector) bool public;
     return (ch and ROR(1, (bitIdx and 7) + 1)) <> 0;
 end;
 
-IsReg: procedure(leftOp) bool public;
-    declare leftOp byte;
+IsReg: procedure(topOp) bool public;
+    declare topOp byte;
 
-    return leftOp = K$REGNAME or leftOp = K$SP;
+    return topOp = K$REGNAME or topOp = K$SP;
 end;
 
 ChkInvalidRegOperand: procedure public;
-    if TestBit(leftOp, .noRegOperand) then
+    if TestBit(topOp, .noRegOperand) then
         if IsReg(acc1ValType) then
             call OperandError;
 end;
@@ -3131,7 +3137,7 @@ end;
 Sub4291: procedure public;
     if IsReg(acc1ValType) then
         call OperandError;
-    if (opFlags(leftOp) and 2) = 0 then
+    if (opFlags(topOp) and 2) = 0 then
         acc2Flags = 0;
     else if IsReg(acc2ValType) then
         call OperandError;
@@ -3145,19 +3151,19 @@ Sub4291: procedure public;
                 call ExpressionError;
     if (ii := (acc1Flags and UF$EXTRN) <> 0) or (jj := (acc2Flags and UF$EXTRN) <> 0) then
     do;
-        if leftOp = K$SPECIAL then    /* +? (PAGE INPAGE)? */
+        if topOp = K$SPECIAL then    /* +? (PAGE INPAGE)? */
             if not (ii or accFixFlags(0)) then
             do;
                 acc1NumVal = acc2NumVal;
                 acc1Flags = acc2Flags;
                 return;
             end;
-        if jj or accFixFlags(1) or not TestBit(leftOp, .b41C1) then
+        if jj or accFixFlags(1) or not TestBit(topOp, .b41C1) then
             goto L4394;
         else
             return;
     end;
-    kk = shl(leftOp - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
+    kk = shl(topOp - 4, 2) or (accFixFlags(0) and 2) or (accFixFlags(1) and 1);
     if TestBit(kk, .opCompat) then
 L4394:    do;
         call ExpressionError;
@@ -3195,12 +3201,12 @@ GetNumVal: procedure address public;
         val$p pointer,
         val based val$p address;
 $IF MACRO
-    LogError: procedure(arg1b);
-        declare arg1b byte;
+    LogError: procedure(ch);
+        declare ch byte;
 
-        if tokenType(tokenIdx) <> 40h then
+        if tokenType(tokenIdx) <> O$OPTVAL then
         do;
-            call SourceError(arg1b);
+            call SourceError(ch);
             return;
         end;
         if tokenSize(0) = 0 then
@@ -3212,8 +3218,8 @@ $ENDIF
     accum1 = 0;
     acc1ValType = O$ID;
 $IF MACRO
-    if tokenType(0) = 40h then
-        call PushToken(0Dh);
+    if tokenType(0) = O$OPTVAL then
+        call PushToken(CR);
 $ENDIF
     if tokenIdx = 0 or tokenType(0) = O$DATA and not b6B36 then
 $IF MACRO
@@ -3235,7 +3241,7 @@ $ENDIF
             if TestBit(acc1ValType, .typeHasValue) then
             do;
                 tokPtr = curTokenSym$p + 7;    /* point to flags */
-                acc1Flags = tokByte(0) and 0DFh; /* remove public attribute */
+                acc1Flags = tokByte(0) and not UF$PUBLIC; /* remove public attribute */
                 tokPtr, val$p = curTokenSym$p + 4;    /* point to value */
                 acc1NumVal = val;            /* pick up value */
                 tokenSize(0) = 2;        /* word value */
@@ -3255,7 +3261,7 @@ $IF MACRO
 $ELSE
                     call ValueError;
 $ENDIF
-                acc1Flags = tokenAttr(0) and 0DFh;    /* remove public attribute */
+                acc1Flags = tokenAttr(0) and not UF$PUBLIC;    /* remove public attribute */
                 acc1NumVal = tokenSymId(0);        /* use the symbol Id */
             end;
 
@@ -3282,9 +3288,9 @@ $ENDIF
 end;
 
 
-GetPrec: procedure(leftOp) byte public;
-    declare leftOp byte;
-    return precedence(leftOp);
+GetPrec: procedure(topOp) byte public;
+    declare topOp byte;
+    return precedence(topOp);
 end;
 
 /*
@@ -3293,7 +3299,7 @@ end;
    xxxxxx1x    acc1 = acc1 | acc2
    xxxxx1xx    acc2 <<= 3
    xxxx1xxx    acc2 -> 8 bit value
-   nnnnxxxx    leftOp = 24h + nnnn
+   nnnnxxxx    topOp = 24h + nnnn
    
 */   
 MkCode: procedure(arg1b) public;
@@ -3305,15 +3311,15 @@ MkCode: procedure(arg1b) public;
            or accum2$lb > 7     
            or arg1b and accum2$lb    /* only B D H SP if lxi, ldax or stax */
            or (arg1b and 3) = 3 and accum2$lb > 2    /* B or D if ldax or stax */
-           or (not IsReg(acc2ValType) and leftOp <> K$RST) then    /* reg unless rst */
+           or (not IsReg(acc2ValType) and topOp <> K$RST) then    /* reg unless rst */
             call OperandError;
-        else if IsReg(acc2ValType) and leftOp = K$RST then         /* cannot be reg for rst */
+        else if IsReg(acc2ValType) and topOp = K$RST then         /* cannot be reg for rst */
             call OperandError;
         if ror(arg1b, 2) then
             accum2$lb = rol(accum2$lb, 3);
         accum1$lb = accum1$lb or accum2$lb;
     end;
-    else if leftOp <> K$SINGLE then        /* single byte leftOp */
+    else if topOp <> K$SINGLE then        /* single byte topOp */
         if IsReg(acc2ValType) then
             call OperandError;
 
@@ -3322,12 +3328,12 @@ MkCode: procedure(arg1b) public;
         if (acc2Flags and UF$BOTH) = UF$BOTH then
         do;
             call ValueError;
-            acc2Flags = acc2Flags and 0E7h or UF$LOW;
+            acc2Flags = (acc2Flags and not UF$BOTH)  or UF$LOW;
         end;
         if accum2$hb + 1 > 1 then    /* Error if not FF or 00 */
             call ValueError;
     end;
-    if leftOp = K$IMM8 or leftOp = K$IMM16 then    /* Imm8 or imm16 */
+    if topOp = K$IMM8 or topOp = K$IMM16 then    /* Imm8 or imm16 */
     do;
         acc1Flags = acc2Flags;
         acc1NumVal = acc2NumVal;
@@ -3335,10 +3341,10 @@ MkCode: procedure(arg1b) public;
     else
         acc1Flags = 0;
 
-    if leftOp <> K$SINGLE then             /* single byte leftOp */
+    if topOp <> K$SINGLE then             /* single byte topOp */
         if accum1$lb = 76h then         /* mov m,m is actually Halt */
             call OperandError;
-    if (leftOp := shr(arg1b, 4) + 24h) = 24h then
+    if (topOp := shr(arg1b, 4) + 24h) = 24h then
         nextTokType = O$DATA;
 end;
 
@@ -3355,7 +3361,7 @@ ShowLine: procedure byte public;
 $IF MACRO
             and (not (expandingMacro > 1) or ctlGEN)
 $ENDIF
-        and (not(condAsmSeen or skipping(0)) or ctlCOND);
+        and (not(condAsmSeen or skipIf(0)) or ctlCOND);
 end;
 
 /*
@@ -3453,7 +3459,7 @@ IsSkipping: procedure byte public;
 $IF MACRO
         b905E or
 $ENDIF
-        skipping(0);
+        skipIf(0);
 end;
 
 Sub546F: procedure public;
@@ -3720,19 +3726,28 @@ declare    b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
           0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
     chClass(*) byte data(
-       /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 4, 0, 0,    /* 00 */
+     /*    0       1       2       3       4       5       6       7
+           8       9       A       B       C       D       E       F */
+/*00*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
+/*08*/ CC$BAD,  CC$WS, CC$BAD, CC$BAD,  CC$WS,  CC$CR, CC$BAD, CC$BAD,
+/*10*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 $IF MACRO
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0Bh,0, 0, 0, 0,    /* 10 - ESC maps to 0Bh */
+/*18*/ CC$BAD, CC$BAD, CC$BAD, CC$ESC, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 $ELSE
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ,0, 0, 0, 0,    /* 10 */
+/*18*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 $ENDIF
-          1, 0, 0, 0, 6, 0, 0, 7, 5, 5, 5, 5, 5, 5, 0, 5,    /* 20 */
-          8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 3, 2, 0, 0, 0, 9,    /* 30 */
-          9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,    /* 40 */
-          9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0,    /* 50 */
-          0, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,    /* 60 */
-          9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 0, 0, 0, 0, 0);    /* 70 */
+/*20*/ CC$WS, CC$BAD, CC$BAD, CC$BAD, CC$DOLLAR, CC$BAD, CC$BAD, CC$QUOTE,
+/*28*/ CC$PUN, CC$PUN, CC$PUN, CC$PUN, CC$PUN, CC$PUN, CC$BAD, CC$PUN,
+/*30*/ CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG, CC$DIG,
+/*38*/ CC$DIG, CC$DIG, CC$COLON, CC$SEMI, CC$BAD, CC$BAD, CC$BAD, CC$LET,
+/*40*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*48*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, 
+/*50*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*58*/ CC$LET, CC$LET, CC$LET, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
+/*60*/ CC$BAD, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*68*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*70*/ CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET, CC$LET,
+/*78*/ CC$LET, CC$LET, CC$LET, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD);
 
 UnpackToken: procedure(src, dst) public;
     declare (src, dst) pointer;
@@ -3892,7 +3907,7 @@ $ENDIF
                 flags = flags or activeSeg;
 
             if hasVarRef and isSetOrEqu then
-                tokenType(0) = O$64;
+                tokenType(0) = O$MACROID;
             else
                 call SetTokenType;
 
@@ -4045,7 +4060,7 @@ Lookup: procedure(tableId) byte public;
 
                     if tokenType(0) = K$SP then        /* SP */
                     do;
-                        if not(rightOp = K$LXI or rightOp = K$REG16) then 
+                        if not(newOp = K$LXI or newOp = K$REG16) then 
                             call SourceError('X');
                         tokenType(0) = K$REGNAME;    /* reg */
                     end;
@@ -4069,7 +4084,7 @@ Lookup: procedure(tableId) byte public;
             do;
                 curTokenSym$p = entryOffset;
                 tokenType(0) = curTokenSym.type;
-                if tokenType(0) = O$64 then
+                if tokenType(0) = O$MACROID then
                     tokenType(0) = O$ID;
 
                 if (usrLookupIsID := (kk := (tokenType(0) and 7Fh)) = O$ID) then
@@ -4118,12 +4133,12 @@ $IF MACRO
     declare ch1 based macro$p byte;
 $ENDIF
 
-L6339:
+reGetCh:
     if not reget then
     do;
         prevCH = curCH;
 
-    L6347:
+    nextCh:
         curCH = lookAhead;
 $IF MACRO
         if expandingMacro then
@@ -4144,25 +4159,25 @@ $ENDIF
 
         if chClass(curCH) = CC$BAD then
             if curCH = 0 or curCH = 7Fh or curCH = FF then
-                goto L6347;
+                goto nextCh;
 $IF MACRO
         if expandingMacro then
         do;
-            if curCH = 1Bh then
+            if curCH = ESC then
             do;
-                goto L65B2;
+                goto doneGetCh;
             end;
             else if curCH = '&' then
             do;
                 if not prevCH < 80h or lookAhead = 80h then
-                    goto L6339;
+                    goto reGetCh;
             end;
             else if curCH = '!' and prevCH <> 0 then
             do;
                 if not (b905D or b905E) and b905C then
                 do;
                     curCH = 0;
-                    goto L6339;
+                    goto reGetCh;
                 end;
             end;
             else if curCH >= 128 then
@@ -4207,7 +4222,7 @@ $IF MACRO
                 end;
 
                 lookAhead = 0;
-                goto L6339;
+                goto reGetCh;
             end;
         end;
 
@@ -4220,7 +4235,7 @@ $IF MACRO
                 end;
 
         if b905E then
-            if w919D <> macroInPtr and curCH = 0Dh or not b9059 then
+            if w919D <> macroInPtr and curCH = CR or not b9059 then
             call InsertCharInMacroTbl(curCH);
 
         if not(prevCH = '!' or inComment) then
@@ -4233,7 +4248,7 @@ $IF MACRO
         end;
 $ENDIF
     end;
-L65B2:
+doneGetCh:
     reget = 0;
     return (curChar := curCH);
 end;
@@ -4242,7 +4257,7 @@ GetChClass: procedure byte public;
     curChar = GetCh;
 $IF MACRO
     if b905D then
-        return 0Ah;
+        return CC$MAC;
 $ENDIF
 
     return chClass(curChar);
@@ -4362,11 +4377,13 @@ end;
 
 
 
-NestIF: procedure(arg1b) public;
-    declare arg1b byte;
+/* nest - sw = 1 -> nest macro sw = 2 -> nest if */
+Nest: procedure(sw) public;
+    declare sw byte;
 $IF MACRO
     macroCondStk(macroCondSP := macroCondSP + 1) = macroCondStk(0);
-    if (macroCondStk(0) := arg1b) = 1 then
+    /* record whether current nest is macro of if */
+    if (macroCondStk(0) := sw) = 1 then
     do;
         if (macroDepth := macroDepth + 1) > 9 then
         do;
@@ -4391,46 +4408,46 @@ $ENDIF
         end;
         else
         do;
-            skipping(ifDepth) = skipping(0);
+            skipIf(ifDepth) = skipIf(0);
             inElse(ifDepth) = inElse(0);
         end;
     end;
 end;
 
 
-UnnestIF: procedure(arg1b) public;
-    declare arg1b byte;
+UnNest: procedure(sw) public;
+    declare sw byte;
 
 $IF MACRO
-    if arg1b <> macroCondStk(0) then
+    if sw <> macroCondStk(0) then	/* check for unbalanced unnest */
     do;
         call NestingError;
-        if arg1b = 2 then
+        if sw = 2 then			/* not macro unnest */
             return;
         macroCondSP = tmac$macroCondSP;
         ifDepth = tmac$ifDepth;
     end;
 
-    macroCondStk(0) = macroCondStk(macroCondSP);
+    macroCondStk(0) = macroCondStk(macroCondSP);	/* restore macro stack */
     macroCondSP = macroCondSP - 1;
-    if arg1b = 1 then
+    if sw = 1 then			/* is unnest macro */
     do;
         call move(16, .macroStk(macroDepth), .macroStk(0));
         call ReadM(tmac$blk);
         b9062 = tmac$mtype;
-        if (macroDepth := macroDepth - 1) = 0 then
+        if (macroDepth := macroDepth - 1) = 0 then	/* end of macro nest */
         do;
-            expandingMacro = 0;
+            expandingMacro = 0;		/* not expanding */
             baseMacroTbl = Physmem + 0BFh;
         end;
     end;
 $ELSE
-    if ifDepth = 0 then
+    if ifDepth = 0 then			/* nothing to unnest */
         call NestingError;
 $ENDIF
     else
     do;
-        skipping(0) = skipping(ifDepth);
+        skipIf(0) = skipIf(ifDepth);	/* pop skipIf and inElse status */
         inElse(0) = inElse(ifDepth);
         ifDepth = ifDepth - 1;
     end;
@@ -4483,7 +4500,7 @@ GetId: procedure(type) public;
     call PushToken(type);    /* save any previous token and initialise this one */
     reget = 1;        /* force re get of first character */
 
-    do while (type := GetChClass) = CC$DIGIT or type = CC$LET;    /* digit or letter */
+    do while (type := GetChClass) = CC$DIG or type = CC$LET;    /* digit or letter */
         if curChar > 60h then    /* make sure upper case */
             curChar = curChar and 0DFh;
         call CollectByte(curChar);
@@ -4650,7 +4667,7 @@ Sub6F07: procedure(arg1w) bool;
     if tokBufIdx = 0 then
         return FALSE;
 
-    tokBuf(tokBufIdx) = 20h;
+    tokBuf(tokBufIdx) = ' ';
     tokBufLen = tokBufIdx;
     if IsWhite then
         return ChkParen(1);
@@ -4975,10 +4992,9 @@ end;
 asm8m: do;
 $include(:f3:asm8m.ipx)
 
-declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h),
+declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h);
     /* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
     /*                 CR, COMMA, SEMI */                                  
-    aMacro(*) byte data('MACRO', 0);
 
 declare w9C75 address,
     b9C77 byte public;
@@ -5037,7 +5053,7 @@ Sub727F: procedure bool;
     if not b905E then
         return TRUE;
     b9064 = b9064 + 1;
-    b6B2C = leftOp <> K$REPT;
+    b6B2C = topOp <> K$REPT;
     effectiveToken = 37h;
     return FALSE;
 end;
@@ -5049,7 +5065,7 @@ Sub72A4: procedure(arg1b) public;    /* 1 -> IRP, 2 -> IRPC */
     if Sub727F then
     do;
         call Sub71F2;
-        call NestIF(1);
+        call Nest(1);
         tmac$w14 = 0;
         tmac$mtype = arg1b;
     end;
@@ -5058,7 +5074,7 @@ end;
 Acc1ToDecimal: procedure;
     declare buf(6) byte;
 
-    call PushToken(0Dh);
+    call PushToken(CR);
     kk = 0;
     /* build number in reverse digit order */
 loop:
@@ -5125,7 +5141,7 @@ Sub73AD: procedure public;
         if (b905A := IsLT) then
             curChar = GetCh;
 
-        call PushToken(0Dh);
+        call PushToken(CR);
 
     L73E2:    do while not Sub7192;
             if curChar = '''' then
@@ -5176,7 +5192,7 @@ Sub73AD: procedure public;
     if tmac$mtype = 4 then
     do;
         if not b905A and tokenSize(0) = 5 then
-            if StrUcEqu(.aMacro, tokPtr) then
+            if StrUcEqu(.('MACRO', 0), tokPtr) then
             do;
                 effectiveToken = K$MACRO;
                 call PopToken;
@@ -5189,7 +5205,7 @@ Sub73AD: procedure public;
                 return;
             end;
         tmac$mtype = b9062;
-        call NestIF(1);
+        call Nest(1);
         tmac$mtype = 0;
     end;
 
@@ -5234,7 +5250,7 @@ Sub753E: procedure public;
         if IsComma then
         do;
             reget = 0;
-            rightOp = O$NONE;
+            newOp = O$NONE;
             call Sub7327;
             if tmac$mtype = 1 then
             do;
@@ -5253,7 +5269,7 @@ Sub753E: procedure public;
             call Sub7383;
         end;
     end;
-    else if rightOp = T$CR then
+    else if newOp = T$CR then
     do;
         if not BlankMorPAsmErrCode then
         do;
@@ -5303,7 +5319,7 @@ Sub75FF: procedure public;
                     tmac$w10 = w9C75;
                     call Sub720A;
                     if tmac$w14 = 0 then
-                        call UnnestIF(1);
+                        call UnNest(1);
                 end;
             end;
         end;
@@ -5316,7 +5332,7 @@ end;
 Sub76CE: procedure public;
     if expandingMacro then
     do;
-        if rightOp = T$CR then
+        if newOp = T$CR then
         do;
             condAsmSeen = TRUE;
             macroCondSP = tmac$macroCondSP;
@@ -5362,7 +5378,7 @@ Sub770B: procedure public;
     else
         call SyntaxError;
 
-    if rightOp = T$CR then
+    if newOp = T$CR then
     do;
         b905D = FALSE;
         if argNestCnt > 0 then
@@ -5374,7 +5390,7 @@ Sub770B: procedure public;
             if tmac$mtype = 0 then
             do;
                 call Sub720A;
-                call UnnestIF(1);
+                call UnNest(1);
                 return;
             end;
             else
@@ -5402,7 +5418,7 @@ end;
 
 Sub7844: procedure public;
     call Sub72A4(3);
-    if (effectiveToken := rightOp) <> T$CR then
+    if (effectiveToken := newOp) <> T$CR then
         call SyntaxError;
 
     if not b905E then
@@ -5433,7 +5449,7 @@ Sub787A: procedure public;
             call Sub5CAD(tmac$b3, 1);
             macroInPtr = symHighMark;
         end;
-        if rightOp = T$CR then
+        if newOp = T$CR then
         do;
             b905E = 1;
             macroInPtr = symHighMark;
@@ -5449,7 +5465,7 @@ Sub78CE: procedure public;
     kk = byteAt(tmac$w12);
     accFixFlags(0) = 1 - (kk = 21h and b9062 = 2);
     if b9062 = 0 or (tmac$w14 := tmac$w14 - accFixFlags(0)) = 0 then
-        call UnnestIF(1);
+        call UnNest(1);
     else
     do;
         if b9062 = 1 then
@@ -5697,7 +5713,7 @@ $ENDIF
             if type <> 9 then
                 if type <> 6 then
 $IF MACRO
-                    if Sub3FA9 then
+                    if nonHiddenSymbol then
 $ENDIF
                         if symGrp <> 0 or type <> 3 then
                             if symGrp = 2 or (flags and b6DC1(symGrp)) <> 0 then
@@ -5935,7 +5951,7 @@ AsmComplete: procedure public;
     call Outch(LF);
 end;
 
-Ovl9: procedure public;
+FinishPrint: procedure public;
     if ctlPRINT then
         call CloseF(outfd);
     outfd = 0;
@@ -5944,22 +5960,22 @@ Ovl9: procedure public;
     call Flushout;
 end;
 
-Ovl10: procedure public;
-    declare ch based effectiveAddr byte;
+FinishAssembly: procedure public;
+    declare drive based effectiveAddr byte;
 
     call CloseF(infd);
 $IF MACRO
     call CloseF(macrofd);
     call Delete(.asmax$ref, .statusIO);
-    if ctlOBJECT then
+    if ctlOBJECT then	/* ?? why only for MACRO version */
         call CloseF(objfd);
 $ENDIF
-    if ctlXREF then
+    if ctlXREF then	/* invoke asxref ?? */
     do;
         effectiveAddr = Physmem - 1;
-        ch = '0';
+        drive = '0';	/* put drive in a known location */
         if asxref$tmp(0) = ':' then
-            ch = asxref$tmp(2);
+            drive = asxref$tmp(2);
     
         call Load(.asxref, 0, 1, 0, .statusIO);
         call IoErrChk;
@@ -6105,7 +6121,7 @@ ResetData: procedure public;    /* extended initialisation */
 
     call InitLine;
 
-    b6B33, scanCmdLine, skipping(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
+    b6B33, scanCmdLine, skipIf(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
 $IF MACRO
     expandingMacro, b905C, b905E,
 $ENDIF
@@ -6129,7 +6145,7 @@ $IF MACRO
 $ENDIF
     externId, errCnt = wZERO;
     passCnt = passCnt + 1;
-    srcLineCnt, rightOp, pageCnt, pageLineCnt = 1;
+    srcLineCnt, newOp, pageCnt, pageLineCnt = 1;
     b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;        /* reset all the control seen flags */
@@ -7497,4 +7513,273 @@ main:
         end;
     end;
 end;
+mk
+# path to root of build tree
+ROOT:=../..
+# path to build directories
+SRCDIR:=.
+LSTDIR:=list
+OBJDIR:=obj
+
+# ISIS disk usage
+HOMEDSK:=F0
+SRCDSK:=F1
+LSTDSK:=F2
+OBJDSK:=F3
+V30DSK:=F4
+V31DSK:=F5
+V40DSK:=F6
+
+# set default tools disk
+TOOLDSK=$(V31DSK)
+
+# the none ISIS build tools
+ISIS:=$(ROOT)/thames
+PLMPP:=$(ROOT)/tools/plmpp
+NGENPEX:=$(ROOT)/tools/ngenpex
+
+# ISIS tools
+ASM=$(ISIS) :$(TOOLDSK):asm80
+PLM=$(ISIS) :$(TOOLDSK):plm80
+LINK=$(ISIS) :$(TOOLDSK):link
+LOCATE=$(ISIS) :$(TOOLDSK):locate
+
+# set up the ISIS environment
+V4:=$(ROOT)\plm80v4
+V3:=$(ROOT)\plm80v3
+export ISIS_$(HOMEDSK) := $(CURDIR)
+export ISIS_$(SRCDSK) := $(SRCDIR)
+export ISIS_$(LSTDSK) := $(LSTDIR)
+export ISIS_$(OBJDSK) := $(OBJDIR)
+export ISIS_$(V30DSK) := $(ROOT)/plm80v30
+export ISIS_$(V31DSK) := $(ROOT)/plm80v3
+export ISIS_$(V40DSK) := $(ROOT)/plm80v4
+
+vpath %.plm $(SRCDIR) $(OBJDIR)
+vpath %.plx $(SRCDIR)
+vpath %.ipx $(SRCDIR) $(OBJDIR)
+vpath %.asm $(SRCDIR) $(OBJDIR)
+
+# these are special build rules to preprocess the plx files
+$(OBJDIR)/%m.plm: %.plx
+	$(PLMPP) -sMACRO -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%n.plm: %.plx
+	$(PLMPP) -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%s.plm: %.plx
+	$(PLMPP) -sSMALL -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%b.plm: %.plx
+	$(PLMPP) -sBIG -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%.obj: $(OBJDIR)/%.plm
+	$(NGENPEX) :$(SRCDSK):$(PEXFILE) $(call mapdisk,$<)
+	$(PLM) $(call mapdisk,$<) CODE PRINT($(call lstdisk,$*.lst)) OBJECT($(call objdisk,$*.obj)) $(PLMFLAGS)
+	@find $(LSTDIR)\$(*).lst "     0 PROGRAM ERROR(S)" >nul || (del $(call towin,$@) & set ERRORLEVEL=1)
+
+# the generic build commands
+$(OBJDIR)/%.obj: %.plm
+	$(NGENPEX) :$(SRCDSK):$(PEXFILE) $(call mapdisk,$<)
+	$(PLM) $(call mapdisk,$<) CODE PRINT($(call lstdisk,$*.lst)) OBJECT($(call objdisk,$*.obj)) $(PLMFLAGS)
+	@find $(LSTDIR)\$(*).lst "     0 PROGRAM ERROR(S)" >nul || (del $(call towin,$@) & set ERRORLEVEL=1)
+
+
+$(OBJDIR)/%.obj: %.asm
+	$(ASM) $(call mapdisk,$<) PRINT($(call lstdisk,$*.lst)) OBJECT($(call objdisk,$*.obj)) $(ASMFLAGS)
+	@find $(LSTDIR)\$*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $(call towin,$@) & set ERRORLEVEL=1)
+
+# the core build script follows
+# build options
+RELEASETARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
+
+# base address of the overlays
+OVERLAY:=6D4Ch
+LOCATEOPT:=SYMBOLS LINES
+PURGE:=PURGE
+PLMFLAGS:=DEBUG
+
+PEXFILE:=asm80.pex
+
+# bulk obj names
+ROOTOBJS := globls.obj starts.obj asm1n.obj asm2n.obj\
+	rdsrc.obj asm3s.obj asm4s.obj asm5n.obj\
+	asm6n.obj pcktok.obj
+
+MACROOBJS := globlm.obj startm.obj pcktok.obj asm1m.obj\
+	asm2m.obj asm4m.obj rdsrc.obj asm3m.obj\
+	asm5m.obj asm6m.obj cntrlm.obj asm8m.obj\
+	emitm.obj listm.obj initm.obj
+
+BIGOBJS := globlb.obj startb.obj pcktok.obj asm1n.obj\
+	asm2n.obj asm4b.obj rdsrc.obj asm3b.obj\
+	asm5n.obj asm6n.obj cntrln.obj emitn.obj\
+	listn.obj initb.obj
+
+.PHONY: all clean verify
+all: .extract $(RELEASETARGETS)
+
+.extract: asm80_all.plm
+	perl ..\..\unpack.pl
+	date /t >.extract
+
+
+#rebuild: uclean all
+#
+verify:
+	for %i in ($(RELEASETARGETS)) do fc \b %i $(V4)\%i
+
+space= 
+space+=
+comma=,
+# $(call towin,filelist)	convert unix file names to windows
+towin = $(subst /,\,$1)
+
+# $(call mkclist,filelist)	make a comma separated list
+mkclist = $(subst $(space),$(comma),$1)
+
+# $(call mkfilst,file,filelist)	make append filelist to file one per line with & added
+mkflist = $(file >>$1,$(firstword $2)&) $(foreach F,$(wordlist 2,1000,$2), $(file >>$1,,$F&))
+
+# $(call objdsk,filelist)	set isis obj disk for all of the files
+objdisk = $(addprefix :$(OBJDSK):,$(notdir $1))
+# $(call objdir,filelist)	set path to objdir for all files
+objdir = $(addprefix $(OBJDIR)/,$(notdir $1))
+
+# $(call srcdsk,filelist)	set isis src disk for all of the files
+srcdisk = $(addprefix :$(SRCDSK):,$(notdir $1))
+# $(call srcdir,filelist)	set path to srcdir for all files
+srcdir = $(addprefix $(SRCDIR)/,$(notdir $1))
+
+# $(call lstdsk,filelist)	set isis lst disk for all of the files
+lstdisk = $(addprefix :$(LSTDSK):,$(notdir $1))
+# $(call lstdir,filelist)	set path to lstdir for all files
+lstdir = $(addprefix $(LSTDIR)/,$(notdir $1))
+
+# $(call tooldisk,filelist)	set isis tool disk for all of the files
+tooldisk = $(addprefix :$(TOOLDSK):,$(notdir $1))
+
+# $(call  objlist,filelist)	convert file list into comma separated isis obj disk files
+objlist = $(mkclist $(call objdisk $1))
+
+# $(call mapdisk,filelist)	convert list of full file paths into isis disk versions - not tools dirs
+# no path, passes though i.e. drive F0
+# this allows options to be included in the list and pass through unchanged
+mapdisk = $(strip $(subst $(CURDIR)/,$(HOMEDSK),\
+            $(subst ./,$(HOMEDSK),\
+              $(subst $(OBJDIR)/,:$(OBJDSK):,\
+                $(subst $(LSTDIR)/,:$(LSTDSK):,\
+                  $(subst $(SRCDIR)/,:$(SRCDSK):,$1))))))
+
+# $(call chk-externals,mapfile,targetfile)
+chk-externals = find $(call towin,$1) "UNSATISFIED EXTERNAL" >nul \
+                 && (del $(call towin,$2) && set ERRORLEVEL=1) || set ERRORLEVEL=0 
+
+# $(call chk-link,linfile,targetfile)
+chk-link = find $(call towin,$1) "LINK MAP" >nul || (del $(call towin,$2) && set ERRORLEVEL=1)
+
+# make script for overlay
+# usage $(call simple-ovl,overlayNum,objs,publics)
+define simple-ovl
+  $(file >asmov$1.in) $(call mkflist,asmov$1.in,$2 publics($3) $(call tooldisk,plm80.lib))
+  $(file >>asmov$1.in,to $(call objdisk,asmov$1.rel) map print($(call lstdisk,asmov$1.lin)))
+  $(call towin,$(LINK)) "&" <asmov$1.in
+  @del asmov$1.in
+  $(LOCATE) $(call objdisk,asmov$1.rel) to $(call mapdisk,$@) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O$1) PRINT($(call lstdisk,asmov$1.map))
+  del $(OBJDIR)\asmov$1.rel
+  @$(chk-link,$(call lstdir,asmov$1.lin),$@)
+  @$(chk-externals,$(call lstdir,asmov$1.map),$@)
+endef
+## build rules to make the program and overlays
+asm80: $(call objdir,root.abs keyn.abs) asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3
+	$(file >asm80.in)
+	$(call mkflist,asm80.in,$(call objdisk,root.abs keyn.abs) asm80.ov3 publics(asm80.ov0 asm80.ov1 asm80.ov2))
+	$(file >>asm80.in,to $(call objdisk,asm80.rel) map print($(call lstdisk,asm80.lin)))
+	$(call towin,$(LINK)) "&" <asm80.in
+	@del asm80.in
+	$(LOCATE) $(call objdisk,asm80.rel) to $(call mapdisk,$@) $(LOCATEOPT)\
+          STACKSIZE(0) NAME(ASM80) PRINT($(call lstdisk,asm80.map)) $(PURGE)
+	@del $(OBJDIR)\asm80.rel
+	@$(chk-link,$(call lstdir,asm80.lin),$@)
+	@$(chk-externals,$(call lstdir,asm80.map),$@)
+
+asm80.ov0: $(call objdir,cprite.obj cntrln.obj root.abs)
+	$(call simple-ovl,0,$(call objdisk,cprite.obj cntrln.obj),$(call objdisk,root.abs))
+#
+asm80.ov1: $(call objdir,cprite.obj listn.obj root.abs)
+	$(call simple-ovl,1,$(call objdisk,cprite.obj listn.obj),$(call objdisk,root.abs))
+#
+asm80.ov2: $(call objdir,cprite.obj emitn.obj root.abs)
+	$(call simple-ovl,2,$(call objdisk,cprite.obj emitn.obj),$(call objdisk,root.abs))
+#
+asm80.ov3: $(call objdir,cprite.obj inits.obj root.abs keyn.abs)
+	$(call simple-ovl,3,$(call objdisk,cprite.obj inits.obj),$(call objdisk,root.abs keyn.abs))
+#
+#
+#
+asm80.ov4: $(call objdir,$(MACROOBJS) keym.obj)
+	$(file >asmov4.in) $(call mkflist,asmov4.in,$(call objdisk,$(MACROOBJS)) \
+	  $(call tooldisk,system.lib plm80.lib) $(call objdisk,keym.obj))
+	$(file >>asmov4.in,to $(call objdisk,asmov4.rel) map print($(call lstdisk,asmov4.lin)))
+	$(call towin,$(LINK)) "&" < asmov4.in
+	@del asmov4.in
+	@$(call chk-link,$(call lstdir,asmov4.lin),$@)
+	$(LOCATE) $(call objdisk,asmov4.rel) to $(call mapdisk,$@) NAME(A80O4) code(3780h)\
+          STACKSIZE(144) print($(call lstdisk,asmov4.map)) $(LOCATEOPT) $(PURGE)
+	@del $(OBJDIR)\asmov4.rel
+	@$(chk-externals,$(call lstdir,asmov4.map),$@)
+#
+asm80.ov5: $(call objdir,$(BIGOBJS) keyn.obj)
+	$(file >asmov5.in) $(call mkflist,asmov5.in,$(call objdisk,$(BIGOBJS)) \
+	  $(call tooldisk,system.lib plm80.lib) $(call objdisk,keyn.obj))
+	$(file >>asmov5.in,to $(call objdisk,asmov5.rel) map print($(call lstdisk,asmov5.lin)))
+	$(call towin,$(LINK)) "&" < asmov5.in
+	@del asmov5.in
+	@$(call chk-link,$(call lstdir,asmov5.lin),$@)
+	$(LOCATE) $(call objdisk,asmov5.rel) to $(call mapdisk,$@) NAME(A80O5) code(3780h)\
+          STACKSIZE(144) print($(call lstdisk,asmov5.map)) $(LOCATEOPT) $(PURGE)
+	@del $(OBJDIR)\asmov5.rel
+	@$(chk-externals,$(call lstdir,asmov5.map),$@)
+#
+#
+asxref: $(call objdir,asxref.obj)
+	$(file >asxref.in,print($(call lstdsk,$(@F).map)) map publics order(code,stack,data) $(LOCATEOPT))
+	$(call towin,$(LOCATE)) $(call mapdisk,$< to $@) code(3680h) stacksize(32) "&" < asxref.in
+	@del asxref.in
+	@$(call chk-externals,$(call lstdir,$(@F).map),$@)
+
+#
+## rules for intermediate files
+#
+$(OBJDIR)/root.abs: $(call objdir,$(ROOTOBJS))
+	$(file >root.in)
+	$(call mkflist,root.in,$(call objdisk,$(ROOTOBJS)) $(call tooldisk,system.lib plm80.lib))
+	$(file >>root.in,to $(call objdisk,root.rel) print($(call lstdisk,root.lin)))
+	$(call towin,$(LINK)) "&" < root.in >nul
+	@del root.in
+	$(call towin,$(LOCATE)) $(call objdisk,root.rel) to $(call mapdisk,$@) $(LOCATEOPT) STACKSIZE(120) print($(call lstdisk,root.map)) >nul
+	@del $(OBJDIR)\root.rel
+
+#
+$(OBJDIR)/keyn.abs: $(call objdir,keyn.obj edata.obj)
+	$(LINK) $(call mkclist,$(call objdisk,keyn.obj edata.obj)) to $(call objdisk,keyn.rel) map print($(call lstdisk,keyn.lin))
+	$(LOCATE) $(call objdisk,keyn.rel) to $(call mapdisk,$@) $(LOCATEOPT) CODE(075A2h) STACKSIZE(0) print($(call lstdisk,keyn.map))
+	@del $(OBJDIR)\keyn.rel
+	@$(call chk-link,$(call lstdir,keyn.lin),$@)
+
+## housekeeping rules
+#clean:
+#	del \q *.*~ *~ *.ipx 
+#	del \q $(F0)\*.obj $(F0)\*.abs $(F0)\*.rel $(F0)\*.*~ $(F0)\*~ 
+#	del \q $(F2)\*.*~ $(F2)\*.???
+#
+#vclean: clean
+#	del \q $(RELEASETARGETS) $(F0)\*.???
+#
+#uclean: vclean
+#	del \q ??????.* makefile *.plx .extract
+#
+#gitprep: uclean
+#	..\..\unpack.pl
+#
 

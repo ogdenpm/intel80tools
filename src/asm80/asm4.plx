@@ -41,7 +41,7 @@ IsSkipping: procedure byte public;
 $IF MACRO
         b905E or
 $ENDIF
-        skipping(0);
+        skipIf(0);
 end;
 
 Sub546F: procedure public;

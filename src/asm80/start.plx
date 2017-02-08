@@ -326,7 +326,7 @@ end;
 SourceError: procedure(errCh) public;
     declare errCh byte;
 
-    if not IsSkipping or leftOp = K$ELSE then    /* ELSE */
+    if not IsSkipping or topOp = K$ELSE then    /* ELSE */
     do;
         if inExtrn then
             badExtrn = TRUE;
@@ -441,7 +441,7 @@ $ENDIF
 $IF MACRO
     macro$p = .macroLine;
 $ENDIF
-    skipping(0) = skipping(0) > 0;
+    skipIf(0) = skipIf(0) > 0;
 end;
 
 
@@ -540,9 +540,9 @@ $ENDIF
     if not StrUcEqu(.aCo, .lstFile) then
     do;
         CHKOVL$1;
-        call Ovl9;
+        call FinishPrint;
     end;
     CHKOVL$1;
-    call Ovl10;
+    call FinishAssembly;
 end;
 
