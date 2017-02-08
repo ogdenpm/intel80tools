@@ -1,318 +1,148 @@
 # path to root of build tree
-ROOT=..\..
-# paths of build tool directories
-V4=$(ROOT)\plm80v4
-V3=$(ROOT)\plm80v3
-TOOLS=$(ROOT)\tools
-# the core tools
-ISIS=$(ROOT)\thames
-PLMPP=$(TOOLS)\plmpp
-NGENPEX=$(TOOLS)\ngenpex
-ASM=$(ISIS) :f1:asm80
-PLM=$(ISIS) :f1:plm80
-LINK=$(ISIS) :f1:link
-LOCATE=$(ISIS) :f1:locate
-# the build directories
-SRC=.^\
-LST=.\list
-OBJ=.\obj
+ROOT:=../..
+# path to build directories
+SRCDIR:=src
+LSTDIR:=lst
+OBJDIR:=obj
 
-# mapping to isis directories
-F0=$(OBJ)
-#F1 mapped to $(V3) or $(V4) as appropriate
-F2=$(LST)
-F3=$(SRC)
+include $(ROOT)/tools/isistools.mk
 
-PEXFILE=asm80.pex
-LOCATEOPT=MAP PUBLICS SYMBOLS LINES
-PLMFLAGS=CODE PRINT(:f2:$(*B).lst) OBJECT(:f0:$(*B).obj) DEBUG
+# set default tools disk
+TOOLDSK=$(V31DSK)
 
-# base address of the overlays
-OVERLAY=6D4Ch
 
-# the following are now included from the plm v3.1 system.lib
-#  close.obj delete.obj	error.obj exit.obj load.obj open.obj
-#  read.obj rescan.obj seek.obj write.obj
-# note v4 system.lib orders modules differently
-# an option would be to specify the modules explicitly i.e.
-# system.lib(close,delete,error,exit,load,open,read,rescan,seek,write)
+vpath %.plm $(SRCDIR) $(OBJDIR)
+vpath %.plx $(SRCDIR)
+vpath %.asm $(SRCDIR)
+
+# these are special build rules to preprocess the plx files
+$(OBJDIR)/%m.plm: %.plx
+	$(PLMPP) -sMACRO -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%n.plm: %.plx
+	$(PLMPP) -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%s.plm: %.plx
+	$(PLMPP) -sSMALL -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%b.plm: %.plx
+	$(PLMPP) -sBIG -o $(call mapdisk,$@ $<)
+
+
+# the core build script follows
+# build options
+RELEASETARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
+
+# base address of the overlays and keyn.abs
+SMALLOVL:=6D4Ch
+BIGCODE:=3780h
+KEYCODE:=075A2h
+
+LOCATEOPT:=SYMBOLS LINES
+PURGE:=PURGE
+PLMFLAGS:=DEBUG
+
+PEXFILE:=$(SRCDIR)/asm80.pex
 
 # bulk obj names
-ROOTOBJS = globls.obj starts.obj asm1n.obj asm2n.obj\
+ROOTOBJS := globls.obj starts.obj asm1n.obj asm2n.obj\
 	rdsrc.obj asm3s.obj asm4s.obj asm5n.obj\
 	asm6n.obj pcktok.obj
 
-MACROOBJS = globlm.obj startm.obj pcktok.obj asm1m.obj\
+MACROOBJS := globlm.obj startm.obj pcktok.obj asm1m.obj\
 	asm2m.obj asm4m.obj rdsrc.obj asm3m.obj\
 	asm5m.obj asm6m.obj cntrlm.obj asm8m.obj\
 	emitm.obj listm.obj initm.obj
 
-BIGOBJS = globlb.obj startb.obj pcktok.obj asm1n.obj\
+BIGOBJS := globlb.obj startb.obj pcktok.obj asm1n.obj\
 	asm2n.obj asm4b.obj rdsrc.obj asm3b.obj\
 	asm5n.obj asm6n.obj cntrln.obj emitn.obj\
 	listn.obj initb.obj
 
-RELEASETARGETS = asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
+.PHONY: all verify rebuild clean distclean
+all: .extract $(RELEASETARGETS)
 
-# compilation and assembly rules
-.SUFFIXES: .plm .asm
-
-.plm{$(F0)}.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(NGENPEX) :f3:$(PEXFILE) :f3:$<
-	$(PLM) :f3:$< $(PLMFLAGS)
-	@find $(F2)\$(*B).lst "     0 PROGRAM ERROR(S)" >nul || (del $@ & exit /b 1)
-
-.asm{$(F0)}.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(ASM) :f3:$< PRINT(:f2:$(*B).lst) OBJECT(:f0:$(*B).obj)
-	@find $(F2)\$(*B).lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $@ & exit /b 1)
-
-# the default rule will force the makefile to be up to date
-all: .extract
-
-all:
-	$(MAKE) $(RELEASETARGETS)
-
-rebuild: uclean all
-
-.extract: asm80_all.plm
-	..\..\unpack.pl
+.extract: asm80_all.plm | $(OBJDIR) $(LSTDIR)
+	perl ..\..\unpack.pl
 	date /t >.extract
 
+$(OBJDIR):
+	mkdir $(OBJDIR)
 
+$(LSTDIR):
+	mkdir $(LSTDIR)
 
-# checking targets first making sure files are up to date and cater for makefile change
 verify: all
-	$(MAKE) _verify
+	cmd /c for %i in ($(RELEASETARGETS)) do fc /b %i $(call towin,$(V40))\%i
 
-# this is the real verify
-_verify:
-	for %i in ($(RELEASETARGETS)) do fc /b %i $(V4)\%i
+rebuild: distclean verify
 
 
-# source files generated from shared code
-asm1m.plm asm1n.plm: asm1.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o asm1m.plm $(**F)
-	$(PLMPP) -o asm1n.plm $(**F)
+## build rules to make the program and overlays
+$(OBJDIR)/asm80: $(call objdir,root.abs keyn.abs asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3)
+	$(call link,asm80.rel,$(call objdisk,root.abs keyn.abs asm80.ov3) publics($(call objdisk,asm80.ov0 asm80.ov1 asm80.ov2)))
+	$(call locate,$@,asm80.rel,NAME(ASM80) STACKSIZE(0))
 
-asm5m.plm asm5n.plm: asm5.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o asm5m.plm $(**F)
-	$(PLMPP) -o asm5n.plm $(**F)
+$(OBJDIR)/asm80.ov0: $(call objdir,cprite.obj cntrln.obj root.abs)
+	$(call link,asmov0.rel,$(call objdisk,cprite.obj cntrln.obj) publics($(call objdisk,root.abs)))
+	$(call locate,$@,asmov0.rel,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
 
-asm6m.plm asm6n.plm: asm6.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o asm6m.plm $(**F)
-	$(PLMPP) -o asm6n.plm $(**F)
+$(OBJDIR)/asm80.ov1: $(call objdir,cprite.obj listn.obj root.abs)
+	$(call link,asmov1.rel,$(call objdisk,cprite.obj listn.obj) publics($(call objdisk,root.abs)) $(call tooldisk,plm80.lib))
+	$(call locate,$@,asmov1.rel,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
 
-asm2m.plm asm2n.plm: asm2.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o asm2m.plm $(**F)
-	$(PLMPP) -o asm2n.plm $(**F)
+$(OBJDIR)/asm80.ov2: $(call objdir,cprite.obj emitn.obj root.abs)
+	$(call link,asmov2.rel,$(call objdisk,cprite.obj emitn.obj) publics($(call objdisk,root.abs)))
+	$(call locate,$@,asmov2.rel,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
 
-asm4m.plm asm4b.plm asm4s.plm: asm4.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o asm4m.plm $(**F)
-	$(PLMPP) -sBIG -o asm4b.plm $(**F)
-	$(PLMPP) -sSMALL -o asm4s.plm $(**F)
+$(OBJDIR)/asm80.ov3: $(call objdir,cprite.obj inits.obj root.abs keyn.abs)
+	$(call link,asmov3.rel,$(call objdisk,cprite.obj inits.obj) publics($(call objdisk,root.abs keyn.abs)))
+	$(call locate,$@,asmov3.rel,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
 
-cntrlm.plm cntrln.plm: cntrl.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o cntrlm.plm $(**F)
-	$(PLMPP) -o cntrln.plm $(**F)
+$(OBJDIR)/asm80.ov4: $(call objdir,$(MACROOBJS) keym.obj)
+	$(call link,asmov4.rel,$(call objdisk,$(MACROOBJS)) $(call tooldisk,system.lib plm80.lib) $(call objdisk,keym.obj))
+	$(call locate,$@,asmov4.rel,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144))
 
-listm.plm listn.plm: list.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o listm.plm $(**F)
-	$(PLMPP) -o listn.plm $(**F)
+$(OBJDIR)/asm80.ov5: $(call objdir,$(BIGOBJS) keyn.obj)
+	$(call link,asmov5.rel,$(call objdisk,$(BIGOBJS)) $(call tooldisk,system.lib plm80.lib) $(call objdisk,keyn.obj))
+	$(call locate,$@,asmov5.rel,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144))
 
-emitm.plm emitn.plm: emit.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o emitm.plm $(**F)
-	$(PLMPP) -o emitn.plm $(**F)
+# locate deletes the input file to clean up. copy means we keep the .obj file
+$(OBJDIR)/asxref: $(call objdir,asxref.obj)
+	@copy $(addprefix $(OBJDIR)\,asxref.obj asxref.rel)
+	$(call locate,$@,asxref.rel,CODE(3680h) STACKSIZE(32))
 
-asm3m.plm asm3b.plm asm3s.plm: asm3.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o asm3m.plm $(**F)
-	$(PLMPP) -sBIG -o asm3b.plm $(**F)
-	$(PLMPP) -sSMALL -o asm3s.plm $(**F)
+#
+## rules for intermediate files
+#
+$(OBJDIR)/root.abs: $(call objdir,$(ROOTOBJS))
+	$(call link-nocheck,root.rel,$(call objdisk,$(ROOTOBJS)) $(call tooldisk,system.lib plm80.lib)) >nul
+	$(call locate-nocheck,$@,root.rel,STACKSIZE(120)) >nul
 
-starts.plm startm.plm startb.plm: start.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o startm.plm $**
-	$(PLMPP) -sBIG -o startb.plm $**
-	$(PLMPP) -sSMALL -o starts.plm $**
+#
+$(OBJDIR)/keyn.abs: $(call objdir,keyn.obj edata.obj)
+	$(call link-nocheck,keyn.rel,$(call objdisk,keyn.obj edata.obj))
+	$(call locate-nocheck,$@,keyn.rel,CODE($(KEYCODE)) STACKSIZE(0)) 
 
-globls.plm globlm.plm globlb.plm: globl.plx
-	SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o globlm.plm $**
-	$(PLMPP) -sBIG -o globlb.plm $**
-	$(PLMPP) -sSMALL -o globls.plm $**
-
-initm.plm initb.plm inits.plm: init.plx
-	@SET ISIS_F0=$(F3)
-	$(PLMPP) -sMACRO -o initm.plm $(**F)
-	$(PLMPP) -sBIG -o initb.plm $(**F)
-	$(PLMPP) -sSMALL -o inits.plm $(**F)
-
-# build rules to make the program and overlays
-# creates the debug file versions in $(F0) and purged versions in the $(F3) directory
-$(F0)\asm80 asm80: $(F0)\root.abs $(F0)\asm80.ov0 $(F0)\asm80.ov1 $(F0)\asm80.ov2 $(F0)\asm80.ov3 $(F0)\keyn.abs 
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) root.abs,asm80.ov3,keyn.abs,publics(asm80.ov0,asm80.ov1,asm80.ov2) to asm80.rel map print(:f2:asm80.lin)
-	$(LOCATE) asm80.rel to $(@F) $(LOCATEOPT) STACKSIZE(0) NAME(ASM80) PRINT(:f2:asm80.map)
-	del $(F0)\asm80.rel
-	@find $(F2)\asm80.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asm80.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-$(F0)\asm80.ov0 asm80.ov0: $(F0)\cprite.obj $(F0)\cntrln.obj $(F0)\root.abs
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) cprite.obj,cntrln.obj,publics(root.abs) to asmov0.rel map print(:f2:asmov0.lin)
-	$(LOCATE) asmov0.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O0) PRINT(:f2:asmov0.map)
-	del $(F0)\asmov0.rel
-	@find $(F2)\asmov0.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asmov0.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$(@F) PURGE
-
-
-$(F0)\asm80.ov1 asm80.ov1: $(F0)\cprite.obj $(F0)\listn.obj $(F0)\root.abs
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) cprite.obj,listn.obj,publics(root.abs),:F1:plm80.lib to asmov1.rel map print(:f2:asmov1.lin)
-	$(LOCATE) asmov1.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O1) PRINT(:f2:asmov1.map)
-	del $(F0)\asmov1.rel
-	@find $(F2)\asmov1.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asmov1.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-
-$(F0)\asm80.ov2 asm80.ov2: $(F0)\cprite.obj $(F0)\emitn.obj $(F0)\root.abs 
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) cprite.obj,emitn.obj,publics(root.abs) to asmov2.rel map print(:f2:asmov2.lin)
-	$(LOCATE) asmov2.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O2) PRINT(:f2:asmov2.map)
-	del $(F0)\asmov2.rel
-	@find $(F2)\asmov2.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asmov2.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-$(F0)\asm80.ov3 asm80.ov3: $(F0)\cprite.obj $(F0)\inits.obj $(F0)\root.abs $(F0)\keyn.abs
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) cprite.obj,inits.obj,publics(root.abs,keyn.abs) to asmov3.rel map print(:f2:asmov3.lin)
-	$(LOCATE) asmov3.rel to $(@F) $(LOCATEOPT) CODE($(OVERLAY)) STACKSIZE(0) NAME(A80O3) PRINT(:f2:asmov3.map)
-	del $(F0)\asmov3.rel
-	@find $(F2)\asmov3.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asmov3.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-
-$(F0)\asm80.ov4 asm80.ov4: $(F0)\$(MACROOBJS: = .\obj\) $(F0)\keym.obj
-# initially set F0 to object directory to avoid losts of :f3: prefixes
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) "&" < <<
-$(MACROOBJS: =, & 
-),:f1:system.lib,:f1:plm80.lib,keym.obj to asmov4.rel map print(:f2:asmov4.lin)
-<<NOKEEP
-	$(LOCATE) asmov4.rel to $(@F) NAME(A80O4) "&" < <<
-$(LOCATEOPT) code(3780h) STACKSIZE(144) print(:f2:asmov4.map)
-exit
-<<NOKEEP
-	@find $(F2)\asmov4.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asmov4.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-
-$(F0)\asm80.ov5 asm80.ov5: $(F0)\$(BIGOBJS: = .\obj\) $(F0)\keyn.obj
-# initially set F0 to object directory to avoid losts of :f3: prefixes
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LINK) "&" < <<
-$(BIGOBJS: =, &
-),:f1:system.lib,:f1:plm80.lib,keyn.obj to asmov5.rel map print(:f2:asmov5.lin)
-<<NOKEEP
-	$(LOCATE) asmov5.rel to $(@F) NAME(A80O5) "&" < <<
-$(LOCATEOPT) code(3780h) STACKSIZE(144) print(:f2:asmov5.map)
-exit
-<<NOKEEP
-	@find $(F2)\asmov5.lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\asmov5.map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-$(F0)\asxref asxref: $(F0)\asxref.obj
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	@SET ISIS_F3=$(F3)
-	$(LOCATE) asxref.obj to $(@F) $(LOCATEOPT) code(3680h) order(code,stack,data) stacksize(32) print(:f2:asxref.map)
-	$(LOCATE) $@ to :f3:$@ PURGE
-
-# rules for intermediate files
-
-$(F0)\root.abs: $(F0)\$(ROOTOBJS: = .\obj\)
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	$(LINK) "&" < <<
-$(ROOTOBJS: =, & 
-),:f1:system.lib,:f1:plm80.lib to $(*B).rel print(:f2:$(*B).lin)
-<<NOKEEP
-	$(LOCATE) $(*B).rel to $(@F) $(LOCATEOPT) STACKSIZE(120) print(:f2:$(*B).map)
-	del $*.rel
-	@find $(F2)\$(*B).lin "UNRESOLVED EXTERNAL" >nul || (del $@ & exit /b 1)
-
-
-$(F0)\keyn.abs: $(F0)\keyn.obj $(F0)\edata.obj
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F2=$(F2)
-	$(LINK) keyn.obj,edata.obj to $(*B).rel map print(:f2:$(*B).lin)
-	$(LOCATE) $(*B).rel to $(@F) $(LOCATEOPT) CODE(075A2h) STACKSIZE(0) print(:f2:$(*B).map)
-	del $*.rel
-	@find $(F2)\$(*B).lin "LINK MAP" >nul || (del $@ & exit /b 1)
-	@(find $(F2)\$(*B).map "UNSATISFIED EXTERNAL" >nul && (del $@ & exit /b 1)) || exit /b 0)
-
-# pex file and makefile dependencies
-$(F0)\*.obj: makefile $(PEXFILE)
-
-# housekeeping rules
+## housekeeping rules
 clean:
-	del /q *.*~ *~ *.ipx 
-	del /q $(F0)\*.obj $(F0)\*.abs $(F0)\*.rel $(F0)\*.*~ $(F0)\*~ 
-	del /q $(F2)\*.*~ $(F2)\*.???
+ifneq '$(OBJDIR)' '.'
+	-rmdir /s /q $(OBJDIR) >nul
+else
+	-del /q *.obj *.abs >nul
+endif
+ifneq '$(LSTDIR)' '.'
+	-rmdir /s /q $(LSTDIR) >nul
+else
+	-del /q *.lst *.lin *.map >nul
+endif
 
-vclean: clean
-	del /q $(RELEASETARGETS) $(F0)\*.???
+distclean: clean
+	-del /q $(RELEASETARGETS) >nul
+ifneq '$(SRCDIR)' '.'
+	-rmdir /s /q $(SRCDIR) >nul
+endif
+	-del /q $(call towin,$(filter-out makefile,$(filter-out asm80_all.plm,$(wildcard *.*)))) .extract >nul
+	perl ../../unpack.pl
 
-uclean: vclean
-	del /q ??????.* makefile *.plx .extract
-
-gitprep: uclean
-	..\..\unpack.pl
 
