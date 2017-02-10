@@ -25,16 +25,19 @@ ISIS:=$(ROOT)/thames
 PLMPP:=$(ROOT)/tools/plmpp
 NGENPEX:=$(ROOT)/tools/ngenpex
 
-# ISIS tools
-ASM=$(ISIS) :$(TOOLDSK):asm80
-PLM=$(ISIS) :$(TOOLDSK):plm80
-LINK=$(ISIS) :$(TOOLDSK):link
-LOCATE=$(ISIS) :$(TOOLDSK):locate
-
 # set up the ISIS environment
 V40:=$(ROOT)/plm80v4
 V31:=$(ROOT)/plm80v3
 V30:=$(ROOT)/plm80v30
+
+ISISTOOLS := $(V40)
+
+# ISIS tools
+ASM=$(ISIS) $(call mapdisk,$(ISISTOOLS)/asm80)
+PLM=$(ISIS) $(call mapdisk,$(ISISTOOLS)/plm80)
+LINK=$(ISIS) $(call mapdisk,$(ISISTOOLS)/link)
+LOCATE=$(ISIS) $(call mapdisk,$(ISISTOOLS)/locate)
+
 # and the thames ISIS_Fx environment
 export ISIS_F0 := .
 export ISIS_$(SRCDSK) := $(SRCDIR)
@@ -70,7 +73,7 @@ lst-lst = $(call lstdir,$(basename $(notdir $1)).lst)
 lp=(
 mapdisk = $(strip $(subst !,,\
             $(subst !$(V40)/,:$(V40DSK):,\
-              $(subst !$(V31)/,:$(V30DSK):,\
+              $(subst !$(V31)/,:$(V31DSK):,\
                 $(subst !$(V30)/,:$(V30DSK):,\
                   $(subst !$(OBJDIR)/,:$(OBJDSK):,\
                     $(subst !$(LSTDIR)/,:$(LSTDSK):,\
@@ -106,7 +109,8 @@ define locate
   @find $(call towin,$(call lst-map,$2)) "UNSATISFIED EXTERNAL" >nul && (del $(call towin,$1) && set ERRORLEVEL=1) || set ERRORLEVEL=0
 endef
 
-# the generic build commands
+## the generic build commands
+# the search paths
 vpath %.plm $(SRCDIR) $(OBJDIR)
 vpath %.plx $(SRCDIR)
 vpath %.asm $(SRCDIR)

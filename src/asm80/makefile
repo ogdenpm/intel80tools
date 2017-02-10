@@ -5,6 +5,11 @@ SRCDIR:=src
 LSTDIR:=lst
 OBJDIR:=obj
 
+include $(ROOT)/tools/isistools.mk
+
+# override default tools
+ISISTOOLS := $(V31)
+
 TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
 
 # build options
@@ -12,10 +17,7 @@ LOCATEOPT:=SYMBOLS LINES
 PLMFOPT:=DEBUG
 LINKOPT:=
 
-include $(ROOT)/tools/isistools.mk
 
-# set default tools disk
-TOOLDSK=$(V31DSK)
 
 all: $(TARGETS)
 
