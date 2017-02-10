@@ -7110,42 +7110,24 @@ SRCDIR:=src
 LSTDIR:=lst
 OBJDIR:=obj
 
+TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
+
+# build options
+LOCATEOPT:=SYMBOLS LINES
+PLMFOPT:=DEBUG
+LINKOPT:=
+
 include $(ROOT)/tools/isistools.mk
 
 # set default tools disk
 TOOLDSK=$(V31DSK)
 
-
-vpath %.plm $(SRCDIR) $(OBJDIR)
-vpath %.plx $(SRCDIR)
-vpath %.asm $(SRCDIR)
-
-# these are special build rules to preprocess the plx files
-$(OBJDIR)/%m.plm: %.plx
-	$(PLMPP) -sMACRO -o $(call mapdisk,$@ $<)
-
-$(OBJDIR)/%n.plm: %.plx
-	$(PLMPP) -o $(call mapdisk,$@ $<)
-
-$(OBJDIR)/%s.plm: %.plx
-	$(PLMPP) -sSMALL -o $(call mapdisk,$@ $<)
-
-$(OBJDIR)/%b.plm: %.plx
-	$(PLMPP) -sBIG -o $(call mapdisk,$@ $<)
-
-
-# the core build script follows
-# build options
-RELEASETARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
+all: $(TARGETS)
 
 # base address of the overlays and keyn.abs
 SMALLOVL:=6D4Ch
 BIGCODE:=3780h
 KEYCODE:=075A2h
-
-LOCATEOPT:=SYMBOLS LINES
-PURGE:=PURGE
-PLMFLAGS:=DEBUG
 
 PEXFILE:=$(SRCDIR)/asm80.pex
 
@@ -7164,90 +7146,77 @@ BIGOBJS := globlb.obj startb.obj pcktok.obj asm1n.obj\
 	asm5n.obj asm6n.obj cntrln.obj emitn.obj\
 	listn.obj initb.obj
 
-.PHONY: all verify rebuild clean distclean
-all: .extract $(RELEASETARGETS)
+## build rules to make the program and overlays rel files are intermediate so let make delete them
+.INTERMEDIATE: $(call objdir,asm80.rel asm800.rel asm801.rel asm802.rel asm803.rel asm804.rel asm805.rel root.rel keyn.rel)
 
-.extract: asm80_all.plm | $(OBJDIR) $(LSTDIR)
-	perl ..\..\unpack.pl
-	date /t >.extract
+# Symbols for overlays 0,1,2 and 3 are used in the build of asm80 so the apps are created by purging the symbols
 
-$(OBJDIR):
-	mkdir $(OBJDIR)
+$(call objdir,asm80.rel: root.abs keyn.abs asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3)
+	$(call link,$(call objdir,asm80.rel),$(call objdir,root.abs keyn.abs asm80.ov3) publics($(call objdir,asm80.ov0 asm80.ov1 asm80.ov2)))
+asm80: $(call objdir,asm80.rel)
+	$(call locate,$@,$<,NAME(ASM80) STACKSIZE(0) $(PURGE))
 
-$(LSTDIR):
-	mkdir $(LSTDIR)
+$(call objdir,asm800.rel: cprite.obj cntrln.obj root.abs)
+	$(call link,$@,$(call objdir,cprite.obj cntrln.obj) publics($(call objdir,root.abs)))
+$(call objdir,asm80.ov0: asm800.rel)
+	$(call locate,$@,$<,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
+asm80.ov0: $(OBJDIR)/asm80.ov0 ; $(call rm-symbols,$@,$<)
 
-verify: all
-	cmd /c for %i in ($(RELEASETARGETS)) do fc /b %i $(call towin,$(V40))\%i
+$(call objdir,asm801.rel: cprite.obj listn.obj root.abs)
+	$(call link,$@,$(call objdir,cprite.obj listn.obj) publics($(call objdir,root.abs)) $(call tools-v31,plm80.lib))
+$(call objdir,asm80.ov1: asm801.rel)
+	$(call locate,$@,$<,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
+asm80.ov1: $(OBJDIR)/asm80.ov1 ; $(call rm-symbols,$@,$<)
+	
+$(call objdir,asm802.rel: cprite.obj emitn.obj root.abs)
+	$(call link,$@,$(call objdir,cprite.obj emitn.obj) publics($(call objdir,root.abs)))
+$(call objdir,asm80.ov2: asm802.rel)
+	$(call locate,$@,$<,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
+asm80.ov2: $(OBJDIR)/asm80.ov2 ; $(call rm-symbols,$@,$<)
 
-rebuild: distclean verify
+$(call objdir,asm803.rel: cprite.obj inits.obj root.abs keyn.abs)
+	$(call link,$@,$(call objdir,cprite.obj inits.obj) publics($(call objdir,root.abs keyn.abs)))
+$(call objdir,asm80.ov3: asm803.rel)
+	$(call locate,$@,$<,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
+asm80.ov3: $(OBJDIR)/asm80.ov3 ; $(call rm-symbols,$@,$<)
 
+$(call objdir,asm804.rel: $(MACROOBJS) keym.obj)
+	$(call link,$@,$(call objdir,$(MACROOBJS)) $(call tools-v31,system.lib plm80.lib) $(call objdir,keym.obj))
+asm80.ov4: $(call objdir,asm804.rel)
+	$(call locate,$@,$<,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
-## build rules to make the program and overlays
-$(OBJDIR)/asm80: $(call objdir,root.abs keyn.abs asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3)
-	$(call link,asm80.rel,$(call objdisk,root.abs keyn.abs asm80.ov3) publics($(call objdisk,asm80.ov0 asm80.ov1 asm80.ov2)))
-	$(call locate,$@,asm80.rel,NAME(ASM80) STACKSIZE(0))
+$(call objdir,asm805.rel: $(BIGOBJS) keyn.obj)
+	$(call link,$@,$(call objdir,$(BIGOBJS)) $(call tools-v31,system.lib plm80.lib) $(call objdir,keyn.obj))
+asm80.ov5: $(call objdir,asm805.rel)
+	$(call locate,$@,$<,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
-$(OBJDIR)/asm80.ov0: $(call objdir,cprite.obj cntrln.obj root.abs)
-	$(call link,asmov0.rel,$(call objdisk,cprite.obj cntrln.obj) publics($(call objdisk,root.abs)))
-	$(call locate,$@,asmov0.rel,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
-
-$(OBJDIR)/asm80.ov1: $(call objdir,cprite.obj listn.obj root.abs)
-	$(call link,asmov1.rel,$(call objdisk,cprite.obj listn.obj) publics($(call objdisk,root.abs)) $(call tooldisk,plm80.lib))
-	$(call locate,$@,asmov1.rel,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
-
-$(OBJDIR)/asm80.ov2: $(call objdir,cprite.obj emitn.obj root.abs)
-	$(call link,asmov2.rel,$(call objdisk,cprite.obj emitn.obj) publics($(call objdisk,root.abs)))
-	$(call locate,$@,asmov2.rel,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
-
-$(OBJDIR)/asm80.ov3: $(call objdir,cprite.obj inits.obj root.abs keyn.abs)
-	$(call link,asmov3.rel,$(call objdisk,cprite.obj inits.obj) publics($(call objdisk,root.abs keyn.abs)))
-	$(call locate,$@,asmov3.rel,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
-
-$(OBJDIR)/asm80.ov4: $(call objdir,$(MACROOBJS) keym.obj)
-	$(call link,asmov4.rel,$(call objdisk,$(MACROOBJS)) $(call tooldisk,system.lib plm80.lib) $(call objdisk,keym.obj))
-	$(call locate,$@,asmov4.rel,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144))
-
-$(OBJDIR)/asm80.ov5: $(call objdir,$(BIGOBJS) keyn.obj)
-	$(call link,asmov5.rel,$(call objdisk,$(BIGOBJS)) $(call tooldisk,system.lib plm80.lib) $(call objdisk,keyn.obj))
-	$(call locate,$@,asmov5.rel,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144))
-
-# locate deletes the input file to clean up. copy means we keep the .obj file
-$(OBJDIR)/asxref: $(call objdir,asxref.obj)
-	@copy $(addprefix $(OBJDIR)\,asxref.obj asxref.rel)
-	$(call locate,$@,asxref.rel,CODE(3680h) STACKSIZE(32))
+asxref: $(call objdir,asxref.obj)
+	$(call locate,$@,$<,CODE(3680h) STACKSIZE(32) $(PURGE))
 
 #
 ## rules for intermediate files
 #
-$(OBJDIR)/root.abs: $(call objdir,$(ROOTOBJS))
-	$(call link-nocheck,root.rel,$(call objdisk,$(ROOTOBJS)) $(call tooldisk,system.lib plm80.lib)) >nul
-	$(call locate-nocheck,$@,root.rel,STACKSIZE(120)) >nul
+$(call objdir,root.rel: $(ROOTOBJS))
+	$(call link-nocheck,$@,$^ $(call tools-v31,system.lib plm80.lib))
+$(call objdir,root.abs: root.rel)
+	$(call locate-nocheck,$@,$<,STACKSIZE(120)) 
 
 #
-$(OBJDIR)/keyn.abs: $(call objdir,keyn.obj edata.obj)
-	$(call link-nocheck,keyn.rel,$(call objdisk,keyn.obj edata.obj))
-	$(call locate-nocheck,$@,keyn.rel,CODE($(KEYCODE)) STACKSIZE(0)) 
-
-## housekeeping rules
-clean:
-ifneq '$(OBJDIR)' '.'
-	-rmdir /s /q $(OBJDIR) 
-else
-	-del /q *.obj *.abs 
-endif
-ifneq '$(LSTDIR)' '.'
-	-rmdir /s /q $(LSTDIR)
-else
-	-del /q *.lst *.lin *.map
-endif
-
-distclean: clean
-	-del /q $(RELEASETARGETS)
-ifneq '$(SRCDIR)' '.'
-	-rmdir /s /q $(SRCDIR)
-endif
-	-del /q $(call towin,$(filter-out makefile,$(filter-out asm80_all.plm,$(wildcard *.*)))) .extract
-	perl ../../unpack.pl
+$(call objdir,keyn.rel: keyn.obj edata.obj)
+	$(call link-nocheck,$@,$^)
+$(call objdir,keyn.abs: keyn.rel)
+	$(call locate-nocheck,$@,$<,CODE($(KEYCODE)) STACKSIZE(0)) 
 
 
+# these are special build rules to preprocess the plx files
+$(OBJDIR)/%m.plm: %.plx
+	$(PLMPP) -sMACRO -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%n.plm: %.plx
+	$(PLMPP) -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%s.plm: %.plx
+	$(PLMPP) -sSMALL -o $(call mapdisk,$@ $<)
+
+$(OBJDIR)/%b.plm: %.plx
+	$(PLMPP) -sBIG -o $(call mapdisk,$@ $<)
