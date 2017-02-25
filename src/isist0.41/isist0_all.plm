@@ -89,29 +89,10 @@ DECLARE t0boot LABEL PUBLIC;
    single density, double density and hard disk. It will work
    on both the MDS and the INTELLEC.
 */
-/*
-   the following literal definitions are used to populate the junk data
-   that was in the load space when the isis.t0 file was located into memory
-   if JUNKFILL is set to 0 then then data is uninitialised
+/* several uninitialised data areas contain junk from when the file was located
+   the file junk.asm overlaps this code to initialise this data for an exact match.
+   A previous version of this file did explicit initialisation here but it was clunky
 */
-$SET(JUNKFILL=0FFh)
-$IF JUNKFILL
-DECLARE	JUNK20	LITERALLY	'INITIAL(20h)',
-	JUNK2020 LITERALLY	'INITIAL(2020h)',
-	JUNK2035 LITERALLY	'INITIAL(2035h)',
-	JUNK4SPC LITERALLY	'INITIAL(''    '')',
-	JUNKCHAR LITERALLY	'INITIAL(''CHAR'')',
-	JUNKCOMMA LITERALLY	'INITIAL('','')',
-	JUNKGT LITERALLY	'INITIAL(''>'')';
-$ELSE
-DECLARE	JUNK20	LITERALLY	' ',
-	JUNK2020 LITERALLY	' ',
-	JUNK2035 LITERALLY	' ',
-	JUNK4SPC LITERALLY	' ',
-	JUNKCHAR LITERALLY	' ',
-	JUNKCOMMA LITERALLY	' ',
-	JUNKGT LITERALLY	' ';
-$ENDIF
 
 DECLARE copyright(*) BYTE DATA('(C) 1975,1976,1977,1978,1979,1980 INTEL CORP');
 
@@ -141,17 +122,17 @@ DECLARE	isis$signon(19) BYTE INITIAL(CR, LF, 'ISIS-II, V', 0, '4.', 0, '1', CR, 
 DECLARE initio$base ADDRESS INITIAL(6), initio BASED initio$base BYTE;
 
 DECLARE msg1(7) BYTE INITIAL(CR, LF, 'ERROR'),
-	msg2(4) BYTE JUNK4SPC, /* error number goes here */
+	msg2(4) BYTE, /* error number goes here */
 	msg3(9) BYTE INITIAL(' USER PC '),
-	msg4(4) BYTE JUNK4SPC, /* user PC in hex goes here */
+	msg4(4) BYTE, /* user PC in hex goes here */
 	msg5(2) BYTE INITIAL(CR, LF),
 	msg6(7) BYTE INITIAL('STATUS='),
-	msg7(4) BYTE JUNKCHAR, /* status goes here */
+	msg7(4) BYTE, /* status goes here */
 	msg8(5) BYTE INITIAL(CR, LF, 'D= '),
-	errDisk BYTE JUNKCOMMA,	/* disk with error goes here */
+	errDisk BYTE,	/* disk with error goes here */
 	msg10(5) BYTE INITIAL('   ', CR, LF),
 	messx8(30) BYTE INITIAL(CR, LF, 'ILLEGAL DISK DEVICE AT PORT '), 
-	badDiskPort BYTE JUNKGT, /* disk port high nibble goes here */
+	badDiskPort BYTE, /* disk port high nibble goes here */
 	messx81(4) BYTE INITIAL('8H', CR, LF);
 
 DECLARE sys$flg BYTE AT (0ffffh);	/* 1 for INTELLEC, 0 for MDS */
@@ -170,29 +151,17 @@ DECLARE recal$pb STRUCTURE(
 		nsec BYTE,
 		tadr BYTE,
 		sadr BYTE) INITIAL(80h, 3, 1, 0, 0);
-DECLARE user$status ADDRESS JUNK2020;
-DECLARE pc$p ADDRESS JUNK2035, pc BASED pc$p ADDRESS;
-DECLARE start$addr ADDRESS JUNK2020;
-DECLARE temp BYTE JUNK20,
-	padding ADDRESS JUNK2020;
+DECLARE user$status ADDRESS;
+DECLARE pc$p ADDRESS, pc BASED pc$p ADDRESS;
+DECLARE start$addr ADDRESS;
+DECLARE temp BYTE, padding ADDRESS;
 
-DECLARE disk$error$type ADDRESS JUNK2020;
-DECLARE	hdr$blk ADDRESS JUNK2020;
-DECLARE	i BYTE JUNK20;
-DECLARE stat BYTE JUNK20;
+DECLARE disk$error$type ADDRESS;
+DECLARE	hdr$blk ADDRESS;
+DECLARE	i BYTE;
+DECLARE stat BYTE;
 
-DECLARE config$table(60) BYTE	/* main config table shared with isis.bin */
-$IF JUNKFILL
-	INITIAL	/* junk initialisation to match t0boot.bin file */
-	    (20h, 20h, 44h, 4Fh, 3Bh, 0Dh, 0Ah, 20h, 31h, 36h,
-	     35h, 20h, 20h, 20h, 36h, 20h, 20h, 20h, 20h, 20h,
-	     20h, 20h, 20h, 20h, 20h, 20h, 20h, 20h, 20h, 20h,
-	     20h, 50h, 41h, 52h, 41h, 4Dh, 53h, 28h, 49h, 29h,
-	     2Eh, 44h, 41h, 54h, 28h, 4Ch, 29h, 20h, 3Dh, 20h,
-	     43h, 48h, 41h, 52h, 3Bh, 0Dh, 0Ah, 20h, 31h, 36h),
-$ELSE
-	,
-$ENDIF
+DECLARE config$table(60) BYTE,	/* main config table shared with isis.bin */
 	/* the individual config table elements */
 	t0$dk$cf$tb(10) BYTE AT (.config$table),
 	t0$dk$ct$tb(10) BYTE AT (.config$table + 10),
@@ -878,33 +847,46 @@ eof
 junk.asm
 	name junk
 	ASEG
+
+CR	equ	0dh
+LF	equ	0ah
 ; this file loads specific junk data into memory to make sure isis.t0 is the same
 ; the file is loaded as a binary file, this file recreates the
 ; the data that appears to have been at the locations of the uninitialised data
 ; when the binary snap shot was taken
-; it actually appears to have some partial fragments of a file being edited
+; it actually appears to have some partial fragments of a listing
+
+
 	org	3A81h	; junk data in the stack area
+	db	'G,AUXPTR,TRUE);',CR,LF
+	db	' 163   5              IF '	
 
-	db	47h, 2Ch, 41h, 55h
-	db	58h, 50h, 54h, 52h
-	db	2Ch, 54h, 52h, 55h
-	db	45h, 29h, 3Bh, 0Dh
-	db	0Ah, 20h, 31h, 36h
-	db	33h, 20h, 20h, 20h
-	db	35h, 20h, 20h, 20h
-	db	20h, 20h, 20h, 20h
-	db	20h, 20h, 20h, 20h
-	db	20h, 20h, 20h, 49h
-	db	46h, 20h
 
-	org	3b6ah	; junk in the uninitialised area
-	db	36h, 20h, 20h, 20h
-	db	36h, 20h, 20h, 20h
-	db	20h, 20h, 20h, 20h
-	db	20h, 20h, 20h, 20h
-	db	20h, 20h, 20h, 20h
-	db	20h, 42h
+	org	3AC7h	; msg2
+	db	'    '
+
+	org	3AD4h	; msg4
+	db	'    '
+
+	org	3AE1h	; msg7
+	db	'CHAR'
+
+	org	3AEAh	; errDisk
+	db	','
+
+	org	3B0Eh	; badDiskPort
+	db	'>'
+
+	org	3B1Fh	; user$status to end of data block
+	db	     '  5              DO;',CR,LF
+	db	' 165   6                PARAMS(I).DAT(L) = CHAR;',CR,LF
+	db	' 166   6                B'
+
 	end
+
+
+
+
 
 
 
