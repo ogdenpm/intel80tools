@@ -1,0 +1,900 @@
+isist0.pex
+CR	'0dh'
+LF	'0ah'
+TRUE	'0ffh'
+FALSE	'0'
+# isis commands
+IWRITE	'4'
+ICONSOL	'8'
+IEXIT	'9'
+
+$file(boot.asm)
+isis	P(B cmd,A  parameter$ptr)
+triopb	P(A iopb)
+CO	P(B val)
+IOCHK	PB
+IOSET	P(B val)
+iocdr1	P(B cmd)B 
+
+$file(memchk.asm)
+memchk	PA
+
+$file(t0boot.plm)
+t0boot	L
+
+$file(consol.plm)
+consol	P(A ci$p,A co$p,A status$p)
+
+$file(exit.plm)
+exit	P
+
+$file(write.plm)
+write	P(A conn,A buff$p,A count,A status$p)
+boot.asm
+	public	iocdr1
+	public	triopb
+	public	CO
+	public	IOCHK
+	public	IOSET
+	public	ISIS
+	extrn	t0boot;
+
+	ASEG
+isis	equ	40h
+CO	equ	0F809h
+IOCHK	equ	0F815h
+IOSET	equ	0F818h
+IOCCOM	equ	0F841h
+IOCDR2	equ	0F844h
+WPBC	equ	15h		; write parameter block command
+WPCC	equ	16h		; write parameter block command continuation
+
+	CSEG
+
+	jmp	t0boot
+	db	4dh,2ah,0ch,0edh,0ebh,0cdh	; likley to be junk filler
+	db	8fh,0ebh,2ah,0ch,0edh,3eh,0
+
+iocdr1:	
+	mov	b, c
+	jmp	0F821h		; call the bios directly
+
+triopb:
+	push	b
+	pop	h
+	mov	c, m		; data
+	mvi	b, WPBC		; WPBC - enables 1st of 5 diskette operation bytes
+	call	IOCDR2
+	mvi	d, 4		; 4 remaining bytes
+
+trloop:		
+	inx	h
+	mov	c, m		; data
+	mvi	b, WPCC		; WPBCC	- enables bytes	2-5 of disket operation	bytes
+	call	IOCDR2
+	dcr	d
+	jnz	trloop
+	ret
+
+	end
+
+t0boot.plm
+
+tb:
+do;
+$include(t0boot.ipx)
+DECLARE t0boot LABEL PUBLIC;
+
+/* this version of t0boot has been modified to work on
+   single density, double density and hard disk. It will work
+   on both the MDS and the INTELLEC.
+*/
+/* several uninitialised data areas contain junk from when the file was located
+   the file junk.asm overlaps this code to initialise this data for an exact match.
+   A previous version of this file did explicit initialisation here but it was clunky
+*/
+
+DECLARE copyright(*) BYTE DATA('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP');
+
+/*
+   the following are used as initialisation into the bitmaps to select a drive
+   or determine it's ready status.
+   the 'setConfig' routine populates these into the appropriate slots in config$table
+   the main use is in the isis main file
+*/
+DECLARE ddUnitMap(4) BYTE DATA (00000000b, 00010000b, 00100000B, 00110000B),
+	ddRdyMask(4) BYTE DATA (00000001b, 00000010b, 00100000b, 01000000b),
+	sdUnitMap(4) BYTE DATA (00000000b, 00110000b, 00000000b, 00110000b),
+	sdRdyMask(4) BYTE DATA (00000001b, 00000010b, 00000001b, 00000010b),
+	hdUnitMap(4) BYTE DATA (01000000b, 00000000b, 01010000b, 00010000b),
+	hdRdyMask(4) BYTE DATA (00000001b, 00000001b, 00000010b, 00000010b),
+	mdsmon ADDRESS DATA (0);
+
+DECLARE RTC LITERALLY	'0ffh',		/* real time clock */
+	BOOT LITERALLY	'2';
+/* Input from RTC us a byte. The second bit from the right
+   corresponds so the boot switch. If this bit is 1 the switch is
+   on, and if it 0 the switch is off.
+*/
+
+DECLARE	isis$signon(19) BYTE INITIAL(CR, LF, 'ISIS-II, V', 0, '4.', 0, '3', CR, LF);
+
+DECLARE initio$base ADDRESS INITIAL(6), initio BASED initio$base BYTE;
+
+DECLARE msg1(7) BYTE INITIAL(CR, LF, 'ERROR'),
+	msg2(4) BYTE, /* error number goes here */
+	msg3(9) BYTE INITIAL(' USER PC '),
+	msg4(4) BYTE, /* user PC in hex goes here */
+	msg5(2) BYTE INITIAL(CR, LF),
+	msg6(7) BYTE INITIAL('STATUS='),
+	msg7(4) BYTE, /* status goes here */
+	msg8(5) BYTE INITIAL(CR, LF, 'D= '),
+	errDisk BYTE,	/* disk with error goes here */
+	msg10(5) BYTE INITIAL('   ', CR, LF),
+	messx8(30) BYTE INITIAL(CR, LF, 'ILLEGAL DISK DEVICE AT PORT '), 
+	badDiskPort BYTE, /* disk port high nibble goes here */
+	messx81(4) BYTE INITIAL('8H', CR, LF);
+
+DECLARE sys$flg BYTE AT (0ffffh);	/* 1 for INTELLEC, 0 for MDS */
+DECLARE readDCB	STRUCTURE(
+		iocw BYTE,	/* channel word */
+		ioins BYTE,	/* instruction */
+		nsec BYTE,	/* number of sectors */
+		tadr BYTE,	/* track address */
+		sadr BYTE,	/* sector address */
+		buf ADDRESS)	/* buffer address */
+		INITIAL(80h, 4, 1, 0, 0, 0);
+
+DECLARE recal$pb STRUCTURE(
+		iocw BYTE,
+		ioins BYTE,
+		nsec BYTE,
+		tadr BYTE,
+		sadr BYTE) INITIAL(80h, 3, 1, 0, 0);
+DECLARE user$status ADDRESS;
+DECLARE pc$p ADDRESS, pc BASED pc$p ADDRESS;
+DECLARE start$addr ADDRESS;
+DECLARE temp BYTE, padding ADDRESS;
+
+DECLARE disk$error$type ADDRESS;
+DECLARE	hdr$blk ADDRESS;
+DECLARE	i BYTE;
+DECLARE stat BYTE;
+
+DECLARE config$table(60) BYTE,	/* main config table shared with isis.bin */
+	/* the individual config table elements */
+	t0$dk$cf$tb(10) BYTE AT (.config$table),
+	t0$dk$ct$tb(10) BYTE AT (.config$table + 10),
+	t0$unitmp(10) BYTE AT (.config$table + 20),
+	t0$rdymsk(10) BYTE AT (.config$table + 30),
+	t0$tracksTable(10) BYTE AT (.config$table + 40),
+	t0$sectorsTable(10) BYTE AT (.config$table + 50);
+
+/*
+   these are the target locations in isis.bin
+   an option would have been to use the public symbols from isis.bin
+   but for simiplicity they are hard coded
+*/
+DECLARE dk$cf$tb(10) BYTE AT (7A0h),	/* ISIS internal tables */
+	dk$ct$tb(10) BYTE AT (7BEh),
+	unit$mp(10) BYTE AT (7B4h),
+	rdy$msk(10) BYTE AT (7AAh),
+	tracksTable(10) BYTE AT (2E1Fh),
+	sectorsTable(10) BYTE AT (2E29h);
+
+DECLARE aft(18) STRUCTURE (		/* ISIS intenal aft table */
+		empty	BYTE,
+		device	BYTE,
+		access	BYTE,
+		edit	BYTE,
+		lbuf	ADDRESS,
+		dbuf	ADDRESS,
+		pbuf	ADDRESS,
+		data$ptr BYTE,
+		i$no	ADDRESS,
+		ptr$ptr	BYTE,
+		eofcnt	BYTE,
+		ptr$change BYTE,
+		data$change BYTE,
+		blk$count ADDRESS,
+		blk$seq	ADDRESS,
+		ptr$blk	ADDRESS,
+		hdr$blk	ADDRESS,
+		data$blk$count ADDRESS,
+		dbuf$read BYTE) AT (2AF0h);
+
+DECLARE cli(13) BYTE AT (2D6Fh);		/* used to record boot disk */
+/* end of ISIS.BIN interface */
+
+DECLARE CMSK LITERALLY '0fch';
+
+DECLARE	CON$MASK	LITERALLY	'00001000B',	/* disk controller present */
+	DD$MASK		LITERALLY	'00010000B',	/* DD present */
+	ISD$MASK	LITERALLY	'0001000B',	/* ISD floppy present */
+	READ$STATUS$COMMAND LITERALLY	'01Ch',		/* read status command of ISD */
+
+	ENABL	LITERALLY	'5',			/* pseudo enable of interrupt */
+	DISABL	LITERALLY	'0dh',			/* pseudo disable of interrupt */
+	CPUC	LITERALLY	'0ffh';			/* controller port */
+
+DECLARE DISK$IO$ERROR	LITERALLY	'18h',
+	DRIVE$NOT$READY	LITERALLY	'1eh';
+
+
+
+
+
+	/*
+	  The num procedure converts a number (value) to ascii format @bufaddr
+	  base is the numeric base to use, only 10 and 16 are actually used
+	  the number is assumed to be max of 4 digits
+	*/
+	num: PROCEDURE(value, base, bufaddr);
+		DECLARE value ADDRESS, base BYTE, bufaddr ADDRESS;
+		DECLARE buf based bufaddr(4) BYTE;
+		DECLARE (div, digit) ADDRESS, (i, asciiOffset) BYTE;
+		do i = 1 to 4;
+			asciiOffset = '0';
+			div = value / base;
+			digit = value - div * base;
+			if digit > 9 then
+				asciiOffset = '7';
+			buf(4 - i) = digit + asciiOffset;
+			value = div;
+		end;
+		do i = 0 to 2;
+			if buf(i) = '0' then
+				buf(i) = ' ';
+			else
+				return;
+		end;
+	end;
+
+	/*
+	   The err procedure is used to handle error condiitons.
+           An error message is issued to the console, which for
+           disk errors has extended content
+	   control then passes to the MDS monitor
+
+	   error$type is the error number which identifies the particualar
+		      type of error, such as disk i/o error
+	*/
+	err: PROCEDURE(error$type);
+		DECLARE (error$type, i, imax) BYTE;
+
+		call num(error$type, 10, .msg2);
+		call num(pc, 16, .msg4);
+		call IOSET((IOCHK AND CMSK) OR (initio AND 3));
+		imax = 25;
+		if error$type = DISK$IO$ERROR then
+		do;
+			if high(disk$error$type) <> 0 then
+				disk$error$type = 80h;	
+			imax = 47;
+			call num(disk$error$type, 16, .msg7);
+			errDisk = errDisk OR '0';
+		end;
+		do i = 0 to imax;
+			call co(msg1(i));
+		end;
+		call mdsmon;
+	end;
+
+
+	/*
+	   config dtermins the configuration of disk drive on the system and
+           puts the information into an array called config$table which is
+	   composed of 6 seperate sub arrays each of 10 bytes one for the
+	   possible number of drives
+
+	   The procedure inputs from the ports associated with the disk controllers.
+	   It determines whether the floppy drives is double density, single density or
+	   integrated single density. It also it a hard drive is present in which case this
+	   is used for drives F0..F3.
+
+	   The config$able is significantly different from that documented in the isis internals document
+	   in that it has six sets of information
+	   t0$dk$cf$tb(x) which drives the control logic as follows.
+			  1 for double density, 2 for single density
+			  3 for integrated single density and 4 for the hard disk
+	   t0$dk$ct$tb(x) indicates the controller used as follows. 
+			  1 for the controller at 78h, 2 for controller at 88h
+			  3 for integrated controller and 4 for the hard disk
+	    
+	   t0$unitmp(x)	  bit mask to select the drive
+	   t0$rdymsk(x)	  bit mask to determine if the drive is ready
+	   t0$tracksTable(x)	the number of logical tracks on the drive
+	   t0$sectorsTable(x)	the number of logical sectors per track
+
+	*/ 
+	
+	DECLARE FDCC$STATUS$0	LITERALLY	'78h';
+	DECLARE FDCC$STATUS$1	LITERALLY	'88h';
+	DECLARE HD$STATUS	LITERALLY	'68h';
+	DECLARE RESULT$TYPE$0	LITERALLY	'79h';
+	DECLARE FDCC0$LOW$IOPB	LITERALLY	'79h';
+	DECLARE FDCC0$HIGH$IOPB	LITERALLY	'7Ah';
+	DECLARE RESULT$HD	LITERALLY	'69h';
+	DECLARE HD$LOW$IOPB	LITERALLY	'69h';
+	DECLARE HD$HIGH$IOPB	LITERALLY	'6Ah';
+	DECLARE RESULT$BYTE$0	LITERALLY	'7Bh';
+	DECLARE RESULT$BYTE$1	LITERALLY	'8Bh';
+	DECLARE RESULT$BYTE$HD	LITERALLY	'6Bh';
+
+	DECLARE MAX$RETRIES	LITERALLY	'10',
+		DISK$DONE	LITERALLY	'4',
+		RDBC$COMMAND	LITERALLY	'19h',
+		RRSTS$COMMAND	LITERALLY	'1bh',
+		RDSTS$COMMAND	LITERALLY	'1ch',
+		FDCC0$CONTROLLER LITERALLY	'1',
+		FDCC1$CONTROLLER LITERALLY	'2',
+		HD$CONTROLLER	LITERALLY	'4',
+		DD$TYPE		LITERALLY	'1',
+		SD$TYPE		LITERALLY	'2',
+		ISD$CONTROLLER	LITERALLY	'3',
+		ISD$TYPE	LITERALLY	'3',
+		HD$TYPE		LITERALLY	'4',
+		DISK$READ	LITERALLY	'4';
+
+	config: PROCEDURE;
+		DECLARE i BYTE, padding BYTE, addr ADDRESS, byt BASED addr BYTE;
+
+
+		setConfig: PROCEDURE(slot, end$slot, controllerId, diskType, tracks, sectors, unitMap$p, readyMask$p);
+			DECLARE (slot, end$slot, controllerId, diskType, tracks, sectors) BYTE, (unitMap$p, readyMask$p) ADDRESS;
+			DECLARE unitMap BASED unitMap$p(1) BYTE, readyMask BASED readyMask$p(1) BYTE;
+			DECLARE adjust BYTE;
+
+			adjust = 0;		/* offset to add to allow sharing fo unitMap and readyMask */
+			if slot = 4 then
+				adjust = -4;
+
+			do slot = slot to end$slot;
+				t0$dk$cf$tb(slot) = diskType;
+				t0$dk$ct$tb(slot) = controllerId;
+				t0$unitmp(slot) = unitMap(slot + adjust);
+				t0$rdymsk(slot) = readyMask(slot + adjust);
+				t0$tracksTable(slot) = tracks;
+				t0$sectorsTable(slot) = sectors;
+			end;
+		end;
+
+
+		setConfig$ISD: PROCEDURE(slot);
+			DECLARE slot BYTE;
+
+			t0$dk$cf$tb(slot)  = ISD$CONTROLLER;
+			t0$dk$ct$tb(slot) = ISD$CONTROLLER;
+			t0$unitmp(slot) = 0;
+			t0$rdymsk(slot) = 1;
+			t0$tracksTable(slot) = 76;
+			t0$sectorsTable(slot) = 26;
+		end;
+
+
+		errBadDiskDev: PROCEDURE;
+			do i = 0 to 35;
+				call CO(messx8(i));
+			end;
+			call mdsmon;
+		end;
+
+
+		cli(2) = '0';	/* write the disk drive for the cli load */
+		do i = 0 to 59;	/* size of config$table */
+			config$table(i) = 0;
+		end;
+
+		stat = INPUT(FDCC$STATUS$0);
+		if (stat AND CON$MASK) <> 0 then
+			if (stat AND DD$MASK) <> 0 then	/* double density */
+				/* create F0-F3 */
+				call setConfig(0, 3, FDCC0$CONTROLLER, DD$TYPE, 76, 52, .ddUnitMap, .ddRdyMask);
+			else
+				/* create F0-F1 */
+				call setConfig(0, 1, FDCC0$CONTROLLER, SD$TYPE, 76, 26, .sdUnitMap, .sdRdyMask);
+		stat = INPUT(FDCC$STATUS$1);
+		if (stat and CON$MASK) <> 0 then
+			if (stat AND DD$MASK) <> 0 then	/* only single density supported */
+			do;
+				badDiskPort = '8';	/* convert port to 88H */
+				call errBadDiskDev;
+			end;
+			else
+			do;
+				if t0$dk$cf$tb(2) = 0 AND t0$dk$cf$tb(3) = 0 then
+					i = 0;
+				else
+					i = 2;
+				/* add to more drives, F2-F3 if first are single density else F4-F5 */
+				call setConfig(i + 2, i + 3, FDCC1$CONTROLLER, SD$TYPE, 76, 26, .sdUnitMap, .sdRdyMask);
+			end;
+		/* determine if system is an MDS or INTELLEC. if it is an
+		   INTELLEC, then read statys of the integrated single
+		   density controller and fill config$table accordingly */
+
+		if sys$flg = 1 then	/* system is an INTELLEC */
+		do;
+		    output(0ffh) = 0dh;
+		    i = 25;
+		    do while (INPUT(0c1h) AND 7) <> 0 and (i := i -1) <> 0;
+			; /* input DBB status; loop until F0 = IBF = OBF = 0 */
+		    end;
+		    if i = 0 then
+		    do;
+			output(0FFh) = 5;
+			return;
+		    end;
+		    OUTPUT(0c1h) = RDSTS$COMMAND;
+		    i = 250;	
+		    do while (INPUT(0c1h) AND 7) <> 1 and (i := i -1) <> 0;
+/* to check */		; /* input DBB status; loop until F0 = IBF = OBF = 1 */
+		    end;
+		    if i = 0 then
+		    do;
+			output(0ffh) = 5;
+			return;
+		    end;
+		    stat = input(0c0h);
+		    output(0ffh) = 5;
+		    if (stat AND CON$MASK) <> 0 then
+			if t0$dk$cf$tb(0) = 0 then
+			    call setConfig$ISD(0);
+			else
+			    call setConfig$ISD(4);
+		end;
+		OUTPUT(6fh) = 0;
+		do i = 1 TO 80;		/* delay */
+		end;
+		stat = INPUT(HD$STATUS);
+		if (stat AND CON$MASK) <> 0 then
+			if (stat AND 80h) <> 0 then
+				if (INPUT(RESULT$HD) AND 3) <> 1 then
+				do;
+					badDiskPort = '6';	/* make port 68H */
+					call errBadDiskDev;
+				end;
+				else
+				do;
+					/*
+					  make room for F0-F3 as the hard disk 
+					  this works as the initialisation to 0 occurs earlier
+					  and this loop effectively sets the F0-F3 values for each
+					  sub array to 0 by moving the data.
+					  Also as we haven't populated more than 6 drives
+					  we haven't corrupted the 0 entries
+					*/
+					i = 56;
+					do while i <> 0;
+						config$table(i + 3) = config$table(i - 1);
+						i = i - 1;
+					end;
+					/* create F0-F3 */
+					call setConfig(0, 3, HD$CONTROLLER, HD$TYPE, 199, 144, .hdUnitMap, .hdRdyMask);
+					if (stat AND 1) = 0 then
+						cli(2) = '4';	/* boot is :F4: */
+				end;
+
+	end;
+
+
+	/*
+	   sets the location of the isis.bin file which is located
+	   at slightly different positions based on the boot drive
+	*/
+	setIsisHdrBlk: PROCEDURE;
+		if t0$dk$cf$tb((stat := cli(2)) AND 0Fh) = DD$TYPE then
+			hdr$blk = 206h;		/* double density - track 2 sector 6 */
+		else if t0$dk$cf$tb(cli(2) AND 0Fh) = HD$TYPE then
+			hdr$blk = 21fh;		/* hard drive - track 2 sector 31 */
+		else
+			hdr$blk = 204h;		/* single density - track 2 sector 4 */
+	end;
+
+
+	copyConfigToIsis: PROCEDURE;
+
+		cli(2) = stat;
+		do i = 0 to 9;
+			dk$cf$tb(i) = t0$dk$cf$tb(i);
+			dk$ct$tb(i) = t0$dk$ct$tb(i);
+			unit$mp(i) = t0$unitmp(i);
+			rdy$msk(i) = t0$rdymsk(i);
+			tracksTable(i) = t0$tracksTable(i);
+			sectorsTable(i) = t0$sectorsTable(i);
+		end;
+		if t0$dk$cf$tb(0) = HD$TYPE then
+			do i = 0 to 3;
+				aft(i).blk$count = 124;
+			end;
+	end;
+
+
+	/*
+	   diskio provides access to the FDCC and HD controllers
+	   controller 1 = base address 78h (drives 0, 1, 2, 3 for DD
+					    drives 0, 1 for SD)
+	   controller 2 = base address 88h (drives 2, 3 for SD
+					    or drives 4,5 when 0-3 is DD)
+	   Intergrated single density controller = port 0c1h
+	   hard disk controller = base address 68h (drives 0, 1, 2, 3 if present
+						    also all other drives shited up
+						    to 4+)
+
+	   drive: an integer 0-9, specifying the disk to be accessed
+	   iopb:  the address of a parameter block to be sent to the
+		  FDCC/HD controller. This parameter must be set up
+		  as if it were for drive 0; if 'drive' selects
+		  another drive, 'diskio' will set all the necessary
+		  bits
+
+	   The caller provides a parameter block specifying some
+	   valid disk operation on drive 0 and an integer drive select value
+	   in this boot code only READ and RECAL are used
+	   The procedure waits for the controller to go unbusy, then
+	   performs teh desired action. In case of a controller error,
+	   the disk drive is recalibrated and the action is tried again.
+	   If successful completion cannot be obtained after 'MAX$RETRIES'
+	   attempts, a fatal error occurs, otherwise a normal return is made
+
+	*/
+
+
+
+	diskio:	PROCEDURE(drive, iopb);
+		DECLARE drive BYTE, iopb ADDRESS;
+		DECLARE temp ADDRESS,  (temp2, temp1) BYTE AT (.temp);
+		DECLARE controllerId BYTE;
+		DECLARE (i, ival) BYTE;
+		DECLARE buff$ptr ADDRESS;	/* will be same as dcb.buf */
+		DECLARE buff BASED buff$ptr (128) BYTE;	/* used for data transfer with ISD */
+
+		/* return the disk drive status */
+		disk$stat: PROCEDURE BYTE;
+			if controllerId = ISD$CONTROLLER then
+				return iocdr1(RDSTS$COMMAND);
+			else if controllerId = HD$CONTROLLER then
+				return INPUT(HD$STATUS);
+			else
+				return INPUT(FDCC$STATUS$0);
+		end;
+
+		/* return the result type of a disk operation */
+
+		r$type: PROCEDURE BYTE;
+			if controllerId = ISD$CONTROLLER then
+				return 0;
+			else if controllerId = HD$CONTROLLER then
+				return INPUT(RESULT$HD);
+			else
+				return INPUT(RESULT$TYPE$0);
+		end;
+
+		/* return teh reult byte of a disk operation */
+		r$byte: PROCEDURE BYTE;
+			if controllerId = ISD$CONTROLLER then
+				return iocdr1(RRSTS$COMMAND);
+			else if controllerId = HD$CONTROLLER then
+				return INPUT(RESULT$BYTE$HD);
+			else
+				return INPUT(RESULT$BYTE$0);
+		end;
+
+		/*
+		   start$io outputs the address of the iopb to the disk controller
+		   and in the case of the 8271 ISD involving a data transfer operation
+		   it also transfers the data on a byte by byte basis
+		*/
+		start$io:	PROCEDURE(iopb);
+			DECLARE iopb ADDRESS;
+			DECLARE mappedTrack ADDRESS;
+			DECLARE dcb BASED iopb STRUCTURE (
+					iocw BYTE, ioins BYTE, nsec BYTE,
+					tadr BYTE, sadr BYTE, buf ADDRESS);
+
+			if controllerId = ISD$CONTROLLER then
+			do;
+				call triopb(iopb);
+				do while (disk$stat AND DISK$DONE) = 0;
+					;
+				end;
+				if dcb.ioins = DISK$READ then
+				do;
+					buff$ptr = dcb.buf;	
+					OUTPUT(CPUC) = DISABL;
+					do while (INPUT(0c1h) AND 7) <> 0;
+						; /* input DBB status; loop until F0 = IBF = OBF = 0 */
+					end;
+					OUTPUT(0c1h) = RDBC$COMMAND;
+					do i = 0 to 127;	/* get 128 bytes of data */
+						do while (INPUT(0c1h) AND 7) <> 1;
+							; /* input DBB status; loop until F0 = IBF = 0 AND OBF = 1 */
+						end;
+						buff(i) = INPUT(0c0h);	/* input data from DBB */
+					end;				
+					OUTPUT(CPUC) = ENABL;
+				end;
+			end;
+			else
+			do;
+				/*
+				  for hard disks specially handling is done
+				  in that sectors 1-72 - map to an even track and >72 map to an odd track
+				  also if residule sector is > 36 then the other head is used
+				  finally if the final track is > 255 then an extension bit is set
+				*/
+				 if controllerId = HD$CONTROLLER then
+				do;
+					mappedTrack = DOUBLE(dcb.tadr) * 2;
+					if dcb.sadr > 72 then
+					do;
+						mappedTrack = mappedTrack + 1;
+						dcb.sadr = dcb.sadr - 72;
+					end;
+					if dcb.sadr < 37 then
+						dcb.ioins = dcb.ioins OR 8;
+					else
+						dcb.sadr = dcb.sadr - 36;
+
+					if mappedTrack > 255 then
+						dcb.sadr = dcb.sadr + 80h;
+					dcb.tadr = mappedTrack;
+					dcb.ioins = dcb.ioins OR 40h;
+					OUTPUT(HD$LOW$IOPB) = low(iopb);
+					OUTPUT(HD$HIGH$IOPB) = high(iopb);
+				end;
+				else
+				do;
+					OUTPUT(FDCC0$LOW$IOPB) = low(iopb);
+					OUTPUT(FDCC0$HIGH$IOPB) = high(iopb);
+				end;
+				do while (disk$stat AND 4) = 0;
+					;
+				end;
+			end;
+		end;
+
+		ival = INPUT(0fch);
+		OUTPUT(0fch) = ival OR 2;	/* prevent interrupt 1 from causing reentrancy */
+
+		controllerId = t0$dk$cf$tb(drive);
+		do i = 0 to MAX$RETRIES;
+			do while (disk$stat AND 4) <> 0;
+				temp1 = r$type;
+				temp1 = r$byte;
+			end;
+			if (disk$stat AND 1) = 0 then
+				call	err(DRIVE$NOT$READY);
+
+			call start$io(iopb);
+			temp1 = r$type;
+			if (temp2 := r$byte) = 0 then
+			do;
+				OUTPUT(0FCh) = ival;
+				return;
+			end;
+
+			call start$io(.recal$pb);
+		end;
+		errDisk = drive;
+		disk$error$type = temp;
+		call err(DISK$IO$ERROR);
+	end;
+
+
+
+	/* asbio: accomplishes the transfer of 128 bytes of data from the disk */
+	/*
+	   disk		the drive from which to read
+	   block 	high byte is track number, low byte is the sector number
+	   buffer$ptr	the address of a 128 byte buffer in ram
+	*/
+	absio: PROCEDURE (disk, block, buffer$ptr);
+		DECLARE disk BYTE, (block, buffer$ptr) ADDRESS;
+		readDCB.ioins = DISK$READ;
+		readDCB.tadr = high(block);
+		readDCB.sadr = low(block);
+		readDCB.buf = buffer$ptr;
+		call diskio(disk, .readDCB);
+	end;
+
+
+	/*
+		aldadr loads the absolute ISIS file into memory
+		hdrblk - location of ISIS file
+	
+		returns - address where file is loaded
+		the format of the file is basically the content records
+		from an normal isis executable with the record type, segment id and CRC removed
+	*/
+
+	aldadr: PROCEDURE(hdrblk) ADDRESS;
+		/* load into memory the abs load file at 'hdrblk' */
+		DECLARE hdrblk ADDRESS;
+		DECLARE buf(128) BYTE, bufptr BYTE;
+		DECLARE pointers(64) ADDRESS, ptrptr BYTE;
+		DECLARE loadadr ADDRESS, target BASED loadadr BYTE;
+		DECLARE length ADDRESS;
+
+		DECLARE FLINK	LITERALLY	'1';	/* indexes into the pointers array */
+
+		l1b: PROCEDURE;	/* load 1 byte from buffer into memory */
+			target = buf(bufptr);	
+			bufptr = bufptr + 1;
+			length = length - 1;
+			loadadr = loadadr + 1;
+		end;
+
+		g128b: PROCEDURE(bufadr); /* get 128 bytes into buffer at bufadr */
+			DECLARE bufadr ADDRESS;
+
+			if (ptrptr := ptrptr + 1) = 64 then
+			do;
+				if pointers(FLINK) = 0 then
+					call mdsmon;
+				call absio(stat AND 0fh, pointers(FLINK), .pointers);
+				ptrptr = 2;
+			end;
+			if pointers(ptrptr) = 0 then
+				call mdsmon;
+			call absio(stat AND 0fh, pointers(ptrptr), bufadr);
+		end;
+
+		g1b: PROCEDURE BYTE;	/* get 1 byte */
+			if (bufptr AND 7Fh) = 0 then
+			do;
+				call g128b(.buf);
+				bufptr = 0;
+			end;	
+			bufptr = bufptr + 1;
+			return buf(bufptr - 1);
+		end;
+
+		g2b: PROCEDURE ADDRESS;	/* get 2 bytes */
+			return g1b + (256 * g1b);
+		end;
+
+
+
+
+		pointers(FLINK) = hdrblk;	/* initialisze g128b */
+		ptrptr = 63;
+		bufptr = 0;
+
+	start$loading$next$record:
+		do while TRUE;
+			length = g2b;
+			loadadr = g2b;
+			if length = 0 then
+				return loadadr;
+			do while bufptr <> 128;
+				if length > 0 then
+					call l1b;
+				else
+					goto start$loading$next$record;
+			end;
+			do while length >= 128;
+				call g128b(loadadr);
+				loadadr = loadadr + 128;
+				length = length - 128;
+			end;
+			
+			bufptr = 0;
+			if length <> 0 then
+			do;
+				call g128b(.buf);
+				do while length > 0;
+					call l1b;
+				end;
+			end;
+		end;
+		return loadadr;	/* cannot reach here !! */
+	end;
+
+
+t0boot:
+	temp = INPUT(RESULT$TYPE$0);
+	temp = INPUT(RESULT$BYTE$0);
+	ENABLE;
+	if sys$flg = 0 then	/* system is an MDS, wait for boot switch */
+	do while (INPUT(RTC) AND BOOT) <> 0;
+		;
+	end;
+	call config;
+	call setIsisHdrBlk;
+	start$addr = aldadr(hdr$blk);
+	call copyConfigToIsis;
+	call consol(.MEMORY, .MEMORY, .user$status);
+	call write(0, .isis$signon, 19, .user$status);
+	call exit;
+end;
+eof
+
+consol.plm
+console:
+do;
+$include(consol.ipx)
+
+consol: procedure (ci$p, co$p, status$p) public;
+    declare (ci$p, co$p, status$p) address;
+    call ISIS(ICONSOL, .ci$p);
+end consol;
+end;
+eof
+
+exit.plm
+exit:
+do;
+$include(exit.ipx)
+
+exit: procedure public;
+    declare tmp address;
+    tmp = .tmp;
+    call ISIS(IEXIT, .tmp);
+end exit;
+end;
+eof
+
+memchk.asm
+
+	public MEMCHK
+
+	CSEG
+
+MEMCHK:		
+	call	0F81Bh
+	mov	h, b
+	mov	l, a
+	ret
+
+	end;
+
+write.plm
+write:
+do;
+$include(write.ipx)
+write: procedure (conn, buff$p, count, status$p) public;
+    declare (conn, buff$p, count, status$p) address;
+    call ISIS(IWRITE, .conn);
+end write;
+
+end;
+eof
+
+junk.asm
+	name junk
+	ASEG
+
+CR	equ	0dh
+LF	equ	0ah
+; this file loads specific junk data into memory to make sure isis.t0 is the same
+; the file is loaded as a binary file, this file recreates the
+; the data that appears to have been at the locations of the uninitialised data
+; when the binary snap shot was taken
+; it actually appears to have some partial fragments of a listing
+
+
+	org	3AC9h	; junk data in the stack area
+	db	'                    355 OCRLF:           ;'
+
+	org	3B0Fh	; msg2
+	db	'ne f'
+
+	org	3B1Ch	; msg4
+	db	'nito'
+
+	org	3B29h	; msg7
+	db	CR,LF,'  '
+
+	org	3B32h	; errDisk
+	db	'3'
+
+	org	3B56h	; badDiskPort
+	db	'C'
+
+	org	3B67h	; user$status to end of data block
+	db	'  CALL CONOUT    ; this r'
+
+	end
+
+
