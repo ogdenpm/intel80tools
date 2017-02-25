@@ -25,7 +25,7 @@ uppercase	p(b ch)b
 wdelimit	p(a ptr)a
 write		p(a conn,a buff$p,a count,a status$p)
 
-dblank.pl3
+dblank.plm
 DEBLANK: DO;
 
 deblank: procedure(ptr) address public;
@@ -39,7 +39,7 @@ deblank: procedure(ptr) address public;
 end;
 
 end;
-dlimit.pl3
+dlimit.plm
 DELIMIT: DO;
 
 delimit: procedure(ptr) address public;
@@ -52,7 +52,7 @@ delimit: procedure(ptr) address public;
 	return ptr;
 end;
 end;
-filerr.pl3
+filerr.plm
 FILEERROR: DO;
 $include(filerr.ipx)
 
@@ -72,7 +72,7 @@ file$error: procedure(status, ptr, callExit) public;
 	end;
 end;
 end;
-forupp.pl3
+forupp.plm
 FORCEUPPER: DO;
 $include(forupp.ipx)
 
@@ -86,7 +86,7 @@ forceupper: procedure(bufferPtr) public;
 	end;
 end;
 end;
-meq.pl3
+meq.plm
 MEQ: DO;
 
 meq: procedure(mPtr, fptr) byte public;
@@ -111,7 +111,7 @@ meq: procedure(mPtr, fptr) byte public;
 end;
 end;
 
-reperr.pl3
+reperr.plm
 REPORTERROR: DO;
 $include(reperr.ipx)
 
@@ -195,7 +195,7 @@ reportError: procedure(errNum) public;
 end;
 end;
 
-seq.pl3
+seq.plm
 SEQ: DO;
 seq: procedure(s1, s2, cnt) byte public;
 	declare (s1,s2) address, cnt byte;
@@ -211,7 +211,7 @@ seq: procedure(s1, s2, cnt) byte public;
 end;
 end;
 
-upcase.pl3
+upcase.plm
 UPPERCASE: DO;
 uppercase: procedure(char) byte public;
 	declare char byte;
@@ -223,7 +223,7 @@ uppercase: procedure(char) byte public;
 end;
 end;
 
-wdlmt.pl3
+wdlmt.plm
 WDELIMIT: DO;
 wdelimit: procedure(ptr) address public;
 	declare ptr address;
@@ -237,7 +237,7 @@ wdelimit: procedure(ptr) address public;
 end;
 end;
 
-cli.pl3
+cli.plm
 CLI:
 DO;
 DECLARE VERSION$LEVEL LITERALLY '04H',
@@ -346,76 +346,4 @@ monitr:
         RET
 ;  end;
 	end
-
-makefile
-TARGET=isis.cli
-NAME=CLI
-STACK=68
-# common makefile info
-ISIS=..\..\thames
-V4=../../plm80v4/
-V3=../../plm80v3/
-F0=./
-TOOLS=..\..\tools
-PEXFILE=cli.pex
-
-PLMFLAGS=code optimize
-
-OBJS=	cli.obj dblank.obj dlimit.obj filerr.obj forupp.obj monitr.obj seq.obj\
-	reperr.obj upcase.obj wdlmt.obj 
-
-.SUFFIXES: .asm .pl3
-.pl3.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
-	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
-
-.asm.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:ASM80 $< 
-	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
-
-.pl3.ipx:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	@SET ISIS_F3=$(F3)
-	$(TOOLS)\ngenpex $(PEXFILE) $<
-all:	.depend
-all:
-	$(MAKE) $(TARGET)
-
-$(TARGET): $(OBJS)
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(V3)
-	$(ISIS) :F1:LINK "&" < <<
-$(OBJS: =,&
-),:f1:system.lib,:f1:plm80.lib TO $*.rel MAP print($*.lmp)
-<<NOKEEP
-	$(ISIS) :F1:LOCATE $*.rel to $@ print($*.map) code(3680H) name($(NAME)) stacksize($(STACK)) map symbols publics purge
-	@del $*.rel
-	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
-
-$(OBJS): makefile
-
-filerr.ipx forupp.ipx reperr.ipx cli.ipx : $(PEXFILE)
-
-.depend: cli_all.plm
-	..\..\unpack.pl
-	..\..\mkdepend.pl
-	date /t >.depend
-
-verify: all
-	fc /b $(TARGET) $(TARGET).ref
-
-clean:
-       	del *.*~ *.obj *.lst *~ *.map *.imp
-
-vclean: clean
-	del *.ipx .depend *.pex
-
-gitprep: vclean
-	del *.asm *.pl3 $(TARGET) makefile
-	..\..\unpack.pl
 

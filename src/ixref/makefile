@@ -1,71 +1,32 @@
+# path to root of build tree
+ROOT := ../..
+TARGETS := ixref
 
-# common makefile info
-ISIS=..\..\thames
-PLMDIR=..\..\plm80v4
-ASMDIR=..\..\plm80v4
-OLDPLMDIR=..\..\plm80v3
-TOOLS=..\..\tools
-#PLMFLAGS=optimize symbols code debug
-PLMFLAGS=optimize code IXREF
-OBJS = ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj
-IXIS= $(OBJS:obj=ixi)
+# build options
+LOCATEOPT:=SYMBOLS LINES
+PLMFOPT:=OPTIMIZE IXREF
+LINKOPT:=
 
-.SUFFIXES: .plm
-.plm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
-	@if not exist $*.obj exit /b 1
+include $(ROOT)/tools/isistools.mk
 
-.plm.ipx:
-	@SET ISIS_F0=.
-	$(TOOLS)\ngenpex ixref.pex $<
+# set default tools
+COMPARE := $(ROOT)/tools/diffbin
+REFDIR:=$(V31)
 
-	
-all: .extract
+PEXFILE:=ixref.pex
 
-all:
-	$(MAKE) ixref
+OBJ =	ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj
+IXIS = $(subst .obj,.ixi,$(OBJ))
 
-ixref: $(OBJS)
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	@SET ISIS_F2=$(OLDPLMDIR)
-	$(ISIS) :F1:LINK $(OBJS: =,),:F2:system.lib,:F1:PLM80.LIB TO $*.REL
-	$(ISIS) :F1:LOCATE $*.REL TO $* CODE(3880H) PRINT($*.map)  SYMBOLS PUBLICS PURGE order(code stack data) stacksize(136)
-	..\..\relst.pl $*.map $(OBJS:.obj=.lst)
+all: $(TARGETS)
+
+ixref: $(OBJ)
+	$(call link,ixref.rel,$^ $(call tools-v31,system.lib plm80.lib))
+	$(call locate,$@,ixref.rel,code(3880H) stacksize(136) purge)
+	@del ixref.rel
 
 # invokes ixref on itself. Note the library functions are shown as unresolved as
 # their source is not included
 ixref.ixo: all
-	$(TOOLS)\mkisisdir.pl
-	@SET ISIS_F0=.
-	$(ISIS) :F0:ixref $(IXIS: =,) PRINT($@)
-
-*.ipx: ixref.pex
-*.obj: makefile
-
-.extract: ixref_all.plm
-	..\..\unpack.pl
-	date /t >.extract
-
-verify: all
-	fc /b ixref ixref.ref
-
-clean:
-	del /q *.obj *.tmp *.lst *.prn *.rel *.map *.ix? ISIS.DIR
-
-vclean: clean
-	del /q ixref *.ipx *.pex .extract
-
-gitprep: vclean
-	..\..\unpack.pl
-	del /q ??????.plm *.pex
-
-# auto generated
-ixref.obj: ixref.plm ixref.ipx
-ixref2.obj: ixref2.plm ixref2.ipx
-ixref3.obj: ixref3.plm ixref3.ipx
-ixref4.obj: ixref4.plm ixref4.ipx
-ixref6.obj: ixref6.plm ixref6.ipx
-ixref7.obj: ixref7.plm ixref7.ipx
+	perl $(ROOT)/tools/mkisisdir.pl
+	$(ISIS) ixref $(subst $(space),$(comma),$(IXIS)) print($@)

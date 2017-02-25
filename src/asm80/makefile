@@ -17,9 +17,8 @@ LOCATEOPT:=SYMBOLS LINES
 PLMFOPT:=DEBUG
 LINKOPT:=
 
-
-
-all: $(TARGETS)
+all:
+	$(MAKE) $(TARGETS)
 
 # base address of the overlays and keyn.abs
 SMALLOVL:=6D4Ch
@@ -28,7 +27,18 @@ KEYCODE:=075A2h
 
 PEXFILE:=$(SRCDIR)/asm80.pex
 
-# bulk obj names
+# object lists
+ASMOBJ := root.abs keyn.abs asm80.ov3
+ASMPUB := asm80.ov0 asm80.ov1 asm80.ov2 
+OV0OBJ := cprite.obj cntrln.obj
+OV0PUB := root.abs
+OV1OBJ := cprite.obj listn.obj
+OV1PUB := root.abs
+OV2OBJ := cprite.obj emitn.obj
+OV2PUB := root.abs
+OV3OBJ := cprite.obj inits.obj
+OV3PUB := root.abs keyn.abs
+
 ROOTOBJS := globls.obj starts.obj asm1n.obj asm2n.obj\
 	rdsrc.obj asm3s.obj asm4s.obj asm5n.obj\
 	asm6n.obj pcktok.obj
@@ -43,49 +53,52 @@ BIGOBJS := globlb.obj startb.obj pcktok.obj asm1n.obj\
 	asm5n.obj asm6n.obj cntrln.obj emitn.obj\
 	listn.obj initb.obj
 
-## build rules to make the program and overlays rel files are intermediate so let make delete them
-.INTERMEDIATE: $(call objdir,asm80.rel asm800.rel asm801.rel asm802.rel asm803.rel asm804.rel asm805.rel root.rel keyn.rel)
+KEYOBJS := keyn.obj edata.obj
 
+
+## build rules to make the program and overlays
 # Symbols for overlays 0,1,2 and 3 are used in the build of asm80 so the apps are created by purging the symbols
 
-$(call objdir,asm80.rel: root.abs keyn.abs asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3)
-	$(call link,$(call objdir,asm80.rel),$(call objdir,root.abs keyn.abs asm80.ov3) publics($(call objdir,asm80.ov0 asm80.ov1 asm80.ov2)))
-asm80: $(call objdir,asm80.rel)
-	$(call locate,$@,$<,NAME(ASM80) STACKSIZE(0) $(PURGE))
+asm80: $(call objdir,$(ASMOBJ) $(ASMPUB))
+	$(call link,$(call obj-rel,asm80),$(call objdir,$(ASMOBJ)) publics($(call objdir,$(ASMPUB))))
+	$(call locate,$@,$(call obj-rel,asm80),NAME(ASM80) STACKSIZE(0) $(PURGE))
+	@$(call rm,$(call objdir,asm80.rel))
 
-$(call objdir,asm800.rel: cprite.obj cntrln.obj root.abs)
-	$(call link,$@,$(call objdir,cprite.obj cntrln.obj) publics($(call objdir,root.abs)))
-$(call objdir,asm80.ov0: asm800.rel)
-	$(call locate,$@,$<,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
-asm80.ov0: $(OBJDIR)/asm80.ov0 ; $(call rm-symbols,$@,$<)
+asm80.ov0: $(call objdir,asm80.ov0) ; $(call rm-symbols,$@,$<)
+$(call objdir,asm80.ov0: $(OV0OBJ) $(OV0PUB))
+	$(call link,$(call obj-rel,asm800),$(call objdir,$(OV0OBJ)) publics($(call objdir,$(OV0PUB))))
+	$(call locate,$@,$(call obj-rel,asm800),NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
+	@$(call rm,$(call obj-rel,asm800))
 
-$(call objdir,asm801.rel: cprite.obj listn.obj root.abs)
-	$(call link,$@,$(call objdir,cprite.obj listn.obj) publics($(call objdir,root.abs)) $(call tools-v31,plm80.lib))
-$(call objdir,asm80.ov1: asm801.rel)
-	$(call locate,$@,$<,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
-asm80.ov1: $(OBJDIR)/asm80.ov1 ; $(call rm-symbols,$@,$<)
+
+asm80.ov1: $(call objdir,asm80.ov1) ; $(call rm-symbols,$@,$<)
+$(call objdir,asm80.ov1: $(OV1OBJ) $(OV1PUB))
+	$(call link,$(call obj-rel,asm801),$(call objdir,$(OV1OBJ)) publics($(call objdir,$(OV1PUB))) $(call tools-v31,plm80.lib))
+	$(call locate,$@,$(call obj-rel,asm801),NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
+	@$(call rm,$(call obj-rel,asm801))
+
 	
-$(call objdir,asm802.rel: cprite.obj emitn.obj root.abs)
-	$(call link,$@,$(call objdir,cprite.obj emitn.obj) publics($(call objdir,root.abs)))
-$(call objdir,asm80.ov2: asm802.rel)
-	$(call locate,$@,$<,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
-asm80.ov2: $(OBJDIR)/asm80.ov2 ; $(call rm-symbols,$@,$<)
+asm80.ov2: $(call objdir,asm80.ov2) ; $(call rm-symbols,$@,$<)
+$(call objdir,asm80.ov2: $(OV2OBJ) $(OV2PUB))
+	$(call link,$(call obj-rel,asm802),$(call objdir,$(OV2OBJ)) publics($(call objdir,$(OV2PUB))))
+	$(call locate,$@,$(call obj-rel,asm802),NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
+	@$(call rm,$(call obj-rel,asm802))
 
-$(call objdir,asm803.rel: cprite.obj inits.obj root.abs keyn.abs)
-	$(call link,$@,$(call objdir,cprite.obj inits.obj) publics($(call objdir,root.abs keyn.abs)))
-$(call objdir,asm80.ov3: asm803.rel)
-	$(call locate,$@,$<,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
-asm80.ov3: $(OBJDIR)/asm80.ov3 ; $(call rm-symbols,$@,$<)
+asm80.ov3: $(call objdir,asm80.ov3) ; $(call rm-symbols,$@,$<)
+$(call objdir,asm80.ov3: $(OV3OBJ) $(OV3PUB))
+	$(call link,$(call obj-rel,asm803),$(call objdir,$(OV3OBJ)) publics($(call objdir,$(OV3PUB))))
+	$(call locate,$@,$(call obj-rel,asm803),NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
+	@$(call rm,$(call obj-rel,asm803))
 
-$(call objdir,asm804.rel: $(MACROOBJS) keym.obj)
-	$(call link,$@,$(call objdir,$(MACROOBJS)) $(call tools-v31,system.lib plm80.lib) $(call objdir,keym.obj))
-asm80.ov4: $(call objdir,asm804.rel)
-	$(call locate,$@,$<,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
+asm80.ov4: $(call objdir,$(MACROOBJS) keym.obj)
+	$(call link,$(call obj-rel,asm804),$(call objdir,$(MACROOBJS)) $(call tools-v31,system.lib plm80.lib) $(call objdir,keym.obj))
+	$(call locate,$@,$(call obj-rel,asm804),NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
+	@$(call rm,$(call obj-rel,asm804))
 
-$(call objdir,asm805.rel: $(BIGOBJS) keyn.obj)
-	$(call link,$@,$(call objdir,$(BIGOBJS)) $(call tools-v31,system.lib plm80.lib) $(call objdir,keyn.obj))
-asm80.ov5: $(call objdir,asm805.rel)
-	$(call locate,$@,$<,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
+asm80.ov5: $(call objdir,$(BIGOBJS) keyn.obj)
+	$(call link,$(call obj-rel,asm805),$(call objdir,$(BIGOBJS)) $(call tools-v31,system.lib plm80.lib) $(call objdir,keyn.obj))
+	$(call locate,$@,$(call obj-rel,asm805),NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
+	@$(call rm,$(call obj-rel,asm805))
 
 asxref: $(call objdir,asxref.obj)
 	$(call locate,$@,$<,CODE(3680h) STACKSIZE(32) $(PURGE))
@@ -93,16 +106,16 @@ asxref: $(call objdir,asxref.obj)
 #
 ## rules for intermediate files
 #
-$(call objdir,root.rel: $(ROOTOBJS))
-	$(call link-nocheck,$@,$^ $(call tools-v31,system.lib plm80.lib))
-$(call objdir,root.abs: root.rel)
-	$(call locate-nocheck,$@,$<,STACKSIZE(120)) 
+$(call objdir,root.abs: $(ROOTOBJS))
+	$(call link-nocheck,$(call obj-rel,root),$^ $(call tools-v31,system.lib plm80.lib))
+	$(call locate-nocheck,$@,$(call obj-rel,root),STACKSIZE(120)) 
+	@$(call rm,$(call obj-rel,root))
 
 #
-$(call objdir,keyn.rel: keyn.obj edata.obj)
-	$(call link-nocheck,$@,$^)
-$(call objdir,keyn.abs: keyn.rel)
-	$(call locate-nocheck,$@,$<,CODE($(KEYCODE)) STACKSIZE(0)) 
+$(call objdir,keyn.abs: $(KEYOBJS))
+	$(call link-nocheck,$(call obj-rel,keyn),$^)
+	$(call locate-nocheck,$@,$(call obj-rel,keyn),CODE($(KEYCODE)) STACKSIZE(0)) 
+	@$(call rm,$(call obj-rel,keyn))
 
 
 # these are special build rules to preprocess the plx files
@@ -117,3 +130,4 @@ $(OBJDIR)/%s.plm: %.plx
 
 $(OBJDIR)/%b.plm: %.plx
 	$(PLMPP) -sBIG -o $(call mapdisk,$@ $<)
+

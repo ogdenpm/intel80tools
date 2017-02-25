@@ -1,157 +1,60 @@
-TARGET = link
-NAME = LINK
-OVERLAY = link.ovl
-OVERLAYNAME = LINKOVL
-#
-# common makefile info
-ISIS=..\..\thames
-V4=../../plm80v4/
-V3=../../plm80v3/
-F0=./
-TOOLS=..\..\tools
-PEXFILE=link80.pex
+# path to root of build tree
+ROOT := ../..
+TARGETS := link link.ovl
 
-OBJ0 =	link.obj link1a.obj wrerr.obj memmov.obj errrpt.obj binasc.obj \
+# build options
+LOCATEOPT:=SYMBOLS LINES PUBLICS
+PLMFOPT:=DEBUG
+LINKOPT:=
+
+include $(ROOT)/tools/isistools.mk
+
+# set default tools
+COMPARE := $(ROOT)/tools/diffbin
+
+PEXFILE:=link.pex
+
+LINKOBJ := link0.abs link1.abs link2.abs
+LINKPUB := linkov.abs
+LINKOVOBJ := linkov.obj
+LINKOVPUB := link0.abs
+OBJ0 :=	link.obj link1a.obj wrerr.obj memmov.obj errrpt.obj binasc.obj \
 	strequ.obj skpspc.obj pstafn.obj pstfn.obj isis.obj isisen.obj
 PUB1 =	link0.abs
-OBJ1 =	link3.obj
+OBJ1 :=	link3.obj
 PUB2 = 	link0.abs link1.abs
-OBJ2 =	link3a.obj mkfnam.obj lineuc.obj
-OBJOVL =linkov.obj
+OBJ2 :=	link3a.obj mkfnam.obj lineuc.obj
+OBJOVL := linkov.obj
 
-# compilation and assembly rules
-.SUFFIXES: .plm .pl3
-.plm.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:PLM80 $< code
-	@if not exist $*.obj exit /b 1
-
-.plm.ipx:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F3=$(F3)
-	$(TOOLS)\ngenpex $(PEXFILE) $<
-
-.pl3.ipx:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	@SET ISIS_F3=$(F3)
-	$(TOOLS)\ngenpex $(PEXFILE) $<
-
-.pl3.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V3)
-	$(ISIS) :F1:PLM80 $< code
-	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del $*.obj & exit /b 1)
-
-.asm.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:ASM80 $< 
-	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
-
-
-all:	.depend
-all:
-	$(MAKE) $(TARGET) $(OVERLAY)
-
+all: $(TARGETS)
 
 # link build rule
-$(TARGET): link0.abs link1.abs link2.abs linkov.abs
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link link0.abs,link1.abs,link2.abs,PUBLICS(linkov.abs) to $*.rel
-	$(ISIS) :F1:locate "&" < <<
-$*.rel TO $@ MAP PRINT($*.map) SYMBOLS PURGE PUBLICS &
-STACKSIZE(0) COLUMNS(3) NAME(LINK) PURGE
-<<NOKEEP
-	@del $*.rel
-	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
+link: $(LINKOBJ) $(LINKPUB)
+	$(call link,link.rel,$(LINKOBJ) publics($(LINKPUB)))
+	$(call locate,$@,link.rel,STACKSIZE(0) COLUMNS(3) NAME(LINK) $(PURGE))
+	@del link.rel
 
-$(OVERLAY): link0.abs linkov.obj
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link publics(link0.abs),linkov.obj,:F1:system.lib,:f1:plm80.lib To linkov.rel
-	$(ISIS) :F1:locate "&" < <<
-linkov.rel to $@ MAP PRINT(linkov.map) SYMBOLS PUBLICS&
-code(48DEH) stacksize(0) purge name(LINKOVL)
-<<NOKEEP
+link.ovl: $(LINKOVOBJ) $(LINKOVPUB)
+	$(call link,linkov.rel,$(LINKOVOBJ) publics($(LINKOVPUB)) $(call tools-v40,system.lib plm80.lib))
+	$(call locate,$@,linkov.rel,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
 	@del linkov.rel
-	@(find $*.map "UNSATISFIED EXTERNAL" >NUL && exit /b 1) || exit /b 0
-
 
 link0.abs: $(OBJ0)
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link "&" < <<
-$(**: =,&
-),:f1:plm80.lib to $*.rel
-<<NOKEEP
-	$(ISIS)	:F1:locate $*.rel to $@ SYMBOLS PUBLICS STACKSIZE(84) COLUMNS(3)
-	@del $*.rel
-	@if not exist $@ exit /b 1
+	$(call link-nocheck,link0.rel,$^ $(call tools-v40,plm80.lib))
+	$(call locate-nocheck,$@,link0.rel,STACKSIZE(84) COLUMNS(3))
+	@del link0.rel
 
-link1.abs: $(PUB1) $(OBJ1)
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link publics($(PUB1: =,)),$(OBJ1: =,),:F1:plm80.lib to $*.rel MAP
-	$(ISIS) :F1:locate $*.rel to $@ SYMBOLS PUBLICS CODE(48DEH) STACKSIZE(0)
-#	@del $*.rel
-	@if not exist $@ exit /b 1
+link1.abs: $(OBJ1) $(PUB1)
+	$(call link-nocheck,link1.rel,$(OBJ1) publics($(PUB1)) $(call tools-v40,plm80.lib))
+	$(call locate-nocheck,$@,link1.rel,CODE(48DEH) STACKSIZE(0))
+	@del link1.rel
 
-link2.abs: $(OBJ2)
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:link "&" < <<
-publics($(PUB2: =,)),$(OBJ2: =,),&
-:F1:system.lib(delete),:f1:system.lib to $*.rel MAP
-<<NOKEEP
-	$(ISIS) :f1:locate $*.rel to $@ SYMBOLS PUBLICS CODE(629DH) STACKSIZE(0)
-	@del $*.rel
-	@if not exist $@ exit /b 1
+link2.abs: $(OBJ2) $(PUB2)
+	$(call link-nocheck,link2.rel,$(OBJ2) publics($(PUB2)) $(call tools-v40,system.lib(delete) system.lib))
+	$(call locate-nocheck,$@,link2.rel,CODE(629DH) STACKSIZE(0))
+	@del link2.rel
 
 linkov.abs: $(OBJOVL)
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:locate $*.obj TO $@ SYMBOLS PUBLICS CODE(48DEH) STACKSIZE(0)
-	@if not exist $@ exit /b 1
-
-$(OBJ0:.obj=.ipx) : $(PEXFILE)
-$(OBJ1:.obj=.ipx) : $(PEXFILE)
-$(OBJ2:.obj=.ipx) : $(PEXFILE)
-$(OBJOVL:.obj=.ipx) : $(PEXFILE)
-
-.depend: link80_all.plm
-	..\..\unpack.pl
-	..\..\mkdepend.pl
-	date /t >.depend
-
-clean:
-	del *.obj *lst *.map *.*~ *~ *.abs *.rel
-
-vclean: clean
-	del *.ipx $(TARGET) $(OVERLAY)
-
-uclean: vclean
-	del makefile .depend ??????.* *.asm
-verify: all
-	$(TOOLS)\diffbin $(TARGET) $(V4)$(TARGET)
-	$(TOOLS)\diffbin $(OVERLAY) $(V4)$(OVERLAY)
-
-gitprep: uclean
-	..\..\unpack.pl
+	$(call locate-nocheck,$@,$<,CODE(48DEH) STACKSIZE(0))
 
 
-# auto generated
-errrpt.obj: errrpt.plm errrpt.ipx
-isis.obj: isis.plm isis.ipx
-lineuc.obj: lineuc.plm lineuc.ipx
-link.obj: link.plm link.ipx
-link1a.obj: link1a.plm link1a.ipx
-link3.obj: link3.plm link3.ipx
-link3a.obj: link3a.plm link3a.ipx
-linkov.obj: linkov.plm linkov.ipx
-mkfnam.obj: mkfnam.plm mkfnam.ipx
-pstafn.obj: pstafn.plm pstafn.ipx
-wrerr.obj: wrerr.plm wrerr.ipx

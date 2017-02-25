@@ -1,63 +1,22 @@
 # common makefile info
 ROOT=../..
-ISIS=$(ROOT:/=\)\thames
-TOOLS=$(ROOT:/=\)\tools
-F0=./
-# alternatives for :F1:
-V4=$(ROOT)/plm80v4
-V3=$(ROOT)/plm80v3
+TARGETS=plm80.lib
+REFDIR=ref
+pLMFOpT=code optimize
+ASMFOpT=
+KEEP=1
+include $(ROOT)/tools/isistools.mk
 
-TARGET=plm80.lib
+OBJS=	p0000.obj p0002.obj p0004.obj p0007.obj p0011.obj p0014.obj \
+	p0018.obj p0020.obj p0022.obj p0025.obj p0029.obj p0031.obj \
+	p0034.obj p0036.obj p0039.obj p0042.obj p0045.obj p0048.obj \
+	p0050.obj p0052.obj p0055.obj p0059.obj p0061.obj p0064.obj \
+	p0066.obj p0069.obj p0071.obj p0073.obj p0075.obj p0077.obj \
+	p0080.obj p0082.obj p0084.obj p0086.obj p0089.obj p0091.obj \
+	p0094.obj p0096.obj p0098.obj p0101.obj p0103.obj p0105.obj \
+	p0106.obj p0108.obj p0110.obj p0113.obj prmsk.obj psmsk.obj
 
-PLMFLAGS=code optimize
-ASMFLAGS=
+all: $(TARGETS)
 
-OBJS=	P0000.obj P0002.obj P0004.obj P0007.obj P0011.obj P0014.obj \
-	P0018.obj P0020.obj P0022.obj P0025.obj P0029.obj P0031.obj \
-	P0034.obj P0036.obj P0039.obj P0042.obj P0045.obj P0048.obj \
-	P0050.obj P0052.obj P0055.obj P0059.obj P0061.obj P0064.obj \
-	P0066.obj P0069.obj P0071.obj P0073.obj P0075.obj P0077.obj \
-	P0080.obj P0082.obj P0084.obj P0086.obj P0089.obj P0091.obj \
-	P0094.obj P0096.obj P0098.obj P0101.obj P0103.obj P0105.obj \
-	P0106.obj P0108.obj P0110.obj P0113.obj PRMSK.obj PSMSK.obj
-
-.SUFFIXES: .asm
-.asm.obj:
-	@SET ISIS_F0=$(F0)
-	@SET ISIS_F1=$(V4)
-	$(ISIS) :F1:ASM80 $< $(ASMFLAGS)
-	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del $*.obj & exit /b 1)
-
-
-$(TARGET): $(OBJS)
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(V4)
-	del $@
-	$(ISIS) :F1:lib < <<
-create $@
-add $(**: =,&
-) TO $@
-exit
-<<NOKEEP
-
-ref:	$(OBJS:P=ref/@P)
-
-$(OBJS:P=ref/@P):
-	$(TOOLS)\delib.pl $(V4)/$(TARGET) ref
-
-verify: ref $(OBJS)
-	for %i in ($(OBJS)) do $(TOOLS)\diffbin %i ref/@%i
-
-clean:
-       	del *.*~ *.obj *.lst *~
-
-vclean: clean
-	del $(TARGET) 
-
-uclean:	vclean
-	del /Q makefile *.asm ref\*.obj
-
-gitprep: uclean
-	..\..\unpack.pl
-
-# auto generated
+plm80.lib: $(OBJS)
+	$(call lib,$@,$^)
