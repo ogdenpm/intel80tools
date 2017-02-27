@@ -172,7 +172,7 @@ vpath %.rel $(OBJDIR)
 $(OBJDIR)/%.obj: %.plm  | $(filter-out .,$(OBJDIR) $(LSTDIR))
 	$(if $(PEXFILE),$(NGENPEX) $(call mapdisk,$(PEXFILE) $<),perl $(ROOT)/tools/makedepend.pl $@ $<)
 	$(ISIS) $(call mapdisk,$(PLM) $< CODE PRINT($(call lst-lst,$<)) OBJECT($@) $(PLMOPT))
-	-@del $(OBJDIR)\$*.ipx 2>nul
+	$(if $(KEEP),,-@del $(OBJDIR)\$*.ipx 2>nul)
 	@if not exist $(call towin,$@) exit 1
 
 # a variant of the above to support generated source in a separate object directory
@@ -180,7 +180,7 @@ ifneq '$(OBJDIR)' '.'
   $(OBJDIR)/%.obj: $(OBJDIR)/%.plm  | $(filter-out .,$(OBJDIR) $(LSTDIR))
 	$(if $(PEXFILE),$(NGENPEX) $(call mapdisk,$(PEXFILE) $<),perl $(ROOT)/tools/makedepend.pl $@ $<)
 	$(ISIS) $(call mapdisk,$(PLM) $< CODE PRINT($(call lst-lst,$<)) OBJECT($@) $(PLMOPT))
-	-@del $(OBJDIR)\$*.ipx >nul
+	$(if $(KEEP),,-@del $(OBJDIR)\$*.ipx >nul)
 	@if not exist $(call towin,$@) exit 1
 endif
 
