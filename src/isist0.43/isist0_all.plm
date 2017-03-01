@@ -94,6 +94,25 @@ DECLARE t0boot LABEL PUBLIC;
    A previous version of this file did explicit initialisation here but it was clunky
 */
 
+/* start of copyright over written in WSI version with
+   mvi	c,6	; LOAD
+   lxi  d,lParam ; load parameters
+   call 40h	; call ISIS
+   hlt
+lParam:
+   dw	wsiFil	; WSI file name
+   dw	0	; bias
+   dw	1	; control switch
+   dw	entry
+   dw	status
+wsiFil:
+   db	':F4:WSI '
+entry:
+   ds	2	; 9,
+status:
+		; 1980...
+*/
+
 DECLARE copyright(*) BYTE DATA('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP');
 
 /*
@@ -433,7 +452,7 @@ DECLARE DISK$IO$ERROR	LITERALLY	'18h',
 		    if i = 0 then
 		    do;
 			output(0ffh) = 5;
-			return;
+			return;	/* NOP in WSI version */
 		    end;
 		    stat = input(0c0h);
 		    output(0ffh) = 5;
@@ -447,9 +466,9 @@ DECLARE DISK$IO$ERROR	LITERALLY	'18h',
 		do i = 1 TO 80;		/* delay */
 		end;
 		stat = INPUT(HD$STATUS);
-		if (stat AND CON$MASK) <> 0 then
-			if (stat AND 80h) <> 0 then
-				if (INPUT(RESULT$HD) AND 3) <> 1 then
+		if (stat AND CON$MASK) <> 0 then	/* WSI version jz is replaced with nops i.e. fall through */
+			if (stat AND 80h) <> 0 then	/* WSI version jz is replaced with nops i.e. fall through */
+				if (INPUT(RESULT$HD) AND 3) <> 1 then	/* always goes to else part in WSI version */
 				do;
 					badDiskPort = '6';	/* make port 68H */
 					call errBadDiskDev;
@@ -830,7 +849,7 @@ $include(exit.ipx)
 exit: procedure public;
     declare tmp address;
     tmp = .tmp;
-    call ISIS(IEXIT, .tmp);
+    call ISIS(IEXIT, .tmp);	/* call replaced with jmp to load WSI code in WSI version */
 end exit;
 end;
 eof
