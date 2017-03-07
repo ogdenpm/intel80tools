@@ -573,7 +573,7 @@ ChkBadSectors: procedure(disk) address public;
 		b5860 byte, (w5861, w5863, status) address;
 	declare struct based w585E structure(b0 byte, w1 address, w3 address);	
 
-	sub4561: procedure;
+	ChkFixedSectors: procedure;
 		if (logicalTrack = 0 and (logicalSector < 1Ch or logicalSector = 58h or logicalSector > 72h))
 		  or (logicalTrack = 1 and (logicalSector < 40h or (48h < logicalSector and logicalSector < 88h)))
 		  or (logicalTrack = 2 and logicalSector < 20h) then
@@ -587,9 +587,9 @@ ChkBadSectors: procedure(disk) address public;
 	end;
 
 
-	sub4615: procedure;
+	AddBadSector: procedure;
 		declare (w5867, w5869) address;
-		call sub4561;
+		call ChkFixedSectors;
 		call SetBlock(logicalTrackSector);
 		w585E, w5867 = w585A;
 		w585E = struct.w3;
@@ -651,13 +651,13 @@ newTrap0B:
 	trap0B.jmp = savedTrap0B.jmp;
 	trap0B.target = savedTrap0B.target;
 	if trap0E <> 1 and trap0E <> 10 then
-		call sub4615;
+		call AddBadSector;
 	else
 	do;
 		logicalSector = (logicalSector - 1) - ((logicalSector - 1) mod 36);
 		do b5860 = 1 to 36;
 			logicalSector = logicalSector + 1;
-			call sub4615;
+			call AddBadSector;
 		end;
 	end;
 
