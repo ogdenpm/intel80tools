@@ -1275,109 +1275,108 @@ end;
 ixref6.plm
 ixref6: do;
 $include(ixref6.ipx)
-declare deviceList(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
+declare devTab(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
 
-declare localName(15) byte;
+declare lastPathNameParsed(15) byte;
 
-WPath: procedure(name$p, pn$p, wcUsed$p) byte public;	/* see cusp6.lib */
-	declare (name$p, pn$p, wcUsed$p) address;
-	declare startName address,
-		devName address, (ch1, ch2) byte at (.devName),
-		pair$p address, (noFIle, i, j) byte;
-	declare name based name$p (1) byte;
-	declare nameCh based name$p byte;
-	declare pn based pn$p (1) byte;
-	declare wcUsed based wcUsed$p byte;
-	declare pair based pair$p address;
-	declare startNameCh based startName byte;
+WPath: procedure(pathNamePtr, pn, wcUsed) byte public;	/* see cusp6.lib */
+	declare (pathNamePtr, pn, wcUsed) address;
+	declare ptr address,
+		addr address, (hi, lo) byte at (.addr),
+		devPtr address, (nullName, pl, i) byte;
+	declare pathName based pathNamePtr (1) byte;
+	declare pnStr based pn (1) byte;
+	declare wcUsedFlag based wcUsed byte;
+	declare dev based devPtr address;
+	declare ch based ptr byte;
 	
-	isAmbFileNameCh: procedure byte;
-		return ('A' <= nameCh and nameCh <= 'Z') or
-		       ('0' <= nameCh and nameCh <= '9') or
-		       nameCh = '?' or nameCh = '*' or
-		       ('a' <= nameCh and nameCh <= 'z');
+	NonTerminator: procedure byte;
+		return ('A' <= pathName(0) and pathName(0) <= 'Z') or
+		       ('0' <= pathName(0) and pathName(0) <= '9') or
+		       pathName(0) = '?' or pathName(0) = '*' or
+		       ('a' <= pathName(0) and pathName(0) <= 'z');
 	end;
-	wcUsed = FALSE;
-	pair$p = .deviceList;
-	do j = 0 to 9;
-		pn(j) = 0;
+	wcUsedFlag = FALSE;
+	devPtr = .deviceList;
+	do i = 0 to 9;
+		pnStr(i) = 0;
 	end;
-	do while nameCh = ' ';
-		name$p = name$p + 1;
+	do while pathName(0) = ' ';
+		pathNamePtr = pathNamePtr + 1;
 	end;
 
-	startName = name$p;
-	if nameCh = ':' then
+	ptr = pathNamePtr;
+	if pathName(0) = ':' then
 	do;
-		if name(3) <> ':' then
+		if pathName(3) <> ':' then
 			return 4;	/* incorrectly specified file */
-		name$p = name$p + 1;
-		ch1 = Uppercase(nameCh);
-		name$p = name$p + 1;
-		ch2 = Uppercase(nameCh);
-		name$p = name$p + 2;
-		pn(0) = 0FFh;
-		j = 0;
-		do while j < 57;
-			if pair = devName then
-				pn(0) = shr(j, 1);
-			j = j + 2;
-			pair$p = pair$p + 2;
+		pathNamePtr = pathNamePtr + 1;
+		hi = Uppercase(pathName(0));
+		pathNamePtr = pathNamePtr + 1;
+		lo = Uppercase(pathName(0));
+		pathNamePtr = pathNamePtr + 2;
+		pnStr(0) = 0FFh;
+		i = 0;
+		do while i < 57;
+			if dev = addr then
+				pnStr(0) = shr(i, 1);
+			i = i + 2;
+			devPtr = devPtr + 2;
 		end;
-		if pn(0) = 0FFh then
-			return 5;	/* unrecognized device name */
+		if pnStr(0) = 0FFh then
+			return 5;	/* unrecognized device pathName */
 	end;
-	noFIle = TRUE;
-	j = 1;
-	do while j < 7;
-		if isAmbFileNameCh then
+	nullName = TRUE;
+	i = 1;
+	do while i < 7;
+		if NonTerminator then
 		do;
-			pn(j) = Uppercase(nameCh);
-			if nameCh = '*' then
-				do while j < 7;
-					wcUsed = TRUE;
-					pn(j) = '*';
-					j = j + 1;
+			pnStr(i) = Uppercase(pathName(0));
+			if pathName(0) = '*' then
+				do while i < 7;
+					wcUsedFlag = TRUE;
+					pnStr(i) = '*';
+					i = i + 1;
 				end;
-			else if nameCh = '?' then
-				wcUsed = TRUE;
-			name$p = name$p + 1;
-			noFIle = FALSE;
+			else if pathName(0) = '?' then
+				wcUsedFlag = TRUE;
+			pathNamePtr = pathNamePtr + 1;
+			nullName = FALSE;
 		end;
-		j = j + 1;
+		i = i + 1;
 	end;
-	if nameCh = '.' then
+	if pathName(0) = '.' then
 	do;
-		name$p = name$p + 1;
-		j = 7;
-		do while j < 10;
-			if isAmbFileNameCh then
+		pathNamePtr = pathNamePtr + 1;
+		i = 7;
+		do while i < 10;
+			if NonTerminator then
 			do;
-				pn(j) = Uppercase(nameCh);
-				if nameCh = '*' then
-					do while j < 10;
-						wcUsed = TRUE;
-						pn(j) = '*';
-						j = j + 1;
+				pnStr(i) = Uppercase(pathName(0));
+				if pathName(0) = '*' then
+					do while i < 10;
+						wcUsedFlag = TRUE;
+						pnStr(i) = '*';
+						i = i + 1;
 					end;
-				else if nameCh = '?' then
-					wcUsed = TRUE;
-				name$p = name$p + 1;
+				else if pathName(0) = '?' then
+					wcUsedFlag = TRUE;
+				pathNamePtr = pathNamePtr + 1;
 			end;
-			j = j + 1;
+			i = i + 1;
 		end;
 	end;
-	if TestRange(pn(0), 1) <= 9 and noFIle then
+	if TestRange(pnStr(0), 1) <= 9 and nullName then
 		return 17h;	/*  missing filename */
-	i = 0FFh;
-	do while startName < name$p;
-		localName(i := i + 1) = startNameCh;
-		startName = startName + 1;
+	pl = 0FFh;
+	do while ptr < pathNamePtr;
+		lastPathNameParsed(pl := pl + 1) = ch;
+		ptr = ptr + 1;
 	end;
-	if localName(i) = '.' then
+	if lastPathNameParsed(pl) = '.' then
 		return 1Ch;	/* missing extension */
-	localName(i + 1) = ' ';
-	if isAmbFileNameCh or nameCh = '.' or nameCh = ':' then
+	lastPathNameParsed(pl + 1) = ' ';
+	if NonTerminator or pathName(0) = '.' or pathName(0) = ':' then
 		return 4;	/* incorrectly specified file */
 	return 0;
 end;
@@ -1396,16 +1395,16 @@ MatchAmbFileNames: procedure(ambFileName$p, fileName$p) byte public;
 	declare (ambFileName$p, fileName$p) address;
 	declare ambFileName based ambFileName$p (1) byte,
 		fileName based fileName$p (1) byte;
-	declare i byte;
+	declare pl byte;
 
-	do i = 0 to 9;
-		if ambFileName(i) = '?' then
+	do pl = 0 to 9;
+		if ambFileName(pl) = '?' then
 		do;
-			if fileName(i) = 0 then
+			if fileName(pl) = 0 then
 				return FALSE;
 		end;
-		else if ambFileName(i) <> '*' then
-			if ambFileName(i) <> fileName(i) then
+		else if ambFileName(pl) <> '*' then
+			if ambFileName(pl) <> fileName(pl) then
 				return FALSE;
 	end;
 	return TRUE;

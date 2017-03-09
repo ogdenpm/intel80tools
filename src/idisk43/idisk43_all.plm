@@ -146,11 +146,11 @@ declare	w551F address;
 declare	diskType byte public;
 declare	fmtTable(5) structure(t0Interleave byte, t1Interleave byte, interleave  byte,
 		   	      tracks address, bitmapSize address, labBlkSize address)
-		initial(0,  0, 0,   0,     0,    0,
-			1,  4, 5,  76,  200h,  80h,
-			1, 12, 6,  76,  100h,  80h,
-			1, 12, 6,  76,  100h,  80h,
-			7, 16, 9, 199, 11DAh, 0FBh
+		initial(0,  0, 0,   0,     0,    0,	/* controller not present */
+			1,  4, 5,  76,  200h,  80h,	/* 2 board DD */
+			1, 12, 6,  76,  100h,  80h,	/* 2 board SD */
+			1, 12, 6,  76,  100h,  80h,	/* integrated SD */
+			7, 16, 9, 199, 11DAh, 0FBh	/* 2 board HD */
 		);
 declare	inputString(16) byte,	/* no longer used */
 	outputString(16) byte;	/* no longer used */
@@ -356,7 +356,7 @@ end;
 dblank.plm
 deblank: do;
 
-deblank: procedure(ptr) address public;
+Deblank: procedure(ptr) address public;
 	declare ptr address;
 	declare c based ptr byte;
 
@@ -385,14 +385,14 @@ $include(filerr.ipx)
 
 FileError: procedure(status, ptr, callExit) public;
 	declare (status, ptr) address, callExit byte;
-	declare lStatus address;
+	declare actual address;
 
 	if status <> 0 then
 	do;
 		ptr = deblank(ptr);
-		call write(0, .(' '), 1, .lStatus);
-		call write(0, ptr, wdelimit(ptr) - ptr, .lStatus);
-		call write(0, .(','), 1, .lStatus);
+		call write(0, .(' '), 1, .actual);
+		call write(0, ptr, wdelimit(ptr) - ptr, .actual);
+		call write(0, .(','), 1, .actual);
 		call reporterror(status);
 		if callExit then
 			call exit;
@@ -409,12 +409,12 @@ FormatTrack: procedure(disk,sTrack,eTrack,interleave) public;
 	declare (i,j,interTrackSkew) byte, trackBuf(104) byte,
 	dcb DCB$T;
 
-	if diskType = 4 then
+	if diskType = 4 then	/* HD */
 	do;
 		sectors = 36;
 		interTrackSkew = 17;
 	end;
-	else if diskType = 1 then
+	else if diskType = 1 then	/* DD */
 	do;
 		sectors = 52;
 		interTrackSkew = 7;
@@ -531,13 +531,13 @@ end;
 Seq: do;
 $include(seq.ipx)
 
-Seq: procedure(str1, str2, cnt) boolean public;
-	declare (str1,str2) address, cnt byte;
-	declare chrs1 based str1(1) byte;
-	declare chrs2 based str2(1) byte;
+Seq: procedure(s1, s2, len) boolean public;
+	declare (s1,s2) address, len byte;
+	declare chrs1 based s1(1) byte;
+	declare chrs2 based s2(1) byte;
 	declare i byte;
-	cnt = cnt - 1;
-	do i = 0 to cnt;
+	len = len - 1;
+	do i = 0 to len;
 		if chrs1(i) <> chrs2(i) then
 			return FALSE;
 	end;
@@ -559,7 +559,7 @@ declare trap0B structure(jmp byte, target address) at (0bh),
 	trap0E address at (0eh);
 
 declare addrNewTrap0B literally '4432h';	/* address of newTrap0B below */
-declare vec4354 address data(addrNewTrap0B);
+declare trap0BCodeLocation address data(addrNewTrap0B);
 declare mapBase address external;
 declare bitmap based mapBase (1) byte;
 
@@ -631,7 +631,7 @@ ChkBadSectors: procedure(disk) address public;
 	savedTrap0B.jmp = trap0B.jmp;
 	trap0B.jmp = 0c3h;
 	savedTrap0B.target = trap0B.target;
-	trap0B.target = vec4354;
+	trap0B.target = trap0BCodeLocation;
 	logicalTrack = 0;
 
 L43F1:
@@ -662,7 +662,7 @@ newTrap0B:
 	end;
 
 	trap0B.jmp = 0c3h;
-	trap0B.target = vec4354;
+	trap0B.target = trap0BCodeLocation;
 
 L44A8:
 	if (logicalSector := logicalSector + 1) < 91h then
@@ -941,14 +941,14 @@ end;
 numout: do;
 declare digits(*) byte data('0123456789ABCDEF');
 
-numout: procedure(val, base, lc, bufAdr, width) public;
-	declare (val, bufAdr) address, (base, lc, width) byte; 
+Numout: procedure(value, base, lc, bufAdr, width) public;
+	declare (value, bufAdr) address, (base, lc, width) byte; 
 	declare i byte;
 	declare buf based bufAdr (1) byte;
 
 	do i = 1 to width;
-		buf(width - i) = digits(val mod base);
-		val = val / base;	
+		buf(width - i) = digits(value mod base);
+		value = value / base;	
 	end;
 
 	i = 0;
