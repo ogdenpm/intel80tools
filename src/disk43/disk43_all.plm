@@ -1,4 +1,5 @@
-idisk.pex
+disk.pex
+end;
 CR	'0dh'
 LF	'0ah'
 TRUE	'0ffh'
@@ -61,9 +62,11 @@ GetDisk         P(B n)
 $file(gettar.plm)
 GetTarget       P(B device,A buffer$p)B
 
-$file(idisk.plm)
+$file(idisk.plm,format.plm)
 mapBase         A
 diskType        B
+
+$file(idisk.plm)
 singleDrive	B
 
 $file(mvasci.plm)
@@ -83,6 +86,9 @@ SetBlock        P(A adr)
 
 $file(sfierr.plm)
 SFileError      P(A status,A name$p)
+
+$file(unpath.plm)
+Unpath		P(A int,A ext)
 
 $file(upcase.plm)
 UpperCase       P(B char)B
@@ -142,7 +148,7 @@ declare	status address;
 declare	attributeList(*) byte data(1, 2, 4);	/* no longer used */
 declare	tracks byte;
 declare	(srcDisk, targetDisk) byte;
-declare	w551F address;
+declare	unused address;
 declare	diskType byte public;
 declare	fmtTable(5) structure(t0Interleave byte, t1Interleave byte, interleave  byte,
 		   	      tracks address, bitmapSize address, labBlkSize address)
@@ -182,7 +188,7 @@ Initialize: procedure;
 	call FormatTrack(targetDisk, 1, 1, labBlk.fmtTable(1) - '0');
 	call FormatTrack(targetDisk, 2, tracks, labBlk.fmtTable(2) - '0');
 	mapBase = .MEMORY;
-	w551F = ChkBadSectors(targetDisk) + 29;	
+	unused = ChkBadSectors(targetDisk) + 29;	
 	call WriteDirectory(targetDisk);
 	file(6).name(2) = targetDisk + '0';
 	call Open(.aftOut, .file(6), 3, 0, .status);
@@ -346,6 +352,266 @@ entry:
 	call Attrib(.file(3), 1, TRUE, .status);
 	if singleDrive then
 		call GetDisk(0);
+	call Exit;
+end;
+format.plm
+format: do;
+Seek: procedure(conn, mode, block$p, byte$p, status$p) external; /* force load */
+	declare (conn, mode, block$p, byte$p, status$p) address;
+end;
+
+$include(format.ipx)
+declare copyright(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP'),
+	version(*) byte data(4, 0, 'program_version_number=', 1, 'V4.3', 0);
+/*
+	the code block below is loaded into isis.t0 on non system disks to print a message
+	the corresponding asm code is
+
+		ASEG
+		org 3000h
+
+		in	79h
+		in	7Bh
+	L3004:	in	0FFh
+		ani	2
+		jnz	L3004
+		lxi	h, Msg
+		mvi	b, 32
+	L3010:	mov	c, m
+		call	0F809h	; CO
+		inx	h
+		dcr	b
+		jnz	L3010
+		rst	0
+	Msg:	db	0Dh, 0Ah
+		db	'NON-SYSTEM DISK, TRY ANOTHER'
+		db	0Dh, 0Ah
+		end
+*/
+declare codeBlock(*) byte data(0DBh, 79h, 0DBh, 7Bh, 0DBh, 0FFh, 0E6h, 2,
+			       0C2h, 4, 30h, 21h, 1Ah, 30h, 6, 20h, 4Eh,
+			       0CDh, 9, 0F8h, 23h, 5, 0C2h, 10h, 30h, 0C7h,
+			       CR, LF, 'NON-SYSTEM DISK, TRY ANOTHER', CR, LF);
+
+declare buffer(256) byte;
+declare	memSize address;
+declare	actual address;
+declare	pn(12) byte;
+declare	buffer$ptr address, char based buffer$ptr byte;
+declare	(i, j, k) address;	/* k no longer used !! */
+declare	(system, copyAll, copy) boolean;
+declare	(targetDisk, srcDisk) byte;
+declare unused address;
+declare	(aftIn, aftOut, dirAft) address;
+declare	status address;
+declare	attributeList(*) byte data(1, 2, 4);	/* no longer used */
+declare crlf(2) byte data(CR, LF);
+declare	inputString(16) byte,	/* no longer used */
+	outputString(16) byte;	/* no longer used */
+
+declare	t0File(*) byte initial(':FX:ISIS.T0 '),
+	cliFile(*) byte initial(':FX:ISIS.CLI '),
+	binFile(*) byte initial(':FX:ISIS.BIN '),
+	ov0File(*) byte initial(':FX:ISIS.OV0 '),
+	mapFile(*) byte initial(':FX:ISIS.MAP '),
+	labFile(*) byte initial(':FX:ISIS.LAB '),
+	dirFile(*) byte initial(':FX:ISIS.DIR '),
+	badFile(*) byte initial(':FX:ISIS.BAD '),
+	t0File2(*) byte initial(':FX:ISIS.T0 '),
+	labFile2(*) byte initial(':FX:ISIS.LAB '),
+	dirFile2(*) byte initial(':FX:ISIS.DIR ');
+
+declare	diskType byte public;
+
+declare	fmtTable(5) structure(t0Interleave byte, t1Interleave byte, interleave  byte,
+		   	      tracks address, labBlkSize address)
+		initial(0,  0, 0,   0,    0,	/* controller not present */
+			1,  4, 5,  76,  80h,	/* 2 board DD */
+			1, 12, 6,  76,  80h,	/* 2 board SD */
+			1, 12, 6,  76,  80h,	/* integrated SD */
+			7, 16, 9, 199, 0FBh	/* 2 board HD */
+		);
+
+declare mapBase address public;
+declare dirRecord structure(empty byte, file(9) byte, attrib byte, eof$count byte, blk address, hdrBlk address);
+declare pad(2) byte;
+
+declare labBlk structure(name(9) byte,
+			 version(2) byte,
+			 leftOver(38) byte,
+			 crlf(2) byte,
+		         fmtTable(200) byte) at (.buffer);
+
+start:
+	call Read(1, .buffer, 256, .actual, .status);
+	buffer(actual) = CR;
+	call forceUpper(.buffer);
+	bufferPtr = Deblank(.buffer);
+	call Spath(bufferPtr, .pn, .status);
+	if pn(11) = 5 or 6 then
+		status = 0ECh;
+	if pn(11) = 8 then
+		status = 3Dh;
+
+	call FileError(status, bufferPtr, TRUE);
+	targetDisk = GetTarget(pn(0), bufferPtr);
+	diskType = pn(11);
+	t0File(2), cliFile(2), binFile(2), ov0File(2),
+	mapFile(2), labFile(2), dirFile(2), badFile(2) = targetDisk + '0';
+	srcDisk = 0;
+	system = 0;
+	copyAll = 0;
+	
+	bufferPtr = Deblank(Delimit(bufferPtr));
+
+	do while char <> CR;
+		if char = 'S' then
+			system = TRUE;
+		else if char = 'A' then
+			copyAll = TRUE;
+		else if Seq(bufferPtr, .('FROM '), 5) then
+		do;
+			bufferPtr = Deblank(bufferPtr + 5);
+			srcDisk = char - '0';
+			if srcDisk > 9 then
+				call FileError(0c9h, bufferPtr, TRUE);
+		end;
+		else if char <> '$' then
+			call FileError(0c9h, bufferPtr, TRUE);
+		bufferPtr = Deblank(bufferPtr + 1);
+	end;
+
+	if srcDisk = targetDisk then
+	do;
+		call ReportError(0EAh);
+		call Exit;
+	end;
+	else
+		labFile2(2), dirFile2(2), t0File2(2) = srcDisk + '0';
+
+	if targetDisk = 0 and diskType = 4 and not system and not copyAll then
+	do;
+		call Write(0, .('NON-SYSTEM HARD DISK DRIVE 0 NOT ALLOWED', CR, LF), 42, .status);
+		call Exit;
+	end;
+
+	call Open(.aftIn, .labFile2, 1, 0, .status);
+	call FileError(status, .labFile2, TRUE);
+	call Read(aftIn, .buffer, 251, .actual, .status);
+	call FileError(status, .labFile2, TRUE);
+	call Close(aftIn, .status);
+	call FileError(status, .labFile2, TRUE);
+
+	labBlk.fmtTable(0) = fmtTable(diskType).t0Interleave + '0';
+	labBlk.fmtTable(1) = fmtTable(diskType).t1Interleave + '0';
+	do i = 2 to fmtTable(diskType).tracks;
+		labBlk.fmtTable(i) = fmtTable(diskType).interleave + '0';
+	end;
+
+	call FormatTrack(targetDisk, 0, 0, labBlk.fmtTable(0) - '0');
+	call FormatTrack(targetDisk, 1, 1, labBlk.fmtTable(1) - '0');
+	call FormatTrack(targetDisk, 2, fmtTable(diskType).tracks, labBlk.fmtTable(2) - '0');
+
+	mapBase = .MEMORY;
+	unused = ChkBadSectors(targetDisk) + 29;
+	call WriteDirectory(targetDisk);
+	call Open(.aftOut, .labFile, 3, 0, .status);
+	call FileError(status, .labFile, TRUE);
+	call moveAscii(.labBlk, .pn(1), 9);
+
+	call Write(aftOut, .buffer, fmtTable(diskType).labBlkSize, .status);
+	call Close(aftout, .status);
+	call FileError(status, .labFile, TRUE);
+
+	if system or copyAll then
+	do;
+		if copyAll then
+			call Write(0, .('COPYING ALL FILES', CR, LF), 19, .status);
+		else
+			call Write(0, .('COPYING SYSTEM FILES', CR, LF), 22, .status);
+
+		memSize = (Memck - .Memory) and 0ff80h;
+		call Open(.dirAFT, .dirFile2, 1, 0, .status);
+		call FileError(status, .dirFile2, TRUE);
+		dirRecord.empty = 0;
+		do while dirRecord.empty <> 7fh;
+			call Read(dirAft, .dirRecord, size(dirRecord), .actual, .status);
+			call FileError(status, .dirFile2, TRUE);
+			if actual < size(dirRecord) then
+				dirRecord.empty = 7fh;			
+			else if not dirRecord.empty then
+			do;
+				if (dirRecord.attrib and 80h) <> 0 then
+				do;
+					copy = 0;
+					if Seq(.dirRecord.file, .('ISIS',0,0,'BIN'), 9) or
+					   Seq(.dirRecord.file, .('ISIS',0,0,'CLI'), 9) or
+					   Seq(.dirRecord.file, .('ISIS',0,0,'T0'), 8) or
+					   Seq(.dirRecord.file, .('ISIS',0,0,'OV0'), 9) then
+						copy = TRUE;
+				end;
+				else
+					copy = (dirRecord.attrib and 2) <> 0 or copyAll;
+
+				if copy then	
+				do;
+					dirRecord.empty = srcDisk;
+					call Unpath(.dirRecord, .inputString);
+					dirRecord.empty = targetDisk;
+					call Unpath(.dirRecord, .outputString);
+					call Open(.aftOut, .outputString, 3, 0, .status);
+					call FileError(status, .outputString, TRUE);
+					call Open(.aftIn, .inputString, 1, 0, .status);
+					call FileError(status, .inputString, TRUE);
+					actual = memSize;
+					do while actual = memSize;
+						call Read(aftIn, .MEMORY, memSize, .actual, .status);
+						call FileError(status, .inputString, TRUE);
+						call Write(aftOut, .MEMORY, actual, .status);
+					end;
+					
+					call Close(aftOut, .status);
+					call FileError(status, .outputString, TRUE);
+					call Close(aftIn, .status);
+					call FileError(status, .inputString, TRUE);
+					do i = 0 to 2;
+						if (attributeList(i) and dirRecord.attrib) <> 0 then
+						do;
+							call Attrib(.outputString, i, TRUE, .status);
+							call FileError(status, .outputString, TRUE);
+						end;
+					end;
+					/* find end of file name skipping :Fx: */
+					k = Delimit(.inputString + 4) - .inputString - 4;
+					call Write(0, .inputString + 4, k, .status);
+					call Write(0, .crlf, 2, .status);
+				end;
+			end;
+		end;
+		call Close(dirAft, .status);
+	end;
+	else
+	do;
+		call Open(.aftOut, .t0File, 3, 0, .status);
+		call Write(aftOut, .codeBlock, 58, .status);
+		call Close(aftOut, .status);
+		call Delete(.binFile, .status);
+		call Write(0, .('NON-SYSTEM DISK', CR, LF), 17, .status);
+	end;
+
+	call Attrib(.dirFile, 3, 0ffh, .status);
+	call Attrib(.t0File, 3, 0ffh, .status);
+	call Attrib(.labFile, 3, 0ffh, .status);
+	call Attrib(.mapFile, 3, 0ffh, .status);
+	if diskType = 4 then
+		call Attrib(.badFile, 3, 0ffh, .status);
+
+	if system or copyAll then
+	do;
+		call Attrib(.binFile, 3, 0ffh, .status);
+		call Attrib(.cliFile, 3, 0ffh, .status);
+		call Attrib(.ov0File, 3, 0ffh, .status);
+	end;
 	call Exit;
 end;
 
@@ -558,8 +824,7 @@ declare aFatal(*) byte initial(' FATAL'),
 declare trap0B structure(jmp byte, target address) at (0bh),
 	trap0E address at (0eh);
 
-declare addrNewTrap0B literally '4432h';	/* address of newTrap0B below */
-declare trap0BCodeLocation address data(addrNewTrap0B);
+declare trap0BCodeLocation address data(.ChkBadSectors + 0DCh);
 declare mapBase address external;
 declare bitmap based mapBase (1) byte;
 
@@ -890,11 +1155,45 @@ WriteDirectory: procedure(disk) public;
 end;
 end;
 
+unpath.plm
+unpath: do;
+declare devTab(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
 
-fshblk.plm
-FlushBlock: do;
-$include(fshblk.ipx)
 
+Unpath: procedure(int, ext) public;
+	declare (int, ext) address;
+	declare i byte;
+	declare intName based int (1) byte,
+		extName based ext (1) byte;
+
+	extName(0) = ':';
+	i = intName(0);
+	/* map internal device to formal device index */
+	if i > 9 then
+		i = i - 4;
+	else if i > 5 then
+		i = i + 19;
+
+	extName(1) = devTab(i + i);
+	extName(2) = devTab(i + i + 1);
+	extName(3) = ':';
+	ext = ext + 4;
+
+	do i = 0 to 5;
+		if (extName(0) := intName(i + 1)) <> 0 then
+			ext = ext + 1;
+	end;
+	if intName(7) <> 0 then
+	do;
+		extName(0) = '.';
+		ext = ext + 1;
+	end;
+	do i = 0 to 2;
+		if (extName(0) := intName(i + 7)) <> 0 then
+			ext = ext + 1;
+	end;
+	extName(0) = ' ';
+end;
 end;
 absio.plm
 Absio: do;
