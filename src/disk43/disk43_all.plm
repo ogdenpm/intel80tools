@@ -1,11 +1,11 @@
-disk.pex
-end;
+6disk.pex
 CR	'0dh'
 LF	'0ah'
 TRUE	'0ffh'
 FALSE	'0'
 boolean	'byte'
 DCB$T	'STRUCTURE (iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE, buf ADDRESS)'
+DIRECT$T 'structure(empty byte, file(9) byte, attrib byte, eof$count byte, blk address, hdrBlk address)'
 
 Attrib		P(A path$p,A attrib,A on$off,A status$p)
 Close           P(A conn,A status$p)
@@ -37,6 +37,10 @@ ClearBuffer     P(A buf$ptr)
 
 $file(dblank.plm)
 deblank         P(A ptr)A
+
+$file(direct.plm)
+direct		"DIRECT$T"
+directINO	A
 
 $file(diskio.plm)
 Diskio          P(A disk,A dcb$p)
@@ -77,6 +81,9 @@ numout          P(A val,B base,B lc,A bufAdr,B width)
 
 $file(rpterr.plm)
 ReportError     P(A errNum)
+
+$file(scanin.plm)
+ScanInteger	P(A ptrPtr)A
 
 $file(seq.plm)
 Seq             P(A str1,A str2,B cnt)"boolean"
@@ -179,8 +186,6 @@ declare labBlk structure(name(9) byte,
 		         fmtTable(200) byte) at (.buffer);
 declare singleDrive boolean public;
 declare info based next structure(length address, offset address, begin address);
-declare mapBase address public;
-declare padding(18) byte;
 
 
 Initialize: procedure;
@@ -188,7 +193,7 @@ Initialize: procedure;
 	call FormatTrack(targetDisk, 1, 1, labBlk.fmtTable(1) - '0');
 	call FormatTrack(targetDisk, 2, tracks, labBlk.fmtTable(2) - '0');
 	mapBase = .MEMORY;
-	unused = ChkBadSectors(targetDisk) + 29;	
+	unused = ChkBadSectors(targetDisk) + 29;
 	call WriteDirectory(targetDisk);
 	file(6).name(2) = targetDisk + '0';
 	call Open(.aftOut, .file(6), 3, 0, .status);
@@ -228,8 +233,8 @@ entry:
 			bufferPtr = Deblank(bufferPtr + 5);
 			if (srcDisk := char - '0') > 9 then
 				call FileError(0C9h, bufferptr, TRUE);
-		
-		end;	
+
+		end;
 		else if char <> '$' then
 			call FileError(0C9h, bufferPtr, TRUE);
 		bufferPtr = Deblank(bufferPtr + 1);
@@ -259,7 +264,7 @@ entry:
 	do;
 		call Write(0, .('SYSTEM DISK', CR, LF), 13, .status);
 		first = TRUE;
-		next = fmtTable(diskType).bitmapSize + .MEMORY;	
+		next = fmtTable(diskType).bitmapSize + .MEMORY;
 		memSize = Memck - next;
 		fileNumber = 0;
 		hadPrint = 0;
@@ -281,7 +286,7 @@ entry:
 			do;
 				if singleDrive then
 					call GetDisk(2);
-				
+
 				if first then
 				do;
 					call Initialize;
@@ -432,9 +437,7 @@ declare	fmtTable(5) structure(t0Interleave byte, t1Interleave byte, interleave  
 			7, 16, 9, 199, 0FBh	/* 2 board HD */
 		);
 
-declare mapBase address public;
-declare dirRecord structure(empty byte, file(9) byte, attrib byte, eof$count byte, blk address, hdrBlk address);
-declare pad(2) byte;
+
 
 declare labBlk structure(name(9) byte,
 			 version(2) byte,
@@ -461,7 +464,7 @@ start:
 	srcDisk = 0;
 	system = 0;
 	copyAll = 0;
-	
+
 	bufferPtr = Deblank(Delimit(bufferPtr));
 
 	do while char <> CR;
@@ -533,32 +536,32 @@ start:
 		memSize = (Memck - .Memory) and 0ff80h;
 		call Open(.dirAFT, .dirFile2, 1, 0, .status);
 		call FileError(status, .dirFile2, TRUE);
-		dirRecord.empty = 0;
-		do while dirRecord.empty <> 7fh;
-			call Read(dirAft, .dirRecord, size(dirRecord), .actual, .status);
+		direct.empty = 0;
+		do while direct.empty <> 7fh;
+			call Read(dirAft, .direct, size(direct), .actual, .status);
 			call FileError(status, .dirFile2, TRUE);
-			if actual < size(dirRecord) then
-				dirRecord.empty = 7fh;			
-			else if not dirRecord.empty then
+			if actual < size(direct) then
+				direct.empty = 7fh;
+			else if not direct.empty then
 			do;
-				if (dirRecord.attrib and 80h) <> 0 then
+				if (direct.attrib and 80h) <> 0 then
 				do;
 					copy = 0;
-					if Seq(.dirRecord.file, .('ISIS',0,0,'BIN'), 9) or
-					   Seq(.dirRecord.file, .('ISIS',0,0,'CLI'), 9) or
-					   Seq(.dirRecord.file, .('ISIS',0,0,'T0'), 8) or
-					   Seq(.dirRecord.file, .('ISIS',0,0,'OV0'), 9) then
+					if Seq(.direct.file, .('ISIS',0,0,'BIN'), 9) or
+					   Seq(.direct.file, .('ISIS',0,0,'CLI'), 9) or
+					   Seq(.direct.file, .('ISIS',0,0,'T0'), 8) or
+					   Seq(.direct.file, .('ISIS',0,0,'OV0'), 9) then
 						copy = TRUE;
 				end;
 				else
-					copy = (dirRecord.attrib and 2) <> 0 or copyAll;
+					copy = (direct.attrib and 2) <> 0 or copyAll;
 
-				if copy then	
+				if copy then
 				do;
-					dirRecord.empty = srcDisk;
-					call Unpath(.dirRecord, .inputString);
-					dirRecord.empty = targetDisk;
-					call Unpath(.dirRecord, .outputString);
+					direct.empty = srcDisk;
+					call Unpath(.direct, .inputString);
+					direct.empty = targetDisk;
+					call Unpath(.direct, .outputString);
 					call Open(.aftOut, .outputString, 3, 0, .status);
 					call FileError(status, .outputString, TRUE);
 					call Open(.aftIn, .inputString, 1, 0, .status);
@@ -569,13 +572,13 @@ start:
 						call FileError(status, .inputString, TRUE);
 						call Write(aftOut, .MEMORY, actual, .status);
 					end;
-					
+
 					call Close(aftOut, .status);
 					call FileError(status, .outputString, TRUE);
 					call Close(aftIn, .status);
 					call FileError(status, .inputString, TRUE);
 					do i = 0 to 2;
-						if (attributeList(i) and dirRecord.attrib) <> 0 then
+						if (attributeList(i) and direct.attrib) <> 0 then
 						do;
 							call Attrib(.outputString, i, TRUE, .status);
 							call FileError(status, .outputString, TRUE);
@@ -615,9 +618,409 @@ start:
 	call Exit;
 end;
 
+fixmap.plm
+fixmap: do;
+Seek: procedure(conn, mode, block$p, byte$p, status$p) external; /* force load */
+	declare (conn, mode, block$p, byte$p, status$p) address;
+end;
+$include(fixmap.ipx)
+
+declare copyright(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP'),
+	version(*) byte data(4, 0, 'program_version_number=', 1, 'V4.3', 0);
+
+declare	actual address;
+declare aTrkSec(*) byte initial(' ('),
+	aTrack(*) byte initial('***,'),
+	aSector(*) byte initial('***) ');
+declare	aftn address;
+declare badFile(*) byte initial(':F*:ISIS.BAD ');
+declare b4E51 byte;
+declare badFileBuffer(3712) byte, mapFileBuffer(3712) byte;
+declare w6B52 address;
+declare logicalTrackSector address, (logicalSector, logicalTrack) byte at(.logicalTrackSector);
+declare aBadSector(*) byte initial(' ***** BAD SECTORS', CR, LF);
+declare buffer(128) byte;
+declare	bufferPtr address, char based bufferPtr byte;
+declare padding address;
+declare changed boolean initial(FALSE);
+declare w6BEF address;
+declare driveNumber byte;
+declare diskType byte public initial(4);
+declare b6BF3 byte, w6BF4 address, b6BF6 byte;
+declare a6BF7(1) byte initial(' '),
+	a6BF8(*) byte initial('***, '),
+	a6BFD(*) byte initial('***', CR, LF);
+declare b6C02 byte;
+declare mapFile(*) byte initial(':F*:ISIS.MAP ');
+declare (w6C10, w6C12, status) address;
+declare (b6C16, b6C17) byte;
+
+declare	pn(12) byte at(.MEMORY);
+
+	WriteChanges: procedure;
+		if not changed then
+			call Write(0, .(' NO CHANGES',CR,LF), 13, .status);
+		else
+		do;
+			call Attrib(.badFile, 3, 0, .status);
+			call Attrib(.badFile, 2, 0, .status);
+			call Open(.aftn, .badFile, 2, 0, .status);
+			call Write(aftn, .badFileBuffer, 3712, .status);
+			call FileError(status, .badFile, TRUE);
+			call Close(aftn, .status);
+			w6B52 = w6BEF + 29;
+			call Attrib(.badFile, 3, 1, .status);
+			call Attrib(.mapFile, 3, 0, .status);
+			call Attrib(.mapFile, 2, 0, .status);
+			call Open(.aftn, .mapFile, 3, 0, .status);
+			call Write(aftn, .mapFileBuffer, 3712, .status);
+			call FileError(status, .mapFile, TRUE);
+			call Close(aftn, .status);
+			call Attrib(.mapFile, 3, 1, .status);
+			changed = FALSE;
+			call Write(0, .(' CHANGES RECORDED', CR, LF), 19, .status);
+		end;
+	end;
+
+
+
+	sub3D6C: procedure;
+		bufferPtr = .badFileBuffer;
+		do logicalTrack = 0 to 199;
+			logicalSector = 1;
+			do b6C02 = 1 to 18;
+				if (b6C16 := char) = 0 then
+					logicalSector = logicalSector + 8;
+				else
+					do b4E51 =  1 to 8;
+						if (b6C16 := rol(b6C16, 1)) then
+						do;
+							call NumOut(logicalTrack, 10, ' ', .a6BF8, 3);
+							call NumOut(logicalSector, 10, ' ', .a6BFD, 3);
+							call Write(aftn, .a6BF7, 11, .status);
+						end;
+						logicalSector = logicalSector + 1;
+					end;
+				bufferPtr = bufferPtr + 1;
+			end;
+
+		end;
+		if aftn <> 0 then
+			call Write(0, .(' LIST WRITTEN', CR, LF), 15, .status);
+	end;
+
+
+	invalidSyntax: procedure;
+		call FileError(0CBh, bufferPtr, FALSE);
+	end;
+
+	sub3E49: procedure boolean;
+		if char - '0' > 9 then
+		do;
+			call InvalidSyntax;
+			return 0;
+		end;
+		w6C12 = bufferPtr;
+		if (logicalTrack := ScanInteger(.w6C12)) > 0C7h then
+		do;
+			call Write(0, .(' TRACK OUT OF RANGE',CR, LF), 21, .status);
+			return FALSE;
+		end;
+		bufferPtr = Deblank(w6C12);
+		if char - '0' > 9 then
+		do;
+			call InvalidSyntax;
+			return FALSE;
+		end;
+
+		if (logicalSector := ScanInteger(.w6C12)) -1 > 8Fh then
+		do;
+			call Write(0, .(' SECTOR OUT OF RANGE',CR,LF), 22, .status);
+			return FALSE;
+		end;
+
+		bufferPtr = Deblank(w6C12);
+		if char = CR then
+		do;
+			b6C17 = 0;
+			return TRUE;
+		end;
+		else if char <> 'T' then
+		do;
+			call InvalidSyntax;
+			return FALSE;
+		end;
+
+		bufferPtr = Deblank(bufferPtr + 1);
+		if char <> CR then
+		do;
+			call InvalidSyntax;
+			return FALSE;
+		end;
+		b6C17 = TRUE;
+		return TRUE;
+	end;
+
+
+
+
+	writeTrackSector: procedure;
+		call NumOut(logicalTrack, 10, 0, .aTrack, 3);
+		call NumOut(logicalSector, 10, 0, .aSector, 3);
+		call Write(0, .aTrkSec, 11, .status);
+	end;
+
+
+	GetBitStatus: procedure(bufferPtr) byte;
+		declare bufferPtr address, buffer based bufferPtr (1) byte;
+
+		return rol(buffer(18 * logicalTrack + shr(logicalSector - 1, 3)), logicalSector mod 8);
+	end;
+
+
+	MarkSector: procedure;
+		if (logicalTrack = 0 and (logicalSector <= 1Bh or logicalSector >= 73h))
+		    or (logicalTrack = 1 and (3Fh >= logicalSector or (logicalSector >= 49h and 87h >= logicalSector)))
+		    or (logicalTrack = 2 and 1eh >= logicalSector) then
+		do;
+			call writeTrackSector;
+			call Write(0, .('REQUIRED BY ISIS-II',CR,LF), 21, .status);
+			return;
+		end;
+		if GetBitStatus(.mapFileBuffer) then
+		do;
+			call writeTrackSector;
+			if GetBitStatus(.badFileBuffer) then
+				call Write(0, .('ALREADY MARKED',CR,LF), 16, .status);
+			else
+				call Write(0, .('IN USE',CR,LF), 8, .status);
+			return;
+		end;
+
+		mapBase = .mapFileBuffer;
+		call SetBlock(logicalTrackSector);
+		if not GetBitStatus(.badFileBuffer) then
+		do;
+			mapBase = .badFileBuffer;
+			call SetBlock(logicalTrackSector);
+			w6BEF = w6BEF + 1;
+		end;
+
+		changed = TRUE;
+		if not b6C17 then
+			call Write(0, .(' SECTOR MARKED',CR,LF), 16, .status);
+	end;
+
+
+	MarkTrack: procedure;
+		b6BF3 = logicalSector  - ((logicalSector - 1) mod 36);
+		b6BF6 =  b6BF3 + 35;
+		do logicalSector = b6BF3 to b6BF6;
+			call MarkSector;
+		end;
+		call Write(0, .(' TRACK PROCESSED',CR,LF), 18, .status);
+	end;
+
+
+	UnmarkSector: procedure;
+		if not GetBitStatus(.badFileBuffer) then
+		do;
+			call WriteTrackSector;
+			if GetBitStatus(.mapFileBuffer) then
+				call Write(0, .('NOT A BAD SECTOR', CR, LF), 18, .status);
+			else
+				call Write(0, .('ALREADY FREE',CR,LF), 14, .status);
+		end;
+		else
+		do;
+
+		w6BF4 = 18 * logicalTrack + shr(logicalSector - 1, 3);
+		b4E51 = logicalSector mod 8;
+		mapFileBuffer(w6BF4) = ror(rol(mapFileBuffer(w6BF4), b4E51) and 0FEh, b4E51);	/* clear bit */
+		badFileBuffer(w6BF4) = ror(rol(badFileBuffer(w6BF4), b4E51) and 0FEh, b4E51);
+		w6BEF = w6BEF - 1;
+		changed = TRUE;
+		if not b6C17 then
+			call Write(0, .(' SECTOR FREED',CR,LF), 15, .status);
+		end;
+	end;
+
+
+	UnmarkTrack: procedure;
+		b6BF3 =	 logicalSector - ((logicalSector - 1) mod 36);
+		b6BF6 = b6BF3 + 35;
+		do logicalSector = b6BF3 to b6BF6;
+			call UnmarkSector;
+		end;
+		call Write(0, .(' TRACK PROCESSED', CR, LF), 18, .status);
+	end;
+
+
+
+	sub41D7: procedure(str, len) byte;
+		declare str address, len byte;
+		declare strCh based str byte;
+
+		do while char = strCh and len <> 0;
+			bufferPtr = bufferPtr + 1;
+			str = str + 1;
+			len = len - 1;
+		end;
+
+		if 'A' <= char and char <= 'Z' or bufferPtr = w6c10 then
+		do;
+			bufferPtr = w6C10;
+			return 0;
+		end;
+		else
+		do;
+			bufferPtr = Deblank(bufferPtr);
+			return TRUE;
+		end;
+	end;
+
+entry:
+	call Write(0, .('ISIS-II MAP FIXER V1.0', CR, LF), 24, .status);
+	call SPath(.('A '), .pn, .status);
+	if pn(11) <> 4 then
+	do;
+		call Write(0, .(' USE ON HARD DISK SYSTEM ONLY', CR, LF), 31, .status);
+		call Exit;
+	end;
+
+	call Read(1, .buffer, 128, .actual, .status);
+	buffer(actual) = CR;
+	call ForceUpper(.buffer);
+	bufferPtr = Deblank(.buffer);
+	driveNumber = char - '0';
+	if driveNumber > 9 then
+		call FileError(0CBh, bufferPtr, TRUE);
+	else if driveNumber > 3 then
+	do;
+		call Write(0, .(' DRIVE NUMBER OUT OF RANGE', CR, LF), 28, .status);
+		call Exit;
+	end;
+	mapFile(2), badFile(2) = char;
+	bufferPtr = Deblank(bufferPtr + 1);
+	if char <> CR then
+		call FileError(0CBh, bufferPtr, TRUE);
+
+	call Open(.aftn, .mapFile, 1, 0, .status);
+	call FileError(status, .mapFile, TRUE);
+	call Read(aftn, .mapFileBuffer, 3712, .actual, .status);
+	call Close(aftn, .status);
+
+	call Open(.aftn, .badFile, 1, 0, .status);
+	call FileError(status, .badFile, TRUE);
+	call Read(aftn, .badFileBuffer, 3712, .actual, .status);
+	call Close(aftn, .status);
+
+	do while TRUE;
+		call Write(0, .('*'), 1, .status);
+		call Read(1, .buffer, 128, .actual, .status);
+		buffer(actual) = CR;
+		call ForceUpper(.buffer);
+		bufferPtr, w6C10 = Deblank(.buffer);
+		if sub41D7(.('MARK'), 4) then
+		do;
+			if sub3E49 then
+				if b6C17 then
+					call MarkTrack;
+				else
+					call MarkSector;
+		end;
+		else if sub41D7(.('FREE'), 4) then
+		do;
+			if sub3E49 then
+				if b6C17 then
+					call UnmarkTrack;
+				else
+					call UnmarkSector;
+		end;
+		else if sub41D7(.('EXIT'), 4) then
+		do;
+			if char <> CR then
+				call InvalidSyntax;
+			else
+			do;
+				call WriteChanges;
+				call Exit;
+			end;
+		end;
+		else if sub41D7(.('QUIT'), 4) then
+		do;
+			if char <> CR then
+				call InvalidSyntax;
+			else
+				call Exit;
+		end;
+		else if sub41D7(.('RECORD'), 6) then
+		do;
+			if char <> CR then
+				call InvalidSyntax;
+			else
+				call WriteChanges;
+		end;
+		else if sub41D7(.('COUNT'), 5) then
+		do;
+			if char <> CR then
+				call InvalidSyntax;
+			else if w6BEF = 0 then
+				call Write(0, .(' NO BAD SECTORS',CR,LF), 17, .status);
+			else
+			do;
+				call NumOut(w6BEF, 10, 0, .aBadSector + 1, 5);
+				if w6BEF = 1 then
+					aBadSector(17) = 0;
+				else
+					aBadSector(17) = 'S';
+				call Write(0, .aBadSector, 20, .status);
+			end;
+		end;
+		else if sub41D7(.('LIST'), 4) then
+		do;
+			if char = CR then
+				bufferPtr = .(':CO: ',CR);
+			call Spath(bufferPtr, .pn, .status);
+			if status <> 0 then
+				call FileError(status, bufferPtr, FALSE);
+			else if pn(0) = driveNumber then
+				call Write(0, .(' CANNOT LIST TO TARGET DRIVE',CR,LF), 30, .status);
+			else if pn(10) = 0 then
+				call FileError(16h, bufferPtr, FALSE);
+			else
+			do;
+				bufferPtr = Deblank(Delimit(w6C10 := bufferPtr));
+				if char <> CR then
+					call InvalidSyntax;
+				else if w6BEF = 0 then
+					call Write(0, .(' NO BAD SECTORS',CR,LF), 17, .status);
+				else
+				do;
+					call Open(.aftn, w6C10, 2, 0, .status);
+					if status <> 0 then
+						call FileError(status, w6C10, FALSE);
+					else
+						call sub3D6C;
+					call Close(aftn, .status);
+				end;
+			end;
+		end;
+		else if char <> CR then
+			call InvalidSyntax;
+	end;
+end;	/* end of entry */
+
 alloc.plm
 alloc: do;
 declare maskArray(8) byte public data(80h, 40h, 20h, 10h, 8, 4, 2, 1);
+declare mapBase address public;
+end;
+direct.plm
+direct: do;
+$include(direct.ipx)
+declare direct DIRECT$T public;
+declare directINO address public;
 end;
 dblank.plm
 deblank: do;
@@ -690,7 +1093,7 @@ FormatTrack: procedure(disk,sTrack,eTrack,interleave) public;
 		sectors = 26;
 		interTrackSkew = 4;
 	end;
-	
+
 	dcb.iocw = 0c0h;
 	vTracks = sectors * 2 - 1;
 	do i = 1 to vTracks by 2;
@@ -698,7 +1101,7 @@ FormatTrack: procedure(disk,sTrack,eTrack,interleave) public;
 	end;
 
 	j = 0;
-	
+
 	if diskType = 4 then
 	do;
 		sTrack = sTrack * 4;
@@ -723,7 +1126,7 @@ FormatTrack: procedure(disk,sTrack,eTrack,interleave) public;
 		do;
 			dcb.tadr = curTrack / 4;
 			dcb.sadr = (curTrack mod 4) * 36 + 1;
-		end;	
+		end;
 		dcb.buf = .trackBuf;
 		call Diskio(disk, .dcb);
 		j = j + interTrackSkew;
@@ -830,13 +1233,13 @@ declare bitmap based mapBase (1) byte;
 
 ChkBadSectors: procedure(disk) address public;
 	declare disk byte;
-	declare logicalTrackSector address, 
+	declare logicalTrackSector address,
 		(logicalSector, logicalTrack) byte at (.logicalTrackSector),
 		(w5851, savedSP) address,
 		savedTrap0B structure(jmp byte, target address),
 		(w5858, w585A, w585C, w585E) address,
 		b5860 byte, (w5861, w5863, status) address;
-	declare struct based w585E structure(b0 byte, w1 address, w3 address);	
+	declare struct based w585E structure(b0 byte, w1 address, w3 address);
 
 	ChkFixedSectors: procedure;
 		if (logicalTrack = 0 and (logicalSector < 1Ch or logicalSector = 58h or logicalSector > 72h))
@@ -908,7 +1311,7 @@ L43F1:
 	logicalSector = 1;
 
 L441C:
-	call Absio(4, disk, logicalTrackSector, w5851); 
+	call Absio(4, disk, logicalTrackSector, w5851);
 	goto L44A8;
 
 newTrap0B:
@@ -1055,7 +1458,7 @@ WriteDirectory: procedure(disk) public;
 	call FlushBlock(19h);
 	if diskType = 4 then
 	do;
-		dirBuf(0) = 19h;	
+		dirBuf(0) = 19h;
 		call sub4B4E(2, 1Ah, 59h);
 		call sub4B4E(1ch, 9, 140h);
 		call sub4B4E(25h, 9, 188h);
@@ -1089,7 +1492,7 @@ WriteDirectory: procedure(disk) public;
 	direct(0).hdrBlk = 101h;
 	direct(0).attrib = 1;
 	direct(0).eof$count = 128;
-	
+
 	call MoveAscii(.direct(1).file, .file(1), 9);
 	direct(1).blk = b58F3;
 	direct(1).hdrBlk = 201h;
@@ -1132,7 +1535,7 @@ WriteDirectory: procedure(disk) public;
 
 	do i = binIdx + 1 to 7;
 		direct(i).empty = 7fh;
-	end;	
+	end;
 
 	call FlushBlock(102h);
 	do i = 0 to 7;
@@ -1150,7 +1553,7 @@ WriteDirectory: procedure(disk) public;
 
 	jj = .bitmap - 128;
 	do i = 0 to b58F3 - 1;
-		call Absio(6, disk, 202h + i, (jj := jj + 128)); 
+		call Absio(6, disk, 202h + i, (jj := jj + 128));
 	end;
 end;
 end;
@@ -1221,7 +1624,7 @@ ClearBuffer: procedure(buf$ptr) public;
 	do i = 0 to 127;
 		buf(i) = 0;
 	end;
-end;		
+end;
 end;
 
 diskio.plm
@@ -1241,13 +1644,13 @@ numout: do;
 declare digits(*) byte data('0123456789ABCDEF');
 
 Numout: procedure(value, base, lc, bufAdr, width) public;
-	declare (value, bufAdr) address, (base, lc, width) byte; 
+	declare (value, bufAdr) address, (base, lc, width) byte;
 	declare i byte;
 	declare buf based bufAdr (1) byte;
 
 	do i = 1 to width;
 		buf(width - i) = digits(value mod base);
-		value = value / base;	
+		value = value / base;
 	end;
 
 	i = 0;
@@ -1255,6 +1658,50 @@ Numout: procedure(value, base, lc, bufAdr, width) public;
 		buf(i) = lc;
 		i = i + 1;
 	end;
+end;
+end;
+popul.plm
+population: do;
+
+declare bitCnt(*) byte initial(
+	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8);
+
+Population: procedure(bufferLoc, length) address;
+	declare (bufferLoc, length, total) address,
+	(i, t, l) byte;
+	declare buffer based bufferLoc (1) byte;
+
+	total = 0;
+	do while length > 31;
+		t = 0;
+		do i = 0 to 30;
+			t = t + bitCnt(buffer(i));
+		end;
+		total = total + t;
+		bufferLoc = bufferLoc + 31;
+		length = length - 31;
+	end;
+	l = length - 1;
+	t = 0;
+	do i = 0 to l;
+		t = t + bitCnt(buffer(i));
+	end;
+	return total + t;
 end;
 end;
 rpterr.plm
@@ -1312,7 +1759,7 @@ declare msg(*) byte DATA(0, 0,
 ReportError: procedure(errNum) public;
 	declare errNum address;
 	declare numberBuffer(3) byte, i address, status address;
- 
+
 
 	if errNum <> 0 then
 	do;
@@ -1362,7 +1809,66 @@ SetBlock: procedure(adr) public;
 	bitmap(byt) = bitmap(byt) or maskArray(low(bit) and 7);
 end;
 end;
+scanin.plm
+ScanInteger: do;
 
+declare digits(*) byte data('0123456789ABCDEF');
+
+ScanInteger: procedure(ptrPtr) address public;
+	declare ptrPtr address;
+	declare ptr based ptrPtr address;
+	declare (scanPtr, updatePtr, stopPtr) address;
+	declare (i, radix, increment) byte;
+	declare (nVal, oVal) address;
+	declare c based scanPtr byte;
+
+	scanPtr = ptr;
+	do while c = ' ';
+		scanPtr = scanPtr + 1;
+	end;
+	ptr = scanPtr;
+	do while '0' <= c and c <= '9' or 'A' <= c and c <= 'F';
+		scanPtr = scanPtr + 1;
+	end;
+
+	stopPtr = scanPtr;
+	updatePtr = scanPtr + 1;
+	if c = 'H' then
+		radix = 16;
+	else if c = 'O' or c = 'Q' then
+		radix = 8;
+	else
+	do;
+		updatePtr = scanPtr;
+		stopPtr, scanPtr = scanPtr - 1;
+		if c = 'B' then
+			radix = 2;
+		else
+		do;
+			radix = 10;
+			if c <> 'D' then	/* include last increment */
+				stopPtr = stopPtr + 1;
+		end;
+	end;
+	scanPtr = ptr;
+	nVal, oVal = 0;
+	do while scanPtr < stopPtr;
+		do i = 0 to 15;
+			if c = digits(i) then
+				increment = i;
+		end;
+		if increment >= radix then
+			return 0;
+		nVal = oVal * radix + increment;
+		if nVal < oVal then
+			return 0;
+		oVal = nVal;
+		scanPtr = scanPtr + 1;
+	end;
+	ptr = updatePtr;
+	return nVal;
+end;
+end;
 upcase.plm
 UpperCase: do;
 UpperCase: procedure(char) byte public;
