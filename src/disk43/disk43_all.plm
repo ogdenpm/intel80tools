@@ -1,4 +1,4 @@
-6disk.pex
+disk.pex
 CR	'0dh'
 LF	'0ah'
 TRUE	'0ffh'
@@ -32,7 +32,7 @@ maskArray       BS
 $file(chkbad.plm)
 ChkBadSectors   P(B disk)A
 
-$file(clrbuf.plm)
+$file(clbuf.plm)
 ClearBuffer     P(A buf$ptr)
 
 $file(dblank.plm)
@@ -48,13 +48,13 @@ Diskio          P(A disk,A dcb$p)
 $file(dlimit.plm)
 Delimit         P(A ptr)A
 
-$file(filerr.plm)
+$file(ferror.plm)
 FileError       P(A status,A ptr,B callExit)
 
 $file(fmttrk.plm)
 FormatTrack     P(B disk,A sTrack,A eTrack,B interleave)
 
-$file(forupp.plm)
+$file(fupper.plm)
 ForceUpper      P(A bufferPtr)
 
 $file(fshblk.plm)
@@ -63,8 +63,8 @@ FlushBlock      P(A adr)
 $file(getdsk.plm)
 GetDisk         P(B n)
 
-$file(gettar.plm)
-GetTarget       P(B device,A buffer$p)B
+$file(chkdev.plm)
+DeviceToDisk       P(B device,A buffer$p)B
 
 $file(idisk.plm,format.plm)
 mapBase         A
@@ -73,7 +73,7 @@ diskType        B
 $file(idisk.plm)
 singleDrive	B
 
-$file(mvasci.plm)
+$file(mascii.plm)
 MoveAscii       P(A dst,A src,B cnt)
 
 $file(numout.plm)
@@ -91,19 +91,19 @@ Seq             P(A str1,A str2,B cnt)"boolean"
 $file(setblk.plm)
 SetBlock        P(A adr)
 
-$file(sfierr.plm)
+$file(serror.plm)
 SFileError      P(A status,A name$p)
 
 $file(unpath.plm)
 Unpath		P(A int,A ext)
 
-$file(upcase.plm)
+$file(ucase.plm)
 UpperCase       P(B char)B
 
-$file(wdlimt.plm)
+$file(wdelim.plm)
 WDelimit        P(A ptr)A
 
-$file(wrdir.plm)
+$file(wd.plm)
 WriteDirectory  P(B disk)
 
 idisk.plm
@@ -217,7 +217,7 @@ entry:
 	if pn(11) = 8 then
 		status = 3Dh;
 	call FileError(status, bufferPtr, TRUE);
-	targetDisk = GetTarget(pn(0), bufferPtr);
+	targetDisk = DeviceToDisk(pn(0), bufferPtr);
 	srcDisk = 0;
 	system = 0;
 	singleDrive = 0;
@@ -457,7 +457,7 @@ start:
 		status = 3Dh;
 
 	call FileError(status, bufferPtr, TRUE);
-	targetDisk = GetTarget(pn(0), bufferPtr);
+	targetDisk = DeviceToDisk(pn(0), bufferPtr);
 	diskType = pn(11);
 	t0File(2), cliFile(2), binFile(2), ov0File(2),
 	mapFile(2), labFile(2), dirFile(2), badFile(2) = targetDisk + '0';
@@ -1048,9 +1048,9 @@ Delimit: procedure(ptr) address public;
 	return ptr;
 end;
 end;
-filerr.plm
+ferror.plm
 fileerror: do;
-$include(filerr.ipx)
+$include(ferror.ipx)
 
 FileError: procedure(status, ptr, callExit) public;
 	declare (status, ptr) address, callExit byte;
@@ -1133,9 +1133,9 @@ FormatTrack: procedure(disk,sTrack,eTrack,interleave) public;
 	end;
 end;
 end;
-forupp.plm
+fupper.plm
 ForceUpper: do;
-$include(forupp.ipx)
+$include(fupper.ipx)
 
 ForceUpper: procedure(bufferPtr) public;
 	declare bufferPtr address, ch based bufferPtr byte;
@@ -1162,7 +1162,7 @@ GetDisk: procedure(n) public;
 	call Read(1, .buf, 128, .actual, .status);
 end;
 end;
-mvasci.plm
+mascii.plm
 MoveAscii: do;
 
 MoveAscii: procedure(dst, src, cnt) public;
@@ -1174,9 +1174,9 @@ MoveAscii: procedure(dst, src, cnt) public;
 	end;
 end;
 end;
-sfierr.plm
+serror.plm
 SFileError: do;
-$include(sfierr.ipx)
+$include(serror.ipx)
 
 declare singleDrive boolean external;
 SFileError: procedure(status, name$p) public;
@@ -1357,10 +1357,10 @@ L44A8:
 end;
 end;
 
-gettar.plm
-GetTarget: do;
-$include(gettar.ipx)
-GetTarget: procedure(device, buffer$p) byte public;
+devdsk.plm
+DeviceToDisk: do;
+$include(devdsk.ipx)
+DeviceToDisk: procedure(device, buffer$p) byte public;
 	declare device byte, buffer$p address;
 
 	if device >= 25 then	/* diskdrive 6-9 */
@@ -1380,9 +1380,9 @@ GetTarget: procedure(device, buffer$p) byte public;
 end;
 end;
 
-wrdir.plm
+wd.plm
 WriteDirectory: do;
-$include(wrdir.ipx)
+$include(wd.ipx)
 declare mapBase address external;
 declare bitmap based mapBase (1) byte;
 
@@ -1614,7 +1614,7 @@ Absio: procedure(cmd, disk, block, buffer) public;
 	call Diskio(disk, .dcb);
 end;
 end;
-clrbuf.plm
+clbuf.plm
 ClearBuffer: do;
 ClearBuffer: procedure(buf$ptr) public;
 	declare buf$ptr address, i byte;
@@ -1643,7 +1643,7 @@ end;
 numout: do;
 declare digits(*) byte data('0123456789ABCDEF');
 
-Numout: procedure(value, base, lc, bufAdr, width) public;
+NumOut: procedure(value, base, lc, bufAdr, width) public;
 	declare (value, bufAdr) address, (base, lc, width) byte;
 	declare i byte;
 	declare buf based bufAdr (1) byte;
@@ -1869,7 +1869,7 @@ ScanInteger: procedure(ptrPtr) address public;
 	return nVal;
 end;
 end;
-upcase.plm
+ucase.plm
 UpperCase: do;
 UpperCase: procedure(char) byte public;
 	declare char byte;
@@ -1880,7 +1880,7 @@ UpperCase: procedure(char) byte public;
 	return char and 0dfh;
 end;
 end;
-wdlimt.plm
+wdelim.plm
 WDelimit: do;
 WDelimit: procedure(ptr) address public;
 	declare ptr address;
