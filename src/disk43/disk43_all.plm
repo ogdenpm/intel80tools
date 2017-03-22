@@ -1397,14 +1397,14 @@ WriteDirectory: procedure(disk) public;
 	declare	disk byte, binIdx byte, i byte, jj address, dirBuf(64) address,
 		direct(8) structure(empty byte, file(9) byte, attrib byte,
 				    eof$count byte, blk address, hdrBlk address) at(.dirBuf),
-		b58F3 byte, w58F4 address, b58F6 byte;
+		countBitMapSectors byte, binHdrBlk address, countDirSectors byte;
 
-	sub4B4E: procedure(arg1w, arg2w, arg3w);
-		declare (arg1w, arg2w, arg3w, ii) address;
+	SetLinks: procedure(start, count, firstBlock);
+		declare (start, count, arg3w, ii) address;
 
-		do ii = 0 to arg2w - 1;
-			dirBuf(arg1w + ii) = arg3w + ii;
-			call setBlock(arg3w + ii);
+		do ii = 0 to count - 1;
+			dirBuf(start + ii) = firstBlock + ii;
+			call setBlock(firstBlock + ii);
 		end;
 	end;
 
@@ -1416,95 +1416,106 @@ WriteDirectory: procedure(disk) public;
 		call ClearBuffer(.dirBuf);
 	end;
 
-	b58F6 =  25;
+	countDirSectors =  25;
 	if diskType = 1 then
 	do;
-		b58F3 = 4;
-		w58F4 = 206h;
+		countBitMapSectors = 4;
+		binHdrBlk = 206h;
 	end;
 	else if diskType = 4 then
 	do;
-		b58F3 = 29;
-		w58F4 = 21fh;
-		b58F6 = 62;
+		countBitMapSectors = 29;
+		binHdrBlk = 21fh;
+		countDirSectors = 62;
 	end;
 	else
 	do;
-		b58F3 = 2;
-		w58F4 = 204h;
+		countBitMapSectors = 2;
+		binHdrBlk = 204h;
 	end;
 
 	jj = .bitmap - 128;
 	if diskType = 4 then
-		do i = 0 to b58F3 - 1;
+		do i = 0 to countBitMapSectors - 1;
 			call Absio(6, disk, i + 74h, (jj := jj + 128));
 		end;
+	/* set linkage for isis.t0 */
 	call ClearBuffer(.dirBuf);
-	call sub4B4E(2, 17h, 1);
-	call FlushBlock(18h);
-	if diskType = 4 then
+	call SetLinks(2, 23, 1);
+	call FlushBlock(18h);		
+	/* set linkage for isis.lab */
+	if diskType = 4 then		/* hard disk */
 	do;
-		dirBuf(1) = 58h;
-		call sub4B4E(2, 3Eh, 1Ah);
+		dirBuf(1) = 58h;	/* next linkage is sector 58h */
+		call SetLinks(2, 3Eh, 1Ah);	/* first part of isis.lab */ 
 	end;
 	else if diskType = 1 then
 	do;
-		call sub4B4E(2, 1Bh, 1Ah);
-		call sub4B4E(1Dh, 1Ah, 11Bh);
+		call SetLinks(2, 27, 1Ah);	/* allocate 53 blocks in 2 groups */
+		call SetLinks(1Dh, 26, 11Bh);
 	end;
 	else
-		call sub4B4E(2, 1, 1Ah);
+		call SetLinks(2, 1, 1Ah);	/* allocate 1 block */
 
-	call FlushBlock(19h);
+	call FlushBlock(19h);		/* write label linkage */
 	if diskType = 4 then
 	do;
-		dirBuf(0) = 19h;
-		call sub4B4E(2, 1Ah, 59h);
-		call sub4B4E(1ch, 9, 140h);
-		call sub4B4E(25h, 9, 188h);
-		call FlushBlock(58h);
+		dirBuf(0) = 19h;	/* link to previous */
+		call SetLinks(2, 26, 59h);
+		call SetLinks(1ch, 9, 140h);
+		call SetLinks(25h, 9, 188h);
+		call FlushBlock(58h);	/* write label linkage */
 	end;
+	/* set linkage for isis.bad for hd only */
 	if diskType = 4 then
 	do;
-		call sub4B4E(2, b58F3, 74h);
+		call SetLinks(2, countBitMapSectors, 74h);
 		call FlushBlock(73h);
 	end;
-	call sub4B4E(2, b58F6, 102h);
+
+	/* set linkage for isis.dir */
+	call SetLinks(2, countDirSectors, 102h);
 	if diskType = 4 then
-		dirBuf(1) = 149h;
+		dirBuf(1) = 149h;	/* link to next */
 	call FlushBlock(101h);
 	if diskType = 4 then
 	do;
-		dirBuf(0) = 101h;
-		call sub4B4E(2, b58F6, 14Ah);
+		dirBuf(0) = 101h;	/* link to previous */
+		call SetLinks(2, countDirSectors, 14Ah);
 		call FlushBlock(149h);
 	end;
 
-	call sub4B4E(2, b58F3, 202h);
+	/* set linkage for isis.map */
+	call SetLinks(2, countBitMapSectors, 202h);
 	call FlushBlock(201h);
-	call FlushBlock(w58F4);
+	call FlushBlock(binHdrBlk);
+
+	/* isis.dir */
 	call MoveAscii(.direct(0).file, .file(0), 9);
 	if diskType = 4 then
-		direct(0).blk = 7Ch;
+		direct(0).blk = 124;	/* larger size */
 	else
-		direct(0).blk = 19h;
+		direct(0).blk = 25;
 
-	direct(0).hdrBlk = 101h;
+	direct(0).hdrBlk = 101h;	/* linkage at t1 s1 */
 	direct(0).attrib = 1;
 	direct(0).eof$count = 128;
 
+	/* isis.map */
 	call MoveAscii(.direct(1).file, .file(1), 9);
-	direct(1).blk = b58F3;
-	direct(1).hdrBlk = 201h;
+	direct(1).blk = countBitMapSectors;
+	direct(1).hdrBlk = 201h;	/* linkage at t2 s1 */
 	direct(1).attrib = 1;
 	direct(1).eof$count = 128;
 
+	/* isis.t0 */
 	call MoveAscii(.direct(2).file, .file(2), 9);
 	direct(2).blk = 17h;
-	direct(2).hdrBlk = 18h;
+	direct(2).hdrBlk = 18h;		/* linkage at t0 s24 */
 	direct(2).attrib = 1;
 	direct(2).eof$count = 128;
 
+	/* isis.lab */
 	call MoveAscii(.direct(3).file, .file(4), 9);
 	if diskType = 1 then
 		direct(3).blk = 35h;
@@ -1512,14 +1523,15 @@ WriteDirectory: procedure(disk) public;
 		direct(3).blk = 6Ah;
 	else
 		direct(3).blk = 1;
-	direct(3).hdrBlk = 19h;
+	direct(3).hdrBlk = 19h;		/* linkage at t0 s25 */
 	direct(3).attrib = 1;
 	direct(3).eof$count = 128;
 
+	/* isis.bad */
 	if diskType = 4 then
 	do;
 		call MoveAscii(.direct(4).file, .file(5), 9);
-		direct(4).blk = b58F3;
+		direct(4).blk = countBitMapSectors;
 		direct(4).hdrBlk = 73h;
 		direct(4).attrib = 1;
 		direct(4).eof$count = 128;
@@ -1528,11 +1540,13 @@ WriteDirectory: procedure(disk) public;
 	else
 		binIdx = 4;
 
+	/* isis.bin */
 	call MoveAscii(.direct(binIdx).file, .file(3), 9);
-	direct(binIdx).hdrBlk = w58F4;
+	direct(binIdx).hdrBlk = binHdrBlk;
 	direct(binIdx).attrib = 3;
 	direct(binIdx).eof$count = 128;
 
+	/* flag as no further entries */
 	do i = binIdx + 1 to 7;
 		direct(i).empty = 7fh;
 	end;
@@ -1542,17 +1556,17 @@ WriteDirectory: procedure(disk) public;
 		direct(i).empty = 7fh;
 	end;
 
-	do i = 1 to b58F6 - 1;
+	do i = 1 to countDirSectors - 1;
 		call Absio(6, disk, 102h + i, .dirBuf);
 	end;
 
 	if diskType = 4 then
-		do i = 0 to b58F6 - 1;
+		do i = 0 to countDirSectors - 1;
 			call Absio(6, disk, 14Ah + i, .dirBuf);
 		end;
 
 	jj = .bitmap - 128;
-	do i = 0 to b58F3 - 1;
+	do i = 0 to countBitMapSectors - 1;
 		call Absio(6, disk, 202h + i, (jj := jj + 128));
 	end;
 end;
