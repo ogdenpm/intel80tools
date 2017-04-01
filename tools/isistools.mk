@@ -173,7 +173,7 @@ $(OBJDIR)/%.obj: %.plm  | $(filter-out .,$(OBJDIR) $(LSTDIR))
 	$(if $(PEXFILE),$(NGENPEX) $(call mapdisk,$(PEXFILE) $<),perl $(ROOT)/tools/makedepend.pl $@ $<)
 	$(ISIS) $(call mapdisk,$(PLM) $< CODE PRINT($(call lst-lst,$<)) OBJECT($@) $(PLMOPT))
 	$(if $(KEEP),,-@del $(OBJDIR)\$*.ipx 2>nul)
-	@if not exist $(call towin,$@) exit 1
+	perl $(ROOT)/errtest.pl $(call lst-lst,$<) $@
 
 # a variant of the above to support generated source in a separate object directory
 ifneq '$(OBJDIR)' '.'
@@ -181,17 +181,12 @@ ifneq '$(OBJDIR)' '.'
 	$(if $(PEXFILE),$(NGENPEX) $(call mapdisk,$(PEXFILE) $<),perl $(ROOT)/tools/makedepend.pl $@ $<)
 	$(ISIS) $(call mapdisk,$(PLM) $< CODE PRINT($(call lst-lst,$<)) OBJECT($@) $(PLMOPT))
 	$(if $(KEEP),,-@del $(OBJDIR)\$*.ipx >nul)
-	@if not exist $(call towin,$@) exit 1
+	perl $(ROOT)/errtest.pl $(call lst-lst,$<) $@
 endif
 
 $(OBJDIR)/%.obj: %.asm  | $(filter-out .,$(OBJDIR) $(LSTDIR))
 	$(ISIS) $(call mapdisk,$(ASM) $< PRINT($(call lst-lst,$<)) OBJECT($@) $(ASMOPT))
-	@if not exist $(call towin,$@) exit 1
-
-#	$(info $(call mapdisk,$(ASM) $< PRINT($(call lst-lst,$<)) OBJECT($@) $(ASMOPT)))
-#	@if not exist $(call towin,$@) ($(call towin,type $*.err & del $*.err)  & exit 1)
-#	@del $(call towin,$*.err)
-
+	perl $(ROOT)/errtest.pl $(call lst-lst,$<) $@
 
 #ifndef PEXFILE
 #	perl $(ROOT)/tools/makedepend.pl $@ $<

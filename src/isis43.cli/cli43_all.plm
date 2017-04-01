@@ -1,0 +1,1967 @@
+cli.plm
+cli: do;
+
+BackCI: procedure external; end;
+Cloop: procedure external; end;
+ClrNam: procedure external; end;
+FError: procedure external; end;
+Isis28: procedure address external; end;	/* undocumented ISIS call */
+LoadGo: procedure(path) external; declare path address; end;
+MemCk: procedure address external; end;
+ReadC: procedure(buf$p, cnt) external; declare (buf$p, cnt) address; end;
+Set78: procedure external; end;
+SetTrm: procedure external; end;
+WhoCi: procedure(buf$p) external; declare buf$p address; end;
+
+declare actual address external;
+declare cliExt address external;
+declare edtBuf(128) byte external;	/* the actual edit buffer, external to allow page align */
+declare edtCmd byte external;		/* actally a code location but used for random fill */
+declare edtPat byte external;		/* used to patch code to set end of buffer */
+declare fnPstr(32) byte external;	/* parsed filename/token as pascal string */
+declare import(7) byte external;	/* the location of the IMPORT file name */
+declare report byte external;
+declare status byte external;		/* actually address but treated as byte here */
+	/*
+	   The data structure below is stored in isis across application loads and is used
+	   to provide the job control function including the current offset into the job csd file
+	   and misc data variables specifically the ci device and the tab width setting.
+	   The b14 data byte I suspect is only used for series IV systems and gates the probing
+	   of the two locations probe1 and probe2.
+	   For standard isis 4.3 these probes are in the boot loader iopb and would result in false if
+	   ever executed but the b14 gating prevents this test.
+	   I suspect that in series IV then these may return true 
+	*/
+	declare cliDat based cliExt structure(device byte, file(6) byte, ext(3) byte, 
+					bytNo byte,blokNo address, cidev byte, b14 byte, tabwidth byte);
+	declare probe1 byte at(4Bh), probe2 byte at (49h);
+
+
+	declare ESC	literally	'1Bh',
+		CR	literally	'0Dh';
+
+	declare client label public;
+
+	declare version(*) byte data('program_version_number=',1,'V4.3',0);
+	declare	cpyright(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP');
+	declare curUp(2) byte public data(ESC, 'A');
+	declare dash byte public data('-');
+	declare pad address data(.edtCmd);
+
+
+
+cliEnt:
+	stackptr = MemCk;
+	report = 0;
+	disable;
+	output(0FCh) = 0FCh;
+	output(0FDh) = 20h;
+	enable;
+	cliExt = Isis28;
+	if cliDat.b14 = 3 then
+		if probe1 and probe2 then
+			call LoadGo(.import);
+
+	call WhoCi(.fnPstr + 1);
+	call SetTrm;	/* set up terminal info */
+	call Set78;	/* set up for 7 or 8 bit input */
+	edtPat = 0;
+	call clrNam;	/* clear filename info */
+	call BackCI;	/* rewind CI */
+	if status = 0 then
+	do;
+		call ReadC(.edtBuf, 128);
+		call FError;
+		edtPat = actual;
+		edtBuf(actual) = CR;
+	end;
+	call CLoop;
+	goto cliEnt;
+end;
+
+cloop.asm
+	name cloop
+	public	CLoop, clrName, Ferror
+	public  Set78, SetTrm
+	public	cliExt, edtBuf, edtCmd, edtPat
+	public	fnPstr, import
+	extrn	Isis28, SetCmd, lineBf
+	extrn	dash, actual, cliEnt
+	extrn	LoadGo, WriteC
+	extrn	CloseI, WhoCi, memck 
+	extrn	LDebug, ReadC 
+	extrn	BackCI, ReadI, OpenI, Err, Cons
+	extrn	SBlok, SByte, WriteO, CloseO, OpenO
+	extrn	SBlok1
+	extrn	status, blokNo, byteNo
+
+	extrn	curup
+
+
+TRUE	equ	0ffh
+FALSE	equ	0
+CR	equ	0dh
+LF	equ	0ah
+ESC	equ	1bh
+TAB	equ	9
+BELL	equ	7
+
+ISIS	equ	40h
+SPATH	equ	14	
+
+sysflg	equ	0ffffh
+CO	equ	0F809H
+CI	equ	0F803H
+CSTS	equ	0F812H
+
+
+	dseg	page
+cliExt:	ds	2
+import:	db	'IMPORT '
+	ds	256 - ($ - cliExt)
+
+inBuf:	ds	128
+fnPstr:	ds	32
+path:	ds	10
+?bytNo:	ds	1
+?blkNo:	ds	2
+	ds	256 - ($ - inBuf) - 1
+
+edited:	ds	1		; just before page boundary
+edtBuf:	ds	128
+fname:	ds	2
+jobMOk:	ds	1
+jobFn:	dw	0
+tabW:	db	8
+bsChar:	db	8
+scroll:	dw	1414h
+eInMem:	db	0
+bInMem:	db	TRUE
+
+
+	cseg
+
+CLoop:	call	Prompt		; prompt
+
+cloop1:	call	clrNam		; clear any file name association
+	lxi	b, inBuf	; page aligned
+	push	b
+	lxi	d, 128
+	call	ReadC		; read line
+	call	FError		; handle any error
+	pop	h		; inBuf
+	lda	actual
+	ana	a
+	jz	CLoop		; no chars entered
+	mov	l, a		; hl -> end of input
+	cpi	122
+	cz	wrCRLF		; max line length reached so put crlf to display
+	mvi	m, 0Dh		; append cr
+	dcx	h
+	mov	a, m		; check	for escape as last char
+	cpi	1Bh
+	jnz	cloop2
+	lda	jobMOk		; if not in job	mode escape is not special
+	ana	a
+	jz	cloop2
+	mov	a, l
+	ana	a
+	jz	edit		; escape at start of line
+	sta	edtPat	; modify code to mark end
+	mov	c, a		; copy the pre escape chars to edtBuf
+	lxi	d, edtBuf
+	mov	l, e
+	call	move		; move copy *hl	to *de for c bytes
+	jmp	edit
+
+cloop2:	mvi	l, 0		; find 1st non blank char
+	call	dBlank
+	inx	h
+	call	switch
+	    db  5 			; 5 options
+	    db  CR
+	    dw cliEnt
+	    db  ';'
+	    dw cliEnt
+	    db  '/'
+	    dw exCmdF
+	    db  '@'
+	    dw dpyFil
+	    db  '.'
+	    dw ex1lin
+
+	dcx	h
+	call	tlook
+	    db 5, 'DEBUG'
+	    dw debug
+	    db 3, 'JOB'
+	    dw job
+	    db 6, 'ENDJOB'
+	    dw endjob
+	    db 0FFh
+
+	call	rgetFn		; rewind and get filename
+	call	LoadGo		; load and run it
+	jmp	FError
+
+debug:	call	dBlank		; skip to optional filename
+	call	vFilCh
+	jz	debug1		; jump if start of filename
+	lxi	h, 8		; reboot, with return to 8h
+	push	h
+	jmp	0
+
+debug1:	call	getFn		; get filename
+	call	rgetFn		; rewind and get filename (will also capture debug)
+	call	LDebug		; load for debug
+	jmp	FError		; check for error
+
+cloop3:	push	d		; save end of buf
+	call	Prompt
+	pop	h		; truncate buf to 120 chars
+	mvi	a, 120
+	cmp	l
+	jnc	l3800
+	mov	l, a
+
+l3800:	mvi	m, CR		; add cr lf
+	inx	h
+	mvi	m, LF
+	inx	h
+	mov	a, l
+	sta	edtPat		; patch code with end of buffer
+	mvi	b, 0
+	mov	c, l		; arg2
+	mov	l, b		; reset	hl to start of buffer
+	push	b		; save len
+	push	h		; save buf
+	push	h		; arg1
+	lxi	d, status	; arg3
+	call	SetCmd		; call SetCmd(buf, len, .status)
+	pop	b		
+	pop	d
+	call	WriteC		; call WriteC(buf, len)
+	jmp	cloop1
+
+Prompt: lxi	b, dash		; point to '-'
+	lxi	d, 1
+	call	WriteC
+	ret
+
+
+; implementation of switch
+; usage
+; 	call switch		- a = value to compare
+;	db numberItems
+;	db value ! dw target	- repeated numberItems
+
+switch: xthl		; get location of switch table to hl
+	push	d	
+	mov	e, m	; e = number of items
+	inx	h
+
+swt1:	cmp	m	; check for match
+	inx	h
+	jz	swt2	; jmp if matched
+	inx	h	; bump past target
+	inx	h
+	dcr	e	; loop until all items processed
+	jnz	swt1
+	pop	d	; restore de
+	xthl		; and original hl, setting return address past table
+	ret		; all done
+
+swt2:	mov	e, m	; de = target
+	inx	h
+	mov	d, m
+	xchg		; hl = target
+	pop	d	; restore de
+	xthl		; restore hl, setting return address to target
+	ret
+
+; compare a filename compatible token parsed from the buffer -> hl
+; against a list of inline pascal style strings to determine handler
+; usage
+;	call tlook	- hl setup before hand
+;	db pascal string ! dw target - repeated as reqiored
+;	db 0ffh		- termination marker
+
+tlook:	call	getFn	; parse filename token, de = fnPstr, hl = past parsed token
+	xthl		; hl = location of data table
+	mvi	b, 0
+
+tlook1:	mov	c, m	; get length of pascal string
+	inr	c	; inc includes the length byte
+	jnz	tlook2	; if length was 0ffh then end of list
+	inx	h	; past the 0ffh
+	xthl		; restore hl, return address is just after table
+	ret		; return to just after table
+
+tlook2:	push	d	; save pointer to start of token
+
+tlook3:	ldax	d	; compare token char agains table char
+	cmp	m
+	inx	h	; advance to next chars
+	inx	d
+	jnz	tlook4	; jmp if it does not match
+	dcr	c	; loop if not at last char
+	jnz	tlook3
+	mov	e, m	; pick up target address
+	inx	h
+	mov	d, m
+	xchg		; to hl
+	pop	d	; restore de i.e. start of token
+	xthl		; restore hl, return address = target address
+	ret		; return to target address
+
+tlook4:	pop	d	; restore to start of token
+	dad	b	; advance to next string in table
+	inx	h	; also skipping the target
+	jmp	tlook1
+
+
+; parse a filename compatible token from the buffer -> hl
+; the token is copied to the pascal string fnPstr
+; returns de = fnPstr, 
+; NOTE: fnPstr must lie within a page
+; for cli it is located at 4380h and has length 32
+
+getFn:	lxi	d, (fnPstr+1)
+	push	d
+	jmp	getFn2
+
+getFn1:	stax	d		; stuff char
+	mov	a, e
+	sui	20 + low fnPstr	; at most 18 chars + length byte
+	jnc	getFn4
+	inx	d		; advance to next char
+	inx	h
+
+getFn2:	mov	a, m		; get next char
+	call	vFilCh	; check it is valid
+	jz	getFn1		; zero if yes
+
+getFn3:	sub	a		; terminate with 0
+	stax	d
+	xthl			; hl fnPstr + 1, TOS = ptr to terminating char
+	mov	a, e		; work out the length
+	sub	l
+	dcx	h		; set fnPstr length
+	mov	m, a
+	xchg			; de = fnPstr
+	pop	h		; hl = ptr to terminating char
+	ret
+
+getFn4:	mvi	a, 2Eh		; terminate with ... if	> 13 chars
+	stax	d
+	inx	d
+	stax	d
+	inx	d
+	stax	d
+	inx	d
+	jmp	getFn3
+
+
+; check whether a contains a valid file char
+; return 0 if it does and the uppercase char in a
+vFilCh:	cpi	'.'	
+	rz
+	cpi	'0'		; < '0' not valid
+	rc
+	cpi	':' + 1		; '0' - ':' valid so fall through
+	jnc	ckalph
+
+ret0:	cmp	a		; return 0 for ok
+	ret
+
+ckalph: ani	0DFh		; force to upper case
+	cpi	'A'		; < 'A' not valid
+	rc
+	cpi	'Z' + 1		; 'A' - 'Z' valid to jump
+	jc	ret0
+	ana	a		; return non 0
+	ret
+
+
+setTrm:	call	PExtTW		; get pointer to tabwidth
+	mov	a, m
+	cpi	1
+	jm	setTm1
+	sta	tabW		; set tabW if 1 <= savedTW <= 128
+
+setTm1:	sub	a		; assume job mode not ok
+	sta	jobMOk
+	lxi	h, (fnPstr+1)
+	call	tlook
+	    db 4, ':TI:'
+	    dw tiOver
+	    db 4, ':VI:'
+	    dw viOver
+	    db 4, ':BI:'
+	    dw biOver
+	    db 0FFh
+	ret
+
+viOver:	mvi	a, 8		; crt input
+
+over1:	lxi	h, jobMOk	; flag as job mode ok
+	inr	m
+
+over2:	call	PExtTW		; get pointer to tabwidth
+	dcx	h
+	dcx	h		; cidev
+	mov	m, a
+	ret
+
+biOver:	mvi	a, 1Eh		; batch input Series IV submit file
+	jmp	over2		; does not need to use cli job handling
+
+tiOver:	mvi	a, 6		; teletype input
+	jmp	over1
+
+
+; get pointer to tabwidth
+
+PExtTW: lhld	cliExt
+	lxi	d, 15
+	dad	d
+	ret
+
+rgetFn:	push	h		; save pointer to name terminating char
+	call	BackCI		; rewind line
+	pop	h
+	mov	b, h		; bc = start of buffer
+	mvi	c, 0
+	xchg
+	mov	d, c		; de = length of filename + possibly debug
+	call	ReadC		; call ReadC(buf, len)
+	lxi	h, (fnPstr+1)	; use filename
+
+svFnBC:	shld	fname		; save active filename
+	mov	b, h		; load into bc for follow on call
+	mov	c, l
+	ret
+
+
+clrNam: lxi	h, 0		; reset active filename
+	shld	fname
+	ret
+
+
+dBlank: mov	a, m		; return first non blank char in buf pointed to by hl
+	inx	h
+	cpi	' '
+	jz	dBlank
+	dcx	h
+	ret
+
+ldFile:	call	MemCk
+	dcr	h		; reserve 256 for stack
+	lxi	d, MEMORY
+	push	d
+	mov	b, d
+	mov	c, e
+	mov	a, l
+	sub	e
+	mov	e, a
+	mov	a, h
+	sbb	d
+	mov	d, a
+	push	d		; save memory size
+	call	ReadI		; ReadI(.MEMORY, MemCk - 256 - .MEMORY)
+	call	FError
+	lhld	actual
+	pop	d		; memory size
+	mov	a, l
+	sub	e
+	mov	a, h
+	sbb	d
+	sbb	a
+	sta	eInMem		; TRUE if all file in memory
+	pop	d		; MEMORY
+	dad	d
+	mov	b, h		; bc is end of load in memory
+	mov	c, l
+	mvi	m, 0Ah		; put lf at end of file
+	xchg			; de -> end of file
+	ret
+
+initFl:	call	svFnBC		; setup file
+	mvi	a, 0FFh
+	sta	bInMem		; initial load will contain begining of file
+	call	OpenI		; open the file, fall through to status check
+
+FError: lda	status
+	ana	a
+	rz			; no error
+
+Error:	push	psw		; save error
+	lhld	fname		; emit any filename
+	mov	a, h
+	ora	l
+	cnz	wrFn
+	pop	psw		; restore error
+	lxi	h, errStr
+	mvi	c, 7
+
+error1: cmp	m		; does erro code match
+	inx	h
+	jz	errorM
+	inx	h		; no so skip pointer to string
+	inx	h
+	dcr	c
+	jnz	error1		; loop until all options checked
+	sta	status		; call isis error if not known
+	call	Err		 
+	jmp	cliEnt		; restart cli
+
+errorM:	mov	c, m		; pick up pointer to error string
+	inx	h
+	mov	b, m
+	call	wrPstr		; write it
+	jmp	cliEnt		; restart cli
+
+
+wrCRLF:	call	pshReg
+	lxi	b, aCRLF
+	jmp	wrPstr
+
+aCRLF:	db 2, CR, LF		; pascal string for crlf
+
+
+wrFn:	call	getFn		; get file name from buffer -> hl
+	mov	b, d
+	mov	c, e
+	call	wrPstr		; write the name
+	lxi	b, aComma	; write ", "
+
+wrPstr: ldax	b		; first byte is length
+	mov	e, a
+	inx	b		; rest if buffer
+	mvi	d, 0
+	jmp	WriteC		; call WriteC(.buf(1), buf(0))
+
+aComma:	db 2, ', '
+
+errStr:	db 4
+	dw badFn
+	db 5
+	dw badFn
+	db 17h
+	dw badFn
+	db 1Ch
+	dw badFn
+	db 0Dh
+	dw noSuch
+	db 3Dh
+	dw unDir
+	db 46h
+	dw access
+
+badFn:	db 14, 'BAD FILENAME', CR, LF
+noSuch:	db 14, 'NO SUCH FILE', CR, LF
+unDir:	db 27, 'DIRECTORY IS NOT ASSIGNED', CR, LF
+access:	db 25, 'ACCESS RIGHTS VIOLATION', CR, LF
+
+ex1lin:	call	FnAdPm		; get the job file to load and optional parameter
+	call	initFl		; load the file into memory
+	call	ldFile
+	call	SClosI
+	mvi	a, CR		; terminate with CR
+	stax	b
+	call	dBlank		; remove leading space
+	lxi	d, edtBuf	; copy line to edtBuf
+
+l3A27:	mov	a, m
+	stax	d
+	inx	h
+	cpi	0Dh
+	jz	l3A44
+	inr	e
+	jm	l3A44		; 128 chars
+	cpi	'%'
+	jnz	l3A27		; loop if %0 not seen
+	mov	a, m
+	cpi	'0'
+	jnz	l3A27		
+	call	insPm
+	jz	l3A27		; loop if insert ok
+
+l3A44:	jmp	cloop3		; put in edit buffer for main loop to execute
+
+SClosI: call	pshReg		; safe close input
+	jmp	CloseI
+
+
+; get filename and optional parameter
+; returns hl->start of filename
+;	  fnPstr -> parameter (pascal string)
+; if '.' but no extent then '.' is removed
+; else if no extent is present ".CSD" is added
+
+FnAdPm:	call	dBlank
+	mov	a, m
+	cpi	'.'
+	jz	l3A5C		; jmp if first char is .
+	call	vFilCh
+	jz	l3A61		; jmp if valid file char
+
+l3A5C:	mvi	a, 4
+	jmp	Error
+
+l3A61:	mov	d, h		; de -> start of filename
+	mov	e, l
+
+l3A63:	ldax	d
+	cpi	'.'
+	jz	l3A7B		; seen .
+	call	FChOrP
+	jz	l3A63		; loop while collecting file name
+	dcx	d		; back up to terminating char
+	push	h
+	mvi	c, 5		; append ".CSD "
+	lxi	h, acsd
+	call	move		; move copy *hl	to *de for c bytes
+	pop	h
+	ret
+
+l3A7B:	inx	d
+	call	FChOrP
+	jz	l3A88		; jmp if an extent char
+	dcx	d
+	dcx	d		; replace terminating . with space
+	mvi	a, ' '
+	stax	d
+	ret
+
+l3A88:	call	FChOrP
+	jz	l3A88		; collect rest of extent
+	ret
+
+
+; get next file char
+; if none collect rest of line as a parameter
+FChOrP:	ldax	d
+	inx	d
+	call	vFilCh		; return if valid filename char
+	rz
+	call	pshReg
+	lxi	h, fnPstr
+	lxi	b, (fnPstr+1)
+	mvi	m, 0
+
+l3AA0:	ldax	d		; copy parameter to fnPstr
+	cpi	20h
+	rc			; terminate at end of line
+	inr	m		; update length
+	stax	b
+	inx	d
+	inx	b
+	jmp	l3AA0
+
+insPm:	inx	h		; insert parameter into edit buffer
+	dcx	d
+	lda	fnPstr
+	ana	a
+	rz			; parameter
+	mov	c, a
+	push	h
+	lxi	h, (fnPstr+1)
+
+l3AB7:	mov	a, m		; copy
+	stax	d
+	inx	h
+	inr	e
+	jm	l3AC2		; > 127 chars to done
+	dcr	c
+	jnz	l3AB7
+
+l3AC2:	pop	h		; will return 0 for successful insert
+	ret
+
+exCmdF: call	FnAdPm		; get cmd file and paramater
+
+exJob:	push	h
+	lxi	b, fnPstr
+	call	WhoCI		; get the current CI filename
+	mvi	c, SPATH	; convert to a path
+	lxi	d, pParam
+	call	ISIS
+	mvi	e, 1		; get current position in the file
+	lxi	b, 0
+	call	SBlok
+	lxi	h, status
+	sub	a
+	cmp	m
+	mov	m, a		; clear the status in memory
+	mov	h, a		; and hl
+	mov	l, a
+	jnz	l3AF7		; got non 0 status then a, hl = 0
+	lda	path
+	sui	1Eh		; block input device (series IV)?
+	jz	l3AF7
+	lhld	blokNo		; load up the current location
+	lda	byteNo
+
+l3AF7:	sta	?bytNo		; save the location in the cli data block
+	shld	?blkNo
+	pop	h
+	call	setJCI		; set :CI: to the job file
+	lhld	cliExt		; copy the path, byte and block offsets to isis cli memory
+	xchg
+	lxi	h, path
+	mvi	c, 0Dh
+	jmp	move		; move copy *hl	to *de for c bytes
+
+
+pParam:	dw fnPstr		; paramaters for spath call
+	dw path
+	dw status
+
+
+job:	lda	jobMOk		; for batch input job mode is not used
+	ana	a
+	rz
+	call	dBlank
+	call	vFilCh
+	jz	l3B24
+	lxi	h, aJbCsd	; set default file name of JOB.CSD if no file name
+
+l3B24:	shld	jobFn		; save start of file name
+	lxi	h, MEMORY
+
+l3B2A:	mvi	a, '='          ; prompt for next line
+	call	doCO
+	push	h		; save start of line input
+	call	MemCk
+	dcr	h
+	pop	b
+	mov	a, l
+	sub	c
+	mov	e, a
+	mov	a, h
+	sbb	b
+	mov	d, a		; below hl->start of line
+	call	sReadC		; call sReadC(hl, MemCk - 256 - hl)
+	call	clrNam		; clear any file name reference
+	call	FError		; check for errors
+	lhld	actual
+	mov	a, l
+	sub	e
+	mov	a, h
+	sbb	d
+	jnc	jobESC		; actual >= max count
+	ldax	b
+	cpi	1Bh
+	jz	jobESC		; escape as first char of line
+	cpi	0Dh
+	jz	jobCR		; cr as first char of line
+	mov	a, h
+	ora	l
+	dad	b
+	jnz	l3B2A		; loop if some chars read then (hl -> end of buffer)
+	jmp	coCRLF		; all done
+
+jobCR:	call	addEJ		; add the ENDJOB line
+	lhld	jobFn		; set up for transfer of control
+	jmp	exJob		; execute the job file
+
+jobESC:	call	coCRLF		; new line
+
+addEJ:	mov	d, b		; add the ENDJOB, CR, LF to the job file
+	mov	e, c
+	lxi	h, aEdJob
+	mvi	c, 8
+	call	move		; move copy *hl	to *de for c bytes
+	call	opJobF
+	lxi	b, MEMORY	; write the job file
+	mov	a, e
+	sub	c
+	mov	e, a
+	mov	a, d
+	sbb	b
+	mov	d, a
+	call	WriteO		; call WriteO(.MEMORY, end of buf - .MEMORY)
+	call	FError
+	jmp	CloseO		; all done
+
+
+opJobF:	call	pshReg		; open the job file
+	lhld	jobFn
+	call	svFnBC
+	jmp	OpenO
+
+
+sReadC:	call	pshReg		; safe read console
+	jmp	ReadC
+
+aJbCsd:	db 'JOB'
+acsd:	db '.CSD '
+aEdJob:	db 'ENDJOB', CR, LF
+
+endjob:	lhld	cliExt		; get device number
+	mov	a, m
+	cpi	20h		; unknown device type
+	jc	l3BC5
+	push	h
+	lxi	b, 0Dh		; get cidev
+	dad	b
+	mov	a, m
+	pop	h
+	ana	a
+	jnz	l3BC5		; set so ok
+	mvi	a, 17h		; set to console input
+
+l3BC5:	mvi	m, 0FFh		; set device number to 255 i.e. invalid
+	inx	h
+	lxi	d, (fnPstr+1)
+	add	a		; 2 chars per drive name
+	mov	c, a
+	mvi	b, 0
+	mvi	a, ':'		; add the ':'
+	stax	d
+	inx	d		; the two char drive name 
+	push	h
+	lxi	h, devTab
+	dad	b
+	mvi	c, 2
+	call	move		; move copy *hl	to *de for c bytes
+	pop	h
+	mvi	a, ':'		; closing ':'
+	stax	d
+	inx	d
+	mvi	c, 6
+	call	cpyFn		; copy file name
+	mov	a, m
+	call	vFilCh		; if extent exists
+	jnz	l3BF2
+	mvi	a, '.'		; write the '.'
+	stax	d
+	inx	d
+
+l3BF2:	mvi	c, 3		; copy the extent
+	call	cpyFn
+	mvi	a, ' '		; terminate with a space
+	stax	d
+	sub	a		
+	mov	e, m		; de = byteNo
+	mov	m, a		; set to 0 in cli data area
+	inx	h
+	mov	d, a
+	push	d		; byteNo offset in the new CI file (incase nested)
+	mov	e, m		; de = blokNO
+	mov	m, a		; set to 0 in cli data area
+	inx	h
+	mov	d, m
+	mov	m, a
+	push	d
+	lxi	h, (fnPstr+1)
+	call	setJCI		; set the new console input
+	pop	b
+	mov	a, b		; seek to the right block
+	ora	c
+	mvi	e, 1
+	cnz	SBlok		; if blokNo = 0 then no seek required
+	pop	b
+	mov	a, b		; seek to the right byte within the block
+	ora	c
+	mvi	e, 1
+	cnz	SByte		; if byteNo = 0 then no seek required
+	call	FError		; check for error
+	jmp	cliEnt		; go to main loop
+
+cpyFn:	mov	a, m		; pick up info file name char
+	mvi	m, 0		; 0 in cli storage in ISIS
+	call	vFilCh		; check if valid char
+	jnz	cpyFn1
+	stax	d		; copy char to filename string
+	inx	h
+	inx	d
+	dcr	c		; loop until done
+	jnz	cpyFn
+	ret
+
+cpyFn1:	dad	b		; skip remaining chars
+	ret
+
+
+setJCI:	call	svFnBC		; set job CI to file -> hl
+	lxi	d, aCo		; set CO to :CO:
+	call	Cons
+	jmp	FError
+
+
+aCo:	db ':CO: '
+devTab:	db 'F0F1F2F3F4F5TITOVIVOI1'
+	db 'O1TRHRR1R2TPHPP1P2LPL1'
+	db 'BBCICOF6F7F8F9SPBIBO'
+
+; note buffers are page aligned on inpage to allow only lower registers to be inr / dcr
+; common register usage
+; hl = insert point
+; c = cursor location
+; b -> last direction 0->left 1->right
+; de = end of buffer
+
+
+edit:	lda	jobMOk
+	ana	a
+	rz
+	call	coCRLF
+
+edtpat	equ	$+1		; location of patch to modifiy
+	mvi	e, 0		; code to mark end of buffer
+	lxi	h, edtBuf
+	mov	c, l		; index of 1 char
+	mov	d, h		; de -> last char
+	mvi	a, TRUE
+	sta	edited		; seems to be set but never changed
+
+trim:	dcx	d		; remove trailing control chars
+	ldax	d
+	cpi	' '
+	jc	trim
+	inx	d
+	mvi	a, ' '		; append space to end of line
+	stax	d
+	call	coEdtB
+	mov	c, e		; set cursor to end of string
+	inr	c
+	call	s3D8F
+
+editLo:	call	doCI		; get char
+	call	edtChr		; process it
+	jmp	editLo
+
+
+edtChr: call	switch
+edtCmd:	db 16		; length of switch table
+	db 4		; ctrl D
+	dw delCh
+	db 6		; ctrl F
+	dw delCh
+	db 7Fh
+	dw rubout
+	db 1Dh		; home key
+	dw home	
+	db 0E1h		; series IV cursor home
+	dw home
+	db 2		; ctrl B
+	dw home
+	db 1Bh		; escape
+	dw escCh
+	db 0Dh		; cr
+	dw crCh
+	db 1Fh		; left arrow
+	dw curLft
+	db 0E9h		; series IV cursor left
+	dw curLft
+	db '<'
+	dw curLft
+	db 14h		; right	arrow
+	dw curRit
+	db 0EAh		; series IV cursor right
+	dw curRit
+	db '>'
+	dw curRit
+	db 18h
+	dw abrtEd
+	db 1Ah
+	dw abrtEd
+
+	cpi	20h		; ctrl char
+	jc	coBell
+	mov	l, a
+	mov	a, e
+	sui	120
+	jnc	coBell		; >= 120 chars already
+	call	insert
+	inr	e		; de = new end
+	mov	a, l		; get char
+	mov	l, c		; set insert point
+	mov	m, a		; stuff char
+	call	scrCh
+	jmp	l3D25
+
+
+crCh:	call	coLF		; down a line
+	mov	e, c		; set end to current cursor position
+
+escCh:	mov	l, c		; hl-> cursor position
+	mov	c, e		; cursor position -> end of line
+	call	s3D2A
+	call	coCRLF		; echo CR LF
+	pop	psw
+	xchg
+	jmp	cloop3		; execute the command
+
+rubout:	sub	a
+	add	c
+	jz	coBell		; at start of line so error
+	call	s3D8F
+
+delCh:	mov	a, e
+	sub	c
+	jz	coBell		; cursor at end of line so error
+	call	delete
+	dcr	e		; one less char in line
+
+l3D25:	call	coEdtB
+	mov	l, e
+	inr	l
+
+s3D2A:	mvi	a, 79
+	cmp	c
+	jc	l3D45	; jump if cursor >= 80
+	sub	l 
+	jnc	l3D4F	; jump if insert point < 80 else fix
+	cma		; l = l - 80
+	mov	l, a
+	lda	curUp	; move up to line on screen
+	call	doCO
+	lda	curUp + 1
+	call	doCO
+	jmp	l3D4F
+
+l3D45:	cmp	l
+	jc	l3D4F	; jump if insert point >= 80 else fix
+	add	l	; l = l + 80
+	inr	a
+	mov	l, a
+	call	coLF	; move down line on screen
+
+l3D4F:	mov	a, c
+	add	a
+	sub	l
+	jnc	l3D5C
+	mvi	l, 0	; insert pt > 2 * cursor col
+	mvi	a, 0Dh	; so reset to start of buf
+	call	doCO
+
+l3D5C:	mov	a, c	
+	sub	l
+	jnc	l3D6D	; jmp if cursor col >= insert pt
+	dcr	l	; backup insert pt
+	call	coBS
+	jmp	l3D5C
+
+l3D68:	mov	a, m	; put char and advance insert pt
+	inx	h
+	call	coPrCh
+
+l3D6D:	mov	a, l
+	sub	c
+	jc	l3D68	; jmp if cursor > insert pt
+	ret
+
+
+home:	mov	l, c		; hl - > current location
+	mov	a, c
+	ana	a
+	jz	l3D85		; currently at start
+	cmp	e
+	jz	l3D80		; cursor at end
+	mov	a, b		; 0->left 1->right
+	inr	b		; 1->left 2->right
+	rrc
+
+l3D80:	mvi	c, 0		; cursor to col 0
+	jnc	s3D2A
+
+l3D85:	mov	c, e		; cursor to end of line
+	jmp	s3D2A
+
+
+curLft:	sub	a		; cursor left
+	mov	b, a
+	add	c
+	jz	coBell		; at start so let user know
+
+s3D8F:	mov	l, c		; insert point will be just after cursor
+	dcr	c		; back up cursor
+	jmp	s3D2A
+
+curRit: mvi	b, 1		; cursor right
+	mov	a, e
+	sub	c
+	jz	coBell		; at end of buffer so let user know
+	mov	l, c		; insert point just before cursor
+	inr	c
+	jmp	s3D2A
+
+abrtEd:	mov	a, e		; set up end of buffer patch
+	sta	edtPat
+	call	coCRLF		; new lioe
+	jmp	CLoop		; back to main loop
+
+coLF:	mvi	a, LF		; LF to CO
+	jmp	doCO
+
+coBS:	lda	bsChar		; back space to CO
+	jmp	doCO
+
+doCO:	call	pshReg		; safe call to CO
+	mov	c, a
+	jmp	CO
+
+
+delete:	call	pshReg		; a = number of chars to end of line
+	inr	a
+	mov	l, c		; de -> cursor, hl -> cursor + 1
+	mov	e, c
+	inx	h
+	mov	c, a		; c = count. Note bc, de, hl restored on ret
+
+; move *hl -> *de, c bytes
+
+move:	mov	a, m
+	stax	d
+	inx	h
+	inx	d
+	dcr	c
+	jnz	move		; move copy *hl	to *de for c bytes
+	ret
+
+insert:					; CODE XREF: edtChr+40p
+	call	pshReg
+	inx	d
+	mov	l, e		; hl = new end
+	inx	d		; de = new end + 1
+	mov	a, e
+	sub	c
+	mov	c, a		; count chars cursor to end
+
+ins1:	mov	a, m		; move up
+	stax	d
+	dcx	h
+	dcx	d
+	dcr	c
+	jnz	ins1
+	ret			; restores bc, de, hl
+
+
+coCRLF:	mvi	a, CR
+	call	doCO
+	jmp	coLF
+
+coBell: mvi	a, BELL
+	jmp	doCO
+
+coEdtB:	mov	a, e		; de -> end of string
+	inr	a		; c = index into string
+	sub	c		; a = length of string
+	mov	l, c		; hl = start of string
+	ana	a
+	rz			; 0 length so done
+	call	pshReg
+	mov	b, a		; count
+
+coEdt1:	mov	a, m
+	inx	h
+	call	scrCh		; echo the string
+	dcr	b
+	jnz	coEdt1
+	ret
+
+scrCh:	call	coPrCh		; echo char or ? for control chars
+	inr	c		; increment index
+	mov	a, c
+	sui	80		; column 80
+	rnz
+	call	coBS		; backup over last char and start new line
+	jmp	coCRLF
+
+
+coChAp:	inr	e	; append char so update end
+
+
+coPrCh: cpi	20h	; control char 0 - 20h
+	jc	co?
+	cpi	7Eh	; control char >= 7eh
+	jc	coCh
+
+co?:	mvi	a,'?'	; replace control char with ?
+
+coCh:	jmp	doCO	; echo the character
+
+
+set78:	lda	sysflg	; read system settings
+	sui	2
+	rnz		; not 8 bit support
+	dcr	a	; make a into 0ffh
+	sta	mask8	; patch code below
+	ret
+
+doCI:	call	pshReg
+	call	CI
+
+mask8	equ	$ + 1	; location to patch up to support 8 bits
+	ani	7Fh	; mask to 7 or 8 bits
+	ret
+
+; pshReg and popReg handle saving hl, de, bc around a system call
+; example usage
+; doCO:	call pshReg	; send char in a to console
+;	mov  c,a
+;	jmp  CO
+
+pshReg:	
+	shld	fixhl	; modify code to restore hl on return
+	xthl		; push h onto stack - hl = return address
+	push	d	; push d and b
+	push	b
+	push	h	; push the return address
+	lxi	h,popReg ; get address of code that restores h, d, b
+	xthl		; push onto stack - hl = return address
+	push	h	; put back the return address
+
+fixhl	equ	$ + 1
+	lxi	h, 0	; code modified above to restore hl
+	ret		; all done
+
+popReg: pop	b	; restores the registered pushed above
+	pop	d
+	pop	h
+	ret
+
+
+dpyFil:	call	dBlank	; skip to file name
+	call	initFl	; init file
+	call	ldFile	; load first chunk
+	call	sPage	; set paging
+
+dpy1:	call	dpyLin
+	call	chkCI	; check for user key press
+
+scrPat	equ	$ + 1	; location of scroll handler patch
+	call	pause	; modified to appropriate scroll routine
+	jmp	dpy1
+
+
+
+; main routine to display lines for @ command
+; register usage
+; hl -> buffer of chars to show
+; e -> current display column
+; bc -> end of buffer
+
+dpyLin:	mvi	e, 0
+
+l3E60:	mov	a, m	; get next char
+	inx	h
+	cpi	CR
+	jz	l3E88
+	cpi	LF
+	jz	l3E91
+	cpi	TAB
+	jnz	l3E85
+	lda	tabW	; pick up tab width
+	dcr	a	; convert to mask
+	ana	e
+	mov	d, a	; d = chars since previous tab stop
+	lda	tabW	; work out chars to tab stop
+	sub	d
+	mov	d, a	; d = chars to tab stop
+
+l3E7C:	mvi	a, ' '	; space to tab stop
+	call	coChAp
+	dcr	d
+	jnz	l3E7C
+
+l3E85:	cnz	coChAp	; emit normal char
+
+l3E88:	mov	a, e
+	cpi	80
+	jc	l3E60		; if < 80 chars loop
+	call	coBS		; else backspace and fall through to new line code
+
+l3E91:	call	coCRLF		; new line
+	mov	a, b
+	sui	4
+	sub	h
+	rnc			; return if more than 1k chars left
+	mov	a, l
+	sub	c
+	mov	a, h
+	sbb	b
+	jnc	abort		; at or beyond end
+	lda	eInMem
+	ana	a
+	rnz			; end in memory so nothing more to do
+	sta	bInMem		; clear bInMem
+	call	fd8192		; read 8k more chars
+	mov	a, h		; backup hl & bc by 8k
+	sui	20h
+	mov	h, a
+	mov	a, b
+	sui	20h
+	mov	b, a
+	push	h
+	lhld	actual		; eInMem = actual < 8k
+	mov	a, h
+	sui	20h
+	adi	0FFh
+	sbb	a
+	sta	eInMem
+	dad	b		; write LF at end
+	mvi	m, 0Ah
+	mov	b, h		; update end of buffer
+	mov	c, l
+	pop	h		; restore hl
+	ret
+
+
+fd8192:	call	pshReg
+	lxi	h, MEMORY+2000h
+	lxi	d, MEMORY
+
+l3ED0:	mov	a, m		; shift down buffer by 8k
+	stax	d
+	inx	h
+	inx	d
+	mov	a, m
+	stax	d
+	inx	h
+	inx	d
+	mov	a, b		; loop until after end of buffer
+	cmp	h
+	jnc	l3ED0
+	lxi	d, 2000h
+	sub	d
+	mov	b, a
+	jmp	ReadI		; call ReadI(high(buf) - 20h, 2000h)
+
+
+chkCI:	call	docsts		; quick check for character
+	ana	a
+	rz			; return if none
+
+getCh:	call	doCI
+	cpi	'@'
+	jc	l3EF4		; < '@'
+	ani	0DFh		; make upper case
+
+l3EF4:	call	switch
+	    db 0Ah
+	    db '4'
+	    dw SetTW4
+	    db '8'
+	    dw SetTW8
+	    db 'B'
+	    dw bk2048
+	    db 'E'
+	    dw abort
+	    db 'F'
+	    dw sFast
+	    db 'L'
+	    dw sLine
+	    db 'P'
+	    dw sPage
+	    db 'S'
+	    dw sSlow
+	    db 'Z'
+	    dw endFil
+	    db 13h			; control S
+	    dw getCh
+
+fast:	ret
+
+docsts:	call	pshReg
+	jmp	CSTS
+
+bk2048:	mov	a, h		; start buffer -= 2048
+	sui	8
+	mov	h, a
+	lxi	d, MEMORY
+	mov	a, l
+	sub	e
+	mov	a, h
+	sbb	d
+	jnc	l3F40		; if start buffer < .MEMORY then
+	xchg
+	lda	bInMem		; if beginning of file in memory then all done
+	rrc
+	jc	vPromt
+	mov	a, h		; l = -'buf size in paragraphs'- 16
+	sub	b
+	sui	10h
+	mov	l, a
+	mvi	h, 0FFh		; hl = -'buf size in paragraphs' - 16
+	dad	h		; convert to block count
+	mov	b, h		; block count to seek backwards
+	mov	c, l		; leaves min 4k overlap
+	call	skLdFl		; seek and reload content
+
+l3F40:	call	vPromt		; emit prompt
+	mov	a, c
+	sub	l
+	mov	a, b
+	sbb	h
+	rz			; no size remaining
+	mvi	e, 0
+	mvi	a, LF
+
+l3F4C:	cmp	m		; look for end of line
+	inx	h
+	rz
+	dcr	e		; look for at most 256 chars
+	jnz	l3F4C
+	dcr	h		; revert to start of buffer
+	ret
+
+abort:	call	CloseI		; close input
+	call	coCRLF		; echo crlf
+	jmp	cliEnt		; restart cli
+
+
+sFast:	push	h
+	lxi	h, fast		; simple scrolling handler with no delay
+	jmp	sHandl
+
+sLine:	push	h
+	lxi	h, 101h		; pasue after 1 line
+
+linCtl:	shld	scroll		; save pause line control
+	lxi	h, pause
+
+sHandl:	shld	scrpat		; patch code
+	pop	h
+	ret
+
+sPage:	push	h		; page scrolling mode
+	lxi	h, 1414h	; pause every 20 lines
+	jmp	linCtl
+
+sSlow:	push	h		; slow scolling
+	lxi	h, slow		; set handler
+	jmp	sHandl
+
+endFil: call	sFast
+	lda	eInMem
+	ana	a
+	jnz	l3F9D		; end of file in memory
+	mvi	a, 0FFh
+	sta	eInMem
+	lxi	b, 7FFFh
+	call	SBlok1		; seek to end of file
+	lxi	b, 0FFE0h	; get last 4k
+	call	skLdFl
+
+l3F9D:	lxi	h, MEMORY + 2000
+	mov	a, c
+	sub	l
+	mov	a, b
+	sbb	h
+	jnc	l3FB4		; at least 2000 chars read
+	lda	bInMem
+	rrc
+	jnc	l3F9D		; begining not in memory
+				; possibly a bug as this would loop
+				; but bInMem may not get cleared for short files
+	lxi	h, MEMORY	; set buffer start
+	jmp	vPromt		; and issue == CRLF twice
+
+l3FB4:	mov	a, b		; set buffer start to end - 2048
+	sui	8		; again likely a bug as we get here if >= 2000 chars read
+	mov	h, a		; this may set buffer before start
+	mov	l, c
+
+
+vPromt: call	l3FBC	; emit two lots of == CRLF
+
+l3FBC:	mvi	a, '='	; emit == CRLF
+	call	doCO
+	mvi	a, '='
+	call	doCO
+	jmp	coCRLF
+
+; seek to location and load file into memeory
+skLdFl: call	SBlok1
+	lda	status
+	sui	14h		; attempted back seek too far
+	sui	1
+	sbb	a
+	sta	bInMem		; begining of file will be in memory
+	jmp	ldFile		; laod as much of file as possible
+
+pause:	lda	scroll+1	; check	if reached pause limit
+	dcr	a
+	jnz	pause1
+	lda	scroll		; reset	pause limit
+
+pause1:	sta	scroll+1	; update pause limit
+	jz	getCh		; wait for char	if pausing
+	ret
+
+slow:	call	pshReg		; delay between lines for slow scroll
+	lxi	h, 10000	; delay	counter
+
+slow1:	dcx	h
+	mov	a, h
+	ora	l
+	jnz	slow1
+	ret
+
+SetTW4: mvi	a, 4		; set tab width to 4
+	jmp	l3FFF
+
+SetTW8: mvi	a, 8		; set tab width to 8
+
+l3FFF:	sta	tabW		; save current tab width
+	call	pshReg
+	call	PExtTW		; get pointer to tabwidth
+	mov	m, a		; save in cli area in isis across app launches
+	ret
+
+	end
+setcmd.asm
+	name	setcmd
+	public	SetCmd, Isis28, lineBf
+
+ISIS	equ	40h
+	cseg
+; SetCmd(buf$p, count, status$p) public; declare (buf$p, count, status$p) address; end;
+
+
+SetCmd:	sub	a	; status = 0;
+	stax	d
+	inx	d
+	stax	d
+	push	b
+	call	isis28	; get location of isis lined buffer 
+	pop	b
+	mvi	a, 122	; if count > 122 then count = 122
+	sub	c
+	mvi	a, 0
+	sbb	b
+	jnc	l401E
+	mvi	c, 122
+
+l401E:	lhld	lineBf
+	xchg
+	lxi	h, 125	; lineBf(125) = 0;
+	dad	d
+	sub	a
+	mov	m, a
+	inx	h
+	mov	m, a	; lineBf(126) = 0;
+	inx	h
+	mvi	m, 0FFh	; lineBf(127) = 255;
+	cmp	c
+	jz	l403D	; count = 0 then all done
+	mov	m, a	; lineBf(127) = 0
+	pop	h	; recover buf$p
+	xthl
+
+l4034:	mov	a, m	; copy count chars from buf$p to lineBf
+	stax	d
+	inx	h
+	inx	d
+	dcr	c
+	jnz	l4034
+	ret
+
+l403D:	pop	h	; return address
+	pop	b	; buf$p
+	pchl
+
+
+; undocumented isis syscall 28
+
+	dseg
+lineBf:	ds	2
+cliExt:	ds	2
+status:	ds	2
+
+	cseg
+;Isis28: procedure address; end
+; 	call isis(28, linedBuf$p, cliExtensionBuf$p, status$p)
+; 	return cliExtensionBuf$p
+; end;
+
+Isis28:	mvi	c, 28		; mapped to operation 16 in isis 4.3
+	lxi	d, param
+	call	ISIS
+	lhld	cliExt
+	ret
+
+param:	dw lineBf
+	dw cliExt
+	dw status
+
+	end
+memck.asm
+	name	MEMCK
+	public	MEMCK
+	CSEG
+MEMCK:	call	0F81BH
+	mov	h,b
+	mov	l,a
+	ret
+
+	end
+cons.asm
+	name	cons
+	public	CONS
+	extrn	ZZRENA
+
+	cseg
+CONS:	mvi	a,8
+	jmp	ZZRENA
+	end
+sblok1.asm
+	name	SBLOK1
+	extrn	AFTNI
+	extrn	ZZBLOK
+	extrn	ISIS
+	public	SBLOK1
+
+	cseg
+sblok1:	lxi	h,AFTNI
+	jmp	ZZBLOK
+
+	end
+backci.asm
+	name	BACKCI
+	extrn	ISISCL, STATUS
+	public	BACKCI
+	
+RESCAN	equ	11
+	
+	DSEG
+RSARG:	dw	1	; rescan args - CI
+	dw	STATUS	; status$p
+
+
+	CSEG
+
+BACKCI:	lxi	d,RSARG
+	mvi	c,RESCAN
+	jmp	ISISCL
+
+	end
+load.asm
+	name	load
+	public	LDEBUG, LOADGO, LOADOV, ENTRY
+	extrn	ZZXCHG, STATUS
+
+	dseg
+pathp:	dw	0
+offset:	dw	0
+switch:	dw	0
+entryp:	dw	ENTRY
+statp:	dw	STATUS
+
+ENTRY:	dw	0
+
+	cseg
+LDEBUG:	mvi	a,2
+	jmp	ldcom
+
+LOADGO:	mvi	a,1
+	jmp	ldcom
+LOADOV:	sub	a
+
+ldcom:
+	sta	switch
+	lxi	h,pathp + 1
+	mov	m,b
+	dcx	h
+	mov	m,c
+	mvi	a,6
+	jmp	ZZXCHG
+
+	end
+openi.asm
+	name	OPENI
+	extrn	STATUS, ACTUAL, ZZOPEN, ZZCLOS, ZZREAD
+	public	AFTNI, FNAMEI, READI, CLOSEI, ROPENI, OPENI
+
+	DSEG
+CONNP:	dw	AFTNI	; args for open
+FNAMEI:	dw	0
+	dw	1	; access
+	dw	0	; echo
+	dw	STATUS	; status$p
+
+CONNC:	dw	0	; args for close
+	dw	STATUS
+
+AFTNI:	dw	1	; args for read - conn - default CI
+	dw	0	; buff$p
+CNTR:	dw	0	; count
+	dw	ACTUAL	; actual$p
+	dw	STATUS	; status$p
+
+	CSEG
+OPENI:	lxi	h,FNAMEI + 1
+	call	ZZOPEN
+
+ROPENI:	lhld	AFTNI
+	shld	CONNC
+	ret
+
+CLOSEI:	lxi	d,CONNC
+	jmp	ZZCLOS
+
+READI:	lxi	h, CNTR + 1
+	jmp	ZZREAD
+
+	end
+openo.asm
+	name	OPENO
+	extrn	STATUS, ACTUAL, ZZOPEN, ZZCLOS, ZZWRIT
+	public	AFTNO, FNAMEO, WRITEO, CLOSEO, ROPENO, OPENO
+
+	DSEG
+CONNP:	dw	AFTNO	; args for open
+FNAMEO:	dw	0
+	dw	2	; access
+	dw	0	; echo
+	dw	STATUS	; status$p
+
+CONNC:	dw	0	; args for close
+	dw	STATUS
+
+AFTNO:	dw	0	; args for write - conn - default CO
+	dw	0	; buff$p
+CNTW:	dw	0	; count
+	dw	STATUS	; status$p
+
+	CSEG
+
+OPENO:	lxi	h,FNAMEO + 1
+	call	ZZOPEN
+
+ROPENO:	lhld	AFTNO
+	shld	CONNC
+	ret
+
+CLOSEO:	lxi	d,CONNC
+	jmp	ZZCLOS
+
+WRITEO:	lxi	h,CNTW + 1
+	jmp	ZZWRIT
+
+	end
+readc.asm
+	name READC
+	extrn	STATUS, ACTUAL, ZZREAD, ZZWRIT
+	public	READC, WRITEC
+
+	DSEG
+	dw	1	; read args - CI
+	dw	0	; buff$p
+CNTR:	dw	0	; count
+	dw	ACTUAL
+	dw	STATUS
+
+	CSEG
+READC:	lxi	h,CNTR + 1
+	jmp	ZZREAD
+
+	DSEG
+	dw	0	; write args - CO
+	dw	0	; buff$p
+CNTW:	dw	0	; count
+	dw	STATUS
+
+	CSEG
+WRITEC:	lxi	h,CNTW + 1
+	jmp	ZZWRIT
+
+	end
+seek.asm
+	name	seek
+	public	ZZBLOK, SBLOK, ZZBYTE, SBYTE
+	public	BLOKNO, BYTENO
+	extrn	ZZXCHG
+	extrn	STATUS
+
+	dseg
+conn:	dw	0
+mode:	dw	0
+blkp:	dw	BLOKNO
+bytp:	dw	BYTENO
+statp:	dw	STATUS
+
+BLOKNO:	dw	0
+BYTENO:	dw	0
+
+; sblok: procedure(offset, conn) public; declare offset address, conn byte; end;
+; sbyte: procedure(offset, conn) public; declare offset address, conn byte; end;
+
+	cseg
+conmod: mov	a,e		; set conn
+	sta	conn
+	call	getmod		; set mode
+	sta	mode
+	lxi	h,0		; useful 0
+	ret
+
+getmod: sub	a		; check for -ve offset
+	add	b
+	jm	seekbw
+	ora	c
+	rz			; return mode seek return for 0 offset
+	call	chkmax
+	mvi	a,3		; seek forward
+	rnz
+	inr	a		; seek eof
+	ret
+
+seekbw: cma			; not offset
+	mov	b,a
+	mov	a,c
+	cma
+	mov	c,a
+	call	chkmax
+	inx	b		; make offset full negate
+	mvi	a,1		; seek backwards
+	rnz			; not max
+	inr	a		; seek abs -> rewind
+	lxi	b,0		; offset = 0
+	ret
+
+chkmax: mvi	a,0FFH		; return 0 if max offset
+	cmp	c
+	rnz
+	mvi	a,7FH
+	cmp	b
+	ret
+
+ZZBLOK:	mov	e,m		; pickup conn from *hl
+
+SBLOK:	call	conmod
+	shld	BYTENO		; byte = 0
+	dad	b
+	shld	BLOKNO		; block = offset
+seekcm:
+	mvi	a,5
+	lxi	h,conn
+	jmp	ZZXCHG
+
+ZZBYTE:	mov	e,m		; pickup conn from *hl
+
+SBYTE:	call	conmod
+	shld	BLOKNO		; block = 0
+	dad	b
+	shld	BYTENO		; byte = offset
+	jmp	seekcm
+
+	end
+whoci.asm
+	name	whoci
+	public	WHOCI
+	extrn	ZZLOD2, STATUS
+
+	dseg
+ciconn:	dw	1
+buffp:	dw	0
+statp:	dw	STATUS
+
+	cseg
+WHOCI:	mvi	a,0DH
+	lxi	h,buffp + 1
+	jmp	ZZLOD2
+	end
+isiscl.asm
+	name ISISCL
+	public STATUS, FATAL, ERRED, REPORT, ACTUAL, ZZCLOS
+	public ZZREAD, ZZOPEN, EX, ERR, ISISCL, ZZXCHG, ZZLOD2
+	public ZZWRIT, ISIS
+
+	ASEG
+ISIS	equ	40H
+
+IOPEN	equ	0
+ICLOSE	equ	1
+IREAD	equ	3
+IWRITE	equ	4
+IEXIT	equ	9
+IERROR	equ	12
+
+	DSEG
+ACTUAL:	dw	0
+REPORT:	db	0FFH
+ERRED:	db	0
+FATAL:	db	0
+STATUS:	dw	0
+EXITV:	dw	STATUS
+
+
+	CSEG
+ZZWRIT:
+	mvi	a,IWRITE
+ZZLOD1:
+	mov	m,d	; stuff the count
+	dcx	h
+	mov	m,e
+	dcx	h
+
+ZZLOD2: mov	m,b	; stuff the buff$p
+	dcx	h
+	mov	m,c
+	dcx	h	; back up to conn arg
+	dcx	h
+ZZXCHG:			; hl -> isis arg ptr
+	xchg
+	mov	c,a	; isis cmd
+
+ISISCL: call	ISIS
+	lhld	STATUS
+	mov	a,h
+	ora	l
+	rz
+	mvi	a,0FFH	; flag we have an error
+	sta	ERRED
+	lda	REPORT	; continue if no reporting
+	rar
+	rnc
+
+ERR:	mvi	c,IERROR
+	lxi	d,STATUS
+	call	ISIS
+	lda	FATAL		; done if error is considered fatal
+	rar
+	rnc
+
+EX:	mvi	c,IEXIT
+	lxi	d,EXITV		; safe pointer
+	call	ISIS
+	rst	0		; reboot
+
+ZZOPEN: sub	a		; IOPEN
+	jmp	ZZLOD2
+
+ZZREAD: mvi	a,IREAD
+	jmp	ZZLOD1
+
+ZZCLOS:	mvi	c,ICLOSE
+	jmp	ISISCL
+
+
+	end
+renam.asm
+	name	renam
+	public	RENAM, ZZRENA
+	extrn	ZZXCHG, STATUS
+
+	dseg
+oldp:	dw	0
+newp:	dw	0
+statp:	dw	STATUS
+
+	cseg
+RENAM:	mvi	a,7
+
+ZZRENA:	lxi	h,newp + 1	; de = new$p, bc = old$p
+	mov	m,d
+	dcx	h
+	mov	m,e
+	dcx	h
+	mov	m,b
+	dcx	h
+	mov	m,c
+	jmp	ZZXCHG
+	end
