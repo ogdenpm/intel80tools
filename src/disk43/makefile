@@ -1,17 +1,16 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := fixmap format idisk
+REF:=ref
 
 # build options
-LOCATEOPT:=SYMBOLS PUBLICS
-PLMOPT:= DEBUG
-LINKOPT:=
-KEEP=1
-include $(ROOT)/tools/isistools.mk
+LOCATEFLAGS:=SYMBOLS PUBLICS
+PLMFLAGS:= DEBUG
+LINKFLAGS:=
+include $(ROOT)/tools/isis.mk
 
 # set default tools
 #COMPARE := $(ROOT)/tools/diffbin
-REFDIR:=ref
 
 PEXFILE:=disk.pex
 
@@ -28,19 +27,19 @@ IDISKOBJ =	idisk.obj alloc.obj direct.obj dblank.obj dlimit.obj ferror.obj fmttr
 	devdsk.obj wd.obj absio.obj clbuf.obj\
 	diskio.obj numout.obj rpterr.obj setblk.obj ucase.obj wdelim.obj
 
-all: $(TARGETS)
+all:	$(TARGETS)
 
 fixmap: $(FIXMAPOBJ)
-	$(call link,$@.rel,$^ $(call tools-v40,system.lib plm80.lib))
+	$(call link,$@.rel,$^ $(call v40dir,system.lib plm80.lib))
 	$(call locate,$@,$@.rel,stacksize(96) name(FIXMAP) purge)
-	@del $@.rel
+	@rm $@.rel
 
 format: $(FORMATOBJ)
-	$(call link,$@.rel,$^ $(call tools-v40,system.lib plm80.lib))
+	$(call link,$@.rel,$^ $(call v40dir,system.lib plm80.lib))
 	$(call locate,$@,$@.rel,stacksize(124) name(FORMAT) purge)
-	@del $@.rel
+	@rm $@.rel
 
 idisk: $(IDISKOBJ)
-	$(call link,$@.rel,$^ $(call tools-v40,system.lib plm80.lib))
+	$(call link,$@.rel,$^ $(call v40dir,system.lib plm80.lib))
 	$(call locate,$@,$@.rel,stacksize(138) name(IDISK) purge)
-	@del $@.rel
+	@rm $@.rel

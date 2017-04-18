@@ -1,11 +1,11 @@
 ROOT:= ../..
 TARGETS = isis.bin
-REFDIR = ref
+REF = ref
 PEXFILE := isis43.pex
 COMPARE := $(ROOT)/tools/isisc
 KEEP=T
 
-include $(ROOT)/tools/isistools.mk
+include $(ROOT)/tools/isis.mk
 
 LOCATEOPT := SYMBOLS PUBLICS
 PLMOPT	:= DEBUG OPTIMIZE
@@ -25,6 +25,6 @@ isis.bin: isis
 	$(ROOT)/tools/packisis isis
 
 isis: $(OBJ)
-	$(call link,isis.rel,$^ $(call tools-v40,plm80.lib))
+	$(call link,isis.rel,$^ $(V40)/plm80.lib)
 	$(call locate,$@,isis.rel,code(0) name(isis) stacksize(0) memory(3000h))
 

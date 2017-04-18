@@ -1,11 +1,11 @@
 # common makefile info
 ROOT=../..
 TARGETS=plm80.lib
-REFDIR=ref
-pLMFOpT=code optimize
-ASMFOpT=
+REF=ref
+PLMFLAGS=code optimize
+ASMFLAGS=
 KEEP=1
-include $(ROOT)/tools/isistools.mk
+include $(ROOT)/tools/isis.mk
 
 OBJS=	p0000.obj p0002.obj p0004.obj p0007.obj p0011.obj p0014.obj \
 	p0018.obj p0020.obj p0022.obj p0025.obj p0029.obj p0031.obj \
@@ -20,3 +20,5 @@ all: $(TARGETS)
 
 plm80.lib: $(OBJS)
 	$(call lib,$@,$^)
+
+

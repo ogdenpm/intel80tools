@@ -1,13 +1,13 @@
 ROOT:= ../..
 TARGETS = isis.bin
-REFDIR = ref
+REF = ref
 PEXFILE := isis34.pex
 COMPARE := $(ROOT)/tools/isisc
-include $(ROOT)/tools/isistools.mk
+include $(ROOT)/tools/isis.mk
 
 ISISTOOLS := $(V31)
-LOCATEOPT := PUBLICS SYMBOLS
-PLMOPT := DEBUG
+LOCATEFLAGS := PUBLICS SYMBOLS
+PLMFLAGS := DEBUG
 
 OBJ =	loc62.obj isis.obj load.obj open.obj path.obj\
 	rename.obj rescan.obj rw.obj seek.obj trap.obj\
@@ -22,5 +22,5 @@ isis.bin: isis
 	$(ROOT)/tools/packisis isis
 
 isis: $(OBJ)
-	$(call link,isis.rel,$^ $(call tools-v31,plm80.lib))
+	$(call link,isis.rel,$^ $(V31)/plm80.lib)
 	$(call locate,$@,isis.rel,code(3eh) name(isis) stacksize(0) memory(3000h))

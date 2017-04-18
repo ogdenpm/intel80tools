@@ -1,12 +1,12 @@
 ROOT:= ../..
 TARGETS = isis.bin
-REFDIR = ref
+REF = ref
 PEXFILE := isis41.pex
 COMPARE := $(ROOT)/tools/isisc
 
-include $(ROOT)/tools/isistools.mk
+include $(ROOT)/tools/isis.mk
 
-LOCATEOPTS := PUBLICS SYMBOLS
+LOCATEFLAGS := PUBLICS SYMBOLS
 
 OBJ =	loc62.obj isis.obj aft.obj attrib.obj\
 	close.obj consol.obj delete.obj diskio.obj\
@@ -21,6 +21,6 @@ isis.bin: isis
 	$(ROOT)/tools/packisis isis
 
 isis: $(OBJ)
-	$(call link,isis.rel,$^ $(call tools-v40,plm80.lib))
-	$(call locate,$@,isis.rel,code(3eh) name(isis) stacksize(0) memory(3000h))
+	$(call link,isis.rel,$^ $(V40)/plm80.lib)
+	$(call locate,$@,isis.rel,code(3eh) name(isis) stacksize(0) memory(3000h) purge)
 

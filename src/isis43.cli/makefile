@@ -1,11 +1,11 @@
 ROOT = ../..
 TARGETS = isis.cli
-REFDIR = ref
-include $(ROOT)/tools/isistools.mk
+REF = ref
+include $(ROOT)/tools/isis.mk
 
-PLMOPT := DEBUG
-ASMOPT := DEBUG
-LOCATEOPT := SYMBOLS
+PLMFLAGS := DEBUG
+ASMFLAGS := DEBUG
+LOCATEFLAGS := SYMBOLS
 
 OBJS :=	cli.obj cloop.obj setcmd.obj memck.obj cons.obj sblok1.obj\
 	backci.obj load.obj openi.obj openo.obj readc.obj seek.obj whoci.obj\
@@ -14,7 +14,7 @@ OBJS :=	cli.obj cloop.obj setcmd.obj memck.obj cons.obj sblok1.obj\
 all: $(TARGETS)
 
 isis.cli: $(OBJS)
-	$(call link,cli.rel,$^ $(call tools-v40,plm80.lib))
+	$(call link,cli.rel,$^ $(V40)/plm80.lib)
 	$(call locate,$@,cli.rel,code(3680h) name(CLI) stacksize(14) purge)
-	@del cli.rel
+	@rm cli.rel
 
