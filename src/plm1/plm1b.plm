@@ -1,0 +1,169 @@
+plm1b: DO;
+$include(plm1b.ipx)
+
+getTx1Item: PROCEDURE public;
+
+    if regetTx1Item then
+    do;
+	regetTx1Item = FALSE;
+	return;
+    end;
+    do while 1;
+	call rdTx1Item;
+	if tx1Item.type = L$TOKENERROR then
+	do;
+	    if (curSymbol$p := tx1Item.dataw(1)) <> 0 then
+	    do;
+		if high(cursym.info$p) = 0ffh then
+			cursym.info$p = 0;
+		if (curInfo$p := cursym.info$p) = 0 then
+			call createInfo(0, UNK$T);
+		tx1Item.dataw(1) = curInfo$p - botInfo;
+	    end;
+	    call mapLtoT2;
+	end;
+	else if (tx1Item.type = L$XREFINFO and XREF)
+	      or (tx1Item.type = L$XREF and (IXREF or XREF or SYMBOLS)) then
+	do;
+	    tx1Item.dataw(1) = curStmtNum;
+	    call fwrite(.xrfFile, .tx1Item, 5);
+	end;
+	else if tx1Item.type = L$LINEINFO then
+	do;
+	    if b88B3 then
+		call wrTx2File(.linfo, 7);
+	    call move(7, .tx1Item, .linfo);
+	    linfo.type = T2$LINEINFO;
+	    b88B3 = TRUE;
+	end;
+	else if (tx1Aux2 and 20h) <> 0 then
+	    call mapLtoT2;
+	else if tx1Item.type = L$STMTCNT and tx1Item.dataw(0) = 0 then
+	    call mapLtoT2;
+	else if tx1Item.type <> L$XREF and tx1Item.type <> L$XREFINFO then
+	    goto done;
+    end;
+done:	if tx1Item.type = L$VARIABLE then
+	curSymbol$p = tx1Item.dataw(0);
+    if (tx1Aux2 and 10h) <> 0 then
+	tx1Item.dataw(0) = tx1Item.dataw(0) + botInfo;
+end;
+
+matchTx2Item: PROCEDURE(arg1b) BYTE public;
+    declare arg1b byte;
+    call getTx1Item;
+    if tx1Item.type = arg1b then
+	return TRUE;
+    else
+    do;
+	call setRegetTx1Item;
+	return FALSE;
+    end;
+end;
+
+notMatchTx2Item: PROCEDURE(arg1b) BYTE public;
+    declare arg1b byte;
+    return not matchTx2Item(arg1b);
+end;
+
+matchTx2AuxFlag: PROCEDURE(arg1b) BYTE public;
+    declare arg1b byte;
+
+    call getTx1Item;
+    if (tx1Aux2 and arg1b) <> 0 then
+	return TRUE;
+    else
+    do;
+	call setRegetTx1Item;
+	return FALSE;
+    end;
+end;
+
+
+sub$4599: PROCEDURE public;
+    do while 1;
+	call getTx1Item;
+	if (tx1Aux2 and 80h) = 0 then
+	    goto done;
+	else if tx1Item.type = L$RPAREN then
+	    goto done;
+    end;
+done:
+    call setRegetTx1Item;
+end;
+
+resyncRPAREN: PROCEDURE public;
+    call sub$4599;
+    if matchTx2Item(L$RPAREN) then
+	;
+end;
+
+expectRPAREN: PROCEDURE(arg1b) public;
+    declare arg1b byte;
+    if notMatchTx2Item(L$RPAREN) then
+    do;
+	call wrTx2ExtError(arg1b);
+	call resyncRPAREN;
+    end;
+end;
+
+sub$45E0: PROCEDURE public;
+    call findInfo;
+    if curInfo$p = 0 or getType = LIT$T then
+	call createInfo(256, BYTE$T);
+    call optWrXrf;
+    if getType <> BUILTIN$T then
+	if  not testInfoFlag(F$LABEL) then
+	    if not testInfoFlag(F$DECLARED) then
+	    do;
+		call wrTx2ExtError(105);	/* UNDECLARED IDENTIFIER */
+		call setInfoFlag(F$DECLARED);
+	    end;
+end;
+
+sub$4631: PROCEDURE public;
+    declare tmp address;
+
+    tmp = curInfo$p;
+    call findMemberInfo;
+    if curInfo$p = 0 then
+    do;
+	call createInfo(0, BYTE$T);
+	call setParentOffset(tmp);
+	call setInfoFlag(F$MEMBER);
+    end;
+    if not testInfoFlag(F$LABEL) then
+	if not testInfoFlag(F$DECLARED) then
+	do;
+	    call wrTx2ExtError(112);	/* UNDECLARED STRUCTURE MEMBER */
+	    call setInfoFlag(F$DECLARED);
+	end;
+    call optWrXrf;
+end;
+
+sub$467D: PROCEDURE public;
+    call sub$45E0;
+    if matchTx2Item(L$PERIOD) then
+	if getType <> STRUCT$T then
+	    call wrTx2ExtError(110);	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
+	else if notMatchTx2Item(L$VARIABLE) then
+	    call wrTx2ExtError(111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
+	else
+	    call sub$4631;
+end;
+
+wrAtFile: PROCEDURE(buf, cnt) public;
+    declare (buf, cnt) address;
+    call fwrite(.atFile, buf, cnt);
+end;
+
+wrAtFileByte: PROCEDURE(arg1b) public;
+    declare arg1b byte;
+    call wrAtFile(.arg1b, 1);
+end;
+
+wrAtFileWord: PROCEDURE(arg1w) public;
+    declare arg1w address;
+    call wrAtFile(.arg1w, 2);
+end;
+end;
