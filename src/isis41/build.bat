@@ -1,2 +1,0 @@
-..\..\unpack.pl
-..\..\nmake

@@ -1,85 +1,43 @@
 # common makefile info
-ROOT=..\..
-ISIS=$(ROOT)\thames
-PLMDIR=$(ROOT)\plm80v4
-ASMDIR=$(ROOT)\plm80v4
-OLDPLMDIR=$(ROOT)\plm80v3
-TOOLS=$(ROOT)\tools
+ROOT=../..
+REF=ref
+TARGETS=tex10.com tex12.com tex21.com tex21a.com
+
+include $(ROOT)/tools/isis.mk
 
 PLMFLAGS=code optimize 
 ASMFLAGS=
 
-.SUFFIXES: .plm .pl3
-.plm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
-	@if not exist $*.obj exit /b 1
+all: $(TARGETS)
 
-.pl3.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(OLDPLMDIR)
-	$(ISIS) :F1:PLM80 $< $(PLMFLAGS)
-	@find $*.lst "     0 PROGRAM ERROR(S)" >nul || (del /q $*.obj & exit /b 1)
+tex10.com: tex10.obj x0100.obj 
+	$(call link,tex10.rel,$^ $(V40)/plm80.lib)
+	$(call locate,tex10.abs,tex10.rel,code(100h) stacksize(60) purge)
+	@rm tex10.rel
+	$(ROOT)/tools/obj2bin tex10.abs $@
+	@rm tex10.abs
+	$(ROOT)/tools/patchbin patch10.txt $@
 
-.asm.obj:
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(ASMDIR)
-	$(ISIS) :F1:ASM80 $< $(ASMFLAGS)
-	@find $*.lst "ASSEMBLY COMPLETE,   NO ERRORS" >nul || (del /q $*.obj & exit /b 1)
+tex12.com: tex12.obj cpm.obj
+	$(call link,tex12.rel,$^ $(V40)/plm80.lib)
+	$(call locate,tex12.abs,tex12.rel,code(100h) stacksize(100) purge)
+	@rm tex12.rel
+	$(ROOT)/tools/obj2bin tex12.abs $@
+	@rm tex12.abs
 
-all: tex10.com tex12.com tex21.com tex21a.com
 
-tex10.com: tex10.obj x0100.obj
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:LINK TEX10.OBJ,X0100.OBJ,:F1:PLM80.LIB TO $*.REL 
-	$(ISIS) :F1:LOCATE $*.REL TO $*.ABS CODE(100H) PRINT($*.map) symbols publics order(code stack data) stacksize(60)
-	del /q $*.rel
-	$(TOOLS)\obj2bin $*.abs $@
-	del /q $*.abs
-	$(TOOLS)\patchbin patch10.txt $@
-	$(ROOT)\relst.pl $*.map $*.lst
-	@echo **** $*p.cpm longer is expected ****
-	-@fc /b $@ $*p.cpm
+tex21.com: tex21.obj cpmio.obj cpm.obj
+	$(call link,tex21.rel,$^ $(V40)/plm80.lib)
+	$(call locate,tex21.abs,tex21.rel,code(100h) stacksize(100) purge)
+	@rm tex21.rel
+	$(ROOT)/tools/obj2bin tex21.abs $@
+	@rm tex21.abs
+	$(ROOT)/tools/patchbin patch21.txt $@
 
-tex12.COM: tex12.obj cpm.obj
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:LINK TEX12.OBJ,CPM.OBJ,:F1:PLM80.LIB TO $*.REL 
-	$(ISIS) :F1:LOCATE $*.REL TO $*.ABS CODE(100H) PRINT($*.map) symbols publics order(code stack data) stacksize(100)
-	del /q $*.rel
-	$(TOOLS)\obj2bin $*.abs $@
-	del /q $*.abs
-	$(ROOT)\relst.pl $*.map $*.lst
-	@echo **** $*.cpm longer is expected ****
-	-@fc /b $@ $*.cpm
+tex21a.com: tex21a.obj cpmio.obj cpm.obj
+	$(call link,tex21a.rel,$^ $(V40)/plm80.lib)
+	$(call locate,tex21a.abs,tex21a.rel,code(100h) stacksize(100) purge)
+	@rm tex21a.rel
+	$(ROOT)/tools/obj2bin tex21a.abs $@
+	@rm tex21a.abs
 
-tex21.COM: tex21.obj cpmio.obj cpm.obj patch21.txt
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:LINK TEX21.OBJ,CPMIO.OBJ,CPM.OBJ,:F1:PLM80.LIB TO $*.REL 
-	$(ISIS) :F1:LOCATE $*.REL TO $*.ABS CODE(100H) PRINT($*.map) symbols publics order(code stack data) stacksize(100)
-	del /q $*.rel
-	$(TOOLS)\obj2bin $*.abs $@
-	del /q $*.abs
-	$(TOOLS)\patchbin patch21.txt $@
-	$(ROOT)\relst.pl $*.map $*.lst cpmio.lst
-	@echo **** $*.cpm longer is expected ****
-	-@fc /b $@ $*.cpm
-
-tex21a.COM: tex21a.obj cpmio.obj cpm.obj patch21.txt
-	@SET ISIS_F0=.
-	@SET ISIS_F1=$(PLMDIR)
-	$(ISIS) :F1:LINK TEX21a.OBJ,CPMIO.OBJ,CPM.OBJ,:F1:PLM80.LIB TO $*.REL 
-	$(ISIS) :F1:LOCATE $*.REL TO $*.ABS CODE(100H) PRINT($*.map) symbols publics order(code stack data) stacksize(100)
-	del /q $*.rel
-	$(TOOLS)\obj2bin $*.abs $@
-	del /q $*.abs
-	$(ROOT)\relst.pl $*.map $*.lst cpmio.lst
-
-clean:
-	del /q *.??~ *.lst.prn *.obj *.lst *.obj makefile~ *.map
-
-vclean: clean
-	del /q tex10.com tex12.com tex21.com

@@ -6,8 +6,8 @@ sub loadMap {
 	open my $in, "<", $file or die "$file: $!";
 
 	while (<$in>) {
-		next unless /([0-9A-F]{4})H\s+PUB\s+(.*)/;
-		$public{$2} = hex($1);
+		next unless /([0-9A-F]{4})H\s+(PUB|SYM)\s+(.*)/;
+		$symbols{$3} = hex($1);
 		++$cnt;
 	}
 	close $in;
@@ -29,12 +29,12 @@ sub getOffset {
 			next unless (/\d+ (\w+):/);
 			$label = $1;
 			$label =~ tr/a-z/A-Z/;
-		} else {	# plm - sync on public procedure or label
+		} else {	# plm - sync on symbols procedure or label
 			next unless /^ {25}(; PROC  (.*)|([^:]+):)/;
 			$label = $2 || $3;
 		}
-		next unless defined($public{$label});
-		my $realLoc = $public{$label};
+		next unless defined($symbols{$label});
+		my $realLoc = $symbols{$label};
 		my $depth = 1;		# used for PLM to check not in nested function
 		do {
 			$depth = $1 if (!$isAsm && /^\s{0,3}\d+\s+(\d+)/);
@@ -57,7 +57,7 @@ while (my $lstwild = shift @ARGV) {
 	while ($lstfile = glob($lstwild)) {
 		my $offset = getOffset($lstfile);
 		if ($offset < 0) {
-			print "warning failed to sync to public symbol in $lstfile\n";
+			print "warning failed to sync to symbols in $lstfile\n";
 		} else {
 			open my $in, "<", $lstfile or die "$lstfile: $!";
 			open my $out, ">", "$lstfile.prn" or die "$lstfile.prn: $!";
