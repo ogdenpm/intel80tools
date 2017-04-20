@@ -21,7 +21,7 @@ PLMFFLAGS:=DEBUG
 LINKFLAGS:=
 PURGE:= purge
 
-all: 
+all::
 	$(MAKE) $(TARGETS)
 
 # base address of the overlays and keyn.abs
@@ -122,16 +122,21 @@ $(call objdir,keyn.abs: $(KEYOBJS))
 	@rm $(call rel,keyn)
 
 
-# these are special build rules to preprocess the plx files
-$(SRC)/%m.plm: $(SRC)/%.plx
+# these are special build rules to process the plx files
+$(OBJ)/%m.obj: $(SRC)/%.plx
 	$(PLMPP) -sMACRO -o $(SRC)/$*m.plm $<
+	$(call plm,$@,$(SRC)/$*m.plm)
 
-$(SRC)/%n.plm: $(SRC)/%.plx
+$(OBJ)/%n.obj: $(SRC)/%.plx
 	$(PLMPP) -o $(SRC)/$*n.plm $<
+	$(call plm,$@,$(SRC)/$*n.plm)
 
-$(SRC)/%s.plm: $(SRC)/%.plx
+$(OBJ)/%s.obj: $(SRC)/%.plx
 	$(PLMPP) -sSMALL -o $(SRC)/$*s.plm $<
+	$(call plm,$@,$(SRC)/$*s.plm)
 
-$(SRC)/%b.plm: $(SRC)/%.plx
+$(OBJ)/%b.obj: $(SRC)/%.plx
 	$(PLMPP) -sBIG -o $(SRC)/$*b.plm $<
+	$(call plm,$@,$(SRC)/$*b.plm)
+
 

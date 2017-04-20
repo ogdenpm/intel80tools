@@ -12,14 +12,15 @@ PLMFLAGS :=
 ASMFLAGS := 
 # stack area allocated in the loc62.asm file
 LOCATEFLAGS := SYMBOLS
-OBJ = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj
+objs = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj
 
-all: $(TARGETS)
+all:: $(TARGETS)
 
-isis.t0: $(OBJ) $(JUNKFILE)
-	$(call link,isist0.rel,$^ $(V40)/plm80.lib)
-	$(call locate-overlaps,isist0.abs,isist0.rel,name(isist0) stacksize(42) code(3000h))
-	@rm isist0.rel
+isis.t0: isist0.abs
+	$(ROOT)/tools/obj2bin $^ $@
+
+isist0.abs: isist0.rel
+	$(call locate-overlaps,$@,$^,name(isist0) stacksize(42) code(3000h))
 ifdef JUNKFILE
 	@echo "##################################################################"
 	@echo "#### Memory overlaps are expected for address ranges:         ####"
@@ -27,5 +28,8 @@ ifdef JUNKFILE
 	@echo "####    3AEAH-3AEAH, 3B0EH-3B0EH and 3B1FH-3B7FH              ####"
 	@echo "##################################################################"
 endif
-	$(ROOT)/tools/obj2bin isist0.abs $@
-	@rm isist0.abs
+
+.INTERMEDIATE: isist0.rel
+isist0.rel: $(objs) $(JUNKFILE)
+	$(call link,$@,$^ $(V40)/plm80.lib)
+

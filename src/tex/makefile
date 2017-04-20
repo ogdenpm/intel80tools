@@ -8,7 +8,7 @@ include $(ROOT)/tools/isis.mk
 PLMFLAGS=code optimize 
 ASMFLAGS=
 
-all: $(TARGETS)
+all:: $(TARGETS)
 
 tex10.com: tex10.obj x0100.obj 
 	$(call link,tex10.rel,$^ $(V40)/plm80.lib)

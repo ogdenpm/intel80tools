@@ -27,19 +27,26 @@ IDISKOBJ =	idisk.obj alloc.obj direct.obj dblank.obj dlimit.obj ferror.obj fmttr
 	devdsk.obj wd.obj absio.obj clbuf.obj\
 	diskio.obj numout.obj rpterr.obj setblk.obj ucase.obj wdelim.obj
 
-all:	$(TARGETS)
+all::	$(TARGETS)
 
-fixmap: $(FIXMAPOBJ)
-	$(call link,$@.rel,$^ $(call v40dir,system.lib plm80.lib))
-	$(call locate,$@,$@.rel,stacksize(96) name(FIXMAP) purge)
-	@rm $@.rel
+fixmap: fixmap.rel
+	$(call locate,$@,$^,stacksize(96) name(FIXMAP) purge)
 
-format: $(FORMATOBJ)
-	$(call link,$@.rel,$^ $(call v40dir,system.lib plm80.lib))
-	$(call locate,$@,$@.rel,stacksize(124) name(FORMAT) purge)
-	@rm $@.rel
+format: format.rel
+	$(call locate,$@,$^,stacksize(124) name(FORMAT) purge)
 
-idisk: $(IDISKOBJ)
-	$(call link,$@.rel,$^ $(call v40dir,system.lib plm80.lib))
-	$(call locate,$@,$@.rel,stacksize(138) name(IDISK) purge)
-	@rm $@.rel
+idisk: idisk.rel
+	$(call locate,$@,$^,stacksize(138) name(IDISK) purge)
+
+.INTERMEDIATE: fixmap.rel format.rel idisk.rel
+
+fixmap.rel: $(FIXMAPOBJ)
+	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+
+format.rel: $(FORMATOBJ)
+	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+
+
+idisk.rel: $(IDISKOBJ)
+	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+

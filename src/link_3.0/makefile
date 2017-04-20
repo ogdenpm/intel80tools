@@ -26,7 +26,7 @@ PUB2 = 	link0.abs link1.abs
 OBJ2 :=	link3a.obj mkfnam.obj lineuc.obj
 OBJOVL := linkov.obj
 
-all: $(TARGETS)
+all:: $(TARGETS)
 
 # link build rule
 link: $(LINKOBJ) $(LINKPUB)

@@ -76,6 +76,8 @@ map = $(LST)/$(basename $(notdir $1)).map
 lst = $(LST)/$(basename $(notdir $1)).lst
 rel = $(OBJ)/$(basename $(notdir $1)).rel
 
+vpath %.plm $(SRC)
+vpath %.asm $(SRC)
 
 ## the generic build commands
 # $(call plm,objfile,srcfile,extra options)
@@ -89,10 +91,10 @@ define asm
   @$(ASM) "$2 print($(call lst,$2)) object($1) $(ASMFLAGS) $3"
 endef
 
-$(OBJ)/%.obj: $(SRC)/%.plm  | $(filter-out .,$(OBJ) $(LST))
+$(OBJ)/%.obj: %.plm  | $(filter-out .,$(OBJ) $(LST))
 	$(call plm,$@,$<)
 
-$(OBJ)/%.obj: $(SRC)/%.asm  | $(filter-out .,$(OBJ) $(LST))
+$(OBJ)/%.obj: %.asm  | $(filter-out .,$(OBJ) $(LST))
 	$(call asm,$@,$<)
 
 # link with no check for unresolved
@@ -139,13 +141,13 @@ endef
 # common targets
 .PHONY: all
 ifdef MASTERFILE
-  all: .extract
+  all:: .extract
 
   .extract: $(MASTERFILE) | $(filter-out .,$(OBJ) $(LST))
 	perl $(ROOT)/unpack.pl
 	touch .extract
 else
-  all:
+  all::
 endif
 
 
@@ -167,17 +169,17 @@ verify: all
 rebuild: distclean all
 
 ## housekeeping rules
-.PHONY: clean
-clean:
+.PHONY: clean distclean
+clean::
 	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -fr *.obj *.abs) 2>$(null)
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lnk *.map) 2>$(null)
 ifndef PEXFILE
 	-rm -fr .deps 2>$(null)
 else
-	-rm -fr *.ipx
+	-rm -fr $(SRC)/*.ipx
 endif
 
-distclean: clean 
+distclean:: clean 
 ifdef MASTERFILE
 	-rm -fr $(filter-out mk makefile $(REF) $(MASTERFILE) $(PROTECT),$(shell ls)) $(TARGETS) .extract 2>$(null)
 else

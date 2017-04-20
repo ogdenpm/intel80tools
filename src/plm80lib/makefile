@@ -16,7 +16,7 @@ OBJS=	p0000.obj p0002.obj p0004.obj p0007.obj p0011.obj p0014.obj \
 	p0094.obj p0096.obj p0098.obj p0101.obj p0103.obj p0105.obj \
 	p0106.obj p0108.obj p0110.obj p0113.obj prmsk.obj psmsk.obj
 
-all: $(TARGETS)
+all:: $(TARGETS)
 
 plm80.lib: $(OBJS)
 	$(call lib,$@,$^)

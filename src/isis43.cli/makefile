@@ -7,14 +7,16 @@ PLMFLAGS := DEBUG
 ASMFLAGS := DEBUG
 LOCATEFLAGS := SYMBOLS
 
-OBJS :=	cli.obj cloop.obj setcmd.obj memck.obj cons.obj sblok1.obj\
+objs :=	cli.obj cloop.obj setcmd.obj memck.obj cons.obj sblok1.obj\
 	backci.obj load.obj openi.obj openo.obj readc.obj seek.obj whoci.obj\
 	isiscl.obj renam.obj
 
-all: $(TARGETS)
+all:: $(TARGETS)
 
-isis.cli: $(OBJS)
-	$(call link,cli.rel,$^ $(V40)/plm80.lib)
-	$(call locate,$@,cli.rel,code(3680h) name(CLI) stacksize(14) purge)
-	@rm cli.rel
+isis.cli: cli.rel
+	$(call locate,$@,$^,code(3680h) name(CLI) stacksize(14) purge)
+
+.INTERMEDIATE: cli.rel
+cli.rel: $(objs)
+	$(call link,$@,$^ $(V40)/plm80.lib)
 
