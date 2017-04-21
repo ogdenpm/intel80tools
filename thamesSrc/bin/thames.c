@@ -247,7 +247,7 @@ int main(int ac, char **av)
 //	capitals(conin->buffer->data);			// [Mark Ogden] commented out to allow lower case chars
 
     if (mOption)	// [Mark Ogden] write the transformed command line
-        fputs(conin->buffer->data, stderr);
+        fputs(conin->buffer->data, stdout);
 
 /* This info is very useful when creating a client like zxc or zxas */
     if (trace)
