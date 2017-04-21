@@ -6,7 +6,7 @@ TARGETS := locate
 LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:=DEBUG
 LINKFLAGS:=
-
+PURGE=purge
 include $(ROOT)/tools/isis.mk
 
 PEXFILE:=locate.pex
@@ -18,15 +18,20 @@ all:: $(TARGETS)
 
 # locate is built in two parts the base address of the higher part
 # is the MEMORY address at the end of the loctmp.map file
+.INTERMEDIATE: locate.rel loclow.rel loclow.abs
 
-locate: loctmp.abs $(HIGHOBJ)
-	$(call link,locate.rel,$^ $(call v40dir,system.lib plm80.lib))
-	$(call locate,$@,locate.rel,STACKSIZE(0) CODE(6656h) PURGE)
-	@rm locate.rel
+locate: locate.rel
+	$(call locate,$@,$^,STACKSIZE(0) CODE(6656h) $(PURGE))
+
+locate.rel: loclow.abs $(HIGHOBJ)
+	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+
 
 # intermediate target - note will have unsatisfied externals see also HICODE above
-loctmp.abs: $(LOWOBJ)
-	$(call link-nocheck,loctmp.rel,$^ $(V40)/plm80.lib)
-	$(call locate-nocheck,$@,loctmp.rel,STACKSIZE(6Ch))
-	@rm loctmp.rel
+loclow.abs: loclow.rel
+	$(call locate-nocheck,$@,$^,STACKSIZE(6Ch))
+
+loclow.rel: $(LOWOBJ)
+	$(call link-nocheck,$@,$^ $(V40)/plm80.lib)
+
 

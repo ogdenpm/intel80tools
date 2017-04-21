@@ -1,0 +1,116 @@
+<html>
+<head>
+	<title>thames: An ISIS-II Emulator (v0.1.1)</title>
+</head>
+<body>
+<h1>thames: An ISIS-II Emulator</h1>
+<h2>(John Elliott, 17 November 2012)</h2>
+
+<p><i>thames</i> emulates enough of the ISIS-II environment to be able to 
+run the following programs (used in the CP/M 3 build process):</p>
+<ul>
+	<li>asm80: ISIS-II 8080/8085 macro assembler, v1.1</li>
+	<li>plm80: ISIS-II PL/M-80 Compiler v4.0</li>
+	<li>link: ISIS-II object linker v3.0</li>
+	<li>locate: ISIS-II object locater v3.0</li>
+	<li>objhex: Converts an ISIS-II object file to hex format (v2.2)</li>
+</ul>
+
+<h2>Installing</h2>
+
+<p>Installation should just be a matter of the usual sequence of commands:</p>
+<pre>
+./configure
+make
+make install
+</pre>
+
+<h2>In use</h2>
+
+<p>You will need to set up environment variables to map Unix directories to
+ISIS-II drives. For example, in a Bourne-style shell:</p>
+<pre>
+ISIS_F0=/home/me/isis
+ISIS_F1=/home/me/isis/plm80
+ISIS_F2=/home/me/isis/asm80
+ISIS_F3=/home/me/isis/utils
+export ISIS_F0 ISIS_F1 ISIS_F2 ISIS_F3
+</pre>
+<p>Or in a csh-style shell:</p>
+<pre>
+setenv ISIS_F0 /home/me/isis
+setenv ISIS_F1 /home/me/isis/plm80
+setenv ISIS_F2 /home/me/isis/asm80
+setenv ISIS_F3 /home/me/isis/utils
+</pre>
+<p>It's also possible to set up character devices this way. For example, if
+the program you want to run needs to use the printer device :LP:, then you
+can set up a file to receive printer output:</p>
+<pre>
+ISIS_LP=/home/me/isis/lp.txt export ISIS_LP
+
+setenv ISIS_LP /home/me/isis/lp.txt
+</pre>
+<p>Once the variables are set up, you should be able to run an ISIS program
+like this:</p>
+<pre>
+thames <var>isis-command</var>
+</pre> 
+<p>For example:</p>
+<pre>
+thames :F3:locate put.mod "code(0100H)" "stacksize(100)"
+</pre>
+<p>Notes:</p>
+<ul>
+<li>Arguments containing brackets have to be escaped to stop the shell 
+trying to parse them.</li> 
+<li>Filenames without a :F<var>n</var>: drive specifier are assumed to be 
+on drive :F0:.</li>
+<li><i>thames</i> forces all filenames to lowercase. For maximum ISIS 
+compatibility, you should ensure that they are also in 6.3 format &mdash;
+no more than six characters, followed optionally by a dot and up to three
+further characters. This is not enforced, but ISIS programs may not support 
+longer filenames.</li>
+</ul>
+
+<p>This sequence of commands should build PUT.COM from CP/M 3:</p>
+<pre>
+thames :F2:asm80 putf.asm debug
+thames :F1:plm80 put.plm "pagewidth(100)" debug optimize
+thames :F3:link mcd80a.obj,put.obj,parse.obj,putf.obj,:F3:plm80.lib to put.mod
+thames :F3:locate put.mod "code(0100H)" "stacksize(100)"
+thames :F3:objhex put to put.hex
+</pre>
+
+<h2>Implementation notes</h2>
+<p>Areas of functionality not used by the CP/M 3 build tools are untested.
+These include the system calls RENAME, CONSOLE, ATTRIB, ERROR and WHOCON, 
+and the ability to open files other than the console in line mode.</p>
+
+<h2>Debugging</h2>
+<p>Set the ISIS_TRACE environment variable to get debug logs. It should be 
+set to an integer between 0 and 4:</p>
+<dl>
+	<dt>0</dt><dd>No debug messages</dd>
+	<dt>1</dt><dd>Echoes command line, and reports on errors parsing
+		executable files.</dd>
+	<dt>2</dt><dd>Logs all ISIS-II calls.</dd>
+	<dt>3</dt><dd>As 2, but also displays contents of buffers loaded/saved
+		for READ, WRITE and EXEC calls.</dd>
+	<dt>4</dt><dd>All of the above, and also traces Z80 execution.</dd>
+</dl>
+
+<h2>Acknowledgements</h2>
+
+<ul>
+<li>The Z80 emulation engine was written by Ian Collier.</li>
+<li>The 
+<a href="http://p112.sourceforge.net/index.php?isx">ISX documentation</a> on 
+the P112 pages, and the documentation of ISIS internals at 
+<a href="http://www.bitsavers.org/pdf/intel/ISIS_II/">bitsavers.org</a>, were
+both invaluable to me in the course of writing <i>thames</i>.
+</ul>
+<hr>
+<address>John Elliott, 17 November 2012</address>
+</body>
+</html>
