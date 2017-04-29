@@ -4,7 +4,7 @@ TARGETS=plm80.lib
 REF=ref
 PLMFLAGS=code optimize
 ASMFLAGS=
-KEEP=1
+OWNVERIFY=T
 include $(ROOT)/tools/isis.mk
 
 OBJS=	p0000.obj p0002.obj p0004.obj p0007.obj p0011.obj p0014.obj \
@@ -22,3 +22,8 @@ plm80.lib: $(OBJS)
 	$(call lib,$@,$^)
 
 
+verify: all
+	@for f in $(OBJS); do \
+	  echo verifying $$f; \
+	  $(ROOT)/tools/diffbin $$f $(REF)/$$f; \
+	done;

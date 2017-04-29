@@ -59,6 +59,7 @@ BIGOBJS := globlb.obj startb.obj pcktok.obj asm1n.obj\
 
 KEYOBJS := keyn.obj edata.obj
 
+$(info $(MAKECMDGOALS))
 
 ## build rules to make the program and overlays
 # Symbols for overlays 0,1,2 and 3 are used in the build of asm80 so the apps are created by purging the symbols

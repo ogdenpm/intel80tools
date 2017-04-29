@@ -1,6 +1,7 @@
 ROOT=../..
 TARGETS=system.lib
 REF=ref
+OWNVERIFY=T
 PLMFFLAGS=code optimize
 ASMFFLAGS=
 
@@ -19,4 +20,8 @@ all:: $(TARGETS)
 system.lib: $(OBJS)
 	$(call lib,$@,$^)
 
-
+verify: all
+	@for f in $(OBJS); do \
+	  echo verifying $$f; \
+	  $(ROOT)/tools/diffbin $$f $(REF)/$$f; \
+	done;

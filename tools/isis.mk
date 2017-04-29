@@ -2,7 +2,7 @@
 
 # convert \ to /, remove trailing directory separator and set to . if blank
 # $(call fixpath,path)
-fixpath = $(if $1,$(subst |,,$(subst /|,,$(subst \,/,$1)|)),.)
+fixpath = $(if $1,$(subst |,,$(subst /|,,$(subst \,/,$(strip $1))|)),.)
 
 # normalise ROOT path
 ROOT := $(call fixpath,$(ROOT))
@@ -31,22 +31,18 @@ REF := $(call fixpath,$(if $(REF),$(REF),$(V40)))
 export ISIS_F0 ?= ./
 
 # the none ISIS build tools
-ISIS:=$(ROOT)/thames
+ISIS:=$(ROOT)/thames -m
 PLMPP:=$(ROOT)/tools/plmpp
 NGENPEX:=$(ROOT)/tools/ngenpex
 MKDEPEND:=perl $(ROOT)/tools/makedepend.pl
-ERRTEST:= perl $(ROOT)/tools/errtest.pl
 
 ISISTOOLS := $(V40)
 # ISIS tools - all show mapped command line on stderr
-ASM=$(ISIS) -m $(ISISTOOLS)/asm80
-PLM=$(ISIS) -m $(ISISTOOLS)/plm80
-LINKU=$(ISIS) -m -u $(ISISTOOLS)/link
-LINK=$(ISIS) -m $(ISISTOOLS)/link
-	LIB=$(ISIS) -m $(ISISTOOLS)/lib
-LOCATE=$(ISIS) -m $(ISISTOOLS)/locate
-LOCATEU=$(ISIS) -m -u $(ISISTOOLS)/locate
-LOCATEO=$(ISIS) -m -o $(ISISTOOLS)/locate
+ASM = $(ISISTOOLS)/asm80
+PLM = $(ISISTOOLS)/plm80
+LINK = $(ISISTOOLS)/link
+LIB = $(ISISTOOLS)/lib
+LOCATE = $(ISISTOOLS)/locate
 
 # work out the master source file to protect
 MASTERFILE:=$(wildcard *_all.plm)
@@ -74,102 +70,111 @@ v40dir = $(addprefix $(V40)/,$(notdir $1))
 lnk = $(LST)/$(basename $(notdir $1)).lnk
 map = $(LST)/$(basename $(notdir $1)).map
 lst = $(LST)/$(basename $(notdir $1)).lst
-rel = $(OBJ)/$(basename $(notdir $1)).rel
 
 vpath %.plm $(SRC)
 vpath %.asm $(SRC)
 
 ## the generic build commands
-# $(call plm,objfile,srcfile,extra options)
+# $(call plm,objfile,srcfile[,target specific options])
 define plm
   $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2,$(MKDEPEND) $1 $2)
-  @$(PLM) $2 "print($(call lst,$2))" "object($1)" "$(PLMFLAGS)" "$3"
+  @$(ISIS) $(PLM) $2 "print($(call lst,$2))" "object($1)"$(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 endef
 
-# $(call asm,objfile,srcfile,extra options)
+# $(call asm,objfile,srcfile[,target specific options])
 define asm
-  @$(ASM) "$2 print($(call lst,$2)) object($1) $(ASMFLAGS) $3"
-endef
-
-$(OBJ)/%.obj: %.plm  | $(filter-out .,$(OBJ) $(LST))
-	$(call plm,$@,$<)
-
-$(OBJ)/%.obj: %.asm  | $(filter-out .,$(OBJ) $(LST))
-	$(call asm,$@,$<)
-
-# link with no check for unresolved
-# $(call link-nocheck,relocfile,objs)
-define link-nocheck
-  @$(LINKU) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))" "$(LINKFLAGS)"
+  @$(ISIS) $(ASM) $2 "print($(call lst,$2))" "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # standard link
+# $(call link,relocfile,objs[,target specific options])
 define link
-  @$(LINK) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))" "$(LINKFLAGS)"
+  @$(ISIS) $(LINK) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
-# $(call locate-nocheck,target,relocfile,options)
+# link with no check for unresolved
+# $(call link-nocheck,relocfile,objs[,target specific options])
+define link-nocheck
+  @$(ISIS) -u $(LINK) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+endef
+
+# standard locate
+# $(call locate,target,relocfile[,target specific options])
+define locate
+  @$(ISIS) $(LOCATE) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+endef
+
+# locate with no check for unsatisfied
+# $(call locate-nocheck,target,relocfile[,target specific options])
 define locate-nocheck
-  @$(LOCATEU) $2 to $1 "print($(call map,$2))" "$(LOCATEFLAGS)" "$3"
+  @$(ISIS) -u $(LOCATE) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate allowing overlaps
+# $(call locate-overlaps,target,relocfile[,target specific options])
 define locate-overlaps
-  @$(LOCATEO) $2 to $1 "print($(call map,$2))" "$(LOCATEFLAGS)" "$3" 
+  @$(ISIS) -o $(LOCATE) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
-define locate
-  @$(LOCATE) $2 to $1 "print($(call map,$2))" "$(LOCATEFLAGS)" "$3" 
-endef
-
+# limited version of locate to remove symbols - does not produce map file
 # $(call rm-symbols,target,source)
 define rm-symbols
-  @$(LOCATE) $2 to $1 PURGE
+  @$(ISIS) $(LOCATE) $2 to $1 PURGE
 endef
 
 # $(call lib,target,objects)
 define lib
   rm -fr $1
-  @$(LIB) "&&"\
+  @$(ISIS) $(LIB) "&&"\
   create $1 "&&"\
   add $(if $(filter-out 0 1,$(words $2)),$(call mklist,$(call notlast,$2))$(comma)"&")\
   $(lastword $2) to $1 "&&"\
   exit
 endef
 
+# predefined rules
+$(OBJ)/%.obj: %.plm  | $(OBJ) $(LST)
+	$(call plm,$@,$<)
+
+$(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
+	$(call asm,$@,$<)
 
 # common targets
-.PHONY: all
+.PHONY: all rebuild clean distclean
+# all is default first rule
+# if master file format is being used add rules to extract the source
+# user rules for all will be in the calling makefiles
 ifdef MASTERFILE
-  all:: .extract
+all:: .extract
 
-  .extract: $(MASTERFILE) | $(filter-out .,$(OBJ) $(LST))
+.extract: $(MASTERFILE) | $(OBJ) $(LST)
 	perl $(ROOT)/unpack.pl
 	touch .extract
 else
-  all::
+all::
 endif
 
+# rules to make sure directories exist
+.: ;
 
 ifneq '$(OBJ)' '.'
-  $(OBJ):
-	mkdir $(OBJ)
+$(OBJ): ; mkdir -p $(OBJ)
 endif
 ifneq '$(LST)' '.'
-  $(LST):
-	mkdir $(LST)
+$(LST): ; mkdir -p $(LST)
 endif
 
 # special handling of windows fc /b command for compare
+ifndef OWNVERIFY
 verify: all
 	$(if $(filter fc,$(firstword $(COMPARE))),\
 	@cmd /c "for %i in ($(TARGETS)) do fc /b $(subst /,\,%i $(REF)/%i)",\
 	@for f in $(TARGETS); do echo comparing files $$f and $(REF)/$$f && $(COMPARE) $$f $(REF)/$$f; done)
+endif
 
 rebuild: distclean all
 
 ## housekeeping rules
-.PHONY: clean distclean
 clean::
 	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -fr *.obj *.abs) 2>$(null)
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lnk *.map) 2>$(null)
