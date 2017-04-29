@@ -9,9 +9,6 @@ PLMFLAGS:= DEBUG
 LINKFLAGS:=
 include $(ROOT)/tools/isis.mk
 
-# set default tools
-#COMPARE := $(ROOT)/tools/diffbin
-
 PEXFILE:=disk.pex
 
 FIXMAPOBJ = fixmap.obj alloc.obj dblank.obj dlimit.obj ferror.obj fupper.obj numout.obj\

@@ -10,7 +10,7 @@ ROOT := $(call fixpath,$(ROOT))
 # make sure bash and other unix tools are on the path
 PATH := $(ROOT)/unix;$(PATH)
 SHELL := bash.exe
-COMPARE ?= fc /b
+COMPARE ?= $(ROOT)/tools/omfcmp
 # nul device /dev/null on unix
 null := nul
 
@@ -164,13 +164,10 @@ ifneq '$(LST)' '.'
 $(LST): ; mkdir -p $(LST)
 endif
 
-# special handling of windows fc /b command for compare
-ifndef OWNVERIFY
 verify: all
-	$(if $(filter fc,$(firstword $(COMPARE))),\
-	@cmd /c "for %i in ($(TARGETS)) do fc /b $(subst /,\,%i $(REF)/%i)",\
-	@for f in $(TARGETS); do echo comparing files $$f and $(REF)/$$f && $(COMPARE) $$f $(REF)/$$f; done)
-endif
+	$(if $(filter 1,$(words $(TARGETS))),\
+	$(COMPARE) $(TARGETS) $(REF)/$(TARGETS),\
+	for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done)
 
 rebuild: distclean all
 

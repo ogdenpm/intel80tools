@@ -3,14 +3,12 @@ ROOT := ../..
 TARGETS := link link.ovl
 
 # build options
-LOCATEFLAGS:=SYMBOLS LINES PUBLICS
+LOCATEFLAGS:=SYMBOLS LINES PUBLICS 
 PLMFLAGS:=DEBUG
 LINKFLAGS:=
+PURGE:= purge
 
 include $(ROOT)/tools/isis.mk
-
-# set default tools
-COMPARE := $(ROOT)/tools/diffbin
 
 PEXFILE:=link.pex
 

@@ -8,6 +8,7 @@ include $(ROOT)/tools/isis.mk
 PLMFLAGS=code optimize 
 ASMFLAGS=
 PURGE=purge
+
 all:: $(TARGETS)
 
 tex10.com: tex10.abs
@@ -16,6 +17,7 @@ tex10.com: tex10.abs
 
 tex12.com: tex12.abs
 	$(ROOT)/tools/obj2bin $^ $@
+	$(ROOT)/tools/patchbin patch12.txt $@
 
 
 tex21.com: tex21.abs

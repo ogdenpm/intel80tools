@@ -10,9 +10,6 @@ LINKFLAGS:=
 
 include $(ROOT)/tools/isis.mk
 
-# set default tools
-COMPARE := $(ROOT)/tools/diffbin
-
 
 objs =	lib.obj lib1.obj isis1.obj isisa.obj isis2.obj lib3.obj lib4.obj
 

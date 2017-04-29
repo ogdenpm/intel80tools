@@ -10,7 +10,6 @@ LINKFLAGS:=
 include $(ROOT)/tools/isis.mk
 
 # set default tools
-COMPARE := $(ROOT)/tools/diffbin
 REF:=$(V31)
 
 PEXFILE:=ixref.pex

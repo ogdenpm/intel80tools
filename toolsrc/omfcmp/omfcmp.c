@@ -146,9 +146,10 @@ void addContent(content_t *con, word addr, word length, byte *image)
 void diffBinary(omf_t *left, omf_t *right)
 {
     int i;
-    printf("===Binary difference===\n");
 
-    printf("%s : %s\n", left->name, right->name);
+    printf("%s : %s ===Binary difference===\n", left->name, right->name);
+
+    
 
     for (i = 0; i < left->size && i < right->size; i++) {
         if (left->image[i] != right->image[i]) {
@@ -624,6 +625,10 @@ int diffModule(module_t *lm, module_t *rm)
                 lm->segs[i].status |= ERROR + CHECKED;
             }
             else {
+                if (lm->segs[i].length != rm->segs[j].length) {
+                    printSegHeader(&lm->segs[i], &rm->segs[j], ERROR);
+                    printf("%04X : %04X - Segment sizes different\n", lm->segs[i].length, rm->segs[j].length);
+                }
                 diffPublics(lm, i, rm, j);
                 diffContent(lm, i, rm, j);
                 diffFixups(lm, i, rm, j);
@@ -671,7 +676,7 @@ void cmpModule(omf_t *lomf, omf_t *romf)
     printf("%s : %s\n", lomf->name, romf->name);
 
     if (diffModule(lm, rm))
-        printf("Modules are equivalent\n");
+        printf("%.*s : %.*s - Modules are equivalent\n", lm->name[0], lm->name + 1, rm->name[0], rm->name + 1);
     else
         returnCode = 1;
 

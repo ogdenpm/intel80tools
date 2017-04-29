@@ -78,7 +78,10 @@ void cmpLibrary(file_t *left, file_t *right)
             deleteOMF(ro);
             lo = newOMF(left, ll->names[i], ll->locations[i], ll->locations[i + 1]);
             ro = newOMF(right, rl->names[k], rl->locations[k], rl->locations[k + 1]);
-            cmpModule(lo, ro);
+            if (lo->size == ro->size && (lo->image, ro->image, lo->size) == 0)
+                printf("%*s identical to %*s\n", lo->name[0], lo->name + 1, ro->name[0], ro->name + 1);
+            else
+                cmpModule(lo, ro);
         }
     }
     k = 0;

@@ -11,7 +11,6 @@ PROTECT:= ISIS.OV0
 include $(ROOT)/tools/isis.mk
 
 # set default tools
-#COMPARE := $(ROOT)/tools/diffbin
 REF:=$(V40)
 
 PEXFILE:=ixref.pex
