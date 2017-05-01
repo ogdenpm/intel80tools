@@ -2,14 +2,13 @@
 ROOT := ../..
 TARGETS := lib
 PEXFILE:=lib.pex
-KEEP = 1
+
+include $(ROOT)/tools/isis.mk
+
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:=DEBUG
 LINKFLAGS:=
-
-include $(ROOT)/tools/isis.mk
-
 
 objs =	lib.obj lib1.obj isis1.obj isisa.obj isis2.obj lib3.obj lib4.obj
 

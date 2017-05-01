@@ -1,6 +1,6 @@
 # thames: An ISIS-II Emulator
 
-**(John Elliott, 17 November 2012, updated by Mark Ogden, 21 April 2017)**
+**(John Elliott, 17 November 2012, updated by Mark Ogden, 1 May 2017)**
 
  *thames* emulates enough of the ISIS-II environment to be able to run the following
  programs (used in the CP/M 3 build process):
@@ -14,6 +14,8 @@ Other programs known to work include
  * asm80 versions 3.0 & 4.1
  * plm80 versions 3.0 & 3.1
  * lib v2.1
+ * Fort80 v2.1
+ * Pasc80 v2.2 - from thames 0.1.1g
 
 ## Installing
 
@@ -186,4 +188,4 @@ set to an integer between 0 and 4:
      __________________________________________________________________
 
 
-    Mark Ogden 21-April-2017
+    Mark Ogden 1-May-2017

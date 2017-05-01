@@ -1,15 +1,16 @@
 # path to root of build tree
 ROOT := ../..
-TARGETS := fixmap format idisk
-REF:=ref
+PEXFILE:=disk.pex
+
+include $(ROOT)/tools/isis.mk
 
 # build options
 LOCATEFLAGS:=SYMBOLS PUBLICS
 PLMFLAGS:= DEBUG
 LINKFLAGS:=
-include $(ROOT)/tools/isis.mk
 
-PEXFILE:=disk.pex
+TARGETS := fixmap format idisk
+REF:=ref
 
 FIXMAPOBJ = fixmap.obj alloc.obj dblank.obj dlimit.obj ferror.obj fupper.obj numout.obj\
 	popul.obj scanin.obj seq.obj setblk.obj rpterr.obj ucase.obj wdelim.obj

@@ -1,6 +1,7 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := ixref
+PEXFILE:=ixref.pex
 
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
@@ -12,7 +13,6 @@ include $(ROOT)/tools/isis.mk
 # set default tools
 REF:=$(V31)
 
-PEXFILE:=ixref.pex
 
 objs =	ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj
 IXIS = $(subst .obj,.ixi,$(objs))

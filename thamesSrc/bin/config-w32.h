@@ -81,7 +81,7 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "0.1.1f"
+#define VERSION "0.1.1g"
 
 /* Define to `long int' if <sys/types.h> does not define. */
 /* #undef off_t */

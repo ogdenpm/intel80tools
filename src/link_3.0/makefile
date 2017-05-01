@@ -1,6 +1,7 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := link link.ovl
+PEXFILE:=link.pex
 
 # build options
 LOCATEFLAGS:=SYMBOLS LINES PUBLICS 
@@ -10,7 +11,6 @@ PURGE:= purge
 
 include $(ROOT)/tools/isis.mk
 
-PEXFILE:=link.pex
 
 LINKOBJ := link0.abs link1.abs link2.abs
 LINKPUB := linkov.abs

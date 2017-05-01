@@ -2,10 +2,10 @@ ROOT:= ../..
 TARGETS = isis.bin
 REF = ref
 PEXFILE := isis34.pex
-COMPARE := $(ROOT)/tools/isisc
 include $(ROOT)/tools/isis.mk
 
 ISISTOOLS := $(V31)
+COMPARE := $(ROOT)/tools/isisc
 LOCATEFLAGS := PUBLICS SYMBOLS
 PLMFLAGS := DEBUG
 

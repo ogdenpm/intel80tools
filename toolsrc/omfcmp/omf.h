@@ -13,7 +13,7 @@ typedef struct {
 } omf_t;
 
 
-omf_t *newOMF(file_t *fi, byte *mod, int start, int end);
+omf_t *newOMF(file_t *fi, char *mod, int start, int end);
 void deleteOMF(omf_t *omf);
 
 int seekRecord(omf_t *omf, int pos);

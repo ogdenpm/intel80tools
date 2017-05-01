@@ -11,9 +11,6 @@ ROOT := $(call fixpath,$(ROOT))
 PATH := $(ROOT)/unix;$(PATH)
 SHELL := bash.exe
 COMPARE ?= $(ROOT)/tools/omfcmp
-# nul device /dev/null on unix
-null := nul
-
 
 # set up the ISIS environment
 V40:=$(ROOT)/plm80v40
@@ -44,8 +41,8 @@ LINK = $(ISISTOOLS)/link
 LIB = $(ISISTOOLS)/lib
 LOCATE = $(ISISTOOLS)/locate
 
-# work out the master source file to protect
-MASTERFILE:=$(wildcard *_all.plm)
+# work out the master source file
+_masterfile:=$(firstword $(wildcard *_all.plm))
 
 ## macros used for the build
 # useful make escapes
@@ -67,9 +64,9 @@ v31dir = $(addprefix $(V31)/,$(notdir $1))
 v40dir = $(addprefix $(V40)/,$(notdir $1))
 
 # macros to generate suitable output file names from $1
-lnk = $(LST)/$(basename $(notdir $1)).lnk
-map = $(LST)/$(basename $(notdir $1)).map
-lst = $(LST)/$(basename $(notdir $1)).lst
+lnk = $(LST)/$(basename $(notdir $(firstword $1))).lnk
+map = $(LST)/$(basename $(notdir $(firstword $1))).map
+lst = $(LST)/$(basename $(notdir $(firstword $1))).lst
 
 vpath %.plm $(SRC)
 vpath %.asm $(SRC)
@@ -143,11 +140,11 @@ $(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
 .PHONY: all rebuild clean distclean
 # all is default first rule
 # if master file format is being used add rules to extract the source
-# user rules for all will be in the calling makefiles
-ifdef MASTERFILE
+# user rules for all will be in the calling makefile
+ifdef _masterfile
 all:: .extract
 
-.extract: $(MASTERFILE) | $(OBJ) $(LST)
+.extract: $(_masterfile) | $(OBJ) $(LST)
 	perl $(ROOT)/unpack.pl
 	touch .extract
 else
@@ -155,37 +152,34 @@ all::
 endif
 
 # rules to make sure directories exist
-.: ;
+$(sort $(OBJ) $(LST)): ; mkdir -p $@
 
-ifneq '$(OBJ)' '.'
-$(OBJ): ; mkdir -p $(OBJ)
-endif
-ifneq '$(LST)' '.'
-$(LST): ; mkdir -p $(LST)
-endif
-
+ifndef NOVERIFY
+.PHONY: verify
 verify: all
 	$(if $(filter 1,$(words $(TARGETS))),\
-	$(COMPARE) $(TARGETS) $(REF)/$(TARGETS),\
-	for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done)
+	    @$(COMPARE) $(TARGETS) $(REF)/$(TARGETS),\
+	    @for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done)
+endif
 
 rebuild: distclean all
 
 ## housekeeping rules
 clean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -fr *.obj *.abs) 2>$(null)
-	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lnk *.map) 2>$(null)
-ifndef PEXFILE
-	-rm -fr .deps 2>$(null)
-else
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
+	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lnk *.map) 
+ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
 endif
 
 distclean:: clean 
-ifdef MASTERFILE
-	-rm -fr $(filter-out mk makefile $(REF) $(MASTERFILE) $(PROTECT),$(shell ls)) $(TARGETS) .extract 2>$(null)
+ifdef _masterfile
+	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 
 else
-	-rm $(TARGETS) 2>$(null)
+	-rm -f $(TARGETS) 
+endif
+ifndef PEXFILE
+	-rm -fr .deps
 endif
 
 ifndef PEXFILE

@@ -2,7 +2,7 @@
 
 
 
-omf_t *newOMF(file_t *fi, byte *mod, int start, int end)
+omf_t *newOMF(file_t *fi, char *mod, int start, int end)
 {
     omf_t *omf;
     int nameLen;
@@ -14,7 +14,7 @@ omf_t *newOMF(file_t *fi, byte *mod, int start, int end)
     omf->name = (char *)xmalloc(nameLen + 1);
 
     if (mod)
-        sprintf(omf->name, "%s(%.*s)", fi->name, mod[0], mod + 1);
+        sprintf(omf->name, "%s(%s)", fi->name, mod);
     else
         strcpy(omf->name, fi->name);
     omf->size = end - start;

@@ -365,7 +365,7 @@ void deleteModule(module_t *mod)
 void printSegHeader(seg_t *ls, seg_t *rs, int status)
 {
     if ((ls->status & (ERROR | WARNING)) == 0)
-        printf("%.*s:\n", ls->name[0], ls->name + 1);
+        printf("\n%.*s:\n", ls->name[0], ls->name + 1);
     ls->status |= status;
     rs->status |= status;
 }
@@ -612,14 +612,22 @@ int diffModule(module_t *lm, module_t *rm)
         printf(" - Module names different\n");
         result = 0;
     }
-    if (lm->compiler[0] != rm->compiler[0] || lm->compiler[1] != rm->compiler[1])
-        printf("%02X:%02X : %02X:%02X - Compiler ids\n", lm->compiler[0], lm->compiler[1], rm->compiler[0], rm->compiler[1]);
+    if (lm->compiler[0] != rm->compiler[0] || lm->compiler[1] != rm->compiler[1]) {
+        if (result)
+            printf(" - ");
+        printf("Compiler ids %02X:%02X : %02X:%02X", lm->compiler[0], lm->compiler[1], rm->compiler[0], rm->compiler[1]);
+
+    }
 
 
     for (i = 0; i <= lm->maxSeg; i++) {
         if (lm->segs[i].status) {
             j = (i < 5 || i == 255) ? i : findSegByName(rm, lm->segs[i].name);
             if (j < 0 || rm->segs[j].status == 0) {
+                  if (result) {
+                    putchar('\n');
+                    result = 0;
+                }
                 printPstrPair(lm->segs[i].name, "\x06------");
                 printf(" - Segment missing\n");
                 lm->segs[i].status |= ERROR + CHECKED;
@@ -673,10 +681,10 @@ void cmpModule(omf_t *lomf, omf_t *romf)
         if (lm) deleteModule(lm);
         return;
     }
-    printf("%s : %s\n", lomf->name, romf->name);
+    printf("%s : %s", lomf->name, romf->name);
 
     if (diffModule(lm, rm))
-        printf("%.*s : %.*s - Modules are equivalent\n", lm->name[0], lm->name + 1, rm->name[0], rm->name + 1);
+        printf(" - Modules are equivalent\n");
     else
         returnCode = 1;
 

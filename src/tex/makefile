@@ -1,4 +1,3 @@
-# common makefile info
 ROOT=../..
 REF=ref
 TARGETS=tex10.com tex12.com tex21.com tex21a.com
@@ -7,7 +6,6 @@ include $(ROOT)/tools/isis.mk
 
 PLMFLAGS=code optimize 
 ASMFLAGS=
-PURGE=purge
 
 all:: $(TARGETS)
 
@@ -34,7 +32,7 @@ STACK=100
 tex10.abs: STACK=60
 
 %.abs: %.rel
-	$(call locate,$@,$^,code(100h) stacksize($(STACK)) $(PURGE))
+	$(call locate,$@,$^,code(100h) stacksize($(STACK)) purge)
 
 tex10.rel: tex10.obj x0100.obj 
 	$(call link,$@,$^ $(V40)/plm80.lib)

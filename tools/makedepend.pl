@@ -1,7 +1,7 @@
 # makedepend.pl target source
 # creates file .deps/src.d	where src is the file name part of source
 
-die "usage: makedepend.pl target soruce\n" if $#ARGV != 1;
+die "usage: makedepend.pl target source\n" if $#ARGV != 1;
 
 
 sub realfile {

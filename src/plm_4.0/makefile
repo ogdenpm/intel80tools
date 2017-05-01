@@ -97,13 +97,15 @@ objs6 =	pdata6.obj main6.obj plm6a.obj plm6b.obj movmem.obj exit.obj itoa.obj\
 	wr2lst.obj page.obj write.obj wrslst.obj
 
 # the following require plm v3.1
-$(addprefix $(OBJ)/,plm1b.obj plm2b.obj plm2g.obj): ISISTOOLS=$(V31)
+$(call objdir,plm1b.obj plm2b.obj plm2g.obj): ISISTOOLS=$(V31)
 
 # add the extra place to look for source
 vpath %.plm $(SHARED)
 vpath %.asm $(SHARED)
 
-all:: $(TARGETS)
+# force make to reinspect extracted source files
+all::
+	$(MAKE) $(TARGETS)       
 
 plm80: $(OBJ)/plm80.rel
 	$(call locate,$@,$<,code(3EA0H) name(PL8010) stacksize(136) $(PURGE))
@@ -164,32 +166,3 @@ $(OBJ)/data.abs: $(OBJ)/data.obj
 clean::
 	-rm -f $(SHARED)/*.ipx
 
-# source files needed to force make to see dependency on extracted files
-SHAREDSRC = plm.pex adninf.plm alloc.plm allocs.plm backup.plm chain.plm\
-	    ciflag.plm close.plm closef.plm clrflg.plm cpyflg.plm cpytil.plm\
-	    creatf.plm creati.plm data.plm delete.plm deletf.plm endcom.plm\
-	    error.plm exit.plm fatal.plm fatlio.plm fflush.plm fi.plm\
-	    findmi.plm fiscop.plm gibin.plm gibseo.plm gibsev.plm gicond.plm\
-	    gidim.plm gidim2.plm gidtyp.plm gieid.plm giintn.plm gilen.plm\
-	    gilit.plm gilnko.plm gilnkv.plm giparo.plm giparv.plm gipcnt.plm\
-	    gipid.plm giscop.plm gisym.plm gitype.plm initf.plm itoa.plm\
-	    lstsup.cmn load.plm lookup.plm lstinf.plm lstlin.plm open.plm\
-	    openf.plm prints.plm read.plm readf.plm rename.plm rescan.plm\
-	    rewind.plm seek.plm seekf.plm sekend.plm setflg.plm sibin.plm\
-	    sibseo.plm sibsev.plm sicond.plm sidim.plm sidtyp.plm sieid.plm\
-	    siflag.plm siintn.plm silen.plm silit.plm silnko.plm silnkv.plm\
-	    siparo.plm sipcnt.plm sipid.plm siscop.plm sisym.plm sitype.plm\
-	    strcmp.plm tellf.plm tiflag.plm tstflg.plm wr2lst.plm write.plm\
-	    writef.plm wrslst.plm zerflg.plm fill.asm fread.asm fwrite.asm\
-	    memchk.asm movmem.asm putlst.asm wrclst.asm
-MAINSRC =   lstsp4.plm lstsp5.plm lstsp6.plm main.plm main0.plm main1.plm\
-	    main2.plm main3.plm main4.plm main5.plm main6.plm page.plm\
-	    page1.plm page2.plm pdata4.plm pdata6.plm plm0a.plm plm0b.plm\
-	    plm0d.plm plm0e.plm plm0f.plm plm0g.plm plm0h.plm plm1a.plm\
-	    plm1b.plm plm1c.plm plm1d.plm plm1e.plm plm1f.plm plm2a.plm\
-	    plm2b.plm plm2c.plm plm2d.plm plm2e.plm plm2f.plm plm2g.plm\
-	    plm2h.plm plm3a.plm plm3b.plm plm4a.plm plm4b.plm plm4c.plm\
-	    plm5a.plm plm6a.plm plm6b.plm plma.plm plmb.plm plmc.plm plmd.plm\
-	    plme.plm wrec.plm plm0c.asm
-
-$(addprefix $(SHARED)/,$(SHAREDSRC)) $(addprefix $(SRC)/,$(MAINSRC)): .extract

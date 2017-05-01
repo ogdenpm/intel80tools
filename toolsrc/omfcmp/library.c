@@ -49,8 +49,9 @@ void cmpLibrary(file_t *left, file_t *right)
 {
     library_t *ll, *rl;
     omf_t *lo, *ro;
-    int outOfOrder = 0;
-    int i, j, k;
+    int namesDifferent = 0;
+    int i, j, k, prevk;
+    char modName[MAXNAME + 6];
 
     lo = newOMF(left, NULL, 0, left->size);
     ro = newOMF(right, NULL, 0, right->size);
@@ -62,7 +63,7 @@ void cmpLibrary(file_t *left, file_t *right)
         deleteOMF(ro);
         return;
     }
-    k = 0;
+    prevk = k = 0;
     for (i = 0; i < ll->count; i++) {
         for (j = 0; j < rl->count; j++) {
             if (pstrEqu(ll->names[i], rl->names[k]))
@@ -74,10 +75,17 @@ void cmpLibrary(file_t *left, file_t *right)
             returnCode = 1;
         }
         else {
+            if (k < prevk && !namesDifferent) {
+                printf("***Module order is different***\n");
+                returnCode = namesDifferent = 1;
+            }
+            prevk = k;
             deleteOMF(lo);
             deleteOMF(ro);
-            lo = newOMF(left, ll->names[i], ll->locations[i], ll->locations[i + 1]);
-            ro = newOMF(right, rl->names[k], rl->locations[k], rl->locations[k + 1]);
+            sprintf(modName, "%.*s[%d]", ll->names[i][0], ll->names[i] + 1, i);
+            lo = newOMF(left, modName, ll->locations[i], ll->locations[i + 1]);
+            sprintf(modName, "%.*s[%d]", rl->names[k][0], rl->names[k] + 1, k);
+            ro = newOMF(right, modName, rl->locations[k], rl->locations[k + 1]);
             if (lo->size == ro->size && (lo->image, ro->image, lo->size) == 0)
                 printf("%*s identical to %*s\n", lo->name[0], lo->name + 1, ro->name[0], ro->name + 1);
             else
@@ -96,6 +104,7 @@ void cmpLibrary(file_t *left, file_t *right)
             returnCode = 1;
         }
     }
+
     deleteOMF(lo);
     deleteOMF(ro);
     deleteLibrary(ll);

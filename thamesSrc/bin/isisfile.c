@@ -102,8 +102,8 @@ int isis_name2unix(const char *isisname, char *unixname)
     if (isisname[0] == '/' || isisname[0] == '.')
 #endif
     {
-		if (strlen(isisname) >= PATH_MAX) 		// [Mark Ogden] check file name is not too long
-			return ERROR_BADFILENAME;
+        if (strlen(isisname) >= PATH_MAX) 		// [Mark Ogden] check file name is not too long
+            return ERROR_BADFILENAME;
         strcpy(unixname, isisname);
         return ERROR_SUCCESS;
     }
@@ -125,7 +125,7 @@ int isis_name2unix(const char *isisname, char *unixname)
     if (!strcmp(isisdev, ":BB:"))
     {
 #ifdef _WIN32		// [Mark Ogden] added dos nul device support
-		strcpy(unixname, "nul");
+        strcpy(unixname, "nul");
 #else
         strcpy(unixname, "/dev/null");
         return ERROR_SUCCESS;
@@ -141,8 +141,8 @@ int isis_name2unix(const char *isisname, char *unixname)
                 "character device %s\n", isisdev);
             return ERROR_BADDEVICE;
         }
-		if (strlen(src) >= PATH_MAX)	// catch file name too long
-			return ERROR_BADFILENAME;
+        if (strlen(src) >= PATH_MAX)	// catch file name too long
+            return ERROR_BADFILENAME;
         strcpy(unixname, src);
         return ERROR_SUCCESS;
     }
@@ -157,8 +157,8 @@ int isis_name2unix(const char *isisname, char *unixname)
         return ERROR_BADFILENAME;
     }
 
-	if (strlen(src) >= PATH_MAX)	// catch file name too long
-		return ERROR_BADFILENAME;
+    if (strlen(src) >= PATH_MAX)	// catch file name too long
+        return ERROR_BADFILENAME;
 
     strcpy(destname, src);
 #ifdef _WIN32		// [Mark Ogden] map \ to / and handle x: fpr dps
@@ -177,8 +177,8 @@ int isis_name2unix(const char *isisname, char *unixname)
     {
         *dest++ = tolower(*src++);
     }
-	if (strlen(destname) >= PATH_MAX)	// [Mark Ogden] check file name path is still ok
-		return ERROR_BADFILENAME;
+    if (strlen(destname) >= PATH_MAX)	// [Mark Ogden] check file name path is still ok
+        return ERROR_BADFILENAME;
     strcpy(unixname, destname);
     return ERROR_SUCCESS;
 }
@@ -431,9 +431,9 @@ int isis_close(int handle)
 
     if (!f) return ERROR_NOTOPEN;
 
-	err = isis_close_file(f);
-	delete_isis_file(f);
-	return err;
+    err = isis_close_file(f);
+    delete_isis_file(f);
+    return err;
 }
 
 
@@ -493,7 +493,8 @@ int isis_read(int handle, byte *buffer, int count, int *actual)
     ISIS_FILE *fd;
     int avail = 0;
     char input[ISIS_LINE_MAX + 1];
-    int err;
+    int err = ERROR_SUCCESS;
+
 
     fd = find_handle(handle);
 
@@ -508,9 +509,12 @@ int isis_read(int handle, byte *buffer, int count, int *actual)
         if (avail == 0) /* Reload buffer */
         {
             if (!fgets(input, ISIS_LINE_MAX, fd->fp)) {
-                input[0] = 0x1A;
-                input[1] = 0;
+                if (fd->echo)
+                    err = isis_write(fd->echo, "\x1a\r\n", 3);  // isis writes control Z, cr, lf
+                *actual = 0;
+                return err;
             }
+
             if (input[0] != 0 && input[strlen(input) - 1] == '\n') {
                 input[strlen(input) - 1] = 0;
             }
@@ -532,9 +536,7 @@ int isis_read(int handle, byte *buffer, int count, int *actual)
         err = ERROR_SUCCESS;
 /* If there is an echo file set up, write to it */
         if (fd->echo != 0)
-        {
             err = isis_write(fd->echo, buffer, avail);
-        }
 
         *actual = avail;									// [Mark Ogden] pos updated in copy loop above
         return err;

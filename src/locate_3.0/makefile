@@ -1,6 +1,7 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := locate
+PEXFILE:=locate.pex
 
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
@@ -9,7 +10,6 @@ LINKFLAGS:=
 PURGE=purge
 include $(ROOT)/tools/isis.mk
 
-PEXFILE:=locate.pex
 
 LOWOBJ=loc1.obj loc2a.obj memmov.obj loc2b.obj loc3.obj loc4.obj loc4a.obj loc5a.obj loc5b.obj isis.obj
 HIGHOBJ=loc6.obj loc7.obj loc8.obj loc8a.obj loc9.obj

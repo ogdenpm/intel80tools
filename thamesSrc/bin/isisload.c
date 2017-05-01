@@ -141,7 +141,8 @@ int loadblock(LOADER_STATE *state, int ch)
             state->lowest_addr = pos;	
         if (state->highest_addr < 0 || state->highest_addr < pos) 
             state->highest_addr = pos;	
-        if (pos < 0x43 || pos > 0xF800)	/* Overwriting ISIS */
+        /* isis overwrite changed to allow pascal80 - note isis io buffers ignored as thames doesn't use them */
+        if (pos < 0x18 || (0x40 <= pos && pos < 0x3000) || pos > 0xF800)	/* Overwriting ISIS */
         {
             if (state->trace) fprintf(stdout, 
                 "Attempt to overwrite ISIS at 0x%04x", pos);

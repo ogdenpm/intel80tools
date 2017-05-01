@@ -5,6 +5,8 @@ SRC:=src
 LST:=lst
 OBJ:=obj
 
+PEXFILE:=$(SRC)/asm80.pex
+
 PROTECT := notes.txt
 
 include $(ROOT)/tools/isis.mk
@@ -21,7 +23,9 @@ PLMFFLAGS:=DEBUG
 LINKFLAGS:=
 PURGE:= purge
 
-all::
+
+# this forces make to reinspect the *.plx files
+all:: 
 	$(MAKE) $(TARGETS)
 
 # base address of the overlays and keyn.abs
@@ -29,7 +33,6 @@ SMALLOVL:=6D4Ch
 BIGCODE:=3780h
 KEYCODE:=075A2h
 
-PEXFILE:=$(SRC)/asm80.pex
 
 # object lists
 ASMOBJ := root.abs keyn.abs asm80.ov3
@@ -59,8 +62,6 @@ BIGOBJS := globlb.obj startb.obj pcktok.obj asm1n.obj\
 
 KEYOBJS := keyn.obj edata.obj
 
-$(info $(MAKECMDGOALS))
-
 ## build rules to make the program and overlays
 # Symbols for overlays 0,1,2 and 3 are used in the build of asm80 so the apps are created by purging the symbols
 %: $(OBJ)/% ; $(call rm-symbols,$@,$<)
@@ -69,69 +70,69 @@ $(info $(MAKECMDGOALS))
 asm80: $(OBJ)/asm80.rel
 	$(call locate,$@,$^,NAME(ASM80) STACKSIZE(0) $(PURGE))
 
-$(call objdir,asm80.rel: $(ASMOBJ) $(ASMPUB))
+$(OBJ)/asm80.rel: $(call objdir,$(ASMOBJ) $(ASMPUB))
 	$(call link,$@,$(call objdir,$(ASMOBJ)) publics($(call objdir,$(ASMPUB))))
 
 ##
-$(call objdir,asm80.ov0: asm800.rel)
+$(OBJ)/asm80.ov0: $(OBJ)/asm800.rel
 	$(call locate,$@,$^,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
 
-$(call objdir,asm800.rel: $(OV0OBJ) $(OV0PUB))
+$(OBJ)/asm800.rel: $(call objdir,$(OV0OBJ) $(OV0PUB))
 	$(call link,$@,$(call objdir,$(OV0OBJ)) publics($(call objdir,$(OV0PUB))))
 
 ##
-$(call objdir,asm80.ov1: asm801.rel)
+$(OBJ)/asm80.ov1: $(OBJ)/asm801.rel
 	$(call locate,$@,$^,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
 
-$(call objdir,asm801.rel: $(OV1OBJ) $(OV1PUB))
+$(OBJ)/asm801.rel: $(call objdir,$(OV1OBJ) $(OV1PUB))
 	$(call link,$@,$(call objdir,$(OV1OBJ)) publics($(call objdir,$(OV1PUB))) $(call v31dir,plm80.lib))
 
 ##	
-$(call objdir,asm80.ov2: asm802.rel)
+$(OBJ)/asm80.ov2: $(OBJ)/asm802.rel
 	$(call locate,$@,$^,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
 
-$(call objdir,asm802.rel: $(OV2OBJ) $(OV2PUB))
+$(OBJ)/asm802.rel: $(call objdir,$(OV2OBJ) $(OV2PUB))
 	$(call link,$@,$(call objdir,$(OV2OBJ)) publics($(call objdir,$(OV2PUB))))
 
 ##
-$(call objdir,asm80.ov3: asm803.rel)
+$(OBJ)/asm80.ov3: $(OBJ)/asm803.rel
 	$(call locate,$@,$^,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
 
-$(call objdir,asm803.rel: $(OV3OBJ) $(OV3PUB))
+$(OBJ)/asm803.rel: $(call objdir,$(OV3OBJ) $(OV3PUB))
 	$(call link,$@,$(call objdir,$(OV3OBJ)) publics($(call objdir,$(OV3PUB))))
 
 ##
 asm80.ov4: $(OBJ)/asm804.rel
 	$(call locate,$@,$^,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
-$(call objdir,asm804.rel: $(MACROOBJS) keym.obj)
+$(OBJ)/asm804.rel: $(call objdir,$(MACROOBJS) keym.obj)
 	$(call link,$@,$(call objdir,$(MACROOBJS)) $(call v31dir,system.lib plm80.lib) $(call objdir,keym.obj))
 
 ##
 asm80.ov5: $(OBJ)/asm805.rel
 	$(call locate,$@,$^,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
-$(call objdir,asm805.rel: $(BIGOBJS) keyn.obj)
+$(OBJ)/asm805.rel: $(call objdir,$(BIGOBJS) keyn.obj)
 	$(call link,$@,$(call objdir,$(BIGOBJS)) $(call v31dir,system.lib plm80.lib) $(call objdir,keyn.obj))
 
 ##
-asxref: $(call objdir,asxref.obj)
+asxref: $(OBJ)/asxref.obj
 	$(call locate,$@,$<,CODE(3680h) STACKSIZE(32) $(PURGE))
 
 #
 ## rules for intermediate files
 .INTERMEDIATE:: $(call objdir,root.rel keyn.rel)
 
-$(call objdir,root.abs: root.rel)
+$(OBJ)/root.abs: $(OBJ)/root.rel
 	$(call locate-nocheck,$@,$^,STACKSIZE(120)) 
 
-$(call objdir,root.rel: $(ROOTOBJS))
+$(OBJ)/root.rel: $(call objdir,$(ROOTOBJS))
 	$(call link-nocheck,$@,$^ $(call v31dir,system.lib plm80.lib))
 
-$(call objdir,keyn.abs: keyn.rel)
+$(OBJ)/keyn.abs: $(OBJ)/keyn.rel
 	$(call locate-nocheck,$@,$^,CODE($(KEYCODE)) STACKSIZE(0))
 
-$(call objdir,keyn.rel: $(KEYOBJS))
+$(OBJ)/keyn.rel: $(call objdir,$(KEYOBJS))
 	$(call link-nocheck,$@,$^)
 
 
@@ -151,5 +152,6 @@ $(OBJ)/%s.obj: $(SRC)/%.plx
 $(OBJ)/%b.obj: $(SRC)/%.plx
 	$(PLMPP) -sBIG -o $(SRC)/$*b.plm $<
 	$(call plm,$@,$(SRC)/$*b.plm)
+
 
 
