@@ -4,7 +4,7 @@ REF = ref
 PEXFILE := isis34.pex
 include $(ROOT)/tools/isis.mk
 
-ISISTOOLS := $(V31)
+PLM80 := 3.1
 COMPARE := $(ROOT)/tools/isisc
 LOCATEFLAGS := PUBLICS SYMBOLS
 PLMFLAGS := DEBUG
@@ -27,5 +27,5 @@ isis: isis.rel
 .INTERMEDIATE: isis.rel
 
 isis.rel: $(objs)
-	$(call link,$@,$^ $(V31)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))
 

@@ -2,21 +2,22 @@
 
 
 
-omf_t *newOMF(file_t *fi, char *mod, int start, int end)
+omf_t *newOMF(file_t *fi, int mod, int start, int end)
 {
     omf_t *omf;
+    char modStr[8];
     int nameLen;
 
-    nameLen = strlen(fi->name);
-    if (mod)
-        nameLen += strlen(mod) + 2;
-    omf = (omf_t *)xcalloc(1, sizeof(omf_t));
-    omf->name = (char *)xmalloc(nameLen + 1);
-
-    if (mod)
-        sprintf(omf->name, "%s(%s)", fi->name, mod);
+    if (mod < 0)
+        modStr[0] = 0;
     else
-        strcpy(omf->name, fi->name);
+        sprintf(modStr, "[%d]", mod);
+
+    omf = (omf_t *)xcalloc(1, sizeof(omf_t));
+    omf->name = (char *)xmalloc(strlen(fi->name) + strlen(modStr)  + 1);
+
+    strcpy(omf->name, fi->name);
+    strcat(omf->name, modStr);
     omf->size = end - start;
     omf->image = fi->image + start;
     seekRecord(omf, 0);

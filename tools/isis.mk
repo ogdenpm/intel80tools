@@ -12,17 +12,10 @@ PATH := $(ROOT)/unix;$(PATH)
 SHELL := bash.exe
 COMPARE ?= $(ROOT)/tools/omfcmp
 
-# set up the ISIS environment
-V40:=$(ROOT)/plm80v40
-V31:=$(ROOT)/plm80v31
-V30:=$(ROOT)/plm80v30
-
 # default directories to . if not set
 SRC := $(call fixpath,$(SRC))
 LST := $(call fixpath,$(LST))
 OBJ := $(call fixpath,$(OBJ))
-#  directory for reference files, default version 4 tools
-REF := $(call fixpath,$(if $(REF),$(REF),$(V40)))
 
 # ISIS disk usage - :F0: will default to current dir
 export ISIS_F0 ?= ./
@@ -33,13 +26,31 @@ PLMPP:=$(ROOT)/tools/plmpp
 NGENPEX:=$(ROOT)/tools/ngenpex
 MKDEPEND:=perl $(ROOT)/tools/makedepend.pl
 
-ISISTOOLS := $(V40)
-# ISIS tools - all show mapped command line on stderr
-ASM = $(ISISTOOLS)/asm80
-PLM = $(ISISTOOLS)/plm80
-LINK = $(ISISTOOLS)/link
-LIB = $(ISISTOOLS)/lib
-LOCATE = $(ISISTOOLS)/locate
+# macros to create the path & full file names of an isis file
+# usage: $(call ipath,file[,version])
+ipath = $(ROOT)/itools/$(strip $1)$(if $2,_$(strip $2))
+# 
+# usage: $(call ifile,file[,version])
+ifile = $(call ipath,$1,$2)/$(strip $1)
+
+# set default tool versions if none given
+PLM80 ?= 4.0
+ASM80 ?= 4.1
+LIB ?= 2.1
+LINK ?= 3.0
+LOCATE ?= 3.0
+FORT80 ?= 2.1
+
+# the standard libraries
+plm80.lib := $(call ifile,plm80.lib)
+system40.lib := $(call ifile,system.lib,4.0)
+system31.lib := $(call ifile,system.lib,3.1)
+system30.lib := $(call ifile,system.lib,3.0)
+fpal21.lib := $(call ifile,fpal.lib,2.1)
+fpal20.lib := $(call ifile,fpal.lib,2.0)
+
+
+# macros to map versions to real files
 
 # work out the master source file
 _masterfile:=$(firstword $(wildcard *_all.plm))
@@ -53,15 +64,12 @@ space +=
 # all but the last word $1
 notlast = $(wordlist 2,$(words $1),dummy $1)
 # create a comma separated list from $1
-mklist = $(subst $(space),$(comma),$1)
+mklist = $(subst $(space),$(comma),$(strip $1))
 
 # macros to add common directory prefix to list $1
 objdir = $(addprefix $(OBJ)/,$(notdir $1))
 srcdir = $(addprefix $(SRC)/,$(notdir $1))
 lstdir = $(addprefix $(LST)/,$(notdir $1))
-v30dir = $(addprefix $(V30)/,$(notdir $1))
-v31dir = $(addprefix $(V31)/,$(notdir $1))
-v40dir = $(addprefix $(V40)/,$(notdir $1))
 
 # macros to generate suitable output file names from $1
 lnk = $(LST)/$(basename $(notdir $(firstword $1))).lnk
@@ -75,54 +83,54 @@ vpath %.asm $(SRC)
 # $(call plm,objfile,srcfile[,target specific options])
 define plm
   $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2,$(MKDEPEND) $1 $2)
-  @$(ISIS) $(PLM) $2 "print($(call lst,$2))" "object($1)"$(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "print($(call lst,$2))" "object($1)"$(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call asm,objfile,srcfile[,target specific options])
 define asm
-  @$(ISIS) $(ASM) $2 "print($(call lst,$2))" "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,asm80,$(ASM80)) $2 "print($(call lst,$2))" "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # standard link
 # $(call link,relocfile,objs[,target specific options])
 define link
-  @$(ISIS) $(LINK) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # link with no check for unresolved
 # $(call link-nocheck,relocfile,objs[,target specific options])
 define link-nocheck
-  @$(ISIS) -u $(LINK) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+  @$(ISIS) -u $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # standard locate
 # $(call locate,target,relocfile[,target specific options])
 define locate
-  @$(ISIS) $(LOCATE) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  @$(ISIS) $(call ifile,locate,$(LOCATE)) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate with no check for unsatisfied
 # $(call locate-nocheck,target,relocfile[,target specific options])
 define locate-nocheck
-  @$(ISIS) -u $(LOCATE) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  @$(ISIS) -u $(call ifile,locate,$(LOCATE)) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate allowing overlaps
 # $(call locate-overlaps,target,relocfile[,target specific options])
 define locate-overlaps
-  @$(ISIS) -o $(LOCATE) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  @$(ISIS) -o $(call ifile,locate,$(LOCATE)) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # limited version of locate to remove symbols - does not produce map file
 # $(call rm-symbols,target,source)
 define rm-symbols
-  @$(ISIS) $(LOCATE) $2 to $1 PURGE
+  @$(ISIS) $(call ifile,locate,$(LOCATE)) $2 to $1 PURGE
 endef
 
 # $(call lib,target,objects)
 define lib
   rm -fr $1
-  @$(ISIS) $(LIB) "&&"\
+  @$(ISIS) $(call ifile,lib,$(LIB)) "&&"\
   create $1 "&&"\
   add $(if $(filter-out 0 1,$(words $2)),$(call mklist,$(call notlast,$2))$(comma)"&")\
   $(lastword $2) to $1 "&&"\
@@ -157,9 +165,11 @@ $(sort $(OBJ) $(LST)): ; mkdir -p $@
 ifndef NOVERIFY
 .PHONY: verify
 verify: all
-	$(if $(filter 1,$(words $(TARGETS))),\
+	$(if $(REF),\
+	  $(if $(filter 1,$(words $(TARGETS))),\
 	    @$(COMPARE) $(TARGETS) $(REF)/$(TARGETS),\
-	    @for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done)
+	    @for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done),\
+	  $(info verify failed - REF variable not set) exit 1)
 endif
 
 rebuild: distclean all

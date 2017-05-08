@@ -39,12 +39,12 @@ idisk: idisk.rel
 .INTERMEDIATE: fixmap.rel format.rel idisk.rel
 
 fixmap.rel: $(FIXMAPOBJ)
-	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
 
 format.rel: $(FORMATOBJ)
-	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
 
 
 idisk.rel: $(IDISKOBJ)
-	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
 

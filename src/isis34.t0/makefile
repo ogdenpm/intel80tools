@@ -34,5 +34,5 @@ ifdef JUNKFILE
 endif
 
 isist0.rel: $(objs) $(JUNKFILE)
-	$(call link,$@,$^ $(V31)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))
 

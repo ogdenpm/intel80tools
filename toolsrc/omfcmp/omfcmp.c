@@ -253,7 +253,7 @@ void extref(omf_t *omf, module_t *mod)
     byte type = getByte(omf);
     while (!atEndOfRecord(omf)) {
         extId = getWord(omf);
-        addFixup(&seg->fixups, 256, mod->externals.items[extId].name, lastContentAddr + getWord(omf), type);
+        addFixup(&seg->fixups, 256, mod->externals.items[extId].name, getWord(omf), type);
         mod->externals.items[extId].status |= USED;
     }
 }
@@ -264,7 +264,7 @@ void reloc(omf_t *omf, module_t *mod)
 
     byte type = getByte(omf);
     while (!atEndOfRecord(omf))
-        addFixup(&seg->fixups, lastContentSeg, mod->segs[lastContentSeg].name, lastContentAddr + getWord(omf), type);
+        addFixup(&seg->fixups, lastContentSeg, mod->segs[lastContentSeg].name, getWord(omf), type);
 }
 void intseg(omf_t *omf, module_t *mod)
 {
@@ -274,7 +274,7 @@ void intseg(omf_t *omf, module_t *mod)
     segId = getByte(omf);
     byte type = getByte(omf);
     while (!atEndOfRecord(omf))
-        addFixup(&seg->fixups, segId, mod->segs[segId].name, lastContentAddr + getWord(omf), type);
+        addFixup(&seg->fixups, segId, mod->segs[segId].name, getWord(omf), type);
 }
 
 void common(omf_t *omf, module_t *mod)
@@ -297,7 +297,7 @@ module_t *newModule(omf_t *omf)
     mod->segs[1].name = "\4CODE";
     mod->segs[2].name = "\4DATA";
     mod->segs[3].name = "\5STACK";
-    mod->segs[4].name = "\6EMORY";
+    mod->segs[4].name = "\6MEMORY";
     mod->segs[255].name = "\2//";
 
 
@@ -441,6 +441,26 @@ int cmpContent(const struct _content *a, const struct _content *b)
 
 
 
+#define MAXRUN  8
+
+void emitRun(int addr, int run, short *lrun, short *rrun)
+{
+    if (run == 0)
+        return;
+    printf("%04X", addr);
+    for (int i = 0; i < run; i++)
+        if (lrun[i] < 0)
+            printf(" --");
+        else
+            printf(" %02X", lrun[i]);
+    printf(" :");
+    for (int i = 0; i < run; i++)
+        if (rrun[i] < 0)
+            printf(" --");
+        else
+            printf(" %02X", rrun[i]);
+    putchar('\n');
+}
 
 void diffContent(module_t *lm, byte lseg, module_t *rm, byte rseg)
 {
@@ -449,6 +469,10 @@ void diffContent(module_t *lm, byte lseg, module_t *rm, byte rseg)
     int lcb, rcb;       // index into contents blocks
     int laddr, raddr;  // base address of current block
     int li, ri;         // index into current block
+    int run = 0;        // count of different items used to format
+    int arun = -1;       // start address of difference run
+    short lrun[MAXRUN], rrun[MAXRUN]; // the run values -ve for missing
+
 
     ls = &lm->segs[lseg];
     rs = &rm->segs[rseg];
@@ -470,27 +494,44 @@ void diffContent(module_t *lm, byte lseg, module_t *rm, byte rseg)
             raddr = rc->items[rcb].addr;
             ri = 0;
         }
-
+        if (run && (laddr < 0 || arun + run != laddr + li) && (raddr < 0 || arun + run != raddr + ri)) {
+            emitRun(arun, run, lrun, rrun);
+            run = 0;
+        }
         if (raddr < 0 || (laddr >= 0 && laddr + li < raddr + ri)) {
             printSegHeader(ls, rs, ERROR);
-            printf("%04X %02X : --\n", laddr + li, lc->items[lcb].image[li]);
+            if (run == 0)
+                arun = laddr + li;
+            lrun[run] = lc->items[lcb].image[li];
+            rrun[run++] = -1;
             li++;
         }
         else if (laddr < 0 || (raddr >= 0 && laddr + li > raddr + ri)) {
             printSegHeader(ls, rs, ERROR);
-            printf("%04X -- : %02X\n", raddr + ri, rc->items[rcb].image[ri]);
+            if (run == 0)
+                arun = raddr + ri;
+            lrun[run] = -1;
+            rrun[run++] = rc->items[rcb].image[ri];
             ri++;
         }
         else if (lc->items[lcb].image[li] != rc->items[rcb].image[ri]) {
             printSegHeader(ls, rs, ERROR);
-            printf("%04X %02X : %02X\n", laddr + li, lc->items[lcb].image[li], rc->items[rcb].image[ri]);
+            if (run == 0)
+                arun = laddr + li;
+            lrun[run] = lc->items[lcb].image[li];
+            rrun[run++] = rc->items[rcb].image[ri];
             li++; ri++;
         }
         else {
+            emitRun(arun, run, lrun, rrun);
+            run = 0;
             li++; ri++;
         }
 
-        
+        if (run == MAXRUN) {
+            emitRun(arun, run, lrun, rrun);
+            run = 0;
+        }
         if (laddr >= 0 && li >= lc->items[lcb].length) {
             lcb++;
             laddr = -1;
@@ -501,6 +542,7 @@ void diffContent(module_t *lm, byte lseg, module_t *rm, byte rseg)
         }
 
     }
+    emitRun(arun, run, lrun, rrun);
 }
 
 int cmpFixup(const struct _fixup *a, const struct _fixup *b)
@@ -562,39 +604,40 @@ void diffFixups(module_t *lm, byte lseg, module_t *rm, byte rseg)
             printf(" : ");
             printFixup(&rf->items[ri++]);
             printf(" - Fixup different\n");
-        } else
-            li++; ri++;
+        }
+        else {
+            li++;
+            ri++;
+        }
     }
 }
 
 
 
 
-int diffUnusedExternals(module_t *lm, module_t *rm)
+int diffExternals(module_t *lm, module_t *rm)
 {
     int i, j;
     int result = 1;
 
     /* check that any unused externals match */
     for (i = 0; i < lm->externals.cnt; i++) {
-        if (!lm->externals.items[i].status) {
-            for (j = 0; j < rm->externals.cnt; j++)
-                if (!rm->externals.items[j].status && pstrEqu(lm->externals.items[i].name, rm->externals.items[j].name))
-                    break;
+        for (j = 0; j < rm->externals.cnt; j++)
+            if (!(rm->externals.items[j].status & CHECKED) && pstrEqu(lm->externals.items[i].name, rm->externals.items[j].name))
+                break;
 
-            if (j == rm->externals.cnt) {
-                printPstrPair(lm->externals.items[i].name, "\x06------");
-                printf(" - Unused external missing\n");
-                result = 0;
-            } else
-                rm->externals.items[j].status |= CHECKED;
-            lm->externals.items[i].status |= CHECKED;
-        }
+        if (j == rm->externals.cnt) {
+            printPstrPair(lm->externals.items[i].name, "\x06------");
+            printf(" - External missing\n");
+            result = 0;
+        } else
+            rm->externals.items[j].status |= CHECKED;
+        lm->externals.items[i].status |= CHECKED;
     }
     for (j = 0; j < rm->externals.cnt; j++)
-        if (!rm->externals.items[j].status) {
-            printPstrPair("\06------", rm->externals.items[i].name);
-            printf(" - Unused external missing\n");
+        if (!(rm->externals.items[j].status & CHECKED)) {
+            printPstrPair("\06------", rm->externals.items[j].name);
+            printf(" - External missing\n");
             result = 0;
             rm->externals.items[j].status |= CHECKED;
         }
@@ -602,22 +645,34 @@ int diffUnusedExternals(module_t *lm, module_t *rm)
 }
 
 
+void printCompiler(int compiler, int version)
+{
+    switch (compiler) {
+    case 1: printf("PLM_%d.%d", version / 16, version % 16); return;
+    case 2: printf("FORT_%d.%d", version / 16, version % 16); return;
+    case 0: if (version == 0) return;
+    default: printf("%02X_%02X", compiler, version);
+    }
+}
+
 int diffModule(module_t *lm, module_t *rm)
 {
     int i, j;
     int result = 1;
 
+    printf(" %.*s ", lm->name[0], lm->name + 1);
+    printCompiler(lm->compiler[0], lm->compiler[1]);
     if (!pstrEqu(lm->name, rm->name)) {
-        printPstrPair(lm->name, rm->name);
-        printf(" - Module names different\n");
+        printf(" : %.*s", rm->name[0], rm->name + 1);
         result = 0;
     }
-    if (lm->compiler[0] != rm->compiler[0] || lm->compiler[1] != rm->compiler[1]) {
-        if (result)
-            printf(" - ");
-        printf("Compiler ids %02X:%02X : %02X:%02X", lm->compiler[0], lm->compiler[1], rm->compiler[0], rm->compiler[1]);
 
+    if (lm->compiler[0] != rm->compiler[0] || lm->compiler[1] != rm->compiler[1]) {
+        printf(result ? " : " : " ");
+        printCompiler(rm->compiler[0], rm->compiler[1]);
     }
+    if (!result)
+        printf(" - Module names different\n");
 
 
     for (i = 0; i <= lm->maxSeg; i++) {
@@ -660,7 +715,7 @@ int diffModule(module_t *lm, module_t *rm)
 
 
 
-    if (!diffUnusedExternals(lm, rm))
+    if (!diffExternals(lm, rm))
         result = 0;
 
     return result;
@@ -684,10 +739,11 @@ void cmpModule(omf_t *lomf, omf_t *romf)
     printf("%s : %s", lomf->name, romf->name);
 
     if (diffModule(lm, rm))
-        printf(" - Modules are equivalent\n");
-    else
+        printf(" *** Equivalent\n");
+    else {
+        putchar('\n');
         returnCode = 1;
-
+    }
     deleteModule(lm);
     deleteModule(rm);
 }
@@ -717,8 +773,8 @@ int main(int argc, char **argv)
     if (left->image[0] == LIBHDR && right->image[0] == LIBHDR)
         cmpLibrary(left, right);
     else if (left->image[0] == MODHDR && right->image[0] == MODHDR)
-        cmpModule(newOMF(left, NULL, 0, left->size), newOMF(right, NULL, 0, right->size));
+        cmpModule(newOMF(left, -1, 0, left->size), newOMF(right, -1, 0, right->size));
     else
-        diffBinary(newOMF(left, NULL, 0, left->size), newOMF(right, NULL, 0, right->size));
+        diffBinary(newOMF(left, -1, 0, left->size), newOMF(right, -1, 0, right->size));
     return returnCode;
 }

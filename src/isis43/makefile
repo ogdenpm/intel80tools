@@ -29,5 +29,5 @@ isis: isis.rel
 
 .INTERMEDIATE: isis.rel
 isis.rel: $(objs)
-	$(call link,$@,$^ $(V40)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))
 

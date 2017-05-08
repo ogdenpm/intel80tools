@@ -11,8 +11,10 @@ PROTECT := notes.txt
 
 include $(ROOT)/tools/isis.mk
 
+REF = $(call ipath,asm80,4.1)
+
 # override default tools
-ISISTOOLS := $(V31)
+PLM80 := 3.1
 export ISIS_F3 = $(SRC)
 
 TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
@@ -85,7 +87,7 @@ $(OBJ)/asm80.ov1: $(OBJ)/asm801.rel
 	$(call locate,$@,$^,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm801.rel: $(call objdir,$(OV1OBJ) $(OV1PUB))
-	$(call link,$@,$(call objdir,$(OV1OBJ)) publics($(call objdir,$(OV1PUB))) $(call v31dir,plm80.lib))
+	$(call link,$@,$(call objdir,$(OV1OBJ)) publics($(call objdir,$(OV1PUB))) $(plm80.lib))
 
 ##	
 $(OBJ)/asm80.ov2: $(OBJ)/asm802.rel
@@ -106,14 +108,14 @@ asm80.ov4: $(OBJ)/asm804.rel
 	$(call locate,$@,$^,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
 $(OBJ)/asm804.rel: $(call objdir,$(MACROOBJS) keym.obj)
-	$(call link,$@,$(call objdir,$(MACROOBJS)) $(call v31dir,system.lib plm80.lib) $(call objdir,keym.obj))
+	$(call link,$@,$(call objdir,$(MACROOBJS)) $(system31.lib) $(plm80.lib) $(call objdir,keym.obj))
 
 ##
 asm80.ov5: $(OBJ)/asm805.rel
 	$(call locate,$@,$^,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
 $(OBJ)/asm805.rel: $(call objdir,$(BIGOBJS) keyn.obj)
-	$(call link,$@,$(call objdir,$(BIGOBJS)) $(call v31dir,system.lib plm80.lib) $(call objdir,keyn.obj))
+	$(call link,$@,$(call objdir,$(BIGOBJS)) $(system31.lib) $(plm80.lib) $(call objdir,keyn.obj))
 
 ##
 asxref: $(OBJ)/asxref.obj
@@ -127,7 +129,7 @@ $(OBJ)/root.abs: $(OBJ)/root.rel
 	$(call locate-nocheck,$@,$^,STACKSIZE(120)) 
 
 $(OBJ)/root.rel: $(call objdir,$(ROOTOBJS))
-	$(call link-nocheck,$@,$^ $(call v31dir,system.lib plm80.lib))
+	$(call link-nocheck,$@,$^ $(system31.lib) $(plm80.lib))
 
 $(OBJ)/keyn.abs: $(OBJ)/keyn.rel
 	$(call locate-nocheck,$@,$^,CODE($(KEYCODE)) STACKSIZE(0))

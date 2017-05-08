@@ -31,5 +31,5 @@ endif
 
 .INTERMEDIATE: isist0.rel
 isist0.rel: $(objs) $(JUNKFILE)
-	$(call link,$@,$^ $(V40)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))
 

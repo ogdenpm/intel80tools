@@ -12,7 +12,7 @@ PROTECT:= ISIS.OV0
 include $(ROOT)/tools/isis.mk
 
 # set default tools
-REF:=$(V40)
+REF:=$(call ipath,ixref,1.3)
 
 
 objs =	ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj
@@ -25,7 +25,7 @@ ixref: ixref.rel
 
 .INTERMEDIATE: ixref.rel
 ixref.rel: $(objs)
-	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
 
 # invokes ixref on itself. Note the library functions are shown as unresolved as
 # their source is not included

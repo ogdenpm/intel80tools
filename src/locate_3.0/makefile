@@ -10,7 +10,7 @@ LINKFLAGS:=
 PURGE=purge
 include $(ROOT)/tools/isis.mk
 
-
+REF = $(call ipath,locate,3.0)
 LOWOBJ=loc1.obj loc2a.obj memmov.obj loc2b.obj loc3.obj loc4.obj loc4a.obj loc5a.obj loc5b.obj isis.obj
 HIGHOBJ=loc6.obj loc7.obj loc8.obj loc8a.obj loc9.obj
 
@@ -24,7 +24,7 @@ locate: locate.rel
 	$(call locate,$@,$^,STACKSIZE(0) CODE(6656h) $(PURGE))
 
 locate.rel: loclow.abs $(HIGHOBJ)
-	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
 
 
 # intermediate target - note will have unsatisfied externals see also HICODE above
@@ -32,6 +32,6 @@ loclow.abs: loclow.rel
 	$(call locate-nocheck,$@,$^,STACKSIZE(6Ch))
 
 loclow.rel: $(LOWOBJ)
-	$(call link-nocheck,$@,$^ $(V40)/plm80.lib)
+	$(call link-nocheck,$@,$^ $(plm80.lib))
 
 

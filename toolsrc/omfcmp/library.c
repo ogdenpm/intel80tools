@@ -51,10 +51,9 @@ void cmpLibrary(file_t *left, file_t *right)
     omf_t *lo, *ro;
     int namesDifferent = 0;
     int i, j, k, prevk;
-    char modName[MAXNAME + 6];
 
-    lo = newOMF(left, NULL, 0, left->size);
-    ro = newOMF(right, NULL, 0, right->size);
+    lo = newOMF(left, -1, 0, left->size);
+    ro = newOMF(right, -1, 0, right->size);
 
     if ((ll = newLibrary(lo)) == NULL || (rl = newLibrary(ro)) == NULL) {
         diffBinary(lo, ro);
@@ -82,12 +81,10 @@ void cmpLibrary(file_t *left, file_t *right)
             prevk = k;
             deleteOMF(lo);
             deleteOMF(ro);
-            sprintf(modName, "%.*s[%d]", ll->names[i][0], ll->names[i] + 1, i);
-            lo = newOMF(left, modName, ll->locations[i], ll->locations[i + 1]);
-            sprintf(modName, "%.*s[%d]", rl->names[k][0], rl->names[k] + 1, k);
-            ro = newOMF(right, modName, rl->locations[k], rl->locations[k + 1]);
-            if (lo->size == ro->size && (lo->image, ro->image, lo->size) == 0)
-                printf("%*s identical to %*s\n", lo->name[0], lo->name + 1, ro->name[0], ro->name + 1);
+            lo = newOMF(left, i, ll->locations[i], ll->locations[i + 1]);
+            ro = newOMF(right, k, rl->locations[k], rl->locations[k + 1]);
+            if (lo->size == ro->size && memcmp(lo->image, ro->image, lo->size) == 0)
+                printf("%s : %s %.*s *** Identical\n", lo->name, ro->name, ll->names[i][0], ll->names[i] + 1);
             else
                 cmpModule(lo, ro);
         }

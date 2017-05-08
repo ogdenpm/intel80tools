@@ -8,6 +8,8 @@ OBJ := obj
 
 include $(ROOT)/tools/isis.mk
 
+REF=$(call ipath,plm80,4.0)
+
 # force shared folder to be on isis drive :f3:
 export ISIS_F3 := $(SHARED)/
 export ISIS_F2 := $(SRC)/
@@ -97,7 +99,7 @@ objs6 =	pdata6.obj main6.obj plm6a.obj plm6b.obj movmem.obj exit.obj itoa.obj\
 	wr2lst.obj page.obj write.obj wrslst.obj
 
 # the following require plm v3.1
-$(call objdir,plm1b.obj plm2b.obj plm2g.obj): ISISTOOLS=$(V31)
+$(call objdir,plm1b.obj plm2b.obj plm2g.obj): PLM80 := 3.1
 
 # add the extra place to look for source
 vpath %.plm $(SHARED)
@@ -136,28 +138,28 @@ plm80.ov6: $(OBJ)/plm806.rel
 	                           plm803.rel plm804.rel plm805.rel plm806.rel) 
 
 $(OBJ)/plm80.rel: $(call objdir,data.abs $(objs))
-	$(call link,$@,$^ $(V40)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))
 
 $(OBJ)/plm800.rel: $(call objdir,data.abs $(objs0))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs0)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs0)) $(plm80.lib))
 
 $(OBJ)/plm801.rel: $(call objdir,data.abs $(objs1))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs1)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs1)) $(plm80.lib))
 
 $(OBJ)/plm802.rel: $(call objdir,data.abs $(objs2))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs2)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs2)) $(plm80.lib))
 
 $(OBJ)/plm803.rel: $(call objdir,data.abs $(objs3))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs3)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs3)) $(plm80.lib))
 
 $(OBJ)/plm804.rel: $(call objdir,data.abs $(objs4))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs4)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs4)) $(plm80.lib))
 
 $(OBJ)/plm805.rel: $(call objdir,data.abs $(objs5))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs5)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs5)) $(plm80.lib))
 
 $(OBJ)/plm806.rel: $(call objdir,data.abs $(objs6))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs6)) $(V40)/plm80.lib)
+	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs6)) $(plm80.lib))
 
 $(OBJ)/data.abs: $(OBJ)/data.obj
 	$(call locate,$@,$<,DATA(3800H))

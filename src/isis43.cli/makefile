@@ -18,5 +18,5 @@ isis.cli: cli.rel
 
 .INTERMEDIATE: cli.rel
 cli.rel: $(objs)
-	$(call link,$@,$^ $(V40)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))
 

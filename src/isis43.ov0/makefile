@@ -15,4 +15,4 @@ isis.ov0: isisov.rel
 
 .INTERMEDIATE: isisov.rel
 isisov.rel: getd.obj getd5.obj
-	$(call link,$@,$^ $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system40.lib) $(plm80.lib))

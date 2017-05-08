@@ -11,6 +11,7 @@ PURGE:= purge
 
 include $(ROOT)/tools/isis.mk
 
+REF=$(call ipath,link,3.0)
 
 LINKOBJ := link0.abs link1.abs link2.abs
 LINKPUB := linkov.abs
@@ -40,25 +41,25 @@ link.ovl: linkov.rel
 	$(call locate,$@,$^,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
 
 linkov.rel: $(LINKOVOBJ) $(LINKOVPUB)
-	$(call link,$@,$(LINKOVOBJ) publics($(LINKOVPUB)) $(call v40dir,system.lib plm80.lib))
+	$(call link,$@,$(LINKOVOBJ) publics($(LINKOVPUB)) $(system40.lib) $(plm80.lib))
 
 link0.abs: link0.rel
 	$(call locate-nocheck,$@,$^,STACKSIZE(84) COLUMNS(3))
 
 link0.rel: $(OBJ0)
-	$(call link-nocheck,$@,$^ $(call v40dir,plm80.lib))
+	$(call link-nocheck,$@,$^ $(plm80.lib))
 
 link1.abs: link1.rel
 	$(call locate-nocheck,$@,$^,CODE(48DEH) STACKSIZE(0))
 
 link1.rel: $(OBJ1) $(PUB1)
-	$(call link-nocheck,$@,$(OBJ1) publics($(PUB1)) $(call v40dir,plm80.lib))
+	$(call link-nocheck,$@,$(OBJ1) publics($(PUB1)) $(plm80.lib))
 
 link2.abs: link2.rel
 	$(call locate-nocheck,$@,$^,CODE(629DH) STACKSIZE(0))
 
 link2.rel: $(OBJ2) $(PUB2)
-	$(call link-nocheck,$@,$(OBJ2) publics($(PUB2)) $(call v40dir,system.lib(delete) system.lib))
+	$(call link-nocheck,$@,$(OBJ2) publics($(PUB2)) $(system40.lib)(delete) $(system40.lib))
 
 linkov.abs: $(OBJOVL)
 	$(call locate-nocheck,$@,$<,CODE(48DEH) STACKSIZE(0))

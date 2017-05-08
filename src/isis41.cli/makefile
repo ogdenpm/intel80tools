@@ -4,7 +4,7 @@ REF = ref
 PEXFILE=cli.pex
 include $(ROOT)/tools/isis.mk
 
-ISISTOOLS=$(V31)
+PLM80 := 3.1
 
 PLMFFLAGS=code optimize
 
@@ -18,5 +18,5 @@ cli: cli.rel
 
 .INTERMEDIATE: cli.rel
 cli.rel: $(objs)
-	$(call link,$@,$^ $(call v31dir,system.lib plm80.lib))
+	$(call link,$@,$^ $(system31.lib) $(plm80.lib))
 

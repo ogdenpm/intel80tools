@@ -5,6 +5,8 @@ PEXFILE:=lib.pex
 
 include $(ROOT)/tools/isis.mk
 
+REF = $(call ipath,lib,2.1)
+
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:=DEBUG
@@ -19,4 +21,4 @@ lib: lib.rel
 
 .INTERMEDIATE: lib.rel
 lib.rel: $(objs)
-	$(call link,$@,$^ $(V40)/plm80.lib)
+	$(call link,$@,$^ $(plm80.lib))

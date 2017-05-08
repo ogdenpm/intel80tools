@@ -547,18 +547,18 @@ endinstr;
 /* ZXCC pseudo-op */
 instr(0xfe, 4);
 {
-	/* Create copies of the registers here so we can take their addresses
-	 * and not lose register optimisation in the rest of the CPU code */
-	byte xa,xb,xc,xd,xe,xf,xxh,xxl;
-	word xp,xx,xy,xs;
-	
-	xa = a; xb = b; xc = c; xd = d; xe = e; xf = f; xxh = h; xxl = l;
-	xp = pc; xx = ix; xy = iy; xs = sp;
-	
-	ed_fe(&xa,&xb,&xc,&xd,&xe,&xf,&xxh,&xxl,&xp,&xx,&xy,&xs);
-	
-	a = xa; b = xb; c = xc; d = xd; e = xe; f = xf; h = xxh; l = xxl;
-	pc = xp; ix = xx; iy = xy; sp = xs;		
+    /* Create copies of the registers here so we can take their addresses
+     * and not lose register optimisation in the rest of the CPU code */
+    byte xa,xb,xc,xd,xe,xf,xxh,xxl;
+    word xp,xx,xy,xs;
+    
+    xa = a; xb = b; xc = c; xd = d; xe = e; xf = f; xxh = h; xxl = l;
+    xp = pc; xx = ix; xy = iy; xs = sp;
+    
+    ed_fe(&xa,&xb,&xc,&xd,&xe,&xf,&xxh,&xxl,&xp,&xx,&xy,&xs);
+    
+    a = xa; b = xb; c = xc; d = xd; e = xe; f = xf; h = xxh; l = xxl;
+    pc = xp; ix = xx; iy = xy; sp = xs;		
 }
 endinstr;
 
