@@ -24,7 +24,7 @@ locate: locate.rel
 	$(call locate,$@,$^,STACKSIZE(0) CODE(6656h) $(PURGE))
 
 locate.rel: loclow.abs $(HIGHOBJ)
-	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
+	$(call link,$@,$^ $(system.lib) $(plm80.lib))
 
 
 # intermediate target - note will have unsatisfied externals see also HICODE above

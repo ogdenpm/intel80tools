@@ -1,9 +1,9 @@
 ROOT=..
 SHELL= $(ROOT)/unix/bash.exe
 
-DIRS = asm80_4.1 disk43 isis34 isis34.t0 isis41 isis41.cli isis41.t0\
-       isis43 isis43.cli isis43.ov0 isis43.t0 ixref_1.2 ixref_1.3 kermit\
-       lib_2.1 link_3.0 locate_3.0 plm_4.0 plm80lib systemlib tex
+DIRS = asm80_4.1 isis.cli_4.1 isis.cli_4.3 isis.ov0_4.3 isis.t0_3.4 isis.t0_4.1\
+       isis.t0_4.3 isisUtil_4.3 isis_3.4 isis_4.1 isis_4.3 ixref_1.2 ixref_1.3\
+       kermit lib_2.1 link_3.0 locate_3.0 plm80.lib plm_4.0 system.lib_4.0 tex
 
 all: 
 	@for f in $(DIRS); do $(MAKE) -C $$f || exit 1; done;

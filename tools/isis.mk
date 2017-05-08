@@ -43,12 +43,13 @@ FORT80 ?= 2.1
 
 # the standard libraries
 plm80.lib := $(call ifile,plm80.lib)
-system40.lib := $(call ifile,system.lib,4.0)
-system31.lib := $(call ifile,system.lib,3.1)
-system30.lib := $(call ifile,system.lib,3.0)
-fpal21.lib := $(call ifile,fpal.lib,2.1)
-fpal20.lib := $(call ifile,fpal.lib,2.0)
-
+system.lib,4.0 := $(call ifile,system.lib,4.0)
+system.lib,3.1 := $(call ifile,system.lib,3.1)
+system.lib,3.0 := $(call ifile,system.lib,3.0)
+system.lib = $(system.lib,$(PLM80))
+fpal.lib,2.1 := $(call ifile,fpal.lib,2.1)
+fpal.lib,2.0 := $(call ifile,fpal.lib,2.0)
+fpal.lib = $(fpal.lib,2.1)
 
 # macros to map versions to real files
 
@@ -72,7 +73,7 @@ srcdir = $(addprefix $(SRC)/,$(notdir $1))
 lstdir = $(addprefix $(LST)/,$(notdir $1))
 
 # macros to generate suitable output file names from $1
-lnk = $(LST)/$(basename $(notdir $(firstword $1))).lnk
+lin = $(LST)/$(basename $(notdir $(firstword $1))).lin
 map = $(LST)/$(basename $(notdir $(firstword $1))).map
 lst = $(LST)/$(basename $(notdir $(firstword $1))).lst
 
@@ -80,45 +81,59 @@ vpath %.plm $(SRC)
 vpath %.asm $(SRC)
 
 ## the generic build commands
-# $(call plm,objfile,srcfile[,target specific options])
-define plm
+# $(call plm80,objfile,srcfile[,target specific options])
+define plm80
   $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2,$(MKDEPEND) $1 $2)
-  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "print($(call lst,$2))" "object($1)"$(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "print($(call lst,$2))"\
+	  "object($1)"$(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 endef
 
-# $(call asm,objfile,srcfile[,target specific options])
-define asm
-  @$(ISIS) $(call ifile,asm80,$(ASM80)) $2 "print($(call lst,$2))" "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+# $(call asm80,objfile,srcfile[,target specific options])
+define asm80
+  @$(ISIS) $(call ifile,asm80,$(ASM80)) $2 "print($(call lst,$2))"\
+	  "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
+
+# $(call fort80,objfile,srcfile[,target specific options])
+define fort80
+  @$(ISIS) $(call ifile,fort80,$(FORT80)) $2 "print($(call lst,$2))"\
+	  "workfiles(:f0:)" "object($1)"$(if $(FTNFLAGS), "$(FTNFLAGS)")$(if $3, "$3")
+endef
+
 
 # standard link
 # $(call link,relocfile,objs[,target specific options])
 define link
-  @$(ISIS) $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map\
+	  "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # link with no check for unresolved
 # $(call link-nocheck,relocfile,objs[,target specific options])
 define link-nocheck
-  @$(ISIS) -u $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map "print($(call lnk,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+  @$(ISIS) -u $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map\
+	  "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # standard locate
 # $(call locate,target,relocfile[,target specific options])
 define locate
-  @$(ISIS) $(call ifile,locate,$(LOCATE)) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  @$(ISIS) $(call ifile,locate,$(LOCATE)) $2 to $1\
+	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate with no check for unsatisfied
 # $(call locate-nocheck,target,relocfile[,target specific options])
 define locate-nocheck
-  @$(ISIS) -u $(call ifile,locate,$(LOCATE)) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  @$(ISIS) -u $(call ifile,locate,$(LOCATE)) $2 to $1\
+	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate allowing overlaps
 # $(call locate-overlaps,target,relocfile[,target specific options])
 define locate-overlaps
-  @$(ISIS) -o $(call ifile,locate,$(LOCATE)) $2 to $1 "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  @$(ISIS) -o $(call ifile,locate,$(LOCATE)) $2 to $1\
+	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # limited version of locate to remove symbols - does not produce map file
@@ -139,10 +154,13 @@ endef
 
 # predefined rules
 $(OBJ)/%.obj: %.plm  | $(OBJ) $(LST)
-	$(call plm,$@,$<)
+	$(call plm80,$@,$<)
 
 $(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
-	$(call asm,$@,$<)
+	$(call asm80,$@,$<)
+
+$(OBJ)/%.obj: %.f | $(OBJ) $(LST)
+	$(call fort80,$@,$<)
 
 # common targets
 .PHONY: all rebuild clean distclean
@@ -177,7 +195,7 @@ rebuild: distclean all
 ## housekeeping rules
 clean::
 	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
-	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lnk *.map) 
+	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map) 
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
 endif

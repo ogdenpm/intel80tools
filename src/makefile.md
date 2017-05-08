@@ -6,6 +6,19 @@ in an included file isis.mk.
 This document describes the usage of isis.mk, but assumes some basic knowledge
 of make and makefiles
 
+## Change log
+**8-May-2017**
+* isis.mk no longer uses ISISTOOLS to determine the version of the tools to use.
+Instead the version number of a specific tool can be specified.
+* A consequence of the above change is that the variable REF must be explicitly defined
+  and V30, V31 and V40 are no longer defined. Also ASM is no longer used and the
+  PLM80, LIB, LINK, LOCATE variables are used differently.
+* Renamed macros plm and asm to plm80 and asm80 respectively in anticipation of
+  supporting plm86 and asm86 at a later date.
+* Added macro for fort80 and a default rule for file.f to file.obj
+* Simple variables have been defined to reference the system and plm80 libs.
+* Macros have been added to generate paths to the isis tools see ipath and ifile in the documentation below.
+* Changed link listing file to have .lin extension as .lnk was treated as shortcut in windows
 ## Structure of the makefile
 The basic structure of the makefile is
 ```
@@ -36,13 +49,11 @@ include $(ROOT)/tools/isis.mk
   If required the following should preferably be defined before isis.mk.
 
         Definitions after isis.mk must ensure path names are in unix format and
-        for SRC and REF there should be no trailing space.
+        for SRC there should be no trailing space.
         The macro fixpath can be used to force this.
 
 * **SRC** - this is set to the location of the source file directory.
         It can be omitted if the current directory is used.
-* **REF** - this is set to the location of the reference file directory.
-        It can be omitted if this is the plm80 v4 toolset
 * **ISIS_F0** - this is set to the directory containing the isis drive F0 files
                 It can be omitted if this is the current directory
 * **COMPARE** - set to the program used to compare files. Not needed if
@@ -55,21 +66,28 @@ include $(ROOT)/tools/isis.mk
 * **ROOT** - the directory path is converted to unix format and any trailing / is removed
 * **PATH** - environment variable updated to add the path to the unix tools
 * **SHELL** - set to bash.exe
+
 * **COMPARE** - set to $(ROOT)/tools/omfcmp if not defined
-* **OBJ,LST,SRC,REF** - set to current directory if not defined, paths converted
+* **OBJ,LST,SRC** - set to current directory if not defined, paths converted
                         to unix format and any traling / removed.
 * **ISIS_F0** - set to current directory if not defined
 * **ISIS** - set to the thames program with the -m option set
 * **PLMPP** - set to the plmpp program
 * **NGENPEX** - set to the ngenpex program
 * **MKDEPEND** - set to the makedepend program
-* **V40,V31,V30** - set to the locations of the plm80 v4.0, v3.1 and v3.0 tools respectively.
-* **ISISTOOLS** - set to the $(V40) toolset. To use other versions change after isis.mk
-* **ASM** - set to the asm80 tool within $(ISISTOOLS)
-* **PLM80** - set to the plm80 tool within $(ISISTOOLS)
-* **LINK** - set to the link tool within $(ISISTOOLS)
-* **LIB** - set to the link tool within $(ISISTOOLS)
-* **LOCATE** - set to the link tool within $(ISISTOOLS)
+* **PLM80** - the version of the PLM80 compiler to be used. Set to 4.0 if not previously specified
+* **ASM80** - the version of the ASM80 to be used. Set to 4.1 if not previously specified
+* **LIB** - the version of the LIB to be used. Set to 2.1 if not previously specified
+* **LINK** - the version of the LINK to be used. Set to 3.0 if not previously specified
+* **LOCATE** - the version of the LOCATE to be used. Set to 3.0 if not previously specified
+* **FORT80** - the version of the FORT80 compiler to be used. Set to 2.1 if not previously specified
+* **plm80.lib** - simple variable to reference plm80.lib
+* **system.lib** - simple variable to reference system.lib associated with specified PLM80 version
+* **system.lib,3.0** - simple variable to reference the plm v3.0 system.lib file
+* **system.lib,3.1** - simple variable to reference the plm v3.1 system.lib file
+* **system.lib,4.0** - simple variable to reference the plm v4.0 system.lib file
+* **fpal.lib,2.0** - simple variable to reference fpal.lib v2.0
+* **fpal.lib,2.1** - simple variable to reference fpal.lib v2.1
 * **_masterfile** - this is set to the source master file if present. Master file
                     names end in *_all.plm*
 * **space** - set to the space char - used in make macros
@@ -81,15 +99,19 @@ include $(ROOT)/tools/isis.mk
 * **PROTECT** - set to a list of files to keep as part of the distribution. This is
                 only needed if *master files* are being used. The *master file, makefile,
                 mk and any $(REF) directory* are protected automatically.
+* **REF** - set to the location of the directlry containing the reference file(s). Recommended to be after isis.mk
+            to allow used of the ipath macro
 * **ASMFLAGS** - common options for asm80 - **print** and **object** should not be included
                 as they are used internally
+* **FTNFLAGS** - common options for fort80 - **print**, **object** and **workfiles** should
+		not be included as they are used internally
 * **PLMFLAGS** - common options for plm80 - **print** and **object** should not be included
                 as they are used internally
 * **LINKFLAGS** - common options for link - **map** and **print** should not be included
                 as they are used internally
 * **LOCATEFLAGS** - common options for locate - **print** should not be included
                 as is used internally
-* **ISIS_Fn*** - where n is a digit 0-9.
+* **ISIS_Fn** - where n is a digit 0-9.
                  Although thames now supports automatic directory - drive mapping,
                  it is occasionally necessary to explicitly define the mapping
                  of an ISIS drive. For example to define a specific directory for
@@ -101,21 +123,24 @@ include $(ROOT)/tools/isis.mk
 ### Variables modified post inclusion of isis.mk
 For more complex builds it may be necessary to modify variables post isis.mk.
 Some of the more common examples are
-* **ISISTOOLS** - If a file needs to be compiled with a specific version of a tool
-                  you can set this variable to point to the appropriate version.
+* **ASM80, FORT80, LIB, LINK, LOCATE, PLM80** - If a file needs to be compiled with a
+		specific version of a tool you can set these variables to specify
+		the appropriate version. In practice it is likely that this will
+		only be used for plm80 and fort80 as the others should produce
+		equivalent code.
 ```
 Examples
 Using plm V3.1 for all plm builds
-ISISTOOLS = $(V31)
+PLM80 = 3.1
 
 Using plm V3.1 for a subset of files with V4.0 for the rest
-list of files: ISISTOOLS = $(V31)
+list of files: PLM80 = 3.1
 
 To support a command line specification of toolset e.g
     make V31 file.obj
 define a rule
 V31:
-    $(eval ISISTOOLS=$(V31))
+    $(eval PLM80=3.1)
 ```
 
 Other than the variables noted above and the macros noted below
@@ -125,17 +150,25 @@ A number of macros are defined in isis.mk to simplify the invocation of the
 isis build tools. Additionally a number of supporting macros are used that
 may be of use in more complex makefiles.
 #### Build macros
-For these macros file names should be the unix style pathname. Thames maps these to
-ISIS drive names, but see the note on ISIS_Fn above.
-* **asm** - assemble a _file_.asm file, producing the specified object file and a
-           listing file _file_.lst in the $(LST) directory.
+For these macros file names should be the unix style pathname.
+Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
+* **asm80** - assemble an asmfile to produce the specified object file
+           and a listing file, (asmfile with ext .lst) in the $(LST) directory.
             **ASMFLAGS** are used and optional target specific options can be given
            except for **print** and **object** which are used internally.
 ```
 Usage:
-    $(call asm,objfile,asmfile[,target specific options])
+    $(call asm80,objfile,asmfile[,target specific options])
 ```
-* **plm** - compile a _file_.plm file, producing the specified object file and a
+* **fort80** - compile the specified ftnfile, to produce the specified object file
+           and a listing file, (ftnfile with ext .lst), in the $(LST) directory.
+            **FTNFLAGS** are used and optional target specific options can be given
+           except for **print**, **object** and **workfiles** which are used internally.
+```
+Usage:
+    $(call fort80,objfile,ftnfile[,target specific options])
+```
+* **plm80** - compile a _file_.plm file, producing the specified object file and a
            listing file _file_.lst in the $(LST) directory.
             **PLMFLAGS** are used and optional target specific options can be given
             except for **print** and **object** which are used internally.
@@ -147,11 +180,12 @@ Usage:
             makedepend is run to generate a dependency file in .deps
  ```
 Usage:
-    $(call plm,objfile,asmfile[,target specific options])
+    $(call plm80,objfile,asmfile[,target specific options])
 ```
 * **link** - link a set of files producing the specified relocatable file and a
            listing file in the $(LST) directory. The listing file has the same name
-           as the relocatable file but with the extension .lnk.
+           as the relocatable file but with the extension .lin (was lnk, but
+	   windows treated as shortcut)
             **LINKFLAGS** are used and optional target specific options can be given
             except for **print** and **map** which are used internally.
 
@@ -225,13 +259,13 @@ Generate a listing file name based on the first file name passed in. This done
 by taking the base file name, adding the appropriate extension and path $(LST)
 ```
 Usage:
-    $(call lnk,file)             # creates .lnk file name
+    $(call lin,file)             # creates .lin file name
     $(call map,file)             # creates .map file name
     $(call lst,file)             # creates .lst file name
 ```
 ##### Utility macros
 These are mainly used internally however there may be occasional need to use them
-elsewhere, especially fixpath
+elsewhere, especially fixpath, ipath and ifile
 * **fixpath** - if specified file is blank convert to .
                 else convert \ to / in file names and remove trailing / for all files
 ```
@@ -244,6 +278,29 @@ Example:
 sets
     SHARED = ../../src
     HERE = .
+```
+* **ipath** - returns the directory containing an isis tool. The version can be omitted
+              if there is only one version and it is not contained in a sub directory
+```
+Usage:
+    $(call ipath,tool[,version])
+Example: (Assuming ROOT is ../..)
+    $(call ipath,plm80,3.1)
+returns
+    ../../itools/plm80_v3.1
+Example:
+    $(call ipath,plm80.lib)
+returns
+    ../../itools/plm80.lib
+```
+* **ifile** - returns the full path to the isis tool. As with ipath version can be omitted
+```
+Usage:
+    $(call ifile,tool[,version)
+Example: (Assuming ROOT is ../..)
+    $(call ifile,link,2.1)
+returns
+    ../../itools/link_2.1/link
 ```
 * **notlast** - returns all but the last item in a list
 ```
@@ -278,14 +335,17 @@ utility. If PEXFILE is specified then the .ipx files are generated automatically
 part of the plm build.
 
 #### Implicit build rules
-Only two implicit build rules are defined, one to build a .obj file from a .plm file,
+Only three implicit build rules are defined, one to build a .obj file from a .plm file,
 the other to build a .obj from a .asm file. The rules are
 ```
 $(OBJ)/%.obj: %.plm  | $(OBJ) $(LST)
-    $(call plm,$@,$<)
+    $(call plm80,$@,$<)
 
 $(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
-    $(call asm,$@,$<)
+    $(call asm80,$@,$<)
+
+$(OBJ)/$.obj: %.f | $(OBJ) $(LST)
+    $(call fort80,$@,$<)
 ```
 The | $(OBJ) $(LST) is used to auto create directories
 #### .PHONY targets
@@ -293,7 +353,7 @@ The following .PHONY targets are defined in isis.mk
 * **all::** - the default rule. If a master file is detected it will make sure that
             the files are auto extracted. The main make file should also
             include a all:: rule.
-* **clean::** - used to clean *.obj, *.abs, *.lst, *.lnk, *.map files. If $(OBJ)
+* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map files. If $(OBJ)
                 or $(LST) are not set to the current directory they are deleted.
                 A clean:: rule can be added to the main makefile if required
 * **distclean::** - in addition to the files deleted by clean::, this rule deletes
@@ -343,13 +403,13 @@ lib: lib.rel                        ~~ how lib is built from a reloc file
 
 .INTERMEDIATE: lib.rel              ~~ the reloc file will be deleted after use
 lib.rel: $(objs)                    ~~ how the reloc file is built
-    $(call link,$@,$^ $(V40)/plm80.lib)
+    $(call link,$@,$^ $(plm80.lib))
 ~~ cf. $(call link,relocfile,objects[,options])
 ~~ here relocfile = $@ = lib.rel
-~~        objects = $^ $(V40)/plm80.lib = lib.obj lib1.obj isis1.obj isisa.obj
+~~        objects = $^ $(plm80.lib) = lib.obj lib1.obj isis1.obj isisa.obj
 ~~                                        isis2.obj lib3.obj lib4.obj
-~~                                        ../../plm80v40/plm80.lib
-~~       i.e. $(objs) + plm80.lib from the $(V40) directory
+~~                                        ../../itools/plm80.lib/plm80.lib
+~~       i.e. $(objs) + plm80.lib from the itools directory
 ~~ options are not used
 ```
 Part of tex makefile
@@ -383,7 +443,7 @@ tex10.abs: STACK=60   ~~ overrides stacksize for tex10.abs
     $(call locate,$@,$^,code(100h) stacksize($(STACK)) purge)
 
 tex10.rel: tex10.obj x0100.obj          ~~ the rule for the rel file
-    $(call link,$@,$^ $(V40)/plm80.lib)
+    $(call link,$@,$^ $(plm80.lib))
 
 .
 .
@@ -443,7 +503,7 @@ objs = main.obj plma.obj plmb.obj memchk.obj movmem.obj fill.obj plmc.obj\
 .
 
 # the following require plm v3.1        ~~ certain objects require plm80 V3.1
-$(call objdir,plm1b.obj plm2b.obj plm2g.obj): ISISTOOLS=$(V31)
+$(call objdir,plm1b.obj plm2b.obj plm2g.obj): PLM80=3.1
 ~~ objdir used here. could have used addprefix $(OBJ)/
                                         
 # add the extra place to look for source
@@ -482,7 +542,7 @@ PROTECT := notes.txt            ~~ notes.txt will be treated as part of distribu
 include $(ROOT)/tools/isis.mk
 
 # override default tools
-ISISTOOLS := $(V31)             ~~ asm80 built using plm v3.1
+PLM80 = 3.1                     ~~ asm80 built using plm v3.1
 export ISIS_F3 = $(SRC)         ~~ include directory is :F3: so explicity define it
 
 TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
@@ -514,19 +574,19 @@ all::
 # these are special build rules to process the plx files
 $(OBJ)/%m.obj: $(SRC)/%.plx
     $(PLMPP) -sMACRO -o $(SRC)/$*m.plm $<
-    $(call plm,$@,$(SRC)/$*m.plm)
+    $(call plm80,$@,$(SRC)/$*m.plm)
 
 $(OBJ)/%n.obj: $(SRC)/%.plx
     $(PLMPP) -o $(SRC)/$*n.plm $<
-    $(call plm,$@,$(SRC)/$*n.plm)
+    $(call plm80,$@,$(SRC)/$*n.plm)
 
 $(OBJ)/%s.obj: $(SRC)/%.plx
     $(PLMPP) -sSMALL -o $(SRC)/$*s.plm $<
-    $(call plm,$@,$(SRC)/$*s.plm)
+    $(call plm80,$@,$(SRC)/$*s.plm)
 
 $(OBJ)/%b.obj: $(SRC)/%.plx
     $(PLMPP) -sBIG -o $(SRC)/$*b.plm $<
-    $(call plm,$@,$(SRC)/$*b.plm)
+    $(call plm80,$@,$(SRC)/$*b.plm)
 
 
 
@@ -544,30 +604,30 @@ include $(ROOT)/tools/isis.mk
 
 ~~ method of compiling with the toolset specified on the command line
 ~~ e.g. make V31 file.obj - would set tools to v3.1 and then compile the file
-# on command line if you don't want V40 tools
+# on command line if you don't want plm80 v4.0 
 # use make V31 target or make V30 target
 .PHONY: all V31 V30
 all::
     @echo usage: make [V30^|V31] target ..."
 
 V31:
-    $(eval ISISTOOLS:=$(V31))           ~~ set the toolset
-    @echo ISIS tools V3.1 selected      ~~ confirm to user
+    $(eval PLM80=3.1)           ~~ set the toolset
+    @echo plm80 V3.1 selected   ~~ confirm to user
 
 V30:
-    $(eval ISISTOOLS:=$(V30)) 
-    @echo ISIS tools V3.0 selected
+    $(eval plm80=3.0)
+    @echo plm80 V3.0 selected
 
 
 ~~ simple rule to generate an ISIS application based on a single object file	
 %: %.obj
-    $(call link,$*.rel,$^ $(addprefix $(ISISTOOLS)/,system.lib plm80.lib))
+    $(call link,$*.rel,$^ $(system.lib) $(plm80.lib))
     $(call locate,$@,$*.rel,purge)
     @rm $*.rel                          ~~ can't use .INTERMEDIATE so rm manually
 
 ~~ simple rule to generate a cp/m application based on a single object file
 %.com: %.obj
-    $(call link,$*.rel,$^ $(addprefix $(ISISTOOLS)/,plm80.lib))
+    $(call link,$*.rel,$^ $(plm80.lib))
     $(call locate,$*.abs,$*.rel,CODE(100h) purge)
     @rm $*.rel                          ~~ can't use .INTERMEDIATE so rm manually
     $(ROOT)/tools/obj2bin $*.abs $@
@@ -575,4 +635,4 @@ V30:
 
 
 ```
-**Mark Ogden 1-May-2017**
+**Mark Ogden 8-May-2017**

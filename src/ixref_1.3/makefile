@@ -7,7 +7,7 @@ PEXFILE:=ixref.pex
 LOCATEFLAGS:=SYMBOLS PUBLICS
 PLMFLAGS:= DEBUG IXREF
 LINKFLAGS:=
-PROTECT:= ISIS.OV0
+PROTECT:= isis.ov0
 
 include $(ROOT)/tools/isis.mk
 
@@ -25,7 +25,7 @@ ixref: ixref.rel
 
 .INTERMEDIATE: ixref.rel
 ixref.rel: $(objs)
-	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
+	$(call link,$@,$^ $(system.lib) $(plm80.lib))
 
 # invokes ixref on itself. Note the library functions are shown as unresolved as
 # their source is not included

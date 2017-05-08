@@ -32,16 +32,20 @@ relst.pl, delib.pl, ngenpex.exe, plmpp.exe, plm80lib and systemlib source.
 The May 2017 update includes a major rework of the build scripts to use gnu
 make and a significant update to thames to support auto mapping of file paths
 to drives and interception of isis error codes.
+In addition the isis tool directories have been restructured to ease speficication
+of various tool versions.
 
 What's here
-plm80v30\*.*	this is the plm version 3.0 compiler
-
-plm80v31\*.*	this is the plm80 version 3.1 compiler that is needed for
-		some of the modules
-
-plm80v40\*.*	basically most of the plm80 version 4 compiler and utilities
-		taken from the intel emulator package
-
+itools/*/*.*	the various isis tools each set specified under a sub
+		directory of the format tool_version. Tools include
+		asm80, plm80, fort80, pasc80, asm86, plm86
+		lib, link, locate lib86, link86, loc86
+		binobj, hexobj, objhex, conv86
+		plm80.lib, system.lib, fpal.lib
+		note the fort80 libraries and 8086 libraries have not
+		yet been splitout.
+		Additionally isis v3.4, 4.1 and 4.3 are included with
+		the build tools noted above removed
 
 thames.exe	This is a major update on John Elliott's intel isis emulator
 thames32.exe	used in the build tree as isis.exe does not work on 64bit windows.
@@ -108,34 +112,34 @@ src\locate_3.0\*.* plm & asm recreated source for locate v3.0
 src\plm_v4.0\*.* plm & asm recreated source for plm80 v4.0
 		 plm_4.0_all.plm contains the packed source code.
 
-src\isis34\*.*	files to build isis 3.4
+src\isis_3.4\*.*	files to build isis 3.4
 		 isis34_all.plm contains the packed source code.
 		
-src\isis34.t0\*.* files to build isis 3.4 boot file
+src\isis.t0_3.4\*.* files to build isis 3.4 boot file
 		 isist0_all.plm contains the packed source code.
 
-src\isis41\*.*	files to build isis 4.1
+src\isis_4.11\*.*	files to build isis 4.1
 		 isis41_all.plm contains the packed source code.
 		
-src\isis41.t0\*.* files to build isis 4.1 boot file
+src\isis.t0_4.1\*.* files to build isis 4.1 boot file
 		 isist0_all.plm contains the packed source code.
 
-src\isis41.cli\*.* files to build isis 4.1 cli file
+src\isis.cli_4.1\*.* files to build isis 4.1 cli file
 		 cli_all.plm contains the packed source code.
 
-src\isis43\*.*	files to build isis 4.3
+src\isis_4.3\*.*	files to build isis 4.3
 		 isis43_all.plm contains the packed source code.
 		
-src\isis43.t0\*.* files to build isis 4.3 boot file
+src\isis.t0_4.3\*.* files to build isis 4.3 boot file
 		 isist0_all.plm contains the packed source code.
 
-src\isis43.cli\*.* files to build isis 4.3 cli file
+src\isis.cli_4.3\*.* files to build isis 4.3 cli file
 		 cli43_all.plm contains the packed source code.
 
-src\isis43.ov0\*.* files to build isis 4.3 .ov0 file
+src\isis.ov0_4.3\*.* files to build isis 4.3 .ov0 file
 		 isisov_all.plm contains the packed source code.
 
-src\disk43\*.*	files to build isis 4.3 fixmap, format and idisk
+src\isisUtil_4.3\*.*	files to build isis 4.3 fixmap, format and idisk
 		disk43_all.plm contains the packed source code
 
 src\ixref_1.2\*.* files to build ixref 1.2
@@ -145,10 +149,10 @@ src\ixref_1.3\*.* files to build ixref 1.3
 		 ixref_all.plm contains the packed source code and the
 		 isis.ov0 file needed to test it.
 
-src\plm80lib\*.* files to build plm80.lib for plm v4.0
+src\plm80.lib\*.* files to build plm80.lib for plm v4.0
 		plm80lib_all.plm contains the packed source
 
-src\systemlib\*.* files to build system.lib for plm v4.0
+src\system.lib_4.0\*.* files to build system.lib for plm v4.0
 		systemlib_all.plm contains the packed source
 
 src\kermit\*.*	files to build kermit for isis
@@ -284,3 +288,5 @@ updated 1-May-2017  (Updated thames to support auto unix file mapping and isis e
 		     replaced diffbin by a more comprehensive comparison tool omfcmp
 		     added decompilation of isis v3.4 and v4.3 files
 		     added disIntelLib, dumpintel, makedepend.pl)
+Update 8-May-2017    restructured isis tools directories and changed isis.mk
+		     to support this. See src/makefile.md for info

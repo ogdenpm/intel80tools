@@ -108,14 +108,14 @@ asm80.ov4: $(OBJ)/asm804.rel
 	$(call locate,$@,$^,NAME(A80O4) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
 $(OBJ)/asm804.rel: $(call objdir,$(MACROOBJS) keym.obj)
-	$(call link,$@,$(call objdir,$(MACROOBJS)) $(system31.lib) $(plm80.lib) $(call objdir,keym.obj))
+	$(call link,$@,$(call objdir,$(MACROOBJS)) $(system.lib,3.1) $(plm80.lib) $(call objdir,keym.obj))
 
 ##
 asm80.ov5: $(OBJ)/asm805.rel
 	$(call locate,$@,$^,NAME(A80O5) CODE($(BIGCODE)) STACKSIZE(144) $(PURGE))
 
 $(OBJ)/asm805.rel: $(call objdir,$(BIGOBJS) keyn.obj)
-	$(call link,$@,$(call objdir,$(BIGOBJS)) $(system31.lib) $(plm80.lib) $(call objdir,keyn.obj))
+	$(call link,$@,$(call objdir,$(BIGOBJS)) $(system.lib,3.1) $(plm80.lib) $(call objdir,keyn.obj))
 
 ##
 asxref: $(OBJ)/asxref.obj
@@ -129,7 +129,7 @@ $(OBJ)/root.abs: $(OBJ)/root.rel
 	$(call locate-nocheck,$@,$^,STACKSIZE(120)) 
 
 $(OBJ)/root.rel: $(call objdir,$(ROOTOBJS))
-	$(call link-nocheck,$@,$^ $(system31.lib) $(plm80.lib))
+	$(call link-nocheck,$@,$^ $(system.lib,3.1) $(plm80.lib))
 
 $(OBJ)/keyn.abs: $(OBJ)/keyn.rel
 	$(call locate-nocheck,$@,$^,CODE($(KEYCODE)) STACKSIZE(0))
@@ -141,19 +141,19 @@ $(OBJ)/keyn.rel: $(call objdir,$(KEYOBJS))
 # these are special build rules to process the plx files
 $(OBJ)/%m.obj: $(SRC)/%.plx
 	$(PLMPP) -sMACRO -o $(SRC)/$*m.plm $<
-	$(call plm,$@,$(SRC)/$*m.plm)
+	$(call plm80,$@,$(SRC)/$*m.plm)
 
 $(OBJ)/%n.obj: $(SRC)/%.plx
 	$(PLMPP) -o $(SRC)/$*n.plm $<
-	$(call plm,$@,$(SRC)/$*n.plm)
+	$(call plm80,$@,$(SRC)/$*n.plm)
 
 $(OBJ)/%s.obj: $(SRC)/%.plx
 	$(PLMPP) -sSMALL -o $(SRC)/$*s.plm $<
-	$(call plm,$@,$(SRC)/$*s.plm)
+	$(call plm80,$@,$(SRC)/$*s.plm)
 
 $(OBJ)/%b.obj: $(SRC)/%.plx
 	$(PLMPP) -sBIG -o $(SRC)/$*b.plm $<
-	$(call plm,$@,$(SRC)/$*b.plm)
+	$(call plm80,$@,$(SRC)/$*b.plm)
 
 
 

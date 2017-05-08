@@ -41,7 +41,7 @@ link.ovl: linkov.rel
 	$(call locate,$@,$^,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
 
 linkov.rel: $(LINKOVOBJ) $(LINKOVPUB)
-	$(call link,$@,$(LINKOVOBJ) publics($(LINKOVPUB)) $(system40.lib) $(plm80.lib))
+	$(call link,$@,$(LINKOVOBJ) publics($(LINKOVPUB)) $(system.lib) $(plm80.lib))
 
 link0.abs: link0.rel
 	$(call locate-nocheck,$@,$^,STACKSIZE(84) COLUMNS(3))
@@ -59,7 +59,7 @@ link2.abs: link2.rel
 	$(call locate-nocheck,$@,$^,CODE(629DH) STACKSIZE(0))
 
 link2.rel: $(OBJ2) $(PUB2)
-	$(call link-nocheck,$@,$(OBJ2) publics($(PUB2)) $(system40.lib)(delete) $(system40.lib))
+	$(call link-nocheck,$@,$(OBJ2) publics($(PUB2)) $(system.lib)(delete) $(system.lib))
 
 linkov.abs: $(OBJOVL)
 	$(call locate-nocheck,$@,$<,CODE(48DEH) STACKSIZE(0))

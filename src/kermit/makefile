@@ -13,5 +13,5 @@ kermit: kermit.rel
 
 .INTERMEDIATE: kermit.rel
 kermit.rel: $(objs)
-	$(call link,$@,$^ $(system40.lib) $(plm80.lib))
+	$(call link,$@,$^ $(system.lib) $(plm80.lib))
 
