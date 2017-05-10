@@ -5,7 +5,7 @@ ASMFFLAGS=
 
 include $(ROOT)/tools/isis.mk
 
-REF=$(call ipath,system.lib,4.0)
+REF=$(call ipath,utils,2.2)
 
 PLM80 := 3.1
 

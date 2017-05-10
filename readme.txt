@@ -35,17 +35,32 @@ to drives and interception of isis error codes.
 In addition the isis tool directories have been restructured to ease speficication
 of various tool versions.
 
+10-May 2017 added several isis tools and isis versions including a very early
+version of isis (v2.2) which has the isis.t0 file written in the fortran based
+plm80. Due the the increase in isis versions, system.lib, binobj, hexobj and
+objhex now reside in the relevant isis directory.
+
+*NOTE*
+Although there are multiple versions of system.lib available the later ones
+all appear to be backward compatible so unless there is a need to byte match
+a tool, the latest version located in itools/utils_2.2 can be used; this is
+the one that was with the pl/m 80 v4.0 build freely shared by intel.
+Also note that so far I have only located one version of plm80.lib.
+ 
+
 What's here
 itools/*/*.*	the various isis tools each set specified under a sub
 		directory of the format tool_version. Tools include
-		asm80, plm80, fort80, pasc80, asm86, plm86
-		lib, link, locate lib86, link86, loc86
-		binobj, hexobj, objhex, conv86
-		plm80.lib, system.lib, fpal.lib
+		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51
+		lib, link, locate lib86, link86, loc86, lib51, rl51
+		ixref, conv86, oh86, plm80.lib, fpal.lib
+		utils - include hexobj, objhex and system.lib that were in the
+		utils dirctory of the various plm80, asm80, fort80 that were
+		freely shared with isis.exe
 		note the fort80 libraries and 8086 libraries have not
 		yet been splitout.
-		Additionally isis v3.4, 4.1 and 4.3 are included with
-		the build tools noted above removed
+		Additionally isis 2.2, 3.4, 4.0, 4.1, 4.2, 4.2W, 4.3 and 4.3W
+		are included with the build tools noted above removed
 
 thames.exe	This is a major update on John Elliott's intel isis emulator
 thames32.exe	used in the build tree as isis.exe does not work on 64bit windows.

@@ -43,9 +43,9 @@ FORT80 ?= 2.1
 
 # the standard libraries
 plm80.lib := $(call ifile,plm80.lib)
-system.lib,4.0 := $(call ifile,system.lib,4.0)
-system.lib,3.1 := $(call ifile,system.lib,3.1)
-system.lib,3.0 := $(call ifile,system.lib,3.0)
+system.lib,4.0 := $(call ipath,utils,2.2)/system.lib
+system.lib,3.1 := $(call ipath,isis,3.4)/system.lib
+system.lib,3.0 := $(call ipath,isis,2.2)/system.lib
 system.lib = $(system.lib,$(PLM80))
 fpal.lib,2.1 := $(call ifile,fpal.lib,2.1)
 fpal.lib,2.0 := $(call ifile,fpal.lib,2.0)
