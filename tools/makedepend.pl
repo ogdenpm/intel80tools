@@ -14,7 +14,7 @@ sub realfile {
 	} else {
 		$path = '.';
 	}
-	return ($path eq '.' || $path eq '') ? $isisfile : $path/$isisfile;
+	return ($path eq '.' || $path eq '') ? $isisfile : "$path/$isisfile";
 }
 
 # scan the source file for include files and recursively process

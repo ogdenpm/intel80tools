@@ -16,13 +16,13 @@ FIXMAPOBJ = fixmap.obj alloc.obj dblank.obj dlimit.obj ferror.obj fupper.obj num
 	popul.obj scanin.obj seq.obj setblk.obj rpterr.obj ucase.obj wdelim.obj
 
 FORMATOBJ =	format.obj alloc.obj direct.obj dblank.obj dlimit.obj ferror.obj fmttrk.obj\
-	fupper.obj mascii.obj rpterr.obj seq.obj chkbad.obj\
-	devdsk.obj wd.obj unpath.obj absio.obj clbuf.obj\
+	fupper.obj mascii.obj rpterr.obj seq.obj setmap.obj\
+	trange.obj wd.obj ypath.obj absio.obj clbuf.obj\
 	diskio.obj numout.obj setblk.obj ucase.obj wdelim.obj
 
 IDISKOBJ =	idisk.obj alloc.obj direct.obj dblank.obj dlimit.obj ferror.obj fmttrk.obj\
-	fupper.obj getdsk.obj mascii.obj serror.obj seq.obj chkbad.obj\
-	devdsk.obj wd.obj absio.obj clbuf.obj\
+	fupper.obj getdsk.obj mascii.obj serror.obj seq.obj setmap.obj\
+	trange.obj wd.obj absio.obj clbuf.obj\
 	diskio.obj numout.obj rpterr.obj setblk.obj ucase.obj wdelim.obj
 
 all::	$(TARGETS)

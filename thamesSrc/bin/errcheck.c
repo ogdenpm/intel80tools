@@ -182,8 +182,11 @@ static int match(char *line)
             return !!strncmp(line, "COMPILATION TERMINATED", 22);	// PLM is well behaved so only need to look for these 2 error options
         break;
     case ASM80:
-        if (strncmp(line, "ASSEMBLY COMPLETE,", 18) == 0)
-            return !!strncmp(line + 21, "NO ERROR", 8);
+		if (strncmp(line, "ASSEMBLY COMPLETE,", 18) == 0) {
+			for (line = line + 18; *line == ' '; line++)
+				;
+			return !!strncmp(line, "NO ERROR", 8);
+		}
         where = START;
         break;
     case IXREF:
@@ -193,19 +196,21 @@ static int match(char *line)
     case LINK80:
         if (strncmp(line, "UNRESOLVED EXTERNAL", 19) == 0)
             return !uOption;
-        where = START;
+        where = BOTH;
         break;
     case LOC80:
         if (strncmp(line, "UNSATISFIED EXTERNAL", 19) == 0 || strncmp(line, "REFERENCE TO UNSATISFIED EXTERNAL", 33) == 0)
             return !uOption;
         if (strncmp(line, "(MEMORY OVERLAP", 15) == 0)
             return !oOption;
-        where = START;
+        where = BOTH;
         break;
     }
     if (where != AFTER && stdErrChk(line))
         return 1;
-    if (where != START && *(line += strcspn(line, ",:-")))
-            return stdErrChk(line + 1);
+	if (where != START)
+		while (*++line && *(line += strcspn(line, ",:-")))
+			if (stdErrChk(line + 1))
+				return 1;
     return 0;
 }

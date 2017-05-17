@@ -17,6 +17,8 @@ SRC := $(call fixpath,$(SRC))
 LST := $(call fixpath,$(LST))
 OBJ := $(call fixpath,$(OBJ))
 
+# clean can be overridden if there is a name clash
+CLEAN ?= clean
 # ISIS disk usage - :F0: will default to current dir
 export ISIS_F0 ?= ./
 
@@ -163,7 +165,7 @@ $(OBJ)/%.obj: %.f | $(OBJ) $(LST)
 	$(call fort80,$@,$<)
 
 # common targets
-.PHONY: all rebuild clean distclean
+.PHONY: all rebuild $(CLEAN) distclean
 # all is default first rule
 # if master file format is being used add rules to extract the source
 # user rules for all will be in the calling makefile
@@ -180,27 +182,30 @@ endif
 # rules to make sure directories exist
 $(sort $(OBJ) $(LST)): ; mkdir -p $@
 
-ifndef NOVERIFY
+ifneq '$(NOVERIFY)' 'T'
 .PHONY: verify
 verify: all
-	$(if $(REF),\
-	  $(if $(filter 1,$(words $(TARGETS))),\
-	    @$(COMPARE) $(TARGETS) $(REF)/$(TARGETS),\
-	    @for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done),\
-	  $(info verify failed - REF variable not set) exit 1)
+	$(if $(NOVERIFY), $(info skipping $(NOVERIFY)))
+	$(eval _verify := $(filter-out $(NOVERIFY),$(TARGETS)))
+	$(if $(_verify),\
+	  $(if $(REF),\
+	    $(if $(filter 1,$(words $(_verify))),\
+	      @$(COMPARE) $(_verify) $(REF)/$(_verify),\
+	      @for f in $(_verify) ; do $(COMPARE) $$f $(REF)/$$f || exit 1; done),\
+	    $(info verify failed - REF variable not set) exit 1))
 endif
 
 rebuild: distclean all
 
 ## housekeeping rules
-clean::
+$(CLEAN)::
 	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map) 
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
 endif
 
-distclean:: clean 
+distclean:: $(CLEAN) 
 ifdef _masterfile
 	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 
 else

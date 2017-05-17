@@ -424,7 +424,7 @@ void diffPublics(module_t *lm, byte lseg, module_t *rm, byte rseg)
             if (lp->items[i].addr != rp->items[j].addr) {
                 printSegHeader(ls, rs, ERROR);
                 printPstrPair(lp->items[i].name, rp->items[j].name);
-                printf(" - Public addresses different %04X : %04X", lp->items[i].addr, rp->items[j].addr);
+                printf(" - Public addresses different %04X : %04X\n", lp->items[i].addr, rp->items[j].addr);
             }
             i++; j++;
         }
@@ -615,10 +615,9 @@ void diffFixups(module_t *lm, byte lseg, module_t *rm, byte rseg)
 
 
 
-int diffExternals(module_t *lm, module_t *rm)
+int diffExternals(module_t *lm, module_t *rm, int result)
 {
     int i, j;
-    int result = 1;
 
     /* check that any unused externals match */
     for (i = 0; i < lm->externals.cnt; i++) {
@@ -627,6 +626,7 @@ int diffExternals(module_t *lm, module_t *rm)
                 break;
 
         if (j == rm->externals.cnt) {
+            if (result == 1) printf("\nExternals:\n");
             printPstrPair(lm->externals.items[i].name, "\x06------");
             printf(" - External missing\n");
             result = 0;
@@ -636,6 +636,7 @@ int diffExternals(module_t *lm, module_t *rm)
     }
     for (j = 0; j < rm->externals.cnt; j++)
         if (!(rm->externals.items[j].status & CHECKED)) {
+            if (result == 1) printf("\nExternals:\n");
             printPstrPair("\06------", rm->externals.items[j].name);
             printf(" - External missing\n");
             result = 0;
@@ -715,7 +716,7 @@ int diffModule(module_t *lm, module_t *rm)
 
 
 
-    if (!diffExternals(lm, rm))
+    if (!diffExternals(lm, rm, result))
         result = 0;
 
     return result;
@@ -738,6 +739,7 @@ void cmpModule(omf_t *lomf, omf_t *romf)
     }
     printf("%s : %s", lomf->name, romf->name);
 
+    
     if (diffModule(lm, rm))
         printf(" *** Equivalent\n");
     else {

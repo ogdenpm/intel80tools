@@ -29,8 +29,8 @@ Absio           P(B cmd,B disk,A block,A buffer)
 $file(alloc.plm)
 maskArray       BS
 
-$file(chkbad.plm)
-ChkBadSectors   P(B disk)A
+$file(setmap.plm)
+SetupMap   P(B disk)A
 
 $file(clbuf.plm)
 ClearBuffer     P(A buf$ptr)
@@ -64,7 +64,7 @@ $file(getdsk.plm)
 GetDisk         P(B n)
 
 $file(chkdev.plm)
-DeviceToDisk       P(B device,A buffer$p)B
+TestRange       P(B device,A buffer$p)B
 
 $file(idisk.plm,format.plm)
 mapBase         A
@@ -94,8 +94,8 @@ SetBlock        P(A adr)
 $file(serror.plm)
 SFileError      P(A status,A name$p)
 
-$file(unpath.plm)
-Unpath		P(A int,A ext)
+$file(ypath.plm)
+Ypath		P(A int,A ext)
 
 $file(ucase.plm)
 UpperCase       P(B char)B
@@ -193,7 +193,7 @@ Initialize: procedure;
 	call FormatTrack(targetDisk, 1, 1, labBlk.fmtTable(1) - '0');
 	call FormatTrack(targetDisk, 2, tracks, labBlk.fmtTable(2) - '0');
 	mapBase = .MEMORY;
-	unused = ChkBadSectors(targetDisk) + 29;
+	unused = SetupMap(targetDisk) + 29;
 	call WriteDirectory(targetDisk);
 	file(6).name(2) = targetDisk + '0';
 	call Open(.aftOut, .file(6), 3, 0, .status);
@@ -217,7 +217,7 @@ entry:
 	if pn(11) = 8 then
 		status = 3Dh;
 	call FileError(status, bufferPtr, TRUE);
-	targetDisk = DeviceToDisk(pn(0), bufferPtr);
+	targetDisk = TestRange(pn(0), bufferPtr);
 	srcDisk = 0;
 	system = 0;
 	singleDrive = 0;
@@ -457,7 +457,7 @@ start:
 		status = 3Dh;
 
 	call FileError(status, bufferPtr, TRUE);
-	targetDisk = DeviceToDisk(pn(0), bufferPtr);
+	targetDisk = TestRange(pn(0), bufferPtr);
 	diskType = pn(11);
 	t0File(2), cliFile(2), binFile(2), ov0File(2),
 	mapFile(2), labFile(2), dirFile(2), badFile(2) = targetDisk + '0';
@@ -516,7 +516,7 @@ start:
 	call FormatTrack(targetDisk, 2, fmtTable(diskType).tracks, labBlk.fmtTable(2) - '0');
 
 	mapBase = .MEMORY;
-	unused = ChkBadSectors(targetDisk) + 29;
+	unused = SetupMap(targetDisk) + 29;
 	call WriteDirectory(targetDisk);
 	call Open(.aftOut, .labFile, 3, 0, .status);
 	call FileError(status, .labFile, TRUE);
@@ -559,9 +559,9 @@ start:
 				if copy then
 				do;
 					direct.empty = srcDisk;
-					call Unpath(.direct, .inputString);
+					call Ypath(.direct, .inputString);
 					direct.empty = targetDisk;
-					call Unpath(.direct, .outputString);
+					call Ypath(.direct, .outputString);
 					call Open(.aftOut, .outputString, 3, 0, .status);
 					call FileError(status, .outputString, TRUE);
 					call Open(.aftIn, .inputString, 1, 0, .status);
@@ -1214,9 +1214,9 @@ Seq: procedure(s1, s2, len) boolean public;
 end;
 end;
 
-chkbad.plm
-ChkBadSectors: do;
-$include(chkbad.ipx)
+setmap.plm
+SetupMap: do;
+$include(setmap.ipx)
 
 declare aFatal(*) byte initial(' FATAL'),
 	aBad(*) byte initial(' BAD SPOT AT LOGICAL ADDRESS ( '),
@@ -1227,11 +1227,11 @@ declare aFatal(*) byte initial(' FATAL'),
 declare trap0B structure(jmp byte, target address) at (0bh),
 	trap0E address at (0eh);
 
-declare trap0BCodeLocation address data(.ChkBadSectors + 0DCh);
+declare trap0BCodeLocation address data(.SetupMap + 0DCh);
 declare mapBase address external;
 declare bitmap based mapBase (1) byte;
 
-ChkBadSectors: procedure(disk) address public;
+SetupMap: procedure(disk) address public;
 	declare disk byte;
 	declare logicalTrackSector address,
 		(logicalSector, logicalTrack) byte at (.logicalTrackSector),
@@ -1357,10 +1357,10 @@ L44A8:
 end;
 end;
 
-devdsk.plm
-DeviceToDisk: do;
-$include(devdsk.ipx)
-DeviceToDisk: procedure(device, buffer$p) byte public;
+trange.plm
+TestRange: do;
+$include(trange.ipx)
+TestRange: procedure(device, buffer$p) byte public;
 	declare device byte, buffer$p address;
 
 	if device >= 25 then	/* diskdrive 6-9 */
@@ -1572,12 +1572,12 @@ WriteDirectory: procedure(disk) public;
 end;
 end;
 
-unpath.plm
-unpath: do;
+ypath.plm
+ypath: do;
 declare devTab(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
 
 
-Unpath: procedure(int, ext) public;
+Ypath: procedure(int, ext) public;
 	declare (int, ext) address;
 	declare i byte;
 	declare intName based int (1) byte,
