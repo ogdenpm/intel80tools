@@ -46,7 +46,9 @@ all appear to be backward compatible so unless there is a need to byte match
 a tool, the latest version located in itools/utils_2.2 can be used; this is
 the one that was with the pl/m 80 v4.0 build freely shared by intel.
 Also note that so far I have only located one version of plm80.lib.
- 
+
+17-May 2017 added the ISIS toolbox to the repository, including decompilations
+of all of the libraries.
 
 What's here
 itools/*/*.*	the various isis tools each set specified under a sub
@@ -61,6 +63,9 @@ itools/*/*.*	the various isis tools each set specified under a sub
 		yet been splitout.
 		Additionally isis 2.2, 3.4, 4.0, 4.1, 4.2, 4.2W, 4.3 and 4.3W
 		are included with the build tools noted above removed
+
+		toolbox_1.0 - the isis toolbox applications and compiled
+		libraries. I have added pause which was missing on the original
 
 thames.exe	This is a major update on John Elliott's intel isis emulator
 thames32.exe	used in the build tree as isis.exe does not work on 64bit windows.
@@ -174,6 +179,19 @@ src\kermit\*.*	files to build kermit for isis
 
 src\tex\*.*	files to build tex v1.0, v1.2, v2.1 for cpm also a patched version
                 of v2.1 that fixes a bug in printing text only
+
+src\toolbox\*.*	the source files for the isis toolbox inluding decompiled
+		versions of all of the libraries
+		Note cusp2.lib was compiled with plm80 v1.0 and I cannot
+		recreate the exact binary as it inlines some of the plm80
+		library and in some cases generates different code.
+		Additionally for module MONITOR I could not generate the exact
+		code even though it claims to be compiled with PLM80 3.1. It
+		is possible it was an internal version. Finally several of the
+		libraries contain identical modules but the overall libraries
+		are not identical. This appears to be due to a bug in the
+		librarian Intel used, in that the dictionary locations are not
+		all normalised e.g. block:sector 24H:00 is 23H:80H.
 
 tools\*.*	tools I wrote to help me decompile / build the files
 
@@ -305,3 +323,4 @@ updated 1-May-2017  (Updated thames to support auto unix file mapping and isis e
 		     added disIntelLib, dumpintel, makedepend.pl)
 Update 8-May-2017    restructured isis tools directories and changed isis.mk
 		     to support this. See src/makefile.md for info
+Update 17-May-2017   added isis toolbox v1.0

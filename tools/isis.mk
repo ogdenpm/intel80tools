@@ -43,6 +43,8 @@ LINK ?= 3.0
 LOCATE ?= 3.0
 FORT80 ?= 2.1
 
+PLMFLAGS ?= code
+
 # the standard libraries
 plm80.lib := $(call ifile,plm80.lib)
 system.lib,4.0 := $(call ipath,utils,2.2)/system.lib

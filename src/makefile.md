@@ -19,6 +19,10 @@ Instead the version number of a specific tool can be specified.
 * Simple variables have been defined to reference the system and plm80 libs.
 * Macros have been added to generate paths to the isis tools see ipath and ifile in the documentation below.
 * Changed link listing file to have .lin extension as .lnk was treated as shortcut in windows
+
+**17-May-2017**
+* refined NOVERIFY and added CLEAN variable. See below
+* 
 ## Structure of the makefile
 The basic structure of the makefile is
 ```
@@ -41,10 +45,15 @@ include $(ROOT)/tools/isis.mk
         It can be omitted if the current directory is used.
 * **PEXFILE** - this is set to the file name of the pexfile.
                 It should be omitted if ngenpex is not being used
-* **NOVERIFY** - set to non blank value if you wish to prevent the automatic
+* **NOVERIFY** - set to **T** if you wish to prevent the automatic
                  verify rule being created. Useful if you wish to create a
                  bespoke verify rule or verify isn't applicable. Most of the
                  time this can be omitted.
+                 Alternatively the variable can be set to the list of files to
+                 skip verification. In this later case the variable can be defined
+                 after the include of isis.mk
+* **CLEAN** - if set this provides a new name for the **clean** target. Useful if you need
+              to build a real target called clean. Usually this will not be set
 
   If required the following should preferably be defined before isis.mk.
 
@@ -68,6 +77,7 @@ include $(ROOT)/tools/isis.mk
 * **SHELL** - set to bash.exe
 
 * **COMPARE** - set to $(ROOT)/tools/omfcmp if not defined
+* **CLEAN ** - set to clean if not defined. Used for clean files target
 * **OBJ,LST,SRC** - set to current directory if not defined, paths converted
                         to unix format and any traling / removed.
 * **ISIS_F0** - set to current directory if not defined
@@ -76,6 +86,7 @@ include $(ROOT)/tools/isis.mk
 * **NGENPEX** - set to the ngenpex program
 * **MKDEPEND** - set to the makedepend program
 * **PLM80** - the version of the PLM80 compiler to be used. Set to 4.0 if not previously specified
+* **PLMFLAGS** - set to code if not defined
 * **ASM80** - the version of the ASM80 to be used. Set to 4.1 if not previously specified
 * **LIB** - the version of the LIB to be used. Set to 2.1 if not previously specified
 * **LINK** - the version of the LINK to be used. Set to 3.0 if not previously specified
@@ -106,7 +117,7 @@ include $(ROOT)/tools/isis.mk
 * **FTNFLAGS** - common options for fort80 - **print**, **object** and **workfiles** should
 		not be included as they are used internally
 * **PLMFLAGS** - common options for plm80 - **print** and **object** should not be included
-                as they are used internally
+                as they are used internally. Set to code if not defined
 * **LINKFLAGS** - common options for link - **map** and **print** should not be included
                 as they are used internally
 * **LOCATEFLAGS** - common options for locate - **print** should not be included
@@ -353,9 +364,10 @@ The following .PHONY targets are defined in isis.mk
 * **all::** - the default rule. If a master file is detected it will make sure that
             the files are auto extracted. The main make file should also
             include a all:: rule.
-* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map files. If $(OBJ)
+* **$(CLEAN)::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map files. If $(OBJ)
                 or $(LST) are not set to the current directory they are deleted.
-                A clean:: rule can be added to the main makefile if required
+                A $(CLEAN):: rule can be added to the main makefile if required
+                Note $(CLEAN) defaults to clean
 * **distclean::** - in addition to the files deleted by clean::, this rule deletes
                     the $(TARGETS) files and any .deps directory.
                     If a master file is used all non protected files are deleted.
