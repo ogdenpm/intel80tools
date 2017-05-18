@@ -167,7 +167,7 @@ $(OBJ)/%.obj: %.f | $(OBJ) $(LST)
 	$(call fort80,$@,$<)
 
 # common targets
-.PHONY: all rebuild $(CLEAN) distclean
+.PHONY: all rebuild distclean
 # all is default first rule
 # if master file format is being used add rules to extract the source
 # user rules for all will be in the calling makefile
@@ -200,20 +200,27 @@ endif
 rebuild: distclean all
 
 ## housekeeping rules
-$(CLEAN)::
+ifeq ($(MAKECMDGOALS),clean)
+.PHONY: clean
+clean::
 	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map) 
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
 endif
+endif
 
-distclean:: $(CLEAN) 
+distclean:: 
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ)) 
+	-$(if $(filter-out .,$(LST)),rm -fr $(LST)) 
 ifdef _masterfile
 	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 
 else
 	-rm -f $(TARGETS) 
 endif
-ifndef PEXFILE
+ifdef PEXFILE
+	-rm -fr $(SRC)/*.ipx
+else
 	-rm -fr .deps
 endif
 

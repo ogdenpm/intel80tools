@@ -5,27 +5,44 @@ $sfile = glob("*_all.plm");
 {
 	open (SRC, "<$sfile") || die "can't open $sfile\n";
 	local $/;
-	undef $/;
 	$src = <SRC>;
 	close SRC;
 }
 
+@files = split /\cL(.+)\n/, $src;
 
-@files = split /(.*)\n/, $src;
+$i = 1;
 
-for ($i = 1; $i < $#files; $i += 2) {
-	if (open(FILE, "<$files[$i]")) {
+while ($i < $#files) {
+	$userfile = $files[$i++];
+	die "Error unexpected --- marker\n" if $userfile eq "---";
+	# get the reference file taking into account nested packed files
+	$ref = $files[$i++];
+	if ($userfile =~ /_all\.plm$/) {
+		$nested = 1;
+		while ($i < $#files) {
+			print "$files[$i]\n";
+			if ($files[$i] eq "---") {
+				$i += 2;
+				last if --$nested == 0;
+				$ref .= "\cL---\n";
+			} else {
+				$nested++ if ($files[$i] =~ /_all\.plm$/); 
+				$ref .= "\cL$files[$i++]\n";
+				$ref .= $files[$i++];
+			}
+		}
+	}
+	if (open(FILE, "<$userfile")) {	# open if it exists
 		local $/;
-		undef $/;
 		$file = <FILE>;
 		close FILE;
-		# skip if not changed
-		next if ($file eq $files[$i+1]);
+		next if ($file eq $ref);
 	}
-	make_path($1) if $files[$i] =~ /(.*(\/|\\))/ && ! -d $1; 	# directory
-	print "saving $files[$i]\n";
-	open(FILE, ">$files[$i]") or die "can't create $files[$i]\n";
-	print FILE $files[$i + 1];
+	make_path($1) if $userfile =~ /(.*(\/|\\))/ && ! -d $1; 	# directory
+	print "saving $userfile\n";
+	open(FILE, ">$userfile") or die "can't create $userfile\n";
+	print FILE $ref;
 	close FILE;
 }
 

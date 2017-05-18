@@ -3,17 +3,19 @@ OBJ = obj
 LST = lst
 SRC = src
 LIB = lib
-CLEAN = Clean
+
+
 # map src for the pex include files
 # lower level makefiles need to unexport ISIS_F1
 export ISIS_F1=$(SRC)
 # we used a customised verify here
 NOVERIFY = T
 
-TARGETS := chklod clean compar consol dcopy dsort else endif errs exit ganef\
+TARGETS := chklod Clean compar consol dcopy dsort else endif errs exit ganef\
 	genpex goto hdback if last latest loop lower merg80 merg86 mrkobj note\
 	pack passif pause relab rescan return sort stopif unpack upper wait\
 	which xlate2
+
 # note pause was not precompiled in the original toolbox so a copy
 # has been added
 # also source for bltsym.asm was missing so recreated
@@ -67,14 +69,14 @@ LIBS = cusp1.lib cusp2.lib cusp3.lib cusp4.lib cusp5.lib\
        sys1.lib sys2.lib unixio.lib util1.lib util2.lib\
        util3.lib
 
-SUBDIRS = $(basename $(LIBS))
+SUBDIRS := $(basename $(LIBS))
 
 PLM80 = 3.1
 PLMFLAGS = CODE
 LOCATEFLAGS = SYMBOLS PUBLICS
 PURGE = purge
 
-all:: | $(LIB)
+all::
 	for d in $(SUBDIRS); do $(MAKE) -C $$d || exit 1; done
 	$(MAKE) $(TARGETS)
 
@@ -84,35 +86,43 @@ $(LIB):
 %: $(OBJ)/%.rel
 	$(call locate,$@,$^,$(PURGE))
 
-lib/cusp1.lib: cusp1/cusp1.lib ; cp $^ $@
-lib/cusp2.lib: cusp2/cusp2.lib ; cp $^ $@
-lib/cusp3.lib: cusp3/cusp3.lib ; cp $^ $@
-lib/cusp4.lib: cusp4/cusp4.lib ; cp $^ $@
-lib/cusp5.lib: cusp5/cusp5.lib ; cp $^ $@
-lib/cusp6.lib: cusp6/cusp6.lib ; cp $^ $@
-lib/cusp7.lib: cusp7/cusp7.lib ; cp $^ $@
-lib/fnames.lib: fnames/fnames.lib ; cp $^ $@
-lib/isis3.lib: isis3/isis3.lib ; cp $^ $@
-lib/lib.lib: lib/lib.lib ; cp $^ $@
-lib/lst.lib: lst/lst.lib ; cp $^ $@
-lib/obj.lib: obj/obj.lib ; cp $^ $@
-lib/pff.lib: pff/pff.lib ; cp $^ $@
-lib/src.lib: src/src.lib ; cp $^ $@
-lib/sys1.lib: sys1/sys1.lib ; cp $^ $@
-lib/sys2.lib: sys2/sys2.lib ; cp $^ $@
-lib/unixio.lib: unixio/unixio.lib ; cp $^ $@
-lib/util1.lib: util1/util1.lib ; cp $^ $@
-lib/util2.lib: util2/util2.lib ; cp $^ $@
-lib/util3.lib: util3/util3.lib ; cp $^ $@
+# to avoid conflict with the standard clean target - con make by creating target Clean
+# as make is case sensitive this works
+.INTERMEDIATE: cleanx
+
+Clean: $(OBJ)/clean.rel
+	$(call locate,cleanx,$^,$(PURGE))
+	mv cleanx Clean
+
+lib/cusp1.lib: cusp1/cusp1.lib  | $(LIB) ; cp $^ $@
+lib/cusp2.lib: cusp2/cusp2.lib  | $(LIB) ; cp $^ $@
+lib/cusp3.lib: cusp3/cusp3.lib  | $(LIB) ; cp $^ $@
+lib/cusp4.lib: cusp4/cusp4.lib  | $(LIB) ; cp $^ $@
+lib/cusp5.lib: cusp5/cusp5.lib  | $(LIB) ; cp $^ $@
+lib/cusp6.lib: cusp6/cusp6.lib  | $(LIB) ; cp $^ $@
+lib/cusp7.lib: cusp7/cusp7.lib  | $(LIB) ; cp $^ $@
+lib/fnames.lib: fnames/fnames.lib  | $(LIB) ; cp $^ $@
+lib/isis3.lib: isis3/isis3.lib  | $(LIB) ; cp $^ $@
+lib/lib.lib: lib/lib.lib  | $(LIB) ; cp $^ $@
+lib/lst.lib: lst/lst.lib  | $(LIB) ; cp $^ $@
+lib/obj.lib: obj/obj.lib  | $(LIB) ; cp $^ $@
+lib/pff.lib: pff/pff.lib  | $(LIB) ; cp $^ $@
+lib/src.lib: src/src.lib  | $(LIB) ; cp $^ $@
+lib/sys1.lib: sys1/sys1.lib  | $(LIB) ; cp $^ $@
+lib/sys2.lib: sys2/sys2.lib  | $(LIB) ; cp $^ $@
+lib/unixio.lib: unixio/unixio.lib  | $(LIB) ; cp $^ $@
+lib/util1.lib: util1/util1.lib  | $(LIB) ; cp $^ $@
+lib/util2.lib: util2/util2.lib  | $(LIB) ; cp $^ $@
+lib/util3.lib: util3/util3.lib  | $(LIB) ; cp $^ $@
 
 
-.INTERMEDIATE: $(addprefix $(OBJ)/,$(addsuffix .rel,$(TARGETS)))
+#.INTERMEDIATE: $(addprefix $(OBJ)/,$(addsuffix .rel,$(TARGETS)))
 
 $(OBJ)/chklod.rel:  $(call objdir,chklod.obj cinvok.obj cmovem.obj cgreat.obj csort2.obj cdirec.obj) \
 	            $(fnames.lib) $(util2.lib) $(sys2.lib) $(isis3.lib) $(plm80.lib)
 	$(call link,$@,$^)
 
-$(OBJ)/clean.rel: $(OBJ)/clean.obj $(isis3.lib) $(cusp3.lib) $(sys1.lib) $(util3.lib) $(plm80.lib)
+$(OBJ)/Clean.rel: $(OBJ)/clean.obj $(isis3.lib) $(cusp3.lib) $(sys1.lib) $(util3.lib) $(plm80.lib)
 	$(call link,$@,$^)
 
 $(OBJ)/compar.rel: $(call objdir,compar.obj tail.obj out.obj m3.obj divide.obj) $(system.lib) $(plm80.lib)
@@ -222,10 +232,22 @@ $(OBJ)/which.rel: $(OBJ)/which.obj $(isis3.lib) $(sys1.lib) $(cusp3.lib) $(util3
 $(OBJ)/xlate2.rel: $(OBJ)/xlate2.obj $(util2.lib) $(sys2.lib) $(isis3.lib) $(plm80.lib)
 	$(call link,$@,$^)
 
+# extensions to default rules
+
 $(CLEAN)::
 	-@for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done;
 
-verify: all
+# special verify
+# firstly makes sure the latest sources are extracted
+# then invokes verify on the subdirectories which avoids separate invocation of make all
+# from the top level makefile
+# finally makes sure the main targets are built and then verifies them
+verify: .extract verify_subs verify_targets
+
+verify_subs:
 	@for d in $(SUBDIRS); do $(MAKE) -C $$d verify || exit 1; done;
-	@for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done
+
+verify_targets: 
+	$(MAKE) $(TARGETS)
+	@for f in $(TARGETS); do $(COMPARE) $$f $(REF)/$$f || exit 1; done;
 
