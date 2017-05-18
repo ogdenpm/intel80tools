@@ -56,7 +56,7 @@ fpal.lib = $(fpal.lib,2.1)
 # macros to map versions to real files
 
 # work out the master source file
-_masterfile:=$(firstword $(wildcard *_all.plm))
+_masterfile:=$(firstword $(wildcard *_all.src))
 
 ## macros used for the build
 # useful make escapes
