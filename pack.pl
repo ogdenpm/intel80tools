@@ -1,7 +1,7 @@
 use Cwd;
 
 my $dir = getcwd;	# use directory name as prefix for merged file
-my $target = (split '/', $dir)[-1] . "_all.plm";
+my $target = (split '/', $dir)[-1] . "_all.src";
 $target =~ tr/A-Z/a-z/;
 
 sub addfiles {
@@ -21,7 +21,7 @@ sub addfiles {
 			print DST "$out\n";
 			open(SRC, "<$_") || die "$_:$!";
 			print DST <SRC>;
-			print DST "\cL---\n" if $out =~ /_all\.plm$/; # mark end of embedded packed file
+			print DST "\cL---\n" if $out =~ /_all\.src$/; # mark end of embedded packed file
 			close SRC;
 		} else {
 			print "skipping file $_\n";

@@ -1,6 +1,6 @@
 use File::Path qw(make_path);
 
-$sfile = glob("*_all.plm");
+$sfile = glob("*_all.src");
 
 {
 	open (SRC, "<$sfile") || die "can't open $sfile\n";
@@ -18,7 +18,7 @@ while ($i < $#files) {
 	die "Error unexpected --- marker\n" if $userfile eq "---";
 	# get the reference file taking into account nested packed files
 	$ref = $files[$i++];
-	if ($userfile =~ /_all\.plm$/) {
+	if ($userfile =~ /_all\.src$/) {
 		$nested = 1;
 		while ($i < $#files) {
 			print "$files[$i]\n";
@@ -27,7 +27,7 @@ while ($i < $#files) {
 				last if --$nested == 0;
 				$ref .= "\cL---\n";
 			} else {
-				$nested++ if ($files[$i] =~ /_all\.plm$/); 
+				$nested++ if ($files[$i] =~ /_all\.src$/); 
 				$ref .= "\cL$files[$i++]\n";
 				$ref .= $files[$i++];
 			}
