@@ -118,62 +118,62 @@ To use this change to the directory and enter one of the following commands.
 
 
 src\asm80_4.1\*.* plm & asm recreated source for asm80
-		asm80_all.plm is a packed file of all of the source.
+		asm80_4.1_all.src is a packed file of all of the source.
 
 src\lib_2.1\*.*	plm & asm recreated source for lib80 v2.1
-		lib_all.plm contains the packed source code.
+		lib_2.1_all.src contains the packed source code.
 
 src\link_3.0\*.* plm & asm recreated source for link and link.ovl v3.0
-		link_all.plm contains the packed source code
+		link_3.0_all.src contains the packed source code
 
 src\locate_3.0\*.* plm & asm recreated source for locate v3.0
-		loc80_all.plm contains the packed source code
+		locate_3.0_all.src contains the packed source code
 
 src\plm_v4.0\*.* plm & asm recreated source for plm80 v4.0
-		 plm_4.0_all.plm contains the packed source code.
+		 plm_4.0_all.src contains the packed source code.
 
 src\isis_3.4\*.*	files to build isis 3.4
-		 isis34_all.plm contains the packed source code.
+		 isis_3.4_all.src contains the packed source code.
 		
 src\isis.t0_3.4\*.* files to build isis 3.4 boot file
-		 isist0_all.plm contains the packed source code.
+		 isis.t0_3.4_all.src contains the packed source code.
 
 src\isis_4.11\*.*	files to build isis 4.1
-		 isis41_all.plm contains the packed source code.
+		 isis_4.1_all.src contains the packed source code.
 		
 src\isis.t0_4.1\*.* files to build isis 4.1 boot file
-		 isist0_all.plm contains the packed source code.
+		 isis.t0_4.1_all.src contains the packed source code.
 
 src\isis.cli_4.1\*.* files to build isis 4.1 cli file
-		 cli_all.plm contains the packed source code.
+		 isis.cli_4.1_all.src contains the packed source code.
 
 src\isis_4.3\*.*	files to build isis 4.3
-		 isis43_all.plm contains the packed source code.
+		 isis_4.3_all.src contains the packed source code.
 		
 src\isis.t0_4.3\*.* files to build isis 4.3 boot file
-		 isist0_all.plm contains the packed source code.
+		 isis.t0_4.3_all.src contains the packed source code.
 
 src\isis.cli_4.3\*.* files to build isis 4.3 cli file
-		 cli43_all.plm contains the packed source code.
+		 isis.cli_4.3_all.src contains the packed source code.
 
 src\isis.ov0_4.3\*.* files to build isis 4.3 .ov0 file
-		 isisov_all.plm contains the packed source code.
+		 isis.ov0_4.3_all.src contains the packed source code.
 
 src\isisUtil_4.3\*.*	files to build isis 4.3 fixmap, format and idisk
-		disk43_all.plm contains the packed source code
+		isisUtil_4.3_all.src contains the packed source code
 
 src\ixref_1.2\*.* files to build ixref 1.2
-		 ixref_all.plm contains the packed source code.
+		 ixref_1.2_all.src contains the packed source code.
 		
 src\ixref_1.3\*.* files to build ixref 1.3
-		 ixref_all.plm contains the packed source code and the
+		 ixref_1.3_all.src contains the packed source code and the
 		 isis.ov0 file needed to test it.
 
 src\plm80.lib\*.* files to build plm80.lib for plm v4.0
-		plm80lib_all.plm contains the packed source
+		plm80lib_all.src contains the packed source
 
 src\system.lib_4.0\*.* files to build system.lib for plm v4.0
-		systemlib_all.plm contains the packed source
+		system.lib_4.0_all.src contains the packed source
 
 src\kermit\*.*	files to build kermit for isis
 
@@ -181,7 +181,9 @@ src\tex\*.*	files to build tex v1.0, v1.2, v2.1 for cpm also a patched version
                 of v2.1 that fixes a bug in printing text only
 
 src\toolbox\*.*	the source files for the isis toolbox inluding decompiled
-		versions of all of the libraries.
+		versions of all of the libraries. Master source is in
+		toolbox_1.0_all.src, it contains nested master files for the
+		libraries.
 		Running make will unpack and rebuild the files, alternatively
 		using unpack.pl will unpack the files leaving the library sources
                 in packed format.
@@ -328,3 +330,5 @@ Update 8-May-2017    restructured isis tools directories and changed isis.mk
 		     to support this. See src/makefile.md for info
 Update 17-May-2017   added isis toolbox v1.0
 Update 18-May-2017   minor reorganisation of isis toolbox v1.0 to use nested packed files
+		     standardised on packed files naming convention to
+		     tool_ver_all.src

@@ -22,7 +22,7 @@ Instead the version number of a specific tool can be specified.
 
 **17-May-2017 & 18-May-2017**
 * refined NOVERIFY. See below
-* 
+* standardised on packed files having suffix _all.src 
 ## Structure of the makefile
 The basic structure of the makefile is
 ```
@@ -96,7 +96,7 @@ include $(ROOT)/tools/isis.mk
 * **fpal.lib,2.0** - simple variable to reference fpal.lib v2.0
 * **fpal.lib,2.1** - simple variable to reference fpal.lib v2.1
 * **_masterfile** - this is set to the source master file if present. Master file
-                    names end in *_all.plm*
+                    names end in *_all.src*
 * **space** - set to the space char - used in make macros
 * **comma** - set to the comma char - used in make macros
 
