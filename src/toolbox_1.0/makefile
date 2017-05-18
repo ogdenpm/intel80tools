@@ -122,7 +122,7 @@ $(OBJ)/chklod.rel:  $(call objdir,chklod.obj cinvok.obj cmovem.obj cgreat.obj cs
 	            $(fnames.lib) $(util2.lib) $(sys2.lib) $(isis3.lib) $(plm80.lib)
 	$(call link,$@,$^)
 
-$(OBJ)/Clean.rel: $(OBJ)/clean.obj $(isis3.lib) $(cusp3.lib) $(sys1.lib) $(util3.lib) $(plm80.lib)
+$(OBJ)/clean.rel: $(OBJ)/clean.obj $(isis3.lib) $(cusp3.lib) $(sys1.lib) $(util3.lib) $(plm80.lib)
 	$(call link,$@,$^)
 
 $(OBJ)/compar.rel: $(call objdir,compar.obj tail.obj out.obj m3.obj divide.obj) $(system.lib) $(plm80.lib)

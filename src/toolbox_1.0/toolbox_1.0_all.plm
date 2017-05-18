@@ -6618,11 +6618,11 @@ SetupMap: procedure(disk) address public;
 	declare disk byte;
 	declare logicalTrackSector address,
 		(logicalSector, logicalTrack) byte at (.logicalTrackSector),
-		(w5851, savedSP) address,
+		(readBuf, savedSP) address,
 		savedTrap0B structure(jmp byte, target address),
-		(w5858, w585A, w585C, w585E) address,
-		b5860 byte, (w5861, w5863, status) address;
-	declare struct based w585E structure(b0 byte, w1 address, w3 address);
+		(badSectorCount, headFixItemPtr, nextFixItemPtr, fixItemPtr) address,
+		j byte, (i, bitmapLast, status) address;
+	declare fixItem based fixItemPtr structure(sector byte, driveErr address, next address);
 
 	ChkFixedSectors: procedure;
 		if (logicalTrack = 0 and (logicalSector < 1Ch or logicalSector = 58h or logicalSector > 72h))
@@ -6639,45 +6639,46 @@ SetupMap: procedure(disk) address public;
 
 
 	AddBadSector: procedure;
-		declare (w5867, w5869) address;
+		declare (p, q) address;
 		call ChkFixedSectors;
 		call SetBlock(logicalTrackSector);
-		w585E, w5867 = w585A;
-		w585E = struct.w3;
+		fixItemPtr, p = headFixItemPtr;
+		fixItemPtr = fixItem.next;
 
-		do while struct.b0 < logicalSector;
-			w5867 = w585E;
-			w585E = struct.w3;
+		/* look for insert point p->sector <  logicalsector and logicalsector <= *fixItemPtr */
+		do while fixItem.sector < logicalSector;
+			p = fixItemPtr;
+			fixItemPtr = fixItem.next;
 		end;
-		if struct.b0 = logicalSector then
+		if fixItem.sector = logicalSector then	/* already in list */
 			return;
 
-		w5869 = w585E;
-		w585E = w5867;
-		struct.w3 = w585C;
-		w585E = w585C;
-		struct.b0 = logicalSector;
-		struct.w1 = trap0E;
-		struct.w3 = w5869;
-		w585C = w585C + 5;
+		q = fixItemPtr;				/* insert into list and set values */
+		fixItemPtr = p;
+		fixItem.next = nextFixItemPtr;
+		fixItemPtr = nextFixItemPtr;
+		fixItem.sector = logicalSector;
+		fixItem.driveErr = trap0E;
+		fixItem.next = q;
+		nextFixItemPtr = nextFixItemPtr + size(fixItem);	/* set up next item */
 	end;
 
 
-	if diskType = 4 then
-		w5863 = 0E7FH;
-	else if diskType = 1 then
-		w5863 = 1ffh;
+	if diskType = 4 then	/* HD */
+		bitmapLast = 3711;
+	else if diskType = 1 then	/* DD */
+		bitmapLast = 511;
 	else
-		w5863 = 0ffh;
+		bitmapLast = 255;	/* SD */
 
-	do w5861 = 0 to w5863;
-		bitmap(w5861) = 0;
+	do i = 0 to bitmapLast;
+		bitmap(i) = 0;
 	end;
 
 	if diskType <> 4 then
 		return 0;
-	w5858 = 0;
-	w585A = (w5851 := mapBase + 0E80h) + 128;
+	badSectorCount = 0;
+	headFixItemPtr = (readBuf := mapBase + 3712) + 128;
 	savedSP = STACKPTR;
 	savedTrap0B.jmp = trap0B.jmp;
 	trap0B.jmp = 0c3h;
@@ -6685,17 +6686,17 @@ SetupMap: procedure(disk) address public;
 	trap0B.target = trap0BCodeLocation;
 	logicalTrack = 0;
 
-L43F1:
-	w585E = w585A;
-	struct.w3 = w585E + size(struct);
-	w585E = w585A + size(struct);
-	struct.b0 = 91h;
-	w585C = w585E + size(struct);
+nextTrack:
+	fixItemPtr = headFixItemPtr;
+	fixItem.next = fixItemPtr + size(fixItem);
+	fixItemPtr = headFixItemPtr + size(fixItem);
+	fixItem.sector = 145;	/* max sector + 1 */
+	nextFixItemPtr = fixItemPtr + size(fixItem);
 	logicalSector = 1;
 
-L441C:
-	call Absio(4, disk, logicalTrackSector, w5851);
-	goto L44A8;
+nextSector:
+	call Absio(4, disk, logicalTrackSector, readBuf);
+	goto skipTrap;
 
 newTrap0B:
 	STACKPTR = savedSP;
@@ -6705,8 +6706,9 @@ newTrap0B:
 		call AddBadSector;
 	else
 	do;
-		logicalSector = (logicalSector - 1) - ((logicalSector - 1) mod 36);
-		do b5860 = 1 to 36;
+		/* mark all of the track under this head as bad. Note 4 heads per logical  track */
+		logicalSector = (logicalSector - 1) - ((logicalSector - 1) mod 36);	/* first sector for head */
+		do j = 1 to 36;
 			logicalSector = logicalSector + 1;
 			call AddBadSector;
 		end;
@@ -6715,28 +6717,28 @@ newTrap0B:
 	trap0B.jmp = 0c3h;
 	trap0B.target = trap0BCodeLocation;
 
-L44A8:
-	if (logicalSector := logicalSector + 1) < 91h then
-		goto L441C;
+skipTrap:
+	if (logicalSector := logicalSector + 1) < 145 then
+		goto nextSector;
 
-	w585E = w585A;
-	w585E = struct.w3;
+	fixItemPtr = headFixItemPtr;
+	fixItemPtr = fixItem.next;
 
-	do while struct.b0 < 91h;
+	do while fixItem.sector < 145;
 		call NumOut(logicalTrack, 10, 0, .fatalMsg(37), 3);
-		call NumOut(struct.b0, 10, 0, .fatalMsg(42), 3);
-		call NumOut(struct.w1, 16, 0, .fatalMsg(58), 4);
+		call NumOut(fixItem.sector, 10, 0, .fatalMsg(42), 3);
+		call NumOut(fixItem.driveErr, 16, 0, .fatalMsg(58), 4);
 		call Write(0, .fatalMsg(6), 58, .status);
 		if logicalTrack > 1 then
-			w5858 = w5858 + 1;
-		w585E = struct.w3;
+			badSectorCount = badSectorCount + 1;
+		fixItemPtr = fixItem.next;
 	end;
-	if (logicalTrack := logicalTrack + 1) < 0c8h then
-		goto L43F1;
+	if (logicalTrack := logicalTrack + 1) < 200 then
+		goto nextTrack;
 
 	trap0B.jmp = savedTrap0B.jmp;
 	trap0B.target = savedTrap0B.target;
-	return w5858;
+	return badSectorCount;
 end;
 end;
 
@@ -37355,4 +37357,3 @@ first:
 	name	VER11
 	end;
 
----
