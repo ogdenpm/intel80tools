@@ -234,7 +234,7 @@ $(OBJ)/xlate2.rel: $(OBJ)/xlate2.obj $(util2.lib) $(sys2.lib) $(isis3.lib) $(plm
 
 # extensions to default rules
 
-$(CLEAN)::
+clean::
 	-@for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done;
 
 # special verify

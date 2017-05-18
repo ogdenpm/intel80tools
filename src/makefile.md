@@ -20,8 +20,8 @@ Instead the version number of a specific tool can be specified.
 * Macros have been added to generate paths to the isis tools see ipath and ifile in the documentation below.
 * Changed link listing file to have .lin extension as .lnk was treated as shortcut in windows
 
-**17-May-2017**
-* refined NOVERIFY and added CLEAN variable. See below
+**17-May-2017 & 18-May-2017**
+* refined NOVERIFY. See below
 * 
 ## Structure of the makefile
 The basic structure of the makefile is
@@ -52,9 +52,6 @@ include $(ROOT)/tools/isis.mk
                  Alternatively the variable can be set to the list of files to
                  skip verification. In this later case the variable can be defined
                  after the include of isis.mk
-* **CLEAN** - if set this provides a new name for the **clean** target. Useful if you need
-              to build a real target called clean. Usually this will not be set
-
   If required the following should preferably be defined before isis.mk.
 
         Definitions after isis.mk must ensure path names are in unix format and
@@ -77,7 +74,6 @@ include $(ROOT)/tools/isis.mk
 * **SHELL** - set to bash.exe
 
 * **COMPARE** - set to $(ROOT)/tools/omfcmp if not defined
-* **CLEAN ** - set to clean if not defined. Used for clean files target
 * **OBJ,LST,SRC** - set to current directory if not defined, paths converted
                         to unix format and any traling / removed.
 * **ISIS_F0** - set to current directory if not defined
@@ -364,10 +360,9 @@ The following .PHONY targets are defined in isis.mk
 * **all::** - the default rule. If a master file is detected it will make sure that
             the files are auto extracted. The main make file should also
             include a all:: rule.
-* **$(CLEAN)::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map files. If $(OBJ)
+* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map files. If $(OBJ)
                 or $(LST) are not set to the current directory they are deleted.
-                A $(CLEAN):: rule can be added to the main makefile if required
-                Note $(CLEAN) defaults to clean
+                A clean:: rule can be added to the main makefile if required
 * **distclean::** - in addition to the files deleted by clean::, this rule deletes
                     the $(TARGETS) files and any .deps directory.
                     If a master file is used all non protected files are deleted.

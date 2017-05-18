@@ -17,8 +17,6 @@ SRC := $(call fixpath,$(SRC))
 LST := $(call fixpath,$(LST))
 OBJ := $(call fixpath,$(OBJ))
 
-# clean can be overridden if there is a name clash
-CLEAN ?= clean
 # ISIS disk usage - :F0: will default to current dir
 export ISIS_F0 ?= ./
 

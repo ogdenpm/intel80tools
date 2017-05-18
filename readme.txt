@@ -181,7 +181,10 @@ src\tex\*.*	files to build tex v1.0, v1.2, v2.1 for cpm also a patched version
                 of v2.1 that fixes a bug in printing text only
 
 src\toolbox\*.*	the source files for the isis toolbox inluding decompiled
-		versions of all of the libraries
+		versions of all of the libraries.
+		Running make will unpack and rebuild the files, alternatively
+		using unpack.pl will unpack the files leaving the library sources
+                in packed format.
 		Note cusp2.lib was compiled with plm80 v1.0 and I cannot
 		recreate the exact binary as it inlines some of the plm80
 		library and in some cases generates different code.
@@ -324,3 +327,4 @@ updated 1-May-2017  (Updated thames to support auto unix file mapping and isis e
 Update 8-May-2017    restructured isis tools directories and changed isis.mk
 		     to support this. See src/makefile.md for info
 Update 17-May-2017   added isis toolbox v1.0
+Update 18-May-2017   minor reorganisation of isis toolbox v1.0 to use nested packed files
