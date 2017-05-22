@@ -103,11 +103,7 @@ lib/cusp6.lib: cusp6/cusp6.lib  | $(LIB) ; cp $^ $@
 lib/cusp7.lib: cusp7/cusp7.lib  | $(LIB) ; cp $^ $@
 lib/fnames.lib: fnames/fnames.lib  | $(LIB) ; cp $^ $@
 lib/isis3.lib: isis3/isis3.lib  | $(LIB) ; cp $^ $@
-lib/lib.lib: lib/lib.lib  | $(LIB) ; cp $^ $@
-lib/lst.lib: lst/lst.lib  | $(LIB) ; cp $^ $@
-lib/obj.lib: obj/obj.lib  | $(LIB) ; cp $^ $@
 lib/pff.lib: pff/pff.lib  | $(LIB) ; cp $^ $@
-lib/src.lib: src/src.lib  | $(LIB) ; cp $^ $@
 lib/sys1.lib: sys1/sys1.lib  | $(LIB) ; cp $^ $@
 lib/sys2.lib: sys2/sys2.lib  | $(LIB) ; cp $^ $@
 lib/unixio.lib: unixio/unixio.lib  | $(LIB) ; cp $^ $@
