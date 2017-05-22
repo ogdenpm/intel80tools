@@ -50,10 +50,12 @@ Also note that so far I have only located one version of plm80.lib.
 17-May 2017 added the ISIS toolbox to the repository, including decompilations
 of all of the libraries.
 
+22-May 2017 added v2.0 of the ISIS toolbox.
+
 What's here
 itools/*/*.*	the various isis tools each set specified under a sub
 		directory of the format tool_version. Tools include
-		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51
+		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51 basic
 		lib, link, locate lib86, link86, loc86, lib51, rl51
 		ixref, conv86, oh86, plm80.lib, fpal.lib
 		utils - include hexobj, objhex and system.lib that were in the
@@ -64,8 +66,9 @@ itools/*/*.*	the various isis tools each set specified under a sub
 		Additionally isis 2.2, 3.4, 4.0, 4.1, 4.2, 4.2W, 4.3 and 4.3W
 		are included with the build tools noted above removed
 
-		toolbox_1.0 - the isis toolbox applications and compiled
-		libraries. I have added pause which was missing on the original
+		toolbox_1.0 and toolbox_2.0 - the isis toolbox applications
+		and compiled libraries. I have added pause which was missing
+		from the original v1.0
 
 thames.exe	This is a major update on John Elliott's intel isis emulator
 thames32.exe	used in the build tree as isis.exe does not work on 64bit windows.
