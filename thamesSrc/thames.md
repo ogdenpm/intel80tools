@@ -1,6 +1,6 @@
 # thames: An ISIS-II Emulator
 
-**(John Elliott, 17 November 2012, updated by Mark Ogden, 1 May 2017)**
+**(John Elliott, 17 November 2012, updated by Mark Ogden, 8-Jun 2017)**
 
  *thames* emulates enough of the ISIS-II environment to be able to run the following
  programs (used in the CP/M 3 build process):
@@ -9,6 +9,10 @@
  * link: ISIS-II object linker v3.0
  * locate: ISIS-II object locater v3.0
  * objhex: Converts an ISIS-II object file to hex format (v2.2)
+ * Modified to emulate 8080 (v0.1.2) this allows basic to work, also removed tstate counting
+   which was not used. Partial implementatio of CSTS implementation (bios 7) using kbhit,
+   unfortunately to getchar requires cr before returing. Not a major problem but we aware.
+ * **Note** to revert to z80 emulation uncomment the #define Z80 line in thames.h
  
 Other programs known to work include
  * asm80 versions 3.0 & 4.1
@@ -16,9 +20,9 @@ Other programs known to work include
  * lib v2.1
  * Fort80 v2.1
  * Pasc80 v2.2 - from thames 0.1.1g
- * Note Basic does not work due to its reliance on 8080/5 behaviour on partity vs. overflow
-   that Thames' z80 emulator implements. It also relies on the bios call CSTS and for
-   at least one version bios call LO, neither of which are supported in Thames
+ * Basic v1.0, v1.1, vx021 from thames 0.1.2 - note limitation on kbd hit which
+   is sensed but needs cr to continue
+
 
 ## Installing
 

@@ -52,10 +52,13 @@ of all of the libraries.
 
 22-May 2017 added v2.0 of the ISIS toolbox.
 
+8-Jun-2017 reworked thames to emulate 8080, this allows support of basic. Added
+various new binaries and a new version of relst.pl (see new  details below)
+
 What's here
 itools/*/*.*	the various isis tools each set specified under a sub
 		directory of the format tool_version. Tools include
-		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51 basic
+		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51, basic
 		lib, link, locate lib86, link86, loc86, lib51, rl51
 		ixref, conv86, oh86, plm80.lib, fpal.lib
 		utils - include hexobj, objhex and system.lib that were in the
@@ -92,10 +95,16 @@ unpack.pl	perl script to unpack the combined source files I use personally
 		repeated for all files. The Ctrl-L separates the files
 		Now supports multi level directory expand.
 
-relst.pl	perl script that takes a listing file and a map file and
-		creates new listing file with the addresses relocated to
-		actual addresses. It does not change code addresses
-		usage: relst.pl mapfile listfiles
+relst.pl	perl script that takes a located file, a mapfile and a list of
+		asm/plm .lst files and for each .lst file produces a .prn file
+		with the address and code adjusted to reflect the final located
+		file. This is an updated version of relst.pl with an additional
+		first argument.
+		usage: relst.pl locfile mapfile listfiles+
+		Note the tool requires publics or symbols to be included in the map file.
+		It works best with symbols, which requires the debug option in the
+		compilation stage.
+		
 
 rebase.pl	(depreciated by relst.pl but may be required if there are no public
 		symbols in the listing file)
@@ -187,7 +196,7 @@ src\kermit\*.*	files to build kermit for isis
 src\tex\*.*	files to build tex v1.0, v1.2, v2.1 for cpm also a patched version
                 of v2.1 that fixes a bug in printing text only
 
-src\toolbox\*.*	the source files for the isis toolbox inluding decompiled
+src\toolbox_1.0\*.*	the source files for the isis toolbox inluding decompiled
 		versions of all of the libraries. Master source is in
 		toolbox_1.0_all.src, it contains nested master files for the
 		libraries.
@@ -204,6 +213,11 @@ src\toolbox\*.*	the source files for the isis toolbox inluding decompiled
 		are not identical. This appears to be due to a bug in the
 		librarian Intel used, in that the dictionary locations are not
 		all normalised e.g. block:sector 24H:00 is 23H:80H.
+
+src\toolbox_2.0\*.* the source files for version 2.0 of the isis toolbox including
+		decompiled version of all of the libraries. Master source is in
+		toolbox_2.0_all.src, it contains nested master files for the
+		libraries. See toolbox_1.0 above.
 
 tools\*.*	tools I wrote to help me decompile / build the files
 
@@ -339,3 +353,5 @@ Update 17-May-2017   added isis toolbox v1.0
 Update 18-May-2017   minor reorganisation of isis toolbox v1.0 to use nested packed files
 		     standardised on packed files naming convention to
 		     tool_ver_all.src
+Update 8-Jun-2017    Updated thames to use 8080 emulation. This allows basic to be run
+		     Added isis toolbox 2.0 and a new version of relst.pl
