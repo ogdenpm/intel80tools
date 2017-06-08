@@ -70,6 +70,10 @@ itools/*/*.*	the various isis tools each set specified under a sub
 		and compiled libraries. I have added pause which was missing
 		from the original v1.0
 
+		Note basic will not work under thames as it simulates a z80
+		and has different behaviour for partity/overflow.  Unfortunately
+		basic fails because of this.
+
 thames.exe	This is a major update on John Elliott's intel isis emulator
 thames32.exe	used in the build tree as isis.exe does not work on 64bit windows.
 thamesSrc\*.*	I have included the source of the tool in thamesSrc where you will

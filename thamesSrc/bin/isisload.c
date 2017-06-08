@@ -233,11 +233,12 @@ int isis_load(const char *filename, int base, int *pinitpc)
         switch(state.blocktype)
         {
 /* Skip block */
-            case 2:		/* Module title? */
-            case 0x08:
-            case 0x12:	/* Don't know what these are, but */
-            case 0x16:	/* ISX just skips them */
-            case 0x18:
+            case 2:		/* Module header */
+            case 0x08:	/* line numbers */
+			case 0x10:	/* ancestor */
+            case 0x12:	/* local symbols */
+            case 0x16:	/* public declarations */
+				/* skip them */
                 err = isis_readblock(&state, dropbyte);
                 if (err)	
                 {
@@ -290,6 +291,20 @@ int isis_load(const char *filename, int base, int *pinitpc)
                 }
                 fclose(state.fp);
                 return ERROR_SUCCESS;
+			/* the following are valid omf records but not in a loadable module */
+			case 0x18:	/* external names */
+			case 0x20:	/* external references */
+			case 0x22:	/* relocation */
+			case 0x24:	/* inter segment reference */
+			case 0x26:	/* library module locations */
+			case 0x28:	/* library module names */
+			case 0x2A:	/* library dictionary */
+			case 0x2C:	/* library header */
+				if (state.trace) fprintf(stdout, "%s: illegal use of block type %d"
+					" at 0x%lx\n", state.filename, state.blocktype,
+					state.blockpos);
+				fclose(state.fp);
+				return ERROR_BADIMAGE;
             default:
             if (state.trace) fprintf(stdout, "%s: Unsupported block type %d"
                 " at 0x%lx\n", state.filename, state.blocktype, 

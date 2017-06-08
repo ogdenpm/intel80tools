@@ -34,7 +34,7 @@ int appError;
 int appType;
 enum apps {
     UNKNOWN = 0,
-    ASM80, PLM80, LIB80, LINK80, LOC80, IXREF
+    ASM80, PLM80, LIB80, LINK80, LOC80, IXREF, BASIC
 };
 
 
@@ -50,6 +50,7 @@ static struct {
     {"ISIS-II OBJECT LINKER", LINK80},
     {"ISIS-II LIBRARIAN", LIB80},
     {"ISIS-II IXREF", IXREF},
+	{"ISIS-II BASIC-80", BASIC},
     {NULL, UNKNOWN}
 };
 
@@ -205,6 +206,8 @@ static int match(char *line)
             return !oOption;
         where = BOTH;
         break;
+	case BASIC:	// don't error check basic
+		return 0;
     }
     if (where != AFTER && stdErrChk(line))
         return 1;

@@ -6,6 +6,7 @@ ASMFLAGS=
 include $(ROOT)/tools/isis.mk
 
 REF=$(call ipath,plm80.lib)
+ASM80=2.0
 
 OBJS=	p0000.obj p0002.obj p0004.obj p0007.obj p0011.obj p0014.obj \
 	p0018.obj p0020.obj p0022.obj p0025.obj p0029.obj p0031.obj \

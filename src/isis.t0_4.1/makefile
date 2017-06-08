@@ -10,10 +10,10 @@ REF=$(call ipath,isis,4.1)
 JUNKFILE := junk.obj
 
 LINKFLAGS := 
-PLMFLAGS := 
-ASMFLAGS := 
+PLMFLAGS += DEBUG
+ASMFLAGS := DEBUG
 # stack area allocated in the loc62.asm file
-LOCATEFLAGS := SYMBOLS
+LOCATEFLAGS := SYMBOLS PUBLICS
 objs = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj
 
 all:: $(TARGETS)

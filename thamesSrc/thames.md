@@ -16,6 +16,9 @@ Other programs known to work include
  * lib v2.1
  * Fort80 v2.1
  * Pasc80 v2.2 - from thames 0.1.1g
+ * Note Basic does not work due to its reliance on 8080/5 behaviour on partity vs. overflow
+   that Thames' z80 emulator implements. It also relies on the bios call CSTS and for
+   at least one version bios call LO, neither of which are supported in Thames
 
 ## Installing
 

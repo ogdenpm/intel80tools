@@ -16,12 +16,12 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#define instr(opcode,cycles) case opcode: {tstates+=cycles
+#define instr(opcode,cycles) case opcode: {/*tstates+=cycles*/
 #define HLinstr(opcode,cycles,morecycles) \
                              case opcode: {unsigned short addr; \
-                                tstates+=cycles; \
+                                /* tstates+=cycles*/; \
                                 if(ixoriy==0)addr=hl; \
-                                else tstates+=morecycles, \
+                                else /*tstates+=morecycles,*/ \
                                    addr=(ixoriy==1?ix:iy)+ \
                                         (signed char)fetch(pc),\
                                    pc++
@@ -96,16 +96,16 @@
 
 #define jr /* execute relative jump */ do{int j=(signed char)fetch(pc);\
                       pc+=j+1;\
-                      tstates+=5;\
+                      /*tstates+=5;*/\
                    } while(0)
 #define jp /* execute jump */ (pc=fetch2(pc))
 #define call /* execute call */ do{\
-                      tstates+=7;\
+                      /*tstates+=7;*/\
                       push2(pc+2);\
                       jp;\
                    } while(0)
 #define ret /* execute return */ do{\
-                      tstates+=6;\
+                      /*tstates+=6;*/\
                       pop2(pc);\
                    } while(0)
 #define pop2(var) /* pop 16-bit register */ (var=fetch2(sp),sp+=2)
@@ -1066,7 +1066,7 @@ instr(0xd2,10);
 endinstr;
 
 instr(0xd3,11);
-   tstates+=out(tstates,a,fetch(pc),a);
+   /*tstates+=*/ out(/*tstates,*/a,fetch(pc),a);
    pc++;
 endinstr;
 
@@ -1109,8 +1109,8 @@ endinstr;
 
 instr(0xdb,11);
    {unsigned short t;
-      a=t=in(tstates,a,fetch(pc));
-      tstates+=t>>8;
+      a=t=in(/*tstates,*/a,fetch(pc));
+      /*tstates+=t>>8;*/
       pc++;
    }
 endinstr;

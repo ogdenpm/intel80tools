@@ -17,8 +17,8 @@
  */
 
 #define input(var) {  unsigned short u;\
-                      var=u=in(tstates,b,c);\
-                      tstates+=u>>8;\
+                      var=u=in(/*tstates,*/b,c);\
+                      /*tstates+=u>>8;*/\
                       f=(f&1)|(var&0xa8)|((!var)<<6)|parity(var);\
                    }
 #define sbchl(x) {    unsigned short z=(x);\
@@ -57,7 +57,7 @@ instr(0x40,8);
 endinstr;
 
 instr(0x41,8);
-   tstates+=out(tstates,b,c,b);
+   /*tstates+=*/ out(/*tstates,*/b,c,b);
 endinstr;
 
 instr(0x42,11);
@@ -93,7 +93,7 @@ instr(0x48,8);
 endinstr;
 
 instr(0x49,8);
-   tstates+=out(tstates,b,c,c);
+   /*tstates+=*/out(/*tstates,*/b,c,c);
 endinstr;
 
 instr(0x4a,11);
@@ -130,7 +130,7 @@ instr(0x50,8);
 endinstr;
 
 instr(0x51,8);
-   tstates+=out(tstates,b,c,d);
+   /*tstates+=*/out(/*tstates,*/b,c,d);
 endinstr;
 
 instr(0x52,11);
@@ -166,7 +166,7 @@ instr(0x58,8);
 endinstr;
 
 instr(0x59,8);
-   tstates+=out(tstates,b,c,e);
+   /*tstates+=*/out(/*tstates,*/b,c,e);
 endinstr;
 
 instr(0x5a,11);
@@ -204,7 +204,7 @@ instr(0x60,8);
 endinstr;
 
 instr(0x61,8);
-   tstates+=out(tstates,b,c,h);
+   /*tstates+=*/out(/*tstates,*/b,c,h);
 endinstr;
 
 instr(0x62,11);
@@ -244,7 +244,7 @@ instr(0x68,8);
 endinstr;
 
 instr(0x69,8);
-   tstates+=out(tstates,b,c,l);
+   /*tstates+=*/out(/*tstates,*/b,c,l);
 endinstr;
 
 instr(0x6a,11);
@@ -285,7 +285,7 @@ instr(0x70,8);
 endinstr;
 
 instr(0x71,8);
-   tstates+=out(tstates,b,c,0);
+   /*tstates+=*/out(/*tstates,*/b,c,0);
 endinstr;
 
 instr(0x72,11);
@@ -316,7 +316,7 @@ instr(0x78,8);
 endinstr;
 
 instr(0x79,8);
-   tstates+=out(tstates,b,c,a);
+   /*tstates+=*/out(/*tstates,*/b,c,a);
 endinstr;
 
 instr(0x7a,11);
@@ -362,9 +362,9 @@ instr(0xa1,12);
 endinstr;
 
 instr(0xa2,12);
-   {unsigned short t=in(tstates,b,c);
+   {unsigned short t=in(/*tstates,*/b,c);
     store(hl,t);
-    tstates+=t>>8;
+    /*tstates+=t>>8;*/
     if(!++l)h++;
     b--;
     f=(b&0xa8)|((b==0)<<6)|2|((parity(b)^c)&4);
@@ -376,7 +376,7 @@ instr(0xa3,12); /* I can't determine the correct flags outcome for the
                    flag is left unchanged and N is set to 1, but that
                    doesn't seem to be the case... */
    {unsigned char x=fetch(hl);
-    tstates+=out(tstates,b,c,x);
+    /*tstates+=*/out(/*tstates,*/b,c,x);
     if(!++l)h++;
     b--;
     f=(f&1)|0x12|(b&0xa8)|((b==0)<<6);
@@ -403,9 +403,9 @@ instr(0xa9,12);
 endinstr;
 
 instr(0xaa,12);
-   {unsigned short t=in(tstates,b,c);
+   {unsigned short t=in(/*tstates,*/b,c);
     store(hl,t);
-    tstates+=t>>8;
+    /*tstates+=t>>8;*/
     if(!l--)h--;
     b--;
     f=(b&0xa8)|((b==0)<<6)|2|((parity(b)^c^4)&4);
@@ -414,7 +414,7 @@ endinstr;
 
 instr(0xab,12);
    {unsigned char x=fetch(hl);
-    tstates+=out(tstates,b,c,x);
+    /*tstates+=*/ out(/*tstates,*/b,c,x);
     if(!l--)h--;
     b--;
     f=(f&1)|0x12|(b&0xa8)|((b==0)<<6);
@@ -431,7 +431,7 @@ instr(0xb0,12);
     if(!++e)d++;
     if(!c--)b--;
     f=(f&0xc1)|(x&0x28)|(((b|c)>0)<<2);
-    if(b|c)pc-=2,tstates+=5;
+    if(b|c)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
@@ -441,28 +441,28 @@ instr(0xb1,12);
     if(!++l)h++;
     if(!c--)b--;
     f=(f&0xfa)|carry|(((b|c)>0)<<2);
-    if((f&0x44)==4)pc-=2,tstates+=5;
+    if((f&0x44)==4)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
 instr(0xb2,12);
-   {unsigned short t=in(tstates,b,c);
+   {unsigned short t=in(/*tstates,*/b,c);
     store(hl,t);
-    tstates+=t>>8;
+    /*tstates+=t>>8;*/
     if(!++l)h++;
     b--;
     f=(b&0xa8)|((b==0)<<6)|2|((parity(b)^c)&4);
-    if(b)pc-=2,tstates+=5;
+    if(b)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
 instr(0xb3,12);
    {unsigned char x=fetch(hl);
-    tstates+=out(tstates,b,c,x);
+    /*tstates+=*/ out(/*tstates,*/b,c,x);
     if(!++l)h++;
     b--;
     f=(f&1)|0x12|(b&0xa8)|((b==0)<<6);
-    if(b)pc-=2,tstates+=5;
+    if(b)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
@@ -473,7 +473,7 @@ instr(0xb8,12);
     if(!e--)d--;
     if(!c--)b--;
     f=(f&0xc1)|(x&0x28)|(((b|c)>0)<<2);
-    if(b|c)pc-=2,tstates+=5;
+    if(b|c)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
@@ -483,28 +483,28 @@ instr(0xb9,12);
     if(!l--)h--;
     if(!c--)b--;
     f=(f&0xfa)|carry|(((b|c)>0)<<2);
-    if((f&0x44)==4)pc-=2,tstates+=5;
+    if((f&0x44)==4)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
 instr(0xba,12);
-   {unsigned short t=in(tstates,b,c);
+   {unsigned short t=in(/*tstates,*/b,c);
     store(hl,t);
-    tstates+=t>>8;
+    /*tstates+=t>>8;*/
     if(!l--)h--;
     b--;
     f=(b&0xa8)|((b==0)<<6)|2|((parity(b)^c^4)&4);
-    if(b)pc-=2,tstates+=5;
+    if(b)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
 instr(0xbb,12);
    {unsigned char x=fetch(hl);
-    tstates+=out(tstates,b,c,x);
+    /*tstates+=*/out(/*tstates,*/b,c,x);
     if(!l--)h--;
     b--;
     f=(f&1)|0x12|(b&0xa8)|((b==0)<<6);
-    if(b)pc-=2,tstates+=5;
+    if(b)pc-=2/*,tstates+=5*/;
    }
 endinstr;
 
@@ -562,6 +562,6 @@ instr(0xfe, 4);
 }
 endinstr;
 
-default: tstates+=4;
+default: /*tstates+=4*/;
 
 }}

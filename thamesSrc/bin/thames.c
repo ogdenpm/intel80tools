@@ -21,6 +21,9 @@
  ***************************************************************************/
 
 #include "thames.h"
+#ifdef _WIN32
+#include <conio.h>
+#endif
 
 /* Global variables */
 
@@ -94,6 +97,7 @@ void mdsbios(int func, byte *a, byte *b, byte *c, byte *d, byte *e,
             byte *h, byte *l)
 {
     static byte iobyte = 0;
+	static byte warned;
 
     switch(func)
     {
@@ -103,17 +107,16 @@ void mdsbios(int func, byte *a, byte *b, byte *c, byte *d, byte *e,
         case 2:		/* CONIN */
             *a = getchar();
             break;
-
         case 4:		/* CONOUT */
             putchar(*c);
             break;
 
         case 8:		/* Set IOBYTE */
-            iobyte = *a;
+            RAM[6] = *a;
             break;
     
         case 9:		/* Get IOBYTE */
-            *a = iobyte;
+            *a = RAM[6];
             break;
 
         case 10:	/* Get top of RAM = F7FFh */
