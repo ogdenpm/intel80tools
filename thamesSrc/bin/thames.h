@@ -52,7 +52,8 @@
 #include <dos.h>
 #endif
 
-#define DEBUG 0
+/* #define Z80 */	/* uncomment to build z80 emulator (old thames default */
+/*#define DEBUG 0*/
 /* Library includes */
 
 #ifdef HAVE_LIMITS_H

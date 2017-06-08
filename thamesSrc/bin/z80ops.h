@@ -17,6 +17,7 @@
  */
 
 #define instr(opcode,cycles) case opcode: {/*tstates+=cycles*/
+
 #define HLinstr(opcode,cycles,morecycles) \
                              case opcode: {unsigned short addr; \
                                 /* tstates+=cycles*/; \
@@ -25,6 +26,7 @@
                                    addr=(ixoriy==1?ix:iy)+ \
                                         (signed char)fetch(pc),\
                                    pc++
+
 #define endinstr             }; break
 
 #define cy (f&1)
@@ -37,17 +39,34 @@
 #define setxl(x) (ixoriy==0?(l=(x)):ixoriy==1?(ix=(ix&0xff00)|(x)):\
                   (iy=(iy&0xff00)|(x)))
 
+
+#ifdef Z80
 #define inc(var) /* 8-bit increment */ ( var++,\
                                          f=(f&1)|(var&0xa8)|\
                                            ((!(var&15))<<4)|((!var)<<6)|\
                                            ((var==128)<<2)\
                                        )
+
 #define dec(var) /* 8-bit decrement */ ( f=(f&1)|((!(var&15))<<4)|2,\
                                          --var,\
                                          f|=(var&0xa8)|((var==127)<<2)|\
                                             ((!var)<<6)\
                                        )
+#else
+#define inc(var) /* 8-bit increment */ ( var++,\
+                                         f=(f&3)|((!(var&15))<<4)|\
+                                           partable[var]\
+									   )
+
+#define dec(var) /* 8-bit decrement */ ( f=(f&3)|((!(var&15))<<4),\
+                                         --var,\
+                                         f|=partable[var]\
+									   )
+#endif
+
 #define swap(x,y) {unsigned char t=x; x=y; y=t;}
+
+#ifdef Z80
 #define addhl(hi,lo) /* 16-bit add */ if(!ixoriy){\
                       unsigned short t;\
                       l=t=l+(lo);\
@@ -61,6 +80,7 @@
                       if(ixoriy==1)ix=t; else iy=t;\
                       f|=((t>>8)&0x28)|(t>>16);\
                    } while(0)
+
 #define adda(x,c) /* 8-bit add */ do{unsigned short y;\
                       unsigned char z=(x);\
                       y=a+z+(c);\
@@ -93,6 +113,41 @@
                       a|=(x);\
                       f=(a&0xa8)|((!a)<<6)|parity(a);\
                    } while(0)
+#else
+#define addhl(hi,lo) /* 16-bit add */ do {\
+                      unsigned short t;\
+                      l=t=l+(lo);\
+					  t >>= 8;\
+                      h=t+=h+(hi);\
+                      f=(f&0xfe)|(t>>8);\
+                   } while(0)
+
+#define adda(x,c) /* 8-bit add */ do{unsigned short y;\
+                      unsigned char z=(x);\
+                      y=a+z+(c);\
+                      f=(y>>8)|(((a&0x0f)+(z&0x0f)+(c)>15)<<4)|2|\
+                      partable[a=y];\
+                   } while(0)
+#define suba(x,c) /* 8-bit subtract */ do{unsigned short y;\
+                      unsigned char z=(x);\
+                      y=(a-z-(c))&0x1ff;\
+                      f=(y>>8)|(((a&0x0f)<(z&0x0f)+(c))<<4)|2|\
+						partable[a=y];\
+                   } while(0)
+#define cpa(x) /* 8-bit compare */ do{unsigned short y;\
+                      unsigned char z=(x);\
+                      y=(a-z)&0x1ff;\
+                      f=(y>>8)|(((a&0x0f)<(z&0x0f))<<4)|\
+                        partable[y & 0xff]|2;\
+                   } while(0)
+#define anda(x) /* logical and */ do{\
+					  f=(((a|x)&8)<<1)|2;\
+					  f|=partable[a &= (x)];\
+                   } while(0)
+#define xora(x) /* logical xor */ f=partable[a ^= (x)]|2;
+#define ora(x) /* logical or */ f=partable[a |= (x)]|2;
+
+#endif
 
 #define jr /* execute relative jump */ do{int j=(signed char)fetch(pc);\
                       pc+=j+1;\
@@ -148,12 +203,18 @@ endinstr;
 
 instr(7,4);
    a=(a<<1)|(a>>7);
+#ifdef Z80
    f=(f&0xc4)|(a&0x29);
+#else
+   f = (f & 0xfe) | (a & 1);
+#endif
 endinstr;
 
 instr(8,4);
+#ifdef Z0
    swap(a,a1);
    swap(f,f1);
+#endif
 endinstr;
 
 instr(9,11);
@@ -181,14 +242,21 @@ instr(14,7);
 endinstr;
 
 instr(15,4);
+#ifdef Z80
    f=(f&0xc4)|(a&1);
    a=(a>>1)|(a<<7);
    f|=a&0x28;
+#else
+f = (f & 0xfe) | (a & 1);
+a = (a >> 1) | (a << 7);
+#endif
 endinstr;
 
 instr(16,8);
+#ifdef Z80
    if(!--b)pc++;
    else jr;
+#endif
 endinstr;
 
 instr(17,10);
@@ -219,12 +287,18 @@ endinstr;
 instr(23,4);
   {int t=a>>7;
    a=(a<<1)|(f&1);
+#ifdef Z0
    f=(f&0xc4)|(a&0x28)|t;
+#else
+   f = (f & 0xfe) | t;
+#endif
   }
 endinstr;
 
 instr(24,7);
+#ifdef Z80
    jr;
+#endif
 endinstr;
 
 instr(25,11);
@@ -254,13 +328,19 @@ endinstr;
 instr(31,4);
   {int t=a&1;
    a=(a>>1)|(f<<7);
+#ifdef Z80
    f=(f&0xc4)|(a&0x28)|t;
+#else
+   f = (f & 0xfe) | t;
+#endif
   }
 endinstr;
 
 instr(32,7);
+#ifdef Z80
   if(f&0x40)pc++;
   else jr;
+#endif
 endinstr;
 
 instr(33,10);
@@ -319,19 +399,29 @@ instr(39,4);
    {
       unsigned char incr=0, carry=cy;
       if((f&0x10) || (a&0x0f)>9) incr=6;
-      if((f&1) || (a>>4)>9) incr|=0x60;
+#ifdef Z80
+	  if((f&1) || (a>>4)>9) incr|=0x60;
+
       if(f&2)suba(incr,0);
       else {
          if(a>0x90 && (a&15)>9)incr|=0x60;
          adda(incr,0);
       }
       f=((f|carry)&0xfb)|parity(a);
+#else
+	  if (cy || a >= 0x9A) incr |= 0x60;
+	  adda(incr, 0);
+	  f |= carry;
+#endif
+
    }
 endinstr;
 
 instr(40,7);
+#ifdef Z80
    if(f&0x40)jr;
    else pc++;
+#endif
 endinstr;
 
 instr(41,11);
@@ -385,12 +475,16 @@ endinstr;
 
 instr(47,4);
    a=~a;
+#ifdef Z80
    f=(f&0xc5)|(a&0x28)|0x12;
+#endif
 endinstr;
 
 instr(48,7);
+#ifdef Z80
    if(f&1)pc++;
    else jr;
+#endif
 endinstr;
 
 instr(49,10);
@@ -429,12 +523,18 @@ HLinstr(54,10,5);
 endinstr;
 
 instr(55,4);
+#ifdef Z80
    f=(f&0xc4)|1|(a&0x28);
+#else
+   f |= 1;
+#endif
 endinstr;
 
 instr(56,7);
+#ifdef Z80
    if(f&1)jr;
    else pc++;
+#endif
 endinstr;
 
 instr(57,11);
@@ -465,7 +565,11 @@ instr(62,7);
 endinstr;
 
 instr(63,4);
+#ifdef Z80
    f=(f&0xc4)|(cy^1)|(cy<<4)|(a&0x28);
+#else
+   f ^= 1;
+#endif
 endinstr;
 
 instr(0x40,4);
@@ -685,7 +789,8 @@ HLinstr(0x75,7,8);
 endinstr;
 
 instr(0x76,4);
-	/* Was HALT - ZXCC ignores HALT */
+	printf("HALT at %04X\n", pc - 1);
+	thames_exit(1);
 endinstr;
 
 HLinstr(0x77,7,8);
@@ -1030,7 +1135,9 @@ instr(0xca,10);
 endinstr;
 
 instr(0xcb,4);
+#ifdef Z80
 #include "cbops.h"
+#endif
 endinstr;
 
 instr(0xcc,10);
@@ -1094,12 +1201,14 @@ instr(0xd8,5);
 endinstr;
 
 instr(0xd9,4);
+#ifdef Z80
    swap(b,b1);
    swap(c,c1);
    swap(d,d1);
    swap(e,e1);
    swap(h,h1);
    swap(l,l1);
+#endif
 endinstr;
 
 instr(0xda,10);
@@ -1121,8 +1230,10 @@ instr(0xdc,10);
 endinstr;
 
 instr(0xdd,4);
+#ifdef Z80
    new_ixoriy=1;
    intsample=0;
+#endif
 endinstr;
 
 instr(0xde,7);
@@ -1214,7 +1325,26 @@ instr(0xec,10);
 endinstr;
 
 instr(0xed,4);
+#ifdef Z80
 #include"edops.h"
+#else
+ if (fetch(pc) == 0xfe) {
+	 pc++;
+		/* Create copies of the registers here so we can take their addresses
+		* and not lose register optimisation in the rest of the CPU code */
+		byte xa, xb, xc, xd, xe, xf, xxh, xxl;
+		word xp, xx, xy, xs;
+
+		xa = a; xb = b; xc = c; xd = d; xe = e; xf = f; xxh = h; xxl = l;
+		xp = pc; xx = ix; xy = iy; xs = sp;
+
+		ed_fe(&xa, &xb, &xc, &xd, &xe, &xf, &xxh, &xxl, &xp, &xx, &xy, &xs);
+
+		a = xa; b = xb; c = xc; d = xd; e = xe; f = xf; h = xxh; l = xxl;
+		pc = xp; ix = xx; iy = xy; sp = xs;
+}
+#endif
+
 endinstr;
 
 instr(0xee,7);
@@ -1288,8 +1418,10 @@ instr(0xfc,10);
 endinstr;
 
 instr(0xfd,4);
+#ifdef Z80
    new_ixoriy=2;
    intsample=0;
+#endif
 endinstr;
 
 instr(0xfe,7);

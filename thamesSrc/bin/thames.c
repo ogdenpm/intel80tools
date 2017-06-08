@@ -104,9 +104,18 @@ void mdsbios(int func, byte *a, byte *b, byte *c, byte *d, byte *e,
 /* MDS BIOS traps implemented by ISX but not by THAMES are: */
         /* 6: LIST */
         /* 7: CONST */
+	    case 7:
+			if (_isatty(0))
+				*a = _kbhit() ? 0xff : 0;
+			else
+				*a = 0xff;
+			break;
         case 2:		/* CONIN */
-            *a = getchar();
-            break;
+			if (_isatty(0) && !(*a = _getch()))
+				*a = _getch();
+			else
+				*a = getchar();
+				break;
         case 4:		/* CONOUT */
             putchar(*c);
             break;
@@ -144,7 +153,7 @@ void ed_fe(byte *a, byte *b, byte *c, byte *d, byte *e, byte *f,
         break;
 
         case 0xC5:
-        mdsbios((ix[0] & 0xFF) / 3,  a, b, c, d, e, h, l);
+        mdsbios(RAM[0xf990] / 3,  a, b, c, d, e, h, l);
         break;
 
         default:
@@ -266,21 +275,17 @@ int main(int ac, char **av)
         RAM[0xF801 + 3*n] = 0x80;
         RAM[0xF802 + 3*n] = 0xF9;
     }
-    RAM[0xF980] = 0xDD;	/* LD (0F990h), IX */
-    RAM[0xF981] = 0x22;
+	/* modified to use only 8080 instructions */
+    RAM[0xF980] = 0xE3;	/* XTHL - get callee */
+    RAM[0xF981] = 0x22; /* SHLD 0F990h - save callee */
     RAM[0xF982] = 0x90;	
     RAM[0xF983] = 0xF9;
-    RAM[0xF984] = 0xDD;	/* POP IX -- IX = address of BIOS entry */
-    RAM[0xF985] = 0xE1;	
-    RAM[0xF986] = 0x3E;	/* LD A, 0C5h */	
-    RAM[0xF987] = 0xC5;	
-    RAM[0xF988] = 0xED;	/* EDFE (trap to THAMES) */
-    RAM[0xF989] = 0xFE;
-    RAM[0xF98A] = 0xDD;	/* LD IX, (0F990h) */
-    RAM[0xF98B] = 0x2A;
-    RAM[0xF98C] = 0x90;
-    RAM[0xF98D] = 0xF9;
-    RAM[0xF98E] = 0xC9;	/* RET */
+    RAM[0xF984] = 0xE1;	/* POP H - restore hl */
+    RAM[0xF985] = 0x3E;	/* LD A, 0C5h */	
+    RAM[0xF986] = 0xC5;	
+    RAM[0xF987] = 0xED;	/* EDFE (trap to THAMES) */
+    RAM[0xF988] = 0xFE;
+    RAM[0xF989] = 0xC9;	/* RET */
 
     RAM[0x40] = 0xC3;
     RAM[0x41] = 0xF9;
