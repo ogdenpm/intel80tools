@@ -1,14 +1,16 @@
-disk.pex
+util.pex
 CR	'0dh'
 LF	'0ah'
 TRUE	'0ffh'
 FALSE	'0'
+CONTROL$P	'10h'
 boolean	'byte'
 DCB$T	'STRUCTURE (iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE, buf ADDRESS)'
 DIRECT$T 'structure(empty byte, file(9) byte, attrib byte, eof$count byte, blk address, hdrBlk address)'
 
 Attrib		P(A path$p,A attrib,A on$off,A status$p)
 Close           P(A conn,A status$p)
+Consol		P(A ci$p,A co$p,A status$p)
 Delete          P(A path$p,A status$p)
 Error           P(A error$num)
 Exit            P
@@ -17,11 +19,18 @@ Memck           PA
 Open            P(A conn$p,A path$p,A access,A echo,A status$p)
 Read            P(A conn,A buff$p,A count,A actual$p,A status$p)
 Rename          P(A old$p,A new$p,A status$p)
+Rescan		P(A conn,A status$p)
 Seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
 Spath		P(A path$p,A info$p,A status$p)
+whocon		P(A conn,A buff$p)
 Write           P(A conn,A buff$p,A count,A status$p)
 
 
+$(path.plm)
+path		P(A filename,A pn)B
+
+$(unpath.plm)
+unpath		P(A int, A ext)
 
 $file(absio.plm)
 Absio           P(B cmd,B disk,A block,A buffer)
@@ -1923,5 +1932,281 @@ WDelimit: procedure(ptr) address public;
 		ptr = ptr + 1;
 	end;
 	return ptr;
+end;
+end;
+submit.plm
+submit: do;
+$include(submit.ipx)
+
+declare copyright(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP',
+			4, 0, 'program_version_number=', 1, 'V4.3', 0);
+
+declare params(10) structure(dat(31) byte, length byte);
+declare buffer(1024) byte;
+declare	bufferPtr address,
+	bufferCount address,
+	char based bufferPtr byte,
+	auxPtr address,
+	pn(10) byte,
+	i address,
+	l byte,	
+	(restore, scanning, debug, paramScan) boolean,
+	(csd, cs, status, actual, blockNo, byteNo) address,
+	(csdName, csName, nickName, ci) (15) byte;
+
+
+
+
+
+start:
+	do i = 0 to size(params);
+	    params(0).dat(i) = 0;
+	end;
+	call Rescan(1, .status);
+	call Read(1, .buffer, length(buffer), .actual, .status);
+	buffer(actual) = CR;
+	bufferPtr = .buffer;
+
+	do while char <> CR and char <> '(';
+		char = UpperCase(char);
+		bufferPtr = bufferPtr + 1;
+	end;
+
+	bufferPtr = Deblank(.buffer);
+	debug = FALSE;
+	if (Seq(bufferPtr, .('DEBUG '), 6)) then
+	do;
+		debug = TRUE;
+		bufferPtr = Deblank(bufferPtr + 5);
+	end;
+	status = Path(bufferPtr, .pn);
+	call Unpath(.pn, .nickName);
+	bufferPtr = Deblank(Delimit(bufferPtr));
+
+	restore = FALSE;
+	if (Seq(bufferPtr, .('RESTORE '), 8)) then
+	do;
+		restore = TRUE;
+		bufferPtr = Deblank(bufferPtr + 8);
+	end;
+
+	call FileError(Path(bufferPtr, .pn), bufferPtr, TRUE);
+	if pn(7) = 0 then
+	do;
+	    pn(7) = 'C';
+	    pn(8) = 'S';
+	    pn(9) = 'D';
+	end;
+	call Unpath(.pn, .csdName);
+	pn(7) = 'C';
+	pn(8) = 'S';
+	pn(9) = 0;
+	call Unpath(.pn, .csName);
+	bufferPtr = Deblank(Delimit(bufferPtr));
+	i = 0;
+	if char = '(' then
+	do;
+	    bufferPtr = bufferPtr + 1;
+	    scanning = TRUE;
+	    do while scanning;
+		auxPtr, bufferPtr = Deblank(bufferPtr);
+		if i = length(params) then
+		    call FileError(0D8h, auxPtr, TRUE); /* too many paramaters */
+
+		l = 0;
+		if char = '''' then
+		do;
+		    paramScan = TRUE;
+		    bufferPtr = bufferPtr + 1;
+		    do while paramScan;
+			if l = length(params.dat) then
+			    call FileError(0D7h, auxPtr, TRUE); /* argument too long */
+
+			params(i).dat(l) = char;
+			if char = '''' then
+			do;
+			    paramScan = FALSE;
+			    bufferPtr = bufferPtr + 1;
+			    if char = '''' then
+			    do;
+				paramScan = TRUE;
+				bufferPtr = bufferPtr + 1;
+			    end;
+			end;
+			else
+			    bufferPtr = bufferPtr + 1;
+			l = l + 1;
+		    end;
+		    l = l - 1;
+		end;
+		else
+		do;
+		    paramScan = TRUE;
+		    do while paramScan;
+			if l = length(params.dat) then
+			    call FileError(0D7h, auxPtr, TRUE);
+			if ' ' < char  and char <= 'z' and
+			   char <> ',' and char <> ')'then
+			do;    
+			    params(i).dat(l) = char;
+			    bufferPtr = bufferPtr + 1;
+			    l = l + 1;
+			end;
+			else
+			    paramScan = FALSE;
+		    end;
+		end;
+
+		bufferPtr = Deblank(bufferPtr);
+		if char = ',' then
+		    bufferPtr = bufferPtr + 1;
+		else if char = ')' then
+		do;
+		    scanning = FALSE;
+		    bufferPtr = Deblank(bufferPtr + 1);
+		end;
+		else 
+		    call FileError(0CBh, auxPtr, TRUE); /* invalid syntax */
+
+		params(i).length = l;
+		i = i + 1;
+	    end;
+	end;
+	if char <> CR then
+	    call FileError(0CBh, bufferPtr, TRUE); /* invalid syntax */
+	if restore then
+	do;
+	    call Consol(.params(0).dat, .(':CO: '), .status);
+	    status = Path(.params(0).dat, .pn);
+	    if TestRange(pn(0), 1) <= 9 then
+	    do;
+	        blockNo = .params(1).dat;
+		blockNo = ScanInteger(.blockNo);
+	        byteNo = .params(2).dat;
+		byteNo = ScanInteger(.byteNo);
+		call Seek(1, 2, .blockNo, .byteNo, .status);
+	    end;
+	    call Delete(.csName, .status);
+	    call FileError(status, .csName, TRUE);
+	end;
+	else
+	do;
+	    GetInput: procedure byte;
+	    	declare temp byte;
+	    	if bufferCount = 0 then
+	    	do;
+	    	    bufferPtr = .buffer;
+	    	    call Read(csd, .buffer, 1024, .bufferCount, .status);
+	    	end;
+	    	if bufferCount = 0 then
+	    	    return 0;
+	    	temp = char;
+	    	bufferPtr = bufferPtr + 1;
+	    	bufferCount = bufferCount - 1;
+	    	return temp;
+	    end;
+
+	    call Open(.csd, .csdName, 1, 0, .status);
+	    call FileError(status, .csdName, TRUE);
+	    call Open(.cs, .csName, 2, 0, .status);
+	    call FileError(status, .csName, TRUE);
+	    bufferCount = 0;
+	    do while (l := GetInput) <> 0;
+		if l = CONTROL$P then
+		do;
+		    l = GetInput;
+		    call Write(cs, .l, 1, .status);
+		end;
+		else if l <> '%' then
+		    call Write(cs, .l, 1, .status);
+		else
+		do;
+		    l = GetInput - '0';
+		    if l > last(params) then
+			call FileError(0D6h, bufferPtr - 1, TRUE);
+		    call Write(cs, .params(l).dat, params(l).length, .status);
+		end;
+	    end;
+	    call Close(csd, .status);
+	    if debug then
+		call Write(cs, .('DEBUG '), 6, .status);
+	    call Write(cs, .nickName, Delimit(.nickName) - .nickName + 1, .status);
+	    call Write(cs, .('RESTORE '), 8, .status);
+	    call Write(cs, .csName, Delimit(.csName) - .csName, .status);
+	    call Write(cs, .('('), 1, .status);
+	    call Whocon(1, .ci);
+	    call Write(cs, .ci, Delimit(.ci) - .ci, .status);
+	    status = Path(.ci, .pn);
+
+	    if TestRange(pn(0), 1) <= 9 then
+	    do;
+		PrintBlockOrByte: procedure(x);
+			declare (x, ptr) address;
+			declare buf(6) byte;
+			buf(5) = ' ';
+			call Write(cs, .(','), 1, .status);
+			call Numout(x, 10, ' ', .buf, 5);
+			ptr = Deblank(.buf);
+			call Write(cs, ptr, Delimit(ptr) - ptr, .status);
+		end;
+
+		/* write current location in file */
+		call Seek(1, 0, .blockNo, .byteNo, .status);
+		call PrintBlockOrByte(blockNo);
+	        call PrintBlockOrByte(byteNo);
+	    end;
+	    call Write(cs, .(')', CR, LF), 3, .status);
+	    call Close(cs, .status);
+	    call Consol(.csName, .(':CO: '), .status);
+	end;
+	call Exit;
+end; /* of main */
+unpath.plm
+UNPATH: DO;
+
+declare devTab(*) byte data('F0F1F2F3F4F5TITO',
+			     'VIVOI1O1TRHRR1R2',
+			     'TPHPP1P2LPL1BBCICO',
+			     'F6F7F8F9');
+
+Unpath:	procedure(int, ext) public;
+	declare (int, ext) address;
+	declare i byte;
+	declare intName based int (1) byte;
+	declare extName based ext (1) byte;
+
+	extName(0) = ':';
+	extName(1) = devTab(intName(0) + intName(0));
+	extName(2) = devTab(intName(0) + intName(0) + 1);
+	extName(3) = ':';	
+	ext = ext + 4;
+	do i = 0 to 5;
+		if (extName(0) := intName(i + 1)) <> 0 then
+			ext = ext + 1; 
+	end;
+	if intName(7) <> 0 then
+	do;
+		extName(0) = '.';
+		ext = ext + 1;
+	end;
+	do i = 0 to 2;
+		if (extName(0) := intName(i + 7)) <> 0 then
+			ext = ext + 1; 
+
+	end;
+	extName(0) = ' ';
+end;
+end;
+path.plm
+PATH: DO;
+$include(path.ipx)
+
+Path: procedure(filename, pn) byte public;
+	declare (filename, pn) address;
+	declare info(12) byte, status byte;
+
+	call Spath(filename, .info, .status);	/* bug? status only a byte */
+	call MoveAscii(pn, .info, 10);
+	return status;
 end;
 end;
