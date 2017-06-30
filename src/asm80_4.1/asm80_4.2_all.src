@@ -1,4 +1,5 @@
 src/asm80.pex
+# vim:ts=4:expandtab:
 /* assembler routines & linkage */
 Isis            P(B syscall,A param$p)
 PckTok          P
@@ -65,6 +66,10 @@ SEG$CODE        '1'
 SEG$DATA        '2'
 SEG$STACK       '3'
 SEG$MEMORY      '4'
+/* open modes */
+READ$MODE       '1'        /* Open mode */
+WRITE$MODE      '2'
+UPDATE$MODE     '3'
 
 /* relocatable record types */
 OMF$MODHDR      '2'
@@ -97,10 +102,11 @@ T$UPLUS         '8'
 T$SLASH         '9'
 T$UMINUS        '0Ah'
 O$EXPR          '0'
+O$ID            '1'
 O$TARGET        '2'
 O$LABEL         '3'
-O$REF    '6'
-O$ID            '9'
+O$REF           '6'
+O$NAME          '9'
 O$STRING        '0Ah'
 O$DATA          '0Bh'
 O$NUMBER        '0Ch'
@@ -243,7 +249,7 @@ CloseF          P(A conn)
 Flushout        P
 GetNibble       P(A bp,B idx)B
 InitialControls P
-InOpen          P(A path$p,A access)A
+SafeOpen          P(A path$p,A access)A
 IoErrChk        P
 IoError         P("pointer" s)
 IsComma         PB
@@ -495,7 +501,7 @@ accum2$hb       B
 accum2$lb       B
 activeSeg       B
 actRead         "pointer"
-asmax$ref    BS
+asmac$ref    BS
 asxref       BS
 asxref$tmp   BS
 alignTypes      BS
@@ -565,7 +571,7 @@ b6BDA           "bool"
 jj           B
 macroLine          BS        /* globlm */
 b9058          "bool"        /* globlm */
-b9059          "bool"        /* globlm */
+excludeCommentInExpansion          "bool"        /* globlm */
 b905A          B        /* globlm */
 expandingMacro B        /* globlm */
 b905C          B        /* globlm */
@@ -586,7 +592,7 @@ accFixFlags          BS
 cmdch$p         "pointer"
 cmdLineBuf      BS
 controlId       B
-controls        BS
+controls        B(20)
 controlSeen     "bool"S
 controls$p      A
 ctlCOND         "bool"
@@ -798,7 +804,7 @@ declare    byteAt(1) byte public at(0),
     endMacroLine(2) byte public,            /* space for 0 and a guard byte */
     macro$p pointer public initial(.macroLine),
     b9058 bool public initial(FALSE),
-    b9059 bool public,
+    excludeCommentInExpansion bool public,
     b905A byte public,
     expandingMacro byte public,
     b905C byte public,
@@ -939,7 +945,7 @@ declare    opSP byte public,
     outfd address public,
     macrofd address public,
     statusIO address public,
-    openStatus address public,
+    openStatus address public,  /* status of last open for Read */
     pad6894 address initial(0FFFFh),
     asmErrCode byte public initial(' '), 
     b6897 bool public initial(FALSE),
@@ -979,33 +985,34 @@ declare    tokI byte public,
     lstFile(15) byte public initial('               '), /* 15 spaces */
     asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
     asxref(*) byte public initial(':F0:ASXREF '),
-    asmax$ref(*) byte public initial(':F0:ASMAC.TMP '),
+    asmac$ref(*) byte public initial(':F0:ASMAC.TMP '),
     srcLineCnt address public initial(1),
     pad6A50(2) byte initial('  '),        /* protects for very big files */
     asciiLineNo(4) byte public initial('   0'),
     spIdx byte public,
     lastErrorLine(4) byte public initial('   0'),
-    ctlDEBUG bool public initial(FALSE),    /* DEBUG */
-    controls(1) byte public at(.ctlDEBUG),
-    ctlMACRODEBUG bool public initial(FALSE),    /* MACRODEBUG */
-    ctlXREF bool public initial(FALSE),    /* XREF */
-    ctlSYMBOLS bool public initial(TRUE),    /* SYMBOLS */
-    ctlPAGING bool public initial(TRUE),    /* PAGING */
-    ctlTTY bool public initial(FALSE),    /* TTY */
-    ctlMOD85 bool public initial(FALSE),    /* MOD85 */
-    ctlPRINT bool public initial(TRUE),    /* PRINT */
-    ctlOBJECT bool public initial(TRUE),    /* OBJECT */
-    ctlMACROFILE bool public initial(FALSE),    /* MACROFILE */
-    ctlPAGEWIDTH byte public initial(120),    /* PAGEWIDTH */
-    ctlPAGELENGTH byte public initial(66),    /* PAGELENGTH */
-    ctlINLCUDE byte initial(0),        /* INCLUDE */
-    ctlTITLE bool public initial(FALSE),    /* TITLE */
-    ctlSAVE byte,                /* SAVE */
-    ctlRESTORE byte,            /* RESTORE */
-    ctlEJECT byte public initial(0),    /* EJECT */
-    ctlLIST bool public initial(TRUE),    /* LIST */    /* SAVE/RESTORE act on next 3 opts */
-    ctlGEN bool public initial(TRUE),    /* GEN */
-    ctlCOND bool public initial(TRUE),    /* COND */
+    controls(20) byte public,
+    ctlDEBUG       bool public at(.controls(0))  initial(FALSE),  /* DEBUG */
+    ctlMACRODEBUG  bool public at(.controls(1))  initial(FALSE),  /* MACRODEBUG */
+    ctlXREF        bool public at(.controls(2))  initial(FALSE),  /* XREF */
+    ctlSYMBOLS     bool public at(.controls(3))  initial(TRUE),   /* SYMBOLS */
+    ctlPAGING      bool public at(.controls(4))  initial(TRUE),   /* PAGING */
+    ctlTTY         bool public at(.controls(5))  initial(FALSE),  /* TTY */
+    ctlMOD85       bool public at(.controls(6))  initial(FALSE),  /* MOD85 */
+    ctlPRINT       bool public at(.controls(7))  initial(TRUE),   /* PRINT */
+    ctlOBJECT      bool public at(.controls(8))  initial(TRUE),   /* OBJECT */
+    ctlMACROFILE   bool public at(.controls(9))  initial(FALSE),  /* MACROFILE */
+    ctlPAGEWIDTH   byte public at(.controls(10)) initial(120),    /* PAGEWIDTH */
+    ctlPAGELENGTH  byte public at(.controls(11)) initial(66),     /* PAGELENGTH */
+    ctlINLCUDE     byte        at(.controls(12)) initial(0),      /* INCLUDE */
+    ctlTITLE       bool public at(.controls(13)) initial(FALSE),  /* TITLE */
+    ctlSAVE        byte        at(.controls(14)),                 /* SAVE */
+    ctlRESTORE     byte        at(.controls(15)),                 /* RESTORE */
+    ctlEJECT       byte public at(.controls(16)) initial(0),      /* EJECT */
+            /* SAVE/RESTORE act on next 3 opts */
+    ctlLIST        bool public at(.controls(17)) initial(TRUE),   /* LIST */
+    ctlGEN         bool public at(.controls(18)) initial(TRUE),   /* GEN */
+    ctlCOND        bool public at(.controls(19)) initial(TRUE),   /* COND */
     ctlLISTChanged bool public initial(TRUE),
     titleLen byte public initial(0),
     pad6A71 byte,
@@ -1463,7 +1470,7 @@ Parse: procedure public;
 
     IsVar: procedure(type) byte;
         declare type byte;
-        return type = O$ID or type = O$MACROID;
+        return type = O$NAME or type = O$MACROID;
     end;
 
 
@@ -2377,14 +2384,15 @@ IoError: procedure(s) public;
     call RuntimeError(4);        /* file Error */
 end;
 
-InOpen: procedure(path$p, access) address public;
+/* open file for read with status check */
+SafeOpen: procedure(path$p, access) address public;
     declare (path$p, access) address;
-    declare Open$infd address;
+    declare conn address;
 
-    call Open(.Open$infd, path$p, access, 0, .openStatus);
+    call Open(.conn, path$p, access, 0, .openStatus);
     if openStatus <> 0 then
         call IoError(path$p);
-    return Open$infd;
+    return conn;
 end;
 
 
@@ -2520,7 +2528,7 @@ InitLine: procedure public;
     inExpression, expectingOperands, xRefPending, gotLabel, rhsUserSymbol,
     inDB, inDW, condAsmSeen, showAddr, usrLookupIsID,
 $IF MACRO
-    b9059, b9060, 
+    excludeCommentInExpansion, b9060, 
 $ENDIF
     needsAbsValue = bZERO;
 
@@ -2554,20 +2562,20 @@ start:
 $IF SMALL
     if ctlMACROFILE then
     do;
-        if Physmem < 8001h then
+        if Physmem < 8001h then        /* need > 32k memory */
             call RuntimeError(5);     /* memory Error */
-        if srcfd <> rootfd then
-            call CloseF(srcfd);
-        call CloseF(infd);
+        if srcfd <> rootfd then       /* had include file before end of initial controls */
+            call CloseF(srcfd);       /* close it */
+        call CloseF(infd);            /* close initial file */
         ovlFile(12) = '4';        /* use macro asm version */
         call Load(.ovlFile, 0, 1, 0, .statusIO);
         call IoErrChk;
     end;
     if Physmem > 8001h then
     do;
-        if srcfd <> rootfd then
-            call CloseF(srcfd);
-        call CloseF(infd);
+        if srcfd <> rootfd then     /* had include file before end of initial controls */
+            call CloseF(srcfd);     /* close it */
+        call CloseF(infd);          /* close initial file */
         ovlFile(12) = '5';        /* use big edata.asm version */
         call Load(.ovlFile, 0, 1, 0, .statusIO);
         call IoErrChk;
@@ -2576,18 +2584,18 @@ $IF SMALL
     if MacroDebugOrGen then            /* attempt to use macro features */
         call RuntimeError(2);        /* command Error */
 $ELSEIF MACRO
-    macrofd = InOpen(.asmax$ref, 3);
+    macrofd = SafeOpen(.asmac$ref, UPDATE$MODE);
 $ENDIF
 
     if ctlOBJECT then
     do;
         call Delete(.objFile, .statusIO);
-        objfd = InOpen(.objFile, 3);
+        objfd = SafeOpen(.objFile, UPDATE$MODE);
     end;
 
     if ctlXREF then
     do;
-        xreffd = InOpen(.asxref$tmp, 2);
+        xreffd = SafeOpen(.asxref$tmp, WRITE$MODE);
         outfd = xreffd;
     end;
 
@@ -2610,7 +2618,7 @@ $IF SMALL
 $ENDIF
     do;
         if ctlPRINT then
-            outfd = InOpen(.lstFile, 2);
+            outfd = SafeOpen(.lstFile, WRITE$MODE);
         CHKOVL$3;
         call ResetData;
         call InitialControls;
@@ -2799,219 +2807,219 @@ Tokenise: procedure public;
 
 
     do while 1;
-    if atStartLine then
-    do;
-        call ParseControlLines;
-        atStartLine = 0;
-    end;
-
-    do case GetChClass;
-        case0:    call IllegalCharError;        /* CC$BAD */
-        ;                /* CC$WS */
-        do;                /* CC$SEMI */
-$IF MACRO
-            if not b9058 then
-$ENDIF
-            do;
-                inComment = TRUE;
-$IF MACRO
-                if GetChClass = CC$SEMI and b905E then
-                do;
-                    b9059 = TRUE;
-                    macroInPtr = macroInPtr - 2;
-                end;
-$ENDIF
-                call Skip2NextLine;
-                yyType = T$CR;
-                return;
-            end;
+        if atStartLine then
+        do;
+            call ParseControlLines;
+            atStartLine = FALSE;
         end;
-        do;                /* CC$COLON */
-            if not gotLabel then
-            do;
-                if skipIf(0)
+
+        do case GetChClass;
+            case0:    call IllegalCharError;        /* CC$BAD */
+            ;                /* CC$WS */
+            do;                /* CC$SEMI */
 $IF MACRO
-                   or b905E
+                if not b9058 then
 $ENDIF
-                then
-                    call PopToken;
+                do;
+                    inComment = TRUE;
+$IF MACRO
+                    if GetChClass = CC$SEMI and b905E then
+                    do;
+                        excludeCommentInExpansion = TRUE;
+                        macroInPtr = macroInPtr - 2;
+                    end;
+$ENDIF
+                    call Skip2NextLine;
+                    yyType = T$CR;
+                    return;
+                end;
+            end;
+            do;                /* CC$COLON */
+                if not gotLabel then
+                do;
+                    if skipIf(0)
+$IF MACRO
+                       or b905E
+$ENDIF
+                    then
+                        call PopToken;
+                    else
+                    do;
+                        labelUse = 2;
+                        call UpdateSymbolEntry(segSize(activeSeg), O$TARGET);
+                    end;
+
+                    expectingOperands = FALSE;
+                    gotLabel, expectingOpcode = bTRUE;
+                end;
                 else
                 do;
-                    labelUse = 2;
-                    call UpdateSymbolEntry(segSize(activeSeg), O$TARGET);
+                    call SyntaxError;
+                    call PopToken;
                 end;
 
-                expectingOperands = FALSE;
-                gotLabel, expectingOpcode = bTRUE;
-            end;
-            else
-            do;
-                call SyntaxError;
-                call PopToken;
-            end;
-
-            call EmitXref(XREF$DEF, .name);
-            rhsUserSymbol = FALSE;
-            newOp = O$LABEL;
-        end;
-        do;                /* CC$CR */
-            call ChkLF;
-            yyType = T$CR;
-$IF MACRO
-            b9058 = FALSE;
-$ENDIF
-            return;
-        end;
-        do;                /* CC$PUN */
-            if curChar = '+' or curChar = '-' then
-$IF MACRO
-                if not TestBit(newOp, .b$3F88) then /* not 0, 3 or 41h */
-$ELSE
-                if newOp <> O$EXPR and newOp <> T$RPAREN then
-$ENDIF
-                    curChar = curChar + (T$UPLUS - T$PLUS);    /* make unary versions */
-            yyType = curChar - '(' + T$LPAREN;
-            return;
-        end;
-        do;                /* CC$DOLLAR */
-            call PushToken(O$NUMBER);
-            call CollectByte(low(segSize(activeSeg)));
-            call CollectByte(high(segSize(activeSeg)));
-            if activeSeg <> SEG$ABS then
-                tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
-            call Sub416B;
-        end;
-        do;                /* CC$QUOTE */
-$IF MACRO
-            if yyType = 37h then
-            do;
-                call IllegalCharError;
-                return;
-            end;
-            if b905E then
-                b9058 = not b9058;
-            else
-$ENDIF
-            do;
-                call GetStr;
-                if expectingOpcode then
-                    call SetExpectOperands;
-                call Sub416B;
-            end;
-        end;
-        do;                /* CC$DIG */
-            call GetNum;
-            if expectingOpcode then
-                call SetExpectOperands;
-            call Sub416B;
-        end;
-        do;                /* CC$LET */
-$IF MACRO
-            w919F = macroInPtr - 1;
-$ENDIF
-            call GetId(O$ID);    /* assume it's an id */
-            if tokenSize(0) > 6 then    /* cap length */
-                tokenSize(0) = 6;
-
-            if ctlXREF then
-            do;
-                call move(6, .name, .savName);
-                call move(6, .spaces6, .name);
-            end;
-            /* copy the token to name */
-            call move(tokenSize(0), tokPtr, .name);
-            nameLen = tokenSize(0);
-            call PackToken;        /* make into 4 byte name */
-            if rhsUserSymbol then
-            do;
-                lhsUserSymbol = TRUE;
+                call EmitXref(XREF$DEF, .name);
                 rhsUserSymbol = FALSE;
+                newOp = O$LABEL;
             end;
-
-
+            do;                /* CC$CR */
+                call ChkLF;
+                yyType = T$CR;
 $IF MACRO
-            if Lookup(TID$MACRO) <> O$ID and b905E then
-            do;
-                if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
-                do;
-                    macroInPtr = w919F;
-                    call InsertCharInMacroTbl(kk + 81h);
-                    call InsertByteInMacroTbl(GetNumVal);
-                    call InsertCharInMacroTbl(curChar);
-                    yyType = O$ID;
-                end;
-            end;
-            else if yyType <> O$37 and not b905E = 2 then
+                b9058 = FALSE;
 $ENDIF
-            do;
-                if Lookup(TID$KEYWORD) = O$ID then        /* not a key word */
+                return;
+            end;
+            do;                /* CC$PUN */
+                if curChar = '+' or curChar = '-' then
+$IF MACRO
+                    if not TestBit(newOp, .b$3F88) then /* not 0, 3 or 41h */
+$ELSE
+                    if newOp <> O$EXPR and newOp <> T$RPAREN then
+$ENDIF
+                        curChar = curChar + (T$UPLUS - T$PLUS);    /* make unary versions */
+                yyType = curChar - '(' + T$LPAREN;
+                return;
+            end;
+            do;                /* CC$DOLLAR */
+                call PushToken(O$NUMBER);
+                call CollectByte(low(segSize(activeSeg)));
+                call CollectByte(high(segSize(activeSeg)));
+                if activeSeg <> SEG$ABS then
+                    tokenAttr(0) = tokenAttr(0) or activeSeg or 18h;
+                call Sub416B;
+            end;
+            do;                /* CC$QUOTE */
+$IF MACRO
+                if yyType = 37h then
                 do;
-                    tokenType(0) = Lookup(TID$SYMBOL);    /* look up in symbol space */
-                    rhsUserSymbol = TRUE;        /* note we have a used symbol */
+                    call IllegalCharError;
+                    return;
                 end;
-
-                yyType = tokenType(0);
-                needsAbsValue = absValueReq(tokenType(0)); /* DS, ORG, IF, O$3A, IRP, IRPC REPT */
-                if not tokReq(tokenType(0)) then /* i.e. not instruction, reg or O$37 or 1,2,3,4,6,A */
-                    call PopToken;
-
-                if lhsUserSymbol then
-                do;               /* EQU, SET or O$37 */
-                    call EmitXref((not TestBit(yyType, .b3EA0)) and 1, .savName);
-                    lhsUserSymbol = FALSE;
+                if b905E then
+                    b9058 = not b9058;
+                else
+$ENDIF
+                do;
+                    call GetStr;
+                    if expectingOpcode then
+                        call SetExpectOperands;
+                    call Sub416B;
                 end;
             end;
+            do;                /* CC$DIG */
+                call GetNum;
+                if expectingOpcode then
+                    call SetExpectOperands;
+                call Sub416B;
+            end;
+            do;                /* CC$LET */
 $IF MACRO
-            if b905E = 1 then
-            do;
-                if yyType = K$LOCAL then
+                w919F = macroInPtr - 1;
+$ENDIF
+                call GetId(O$NAME);    /* assume it's a name */
+                if tokenSize(0) > 6 then    /* cap length */
+                    tokenSize(0) = 6;
+
+                if ctlXREF then
                 do;
-                    b905E = 2;
-                    if b6897 then
-                        call SyntaxError;
-                    b6897 = FALSE;
+                    call move(6, .name, .savName);
+                    call move(6, .spaces6, .name);
+                end;
+                /* copy the token to name */
+                call move(tokenSize(0), tokPtr, .name);
+                nameLen = tokenSize(0);
+                call PackToken;        /* make into 4 byte name */
+                if rhsUserSymbol then
+                do;
+                    lhsUserSymbol = TRUE;
+                    rhsUserSymbol = FALSE;
+                end;
+
+
+$IF MACRO
+                if Lookup(TID$MACRO) <> O$NAME and b905E then
+                do;
+                    if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
+                    do;
+                        macroInPtr = w919F;
+                        call InsertCharInMacroTbl(kk + 81h);
+                        call InsertByteInMacroTbl(GetNumVal);
+                        call InsertCharInMacroTbl(curChar);
+                        yyType = O$NAME;
+                    end;
+                end;
+                else if yyType <> O$37 and not b905E = 2 then
+$ENDIF
+                do;
+                    if Lookup(TID$KEYWORD) = O$NAME then        /* not a key word */
+                    do;
+                        tokenType(0) = Lookup(TID$SYMBOL);    /* look up in symbol space */
+                        rhsUserSymbol = TRUE;        /* note we have a used symbol */
+                    end;
+
+                    yyType = tokenType(0);
+                    needsAbsValue = absValueReq(tokenType(0)); /* DS, ORG, IF, O$3A, IRP, IRPC REPT */
+                    if not tokReq(tokenType(0)) then /* i.e. not instruction, reg or O$3A or 1->A */
+                        call PopToken;
+
+                    if lhsUserSymbol then
+                    do;               /* EQU, SET or O$37 */
+                        call EmitXref((not TestBit(yyType, .b3EA0)) and 1, .savName);
+                        lhsUserSymbol = FALSE;
+                    end;
+                end;
+$IF MACRO
+                if b905E = 1 then
+                do;
+                    if yyType = K$LOCAL then
+                    do;
+                        b905E = 2;
+                        if b6897 then
+                            call SyntaxError;
+                        b6897 = FALSE;
+                    end;
+                    else
+                    do;
+                        b6897 = FALSE;
+                        b905E = 0FFh;
+                    end;
+                end;
+
+                if yyType = K$NUL then
+                    call PushToken(O$OPTVAL);
+$ENDIF
+                if yyType < 10 or yyType = 9 or 80h then /* !! only first term contributes */
+                do;
+                    call Sub416B;
+                    if expectingOpcode then
+                        call SetExpectOperands;
                 end;
                 else
                 do;
-                    b6897 = FALSE;
-                    b905E = 0FFh;
+                    expectingOpcode = FALSE;
+                    return;
                 end;
             end;
-
-            if yyType = K$NUL then
-                call PushToken(O$OPTVAL);
-$ENDIF
-            if yyType < 10 or yyType = 9 or 80h then /* !! only first term contributes */
-            do;
-                call Sub416B;
-                if expectingOpcode then
-                    call SetExpectOperands;
-            end;
-            else
-            do;
-                expectingOpcode = FALSE;
-                return;
-            end;
-        end;
 $IF MACRO
-        do;                /* 10? */
-            b6BDA = FALSE;
-            call Sub73AD;
-            if b6BDA then
-                return;
-        end;
-        do;                /* CC$ESC */
-            if expandingMacro then
-            do;
-                skipIf(0) = FALSE;
-                yyType = 40h;
-                return;
+            do;                /* 10? */
+                b6BDA = FALSE;
+                call Sub73AD;
+                if b6BDA then
+                    return;
             end;
-            else
-                goto case0;
-        end;
+            do;                /* CC$ESC */
+                if expandingMacro then
+                do;
+                    skipIf(0) = FALSE;
+                    yyType = 40h;
+                    return;
+                end;
+                else
+                    goto case0;
+            end;
 $ENDIF
-    end;
+        end;
     end;
 end;
 
@@ -3216,7 +3224,7 @@ $ENDIF
 
     acc1Flags = 0;
     accum1 = 0;
-    acc1ValType = O$ID;
+    acc1ValType = O$NAME;
 $IF MACRO
     if tokenType(0) = O$OPTVAL then
         call PushToken(CR);
@@ -3229,7 +3237,7 @@ $ELSE
 $ENDIF
     else
     do;
-        if tokenType(0) = O$ID or tokenType(0) = T$COMMA then
+        if tokenType(0) = O$NAME or tokenType(0) = T$COMMA then
 $IF MACRO
             call LogError('U');
 $ELSE
@@ -3633,7 +3641,7 @@ CloseSrc: procedure public;
     if fileIdx = 0 then
         srcfd = rootfd;
     else
-        srcfd = InOpen(.files(fileIdx).name, 1);
+        srcfd = SafeOpen(.files(fileIdx).name, READ$MODE);
 
     seekIByte = files(fileIdx).byt;    /* move to saved location */
     seekIBlk = files(fileIdx).blk;
@@ -3705,7 +3713,7 @@ x:                        /* forces code alignment */
     startLine$p = .inBuf;
     files(fileIdx).blk = 0;            /* record at start of file */
     files(fileIdx).byt = 0;    
-    srcfd = InOpen(.files(fileIdx).name, 1);    /* Open the file */
+    srcfd = SafeOpen(.files(fileIdx).name, READ$MODE);    /* Open the file */
 end;
 end;
 src/asm5.plx
@@ -3723,11 +3731,10 @@ declare    b5666(*) byte data(9, 2Dh, 80h), /* bit vector 10 -> 00101101 10 */
     op16(*) byte data(
        /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1,
-          0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, /* DW,DW,EQU,SET,ORG */
+          0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1),         /* LXI,IMM16 */
     chClass(*) byte data(
-     /*    0       1       2       3       4       5       6       7
-           8       9       A       B       C       D       E       F */
+     /*  0/8     1/9     2/A     3/B     4/C     5/D     6/E     7/F */
 /*00*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
 /*08*/ CC$BAD,  CC$WS, CC$BAD, CC$BAD,  CC$WS,  CC$CR, CC$BAD, CC$BAD,
 /*10*/ CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD,
@@ -3873,7 +3880,7 @@ $ENDIF
         call SyntaxError;
 
     if IsPhase1 then
-        if tokenType(0) = O$ID then
+        if tokenType(0) = O$NAME then
         do;
             if createdUsrSym then
             do;
@@ -3915,8 +3922,8 @@ $ENDIF
         end;
 
     if passCnt = 2 then
-        if tokenType(0) = O$ID then
-            if acc1ValType <> O$ID then
+        if tokenType(0) = O$NAME then
+            if acc1ValType <> O$NAME then
                 if isSetOrEqu then
                 do;
                     call SetTokenType;
@@ -4016,7 +4023,7 @@ end;
         packed keyword - byte * 4 - 3 chars per word
         opcode base - byte
         offset to next entry or 0 if end - byte
-        type - byte
+        type - byte (add 80h if abs value)
         flags - byte
     initial entry is determined by hashing the name
 
@@ -4038,6 +4045,7 @@ Lookup: procedure(tableId) byte public;
     declare addr based pAddr address;
 
     packedTok$p = tokPtr;
+    /* Keyword lookup */
     if tableId = TID$KEYWORD then        /* hash chain look up key word */
     do;
         entryOffset = 0;    /* offset to current symbol to compare */
@@ -4068,9 +4076,11 @@ Lookup: procedure(tableId) byte public;
                 end;
             deltaToNext = symEntry.delta;
         end;
-        return O$ID;
+        return O$NAME;
     end;
 
+    /* MACRO and User tables are stored sorted 8 bytes per entry */
+    /* use binary chop to find entry */
     lowOffset = symTab(tableId);
     highOffset, entryOffset = endSymTab(tableId);
 
@@ -4085,11 +4095,11 @@ Lookup: procedure(tableId) byte public;
                 curTokenSym$p = entryOffset;
                 tokenType(0) = curTokenSym.type;
                 if tokenType(0) = O$MACROID then
-                    tokenType(0) = O$ID;
+                    tokenType(0) = O$NAME;
 
-                if (usrLookupIsID := (kk := (tokenType(0) and 7Fh)) = O$ID) then
+                if (usrLookupIsID := (kk := (tokenType(0) and 7Fh)) = O$NAME) then
                     if needsAbsValue then
-                        curTokenSym.type = 89h;
+                        curTokenSym.type = 80h + O$NAME;    /* update ABSVALUE flag */
                 return kk;
             end;
             else
@@ -4110,7 +4120,7 @@ Lookup: procedure(tableId) byte public;
     do;
         createdUsrSym = FALSE;
         labelUse = 0;
-        call UpdateSymbolEntry(srcLineCnt, (needsAbsValue and 80h) or O$ID);
+        call UpdateSymbolEntry(srcLineCnt, (needsAbsValue and 80h) or O$NAME);
         /* update symbol stack to adjust pointers for entries above insert point */
         pAddr = .tokenSym;
         do i = 1 to tokenIdx;
@@ -4121,7 +4131,7 @@ Lookup: procedure(tableId) byte public;
 
         createdUsrSym = TRUE;
     end;
-    return O$ID;
+    return O$NAME;
 end;
 
 
@@ -4235,7 +4245,7 @@ $IF MACRO
                 end;
 
         if b905E then
-            if w919D <> macroInPtr and curCH = CR or not b9059 then
+            if w919D <> macroInPtr and curCH = CR or not excludeCommentInExpansion then
             call InsertCharInMacroTbl(curCH);
 
         if not(prevCH = '!' or inComment) then
@@ -4545,7 +4555,7 @@ GetNum: procedure public;
             if (digit := chrs(i) - '0') > 9 then
                 digit = digit - 7;
             if digit >= radix then
-                if not (tokenType(2) = 40h) then /* risk that may be uninitialised */
+                if not (tokenType(2) = 40h) then /* bug? risk that may be uninitialised */
                 do;
                     call IllegalCharError;
                     digit = 0;
@@ -4587,16 +4597,23 @@ $include(:f3:cntrln.ipx)
 $ENDIF
 
 declare controlTable(*) byte data(
-            35h, 'DEBUG', 3Ah, 'MACRODEBUG',
-            34h, 'XREF', 37h, 'SYMBOLS',
-            36h, 'PAGING', 33h, 'TTY',
-            25h, 'MOD85', 35h, 'PRINT',
-            36h, 'OBJECT', 39h, 'MACROFILE',
+/* format of entries
+    byte -> 00PNxxxx where
+        P -> 0 general control 1 -> primary control
+        N -> 0 NO prefix not supported 1-> NO prefix supported
+        xxxx -> number of chars in name string
+    name string
+*/
+            35h, 'DEBUG',     3Ah, 'MACRODEBUG',
+            34h, 'XREF',      37h, 'SYMBOLS',
+            36h, 'PAGING',    33h, 'TTY',
+            25h, 'MOD85',     35h, 'PRINT',
+            36h, 'OBJECT',    39h, 'MACROFILE',
             29h, 'PAGEWIDTH', 2Ah, 'PAGELENGTH',
-              7, 'INCLUDE', 5, 'TITLE',
-              4, 'SAVE', 7, 'RESTORE',
-              5, 'EJECT', 14h, 'LIST',
-            13h, 'GEN', 14h, 'COND');
+              7, 'INCLUDE',     5, 'TITLE',
+              4, 'SAVE',        7, 'RESTORE',
+              5, 'EJECT',     14h, 'LIST',
+            13h, 'GEN',       14h, 'COND');
 
 declare (tokVal, savedCtlLIST, savedCtlGEN) byte,
     controlError bool;
@@ -4613,14 +4630,14 @@ end;
 
 GetTok: procedure byte;
     tokBufLen = 0;
-    tokType = O$EXPR;
+    tokType = TT$ID;
     if IsCR then
         return curChar;
 
     call SkipWhite$2;
     if curChar > 'A'-1 and 'Z'+1 > curChar or curChar > 'a'-1 and 'z'+1 > curChar then
     do;                            /* letter */
-        call GetId(1);
+        call GetId(O$ID);
         if BlankAsmErrCode and tokenSize(0) < 14 then
             call move(tokBufLen := tokenSize(0), .lineBuf, .tokBuf);
     end;
@@ -4639,7 +4656,7 @@ GetTok: procedure byte;
         call GetStr;
         if BlankAsmErrCode then
         do;
-            tokBufLen = 64;
+            tokBufLen = 64;         /* cap at 64 chars */
             if tokenSize(0) < 64 then
                 tokBufLen = tokenSize(0);
             tokType = TT$STR;
@@ -4654,13 +4671,13 @@ GetTok: procedure byte;
         return curChar;
     end;
 
-    call PopToken;
+    call PopToken;      /* restore the stack from GetId/GetNum/GetStr calls */
     return tokBuf(0);
 end;
 
 
 
-Sub6F07: procedure(arg1w) bool;
+FinaliseFileNameOpt: procedure(arg1w) bool;
     declare arg1w address;
     declare pad address;
 
@@ -4674,13 +4691,13 @@ Sub6F07: procedure(arg1w) bool;
     return TRUE;
 end;
 
-Sub6F39: procedure;
+GetFileNameOpt: procedure;
     call SkipWhite$2;
 
     do while 1;
         if IsRParen or IsWhite then
         do;
-            if Sub6F07(.tokBuf(0)) then
+            if FinaliseFileNameOpt(.tokBuf(0)) then
                 return;
             goto done;
         end;
@@ -4703,7 +4720,7 @@ GetFileParam: procedure;
         call FileError;
     else
     do;
-        call Sub6F39;
+        call GetFileNameOpt;
         call move(tokBufIdx + 1, .tokBuf, curFileName$p);
         if not ChkParen(1) then    /* ) */
             call FileError;
@@ -4713,19 +4730,19 @@ end;
 
 GetMacroFileDrive: procedure;
     call SkipWhite$2;
-    tokBufIdx = 0Dh;
+    tokBufIdx = 13;     /* leave room for max file name */
     ii = 0;
 
     do while not IsRParen and ii < 4;
-        asmax$ref(ii) = curChar;
+        asmac$ref(ii) = curChar;
         ii = ii + 1;
         curChar = GetCh;
     end;
 
     if IsRParen or IsWhite then
-        if Sub6F07(.asmax$ref) then
+        if FinaliseFileNameOpt(.asmac$ref) then
             return;
-    curFileName$p = .asmax$ref;
+    curFileName$p = .asmac$ref;
     tokBufIdx = 0;
     call FileError;
 end;
@@ -4777,7 +4794,7 @@ LookupControl: procedure byte;
     controlId = 0;
     cmdIdx = cmdStartIdx;
 
-    do while controlId < 20;
+    do while controlId < length(controls);
         nextControl$p = control$p + (ch and 0Fh) + 1;
         if (ch and 0Fh) = cmdLen then
         do;
@@ -4812,7 +4829,7 @@ $ENDIF
     if (noInvalid := (ctlFlags and 10h) <> 10h) and not ctlVal then
         return 255;    /* NO not supported */
 
-    if (ctlFlags and 20h) <> 20h then        /* GENERAL control */
+    if (ctlFlags and 20h) <> 20h then        /* general control */
     do;
         call SetControl;
         return controlId;
@@ -4830,31 +4847,32 @@ $ENDIF
 end;
 
 ProcessControl: procedure;
+    /* simple controls already processed */
     if controlId >= 17 or controlId < 5 then
         return;
 
     do case controlId - 5;
-/* 0 */        do;            /* TTY */
+/* 0 */ do;            /* TTY */
             ctlTTY = TRUE;
             return;
         end;
-/* 1 */        do;            /* MOD85 */
+/* 1 */ do;            /* MOD85 */
             ctlMOD85 = TRUE;
             return;
         end;
-/* 2 */        do;            /* PRINT */
+/* 2 */ do;            /* PRINT */
             controlFileType = 2;
             curFileName$p = .lstFile;
             call GetFileParam;
             return;
         end;
-/* 3 */        do;            /* OBJECT */
+/* 3 */ do;            /* OBJECT */
             controlFileType = 3;
             curFileName$p = .objFile;
             call GetFileParam;
             return;
         end;
-/* 4 */        do;            /* MACROFILE */
+/* 4 */ do;            /* MACROFILE */
             controlFileType = 3;
             if ChkParen(0) then    /* optional drive for tmp file */
                 call GetMacroFileDrive;
@@ -4863,7 +4881,7 @@ ProcessControl: procedure;
             ctlMACROFILE = TRUE;
             return;
         end;
-/* 5 */        do;            /* PAGEWIDTH */
+/* 5 */ do;            /* PAGEWIDTH */
             if GetControlNumArg then
             do;
                 ctlPAGEWIDTH = tokNumVal;
@@ -4874,7 +4892,7 @@ ProcessControl: procedure;
                 return;
             end;
         end;
-/* 6 */        do;            /* PAGELENGTH */
+/* 6 */ do;            /* PAGELENGTH */
             if GetControlNumArg then
             do;
                 ctlPAGELENGTH = tokNumVal;
@@ -4883,7 +4901,7 @@ ProcessControl: procedure;
                 return;
             end;
         end;
-/* 7 */        do;            /* INCLUDE */
+/* 7 */ do;            /* INCLUDE */
             if not needToOpenFile then
             do;
                 controlFileType = 1;
@@ -4901,7 +4919,7 @@ ProcessControl: procedure;
                 end;
             end;
         end;
-/* 8 */        do;            /* TITLE */
+/* 8 */ do;            /* TITLE */
             if ChkParen(0) then
             do;
                 tokVal = GetTok;
@@ -4920,7 +4938,7 @@ ProcessControl: procedure;
                 end;
             end;
         end;
-/* 9 */        do;            /* SAVE */
+/* 9 */ do;            /* SAVE */
             if saveIdx > 7 then
                 call StackError;
             else
@@ -4930,14 +4948,14 @@ ProcessControl: procedure;
                 return;
             end;
         end;
-/* 10 */    do;            /* RESTORE */
+/* 10 */do;            /* RESTORE */
             if saveIdx > 0 then
             do;
                 call move(3, .saveStack + (saveIdx := saveIdx - 1) * 3, .ctlLIST);
                 return;
             end;
         end;
-/* 11 */    do;            /* EJECT */
+/* 11 */do;            /* EJECT */
             ctlEJECT = ctlEJECT + 1;
             return;
         end;
@@ -5966,7 +5984,7 @@ FinishAssembly: procedure public;
     call CloseF(infd);
 $IF MACRO
     call CloseF(macrofd);
-    call Delete(.asmax$ref, .statusIO);
+    call Delete(.asmac$ref, .statusIO);
     if ctlOBJECT then	/* ?? why only for MACRO version */
         call CloseF(objfd);
 $ENDIF
@@ -6000,6 +6018,7 @@ declare aExtents(*) byte public initial(' LSTOBJ'),
     aDebug(*) byte public initial('DEBUG');
 
 
+/* skip white space in command line */
 CmdSkipWhite: procedure public;
     declare cmdch based cmdch$p byte;
     
@@ -6008,6 +6027,11 @@ CmdSkipWhite: procedure public;
     end;
 end;
 
+/*
+    return drive ('0'-'9') of current program.
+    skips DEBUG if present
+    returns '0' if no drive specified
+*/
 GetDrive: procedure byte public;
     declare cmdch based cmdch$p byte;
 
@@ -6047,11 +6071,13 @@ GetAsmFile: procedure public;
         return cmdch = ' ' or cmdch = TAB or cmdch = CR;
     end;
 
+    /* select key words depending on whether macro version or not */
 $IF MACRO
     symTab(TID$KEYWORD) = .extKeywords;    /* extended key words */
 $ELSE
     symTab(TID$KEYWORD) = .stdKeywords;    /* no extended key words */
 $ENDIF
+    /* set location of symbol table */
     symHighMark, endSymTab(TID$KEYWORD), symTab(TID$SYMBOL), endSymTab(TID$SYMBOL) =
 $IF NOT SMALL
                          .MEMORY;
@@ -6065,36 +6091,37 @@ $ENDIF
     actRead = actRead + .cmdLineBuf;    /* convert to pointer */
     scanCmdLine = TRUE;        /* scanning command line */
 $IF SMALL
+    /* asm80 only, shows signon msg */
     call Write(0, .signonMsg, 29h, .statusIO);
     call Write(0, .signonMsg, 2, .statusIO);
     call IoErrChk;
 $ENDIF
     call CmdSkipWhite;
 $IF SMALL
-    ovlFile(2),
+    ovlFile(2),               /* ovl 1,2,3 are assumed on current drive */
 $ENDIF
-    asxref(2) = GetDrive;     /* tem defaults to current drive */
+    asxref(2) = GetDrive;     /* asxref tmp file defaults to current drive */
 
-    do while not CmdIsWhite;
+    do while not CmdIsWhite;    /* skip to end of program name */
         cmdch$p = cmdch$p + 1;
     end;
 
     call CmdSkipWhite;
-    if cmdch = CR then        /* no name !! */
+    if cmdch = CR then        /* no args !! */
         call RuntimeError(4);
 
-    infd = InOpen(cmdch$p, 1);    /* Open file for reading */
+    infd = SafeOpen(cmdch$p, READ$MODE);    /* Open file for reading */
     rootfd, srcfd = infd;
-    ii = TRUE;
-    kk = 0;
+    ii = TRUE;      /* copying name */
 
+    kk = 0;     /* length of file name */
     do while not CmdIsWhite;    /* copy file name over to the files list */
         files(0).name(kk) = cmdch;
         if ii then        /* and the name for the lst and obj files */
             lstFile(kk), objFile(kk) = cmdch;
         if cmdch = '.' then
         do;
-            ii = FALSE;
+            ii = FALSE; /* don't copy extent for lst & obj files */
             call AddExtents;    /* add lst and obj file extents */
         end;
         kk = kk + 1;
@@ -6108,10 +6135,11 @@ $ENDIF
         call AddExtents;
     end;
 
-    files(0).name(kk) = ' ';    /* override current drive for tmp if explict in source file */
+    files(0).name(kk) = ' ';    /* append trailing space */
+    /* set drive for macro and asxref tmp files if specified in source file */
     if lstFile(0) = ':' and lstFile(2) <> '0' then
 $IF MACRO
-        asmax$ref(2),
+        asmac$ref(2),
 $ENDIF
         asxref$tmp(2) = lstFile(2);
 end;
@@ -6126,17 +6154,17 @@ $IF MACRO
     expandingMacro, b905C, b905E,
 $ENDIF
     hasVarRef, needToOpenFile = bZERO;
-    noOpsYet, primaryValid, ctlLIST, ctlLISTChanged,
+    noOpsYet, primaryValid, ctlLIST, ctlLISTChanged = bTRUE;
 $IF MACRO
-    ctlGEN,
+    ctlGEN = bTRUE;
 $ENDIF
     ctlCOND = bTRUE;
 $IF MACRO
-    macroDepth, b9064, macroCondStk(0), macroCondSP, 
+    macroDepth, b9064, macroCondStk(0), macroCondSP = bZERO; 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 $IF MACRO
-    macroBlkCnt,
+    macroBlkCnt = wZERO;
 $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
     maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), effectiveAddr,
@@ -6152,7 +6180,7 @@ $ENDIF
         controlSeen(ii) = 0;
     end;
 $IF MACRO
-    curMacroBlk = 0FFFFh;
+    curMacroBlk = 0FFFFH;
 $ENDIF
     if not IsPhase1 then    /* close any Open include file */
     do;
@@ -6452,9 +6480,9 @@ declare    CR literally '0Dh',
     TRUE literally '0ffh',
     FALSE literally '0',
     bool literally 'byte',
-    READONLY literally '1',        /* Open mode */
-    WRITEONLY literally '2',
-    READWRITE literally '3',
+    READ$MODE literally '1',        /* Open mode */
+    WRITE$MODE literally '2',
+    UPDATE$MODE literally '3',
     SEEKEND literally '4',        /* seek mode */
     TYPEREF literally '1',    /* tmp file types */
     TYPEDEF literally '0',
@@ -6642,7 +6670,7 @@ end;
 OpenTmp: procedure;
     declare tstatus byte;    /* benign bug should be address but next data byte is dummy */
 
-    call Open(.tmpAFTN, .aF0AsxrefTmp, READONLY, 0, .tstatus);
+    call Open(.tmpAFTN, .aF0AsxrefTmp, READ$MODE, 0, .tstatus);
     call StatusChk(tstatus);    
 end;
 
@@ -6651,9 +6679,9 @@ OpenListFile: procedure;
     declare dummy byte;
 
     if path(0) = ':' and (path(1) and 0dfh) <> 'F' then    /* test as UCase */
-        call Open(.conn$p, .path, WRITEONLY, 0, .status);    /* device */
+        call Open(.conn$p, .path, WRITE$MODE, 0, .status);    /* device */
     else
-        call Open(.conn$p, .path, READWRITE, 0, .status);    /* file */
+        call Open(.conn$p, .path, UPDATE$MODE, 0, .status);    /* file */
 
     call StatusChk(status);
     call Seek(conn$p, SEEKEND, .dummy, .dummy, .status);    /* seek end */

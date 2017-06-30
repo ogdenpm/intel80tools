@@ -26,6 +26,96 @@ whocon		P(A conn,A buff$p)
 Write           P(A conn,A buff$p,A count,A status$p)
 
 
+F9DEV		'9'
+
+# error codes
+OK	'0'
+NO$FREE$BUFFER	'1'
+BAD$AFT$NO	'2'
+AFT$FULL	'3'
+BAD$PATH	'4'
+BAD$DEVICE	'5'
+CANT$WRITE	'6'
+DISK$FULL	'7'
+CANT$READ	'8'
+DIRECTORY$FULL	'9'
+DIFFERENT$DISK	'10'
+MULTIDEFINED	'11'
+ALREADY$OPEN	'12'
+NO$SUCH$FILE	'13'
+WRITE$PROTECT	'14'
+ISIS$OVERWRITE	'15'
+BAD$LOAD$FORMAT	'16'
+NON$DISK$FILE	'17'
+BAD$COMMAND	'18'
+NON$DISK$SEEK	'19'
+LONG$BACK$SEEK	'20'
+CANT$RESCAN	'21'
+ILLEGAL$ACCESS	'22'
+NULL$FILENAME	'23'
+DISK$IO$ERROR	'24'
+BAD$ECHO	'25'
+BAD$ATTRIB	'26'
+BAD$SEEK$ARG	'27'
+NULL$EXTENSION	'28'
+CONSOLE$EOF	'29'
+DRIVE$NOT$READY	'30'
+SEEK$ON$WRITE	'31'
+CANT$DELETE	'32'
+ILLEGAL$PARAM	'33'
+BAD$RETSW	'34'
+SEEK$PAST$EOF	'35'
+UNRECOG$SWITCH	'201'
+UNRECOG$DELIM	'202'
+INVALID$SYNTAX	'203'
+EARLY$EOF	'204'
+BAD$LABEL	'206'
+NO$END$STAT	'207'
+CHECKSUM$ERROR	'208'
+RELO$SEQ$ERR	'209'
+INSUFF$MEMORY	'210'
+REC$TOO$LONG	'211'
+BAD$REC$TYP	'212'
+FIXUP$BOUNDS	'213'
+BAD$PARAM	'214'
+ARG$TOO$LONG	'215'
+TOO$MANY$PARAMS	'216'
+REC$TOO$SHORT	'217'
+ILL$REC$FMT	'218'
+PHASE$ERROR	'219'
+NO$EOF		'220'
+SEG$OVERFLOW	'221'
+UNRECOG$REC	'222'
+FIXUP$ERROR	'223'
+ILL$REC$SEQ	'224'
+BAD$MOD$NAME	'225'
+LONG$MOD$NAME	'226'
+NO$L$PAREN	'227'
+NO$R$PAREN	'228'
+UNRECOG$CONTROL	'229'
+DUP$SYMBOL	'230'
+FILE$EXISTS	'231'
+UNRECOG$COM	'232'
+NO$TO		'233'
+DUP$FILE$NAME	'234'
+NOT$LIB$FILE	'235'
+TOO$MANY$CMNS	'236'
+MISSING$COMMON	'237'
+STACK$CONTENT	'238'
+NO$MODHDR	'239'
+OUT$OF$RANGE	'240'
+INV$OBJ$FILE	'241'
+
+
+# open modes
+READ$MODE	'1'
+WRITE$MODE	'2'
+UPDATE$MODE	'3'
+
+# seek modes
+SEEK$RETURN	'0'
+SEEK$ABS	'2'
+
 $(path.plm)
 path		P(A filename,A pn)B
 
@@ -205,7 +295,7 @@ Initialize: procedure;
 	unused = SetupMap(targetDisk) + 29;
 	call WriteDirectory(targetDisk);
 	file(6).name(2) = targetDisk + '0';
-	call Open(.aftOut, .file(6), 3, 0, .status);
+	call Open(.aftOut, .file(6), UPDATE$MODE, 0, .status);
 	call SFileError(status, .file(6));
 	call MoveAscii(.labBlk, .pn + 1, 9);
 	call Write(aftOut, .labBlk, fmtTable(diskType).labBlkSize, .status);
@@ -241,11 +331,11 @@ entry:
 		do;
 			bufferPtr = Deblank(bufferPtr + 5);
 			if (srcDisk := char - '0') > 9 then
-				call FileError(0C9h, bufferptr, TRUE);
+				call FileError(UNRECOG$SWITCH, bufferptr, TRUE);
 
 		end;
 		else if char <> '$' then
-			call FileError(0C9h, bufferPtr, TRUE);
+			call FileError(UNRECOG$SWITCH, bufferPtr, TRUE);
 		bufferPtr = Deblank(bufferPtr + 1);
 	end;
 	if srcDisk = targetDisk then
@@ -281,9 +371,9 @@ entry:
 		do while fileNumber < 4;
 			memSize = memSize - 8;
 			file(fileNumber).name(2) = srcDisk + '0';
-			call Open(.aftIn, .file(fileNumber), 1, 0, .status);
+			call Open(.aftIn, .file(fileNumber), READ$MODE, 0, .status);
 			call SFileError(status, .file(fileNumber));
-			call Seek(aftIn, 2, .i, .info.offset, .status);
+			call Seek(aftIn, SEEK$ABS, .i, .info.offset, .status);
 			call SFileError(status, .file(fileNumber));
 			call Read(aftIn, .info.begin, memSize, .actual, .status);
 			call SFileError(status, .file(fileNumber));
@@ -307,9 +397,9 @@ entry:
 
 				do while hadPrint <= fileNumber;
 					file(hadPrint).name(2) = targetDisk + '0';
-					call Open(.aftOut, .file(hadPrint), 3, 0, .status);
+					call Open(.aftOut, .file(hadPrint), UPDATE$MODE, 0, .status);
 					call SFileError(status, .file(hadPrint));
-					call Seek(aftOut, 2, .i, .info.offset, .status);
+					call Seek(aftOut, SEEK$ABS, .i, .info.offset, .status);
 					call SFileError(status, .file(hadPrint));
 					call Write(aftOut, .info.begin, info.length, .status);
 					call SFileError(status, .file(hadPrint));
@@ -347,7 +437,7 @@ entry:
 		call Initialize;
 		file(0).name(2) = targetDisk + '0';
 		file(1).name(2) = targetDisk + '0';
-		call Open(.aftOut, .file(1), 3, 0, .status);
+		call Open(.aftOut, .file(1), UPDATE$MODE, 0, .status);
 		call SFileError(status, .file(1));
 		call Write(aftOut, .codeBlock, 3Ah, .status);	/* code to write non system disk */
 		call SFileError(status, .file(1));
@@ -485,11 +575,11 @@ start:
 		do;
 			bufferPtr = Deblank(bufferPtr + 5);
 			srcDisk = char - '0';
-			if srcDisk > 9 then
-				call FileError(0c9h, bufferPtr, TRUE);
+			if srcDisk > F9DEV then
+				call FileError(UNRECOG$SWITCH, bufferPtr, TRUE);
 		end;
 		else if char <> '$' then
-			call FileError(0c9h, bufferPtr, TRUE);
+			call FileError(UNRECOG$SWITCH, bufferPtr, TRUE);
 		bufferPtr = Deblank(bufferPtr + 1);
 	end;
 
@@ -507,7 +597,7 @@ start:
 		call Exit;
 	end;
 
-	call Open(.aftIn, .labFile2, 1, 0, .status);
+	call Open(.aftIn, .labFile2, READ$MODE, 0, .status);
 	call FileError(status, .labFile2, TRUE);
 	call Read(aftIn, .buffer, 251, .actual, .status);
 	call FileError(status, .labFile2, TRUE);
@@ -527,7 +617,7 @@ start:
 	mapBase = .MEMORY;
 	unused = SetupMap(targetDisk) + 29;
 	call WriteDirectory(targetDisk);
-	call Open(.aftOut, .labFile, 3, 0, .status);
+	call Open(.aftOut, .labFile, UPDATE$MODE, 0, .status);
 	call FileError(status, .labFile, TRUE);
 	call moveAscii(.labBlk, .pn(1), 9);
 
@@ -543,7 +633,7 @@ start:
 			call Write(0, .('COPYING SYSTEM FILES', CR, LF), 22, .status);
 
 		memSize = (Memck - .Memory) and 0ff80h;
-		call Open(.dirAFT, .dirFile2, 1, 0, .status);
+		call Open(.dirAFT, .dirFile2, READ$MODE, 0, .status);
 		call FileError(status, .dirFile2, TRUE);
 		direct.empty = 0;
 		do while direct.empty <> 7fh;
@@ -571,9 +661,9 @@ start:
 					call Ypath(.direct, .inputString);
 					direct.empty = targetDisk;
 					call Ypath(.direct, .outputString);
-					call Open(.aftOut, .outputString, 3, 0, .status);
+					call Open(.aftOut, .outputString, UPDATE$MODE, 0, .status);
 					call FileError(status, .outputString, TRUE);
-					call Open(.aftIn, .inputString, 1, 0, .status);
+					call Open(.aftIn, .inputString, READ$MODE, 0, .status);
 					call FileError(status, .inputString, TRUE);
 					actual = memSize;
 					do while actual = memSize;
@@ -604,7 +694,7 @@ start:
 	end;
 	else
 	do;
-		call Open(.aftOut, .t0File, 3, 0, .status);
+		call Open(.aftOut, .t0File, UPDATE$MODE, 0, .status);
 		call Write(aftOut, .codeBlock, 58, .status);
 		call Close(aftOut, .status);
 		call Delete(.binFile, .status);
@@ -673,7 +763,7 @@ declare	pn(12) byte at(.MEMORY);
 		do;
 			call Attrib(.badFile, 3, 0, .status);
 			call Attrib(.badFile, 2, 0, .status);
-			call Open(.aftn, .badFile, 2, 0, .status);
+			call Open(.aftn, .badFile, WRITE$MODE, 0, .status);
 			call Write(aftn, .badFileBuffer, 3712, .status);
 			call FileError(status, .badFile, TRUE);
 			call Close(aftn, .status);
@@ -681,7 +771,7 @@ declare	pn(12) byte at(.MEMORY);
 			call Attrib(.badFile, 3, 1, .status);
 			call Attrib(.mapFile, 3, 0, .status);
 			call Attrib(.mapFile, 2, 0, .status);
-			call Open(.aftn, .mapFile, 3, 0, .status);
+			call Open(.aftn, .mapFile, UPDATE$MODE, 0, .status);
 			call Write(aftn, .mapFileBuffer, 3712, .status);
 			call FileError(status, .mapFile, TRUE);
 			call Close(aftn, .status);
@@ -719,14 +809,14 @@ declare	pn(12) byte at(.MEMORY);
 	end;
 
 
-	invalidSyntax: procedure;
-		call FileError(0CBh, bufferPtr, FALSE);
+	ErrInvalidSyntax: procedure;
+		call FileError(INVALID$SYNTAX, bufferPtr, FALSE);
 	end;
 
 	sub3E49: procedure boolean;
 		if char - '0' > 9 then
 		do;
-			call InvalidSyntax;
+			call ErrInvalidSyntax;
 			return 0;
 		end;
 		w6C12 = bufferPtr;
@@ -738,7 +828,7 @@ declare	pn(12) byte at(.MEMORY);
 		bufferPtr = Deblank(w6C12);
 		if char - '0' > 9 then
 		do;
-			call InvalidSyntax;
+			call ErrInvalidSyntax;
 			return FALSE;
 		end;
 
@@ -756,14 +846,14 @@ declare	pn(12) byte at(.MEMORY);
 		end;
 		else if char <> 'T' then
 		do;
-			call InvalidSyntax;
+			call ErrInvalidSyntax;
 			return FALSE;
 		end;
 
 		bufferPtr = Deblank(bufferPtr + 1);
 		if char <> CR then
 		do;
-			call InvalidSyntax;
+			call ErrInvalidSyntax;
 			return FALSE;
 		end;
 		b6C17 = TRUE;
@@ -903,7 +993,7 @@ entry:
 	bufferPtr = Deblank(.buffer);
 	driveNumber = char - '0';
 	if driveNumber > 9 then
-		call FileError(0CBh, bufferPtr, TRUE);
+		call FileError(INVALID$SYNTAX, bufferPtr, TRUE);
 	else if driveNumber > 3 then
 	do;
 		call Write(0, .(' DRIVE NUMBER OUT OF RANGE', CR, LF), 28, .status);
@@ -912,14 +1002,14 @@ entry:
 	mapFile(2), badFile(2) = char;
 	bufferPtr = Deblank(bufferPtr + 1);
 	if char <> CR then
-		call FileError(0CBh, bufferPtr, TRUE);
+		call FileError(INVALID$SYNTAX, bufferPtr, TRUE);
 
-	call Open(.aftn, .mapFile, 1, 0, .status);
+	call Open(.aftn, .mapFile, READ$MODE, 0, .status);
 	call FileError(status, .mapFile, TRUE);
 	call Read(aftn, .mapFileBuffer, 3712, .actual, .status);
 	call Close(aftn, .status);
 
-	call Open(.aftn, .badFile, 1, 0, .status);
+	call Open(.aftn, .badFile, READ$MODE, 0, .status);
 	call FileError(status, .badFile, TRUE);
 	call Read(aftn, .badFileBuffer, 3712, .actual, .status);
 	call Close(aftn, .status);
@@ -949,7 +1039,7 @@ entry:
 		else if sub41D7(.('EXIT'), 4) then
 		do;
 			if char <> CR then
-				call InvalidSyntax;
+				call ErrInvalidSyntax;
 			else
 			do;
 				call WriteChanges;
@@ -959,21 +1049,21 @@ entry:
 		else if sub41D7(.('QUIT'), 4) then
 		do;
 			if char <> CR then
-				call InvalidSyntax;
+				call ErrInvalidSyntax;
 			else
 				call Exit;
 		end;
 		else if sub41D7(.('RECORD'), 6) then
 		do;
 			if char <> CR then
-				call InvalidSyntax;
+				call ErrInvalidSyntax;
 			else
 				call WriteChanges;
 		end;
 		else if sub41D7(.('COUNT'), 5) then
 		do;
 			if char <> CR then
-				call InvalidSyntax;
+				call ErrInvalidSyntax;
 			else if w6BEF = 0 then
 				call Write(0, .(' NO BAD SECTORS',CR,LF), 17, .status);
 			else
@@ -1001,12 +1091,12 @@ entry:
 			do;
 				bufferPtr = Deblank(Delimit(w6C10 := bufferPtr));
 				if char <> CR then
-					call InvalidSyntax;
+					call ErrInvalidSyntax;
 				else if w6BEF = 0 then
 					call Write(0, .(' NO BAD SECTORS',CR,LF), 17, .status);
 				else
 				do;
-					call Open(.aftn, w6C10, 2, 0, .status);
+					call Open(.aftn, w6C10, WRITE$MODE, 0, .status);
 					if status <> 0 then
 						call FileError(status, w6C10, FALSE);
 					else
@@ -1016,7 +1106,7 @@ entry:
 			end;
 		end;
 		else if char <> CR then
-			call InvalidSyntax;
+			call ErrInvalidSyntax;
 	end;
 end;	/* end of entry */
 
@@ -1938,10 +2028,43 @@ end;
 submit: do;
 $include(submit.ipx)
 
-declare copyright(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP',
-			4, 0, 'program_version_number=', 1, 'V4.3', 0);
+declare copyright(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP'),
+	version(*) byte data( 4, 0),
+	programVersionNumberString(*) byte data('program_version_number=', 1, 'V4.3', 0);
 
+/*
+ THIS CUSP HAY BE CALLED BY EITHER OF 2 C8HHAND STRINGS:
+
+ 1.   -SUBHIT RESTORE <HACRO-FILENAHE> (<PATHNAHE>,<BLDCKNB>,<BYTENO>)
+
+       WHEN INVOKED IN THIS FASHION, SUBHIT KILL REPLACE THE
+      CURRENT CONSOLE INPUT DEVICE (:CI:) BY THE FILE SPECIFIED
+      BY (PATHNAME); THEN THE FILE CALLED :FX:<MACRO-FILENAME>.CS
+      IS DELETED.
+
+       FURTHERHORE, IF <PATHNAHE> SPECIFIES A DISK FILE, THEN
+      A SEEK IS PERFORMED ON IT, AFTER IT BECOMES THE HEU :CI:
+      FILE, USING THE <BLOCKNO> AND <BYTENO> PARAHETERS, WHICH
+      ARE ASSUHED TO BE INTEGERS.
+
+ 2.   -SUBMIT <MACRO-FILEHAHE >(<ARG0>,<ARG1>,...,<ARG9>)
+
+       WHEN INVOKED IN THIS FASHION, SUBMIT WILL CREATE A FILE
+      :FX:<HACRO-FILENAHE>.CS BY SUBSTITUTING THE ACTUAL
+      PARAHETERS (<ARG>'S) GIVEN FOR THE FORMAL PARAMETERS IN THE
+      FILE SPECIFIED BY <MACRD-FILENAME>. (THE K'TH FORMAL PARAHETER
+      IS %K, K A DIGIT.) THE CURRENT CONSOLE INPUT DEVICE IS THEN
+      TEMPORARILY REDEFINED AS :FX:<MACRO-FILEHAHE>.CS; WHEN END OF
+      FILE ON :FX:<<ACRO-FILENAME).CS IS REACHED, IT IS DELETED,
+      AND :CI: IS RESUMED AS BEFORE. (NOTE THAT SUBMITS CAN BE NESTED).
+*/
+
+
+/*
+  Structure to store actual paramaters and corresponding lengths.
+*/
 declare params(10) structure(dat(31) byte, length byte);
+
 declare buffer(1024) byte;
 declare	bufferPtr address,
 	bufferCount address,
@@ -1955,17 +2078,22 @@ declare	bufferPtr address,
 	(csdName, csName, nickName, ci) (15) byte;
 
 
+/* **************************
+   Beginning of main program
+   ************************** */
 
 
-
-start:
+main:
+	/*
+	  initialise paramater arrays
+	*/
 	do i = 0 to size(params);
 	    params(0).dat(i) = 0;
 	end;
 	call Rescan(1, .status);
 	call Read(1, .buffer, length(buffer), .actual, .status);
 	buffer(actual) = CR;
-	bufferPtr = .buffer;
+	bufferPtr = .buffer;	/* ForceUpper that stops at params */
 
 	do while char <> CR and char <> '(';
 		char = UpperCase(char);
@@ -1973,6 +2101,9 @@ start:
 	end;
 
 	bufferPtr = Deblank(.buffer);
+	/*
+	  Save name submit was invoked by
+        */
 	debug = FALSE;
 	if (Seq(bufferPtr, .('DEBUG '), 6)) then
 	do;
@@ -1983,13 +2114,18 @@ start:
 	call Unpath(.pn, .nickName);
 	bufferPtr = Deblank(Delimit(bufferPtr));
 
+	/*
+	  Test for restore command
+	*/
 	restore = FALSE;
 	if (Seq(bufferPtr, .('RESTORE '), 8)) then
 	do;
 		restore = TRUE;
 		bufferPtr = Deblank(bufferPtr + 8);
 	end;
-
+	/*
+	  Parse filenames
+	*/
 	call FileError(Path(bufferPtr, .pn), bufferPtr, TRUE);
 	if pn(7) = 0 then
 	do;
@@ -2003,7 +2139,10 @@ start:
 	pn(9) = 0;
 	call Unpath(.pn, .csName);
 	bufferPtr = Deblank(Delimit(bufferPtr));
-	i = 0;
+	/*
+	  Process actual parameters
+	*/
+	i = 0;	/* parameter counter */
 	if char = '(' then
 	do;
 	    bufferPtr = bufferPtr + 1;
@@ -2011,16 +2150,16 @@ start:
 	    do while scanning;
 		auxPtr, bufferPtr = Deblank(bufferPtr);
 		if i = length(params) then
-		    call FileError(0D8h, auxPtr, TRUE); /* too many paramaters */
+		    call FileError(TOO$MANY$PARAMS, auxPtr, TRUE);
 
-		l = 0;
+		l = 0;	/* parameter length counter */
 		if char = '''' then
 		do;
 		    paramScan = TRUE;
 		    bufferPtr = bufferPtr + 1;
 		    do while paramScan;
 			if l = length(params.dat) then
-			    call FileError(0D7h, auxPtr, TRUE); /* argument too long */
+			    call FileError(ARG$TOO$LONG, auxPtr, TRUE);
 
 			params(i).dat(l) = char;
 			if char = '''' then
@@ -2044,7 +2183,7 @@ start:
 		    paramScan = TRUE;
 		    do while paramScan;
 			if l = length(params.dat) then
-			    call FileError(0D7h, auxPtr, TRUE);
+			    call FileError(ARG$TOO$LONG, auxPtr, TRUE);
 			if ' ' < char  and char <= 'z' and
 			   char <> ',' and char <> ')'then
 			do;    
@@ -2066,31 +2205,40 @@ start:
 		    bufferPtr = Deblank(bufferPtr + 1);
 		end;
 		else 
-		    call FileError(0CBh, auxPtr, TRUE); /* invalid syntax */
+		    call FileError(INVALID$SYNTAX, auxPtr, TRUE); /* invalid syntax */
 
 		params(i).length = l;
 		i = i + 1;
 	    end;
 	end;
 	if char <> CR then
-	    call FileError(0CBh, bufferPtr, TRUE); /* invalid syntax */
+	    call FileError(INVALID$SYNTAX, bufferPtr, TRUE); /* invalid syntax */
 	if restore then
 	do;
+	    /*
+		Change console to previous file
+	    */
 	    call Consol(.params(0).dat, .(':CO: '), .status);
 	    status = Path(.params(0).dat, .pn);
-	    if TestRange(pn(0), 1) <= 9 then
+	    if TestRange(pn(0), 1) <= F9DEV then	/* DISK FILE */ /* HD */
 	    do;
 	        blockNo = .params(1).dat;
 		blockNo = ScanInteger(.blockNo);
 	        byteNo = .params(2).dat;
 		byteNo = ScanInteger(.byteNo);
-		call Seek(1, 2, .blockNo, .byteNo, .status);
+		call Seek(1, SEEK$ABS, .blockNo, .byteNo, .status);
 	    end;
+	    /*
+		Delete file which just was the console
+	    */
 	    call Delete(.csName, .status);
 	    call FileError(status, .csName, TRUE);
 	end;
 	else
 	do;
+	    /*
+		Write <MACRO-FILENAME>.CS
+	    */
 	    GetInput: procedure byte;
 	    	declare temp byte;
 	    	if bufferCount = 0 then
@@ -2106,9 +2254,9 @@ start:
 	    	return temp;
 	    end;
 
-	    call Open(.csd, .csdName, 1, 0, .status);
+	    call Open(.csd, .csdName, READ$MODE, 0, .status);
 	    call FileError(status, .csdName, TRUE);
-	    call Open(.cs, .csName, 2, 0, .status);
+	    call Open(.cs, .csName, WRITE$MODE, 0, .status);
 	    call FileError(status, .csName, TRUE);
 	    bufferCount = 0;
 	    do while (l := GetInput) <> 0;
@@ -2123,10 +2271,13 @@ start:
 		do;
 		    l = GetInput - '0';
 		    if l > last(params) then
-			call FileError(0D6h, bufferPtr - 1, TRUE);
+			call FileError(BAD$PARAM, bufferPtr - 1, TRUE);
 		    call Write(cs, .params(l).dat, params(l).length, .status);
 		end;
 	    end;
+	    /*
+		Add command to restore prior console
+	    */
 	    call Close(csd, .status);
 	    if debug then
 		call Write(cs, .('DEBUG '), 6, .status);
@@ -2134,11 +2285,14 @@ start:
 	    call Write(cs, .('RESTORE '), 8, .status);
 	    call Write(cs, .csName, Delimit(.csName) - .csName, .status);
 	    call Write(cs, .('('), 1, .status);
+	    /*
+		CI := Curent console input device
+	    */
 	    call Whocon(1, .ci);
 	    call Write(cs, .ci, Delimit(.ci) - .ci, .status);
 	    status = Path(.ci, .pn);
 
-	    if TestRange(pn(0), 1) <= 9 then
+	    if TestRange(pn(0), 1) <= F9DEV then	/* HD */
 	    do;
 		PrintBlockOrByte: procedure(x);
 			declare (x, ptr) address;
@@ -2151,7 +2305,7 @@ start:
 		end;
 
 		/* write current location in file */
-		call Seek(1, 0, .blockNo, .byteNo, .status);
+		call Seek(1, SEEK$RETURN, .blockNo, .byteNo, .status);
 		call PrintBlockOrByte(blockNo);
 	        call PrintBlockOrByte(byteNo);
 	    end;
