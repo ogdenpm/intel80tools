@@ -31,9 +31,10 @@ static struct {
 	int dynamic;
 } disks[10];
 
-int mOption;
-int uOption;
-int oOption;
+int mOption;	// map drives in command line
+int uOption;	// ignore unresolved / unsatisfied errors
+int oOption;	// ingore overlap errors
+int iOption;	// ignore load errors
 
 
 
@@ -117,6 +118,8 @@ int parseOptions(int argc, char *argv[])
 			uOption = 1;
 		else if (strcmp(argv[isisProgArg], "-o") == 0)
 			oOption = 1;
+		else if (strcmp(argv[isisProgArg], "-i") == 0)
+			iOption = 1;
 		else
 			printf("Unknown option %s\n", argv[isisProgArg]);
 	}

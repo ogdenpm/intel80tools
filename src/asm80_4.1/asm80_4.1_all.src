@@ -1,5 +1,5 @@
 src/asm80.pex
-# vim:ts=4:expandtab:
+# vim:ts=4:expandtab:shiftwidth=4:
 /* assembler routines & linkage */
 Isis            P(B syscall,A param$p)
 PckTok          P
@@ -16,7 +16,7 @@ FALSE           '0'
 CR              '0Dh'
 FF              '0Ch'
 LF              '0Ah'
-ESC		'1Bh'
+ESC     '1Bh'
 TAB             '9'
 MACROEOB    '0FEh'
 
@@ -24,6 +24,7 @@ MACROEOB    '0FEh'
 bool             'byte'
 word             'address'
 pointer          'address'
+apointer         'address'
 
 /* character classes */
 CC$BAD          '0'
@@ -36,7 +37,7 @@ CC$DOLLAR       '6'
 CC$QUOTE        '7'
 CC$DIG        '8'
 CC$LET          '9'
-CC$MAC		'10'
+CC$MAC      '10'
 CC$ESC          '11'
 
 TT$ID           '0'
@@ -91,6 +92,7 @@ OMF$LIBHDR      '2CH'
 OMF$COMDEF      '2EH'
 
 /* Op types */
+T$BEGIN         '0'
 T$CR            '1'
 T$LPAREN        '2'
 T$RPAREN        '3'
@@ -101,7 +103,6 @@ T$MINUS         '7'
 T$UPLUS         '8'
 T$SLASH         '9'
 T$UMINUS        '0Ah'
-O$EXPR          '0'
 O$ID            '1'
 O$TARGET        '2'
 O$LABEL         '3'
@@ -166,7 +167,7 @@ K$IRPC          '3Ch'
 O$3D            '3Dh'
 K$REPT          '3Eh'
 K$LOCAL         '3Fh'
-O$OPTVAL		'40h'
+O$OPTVAL        '40h'
 K$NUL           '41h'
 O$MACROID       '64h'
 
@@ -189,37 +190,35 @@ TID$SYMBOL    '1'
 TID$MACRO    '2'
 
 /* user defined types */
-TOKENSYM$T      'structure(tok(2) address, line address, type byte, flags byte)'
-FILE$T          'structure(name(15) byte, blk address, byt address, b19 byte)'
-MACRO$T1    'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 address'
-MACRO$T2        'buf$p address, blk address, w10 address, w12 address, w14 address'
+TOKENSYM$T      'structure(tok(2) word, line word, type byte, flags byte)'
+FILE$T          'structure(name(15) byte, blk word, byt word, b19 byte)'
+MACRO$T1    'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 word'
+MACRO$T2        'buf$p pointer, blk word, w10 word, w12 pointer, w14 word'
 MACRO$T         'structure(MACRO$T1,MACRO$T2)'
-CONTENT$T       'structure(type byte, len address, segid byte, offset address, dta(121) byte, crc byte)'
-EOF$T           'structure(type byte, len address, crc byte)'
-EXTNAMES$T    'structure(type byte, len address, dta(124) byte, crc byte)'
-EXTREF$T        'structure(type byte, len address, hilo byte, dta(30) address, crc byte)'
-INTERSEG$T      'structure(type byte, len address, segid byte, hilo byte, dta(29) address, crc byte)'
-MODEND$T        'structure(type byte, len address, modtyp byte, segid byte, offset address, crc byte)'
-MODHDR$T    'structure(type byte, len address, dta(26) byte)'
-PUBLICS$T       'structure(type byte, len address, segid byte, dta(124) byte, crc byte)'
-RELOC$T         'structure(type byte, len address, hilo byte, dta(62) address)'
-KEYWORD$T    'structure(tok(2) address, base byte, delta byte, type byte, flags byte)'
+CONTENT$T       'structure(type byte, len word, segid byte, offset word, dta(121) byte, crc byte)'
+EOF$T           'structure(type byte, len word, crc byte)'
+EXTNAMES$T    'structure(type byte, len word, dta(124) byte, crc byte)'
+EXTREF$T        'structure(type byte, len word, hilo byte, dta(30) word, crc byte)'
+INTERSEG$T      'structure(type byte, len word, segid byte, hilo byte, dta(29) word, crc byte)'
+MODEND$T        'structure(type byte, len word, modtyp byte, segid byte, offset word, crc byte)'
+MODHDR$T    'structure(type byte, len word, dta(26) byte)'
+PUBLICS$T       'structure(type byte, len word, segid byte, dta(124) byte, crc byte)'
+RELOC$T         'structure(type byte, len word, hilo byte, dta(62) word)'
+KEYWORD$T    'structure(tok(2) word, base byte, delta byte, type byte, flags byte)'
 
 /* common based variables */
 curTokenSym     "TOKENSYM$T"..curTokenSym$p
 
 $file(startm.plm)
-b$3782          B
-b$3783          B
-w$3780          A
-IsGT            PB
-IsLT            PB
+b3782          BS
+w3780          "word"
+IsGT            P"bool"
+IsLT            P"bool"
 InsertByteInMacroTbl        P(B c)
 InsertCharInMacroTbl        P(B c)
 
 $file(startm.plm,startb.plm,starts.plm)
 aBadSyntax      BS
-aCo             BS
 aCommand        BS
 aEof            BS
 aError          BS
@@ -233,8 +232,8 @@ aStack          BS
 aTable          BS
 bTRUE           B
 bZERO           B
-errStrs         AS
-errStrsLen      BS
+aErrStrs         AS
+aErrStrsLen      BS
 signonMsg       BS
 spaces15        BS
 spaces2         BS
@@ -242,31 +241,31 @@ spaces24        BS
 spaces4         BS
 spaces5         BS
 spaces6         BS
-BlankAsmErrCode PB
+BlankAsmErrCode P"bool"
 BlankMorPAsmErrCode PB
-ChkGenObj       PB
+ChkGenObj       P"bool"
 CloseF          P(A conn)
 Flushout        P
 GetNibble       P(A bp,B idx)B
 InitialControls P
-SafeOpen          P(A path$p,A access)A
+SafeOpen          P(A path$p,A access)"word"
 IoErrChk        P
 IoError         P("pointer" s)
-IsComma         PB
-IsCR            PB
-IsPhase1        PB
-IsPhase2Print   PB
-IsRParen        PB
-IsSpace         PB
-IsTab           PB
-IsWhite         PB
+IsComma         P"bool"
+IsCR            P"bool"
+IsPhase1        P"bool"
+IsPhase2Print   P"bool"
+IsRParen        P"bool"
+IsSpace         P"bool"
+IsTab           P"bool"
+IsWhite         P"bool"
 Nibble2Ascii    P(B n)B
 GetCmdCh        PB
 Outch           P(B c)
 OutStrN         P(A s,B n)
-Physmem         PA
+Physmem         P"pointer"
 ParseControlLines P
-Put2Hex         P(A pfunc,B val)
+Put2Hex         P(pointer pfunc,B val)
 RuntimeError    P(B errCode)
 Skip2EOL        P
 SourceError     P(B errCh)
@@ -295,10 +294,10 @@ IsReg        P(B topOp)"bool"
 ChkInvalidRegOperand        P
 Sub4291        P
 SetExpectOperands        P
-GetNumVal        PA
+GetNumVal        P"word"
 MkCode        P(B arg1b)
 NxtTokI        PB
-ShowLine        PB
+ShowLine        P"bool"
 EmitXref        P(B xrefMode,A name)
 SwapAccBytes    P
 TestBit         P(B bitIdx,"pointer" bitVector)"bool"
@@ -306,7 +305,7 @@ TestBit         P(B bitIdx,"pointer" bitVector)"bool"
 /* $file(asm4m.plm) */
 
 $file(asm4m.plm,asm8m.plm,asm4s.plm)
-IsSkipping      PB
+IsSkipping      P"bool"
 StrUcEqu        P("pointer" s,"pointer" t)"bool"
 FinishLine    P
 Sub546F        P
@@ -318,11 +317,11 @@ missingEnd      "bool"
 lineChCnt           B
 fileIdx         B
 files           "FILE$T"S
-srcfd       A
-endInBuf$p         A
+srcfd           "word"
+endInBuf$p     "pointer"
 inCh$p         "pointer"
-startLine$p         A
-rootfd          A
+startLine$p    "pointer"
+rootfd         "word"
 CloseSrc          P
 ReadF           P(B conn,A buff$p,A count)
 ReadSrc           P(A bufLoc)
@@ -348,7 +347,7 @@ GetCh           PB
 GetChClass      PB
 Lookup          P(B tableId)B
 UpdateSymbolEntry        P(A val,B type)
-UnpackToken     P("pointer" src,"pointer" dst)
+UnpackToken     P("apointer" src,"pointer" dst)
 
 /* $file(asm6m.plm) */
 
@@ -414,7 +413,6 @@ WriteRec        P(A rec$p)
 $file(listm.plm,listn.plm)
 AsmComplete     P
 NewPage         P
-NewPageHeader   P
 OutStr          P(A s)
 PrintLine            P
 FinishPrint            P
@@ -424,9 +422,6 @@ PrintDecimal    P(A n)
 SkipToEOP       P
 DoEject        P
 Sub7041$8447    P
-MoreBytes        PB
-PrintCodeBytes        P
-PrintErrorLineChain        P
 
 /* $file(initm.plm) */
 
@@ -493,14 +488,14 @@ Exit            P
 
 /* these share a common file with build controlled by $IF statements */
 $file(globls.plm,globlm.plm,globlb.plm)
-accum1          A
+accum1          "word"
 accum1$hb       B
 accum1$lb       B
-accum2          A
+accum2          "word"
 accum2$hb       B
 accum2$lb       B
 activeSeg       B
-actRead         "pointer"
+actRead         A
 asmac$ref    BS
 asxref       BS
 asxref$tmp   BS
@@ -508,7 +503,7 @@ alignTypes      BS
 argNestCnt      B        /* globlm */
 asciiLineNo     BS
 asmErrCode      B
-azero           A
+azero           "word"
 fixupSeg        B
 curFixupHiLoSegId B
 curFixupType    B
@@ -518,10 +513,10 @@ firstContent    "bool"
 inComment           "bool"
 noOpsYet           "bool"
 nameLen         B
-inPublic           B
-inExtrn           B
+inPublic        "bool"
+inExtrn         "bool" 
 segHasData           BS
-badExtrn           B
+badExtrn        "bool"
 acc1Flags           B
 acc2Flags           B
 hasVarRef           B
@@ -540,7 +535,7 @@ needsAbsValue           "bool"
 b6897           "bool"
 tokI           B
 errorOnLine    "bool"
-atStartLine           B
+atStartLine    "bool"
 showAddr        "bool"
 lineNumberEmitted           "bool"
 b68AE           "bool"
@@ -549,16 +544,16 @@ b6A00           B
 spIdx           B
 lastErrorLine           BS
 ctlLISTChanged           "bool"
-isControlLine      B        
-inDB           B
-inDW           B
+isControlLine  "bool"
+inDB           "bool"
+inDW           "bool"
 inExpression           "bool"
 curOpFlags           B
 yyType           B
 topOp              B
 b6B2C           "bool"
 nextTokType           B
-inNestedParen           B
+inNestedParen   "bool"
 expectingOperands     "bool"
 expectingOpcode       "bool"
 condAsmSeen           "bool"
@@ -572,9 +567,9 @@ jj           B
 macroLine          BS        /* globlm */
 b9058          "bool"        /* globlm */
 excludeCommentInExpansion          "bool"        /* globlm */
-b905A          B        /* globlm */
+b905A          "bool"        /* globlm */
 expandingMacro B        /* globlm */
-b905C          B        /* globlm */
+b905C          "bool"        /* globlm */
 b905D          "bool"        /* globlm */
 b905E          B        /* globlm */
 b9060          "bool"        /* globlm */
@@ -584,9 +579,7 @@ macroDepth          B        /* globlm */
 b9064          B        /* globlm */
 b9065          B        /* globlm */
 b9066          B        /* globlm */
-b91A1          B        /* globlm */
-b91A2          B        /* globlm */
-b91A3          B        /* globlm */
+b91A1          BS        /* globlm */
 b91A4          BS        /* globlm */
 accFixFlags          BS
 cmdch$p         "pointer"
@@ -594,7 +587,7 @@ cmdLineBuf      BS
 controlId       B
 controls        B(20)
 controlSeen     "bool"S
-controls$p      A
+controls$p      "pointer"
 ctlCOND         "bool"
 ctlDEBUG        "bool"
 ctlEJECT        B
@@ -615,42 +608,42 @@ ctlTTY          "bool"
 ctlXREF         "bool"
 curChar         B
 curCol          B
-curFileName$p   A
-curMacroBlk     A        /* globlm */
+curFileName$p   "pointer"
+curMacroBlk     "word"        /* globlm */
 curTokenSym$p   "pointer"
 tokPtr          "pointer"
-endLineBuf      A
-endOutBuf       A
-endSymTab       AS
-errCnt          A
+endLineBuf      "pointer"
+endOutBuf       "pointer"
+endSymTab       "pointer"S
+errCnt          "word"
 extNamIdx       B
 finished        "bool"
 fix20Idx        B
 fix22Idx        B
 fix24Idx        B
 fix6Idx         B
-has16bitOperand B
+has16bitOperand "bool"
 ifDepth         B
 ii              B
 inElse          "bool"S
-infd            A
+infd            "word"
 kk              B
 lineBuf         BS
-pageLineCnt         A
+pageLineCnt     "word"
 lookAhead       B
 lstFile         BS
 macroBuf        BS        /* globlm */
 macroCondSP     B        /* globlm */
 macroCondStk    BS        /* globlm */
 MacroDebugOrGen B        /* globls & globlb */
-macrofd         A
+macrofd         "word"
 macroStk        "MACRO$T"S    /* globlm */
-maxMacroBlk     A        /* globlm */
-maxSegSize      AS
+maxMacroBlk     "word"        /* globlm */
+maxSegSize      "word"S
 byteAt          BS        /* globlm */
 moduleNameLen   B
-nxtMacroBlk     A        /* globlm */
-objfd           A
+nxtMacroBlk     "word"        /* globlm */
+objfd           "word"
 objFile         BS
 macro$p         "pointer"    /* globlm */
 openStatus      A
@@ -658,11 +651,11 @@ opSP            B
 opStack         BS
 newOp          B
 outbuf          BS
-outfd           A
+outfd           "word"
 out$p           "pointer"
-pageCnt         A
+pageCnt         "word"
 phase           B
-primaryValid    B
+primaryValid    "bool"
 r$content       "CONTENT$T"
 reget           B
 r$eof           "EOF$T"
@@ -674,14 +667,14 @@ r$publics       "PUBLICS$T"
 r$reloc         "RELOC$T"
 saveIdx         B
 saveStack       BS
-scanCmdLine     B
-segSize         AS
+scanCmdLine     "bool"
+segSize         "word"S
 skipIf        "bool"S
 startDefined    B
-startOffset     A
+startOffset     "word"
 startSeg        B
 statusIO        A
-symTab          AS
+symTab          "pointer"S
 titleLen        B
 tmac$b3         B        /* globlm */
 tmac$blk        A        /* globlm */
@@ -700,39 +693,38 @@ tokenAttr       BS
 tokenIdx         B
 tokStr          BS
 tokenSym        AS
-tokenSymId      AS
+tokenSymId      "word"S
 tokenType       BS
 toksiz          BS
 tokst           AS
 tokType         B
 contentBytePtr  "pointer"
-fixOffset           A
-externId           A
-itemOffset           A
-acc1NumVal           A
-acc2NumVal           A
-symHighMark           A
+fixOffset           "word"
+externId        "word"
+itemOffset      "word"
+acc1NumVal      "word"
+acc2NumVal      "word"
+symHighMark     "pointer"
 baseMacroTbl           "pointer"
-endItem           A
-startItem           A
+endItem         "pointer"
+startItem       "pointer"
 effectiveAddr           A
-sizeInBuf           A
-srcLineCnt           A
-tokNumVal           A
-w6BCE           A
-pAddr          "pointer" 
-controlFileType           A
-endMacroLine   BS        /* globlm */
+sizeInBuf      "word"
+srcLineCnt     "word"
+tokNumVal      "word"
+w6BCE          "pointer"
+pAddr          A
+controlFileType "word"
 w9068          "pointer"    /* globlm */
-macroInPtr          "pointer"    /* globlm */
-macroBlkCnt          A        /* globlm */
-w9197          A        /* globlm */
-w9199          A        /* globlm */
-w919B          A        /* globlm */
-w919D          A        /* globlm */
-w919F          A        /* globlm */
-wZERO           A
-xreffd          A
+macroInPtr     "pointer"    /* globlm */
+macroBlkCnt    "word"        /* globlm */
+w9197          "pointer"        /* globlm */
+w9199          "pointer"        /* globlm */
+w919B          "word"        /* globlm */
+w919D          "pointer"        /* globlm */
+w919F          "pointer"        /* globlm */
+wZERO           "word"
+xreffd          "word"
 
 $file(keym.plm)
 extKeywords     AS
@@ -760,8 +752,8 @@ Write           P(A conn,A buff$p,A count,A status$p)
 
 notes.txt
 symbol table format
-tok(2) address - packed symbol 3 chars per address field
-val address - keywords - high byte is link to next entry
+tok(2) word - packed symbol 3 chars per word field
+val word - keywords - high byte is link to next entry
           user - offset of symbol
           macro - 
 type byte
@@ -784,7 +776,7 @@ $ENDIF
 
 /* force rescan to be included from system.lib */
 rescan: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
+    declare conn word, status$p apointer;
 end rescan;
 
 $IF MACRO
@@ -800,14 +792,13 @@ $ENDIF
 
 $IF MACRO
 declare    byteAt(1) byte public at(0),
-    macroLine(127) byte public,
-    endMacroLine(2) byte public,            /* space for 0 and a guard byte */
+    macroLine(129) byte public,
     macro$p pointer public initial(.macroLine),
     b9058 bool public initial(FALSE),
     excludeCommentInExpansion bool public,
-    b905A byte public,
+    b905A bool public,
     expandingMacro byte public,
-    b905C byte public,
+    b905C bool public,
     b905D bool public initial(FALSE),
     b905E byte public,
     b905F byte,
@@ -832,30 +823,30 @@ declare    byteAt(1) byte public at(0),
         
     macroStk(10) MACRO$T public,
     (tmac$macroCondSP, tmac$ifDepth,  tmac$mtype, tmac$b3) byte public at (.macroStk(0)),
-    (tmac$w4, tmac$buf$p) address public at (.macroStk(0).w4),
-    tmac$blk address public  at (.macroStk(0).blk) initial(0FFFFh),
-    (tmac$w10, tmac$w12, tmac$w14) address public at (.macroStk(0).w10),
-    w910C address,
-    curMacroBlk address public initial(0FFFFh),
-    nxtMacroBlk address public initial(0),
-    maxMacroBlk address public initial(0),
-    macroBlkCnt address public,
+    tmac$w4 word public at (.macroStk(0).w4),
+    tmac$buf$p pointer public at (.macroStk(0).bufP),
+    tmac$blk word public  at(.macroStk(0).blk) initial(0FFFFh),
+    tmac$w10 word public at(.macroStk(0).w10),
+    tmac$w12 pointer public at(.macroStk(0).w12),
+    tmac$w14 word public at(.macroStk(0).w14),
+    w910C word,
+    curMacroBlk word public initial(0FFFFh),
+    nxtMacroBlk word public initial(0),
+    maxMacroBlk word public initial(0),
+    macroBlkCnt word public,
     macroBuf(129) byte public,
-    w9197 address public,
-    w9199 address public,
-    w919B address public,
-    w919D address public,
-    w919F address public,
-    b91A1 byte public initial(0),
-    b91A2 byte public initial(0),
-
-    b91A3 byte public initial(81h),
+    w9197 pointer public,
+    w9199 pointer public,
+    w919B word public,
+    w919D pointer public,
+    w919F pointer public,
+    b91A1(3) byte public initial(0, 0, 81h),
     b91A4(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h);
 $ENDIF
 /* ov4 compat 2C8C */
 declare    contentBytePtr pointer public,
     fixupSeg byte public,
-    fixOffset address public,
+    fixOffset word public,
     curFixupHiLoSegId byte public,
     curFixupType byte public,
     fixIdxs(4) byte public initial(0, 0, 0, 0),
@@ -866,13 +857,13 @@ declare    contentBytePtr pointer public,
     r$eof EOF$T public initial(0Eh, 0),
     r$extnames EXTNAMES$T public initial(18h, 0, 0),
     moduleNameLen byte public initial(6),
-    r$content CONTENT$T public initial(18h, 0, 0),	/* seems odd would expect 6 not 18h */
+    r$content CONTENT$T public initial(18h, 0, 0),  /* seems odd would expect 6 not 18h */
     r$publics PUBLICS$T public initial (16h, 1, 0, 0, 0),
     r$reloc RELOC$T public at(.r$publics),
     r$interseg INTERSEG$T public,
     r$extref EXTREF$T public,
     r$modend MODEND$T public initial( 4, 4, 0),
-    wZERO address public initial(0),
+    wZERO word public initial(0),
     pad6741 byte initial(0ah),
     inComment bool public initial(FALSE),
     noOpsYet bool public initial(FALSE),
@@ -880,27 +871,27 @@ declare    contentBytePtr pointer public,
     startSeg byte public initial(1),
     padb6746 byte,
     activeSeg byte public,
-    inPublic byte public initial(0),
-    inExtrn byte public initial(0),
+    inPublic bool public initial(FALSE),
+    inExtrn bool public initial(FALSE),
     segHasData(2) byte public,
     alignTypes(4) byte public initial(3, 3, 3, 3),
-    externId address public,
-    itemOffset address public,
-    badExtrn byte public initial(0),
+    externId word public,
+    itemOffset word public,
+    badExtrn bool public initial(FALSE),
     startDefined byte public initial(0),
-    startOffset address public initial(0),
+    startOffset word public initial(0),
     tokenIdx byte public initial(0),
     lineBuf(128) byte public,
-    tokStart(9) address public initial(.lineBuf),
+    tokStart(9) pointer public initial(.lineBuf),
     tokPtr pointer public at(.tokStart),
-    tokenSym(9) address public initial(0),
+    tokenSym(9) pointer public initial(0),
     curTokenSym$p pointer public at(.tokenSym(0)),
     tokenType(9) byte public,
     tokenSize(9) byte public initial(0),
     tokenAttr(9) byte public,
-    tokenSymId(9) address public,
+    tokenSymId(9) word public,
 /* end */
-    endLineBuf address public initial(.tokStart),
+    endLineBuf pointer public initial(.lineBuf + 128),
     ifDepth byte public initial(0),
     skipIf(9) bool public,
     inElse(9) bool public;
@@ -912,22 +903,22 @@ $ENDIF
 declare    opSP byte public,
     opStack(17) byte public,
 /* ov4 compat 2CA0 */
-    (accum1, accum2) address public,
+    (accum1, accum2) word public,
     (accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte public at(.accum1),
     acc1Flags byte public,
     acc2Flags byte public,
     hasVarRef byte public,
     acc1ValType byte public,
     acc2ValType byte public,
-    acc1NumVal address public,
-    acc2NumVal address public,
+    acc1NumVal word public,
+    acc2NumVal word public,
     curChar byte public initial(0),
     reget byte public initial(0),
     lookAhead byte public,
     pad6861 byte initial(0),
-    symTab(3) address public,
-    endSymTab(3) address public,
-    symHighMark address public,
+    symTab(3) pointer public,
+    endSymTab(3) pointer public,
+    symHighMark pointer public,
     baseMacroTbl pointer public,
     gotLabel byte public initial(0),
     name(6) byte public,
@@ -939,17 +930,17 @@ declare    opSP byte public,
     createdUsrSym bool public initial(FALSE),
     usrLookupIsID bool public initial(FALSE),
     needsAbsValue bool public initial(FALSE),
-    objfd address public,
-    xreffd address public,
-    infd address public,
-    outfd address public,
-    macrofd address public,
-    statusIO address public,
-    openStatus address public,  /* status of last open for Read */
-    pad6894 address initial(0FFFFh),
+    objfd word public,
+    xreffd word public,
+    infd word public,
+    outfd word public,
+    macrofd word public,
+    statusIO word public,
+    openStatus word public,  /* status of last open for Read */
+    pad6894 word initial(0FFFFh),
     asmErrCode byte public initial(' '), 
     b6897 bool public initial(FALSE),
-    primaryValid byte public initial(TRUE);
+    primaryValid bool public initial(TRUE);
 /* end */
 $IF SMALL
 declare    pad6899 byte initial(0);
@@ -957,36 +948,36 @@ $ENDIF
 /* ov4 compat 2C9F */
 declare    tokI byte public,
     errorOnLine bool public,
-    atStartLine byte public,
+    atStartLine bool public,
     pad689D(2) byte,
     curCol byte public initial(1),
-    endItem address public,
-    startItem address public,
-    pageLineCnt address public,
+    endItem pointer public,
+    startItem pointer public,
+    pageLineCnt word public,
     effectiveAddr address public,
-    pageCnt address public,
+    pageCnt word public,
     pad68AA byte,
     showAddr bool public,
     pad68AC byte,
     lineNumberEmitted bool public initial(FALSE),
     b68AE bool public initial(FALSE),
     tokStr(7) byte public initial(0, 0, 0, 0, 0, 0, 0),
-    sizeInBuf address public initial(IN$BUF$SIZE),
+    sizeInBuf word public initial(IN$BUF$SIZE),
     inBuf(IN$BUF$SIZE) byte public,
     outbuf(OUT$BUF$SIZE) byte public,
 /* end */
     b6A00 byte public,
 /* ov4 compat 2F57 */
     out$p pointer public initial(.outbuf),
-    endOutBuf address public,
-    pad6A05 address initial(.outbuf),
+    endOutBuf pointer public,
+    pad6A05 pointer initial(.outbuf),
     pad6A07 byte initial(0),
     objFile(15) byte public initial('               '), /* 15 spaces */
     lstFile(15) byte public initial('               '), /* 15 spaces */
     asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
     asxref(*) byte public initial(':F0:ASXREF '),
     asmac$ref(*) byte public initial(':F0:ASMAC.TMP '),
-    srcLineCnt address public initial(1),
+    srcLineCnt word public initial(1),
     pad6A50(2) byte initial('  '),        /* protects for very big files */
     asciiLineNo(4) byte public initial('   0'),
     spIdx byte public,
@@ -1017,7 +1008,8 @@ declare    tokI byte public,
     titleLen byte public initial(0),
     pad6A71 byte,
     pad6A72(3) byte initial(120, TRUE),
-    controlSeen(12) bool public initial(0,0,0,0,0,0,0,0,0,0,0,0),
+    controlSeen(12) bool public initial(false,false,false,false,false,false,
+                                        false,false,false,false,false,false),
     saveStack(24) byte public,
     saveIdx byte public initial(0),
     ctlTITLESTR(64) byte public,
@@ -1026,18 +1018,18 @@ declare    tokI byte public,
     controlId byte public,
     tokBuf(64) byte public,
     tokBufIdx byte public initial(0),
-    tokNumVal address public,
+    tokNumVal word public,
 /* end */
-    isControlLine byte public initial(FALSE);
+    isControlLine bool public initial(FALSE);
 $IF NOT MACRO
 declare    MacroDebugOrGen byte public initial(0);
 $ENDIF
 /* ov4 compat 2F56 */
-declare    scanCmdLine byte public,
-    inDB byte public,
-    inDW byte public,
+declare    scanCmdLine bool public,
+    inDB bool public,
+    inDW bool public,
     inExpression bool public,
-    has16bitOperand byte public,
+    has16bitOperand bool public,
     phase byte public,
     curOpFlags byte public,
     yyType byte public,
@@ -1046,7 +1038,7 @@ declare    scanCmdLine byte public,
     b6B2C bool public,
     nextTokType byte public,
     finished bool public,
-    inNestedParen byte public,
+    inNestedParen bool public,
     expectingOperands bool public,
     expectingOpcode bool public,
     condAsmSeen bool public,    /* true when IF, ELSE, ENDIF seen (also macro to check) */
@@ -1054,20 +1046,20 @@ declare    scanCmdLine byte public,
     isInstr bool public initial(TRUE),
     expectOp bool public initial(TRUE),
     b6B36 bool public initial(FALSE),
-    segSize(5) address public initial(0, 0, 0, 0, 0),    /* ABS, CODE, DATA, STACK, MEMORY */
-    maxSegSize(3) address public initial(0, 0, 0),        /* seg is only ABS, CODE or DATA */
+    segSize(5) word public initial(0, 0, 0, 0, 0),    /* ABS, CODE, DATA, STACK, MEMORY */
+    maxSegSize(3) word public initial(0, 0, 0),        /* seg is only ABS, CODE or DATA */
     cmdLineBuf(129) byte public,
-    actRead pointer public,
-    errCnt address public,
-    padw6BCB address,    /* not used */
-    w6BCE address public,
+    actRead address public,
+    errCnt word public,
+    padw6BCB word,    /* not used */
+    w6BCE pointer public,
     pad6BD0(3) byte initial(0),
-    azero address public initial(0),
+    azero word public initial(0),
     cmdch$p pointer public initial(.cmdLineBuf),
-    controls$p address public,
+    controls$p pointer public,
     b6BD9 bool public initial(FALSE),
     b6BDA bool public,
-    ii byte public,
+    ii byte public,     /* warning global variable misused see note in init.plx */
     jj byte public,
     kk byte public;
 /* end */
@@ -1075,10 +1067,10 @@ $IF MACRO
 declare    b9B34 byte initial(0);
 $ENDIF
 /* ov4 compat 2F57 */
-declare    curFileName$p address public,
-    pAddr pointer public,
+declare    curFileName$p pointer public,
+    pAddr address public,
     accFixFlags(2) byte public at(.pAddr),
-    controlFileType address public;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
+    controlFileType word public;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
 /* end */
 end;
 src/asm3.plx
@@ -1099,19 +1091,19 @@ $ELSE
 declare    CHKOVL$2 lit    ' ';
 $ENDIF
 
-            /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+            /*   0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F */
 declare isExprOrMacroMap(*) bool data(
-               0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,
-               0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh, 0,  0FFh,
-               0FFh,0FFh),
+                true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true, true, true, true, true,false,false,false,false,false,false,
+               false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+               false,false,false,false,false,false, true, true, true, true, true, true, true, true,false, true,
+                true, true),
    isInstrMap(*) bool data(
-               0,   0FFh,0FFh,0FFh,0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0FFh,0FFh,0,   0,   0,   0,
-               0,   0,   0,   0,   0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0FFh,0,
-               0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
-               0FFh,0FFh);
+               false, true, true, true,false,false,false,false,false,false,false,false,false,false,false,false,
+               false,false,false,false,false,false,false,false,false,false, true, true,false,false,false,false,
+               false,false,false,false, true, true, true, true, true, true, true, true, true, true, true,false,
+               false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,
+                true, true);
 
 declare pad byte;
 
@@ -1234,7 +1226,7 @@ HandleOp: procedure public;
                 accum1 = GetNumVal;
                 if accum1$hb - 1 < 0FEh then    /* not 0 or FF */
                     call ValueError;
-                curOpFlags = 22h;	/* never used -- getnum to acc1 & collect high(acc2) */
+                curOpFlags = 22h;   /* never used -- getnum to acc1 & collect high(acc2) */
                 if (acc1Flags and UF$BOTH) = UF$BOTH then
                 do;
                     call ValueError;
@@ -1334,9 +1326,9 @@ $ENDIF
 /* 34 */    do;                    /* ELSE ? */
             condAsmSeen = TRUE;
 $IF MACRO
-            if macroCondStk(0) <> 2 then	/* check not mid macro nest */
+            if macroCondStk(0) <> 2 then    /* check not mid macro nest */
 $ELSE
-            if ifDepth = 0 then			/* invalid if not in if */
+            if ifDepth = 0 then         /* invalid if not in if */
 $ENDIF
                 call NestingError;
             else if not inElse(0) then    /* shouldn't be in else at this level */
@@ -1416,7 +1408,7 @@ $ENDIF
             end;
             if not badExtrn then
                 externId = externId + 1;
-            badExtrn = 0;
+            badExtrn = FALSE;
         end;
 /* 52 */    do;                /* NAME */
             if tokenIdx <> 0 and noOpsYet then
@@ -1460,7 +1452,7 @@ end;
 
 Parse: procedure public;
 
-    IsExpressionOp: procedure byte;
+    IsExpressionOp: procedure bool;
         if yyType > T$RPAREN then
             if yyType <> T$COMMA then
                 if yyType < K$DB then
@@ -1468,7 +1460,7 @@ Parse: procedure public;
         return FALSE;
     end;
 
-    IsVar: procedure(type) byte;
+    IsVar: procedure(type) bool;
         declare type byte;
         return type = O$NAME or type = O$MACROID;
     end;
@@ -1520,18 +1512,18 @@ $ENDIF
             return;
         end;
 
-	/* REDUCE */
+    /* REDUCE */
         inExpression = 0;
         if not expectOp and topOp > T$RPAREN then
             call SyntaxError;
 
-        if topOp = O$EXPR then	/* topOp used so set to newOp */
+        if topOp = T$BEGIN then /* topOp used so set to newOp */
             topOp = newOp;
         else
-            opSP = opSP - 1;	/* pop Op */
+            opSP = opSP - 1;    /* pop Op */
         
 
-        if (curOpFlags := opFlags(topOp)) then		/* -------x -> getnum to acc1 & copy to acc2 */
+        if (curOpFlags := opFlags(topOp)) then      /* -------x -> getnum to acc1 & copy to acc2 */
         do;
             accum2 = GetNumVal;
             acc2Flags = acc1Flags;
@@ -1539,7 +1531,7 @@ $ENDIF
             acc2ValType = acc1ValType;
         end;
 
-        if (curOpFlags := ror(curOpFlags, 1)) then	/* ------x- -> getnum to acc1 */
+        if (curOpFlags := ror(curOpFlags, 1)) then  /* ------x- -> getnum to acc1 */
             accum1 = GetNumVal;
 
         if not hasVarRef then
@@ -1567,17 +1559,17 @@ $ENDIF
         if topOp <> K$DS and showAddr then
             effectiveAddr = accum1;
 
-        if (curOpFlags and 1Eh) <> 0 then		/* -xxxxx-- -> collect list or bytes */
+        if (curOpFlags and 1Eh) <> 0 then       /* --xxxx-- -> collect bytes */
             call PushToken(nextTokType);
 
         do ii = 0 to 3;
-            if (curOpFlags := ror(curOpFlags, 1)) then	/* --xxxx-- -> collect high/low acc1/acc2 */
+            if (curOpFlags := ror(curOpFlags, 1)) then  /* --xxxx-- -> collect high/low acc1/acc2 */
                 call CollectByte(accum(ii));
         end;
 
         tokenAttr(0) = acc1Flags;
         tokenSymId(0) = acc1NumVal;
-        if ror(curOpFlags, 1) then			/* -x------ -> list */
+        if ror(curOpFlags, 1) then          /* -x------ -> list */
             if newOp = T$COMMA then
             do;
                 yyType = topOp;
@@ -1606,7 +1598,7 @@ $include(:f3:emitn.ipx)
 $ENDIF
 
 declare    fixupInitialLen(*) byte data(1, 2, 1, 3),
-    fixupRecLenPtrs(*) address data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
+    fixupRecLenPtrs(*) apointer data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
     fixupRecLenChks(*) byte data(123, 58, 57, 124),
     b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
 
@@ -1617,10 +1609,10 @@ declare    r$modhdr MODHDR$T initial(2),
 
 
 WriteRec: procedure(rec$p) public;
-    declare rec$p address,
-        len$p pointer, recLen address,
+    declare rec$p pointer,
+        len$p pointer, recLen word,
         i byte, crc byte;
-    declare len based len$p address;
+    declare len based len$p word;
     declare ch based len$p byte;
 
     len$p = rec$p + 1;
@@ -1651,9 +1643,9 @@ end;
 
 ReinitFixupRecs: procedure public;
     declare i byte;
-    declare wrd based dta$p address;
+    declare wrd based dta$p word;
     do i = 0 to 3;
-        ii = (i - 1) and 3;	/* order as content, publics, interseg, externals */
+        ii = (i - 1) and 3; /* order as content, publics, interseg, externals */
         dta$p = fixupRecLenPtrs(ii);
         if wrd > fixupInitialLen(ii) then
             call WriteRec(dta$p - 1);
@@ -1672,9 +1664,9 @@ end;
 
 
 AddFixupRec: procedure;
-    declare effectiveOffset address;
+    declare effectiveOffset word;
 
-    declare wrd based dta$p address;
+    declare wrd based dta$p word;
 
     dta$p = fixupRecLenPtrs(curFixupType := GetFixupType);
     if wrd > fixupRecLenChks(curFixupType) or r$content.len + tokenSize(spIdx) > 124 then
@@ -1805,11 +1797,11 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
     declare symb based curTokenSym$p (1) byte;
 
     AddSymbol: procedure;
-        declare offsetInSeg$p pointer;
+        declare offsetInSeg$p apointer;
         declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
-        declare symOffset based recSym$p address;
-        declare offsetInSeg based offsetInSeg$p address;
+        declare symOffset based recSym$p word;
+        declare offsetInSeg based offsetInSeg$p word;
 
         if (symb(1) and 40h) <> 0 then
             return;
@@ -1859,7 +1851,7 @@ end;
 
 
 WriteModhdr: procedure public;
-    declare w based dta$p address;
+    declare w based dta$p word;
     declare b based dta$p byte;
     declare i byte;
 
@@ -1949,158 +1941,158 @@ declare stdKeywords(151) KEYWORD$T public initial(
     byte type
     byte flags
 */
-    /* token	        opBase	offset	type		flags */
-    0A528h,	0,	0,	0,	K$NE,		0,	/* NE */
-    63B0h,	0,	0CCh,	0,	K$IMM16,	0,	/* CZ */
-    0,	        0,	0,	0,	0,		0,	/* */
-    0BFB6h,	0,	0C0h,	0,	K$SINGLE,	0,	/* RNZ */
-    0B354h,	0,	0C1h,	0,	K$REG16,	0,	/* POP */
-    6EE9h,	0,	0,	0,	K$EQU,		0,	/* EQU */
-    0AD70h,	0,	0,	0E8h,	K$OR,		0,	/* OR */
-    0A1A5h,	0,	6,	0E8h,	K$MVI,		0,	/* MVI */
-    0C6CFh,	0,	37h,	0,	K$SINGLE,	0,	/* STC */
-    0C6CDh,	6158h,	0,	0,	K$SPECIAL,	1Bh,	/* STACK */
-    6615h,	0,	27h,	0,	K$SINGLE,	0,	/* DAA */
-    988Dh,	0E100h,	0Ah,	0,	K$LDSTAX,	0,	/* LDAX */
-    61F6h,	0,	0C4h,	0,	K$IMM16,	0,	/* CNZ */
-    53CFh,	0,	88h,	0D8h,	K$ARITH,	0,	/* ADC */
-    53D0h,	0,	80h,	0,	K$ARITH,	0,	/* ADD */
-    6748h,	0,	0F3h,	0D0h,	K$SINGLE,	0,	/* DI */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    53D5h,	0,	0C6h,	0C8h,	K$IMM8,		0,	/* ADI */
-    6A40h,	0,	3,	0F0h,	K$REGNAME,	0,	/* E */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    0A088h,	0,	0,	0,	K$MOD,		0,	/* MOD */
-    0AD83h,	0,	0,	0,	K$ORG,		0,	/* ORG */
-    0,	0,	0,	0,	0,		0,	/* */
-    8F70h,	0,	0CAh,	0E8h,	K$IMM16,	0,	/* JZ */
-    68E9h,	76C0h,	0,	0,	K$DSEG,		0,	/* DSEG */
-    0C488h,	0,	0,	0,	K$SET,		0,	/* SET */
-    0,	0,	0,	0,	0,		0,	/* */
-    0C521h,	0,	30h,	0,	K$SINGLE,	2,	/* SIM */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    0A4A1h,	6A40h,	0,	0,	K$NAME,		0,	/* NAME */
-    0C6CDh,	0,	32h,	0,	K$IMM16,	0,	/* STA */
-    0AE08h,	0,	0D3h,	0,	K$IMM8,		0,	/* OUT */
-    6630h,	0,	0,	0,	K$DB,		0,	/* DB */
-    8DB6h,	0,	0C2h,	0,	K$IMM16,	0,	/* JNZ */
-    0,	0,	0,	0,	0,		0,	/* */
-    6618h,	0,	9,	0C0h,	K$REG16,	0,	/* DAD */
-    8D9Fh,	0,	0D2h,	0,	K$IMM16,	0,	/* JNC */
-    0A09Ah,	0,	40h,	0C0h,	K$MOV,		0,	/* MOV */
-    8610h,	0,	0,	0C0h,	K$IF,		0,	/* IF */
-    6E60h,	0,	0,	0A8h,	K$END,		0,	/* END */
-    9938h,	6400h,	2Ah,	0B8h,	K$IMM16,	0,	/* LHLD */
-    9600h,	0,	5,	0C0h,	K$REGNAME,	0,	/* L */
-    0C6F6h,	0,	90h,	0,	K$ARITH,	0,	/* SUB */
-    0C634h,	9600h,	0F9h,	0,	K$SINGLE,	0,	/* SPHL */
-    0C405h,	0,	0DEh,	0,	K$IMM8,		0,	/* SBI */
-    0B3FBh,	0,	6,	0,	K$REGNAME,	0,	/* PSW */
-    0BF4Fh,	0,	7,	0,	K$SINGLE,	0,	/* RLC */
-    5780h,	0,	0,	0,	K$REGNAME,	0,	/* B */
-    0,	0,	0,	0,	0,		0,	/* */
-    6220h,	0,	0F4h,	0F0h,	K$IMM16,	0,	/* CP */
-    0,	0,	0,	0,	0,		0,	/* */
-    0AD85h,	0,	0F6h,	0,	K$IMM8,		0,	/* ORI */
-    0B11Bh,	6A40h,	2,	0,	K$SPECIAL,	0,	/* PAGE */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    5629h,	76C0h,	0,	0,	K$ASEG,		0,	/* ASEG */
-    8750h,	0,	0DBh,	0,	K$IMM8,		0,	/* IN */
-    6E60h,	8610h,	0,	0D0h,	K$ENDIF,	0,	/* ENDIF */
-    0,	0,	0,	0,	0,		0,	/* */
-    8BD8h,	0,	0DAh,	0F0h,	K$IMM16,	0,	/* JC */
-    0AD7Dh,	0,	0B0h,	0,	K$ARITH,	0,	/* ORA */
-    0C3FEh,	0,	98h,	0,	K$ARITH,	0,	/* SBB */
-    0C6D7h,	9A10h,	0,	0,	K$STKLN,	0,	/* STKLN */
-    0BFE0h,	0,	0F0h,	0,	K$SINGLE,	0,	/* RP */
-    0C4F8h,	6400h,	22h,	0,	K$IMM16,	0,	/* SHLD */
-    0C078h,	0,	0C7h,	0,	K$RST,		0,	/* RST */
-    6231h,	0,	0ECh,	0,	K$IMM16,	0,	/* CPE */
-    0B436h,	9957h,	0,	0E8h,	K$PUBLIC,	0,	/* PUBLIC */
-    0BDA0h,	0,	17h,	0E8h,	K$SINGLE,	0,	/* RAL */
-    80E0h,	0,	76h,	0E8h,	K$SINGLE,	0,	/* HLT */
-    6235h,	0,	0FEh,	0,	K$IMM8,		0,	/* CPI */
-    0BF68h,	0,	0F8h,	0,	K$SINGLE,	0,	/* RM */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    0BDA6h,	0,	1Fh,	0,	K$SINGLE,	0,	/* RAR */
-    805Bh,	7D00h,	0,	0D0h,	K$HIGH,		0,	/* HIGH */
-    623Bh,	0,	0E4h,	0D8h,	K$IMM16,	0,	/* CPO */
-    0B447h,	7D00h,	0C5h,	0E0h,	K$REG16,	0,	/* PUSH */
-    0,	0,	0,	0,	0,		0,	/* */
-    0C6FDh,	0,	0D6h,	0F0h,	K$IMM8,		0,	/* SUI */
-    61A8h,	0,	0FCh,	0,	K$IMM16,	0,	/* CM */
-    0,	0,	0,	0,	0,		0,	/* */
-    0,	0,	0,	0,	0,		0,	/* */
-    0BFF1h,	0,	0E8h,	0,	K$SINGLE,	0,	/* RPE */
-    62A9h,	76C0h,	0,	0,	K$CSEG,		0,	/* CSEG */
-    0BE48h,	0,	0C9h,	0,	K$SINGLE,	0,	/* RET */
-    876Eh,	0,	4,	0,	K$INRDCR,	0,	/* INR */
-    0BEE1h,	0,	20h,	0,	K$SINGLE,	2,	/* RIM */
-    0,	0,	0,	0,	0,		0,	/* */
-    0B16Ch,	9600h,	0E9h,	0,	K$SINGLE,	0,	/* PCHL */
-    988Dh,	0,	3Ah,	0,	K$IMM16,	0,	/* LDA */
-    7000h,	0BF90h,	0,	0,	K$EXTRN,	0,	/* EXTRN */
-    8774h,	0,	3,	0B0h,	K$REG16,	0,	/* INX */
-    61B5h,	0,	2Fh,	0,	K$SINGLE,	0,	/* CMA */
-    0,	0,	0,	0,	0,		0,	/* */
-    61B7h,	0,	3Fh,	0,	K$SINGLE,	0,	/* CNC */
-    0BFFBh,	0,	0E0h,	0,	K$SINGLE,	0,	/* RPO */
-    0C6CDh,	0E100h,	2,	70h,	K$LDSTAX,	0,	/* STAX */
-    0E5BDh,	0,	0A8h,	0,	K$ARITH,	0,	/* XRA */
-    9A5Bh,	0,	0,	0,	K$LOW,		0,	/* LOW */
-    6D88h,	0,	0FBh,	0,	K$SINGLE,	0,	/* EI */
-    8DE0h,	0,	0F2h,	0,	K$IMM16,	0,	/* JP */
-    6676h,	0,	5,	0D0h,	K$INRDCR,	0,	/* DCR */
-    6400h,	0,	2,	0,	K$REGNAME,	0,	/* D */
-    555Dh,	0,	0A0h,	0,	K$ARITH,	0,	/* ANA */
-    0E5C5h,	0,	0EEh,	0,	K$IMM8,		0,	/* XRI */
-    8D68h,	0,	0FAh,	0,	K$IMM16,	0,	/* JM */
-    5560h,	0,	0,	0,	K$AND,		0,	/* AND */
-    5140h,	0,	7,	38h,	K$REGNAME,	0,	/* A */
-    0E614h,	9600h,	0E3h,	0,	K$SINGLE,	0,	/* XTHL */
-    0,	0,	0,	0,	0,		0,	/* */
-    876Ch,	5449h,	1,	0,	K$SPECIAL,	0,	/* INPAGE */
-    5565h,	0,	0E6h,	0,	K$IMM8,		0,	/* ANI */
-    9B00h,	0,	0,	0,	K$LT,		0,	/* LT */
-    8DF1h,	0,	0EAh,	0,	K$IMM16,	0,	/* JPE */
-    61C4h,	0,	0B8h,	20h,	K$ARITH,	0,	/* CMP */
-    7BC0h,	0,	0,	0,	K$GT,		0,	/* GT */
-    6978h,	0,	0,	78h,	K$DW,		0,	/* DW */
-    6EC8h,	0,	0,	0,	K$EQ,		0,	/* EQ */
-    667Ch,	0,	0Bh,	50h,	K$REG16,	0,	/* DCX */
-    6E1Fh,	6A40h,	0,	0A0h,	K$ELSE,		0,	/* ELSE */
-    0A6D4h,	0,	0,	0,	K$SINGLE,	0,	/* NOP */
-    9F01h,	0AD95h,	0,	0,	K$SPECIAL,	1Ch,	/* MEMORY */
-    5FE0h,	9600h,	0CDh,	0,	K$IMM16,	0,	/* CALL */
-    0BDD8h,	0,	0D8h,	0,	K$SINGLE,	0,	/* RC */
-    53ADh,	0,	0CEh,	80h,	K$IMM8,		0,	/* ACI */
-    0BF9Fh,	0,	0D0h,	0,	K$SINGLE,	0,	/* RNC */
-    0E36Ch,	76C0h,	0EBh,	0,	K$SINGLE,	0,	/* XCHG */
-    8DFBh,	0,	0E2h,	0,	K$IMM16,	0,	/* JPO */
-    68D8h,	0,	0,	0,	K$DS,		0,	/* DS */
-    0C620h,	0,	6,	0,	K$SP,		0,	/* SP */
-    9C40h,	0,	6,	0,	K$REGNAME,	0,	/* M */
-    98A8h,	0,	0,	38h,	K$LE,		0,	/* LE */
-    6018h,	0,	0DCh,	0,	K$IMM16,	0,	/* CC */
-    7D00h,	0,	4,	50h,	K$REGNAME,	0,	/* H */
-    61DFh,	0,	0D4h,	50h,	K$IMM16,	0,	/* CNC */
-    0C4F8h,	0,	0,	0,	K$SHL,		0,	/* SHL */
-    5DC0h,	0,	1,	0,	K$REGNAME,	0,	/* C */
-    0C170h,	0,	0C8h,	0,	K$SINGLE,	0,	/* RZ */
-    0E556h,	0,	0,	0,	K$XOR,		0,	/* XOR */
-    7968h,	0,	0,	0,	K$GE,		0,	/* GE */
-    0A6D8h,	0,	0,	0,	K$NOT,		0,	/* NOT */
-    0C4FEh,	0,	0,	0,	K$SHR,		0,	/* SHR */
-    9BB5h,	0,	1,	0,	K$LXI,		0,	/* LXI */
-    8D84h,	0,	0C3h,	0,	K$IMM16,	0,	/* JMP */
-    0C03Fh,	0,	0Fh,	0,	K$SINGLE,	0	/* RRC */
+ /* [    token    ] opBase offset  type        flags */
+    0A528h,      0,    0,    0,      K$NE,   0,  /* NE */
+     63B0h,      0, 0CCh,    0,   K$IMM16,   0,  /* CZ */
+         0,      0,    0,    0,         0,   0,
+    0BFB6h,      0, 0C0h,    0,  K$SINGLE,   0,  /* RNZ */
+    0B354h,      0, 0C1h,    0,   K$REG16,   0,  /* POP */
+     6EE9h,      0,    0,    0,     K$EQU,   0,  /* EQU */
+    0AD70h,      0,    0, 0E8h,      K$OR,   0,  /* OR */
+    0A1A5h,      0,    6, 0E8h,     K$MVI,   0,  /* MVI */
+    0C6CFh,      0,  37h,    0,  K$SINGLE,   0,  /* STC */
+    0C6CDh,  6158h,    0,    0, K$SPECIAL, 1Bh,  /* STACK */
+     6615h,      0,  27h,    0,  K$SINGLE,   0,  /* DAA */
+     988Dh, 0E100h,  0Ah,    0,  K$LDSTAX,   0,  /* LDAX */
+     61F6h,      0, 0C4h,    0,   K$IMM16,   0,  /* CNZ */
+     53CFh,      0,  88h, 0D8h,   K$ARITH,   0,  /* ADC */
+     53D0h,      0,  80h,    0,   K$ARITH,   0,  /* ADD */
+     6748h,      0, 0F3h, 0D0h,  K$SINGLE,   0,  /* DI */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+     53D5h,      0, 0C6h, 0C8h,    K$IMM8,   0,  /* ADI */
+     6A40h,      0,    3, 0F0h, K$REGNAME,   0,  /* E */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0A088h,      0,    0,    0,     K$MOD,   0,  /* MOD */
+    0AD83h,      0,    0,    0,     K$ORG,   0,  /* ORG */
+         0,      0,    0,    0,         0,   0,
+     8F70h,      0, 0CAh, 0E8h,   K$IMM16,   0,  /* JZ */
+     68E9h,  76C0h,    0,    0,    K$DSEG,   0,  /* DSEG */
+    0C488h,      0,    0,    0,     K$SET,   0,  /* SET */
+         0,      0,    0,    0,         0,   0,
+    0C521h,      0,  30h,    0,  K$SINGLE,   2,  /* SIM */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0A4A1h,  6A40h,    0,    0,    K$NAME,   0,  /* NAME */
+    0C6CDh,      0,  32h,    0,   K$IMM16,   0,  /* STA */
+    0AE08h,      0, 0D3h,    0,    K$IMM8,   0,  /* OUT */
+     6630h,      0,    0,    0,      K$DB,   0,  /* DB */
+     8DB6h,      0, 0C2h,    0,   K$IMM16,   0,  /* JNZ */
+         0,      0,    0,    0,         0,   0,
+     6618h,      0,    9, 0C0h,   K$REG16,   0,  /* DAD */
+     8D9Fh,      0, 0D2h,    0,   K$IMM16,   0,  /* JNC */
+    0A09Ah,      0,  40h, 0C0h,     K$MOV,   0,  /* MOV */
+     8610h,      0,    0, 0C0h,      K$IF,   0,  /* IF */
+     6E60h,      0,    0, 0A8h,     K$END,   0,  /* END */
+     9938h,  6400h,  2Ah, 0B8h,   K$IMM16,   0,  /* LHLD */
+     9600h,      0,    5, 0C0h, K$REGNAME,   0,  /* L */
+    0C6F6h,      0,  90h,    0,   K$ARITH,   0,  /* SUB */
+    0C634h,  9600h, 0F9h,    0,  K$SINGLE,   0,  /* SPHL */
+    0C405h,      0, 0DEh,    0,    K$IMM8,   0,  /* SBI */
+    0B3FBh,      0,    6,    0, K$REGNAME,   0,  /* PSW */
+    0BF4Fh,      0,    7,    0,  K$SINGLE,   0,  /* RLC */
+     5780h,      0,    0,    0, K$REGNAME,   0,  /* B */
+         0,      0,    0,    0,         0,   0,
+     6220h,      0, 0F4h, 0F0h,   K$IMM16,   0,  /* CP */
+         0,      0,    0,    0,         0,   0,
+    0AD85h,      0, 0F6h,    0,    K$IMM8,   0,  /* ORI */
+    0B11Bh,  6A40h,    2,    0, K$SPECIAL,   0,  /* PAGE */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+     5629h,  76C0h,    0,    0,    K$ASEG,   0,  /* ASEG */
+     8750h,      0, 0DBh,    0,    K$IMM8,   0,  /* IN */
+     6E60h,  8610h,    0, 0D0h,   K$ENDIF,   0,  /* ENDIF */
+         0,      0,    0,    0,         0,   0,
+     8BD8h,      0, 0DAh, 0F0h,   K$IMM16,   0,  /* JC */
+    0AD7Dh,      0, 0B0h,    0,   K$ARITH,   0,  /* ORA */
+    0C3FEh,      0,  98h,    0,   K$ARITH,   0,  /* SBB */
+    0C6D7h,  9A10h,    0,    0,   K$STKLN,   0,  /* STKLN */
+    0BFE0h,      0, 0F0h,    0,  K$SINGLE,   0,  /* RP */
+    0C4F8h,  6400h,  22h,    0,   K$IMM16,   0,  /* SHLD */
+    0C078h,      0, 0C7h,    0,     K$RST,   0,  /* RST */
+     6231h,      0, 0ECh,    0,   K$IMM16,   0,  /* CPE */
+    0B436h,  9957h,    0, 0E8h,  K$PUBLIC,   0,  /* PUBLIC */
+    0BDA0h,      0,  17h, 0E8h,  K$SINGLE,   0,  /* RAL */
+     80E0h,      0,  76h, 0E8h,  K$SINGLE,   0,  /* HLT */
+     6235h,      0, 0FEh,    0,    K$IMM8,   0,  /* CPI */
+    0BF68h,      0, 0F8h,    0,  K$SINGLE,   0,  /* RM */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0BDA6h,      0,  1Fh,    0,  K$SINGLE,   0,  /* RAR */
+     805Bh,  7D00h,    0, 0D0h,    K$HIGH,   0,  /* HIGH */
+     623Bh,      0, 0E4h, 0D8h,   K$IMM16,   0,  /* CPO */
+    0B447h,  7D00h, 0C5h, 0E0h,   K$REG16,   0,  /* PUSH */
+         0,      0,    0,    0,         0,   0,
+    0C6FDh,      0, 0D6h, 0F0h,    K$IMM8,   0,  /* SUI */
+     61A8h,      0, 0FCh,    0,   K$IMM16,   0,  /* CM */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0BFF1h,      0, 0E8h,    0,  K$SINGLE,   0,  /* RPE */
+     62A9h,  76C0h,    0,    0,    K$CSEG,   0,  /* CSEG */
+    0BE48h,      0, 0C9h,    0,  K$SINGLE,   0,  /* RET */
+     876Eh,      0,    4,    0,  K$INRDCR,   0,  /* INR */
+    0BEE1h,      0,  20h,    0,  K$SINGLE,   2,  /* RIM */
+         0,      0,    0,    0,         0,   0,
+    0B16Ch,  9600h, 0E9h,    0,  K$SINGLE,   0,  /* PCHL */
+     988Dh,      0,  3Ah,    0,   K$IMM16,   0,  /* LDA */
+     7000h, 0BF90h,    0,    0,   K$EXTRN,   0,  /* EXTRN */
+     8774h,      0,    3, 0B0h,   K$REG16,   0,  /* INX */
+     61B5h,      0,  2Fh,    0,  K$SINGLE,   0,  /* CMA */
+         0,      0,    0,    0,         0,   0,
+     61B7h,      0,  3Fh,    0,  K$SINGLE,   0,  /* CNC */
+    0BFFBh,      0, 0E0h,    0,  K$SINGLE,   0,  /* RPO */
+    0C6CDh, 0E100h,    2,  70h,  K$LDSTAX,   0,  /* STAX */
+    0E5BDh,      0, 0A8h,    0,   K$ARITH,   0,  /* XRA */
+     9A5Bh,      0,    0,    0,     K$LOW,   0,  /* LOW */
+     6D88h,      0, 0FBh,    0,  K$SINGLE,   0,  /* EI */
+     8DE0h,      0, 0F2h,    0,   K$IMM16,   0,  /* JP */
+     6676h,      0,    5, 0D0h,  K$INRDCR,   0,  /* DCR */
+     6400h,      0,    2,    0, K$REGNAME,   0,  /* D */
+     555Dh,      0, 0A0h,    0,   K$ARITH,   0,  /* ANA */
+    0E5C5h,      0, 0EEh,    0,    K$IMM8,   0,  /* XRI */
+     8D68h,      0, 0FAh,    0,   K$IMM16,   0,  /* JM */
+     5560h,      0,    0,    0,     K$AND,   0,  /* AND */
+     5140h,      0,    7,  38h, K$REGNAME,   0,  /* A */
+    0E614h,  9600h, 0E3h,    0,  K$SINGLE,   0,  /* XTHL */
+         0,      0,    0,    0,         0,   0,
+     876Ch,  5449h,    1,    0, K$SPECIAL,   0,  /* INPAGE */
+     5565h,      0, 0E6h,    0,    K$IMM8,   0,  /* ANI */
+     9B00h,      0,    0,    0,      K$LT,   0,  /* LT */
+     8DF1h,      0, 0EAh,    0,   K$IMM16,   0,  /* JPE */
+     61C4h,      0, 0B8h,  20h,   K$ARITH,   0,  /* CMP */
+     7BC0h,      0,    0,    0,      K$GT,   0,  /* GT */
+     6978h,      0,    0,  78h,      K$DW,   0,  /* DW */
+     6EC8h,      0,    0,    0,      K$EQ,   0,  /* EQ */
+     667Ch,      0,  0Bh,  50h,   K$REG16,   0,  /* DCX */
+     6E1Fh,  6A40h,    0, 0A0h,    K$ELSE,   0,  /* ELSE */
+    0A6D4h,      0,    0,    0,  K$SINGLE,   0,  /* NOP */
+     9F01h, 0AD95h,    0,    0, K$SPECIAL, 1Ch,  /* MEMORY */
+     5FE0h,  9600h, 0CDh,    0,   K$IMM16,   0,  /* CALL */
+    0BDD8h,      0, 0D8h,    0,  K$SINGLE,   0,  /* RC */
+     53ADh,      0, 0CEh,  80h,    K$IMM8,   0,  /* ACI */
+    0BF9Fh,      0, 0D0h,    0,  K$SINGLE,   0,  /* RNC */
+    0E36Ch,  76C0h, 0EBh,    0,  K$SINGLE,   0,  /* XCHG */
+     8DFBh,      0, 0E2h,    0,   K$IMM16,   0,  /* JPO */
+     68D8h,      0,    0,    0,      K$DS,   0,  /* DS */
+    0C620h,      0,    6,    0,      K$SP,   0,  /* SP */
+     9C40h,      0,    6,    0, K$REGNAME,   0,  /* M */
+     98A8h,      0,    0,  38h,      K$LE,   0,  /* LE */
+     6018h,      0, 0DCh,    0,   K$IMM16,   0,  /* CC */
+     7D00h,      0,    4,  50h, K$REGNAME,   0,  /* H */
+     61DFh,      0, 0D4h,  50h,   K$IMM16,   0,  /* CNC */
+    0C4F8h,      0,    0,    0,     K$SHL,   0,  /* SHL */
+     5DC0h,      0,    1,    0, K$REGNAME,   0,  /* C */
+    0C170h,      0, 0C8h,    0,  K$SINGLE,   0,  /* RZ */
+    0E556h,      0,    0,    0,     K$XOR,   0,  /* XOR */
+     7968h,      0,    0,    0,      K$GE,   0,  /* GE */
+    0A6D8h,      0,    0,    0,     K$NOT,   0,  /* NOT */
+    0C4FEh,      0,    0,    0,     K$SHR,   0,  /* SHR */
+     9BB5h,      0,    1,    0,     K$LXI,   0,  /* LXI */
+     8D84h,      0, 0C3h,    0,   K$IMM16,   0,  /* JMP */
+    0C03Fh,      0,  0Fh,    0,  K$SINGLE,   0   /* RRC */
 );
 
 
@@ -2130,9 +2122,8 @@ declare CHKOVL$0 lit    ' ',
 $ENDIF
 
 $IF MACRO
-declare w$3780 address public data(0),
-    b$3782 byte public data(80h),
-    b$3783 byte public data(81h);
+declare w3780 word public data(0),
+    b3782(2) byte public data(80h, 81h);
 $ENDIF
 
 declare    spaces24(*) byte public data('         '),
@@ -2156,18 +2147,18 @@ declare    spaces24(*) byte public data('         '),
     aMemory(*) byte public data(CR, LF, 'MEMORY', 0),
     aError(*) byte public data(' ERROR', CR, LF, 0),
     aError$0(*) byte public data(' ERROR, ', CR,LF, 0),
-    errStrs(*) address public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
-    errStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
+    aErrStrs(*) pointer public data(.aStack, .aTable, .aCommand, .aEof, .aFile, .aMemory),
+    aErrStrsLen(*) byte public data(7, 7, 9, 5, 6, 8),
     aBadSyntax(*) byte public data('BAD SYNTAX', CR, LF),
-    aCo(*) byte public data(':CO:', 0);
+    aCo(*) byte data(':CO:', 0);
 
 $IF SMALL
 declare    loadedOvl byte initial(4),
     ovlFile(*) byte public initial(':F0:ASM80.OV0 ');
 $ENDIF
 
-Physmem: procedure address public;
-    declare top address at(4);
+Physmem: procedure pointer public;
+    declare top pointer at(4);
 
     return (top - 100h) and 0FF00h;
 end;
@@ -2222,7 +2213,7 @@ end;
 $IF SMALL
 OvlMgr: procedure(ovl) public;
     declare ovl byte;
-    declare entry$p address;
+    declare entry$p pointer;
 
     if ovl > 4 then
     do;
@@ -2240,48 +2231,48 @@ end;
 $ENDIF
 
 CloseF: procedure(conn) public;
-    declare conn address;
+    declare conn word;
 
     call Close(conn, .statusIO);
 end;
 
-IsSpace: procedure byte public;
+IsSpace: procedure bool public;
     return curChar = ' ';
 end;
 
-IsTab: procedure byte public;
+IsTab: procedure bool public;
     return curChar = TAB;
 end;
 
-IsWhite: procedure byte public;
+IsWhite: procedure bool public;
     return IsSpace or IsTab;
 end;
 
-IsRParen: procedure byte public;
+IsRParen: procedure bool public;
     return curChar = ')';
 end;
 
-IsCR: procedure byte public;
+IsCR: procedure bool public;
     return curChar = CR;
 end;
 
-IsComma: procedure byte public;
+IsComma: procedure bool public;
     return curChar = ',';
 end;
 
 $IF MACRO
-IsLT: procedure byte public;
+IsLT: procedure bool public;
     return curChar = '<';
 end;
 
 
-IsGT: procedure byte public;
+IsGT: procedure bool public;
     return curChar = '>';
 end;
 
 $ENDIF
 
-IsPhase1: procedure byte public;
+IsPhase1: procedure bool public;
     return phase = 1;
 end;
 
@@ -2292,7 +2283,7 @@ Skip2EOL: procedure public;
 end;
 
 
-ChkGenObj: procedure byte public;
+ChkGenObj: procedure bool public;
 $IF SMALL
     return (phase > 2) and ctlOBJECT;
 $ELSE
@@ -2301,13 +2292,13 @@ $ENDIF
 end;
 
 
-IsPhase2Print: procedure byte public;
+IsPhase2Print: procedure bool public;
     return phase = 2 and ctlPRINT;
 end;
 
 
 WrConsole: procedure(buf$p, count) public;
-    declare (buf$p, count) address;
+    declare buf$p pointer, count word;
 
     call Write(0, buf$p, count, .statusIO);
     call IoErrChk;
@@ -2330,11 +2321,11 @@ RuntimeError: procedure(errCode) public;
     if errCode = 4 then        /* file Error */
         pAddr = .aError$0;    /* replace with " ERROR, " */
 
-    call WrConsole(errStrs(errCode), errStrsLen(errCode));    /* Write the ERROR type */
+    call WrConsole(aErrStrs(errCode), aErrStrsLen(errCode));    /* Write the ERROR type */
     call WrConsole(pAddr, 8);    /* Write the ERROR string */
     if IsPhase2Print then        /* repeat to the print file if required */
     do;
-        call OutStrN(errStrs(errCode), errStrsLen(errCode));
+        call OutStrN(aErrStrs(errCode), aErrStrsLen(errCode));
         call OutStrN(pAddr, 8);
     end;
 
@@ -2385,9 +2376,9 @@ IoError: procedure(s) public;
 end;
 
 /* open file for read with status check */
-SafeOpen: procedure(path$p, access) address public;
-    declare (path$p, access) address;
-    declare conn address;
+SafeOpen: procedure(path$p, access) word public;
+    declare path$p pointer, access word;
+    declare conn word;
 
     call Open(.conn, path$p, access, 0, .openStatus);
     if openStatus <> 0 then
@@ -2405,17 +2396,17 @@ Nibble2Ascii: procedure(n) byte public;
 end;
 
 Put2Hex: procedure(pfunc, val) public;
-    declare pfunc address, val byte;
+    declare pfunc pointer, val byte;
 
     call pfunc(Nibble2Ascii(ror(val, 4)));
     call pfunc(Nibble2Ascii(val));
 end;
 
-BlankAsmErrCode: procedure byte public;
+BlankAsmErrCode: procedure bool public;
     return asmErrCode = ' ';
 end;
 
-BlankMorPAsmErrCode: procedure byte public;
+BlankMorPAsmErrCode: procedure bool public;
     return BlankAsmErrCode or asmErrCode = 'M' or asmErrCode = 'P';
 end;
 
@@ -2683,7 +2674,7 @@ declare tokReq(*) byte data(
            0,   0);
     /* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */ 
 $IF MACRO
-declare    b$3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
+declare    b3F88(*) byte data(41h, 90h, 0, 0, 0, 0, 0, 0, 0, 40h);
     /* bit vector 66 -> 10010000 0 x 56 01 */
 
 SkipWhite$2: procedure public;
@@ -2694,7 +2685,7 @@ end;
 
 nonHiddenSymbol: procedure byte public;
     declare name$p pointer,
-        name based name$p address;
+        name based name$p word;
 
     name$p = curTokenSym$p - 6;
     /* check name < '??0' or '??9' < name */
@@ -2704,7 +2695,7 @@ end;
 
 
 SeekM: procedure(blk);
-    declare blk address;
+    declare blk word;
 
     if (pAddr := blk - nxtMacroBlk) <> 0 then
     do;
@@ -2715,7 +2706,7 @@ SeekM: procedure(blk);
             kk = SEEKBACK;
         end;
 
-        call Seek(macrofd, kk, .pAddr, .w$3780, .statusIO);
+        call Seek(macrofd, kk, .pAddr, .w3780, .statusIO);
         call IoErrChk;
     end;
     nxtMacroBlk = blk + 1;
@@ -2725,8 +2716,8 @@ end;
 
 /* read in macro from disk - located at given block */
 ReadM: procedure(blk) public;
-    declare blk address;
-    declare actual address;
+    declare blk word;
+    declare actual word;
 
     if blk >= maxMacroBlk then
         actual = 0;
@@ -2758,10 +2749,10 @@ end;
 
 
 FlushM: procedure public;
-    declare bytesLeft address;
+    declare bytesLeft word;
 
     if b905E then
-    do;	/* spool macros to disk in 128 byte blocks */
+    do; /* spool macros to disk in 128 byte blocks */
         do while (bytesLeft := macroInPtr - symHighMark) >= 128;
             call WriteM;
             symHighMark = symHighMark + 128;
@@ -2799,10 +2790,10 @@ end;
 Tokenise: procedure public;
 
     Sub416B: procedure;
-        if newOp = O$EXPR then
+        if newOp = T$BEGIN then
             call ExpressionError;
         inExpression = 0;
-        newOp = O$EXPR;
+        newOp = T$BEGIN;
     end;
 
 
@@ -2873,9 +2864,9 @@ $ENDIF
             do;                /* CC$PUN */
                 if curChar = '+' or curChar = '-' then
 $IF MACRO
-                    if not TestBit(newOp, .b$3F88) then /* not 0, 3 or 41h */
+                    if not TestBit(newOp, .b3F88) then /* not T$BEGIN, T$RPAREN or K$NUL */
 $ELSE
-                    if newOp <> O$EXPR and newOp <> T$RPAREN then
+                    if newOp <> T$BEGIN and newOp <> T$RPAREN then
 $ENDIF
                         curChar = curChar + (T$UPLUS - T$PLUS);    /* make unary versions */
                 yyType = curChar - '(' + T$LPAREN;
@@ -3028,12 +3019,16 @@ end;
 $IF MACRO
 asm2m: do;
 /* force the non standard code generation of outStrN and put2Hex */
-OutStrN: procedure(s, n) external; declare s address, n address; end;
-Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+declare pointer literally 'address',
+        word    literally 'address';
+OutStrN: procedure(s, n) external; declare s pointer, n word; end;
+Put2Hex: procedure(arg1w, arg2w) external; declare arg1w pointer, arg2w word; end;
 $include(:f3:asm2m.ipx)
 $ELSE
 asm2n: do;
-OutStrN: procedure(s, n) external; declare s address, n address; end;
+declare pointer literally 'address',
+        word    literally 'address';
+OutStrN: procedure(s, n) external; declare s pointer, n word; end;
 $include(:f3:asm2n.ipx)
 $ENDIF
 /* 
@@ -3088,7 +3083,7 @@ $ENDIF
     typeHasValue(*) byte data(3Ah, 0FFh, 80h, 0, 0, 0Fh, 0FEh, 0, 20h),
     /* bit vector 59 -> 11111111 10000000 00000000 00000000
                         00001111 11111110 00000000 001 */
-    /* O$EXPR, T$CR, T$LPAREN, T$RPAREN/O$LABEL, T$STAR, T$PLUS/K$SPECIAL, T$COMMA, */
+    /* T$BEGIN, T$CR, T$LPAREN, T$RPAREN/O$LABEL, T$STAR, T$PLUS/K$SPECIAL, T$COMMA, */
     /* T$MINUS/K$REGNAME, T$UPLUS/K$SP */
     /* K$LXI, K$REG16, K$LDSTAX, K$ARITH, K$IMM8, K$MVI, K$INRDCR. K$MOV, K$IMM16, K$SINGLE */
     /* K$RST
@@ -3104,7 +3099,7 @@ $ENDIF
     3 - OR, XOR,
     2 - not used
     1 - COMMA, DB - STKLEN, O$37, ENDM, EXITM, O$3D, REPT, LOCAL
-    0 - all others
+    0 - T$BEGIN,T$CR,T$LPAREN,T$RPAREN,K$MACRO,O$3A,K$IRP,K$IRPC
 */
     precedence(*) byte data(
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
@@ -3204,10 +3199,10 @@ end;
 
 
 
-GetNumVal: procedure address public;
+GetNumVal: procedure word public;
     declare tokByte based tokPtr (1) byte,    /* ptr into token info */
-        val$p pointer,
-        val based val$p address;
+        val$p apointer,
+        val based val$p word;
 $IF MACRO
     LogError: procedure(ch);
         declare ch byte;
@@ -3364,7 +3359,7 @@ end;
 
 
 
-ShowLine: procedure byte public;
+ShowLine: procedure bool public;
     return ((not isControlLine) and ctlLIST or ctlLISTChanged and isControlLine)
 $IF MACRO
             and (not (expandingMacro > 1) or ctlGEN)
@@ -3378,7 +3373,7 @@ end;
         = 2 -> finalise
 */
 EmitXref: procedure(xrefMode, name) public;
-    declare xrefMode byte, name address;
+    declare xrefMode byte, name pointer;
     declare (i, byteval) byte;
     declare (srcLineLow, srcLineHigh) byte at(.srcLineCnt);
 
@@ -3399,7 +3394,7 @@ EmitXref: procedure(xrefMode, name) public;
                 if i = 3 then    /* get low byte */
                     byteval = srcLineLow;
                 /* emit high nibble */
-                call Outch(Nibble2Ascii(shr(byteval, 4)));
+                call Outch(Nibble2Ascii(shr(byteval, 4)));      /* warning global variable misused see notes in */
             end;
             else    /* emit low nibble */
                 call Outch(Nibble2Ascii(byteval));
@@ -3443,8 +3438,8 @@ declare CHKOVL$1 lit    ' ',
     CHKOVL$2 lit    ' ';
 $ENDIF
 
-declare pad1 address data(40h),
-    pad2 address;
+declare pad1 word data(40h),
+    pad2 word;
 
 
 StrUcEqu: procedure(s, t) bool public;
@@ -3586,26 +3581,26 @@ declare    needToOpenFile bool public initial(FALSE),
     includeOnCmdLine bool public initial(FALSE),
     padb6C23 byte,
     fileIdx byte public initial(0),
-    endInBuf$p address public initial(.inBuf),
+    endInBuf$p pointer public initial(.inBuf),
     missingEnd bool public initial(FALSE),
-    srcfd address public,
-    rootfd address public,
+    srcfd word public,
+    rootfd word public,
     inCh$p pointer public initial(.inBuf - 1),
-    startLine$p address public initial(.inBuf),
+    startLine$p pointer public initial(.inBuf),
     lineChCnt byte public initial(0), 
     files(6) FILE$T public,
-    seekIBlk address,
-    seekIByte address,
+    seekIBlk word,
+    seekIByte word,
     pad6CAD byte,  
-    savInBuf$p address,
-    savEndInBuf$p address,
-    pad6CB2(4) address,
-    readFActual address,
-    pad6CBC address;
+    savInBuf$p pointer,
+    savEndInBuf$p pointer,
+    pad6CB2(4) word,
+    readFActual word,
+    pad6CBC word;
 
 
 ReadF: procedure(conn, buff$p, count) public;
-    declare conn byte, (buff$p, count) address;
+    declare conn byte, buff$p pointer, count word;
     call Read(conn, buff$p, count, .readFActual, .statusIO);
     call IoErrChk;
 end;
@@ -3618,7 +3613,7 @@ end;
 
 
 ReadSrc: procedure(bufLoc) public;
-    declare bufLoc address;
+    declare bufLoc pointer;
     declare pad byte;
 
     call ReadF(srcfd, bufLoc, .inBuf(sizeInBuf) - bufLoc);
@@ -3653,7 +3648,7 @@ end;
 
 GetSrcCh: procedure byte public;
     declare ch based inCh$p byte;
-    declare insertPt address;
+    declare insertPt pointer;
     loop:
     inCh$p = inCh$p + 1;
 
@@ -3682,9 +3677,9 @@ end;
 
 
 OpenSrc: procedure public;
-    declare curByteLoc byte, curBlkLoc address;
+    declare curByteLoc byte, curBlkLoc word;
 
-    needToOpenFile = 0;
+    needToOpenFile = FALSE;
     call SeekI(SEEKTELL);
     if seekIByte = 128 then        /* adjust for 128 boundary */
     do;
@@ -3757,10 +3752,10 @@ $ENDIF
 /*78*/ CC$LET, CC$LET, CC$LET, CC$BAD, CC$BAD, CC$BAD, CC$BAD, CC$BAD);
 
 UnpackToken: procedure(src, dst) public;
-    declare (src, dst) pointer;
-    declare wrd based src address;
+    declare src apointer, dst pointer;
+    declare wrd based src word;
     declare ch based dst byte;
-    declare packedword address;
+    declare packedword word;
 
     Unpack1: procedure;
         ch = packedword mod 40;    
@@ -3825,7 +3820,7 @@ end;
 
 
 Sub5CAD: procedure(line, type) public;
-    declare line address, type byte;
+    declare line word, type byte;
 
     if OutSideTable(TID$MACRO) then
         return;
@@ -3840,7 +3835,7 @@ $ENDIF
 declare labelUse byte public;
 
 UpdateSymbolEntry: procedure(line, type) public;
-    declare line address, type byte;
+    declare line word, type byte;
     declare (flags, absFlag) byte,
         (lineSet, isSetOrEqu) bool,
         origType byte;
@@ -4006,8 +4001,8 @@ $ENDIF
         curTokenSym.line = line;
 
     curTokenSym.flags = flags;
-    inPublic = 0;
-    inExtrn = 0;
+    inPublic = FALSE;
+    inExtrn = FALSE;
     if curTokenSym.type = 6 then
         call UndefinedSymbolError;
 
@@ -4037,12 +4032,12 @@ end;
 
 Lookup: procedure(tableId) byte public;
     declare tableId byte;
-    declare (lowOffset, highOffset, midOffset, deltaToNext) address,
-        (entryOffset, packedTok$p) pointer,
+    declare (lowOffset, highOffset, midOffset) pointer, deltaToNext word,
+        entryOffset pointer, packedTok$p apointer,
         (i, gt) byte;
     declare symEntry based entryOffset KEYWORD$T,
-        packedTok based packedTok$p (2) address;
-    declare addr based pAddr address;
+        packedTok based packedTok$p (2) word;
+    declare addr based pAddr word;
 
     packedTok$p = tokPtr;
     /* Keyword lookup */
@@ -4202,12 +4197,12 @@ $IF MACRO
                         tmac$buf$p = tmac$w12;
                         if b9062 = 2 then
                         do;
-                            b91A2 = ch;
-                            tmac$buf$p = .b91A2;
+                            b91A1(1) = ch;
+                            tmac$buf$p = .b91A1 + 1;
                             if ch = '!' then
                             do;
-                                b91A1 = 21h;
-                                b91A2 = byteAt(tmac$w12 + 1);
+                                b91A1(0) = 21h;
+                                b91A1(1) = byteAt(tmac$w12 + 1);
                                 tmac$buf$p = tmac$buf$p - 1;
                             end;
                         end;
@@ -4238,7 +4233,7 @@ $IF MACRO
 
         if expandingMacro > 1 then
             if IsPhase2Print then
-                if macro$p < .endMacroLine then    /* append character */
+                if macro$p < .macroLine(127) then    /* append character */
                 do;
                     ch1 = curCH;    
                     macro$p = macro$p + 1;
@@ -4429,35 +4424,35 @@ UnNest: procedure(sw) public;
     declare sw byte;
 
 $IF MACRO
-    if sw <> macroCondStk(0) then	/* check for unbalanced unnest */
+    if sw <> macroCondStk(0) then   /* check for unbalanced unnest */
     do;
         call NestingError;
-        if sw = 2 then			/* not macro unnest */
+        if sw = 2 then          /* not macro unnest */
             return;
         macroCondSP = tmac$macroCondSP;
         ifDepth = tmac$ifDepth;
     end;
 
-    macroCondStk(0) = macroCondStk(macroCondSP);	/* restore macro stack */
+    macroCondStk(0) = macroCondStk(macroCondSP);    /* restore macro stack */
     macroCondSP = macroCondSP - 1;
-    if sw = 1 then			/* is unnest macro */
+    if sw = 1 then          /* is unnest macro */
     do;
         call move(16, .macroStk(macroDepth), .macroStk(0));
         call ReadM(tmac$blk);
         b9062 = tmac$mtype;
-        if (macroDepth := macroDepth - 1) = 0 then	/* end of macro nest */
+        if (macroDepth := macroDepth - 1) = 0 then  /* end of macro nest */
         do;
-            expandingMacro = 0;		/* not expanding */
+            expandingMacro = 0;     /* not expanding */
             baseMacroTbl = Physmem + 0BFh;
         end;
     end;
 $ELSE
-    if ifDepth = 0 then			/* nothing to unnest */
+    if ifDepth = 0 then         /* nothing to unnest */
         call NestingError;
 $ENDIF
     else
     do;
-        skipIf(0) = skipIf(ifDepth);	/* pop skipIf and inElse status */
+        skipIf(0) = skipIf(ifDepth);    /* pop skipIf and inElse status */
         inElse(0) = inElse(ifDepth);
         ifDepth = ifDepth - 1;
     end;
@@ -4520,7 +4515,7 @@ end;
 
 
 GetNum: procedure public;
-    declare accum address,
+    declare accum word,
         (radix, digit, i) byte;
     declare chrs based tokPtr (1) byte;
 
@@ -4678,8 +4673,8 @@ end;
 
 
 FinaliseFileNameOpt: procedure(arg1w) bool;
-    declare arg1w address;
-    declare pad address;
+    declare arg1w word;
+    declare pad word;
 
     if tokBufIdx = 0 then
         return FALSE;
@@ -4766,7 +4761,7 @@ LookupControl: procedure byte;
         ctlVal bool,
         (cmdLen, ctlFlags, noInvalid) byte,
         (control$p, nextControl$p, ctlSeen$p) pointer;
-    declare twoch address at(.tokBuf);
+    declare twoch word at(.tokBuf);
     declare ch based control$p byte;
     declare ctlSeen based ctlSeen$p byte;
 
@@ -5014,14 +5009,14 @@ declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h);
     /* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
     /*                 CR, COMMA, SEMI */                                  
 
-declare w9C75 address,
+declare w9C75 word,
     b9C77 byte public;
 
 
 Sub7192: procedure byte;
     if IsCR then
     do;
-        b905A = 0;
+        b905A = FALSE;
         return TRUE;
     end;
 
@@ -5116,7 +5111,7 @@ Sub7327: procedure public;
 end;
 
 
-EnterMacro: procedure(lowAddr, highAddr) address;
+EnterMacro: procedure(lowAddr, highAddr) pointer;
     declare (lowAddr, highAddr) pointer;
     declare ch1 based baseMacroTbl byte,
         ch2 based highAddr byte;
@@ -5268,7 +5263,7 @@ Sub753E: procedure public;
         if IsComma then
         do;
             reget = 0;
-            newOp = O$EXPR;
+            newOp = T$BEGIN;
             call Sub7327;
             if tmac$mtype = 1 then
             do;
@@ -5303,7 +5298,7 @@ end;
 Sub75FF: procedure public;
     declare ch based macroInPtr byte;
     declare ch2 based w9068 byte;
-    declare wrd based w9068 address;
+    declare wrd based w9068 word;
 
     if b905E then
     do;
@@ -5416,7 +5411,7 @@ Sub770B: procedure public;
         end;
         else
         do;
-            baseMacroTbl = EnterMacro(.b$3782, .b$3783);
+            baseMacroTbl = EnterMacro(.b3782, .b3782 + 1);
             if tmac$mtype = 0 then
             do;
                 tmac$b3 = curTokenSym.flags;
@@ -5502,12 +5497,16 @@ end;
 src/list.plx
 $IF MACRO
 listm: do;
+declare pointer literally 'address',
+        word    literally 'address';
 /* to force the code generation this needs a non-standard definition of put2Hex */
-Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+Put2Hex: procedure(arg1w, arg2w) external; declare arg1w pointer, arg2w word; end;
 $include(:f3:listm.ipx)
 $ELSE
 listn: do;
-Put2Hex: procedure(arg1w, arg2w) external; declare arg1w address, arg2w address; end;
+declare pointer literally 'address',
+        word    literally 'address';
+Put2Hex: procedure(arg1w, arg2w) external; declare arg1w pointer, arg2w word; end;
 $include(:f3:listn.ipx)
 $ENDIF
 
@@ -5517,18 +5516,11 @@ declare aAssemblyComple(*) byte initial(CR, LF, 'ASSEMBLY COMPLETE,'),
     space5RP(*) byte initial('     )'),
     aPublicSymbols(*) byte initial(CR, LF, 'PUBLIC SYMBOLS', CR, LF, 0),
     aExternalSymbol(*) byte initial(CR, LF, 'EXTERNAL SYMBOLS', CR, LF, 0),
-    pad754E address,
+    pad754E word,
 
     aUserSymbols(*) byte data(CR, LF, 'USER SYMBOLS', CR, LF, 0),
     lstHeader(*) byte data('  LOC  OBJ         LINE        SOURCE STATEMENT', CR, LF, LF, 0),
-    symbolMsgTable(*) address data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols),
-    aCRLFLF(*) byte data(CR, LF, LF, 0),
-    aCR(*) byte data(CR),
-    topLFs(*) byte data(LF, LF, LF, 0),
-    b6DC1(2) byte data(20h, 40h),
-    ascLParen(*) byte data(' (', 0),
-    ascRParen(*) byte data(')', 0),
-    a1234(*) byte data('  1234');
+    symbolMsgTable(*) pointer data(.aPublicSymbols, .aExternalSymbol, .aUserSymbols);
 
 
 Out2Hex: procedure(n);
@@ -5575,7 +5567,7 @@ declare aNumStr(*) byte initial('     ', 0);
 
 
 Itoa: procedure(n, buf);
-    declare n address, buf pointer;
+    declare n word, buf pointer;
     declare ch based buf byte;
 
     call move(5, .spaces5, buf);
@@ -5591,7 +5583,7 @@ end;
 
 
 PrintDecimal: procedure(n) reentrant public;
-    declare n address;
+    declare n word;
     call Itoa(n, .aNumStr);
     call PrintStr(.aNumStr(1));
 end;
@@ -5604,8 +5596,11 @@ SkipToEOP: procedure public;
 end;
 
 
-NewPageHeader: procedure public;
-    call PrintStr(.topLFs);
+NewPageHeader: procedure;
+    declare twoLF(*) byte data(CR, LF, LF, 0);          /* Not used */
+    declare threeLF(*) byte data(CR, LF, LF, LF, 0);    /* CR not used */
+
+    call PrintStr(.threeLF + 1);
     call PrintStr(.asmHeader);
     call PrintDecimal(pageCnt);
     call PrintCRLF;
@@ -5698,10 +5693,10 @@ declare segChar(*) byte initial(' CDSME');    /* seg id char */
 
 Sub7041$8447: procedure public;
     declare symGrp byte,
-        flagsAndType address,
+        flagsAndType word,
         (type, flags) byte at(.flagsAndType),
         zeroAddr byte;
-    declare tokBytePair based curTokenSym$p address;
+    declare tokBytePair based curTokenSym$p word;
 
     PrintAddr2: procedure(printFunc);
         declare printFunc address;
@@ -5733,8 +5728,11 @@ $ENDIF
 $IF MACRO
                     if nonHiddenSymbol then
 $ENDIF
+                    do;
+                        declare symGrpFLags(2) byte data(UF$PUBLIC, UF$EXTRN);
+
                         if symGrp <> 0 or type <> 3 then
-                            if symGrp = 2 or (flags and b6DC1(symGrp)) <> 0 then
+                            if symGrp = 2 or (flags and symGrpFlags(symGrp)) <> 0 then
                             do;
                                 call UnpackToken(curTokenSym$p - 6, .tokStr);
                                 if kk then
@@ -5749,18 +5747,19 @@ $IF MACRO
                                         call PrintChar('+');
                                     else
 $ENDIF
-                    if (zeroAddr := (flags and UF$EXTRN) <> 0) then
+                                    if (zeroAddr := (flags and UF$EXTRN) <> 0) then
                                         call PrintChar('E');
                                     else
                                         call PrintChar(segChar(flags and UF$SEGMASK));
 
                                     call PrintChar(' ');
+                                    call PrintAddr2(.print2Hex);    /* print value/line */
                                     call PrintAddr2(.print2Hex);
-                                    call PrintAddr2(.print2Hex);
-                                    curTokenSym$p = curTokenSym$p + 2;
+                                    curTokenSym$p = curTokenSym$p + 2;  /* compensate for -2 due to PrintAddr2 */
                                     call PrintStr(.spaces4);
                                 end;
                             end;
+                    end;
         end;
     end;
 
@@ -5783,7 +5782,7 @@ end;
 
 
 OutStr: procedure(s) reentrant public;
-    declare s address;
+    declare s pointer;
     declare ch based s byte;
 
     do while ch <> 0;
@@ -5804,13 +5803,13 @@ OutNStr: procedure(cnt, s) reentrant;
 end;
 
 
-MoreBytes: procedure byte public;
+MoreBytes: procedure byte;
     return startItem < endItem;
 end;
 
 
 
-PrintCodeBytes: procedure public;
+PrintCodeBytes: procedure;
     declare ch based startItem byte;
     declare i byte;
 
@@ -5845,13 +5844,16 @@ PrintCodeBytes: procedure public;
 end;
 
 
-PrintErrorLineChain: procedure public;
+PrintErrorLineChain: procedure;
+    declare LP(*) byte data(' (', 0),
+            RP(*) byte data(')', 0);
+
     if not errorOnLine then
         return;
 
-    call PrintStr(.ascLParen);    /* " (" */
+    call PrintStr(.LP); 
     call PrintNStr(4, .lastErrorLine);
-    call PrintStr(.ascRParen);    /* ")" */
+    call PrintStr(.RP);
     call PrintCRLF;
     call move(4, .asciiLineNo, .lastErrorLine);
 end;
@@ -5888,8 +5890,9 @@ $ENDIF
 
     if fileIdx > 0 then
     do;
+        declare nestLevel(*) byte data('  1234');
     /* note byte arith used so needToOpenFile = TRUE(255) treated as -1 */
-        call Outch(a1234(ii := needToOpenFile + fileIdx));
+        call Outch(nestLevel(ii := needToOpenFile + fileIdx));
         if ii > 0 then    
             call Outch('=');
         else
@@ -5985,13 +5988,13 @@ FinishAssembly: procedure public;
 $IF MACRO
     call CloseF(macrofd);
     call Delete(.asmac$ref, .statusIO);
-    if ctlOBJECT then	/* ?? why only for MACRO version */
+    if ctlOBJECT then   /* ?? why only for MACRO version */
         call CloseF(objfd);
 $ENDIF
-    if ctlXREF then	/* invoke asxref ?? */
+    if ctlXREF then /* invoke asxref ?? */
     do;
         effectiveAddr = Physmem - 1;
-        drive = '0';	/* put drive in a known location */
+        drive = '0';    /* put drive in a known location */
         if asxref$tmp(0) = ':' then
             drive = asxref$tmp(2);
     
@@ -6015,7 +6018,7 @@ $include(:f3:inits.ipx)
 $ENDIF
 
 declare aExtents(*) byte public initial(' LSTOBJ'),
-    aDebug(*) byte public initial('DEBUG');
+    aDebug(*) byte initial('DEBUG');
 
 
 /* skip white space in command line */
@@ -6121,6 +6124,8 @@ $ENDIF
             lstFile(kk), objFile(kk) = cmdch;
         if cmdch = '.' then
         do;
+            /* WARNING: global var ii is set to false here but used as an
+               index in AddExtents leaving value of 4 which in plm is also false */ 
             ii = FALSE; /* don't copy extent for lst & obj files */
             call AddExtents;    /* add lst and obj file extents */
         end;
@@ -6177,7 +6182,7 @@ $ENDIF
     b68AE = FALSE;
     curChar = ' ';
     do ii = 0 to 11;        /* reset all the control seen flags */
-        controlSeen(ii) = 0;
+        controlSeen(ii) = false;
     end;
 $IF MACRO
     curMacroBlk = 0FFFFH;
@@ -6227,158 +6232,158 @@ declare extKeywords(151) KEYWORD$T public initial(
     byte type
     byte flags
 */
-    /* token		opBase	offset	type		flags */
-    0A528h,	0,	0,	0,	K$NE,		0,	/* NE */
-    63B0h,	0,	0CCh,	0,	K$IMM16,	0,	/* CZ */
-    6E60h,	9C40h,	0,	0,	K$ENDM,		0,	/* ENDM */
-    0BFB6h,	0,	0C0h,	0,	K$SINGLE,	0,	/* RNZ */
-    0B354h,	0,	0C1h,	0,	K$REG16,	0,	/* POP */
-    6EE9h,	0,	0,	0,	K$EQU,		0,	/* EQU */
-    0C6CDh,	0,	32h,	80h,	K$IMM16,	0,	/* STA */
-    0A1A5h,	0,	6,	80h,	K$MVI,		0,	/* MVI */
-    0C6CFh,	0,	37h,	0,	K$SINGLE,	0,	/* STC */
-    0C6CDh,	6158h,	0,	0,	K$SPECIAL,	1Bh,	/* STACK */
-    6615h,	0,	27h,	0,	K$SINGLE,	0,	/* DAA */
-    988Dh,	0E100h,	0Ah,	0,	K$LDSTAX,	0,	/* LDAX */
-    61F6h,	0,	0C4h,	0,	K$IMM16,	0,	/* CNZ */
-    53CFh,	0,	88h,	88h,	K$ARITH,	0,	/* ADC */
-    53D0h,	0,	80h,	0,	K$ARITH,	0,	/* ADD */
-    8D9Fh,	0,	0D2h,	0A0h,	K$IMM16,	0,	/* JNC */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0,	0,	0,	0,	0,		0,	/*  */
-    6E60h,	0,	0,	88h,	K$END,		0,	/* END */
-    6A40h,	0,	3,	0A0h,	K$REGNAME,	0,	/* E */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0AD70h,	0,	0,	0,	K$OR,		0,	/* OR */
-    0AE08h,	0,	0D3h,	0,	K$IMM8,		0,	/* OUT */
-    0A088h,	0,	0,	0,	K$MOD,		0,	/* MOD */
-    0AD83h,	0,	0,	0,	K$ORG,		0,	/* ORG */
-    0,	0,	0,	0,	0,		0,	/*  */
-    8F70h,	0,	0CAh,	70h,	K$IMM16,	0,	/* JZ */
-    68E9h,	76C0h,	0,	0,	K$DSEG,		0,	/* DSEG */
-    0C488h,	0,	0,	0,	K$SET,		0,	/* SET */
-    8BD8h,	0,	0DAh,	10h,	K$IMM16,	0,	/* JC */
-    0C521h,	0,	30h,	0,	K$SINGLE,	2,	/* SIM */
-    6618h,	0,	9,	8,	K$REG16,	0,	/* DAD */
-    0B16Ch,	9600h,	0E9h,	0,	K$SINGLE,	0,	/* PCHL */
-    0A4A1h,	6A40h,	0,	0,	K$NAME,		0,	/* NAME */
-    6748h,	0,	0F3h,	0,	K$SINGLE,	0,	/* DI */
-    53D5h,	0,	0C6h,	18h,	K$IMM8,		0,	/* ADI */
-    6630h,	0,	0,	0,	K$DB,		0,	/* DB */
-    8DB6h,	0,	0C2h,	0,	K$IMM16,	0,	/* JNZ */
-    0AD7Dh,	0,	0B0h,	0,	K$ARITH,	0,	/* ORA */
-    0B3FBh,	0,	6,	0,	K$REGNAME,	0,	/* PSW */
-    0AD85h,	0,	0F6h,	0,	K$IMM8,		0,	/* ORI */
-    0A09Ah,	0,	40h,	0B8h,	K$MOV,		0,	/* MOV */
-    8610h,	0,	0,	0B8h,	K$IF,		0,	/* IF */
-    0,	0,	0,	0,	0,		0,	/*  */
-    9938h,	6400h,	2Ah,	0B0h,	K$IMM16,	0,	/* LHLD */
-    9600h,	0,	5,	0B0h,	K$REGNAME,	0,	/* L */
-    0C6F6h,	0,	90h,	0,	K$ARITH,	0,	/* SUB */
-    0C634h,	9600h,	0F9h,	0,	K$SINGLE,	0,	/* SPHL */
-    0C405h,	0,	0DEh,	0,	K$IMM8,		0,	/* SBI */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0BF4Fh,	0,	7,	0,	K$SINGLE,	0,	/* RLC */
-    5780h,	0,	0,	0,	K$REGNAME,	0,	/* B */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0E614h,	9600h,	0E3h,	0E8h,	K$SINGLE,	0,	/* XTHL */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0B11Bh,	6A40h,	2,	0,	K$SPECIAL,	0,	/* PAGE */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0A7C0h,	0,	0,	0D8h,	K$NUL,		0,	/* NUL */
-    8750h,	0,	0DBh,	0,	K$IMM8,		0,	/* IN */
-    6E60h,	8610h,	0,	0D0h,	K$ENDIF,	0,	/* ENDIF */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0C3FEh,	0,	98h,	0,	K$ARITH,	0,	/* SBB */
-    0C6D7h,	9A10h,	0,	0,	K$STKLN,	0,	/* STKLN */
-    0BFE0h,	0,	0F0h,	0,	K$SINGLE,	0,	/* RP */
-    0C078h,	0,	0C7h,	0,	K$RST,		0,	/* RST */
-    0C4F8h,	6400h,	22h,	0,	K$IMM16,	0,	/* SHLD */
-    9E57h,	0BFB8h,	0,	0,	K$MACRO,	0,	/* MACRO */
-    6231h,	0,	0ECh,	0,	K$IMM16,	0,	/* CPE */
-    0B436h,	9957h,	0,	0A8h,	K$PUBLIC,	0,	/* PUBLIC */
-    0BDA0h,	0,	17h,	0A8h,	K$SINGLE,	0,	/* RAL */
-    6FF5h,	0CBE8h,	0,	0D8h,	K$EXITM,	0,	/* EXITM */
-    6235h,	0,	0FEh,	0,	K$IMM8,		0,	/* CPI */
-    0BF68h,	0,	0F8h,	0,	K$SINGLE,	0,	/* RM */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0,	0,	0,	0,	0,		0,	/*  */
-    0BDA6h,	0,	1Fh,	0,	K$SINGLE,	0,	/* RAR */
-    805Bh,	7D00h,	0,	0B8h,	K$HIGH,		0,	/* HIGH */
-    6400h,	0,	2,	0C8h,	K$REGNAME,	0,	/* D */
-    0B447h,	7D00h,	0C5h,	0D0h,	K$REG16,	0,	/* PUSH */
-    0C6FDh,	0,	0D6h,	8,	K$IMM8,		0,	/* SUI */
-    6220h,	0,	0F4h,	0,	K$IMM16,	0,	/* CP */
-    61A8h,	0,	0FCh,	0,	K$IMM16,	0,	/* CM */
-    0,	0,	0,	0,	0,		0,	/*  */
-    5629h,	76C0h,	0,	0,	K$ASEG,		0,	/* ASEG */
-    0BFF1h,	0,	0E8h,	0,	K$SINGLE,	0,	/* RPE */
-    880Ch,	5DC0h,	0,	0A8h,	K$IRPC,		0,	/* IRPC */
-    0BE48h,	0,	0C9h,	0,	K$SINGLE,	0,	/* RET */
-    876Eh,	0,	4,	0,	K$INRDCR,	0,	/* INR */
-    0BEE1h,	0,	20h,	0,	K$SINGLE,	2,	/* RIM */
-    0BFFBh,	0,	0E0h,	0,	K$SINGLE,	0,	/* RPO */
-    0C6CDh,	0E100h,	2,	28h,	K$LDSTAX,	0,	/* STAX */
-    988Dh,	0,	3Ah,	98h,	K$IMM16,	0,	/* LDA */
-    7000h,	0BF90h,	0,	0,	K$EXTRN,	0,	/* EXTRN */
-    8774h,	0,	3,	90h,	K$REG16,	0,	/* INX */
-    61B5h,	0,	2Fh,	90h,	K$SINGLE,	0,	/* CMA */
-    876Ch,	5449h,	1,	0,	K$SPECIAL,	0,	/* INPAGE */
-    9A47h,	5500h,	0,	98h,	K$LOCAL,	0,	/* LOCAL */
-    0E5BDh,	0,	0A8h,	8,	K$ARITH,	0,	/* XRA */
-    80E0h,	0,	76h,	0,	K$SINGLE,	0,	/* HLT */
-    8DE0h,	0,	0F2h,	0,	K$IMM16,	0,	/* JP */
-    9A5Bh,	0,	0,	0,	K$LOW,		0,	/* LOW */
-    6D88h,	0,	0FBh,	0,	K$SINGLE,	0,	/* EI */
-    623Bh,	0,	0E4h,	0,	K$IMM16,	0,	/* CPO */
-    6676h,	0,	5,	68h,	K$INRDCR,	0,	/* DCR */
-    0E5C5h,	0,	0EEh,	0,	K$IMM8,		0,	/* XRI */
-    555Dh,	0,	0A0h,	0,	K$ARITH,	0,	/* ANA */
-    62A9h,	76C0h,	0,	0,	K$CSEG,		0,	/* CSEG */
-    8D68h,	0,	0FAh,	0,	K$IMM16,	0,	/* JM */
-    5560h,	0,	0,	0,	K$AND,		0,	/* AND */
-    5140h,	0,	7,	58h,	K$REGNAME,	0,	/* A */
-    0BE44h,	0C800h,	0,	0,	K$REPT,		0,	/* REPT */
-    8DF1h,	0,	0EAh,	0,	K$IMM16,	0,	/* JPE */
-    880Ch,	0,	0,	0,	K$IRP,		0,	/* IRP */
-    5565h,	0,	0E6h,	0,	K$IMM8,		0,	/* ANI */
-    9B00h,	0,	0,	0,	K$LT,		0,	/* LT */
-    61B7h,	0,	3Fh,	0,	K$SINGLE,	0,	/* CMC */
-    8DFBh,	0,	0E2h,	0,	K$IMM16,	0,	/* JPO */
-    7BC0h,	0,	0,	0,	K$GT,		0,	/* GT */
-    6978h,	0,	0,	78h,	K$DW,		0,	/* DW */
-    6EC8h,	0,	0,	0,	K$EQ,		0,	/* EQ */
-    68D8h,	0,	0,	48h,	K$DS,		0,	/* DS */
-    7968h,	0,	0,	0A0h,	K$GE,		0,	/* GE */
-    0A6D4h,	0,	0,	0,	K$SINGLE,	0,	/* NOP */
-    9F01h,	0AD95h,	0,	0,	K$SPECIAL,	1Ch,	/* MEMORY */
-    5FE0h,	9600h,	0CDh,	0,	K$IMM16,	0,	/* CALL */
-    0BDD8h,	0,	0D8h,	0,	K$SINGLE,	0,	/* RC */
-    53ADh,	0,	0CEh,	80h,	K$IMM8,		0,	/* ACI */
-    0BF9Fh,	0,	0D0h,	0,	K$SINGLE,	0,	/* RNC */
-    0E36Ch,	76C0h,	0EBh,	0,	K$SINGLE,	0,	/* XCHG */
-    61C4h,	0,	0B8h,	8,	K$ARITH,	0,	/* CMP */
-    667Ch,	0,	0BH,	0,	K$REG16,	0,	/* DCX */
-    0C620h,	0,	6,	0,	K$SP,		0,	/* SP */
-    9C40h,	0,	6,	0,	K$REGNAME,	0,	/* M */
-    98A8h,	0,	0,	38h,	K$LE,		0,	/* LE */
-    6018h,	0,	0DCh,	0,	K$IMM16,	0,	/* CC */
-    7D00h,	0,	4,	50h,	K$REGNAME,	0,	/* H */
-    0C03Fh,	0,	0Fh,	50h,	K$SINGLE,	0,	/* RRC */
-    0C4F8h,	0,	0,	0,	K$SHL,		0,	/* SHL */
-    5DC0h,	0,	1,	0,	K$REGNAME,	0,	/* C */
-    0C170h,	0,	0C8h,	0,	K$SINGLE,	0,	/* RZ */
-    0E556h,	0,	0,	0,	K$XOR,		0,	/* XOR */
-    6E1Fh,	6A40h,	0,	0,	K$ELSE,		0,	/* ELSE */
-    0A6D8h,	0,	0,	0,	K$NOT,		0,	/* NOT */
-    0C4FEh,	0,	0,	0,	K$SHR,		0,	/* SHR */
-    9BB5h,	0,	1,	0,	K$LXI,		0,	/* LXI */
-    8D84h,	0,	0C3h,	0,	K$IMM16,	0,	/* JMP */
-    61DFh,	0,	0D4h,	0,	K$IMM16,	0	/* CNC */
+ /* [   token     ] opBase offset type        flags */
+    0A528h,      0,    0,    0,      K$NE,   0,      /* NE */
+     63B0h,      0, 0CCh,    0,   K$IMM16,   0,      /* CZ */
+     6E60h,  9C40h,    0,    0,    K$ENDM,   0,      /* ENDM */
+    0BFB6h,      0, 0C0h,    0,  K$SINGLE,   0,      /* RNZ */
+    0B354h,      0, 0C1h,    0,   K$REG16,   0,      /* POP */
+     6EE9h,      0,    0,    0,     K$EQU,   0,      /* EQU */
+    0C6CDh,      0,  32h,  80h,   K$IMM16,   0,      /* STA */
+    0A1A5h,      0,    6,  80h,     K$MVI,   0,      /* MVI */
+    0C6CFh,      0,  37h,    0,  K$SINGLE,   0,      /* STC */
+    0C6CDh,  6158h,    0,    0, K$SPECIAL, 1Bh,      /* STACK */
+     6615h,      0,  27h,    0,  K$SINGLE,   0,      /* DAA */
+     988Dh, 0E100h,  0Ah,    0,  K$LDSTAX,   0,      /* LDAX */
+     61F6h,      0, 0C4h,    0,   K$IMM16,   0,      /* CNZ */
+     53CFh,      0,  88h,  88h,   K$ARITH,   0,      /* ADC */
+     53D0h,      0,  80h,    0,   K$ARITH,   0,      /* ADD */
+     8D9Fh,      0, 0D2h, 0A0h,   K$IMM16,   0,      /* JNC */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+     6E60h,      0,    0,  88h,     K$END,   0,      /* END */
+     6A40h,      0,    3, 0A0h, K$REGNAME,   0,      /* E */
+         0,      0,    0,    0,         0,   0,
+    0AD70h,      0,    0,    0,      K$OR,   0,      /* OR */
+    0AE08h,      0, 0D3h,    0,    K$IMM8,   0,      /* OUT */
+    0A088h,      0,    0,    0,     K$MOD,   0,      /* MOD */
+    0AD83h,      0,    0,    0,     K$ORG,   0,      /* ORG */
+         0,      0,    0,    0,         0,   0,
+     8F70h,      0, 0CAh,  70h,   K$IMM16,   0,      /* JZ */
+     68E9h,  76C0h,    0,    0,    K$DSEG,   0,      /* DSEG */
+    0C488h,      0,    0,    0,     K$SET,   0,      /* SET */
+     8BD8h,      0, 0DAh,  10h,   K$IMM16,   0,      /* JC */
+    0C521h,      0,  30h,    0,  K$SINGLE,   2,      /* SIM */
+     6618h,      0,    9,    8,   K$REG16,   0,      /* DAD */
+    0B16Ch,  9600h, 0E9h,    0,  K$SINGLE,   0,      /* PCHL */
+    0A4A1h,  6A40h,    0,    0,    K$NAME,   0,      /* NAME */
+     6748h,      0, 0F3h,    0,  K$SINGLE,   0,      /* DI */
+     53D5h,      0, 0C6h,  18h,    K$IMM8,   0,      /* ADI */
+     6630h,      0,    0,    0,      K$DB,   0,      /* DB */
+     8DB6h,      0, 0C2h,    0,   K$IMM16,   0,      /* JNZ */
+    0AD7Dh,      0, 0B0h,    0,   K$ARITH,   0,      /* ORA */
+    0B3FBh,      0,    6,    0, K$REGNAME,   0,      /* PSW */
+    0AD85h,      0, 0F6h,    0,    K$IMM8,   0,      /* ORI */
+    0A09Ah,      0,  40h, 0B8h,     K$MOV,   0,      /* MOV */
+     8610h,      0,    0, 0B8h,      K$IF,   0,      /* IF */
+         0,      0,    0,    0,         0,   0,
+     9938h,  6400h,  2Ah, 0B0h,   K$IMM16,   0,      /* LHLD */
+     9600h,      0,    5, 0B0h, K$REGNAME,   0,      /* L */
+    0C6F6h,      0,  90h,    0,   K$ARITH,   0,      /* SUB */
+    0C634h,  9600h, 0F9h,    0,  K$SINGLE,   0,      /* SPHL */
+    0C405h,      0, 0DEh,    0,    K$IMM8,   0,      /* SBI */
+         0,      0,    0,    0,         0,   0,
+    0BF4Fh,      0,    7,    0,  K$SINGLE,   0,      /* RLC */
+     5780h,      0,    0,    0, K$REGNAME,   0,      /* B */
+         0,      0,    0,    0,         0,   0,
+    0E614h,  9600h, 0E3h, 0E8h,  K$SINGLE,   0,      /* XTHL */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0B11Bh,  6A40h,    2,    0, K$SPECIAL,   0,      /* PAGE */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0A7C0h,      0,    0, 0D8h,     K$NUL,   0,      /* NUL */
+     8750h,      0, 0DBh,    0,    K$IMM8,   0,      /* IN */
+     6E60h,  8610h,    0, 0D0h,   K$ENDIF,   0,      /* ENDIF */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0C3FEh,      0,  98h,    0,   K$ARITH,   0,      /* SBB */
+    0C6D7h,  9A10h,    0,    0,   K$STKLN,   0,      /* STKLN */
+    0BFE0h,      0, 0F0h,    0,  K$SINGLE,   0,      /* RP */
+    0C078h,      0, 0C7h,    0,     K$RST,   0,      /* RST */
+    0C4F8h,  6400h,  22h,    0,   K$IMM16,   0,      /* SHLD */
+     9E57h, 0BFB8h,    0,    0,   K$MACRO,   0,      /* MACRO */
+     6231h,      0, 0ECh,    0,   K$IMM16,   0,      /* CPE */
+    0B436h,  9957h,    0, 0A8h,  K$PUBLIC,   0,      /* PUBLIC */
+    0BDA0h,      0,  17h, 0A8h,  K$SINGLE,   0,      /* RAL */
+     6FF5h, 0CBE8h,    0, 0D8h,   K$EXITM,   0,      /* EXITM */
+     6235h,      0, 0FEh,    0,    K$IMM8,   0,      /* CPI */
+    0BF68h,      0, 0F8h,    0,  K$SINGLE,   0,      /* RM */
+         0,      0,    0,    0,         0,   0,
+         0,      0,    0,    0,         0,   0,
+    0BDA6h,      0,  1Fh,    0,  K$SINGLE,   0,      /* RAR */
+     805Bh,  7D00h,    0, 0B8h,    K$HIGH,   0,      /* HIGH */
+     6400h,      0,    2, 0C8h, K$REGNAME,   0,      /* D */
+    0B447h,  7D00h, 0C5h, 0D0h,   K$REG16,   0,      /* PUSH */
+    0C6FDh,      0, 0D6h,    8,    K$IMM8,   0,      /* SUI */
+     6220h,      0, 0F4h,    0,   K$IMM16,   0,      /* CP */
+     61A8h,      0, 0FCh,    0,   K$IMM16,   0,      /* CM */
+         0,      0,    0,    0,         0,   0,
+     5629h,  76C0h,    0,    0,    K$ASEG,   0,      /* ASEG */
+    0BFF1h,      0, 0E8h,    0,  K$SINGLE,   0,      /* RPE */
+     880Ch,  5DC0h,    0, 0A8h,    K$IRPC,   0,      /* IRPC */
+    0BE48h,      0, 0C9h,    0,  K$SINGLE,   0,      /* RET */
+     876Eh,      0,    4,    0,  K$INRDCR,   0,      /* INR */
+    0BEE1h,      0,  20h,    0,  K$SINGLE,   2,      /* RIM */
+    0BFFBh,      0, 0E0h,    0,  K$SINGLE,   0,      /* RPO */
+    0C6CDh, 0E100h,    2,  28h,  K$LDSTAX,   0,      /* STAX */
+     988Dh,      0,  3Ah,  98h,   K$IMM16,   0,      /* LDA */
+     7000h, 0BF90h,    0,    0,   K$EXTRN,   0,      /* EXTRN */
+     8774h,      0,    3,  90h,   K$REG16,   0,      /* INX */
+     61B5h,      0,  2Fh,  90h,  K$SINGLE,   0,      /* CMA */
+     876Ch,  5449h,    1,    0, K$SPECIAL,   0,      /* INPAGE */
+     9A47h,  5500h,    0,  98h,   K$LOCAL,   0,      /* LOCAL */
+    0E5BDh,      0, 0A8h,    8,   K$ARITH,   0,      /* XRA */
+     80E0h,      0,  76h,    0,  K$SINGLE,   0,      /* HLT */
+     8DE0h,      0, 0F2h,    0,   K$IMM16,   0,      /* JP */
+     9A5Bh,      0,    0,    0,     K$LOW,   0,      /* LOW */
+     6D88h,      0, 0FBh,    0,  K$SINGLE,   0,      /* EI */
+     623Bh,      0, 0E4h,    0,   K$IMM16,   0,      /* CPO */
+     6676h,      0,    5,  68h,  K$INRDCR,   0,      /* DCR */
+    0E5C5h,      0, 0EEh,    0,    K$IMM8,   0,      /* XRI */
+     555Dh,      0, 0A0h,    0,   K$ARITH,   0,      /* ANA */
+     62A9h,  76C0h,    0,    0,    K$CSEG,   0,      /* CSEG */
+     8D68h,      0, 0FAh,    0,   K$IMM16,   0,      /* JM */
+     5560h,      0,    0,    0,     K$AND,   0,      /* AND */
+     5140h,      0,    7,  58h, K$REGNAME,   0,      /* A */
+    0BE44h, 0C800h,    0,    0,    K$REPT,   0,      /* REPT */
+     8DF1h,      0, 0EAh,    0,   K$IMM16,   0,      /* JPE */
+     880Ch,      0,    0,    0,     K$IRP,   0,      /* IRP */
+     5565h,      0, 0E6h,    0,    K$IMM8,   0,      /* ANI */
+     9B00h,      0,    0,    0,      K$LT,   0,      /* LT */
+     61B7h,      0,  3Fh,    0,  K$SINGLE,   0,      /* CMC */
+     8DFBh,      0, 0E2h,    0,   K$IMM16,   0,      /* JPO */
+     7BC0h,      0,    0,    0,      K$GT,   0,      /* GT */
+     6978h,      0,    0,  78h,      K$DW,   0,      /* DW */
+     6EC8h,      0,    0,    0,      K$EQ,   0,      /* EQ */
+     68D8h,      0,    0,  48h,      K$DS,   0,      /* DS */
+     7968h,      0,    0, 0A0h,      K$GE,   0,      /* GE */
+    0A6D4h,      0,    0,    0,  K$SINGLE,   0,      /* NOP */
+     9F01h, 0AD95h,    0,    0, K$SPECIAL, 1Ch,      /* MEMORY */
+     5FE0h,  9600h, 0CDh,    0,   K$IMM16,   0,      /* CALL */
+    0BDD8h,      0, 0D8h,    0,  K$SINGLE,   0,      /* RC */
+     53ADh,      0, 0CEh,  80h,    K$IMM8,   0,      /* ACI */
+    0BF9Fh,      0, 0D0h,    0,  K$SINGLE,   0,      /* RNC */
+    0E36Ch,  76C0h, 0EBh,    0,  K$SINGLE,   0,      /* XCHG */
+     61C4h,      0, 0B8h,    8,   K$ARITH,   0,      /* CMP */
+     667Ch,      0,  0BH,    0,   K$REG16,   0,      /* DCX */
+    0C620h,      0,    6,    0,      K$SP,   0,      /* SP */
+     9C40h,      0,    6,    0, K$REGNAME,   0,      /* M */
+     98A8h,      0,    0,  38h,      K$LE,   0,      /* LE */
+     6018h,      0, 0DCh,    0,   K$IMM16,   0,      /* CC */
+     7D00h,      0,    4,  50h, K$REGNAME,   0,      /* H */
+    0C03Fh,      0,  0Fh,  50h,  K$SINGLE,   0,      /* RRC */
+    0C4F8h,      0,    0,    0,     K$SHL,   0,      /* SHL */
+     5DC0h,      0,    1,    0, K$REGNAME,   0,      /* C */
+    0C170h,      0, 0C8h,    0,  K$SINGLE,   0,      /* RZ */
+    0E556h,      0,    0,    0,     K$XOR,   0,      /* XOR */
+     6E1Fh,  6A40h,    0,    0,    K$ELSE,   0,      /* ELSE */
+    0A6D8h,      0,    0,    0,     K$NOT,   0,      /* NOT */
+    0C4FEh,      0,    0,    0,     K$SHR,   0,      /* SHR */
+     9BB5h,      0,    1,    0,     K$LXI,   0,      /* LXI */
+     8D84h,      0, 0C3h,    0,   K$IMM16,   0,      /* JMP */
+     61DFh,      0, 0D4h,    0,   K$IMM16,   0       /* CNC */
 );
 
 
@@ -7021,7 +7026,7 @@ Num2Ascii: procedure(val, buf, len);
     end;
 end;
 
-blankOutputLine: procedure;
+BlankOutputLine: procedure;
     declare i byte;
     do i = 0 to 255;
         outputLine(i) = ' ';

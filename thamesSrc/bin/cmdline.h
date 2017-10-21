@@ -38,6 +38,7 @@ int parseOptions(int argc, char *argv[]);
 extern int mOption;
 extern int uOption;
 extern int oOption;
+extern int iOption;
 
 #define UNRESOLVED	1
 #define UNSATISFIED 2

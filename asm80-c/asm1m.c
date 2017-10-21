@@ -1,0 +1,303 @@
+// vim:ts=4:expandtab:shiftwidth=4:
+#include "asm80.h"
+
+byte tokReq[] = {
+	/* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
+	   0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	   0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+	   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+	   0, 0 };
+
+byte b3EA0[] = { 0x36, 0, 0, 0, 6, 0, 0, 2 };
+/* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
+/* 29, 30, 55 */
+bool absValueReq[] = {
+	/* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
+	   false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false,
+	   false, false, false, false, false, false, false, false, false, false, false, false, true,  false, false, true,
+	   false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false, false,
+	   false, false, false, false, false, false, false, false, false, false, true,  true,  true, false,  true,  false,
+	   false, false };
+/* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */
+byte b3F88[] = { 0x41, 0x90, 0, 0, 0, 0, 0, 0, 0, 0x40 };
+/* bit vector 66 -> 10010000 0 x 56 01 */
+
+void SkipWhite_2()
+{
+	while (GetCh() == ' ' || IsTab())
+		;
+}
+
+
+byte NonHiddenSymbol()
+{
+	// name based nameP word;
+
+	word *nameP = tokenSym.curP->tok;
+	/* check name < '??0' or '??9' < name */
+	return (*nameP < 0x4679) || controls.macroDebug || (0x4682 < *nameP);
+}
+
+
+
+void SeekM(word blk)
+{
+	if (pAddr.w = blk - nxtMacroBlk) {
+		kk = SEEKFWD;
+		if (blk < nxtMacroBlk) {
+			pAddr.w = -pAddr.w;
+			kk = SEEKBACK;
+		}
+
+		Seek(macrofd, kk, &pAddr.w, &w3780, &statusIO);
+		IoErrChk();
+	}
+	nxtMacroBlk = blk + 1;
+}
+
+
+
+/* read in macro from disk - located at given block */
+void ReadM(word blk)
+{
+	word actual;
+
+	if (blk >= maxMacroBlk)
+		actual = 0;
+	else if (blk == curMacroBlk)
+		return;
+	else {
+		SeekM(blk);
+		Read(macrofd, macroBuf, 128, &actual, &statusIO);
+		IoErrChk();
+	}
+
+	macro.top.blk = curMacroBlk = blk;
+	macroBuf[actual] = 0xFE;    /* flag end of macro buffer */
+}
+
+/* write the macro to disk */
+void WriteM()
+{
+	if (phase == 1) {
+		SeekM(maxMacroBlk);
+		maxMacroBlk = maxMacroBlk + 1;
+		Write(macrofd, symHighMark, 128, &statusIO);
+		IoErrChk();
+	}
+	macroBlkCnt = macroBlkCnt + 1;
+}
+
+
+
+void FlushM()
+{
+	word bytesLeft;
+
+	if (b905E & 1) { /* spool macros to disk in 128 byte blocks */
+		while ((bytesLeft = macroInPtr - symHighMark) >= 128) {
+			WriteM();
+			symHighMark += 128;
+		}
+		/* move the remaining bytes to start of macro buffer */
+		if (bytesLeft != 0)
+			move(bytesLeft, symHighMark, endSymTab[TID_MACRO]);
+		macroInPtr = (symHighMark = (pointer)endSymTab[TID_MACRO]) + bytesLeft;
+	}
+}
+
+
+void SkipWhite()
+{
+	while (IsWhite())
+		curChar = GetCh();
+}
+
+
+
+void Skip2NextLine()
+{
+	Skip2EOL();
+	ChkLF();
+}
+
+
+void Sub416B()
+{
+	if (newOp == T_BEGIN)
+		ExpressionError();
+	inExpression = 0;
+	newOp = T_BEGIN;
+}
+
+void Tokenise()
+{
+	while (true) {
+		if (atStartLine) {
+			ParseControlLines();
+			atStartLine = false;
+		}
+
+		switch (GetChClass()) {
+		case CC_BAD:
+		case0:      IllegalCharError(); break;
+		case CC_WS: break;
+		case CC_SEMI:
+			if (!b9058) {
+				inComment = true;
+				if (GetChClass() == CC_SEMI && (b905E & 1)) {
+					excludeCommentInExpansion = true;
+					macroInPtr -= 2;
+				}
+				Skip2NextLine();
+				yyType = T_CR;
+				return;
+			}
+			break;
+		case CC_COLON:
+			if (!gotLabel) {
+				if (skipIf[0] || (b905E & 1))
+					PopToken();
+				else {
+					labelUse = 2;
+					UpdateSymbolEntry(segSize[activeSeg], O_TARGET);
+				}
+				expectingOperands = false;
+				gotLabel = expectingOpcode = bTRUE;
+			}
+			else {
+				SyntaxError();
+				PopToken();
+			}
+			EmitXref(XREF_DEF, name);
+			rhsUserSymbol = false;
+			newOp = O_LABEL;
+			break;
+		case CC_CR:
+			ChkLF();
+			yyType = T_CR;
+			b9058 = false;
+			return;
+		case CC_PUN:
+			if (curChar == '+' || curChar == '-')
+				if (!TestBit(newOp, b3F88)) /* not T_BEGIN, T_RPAREN or K_NUL */
+					curChar += (T_UPLUS - T_PLUS);    /* make unary versions */
+			yyType = curChar - '(' + T_LPAREN;
+			return;
+		case CC_DOLLAR:
+			PushToken(O_NUMBER);
+			CollectByte(segSize[activeSeg] & 0xff);
+			CollectByte(segSize[activeSeg] >> 8);
+			if (activeSeg != SEG_ABS)
+				tokenAttr[0] |= activeSeg | 0x18;
+			Sub416B();
+			break;
+		case CC_QUOTE:
+			if (yyType == 0x37) {
+				IllegalCharError();
+				return;
+			}
+			if (b905E & 1)
+				b9058 = !b9058;
+			else {
+				GetStr();
+				if (expectingOpcode)
+					SetExpectOperands();
+				Sub416B();
+			}
+			break;
+		case CC_DIG:
+			GetNum();
+			if (expectingOpcode)
+				SetExpectOperands();
+			Sub416B();
+			break;
+		case CC_LET:
+			w919F = macroInPtr - 1;
+			GetId(O_NAME);    /* assume it's a name */
+			if (tokenSize[0] > 6)  /* cap length */
+				tokenSize[0] = 6;
+
+			if (controls.xref) {
+				move(6, name, savName);
+				move(6, spaces6, name);
+			}
+			/* copy the token to name */
+			move(tokenSize[0], tokPtr, name);
+			nameLen = tokenSize[0];
+			PackToken();        /* make into 4 byte name */
+			if (rhsUserSymbol) {
+				lhsUserSymbol = true;
+				rhsUserSymbol = false;
+			}
+
+
+			if (Lookup(TID_MACRO) != O_NAME && (b905E & 1)) {
+                kk = tokenType[0] == 0; // assignment pulled out to allow short circuit tests
+				if (!b9058 || (kk && (curChar == '&' || w919F[-1] == '&'))) {
+					macroInPtr = w919F;
+					InsertCharInMacroTbl(kk ? 0x80 : 0x81);
+					InsertByteInMacroTbl((byte)GetNumVal());
+					InsertCharInMacroTbl(curChar);
+					yyType = O_NAME;
+				}
+			}
+			else if (yyType != O_37 && b905E != 2) {
+				if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
+					tokenType[0] = Lookup(TID_SYMBOL);    /* look up in symbol space */
+					rhsUserSymbol = true;        /* note we have a used symbol */
+				}
+
+				yyType = tokenType[0];
+				needsAbsValue = absValueReq[tokenType[0]]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC REPT */
+				if (!tokReq[tokenType[0]]) /* i.e. not instruction, reg or K_MACRONAME or 1->A */
+					PopToken();
+
+				if (lhsUserSymbol) {               /* EQU, SET or O_37 */
+					EmitXref(!TestBit(yyType, b3EA0), savName);
+					lhsUserSymbol = false;
+				}
+			}
+			if (b905E == 1) {
+				if (yyType == K_LOCAL) {
+					b905E = 2;
+					if (b6897)
+						SyntaxError();
+					b6897 = false;
+				}
+				else {
+					b6897 = false;
+					b905E = 0xff;
+				}
+			}
+
+			if (yyType == K_NUL)
+				PushToken(O_OPTVAL);
+			if (yyType < 10 /* || yyType == 9 or 80h*/) { /* !! only first term contributes */
+				Sub416B();
+				if (expectingOpcode)
+					SetExpectOperands();
+			}
+			else {
+				expectingOpcode = false;
+				return;
+			}
+			break;
+		case CC_MAC:
+			b6BDA = false;
+			Sub73AD();
+			if (b6BDA)
+				return;
+			break;
+		case CC_ESC:
+			if (expandingMacro) {
+				skipIf[0] = false;
+				yyType = 0x40;
+				return;
+			}
+			else
+				goto case0;
+		}
+	}
+}

@@ -55,7 +55,31 @@ of all of the libraries.
 8-Jun-2017 reworked thames to emulate 8080, this allows support of basic. Added
 various new binaries and a new version of relst.pl (see new  details below)
 
+10-Oct 2017 Added -i option to thames to allow files with invalid crc to load
+i.e. Cobol80, Added altmap application to isis 4.2w in itools.
+As part of my work to convert the asm80 source to C I have reworked the asm80
+4.1 source to reflect usage of address types as follows
+	word	 var is numeric
+	pointer	 var contains the address of a variable. 
+	apointer var contains the address of a word variable.
+	address	 var is used as both a word and a pointer
+Note I also corrected a naming error on asm80_4.1_all.src (I had accidently
+named it asm80_4.2_all.src)
+The first C port of asm80 is now in the asm80-c directory. But be aware it
+currently ignores :Fx: specifications and will load files from the current
+directory only. If you compile the code you will get warnings about the pack
+pragma. These are safe to ignore, once I get a chance I will clean them up.
+
 What's here
+asm80-c/*.*	the port of asm80 v4.1 to C. The current version does not
+		support :Fx: specifications, it just ignores them.
+		The port is based on asm80.ov4 which is the macro version of
+		the assembler. I have seen this distributed as asm80 without
+		the other overlays, as the main asm80 just determines whether
+		to run asm80.ov4 (macro support), asm80.ov5 (large memory
+		support no macros) or to use overlays asm80.ov1, asm80.ov2 and
+		asm80.ov3 for small memory support.
+
 itools/*/*.*	the various isis tools each set specified under a sub
 		directory of the format tool_version. Tools include
 		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51, basic

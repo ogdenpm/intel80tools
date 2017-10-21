@@ -20,8 +20,8 @@ export ISIS_F3 = $(SRC)
 TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
 
 # build options
-LOCATEFLAGS:=SYMBOLS LINES
-PLMFFLAGS:=DEBUG
+LOCATEFLAGS:=SYMBOLS 
+PLMFLAGS:=DEBUG CODE
 LINKFLAGS:=
 PURGE:= purge
 

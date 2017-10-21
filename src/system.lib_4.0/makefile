@@ -1,7 +1,7 @@
 ROOT=../..
 TARGETS=system.lib
-PLMFFLAGS=code optimize
-ASMFFLAGS=
+PLMFLAGS=code optimize debug
+ASMFLAGS=debug
 
 include $(ROOT)/tools/isis.mk
 

@@ -195,9 +195,10 @@ int isis_readblock(LOADER_STATE *state, LOADBYTEFUNC func)
     }
     if (cksum != 0)
     {
-        if (state->trace) fprintf(stdout, "%s: Bad checksum in "
-            "block at 0x%lx\n", state->filename, state->blockpos);
-        return ERROR_BADIMAGE;
+		if (state->trace) fprintf(stdout, "%s: Bad checksum in "
+			"block at 0x%lx\n", state->filename, state->blockpos);
+		if (!iOption)
+			return ERROR_BADIMAGE;
     }
     return ERROR_SUCCESS;
 }

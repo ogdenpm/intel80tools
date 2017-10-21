@@ -1,6 +1,6 @@
 # thames: An ISIS-II Emulator
 
-**(John Elliott, 17 November 2012, updated by Mark Ogden, 8-Jun 2017)**
+**(John Elliott, 17 November 2012, updated by Mark Ogden, 21 October 2017)**
 
  *thames* emulates enough of the ISIS-II environment to be able to run the following
  programs (used in the CP/M 3 build process):
@@ -13,6 +13,7 @@
    which was not used. Partial implementatio of CSTS implementation (bios 7) using kbhit,
    unfortunately to getchar requires cr before returing. Not a major problem but we aware.
  * **Note** to revert to z80 emulation uncomment the #define Z80 line in thames.h
+ * Added -i option to Thames (v0.1.3) that allows cobol80 to load
  
 Other programs known to work include
  * asm80 versions 3.0 & 4.1
@@ -160,11 +161,13 @@ Currently ASM80, LIB, LINK, LOCATE, PLM80 and IXREF are explicitly supported, ho
 as many error messages are common across applications, most errors in other applications
 should also be detected.
 
-There are additionally two options that are used to modify the error processing behaviour:
+There are additionally three options that are used to modify the error processing behaviour:
 1. -u this causes UNRESOLVED (link) and UNSATISFIED (locate) errors to be ignored. The expected
    use is when creating overlays as these errors will often occur as part of the build process.
 2. -o this causes OVERLAPS (locate) to be ignored; useful when adding object files to synthesise
    the junk data present in memory when Intel create the isis.t0 files.
+3. -i this allows applications with invalid checksums to load. This is needed for cobol80. Normally
+   you would not need this
    
 ## Implementation notes
 
