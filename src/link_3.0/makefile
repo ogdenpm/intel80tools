@@ -1,18 +1,17 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := link link.ovl
+PEXFILE:=link.pex
 
 # build options
-LOCATEFLAGS:=SYMBOLS LINES PUBLICS
+LOCATEFLAGS:=SYMBOLS LINES PUBLICS 
 PLMFLAGS:=DEBUG
 LINKFLAGS:=
+PURGE:= purge
 
 include $(ROOT)/tools/isis.mk
 
-# set default tools
-COMPARE := $(ROOT)/tools/diffbin
-
-PEXFILE:=link.pex
+REF=$(call ipath,link,3.0)
 
 LINKOBJ := link0.abs link1.abs link2.abs
 LINKPUB := linkov.abs
@@ -26,33 +25,41 @@ PUB2 = 	link0.abs link1.abs
 OBJ2 :=	link3a.obj mkfnam.obj lineuc.obj
 OBJOVL := linkov.obj
 
-all: $(TARGETS)
+all:: $(TARGETS)
 
-# link build rule
-link: $(LINKOBJ) $(LINKPUB)
-	$(call link,link.rel,$(LINKOBJ) publics($(LINKPUB)))
-	$(call locate,$@,link.rel,STACKSIZE(0) COLUMNS(3) NAME(LINK) $(PURGE))
-	@rm link.rel
+# link build rules
+.INTERMEDIATE: link.rel linkov.rel link0.rel link1.rel link2.rel
 
-link.ovl: $(LINKOVOBJ) $(LINKOVPUB)
-	$(call link,linkov.rel,$(LINKOVOBJ) publics($(LINKOVPUB)) $(call v40dir,system.lib plm80.lib))
-	$(call locate,$@,linkov.rel,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
-	@rm linkov.rel
+link: link.rel
+	$(call locate,$@,$^,STACKSIZE(0) COLUMNS(3) NAME(LINK) $(PURGE))
 
-link0.abs: $(OBJ0)
-	$(call link-nocheck,link0.rel,$^ $(call v40dir,plm80.lib))
-	$(call locate-nocheck,$@,link0.rel,STACKSIZE(84) COLUMNS(3))
-	@rm link0.rel
+link.rel: $(LINKOBJ) $(LINKPUB)
+	$(call link,$@,$(LINKOBJ) publics($(LINKPUB)))
 
-link1.abs: $(OBJ1) $(PUB1)
-	$(call link-nocheck,link1.rel,$(OBJ1) publics($(PUB1)) $(call v40dir,plm80.lib))
-	$(call locate-nocheck,$@,link1.rel,CODE(48DEH) STACKSIZE(0))
-	@rm link1.rel
 
-link2.abs: $(OBJ2) $(PUB2)
-	$(call link-nocheck,link2.rel,$(OBJ2) publics($(PUB2)) $(call v40dir,system.lib(delete) system.lib))
-	$(call locate-nocheck,$@,link2.rel,CODE(629DH) STACKSIZE(0))
-	@rm link2.rel
+link.ovl: linkov.rel
+	$(call locate,$@,$^,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
+
+linkov.rel: $(LINKOVOBJ) $(LINKOVPUB)
+	$(call link,$@,$(LINKOVOBJ) publics($(LINKOVPUB)) $(system.lib) $(plm80.lib))
+
+link0.abs: link0.rel
+	$(call locate-nocheck,$@,$^,STACKSIZE(84) COLUMNS(3))
+
+link0.rel: $(OBJ0)
+	$(call link-nocheck,$@,$^ $(plm80.lib))
+
+link1.abs: link1.rel
+	$(call locate-nocheck,$@,$^,CODE(48DEH) STACKSIZE(0))
+
+link1.rel: $(OBJ1) $(PUB1)
+	$(call link-nocheck,$@,$(OBJ1) publics($(PUB1)) $(plm80.lib))
+
+link2.abs: link2.rel
+	$(call locate-nocheck,$@,$^,CODE(629DH) STACKSIZE(0))
+
+link2.rel: $(OBJ2) $(PUB2)
+	$(call link-nocheck,$@,$(OBJ2) publics($(PUB2)) $(system.lib)(delete) $(system.lib))
 
 linkov.abs: $(OBJOVL)
 	$(call locate-nocheck,$@,$<,CODE(48DEH) STACKSIZE(0))

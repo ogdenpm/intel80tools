@@ -20,7 +20,7 @@ toolbox tool genpex. This uses a database of public definitions that is used to
 automatically generate an include file with the required external / literal / based
 definitions.
 
-Another change has been the introduction of a new plm preporcessor to support
+Another change has been the introduction of a new plm preprocessor to support
 plm v3.x files. This has allowed me to radically reduce the source file set
 for asm80 with the makefile auto generating different files from a common
 source using the pre-processor. 
@@ -29,52 +29,106 @@ Some additional tools and soruce have now been included along with the source
 to some of the tools I have written. Key changes are
 relst.pl, delib.pl, ngenpex.exe, plmpp.exe, plm80lib and systemlib source.
 
+The May 2017 update includes a major rework of the build scripts to use gnu
+make and a significant update to thames to support auto mapping of file paths
+to drives and interception of isis error codes.
+In addition the isis tool directories have been restructured to ease speficication
+of various tool versions.
+
+10-May 2017 added several isis tools and isis versions including a very early
+version of isis (v2.2) which has the isis.t0 file written in the fortran based
+plm80. Due the the increase in isis versions, system.lib, binobj, hexobj and
+objhex now reside in the relevant isis directory.
+
+*NOTE*
+Although there are multiple versions of system.lib available the later ones
+all appear to be backward compatible so unless there is a need to byte match
+a tool, the latest version located in itools/utils_2.2 can be used; this is
+the one that was with the pl/m 80 v4.0 build freely shared by intel.
+Also note that so far I have only located one version of plm80.lib.
+
+17-May 2017 added the ISIS toolbox to the repository, including decompilations
+of all of the libraries.
+
+22-May 2017 added v2.0 of the ISIS toolbox.
+
+8-Jun-2017 reworked thames to emulate 8080, this allows support of basic. Added
+various new binaries and a new version of relst.pl (see new  details below)
+
+10-Oct 2017 Added -i option to thames to allow files with invalid crc to load
+i.e. Cobol80, Added altmap application to isis 4.2w in itools.
+As part of my work to convert the asm80 source to C I have reworked the asm80
+4.1 source to reflect usage of address types as follows
+	word	 var is numeric
+	pointer	 var contains the address of a variable. 
+	apointer var contains the address of a word variable.
+	address	 var is used as both a word and a pointer
+Note I also corrected a naming error on asm80_4.1_all.src (I had accidently
+named it asm80_4.2_all.src)
+The first C port of asm80 is now in the asm80-c directory. But be aware it
+currently ignores :Fx: specifications and will load files from the current
+directory only. If you compile the code you will get warnings about the pack
+pragma. These are safe to ignore, once I get a chance I will clean them up.
+
 What's here
-plm80v3\*.*	this is the plm80 version 3 compiler that is needed for
-		some of the modules !! The source files have the .pl3 extension
+asm80-c/*.*	the port of asm80 v4.1 to C. The current version does not
+		support :Fx: specifications, it just ignores them.
+		The port is based on asm80.ov4 which is the macro version of
+		the assembler. I have seen this distributed as asm80 without
+		the other overlays, as the main asm80 just determines whether
+		to run asm80.ov4 (macro support), asm80.ov5 (large memory
+		support no macros) or to use overlays asm80.ov1, asm80.ov2 and
+		asm80.ov3 for small memory support.
 
-plm80v4\*.*	basically most of the plm80 version 4 compiler and utilities
-		taken from the intel emulator package
+itools/*/*.*	the various isis tools each set specified under a sub
+		directory of the format tool_version. Tools include
+		asm80, plm80, fort80, pasc80, asm86, plm86, asm48, asm51, basic
+		lib, link, locate lib86, link86, loc86, lib51, rl51
+		ixref, conv86, oh86, plm80.lib, fpal.lib
+		utils - include hexobj, objhex and system.lib that were in the
+		utils dirctory of the various plm80, asm80, fort80 that were
+		freely shared with isis.exe
+		note the fort80 libraries and 8086 libraries have not
+		yet been splitout.
+		Additionally isis 2.2, 3.4, 4.0, 4.1, 4.2, 4.2W, 4.3 and 4.3W
+		are included with the build tools noted above removed
 
-isis.exe	the intel isis emulator for msdos - no longer used
-isis.doc	and its documentation
+		toolbox_1.0 and toolbox_2.0 - the isis toolbox applications
+		and compiled libraries. I have added pause which was missing
+		from the original v1.0
 
-thames.exe	John Elliott's intel isis emulator used in the build tree as isis.exe does
-		not work on 64bit windows. It contains the fixes I submitted to John
-		Another change is that now debug level 4 gives out a little
-		more detail on memory changes. This was to help me to trace
-		the intel code.
+		Note basic will not work under thames as it simulates a z80
+		and has different behaviour for partity/overflow.  Unfortunately
+		basic fails because of this.
 
-nmake.exe	the microsoft nmake utility taken from the microsoft web site
-nmake.err
+thames.exe	This is a major update on John Elliott's intel isis emulator
+thames32.exe	used in the build tree as isis.exe does not work on 64bit windows.
+thamesSrc\*.*	I have included the source of the tool in thamesSrc where you will
+		also find a markdown file thames.md that describes the changes
+		thames.exe is the 64bit version thames32.exe is the 32bit version
 
+make.exe	64bit and 32bit versions of the gnu make utility
+make32.exe
 
-mkdepend.pl	perl script to auto generate dependency information in the makefile
-		cd to where the makefile is and run this script
-		Note there are some minor limitations on the script
-		1) it assumes the tools files are on :f1: and will map this drive
-		   to the relevant tools directory $(V4) for .plm and .asm and
-		   $(V3) for .pl3 files. No other extensions are processed
-		2) lines of the format objfile.obj: srcfile.(plm|asm|pl3) are
-		   processed but multiple objfile.obj before the : are not nor
-		   are additional source dependencies, although nmake will handle
-		   these
-		3) avoid target files of format $(F1)file as the $(F1) will depend on
-		   the tools used
+unix\*.*	various unix like tools used for the build
 
 unpack.pl	perl script to unpack the combined source files I use personally
 		as the master files as it allows easier global search / replace.
-		The script only unpacks changed files - note no longer calls
-		mkdepend.pl to update the makefile. Makefiles modified to
-		handle this
+		The script only unpacks changed files.
 		Note the packed file format is Ctrl-L filename newline file content
 		repeated for all files. The Ctrl-L separates the files
 		Now supports multi level directory expand.
 
-relst.pl	perl script that takes a listing file and a map file and
-		creates new listing file with the addresses relocated to
-		actual addresses. It does not change code addresses
-		usage: relst.pl mapfile listfiles
+relst.pl	perl script that takes a located file, a mapfile and a list of
+		asm/plm .lst files and for each .lst file produces a .prn file
+		with the address and code adjusted to reflect the final located
+		file. This is an updated version of relst.pl with an additional
+		first argument.
+		usage: relst.pl locfile mapfile listfiles+
+		Note the tool requires publics or symbols to be included in the map file.
+		It works best with symbols, which requires the debug option in the
+		compilation stage.
+		
 
 rebase.pl	(depreciated by relst.pl but may be required if there are no public
 		symbols in the listing file)
@@ -86,109 +140,136 @@ rebase.pl	(depreciated by relst.pl but may be required if there are no public
 		the tool writes to the console so you most likely want to redirect
 		to a file
 
-mkisisdir.pl	simple script to create a basic ISIS.DIR file based on files
-		matching ??????.???. No link information is included and its
-		main use is to support ixref
+
 		
-src\clean.bat	cleans out the source tree of recreatable files
-src\mkall.bat	makes all the files in the source tree and checks they
-		match the intel binaries
+src\makefile	makefile to manage all of the builds. Runs make in each of the
+		subdirectories noted below. It supports the same common targets
 
-Note: each of the source directories listed below as an associated makefile.
-To use this change to the directory and enter one of the following commands
+src\makefile.md	markdown description of the makefile support for isis builds
 
-..\..\nmake		- builds the files
-..\..\nmake verify	- builds the files and verifies with the intel binary
-..\..\nmake clean	- cleans the directory
-..\..\nmake vclean	- cleans additional files - not supported on all makefiles
-..\..\nmake uclean	- cleans everything apart from the packed source file
-			  where used
-..\..\nmake gitprep	- runs uclean and then unpacks files stored in git -
-			  not used in all cases
+Note: each of the source directories listed below contains a makefile.
+To use this change to the directory and enter one of the following commands.
+
+..\..\make all		- builds the files, the all is optional
+..\..\make verify	- builds the files and verifies with the intel binary
+..\..\make clean	- cleans the directory
+..\..\make distclean	- cleans out files not needed to rebuild from source
+..\..\make rebuild	- runs distclean followed by all
 
 
-src\asm80\*.*	plm & asm recreated source for asm80
-		note asm80_all.plm is the packed source file I use to edit the code
-		as it makes global find / replace a lot easier.
-		It is a packed file of all of the source. The unpack.pl
-		utility is used to unpack to individual files
-		Recent change is that the listing and object files are now
-		created in separate directories. This makes the makefile more complex
-		but makes finding files easier. Additionally debug versions of
-		the application files are create in the obj directory and the
-		map files in the list directory now have the local symbol detail.
-		Now includes asxref source
-		Files renamed & makefile simplified
+src\asm80_4.1\*.* plm & asm recreated source for asm80
+		asm80_4.1_all.src is a packed file of all of the source.
 
-src\lib80\*.*	plm & asm recreated source for lib80
-		note the file lib80_all.plm is the file I personally use to edit
-		the code. See comments above
+src\lib_2.1\*.*	plm & asm recreated source for lib80 v2.1
+		lib_2.1_all.src contains the packed source code.
 
-src\link80\*.*	plm & asm recreated source for link and link.ovl
-		note the file link80_all.plm is the file I personally use to edit
-		the code. See comments above
+src\link_3.0\*.* plm & asm recreated source for link and link.ovl v3.0
+		link_3.0_all.src contains the packed source code
 
-src\loc80\*.*	plm & asm recreated source for locate
-		note loc80_all.plm is the packed source file I use to edit the code
-		see comments above
+src\locate_3.0\*.* plm & asm recreated source for locate v3.0
+		locate_3.0_all.src contains the packed source code
 
-src\common\*.*	contains small plm & asm files and associated include files
-		used by several of the plm builds.
-		All the plm makefiles refer to this directory and for the isis
-		emulator it is treated as simulated drive :f3:
-		The makefile in this directory now will build all the files
-		however the individual plm makefiles will build any changed files
-		they need as well
+src\plm_v4.0\*.* plm & asm recreated source for plm80 v4.0
+		 plm_4.0_all.src contains the packed source code.
 
-src\plm\*.*	recreated plm source for the plm80 file
-src\plm0\*.*	recreated plm & asm source for plm80.ov0
-src\plm1\*.*	recreated plm for plm80.ov1
-src\plm2\*.*	recreated plm for plm80.ov2
-src\plm3\*.*	recreated plm for plm80.ov3
-src\plm4\*.*	recreated plm for plm80.ov4
-src\plm5\*.*	recreated plm for plm80.ov5
-src\plm6\*.*	recreated plm for plm80.ov6
+src\isis_3.4\*.*	files to build isis 3.4
+		 isis_3.4_all.src contains the packed source code.
+		
+src\isis.t0_3.4\*.* files to build isis 3.4 boot file
+		 isis.t0_3.4_all.src contains the packed source code.
 
+src\isis_4.11\*.*	files to build isis 4.1
+		 isis_4.1_all.src contains the packed source code.
+		
+src\isis.t0_4.1\*.* files to build isis 4.1 boot file
+		 isis.t0_4.1_all.src contains the packed source code.
 
+src\isis.cli_4.1\*.* files to build isis 4.1 cli file
+		 isis.cli_4.1_all.src contains the packed source code.
 
-src\isis41\*.*	files to build isis4.1
-		the source files are packed in isis41_all.plm use unpack.pl to
-		extract them or the m.bat file - the other files are
-		1) isis.abs - the reference isis.abs used to check the build
-		2) m.bat - simple batch file to unpack and build
+src\isis_4.3\*.*	files to build isis 4.3
+		 isis_4.3_all.src contains the packed source code.
+		
+src\isis.t0_4.3\*.* files to build isis 4.3 boot file
+		 isis.t0_4.3_all.src contains the packed source code.
 
-src\isist0\*.*	files to build isis4.1 boot file
-		the source files are packed in isist0_all.plm use unpack.pl
-		extact them or the m.bat file - the other files are
-		1) isis.t0.ref - reference file to check build
-		2) m.bat - simple batch file to unpack and build
+src\isis.cli_4.3\*.* files to build isis 4.3 cli file
+		 isis.cli_4.3_all.src contains the packed source code.
 
-src\isis.cli\*.* files to build isis4.1 cli file
+src\isis.ov0_4.3\*.* files to build isis 4.3 .ov0 file
+		 isis.ov0_4.3_all.src contains the packed source code.
 
-src\ixref\*.*	files to build ixref 1.2. Note ixref 1.3 requires additional
-		isis support including isis0.ovl. So far I have not been able
-		to find a true ISIS 4.3 disk with this support; the current
-		disks appear to contain ISIS 4.2
+src\isisUtil_4.3\*.*	files to build isis 4.3 fixmap, format and idisk
+		isisUtil_4.3_all.src contains the packed source code
+
+src\ixref_1.2\*.* files to build ixref 1.2
+		 ixref_1.2_all.src contains the packed source code.
+		
+src\ixref_1.3\*.* files to build ixref 1.3
+		 ixref_1.3_all.src contains the packed source code and the
+		 isis.ov0 file needed to test it.
+
+src\plm80.lib\*.* files to build plm80.lib for plm v4.0
+		plm80lib_all.src contains the packed source
+
+src\system.lib_4.0\*.* files to build system.lib for plm v4.0
+		system.lib_4.0_all.src contains the packed source
 
 src\kermit\*.*	files to build kermit for isis
 
-src\tex\*.*	files to build tex v2.0 and v2.1 for cpm also a patched version
+src\tex\*.*	files to build tex v1.0, v1.2, v2.1 for cpm also a patched version
                 of v2.1 that fixes a bug in printing text only
 
+src\toolbox_1.0\*.*	the source files for the isis toolbox inluding decompiled
+		versions of all of the libraries. Master source is in
+		toolbox_1.0_all.src, it contains nested master files for the
+		libraries.
+		Running make will unpack and rebuild the files, alternatively
+		using unpack.pl will unpack the files leaving the library sources
+                in packed format.
+		Note cusp2.lib was compiled with plm80 v1.0 and I cannot
+		recreate the exact binary as it inlines some of the plm80
+		library and in some cases generates different code.
+		Additionally for module MONITOR I could not generate the exact
+		code even though it claims to be compiled with PLM80 3.1. It
+		is possible it was an internal version. Finally several of the
+		libraries contain identical modules but the overall libraries
+		are not identical. This appears to be due to a bug in the
+		librarian Intel used, in that the dictionary locations are not
+		all normalised e.g. block:sector 24H:00 is 23H:80H.
+
+src\toolbox_2.0\*.* the source files for version 2.0 of the isis toolbox including
+		decompiled version of all of the libraries. Master source is in
+		toolbox_2.0_all.src, it contains nested master files for the
+		libraries. See toolbox_1.0 above.
+
 tools\*.*	tools I wrote to help me decompile / build the files
+
+  isis.mk	include makefile script see src/makefile.md for details
+		also look at the makefiles in the source tree
+
   delib.pl	tool to split a library out into individual object files
 		usage: delib.pl libraryfile targetdir
 		note it uses the module name as the filename and this may not
-		be a valid isis filename 
-  diffbin.exe	a small utility to compare intel files with respect to final
-		image load in memory. Originally created as I left debug
-		symbols, however it is needed to verify that the link has built
-		correctly. Simple binary compare cannot be used for these
-		because:
-		1) link has a absolute segment load split into two parts that
-		   I cannot recreate since locate joins them together.
-		2) link.ovl has a start record that locate refuses to create
-		   since it's not a main module
+		be a valid isis filename.
+
+  disIntelLib.exe
+		a program that takes a library file and create assembly like
+		files for each module.
+		usage: disIntelLib library
+		a directory is created with the name name as the library file
+		name without the .lib. Individual files are created in the
+		directory with a .asm, .plm or .for extension dependent on the
+		compiler detected. For plm some of the plm data structures are
+		emitted rather than assembler ones.
+
+  dumpintel.exe dumps the contents of an omf file
+		usage: dumpintel objectfile
+
+  omfcmp.exe	a small utility to compare intel files with respect to final
+		image load in memory. This is a significant update on the
+		previous diffbin that now supports library comparison and will do
+		a binary compare if the files are not in omf format.
   ngenpex.exe   My own implemenation of the intel software tools utility
 		genpex. This fixes a number of issues with the original which
 		I have included in the plm80v4 directory along with the
@@ -239,6 +320,8 @@ tools\*.*	tools I wrote to help me decompile / build the files
 		where address is the cpm location (file offset + 0x100)
 		and xx yy etc. are the new byte values.
 		note all values are entered in hex.
+		The latest version allows writing beyond the end of the
+		comfile, which is useful for tail end padding of files.
   plmpp.exe	Implements the plm preprocessor for $IF $ELSE $ELSEIF and $END
 		so that plm 3.x version files can include the preprocessor
 		directives. 
@@ -251,6 +334,15 @@ tools\*.*	tools I wrote to help me decompile / build the files
 		-o -> specifies the output file
 
   t0bootdiff	compares to bootfile files to show differences
+
+  mkisisdir.pl	simple script to create a basic ISIS.DIR file based on files
+		matching ??????.???. No link information is included and its
+		main use is to support ixref
+  makedepend.pl utility to generate a dependency file information.
+		usage: perl makedepend.pl objfile srcfile
+		ISIS_Fn environment variables need to be set for all of the
+		include drives used. If there are any dependencies then
+		a suitable .d file is created in the .deps directory.
 
 toolsrc\*.*	source files for the above tools in visual studio 2015
 		the underlying c and c++ source files can easily be found
@@ -271,3 +363,19 @@ updated 10-Dec-2016 (added asxref to the asm80 directory, stuctural changes to
 updated 29-Jan-2017 (renamed asm80 files to be more consistent and simpified
 		     makefile. Note may move to gnu make at some point to
 		     simplifiy further)
+updated 1-May-2017  (Updated thames to support auto unix file mapping and isis error handling
+		     moved build to use gnu make including tools/isis.mk
+		     restructured plm v4.0 tree
+		     renamed several directories to be more consistent
+		     added plm80v30
+		     replaced diffbin by a more comprehensive comparison tool omfcmp
+		     added decompilation of isis v3.4 and v4.3 files
+		     added disIntelLib, dumpintel, makedepend.pl)
+Update 8-May-2017    restructured isis tools directories and changed isis.mk
+		     to support this. See src/makefile.md for info
+Update 17-May-2017   added isis toolbox v1.0
+Update 18-May-2017   minor reorganisation of isis toolbox v1.0 to use nested packed files
+		     standardised on packed files naming convention to
+		     tool_ver_all.src
+Update 8-Jun-2017    Updated thames to use 8080 emulation. This allows basic to be run
+		     Added isis toolbox 2.0 and a new version of relst.pl

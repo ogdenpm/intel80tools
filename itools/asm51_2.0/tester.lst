@@ -1,0 +1,145 @@
+MCS-51 MACRO ASSEMBLER    TESTER                                                                               PAGE    1
+
+
+ISIS-II MCS-51 MACRO ASSEMBLER V2.0
+OBJECT MODULE PLACED IN :F0:TESTER.OBJ
+ASSEMBLER INVOKED BY:  ASM51 TESTER.ASM
+                       
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1             ORG     00H
+0000 020039            2     POWER:  JMP     START
+0003                   3             ORG     03H
+0003 020039            4     EXTRN0: JMP     START
+000B                   5             ORG     0BH
+000B 020026            6     IMER0:  JMP     TIMINT0
+0013                   7             ORG     13H
+0013 020039            8     XTRN1:  JMP     START
+001B                   9             ORG     1BH
+001B 020039           10     IMER1:  JMP     START
+0023                  11             ORG     23H
+0023 020039           12     SIOINT: JMP     START
+                      13     ;
+                      14     ;
+0026 C0D0             15     TIMINT0:        PUSH    PSW
+0028 C0E0             16             PUSH    ACC
+002A C082             17             PUSH    DPL
+002C C083             18             PUSH    DPH
+002E C28D             19             CLR     TF0
+0030 D083             20             POP     DPH
+0032 D082             21             POP     DPL
+0034 D0E0             22             POP     ACC
+0036 D0D0             23             POP     PSW
+0038 32               24             RETI
+                      25     ;
+                      26     ;
+0039 758107           27     START:  MOV     SP,#07H         ;INIT STACK
+003C 75A800           28             MOV     IE,#00000000B   ;NO INTERRUPTS
+003F 020054           29             JMP     INIT
+0042 740E             30     MAIN1:  MOV     A,#0EH
+0044 12007F           31             CALL    OUTLED
+0047 12008D           32             CALL    LEDON
+004A 120095           33             CALL    CHKSW1
+004D 740C             34             MOV     A,#0CH
+004F 12007F           35             CALL    OUTLED
+0052 80FE             36     MAIN10: JMP     MAIN10
+                      37     ;
+                      38     ;
+0054 7801             39     INIT:   MOV     R0,#01H
+0056 7600             40     INIT1:  MOV     @R0,#00H
+0058 08               41             INC     R0
+0059 E8               42             MOV     A,R0
+005A 30E7F9           43             JNB     ACC.7,INIT1
+                      44     ;
+005D 90E003           45             MOV     DPTR,#0E003H
+0060 7489             46             MOV     A,#89H
+0062 F0               47             MOVX    @DPTR,A         ;INIT 8255
+                      48     ;
+0063 90E001           49             MOV     DPTR,#0E001H
+0066 7400             50             MOV     A,#00H
+MCS-51 MACRO ASSEMBLER    TESTER                                                                               PAGE    2
+
+
+LOC  OBJ            LINE     SOURCE
+
+0068 F0               51             MOVX    @DPTR,A
+                      52     ;
+0069 90E000           53             MOV     DPTR,#0E000H
+006C 7402             54             MOV     A,#02
+006E F0               55             MOVX    @DPTR,A
+                      56     ;
+006F 7590FF           57             MOV     P1,#0FFH        ;INIT PORT 1
+0072 758921           58             MOV     TMOD,#00100001B
+0075 758BFD           59             MOV     TL1,#0FDH
+0078 D28E             60             SETB    TR1
+007A 759840           61             MOV     SCON,#01000000B
+007D 80C3             62             JMP     MAIN1
+                      63     ;
+                      64     ;
+                      65     ;
+007F F9               66     OUTLED: MOV     R1,A
+0080 90E000           67             MOV     DPTR,#0E000H
+0083 E0               68             MOVX    A,@DPTR
+0084 540F             69             ANL     A,#0FH
+0086 C9               70             XCH     A,R1
+0087 540F             71             ANL     A,#0FH
+0089 C4               72             SWAP    A
+008A 49               73             ORL     A,R1
+008B F0               74             MOVX    @DPTR,A
+008C 22               75             RET
+                      76     ;
+008D 90E000           77     LEDON:  MOV     DPTR,#0E000H
+0090 E0               78             MOVX    A,@DPTR
+0091 C2E3             79             CLR     ACC.3
+0093 F0               80             MOVX    @DPTR,A
+0094 22               81             RET
+                      82     ;
+                      83     ;
+0095 90E002           84     CHKSW1: MOV     DPTR,#0E002H
+0098 E0               85             MOVX    A,@DPTR
+0099 20E7F9           86             JB      ACC.7,CHKSW1
+009C 22               87             RET
+                      88     ;
+                      89             END
+MCS-51 MACRO ASSEMBLER    TESTER                                                                               PAGE    3
+
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E     T Y P E   V A L U E       A T T R I B U T E S
+
+ACC. . . .  D ADDR    00E0H   A       
+CHKSW1 . .  C ADDR    0095H   A       
+DPH. . . .  D ADDR    0083H   A       
+DPL. . . .  D ADDR    0082H   A       
+EXTRN0 . .  C ADDR    0003H   A       
+IE . . . .  D ADDR    00A8H   A       
+IMER0. . .  C ADDR    000BH   A       
+IMER1. . .  C ADDR    001BH   A       
+INIT . . .  C ADDR    0054H   A       
+INIT1. . .  C ADDR    0056H   A       
+LEDON. . .  C ADDR    008DH   A       
+MAIN1. . .  C ADDR    0042H   A       
+MAIN10 . .  C ADDR    0052H   A       
+OUTLED . .  C ADDR    007FH   A       
+P1 . . . .  D ADDR    0090H   A       
+POWER. . .  C ADDR    0000H   A       
+PSW. . . .  D ADDR    00D0H   A       
+SCON . . .  D ADDR    0098H   A       
+SIOINT . .  C ADDR    0023H   A       
+SP . . . .  D ADDR    0081H   A       
+START. . .  C ADDR    0039H   A       
+TF0. . . .  B ADDR    0088H.5 A       
+TIMINT0. .  C ADDR    0026H   A       
+TL1. . . .  D ADDR    008BH   A       
+TMOD . . .  D ADDR    0089H   A       
+TR1. . . .  B ADDR    0088H.6 A       
+XTRN1. . .  C ADDR    0013H   A       
+
+
+REGISTER BANK(S) USED: 0, TARGET MACHINE(S): 8051 
+
+ASSEMBLY COMPLETE, NO ERRORS FOUND
