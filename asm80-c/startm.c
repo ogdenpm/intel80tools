@@ -185,14 +185,14 @@ void RuntimeError(byte errCode)
     Exit();
 }
 
-void IoError(pointer s)
+void IoError(pointer path)
 {
     tokBufIdx = 0;
-    curFileNameP = s;
+    curFileNameP = path;
 
-    while (*s != ' ' && *s != CR && *s != TAB) {
+    while (*path != ' ' && *path != CR && *path != TAB) {
         tokBufIdx++;
-        s++;
+        path++;
     }
     if (missingEnd)
         RuntimeError(3);    /* EOF Error*/

@@ -131,7 +131,7 @@ void ResetData()
     b68AE = false;
     curChar = ' ';
     for (ii = 0; ii <= 11; ii++) {        /* reset all the control seen flags */
-        controlSeen[ii] = 0;
+        controlSeen[ii] = false;
     }
     curMacroBlk = 0xFFFF;
     if (! IsPhase1()) {   /* close any Open() include file */

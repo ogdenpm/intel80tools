@@ -38,7 +38,7 @@ void InitRecTypes();
 void InsertByteInMacroTbl(byte c);
 void InsertCharInMacroTbl(byte c);
 void IoErrChk();
-void IoError(pointer s);
+void IoError(pointer path);
 bool IsComma();
 bool IsCR();
 bool IsGT();

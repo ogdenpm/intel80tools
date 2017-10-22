@@ -256,7 +256,7 @@ endUpdateSymbol:
     if (tokenSym.curP->type == 6)
         UndefinedSymbolError();
 
-    hasVarRef = 0;
+    hasVarRef = false;
     if (createdUsrSym)
         PopToken();
 //	DumpSymbols(TID_SYMBOL);

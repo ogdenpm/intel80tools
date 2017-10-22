@@ -8,7 +8,7 @@ static word w9C75;
 byte b9C77;
 
 
-static byte Sub7192()
+static bool Sub7192()
 {
     if (IsCR()) {
         b905A = false;
@@ -49,12 +49,11 @@ static void Sub720A()
 		macro.stack[macroDepth].bufP = macro.stack[0].bufP;
 		macro.stack[macroDepth].blk = macro.stack[0].blk;
 	}
-//        memcpy(&macro.stack[macroDepth].bufP, &macro.stack[0].bufP, sizeof(pointer) + sizeof(word));
 
     b9061 = false;
     macro.top.w12 = w9199;
     macro.top.w4 = w919B;
-    w919B = w919B + macro.top.b3;
+    w919B += macro.top.b3;
     ReadM(macro.top.w10);
     macro.top.bufP = macroBuf;
 }

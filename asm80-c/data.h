@@ -92,7 +92,7 @@ extern byte startSeg;
 extern byte activeSeg;
 extern bool inPublic;
 extern bool inExtrn;
-extern byte segHasData[2];
+extern bool segHasData[2];
 extern byte alignTypes[4];
 extern word externId;
 extern word itemOffset;
@@ -125,7 +125,7 @@ extern word_t accum[2];
 #define accum2Hb accum[1].hb
 extern byte acc1Flags;
 extern byte acc2Flags;
-extern byte hasVarRef;
+extern bool hasVarRef;
 extern byte acc1ValType;
 extern byte acc2ValType;
 extern word acc1NumVal;
