@@ -124,7 +124,7 @@ void Skip2EOL()
 
 bool ChkGenObj()
 {
-    return (phase == 2) && controls.object;
+    return phase == 2 && controls.object;
 }
 
 
@@ -236,13 +236,13 @@ bool BlankMorPAsmErrCode()
 }
 
 
-byte GetNibble(pointer bp, byte idx)
+byte GetNibble(pointer bp, byte idx)	// not used
 {
     byte n;
 
-    bp = bp + (idx >> 1);    /* index into buffer the number of nibbles */
+    bp += (idx >> 1);    /* index into buffer the number of nibbles */
     n = *bp;            /* pick up the byte there */
-	if (!idx)        /* pick up the right nibble */
+	if (!(idx & 1))        /* pick up the right nibble */
 		n >>= 4;
     return n & 0xF;    /* mask to leave just the nibble */
 }

@@ -250,7 +250,7 @@ GetNibble       P(A bp,B idx)B
 InitialControls P
 SafeOpen          P(A path$p,A access)"word"
 IoErrChk        P
-IoError         P("pointer" s)
+IoError         P("pointer" path)
 IsComma         P"bool"
 IsCR            P"bool"
 IsPhase1        P"bool"
@@ -515,11 +515,11 @@ noOpsYet           "bool"
 nameLen         B
 inPublic        "bool"
 inExtrn         "bool" 
-segHasData           BS
+segHasData      "bool"S
 badExtrn        "bool"
 acc1Flags           B
 acc2Flags           B
-hasVarRef           B
+hasVarRef        "bool"
 acc1ValType           B
 acc2ValType           B
 gotLabel           B
@@ -873,7 +873,7 @@ declare    contentBytePtr pointer public,
     activeSeg byte public,
     inPublic bool public initial(FALSE),
     inExtrn bool public initial(FALSE),
-    segHasData(2) byte public,
+    segHasData(2) bool public,
     alignTypes(4) byte public initial(3, 3, 3, 3),
     externId word public,
     itemOffset word public,
@@ -907,7 +907,7 @@ declare    opSP byte public,
     (accum1$lb, accum1$hb, accum2$lb, accum2$hb) byte public at(.accum1),
     acc1Flags byte public,
     acc2Flags byte public,
-    hasVarRef byte public,
+    hasVarRef bool public,
     acc1ValType byte public,
     acc2ValType byte public,
     acc1NumVal word public,
@@ -2359,16 +2359,16 @@ RuntimeError: procedure(errCode) public;
     call Exit;
 end;
 
-IoError: procedure(s) public;
-    declare s pointer;
-    declare ch based s byte;
+IoError: procedure(path) public;
+    declare path pointer;
+    declare ch based path byte;
 
     tokBufIdx = 0;
-    curFileName$p = s;
+    curFileName$p = path;
 
     do while ch <> ' ' and ch <> CR and ch <> TAB;
         tokBufIdx = tokBufIdx + 1;
-        s = s + 1;
+        path = path + 1;
     end;
     if missingEnd then
         call RuntimeError(3);    /* EOF Error*/
@@ -2411,7 +2411,7 @@ BlankMorPAsmErrCode: procedure bool public;
 end;
 
 
-GetNibble: procedure(bp, idx) byte public;
+GetNibble: procedure(bp, idx) byte public;  /* not used */
     declare bp pointer, idx byte;
     declare b based bp byte;
     declare n byte;
@@ -4006,7 +4006,7 @@ $ENDIF
     if curTokenSym.type = 6 then
         call UndefinedSymbolError;
 
-    hasVarRef = 0;
+    hasVarRef = FALSE;
     if createdUsrSym then
         call PopToken;
 
@@ -5013,7 +5013,7 @@ declare w9C75 word,
     b9C77 byte public;
 
 
-Sub7192: procedure byte;
+Sub7192: procedure bool;
     if IsCR then
     do;
         b905A = FALSE;
