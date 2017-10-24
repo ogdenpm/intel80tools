@@ -98,7 +98,7 @@ void Sub4291();
 void Sub546F();
 void Sub5CAD(word val, byte type);
 void Sub7041_8447();
-void Sub72A4(byte arg1b);
+void Sub72A4(byte mtype);
 void Sub7327();
 void Sub73AD();
 void Sub7517();

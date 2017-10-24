@@ -63,30 +63,29 @@ void ReadM(word blk)
 {
 	word actual;
 
-	if (blk >= maxMacroBlk)
+	if (blk >= maxMacroBlk)			// does not exist
 		actual = 0;
-	else if (blk == curMacroBlk)
+	else if (blk == curMacroBlk)	// already correct
 		return;
-	else {
+	else {							// load the buffer
 		SeekM(blk);
 		Read(macrofd, macroBuf, 128, &actual, &statusIO);
 		IoErrChk();
 	}
 
-	macro.top.blk = curMacroBlk = blk;
-	macroBuf[actual] = 0xFE;    /* flag end of macro buffer */
+	macro.top.blk = curMacroBlk = blk;	// set relevant trackers
+	macroBuf[actual] = MACROEOB;    /* flag end of macro buffer */
 }
 
 /* write the macro to disk */
 void WriteM()
 {
-	if (phase == 1) {
-		SeekM(maxMacroBlk);
-		maxMacroBlk = maxMacroBlk + 1;
+	if (phase == 1) {	// only needs writing on pass 1
+		SeekM(maxMacroBlk++);	// seek to end and update marker to account for this block
 		Write(macrofd, symHighMark, 128, &statusIO);
 		IoErrChk();
 	}
-	macroBlkCnt = macroBlkCnt + 1;
+	macroBlkCnt++;		// update the buffer count for this macro
 }
 
 
@@ -95,14 +94,14 @@ void FlushM()
 {
 	word bytesLeft;
 
-	if (b905E & 1) { /* spool macros to disk in 128 byte blocks */
+	if (mSpoolMode & 1) { /* spool macros to disk in 128 byte blocks */
 		while ((bytesLeft = macroInPtr - symHighMark) >= 128) {
 			WriteM();
 			symHighMark += 128;
 		}
 		/* move the remaining bytes to start of macro buffer */
 		if (bytesLeft != 0)
-			move(bytesLeft, symHighMark, endSymTab[TID_MACRO]);
+			memcpy(endSymTab[TID_MACRO], symHighMark, bytesLeft);
 		macroInPtr = (symHighMark = (pointer)endSymTab[TID_MACRO]) + bytesLeft;
 	}
 }
@@ -144,20 +143,20 @@ void Tokenise()
 		case0:      IllegalCharError(); break;
 		case CC_WS: break;
 		case CC_SEMI:
-			if (!b9058) {
+			if (!inQuotes) {
 				inComment = true;
-				if (GetChClass() == CC_SEMI && (b905E & 1)) {
+				if (GetChClass() == CC_SEMI && (mSpoolMode & 1)) {
 					excludeCommentInExpansion = true;
-					macroInPtr -= 2;
+					macroInPtr -= 2;		// remove the ;;
 				}
-				Skip2NextLine();
+				Skip2NextLine();			// process the rest of the line
 				yyType = T_CR;
 				return;
 			}
 			break;
 		case CC_COLON:
 			if (!gotLabel) {
-				if (skipIf[0] || (b905E & 1))
+				if (skipIf[0] || (mSpoolMode & 1))
 					PopToken();
 				else {
 					labelUse = 2;
@@ -177,7 +176,7 @@ void Tokenise()
 		case CC_CR:
 			ChkLF();
 			yyType = T_CR;
-			b9058 = false;
+			inQuotes = false;
 			return;
 		case CC_PUN:
 			if (curChar == '+' || curChar == '-')
@@ -198,8 +197,8 @@ void Tokenise()
 				IllegalCharError();
 				return;
 			}
-			if (b905E & 1)
-				b9058 = !b9058;
+			if (mSpoolMode & 1)
+				inQuotes = !inQuotes;
 			else {
 				GetStr();
 				if (expectingOpcode)
@@ -216,15 +215,15 @@ void Tokenise()
 		case CC_LET:
 			w919F = macroInPtr - 1;
 			GetId(O_NAME);    /* assume it's a name */
-			if (tokenSize[0] > 6)  /* cap length */
-				tokenSize[0] = 6;
+			if (tokenSize[0] > MAXSYMSIZE)  /* cap length */
+				tokenSize[0] = MAXSYMSIZE;
 
 			if (controls.xref) {
-				move(6, name, savName);
-				move(6, spaces6, name);
+				memcpy(savName, name, MAXSYMSIZE);
+				memcpy(name, spaces6, MAXSYMSIZE);
 			}
 			/* copy the token to name */
-			move(tokenSize[0], tokPtr, name);
+			memcpy(name, tokPtr, tokenSize[0]);
 			nameLen = tokenSize[0];
 			PackToken();        /* make into 4 byte name */
 			if (rhsUserSymbol) {
@@ -233,9 +232,9 @@ void Tokenise()
 			}
 
 
-			if (Lookup(TID_MACRO) != O_NAME && (b905E & 1)) {
+			if (Lookup(TID_MACRO) != O_NAME && (mSpoolMode & 1)) {
                 kk = tokenType[0] == 0; // assignment pulled out to allow short circuit tests
-				if (!b9058 || (kk && (curChar == '&' || w919F[-1] == '&'))) {
+				if (!inQuotes || (kk && (curChar == '&' || w919F[-1] == '&'))) {
 					macroInPtr = w919F;
 					InsertCharInMacroTbl(kk ? 0x80 : 0x81);
 					InsertByteInMacroTbl((byte)GetNumVal());
@@ -243,7 +242,7 @@ void Tokenise()
 					yyType = O_NAME;
 				}
 			}
-			else if (yyType != O_37 && b905E != 2) {
+			else if (yyType != O_37 && mSpoolMode != 2) {
 				if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
 					tokenType[0] = Lookup(TID_SYMBOL);    /* look up in symbol space */
 					rhsUserSymbol = true;        /* note we have a used symbol */
@@ -259,16 +258,16 @@ void Tokenise()
 					lhsUserSymbol = false;
 				}
 			}
-			if (b905E == 1) {
+			if (mSpoolMode == 1) {
 				if (yyType == K_LOCAL) {
-					b905E = 2;
+					mSpoolMode = 2;
 					if (b6897)
 						SyntaxError();
 					b6897 = false;
 				}
 				else {
 					b6897 = false;
-					b905E = 0xff;
+					mSpoolMode = 0xff;
 				}
 			}
 

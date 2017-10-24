@@ -321,7 +321,7 @@ void PrintLine()
 			endItem = startItem;
 
 		Outch(asmErrCode);
-		if (b905E == 0xFF)
+		if (mSpoolMode == 0xFF)
 			Outch('-');
 		else
 			Outch(' ');

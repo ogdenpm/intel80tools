@@ -18,7 +18,7 @@ bool StrUcEqu(pointer s, pointer t)
 
 bool IsSkipping()
 {
-    return (b905E & 1) || skipIf[0];
+    return (mSpoolMode & 1) || skipIf[0];
 }
 
 void Sub546F()

@@ -203,8 +203,8 @@ void HandleOp()
 
                 showAddr = true;
             }
-            kk = b905E;
-            b905E = 0;
+            kk = mSpoolMode;
+            mSpoolMode = 0;
 
             if (macroCondSP > 0 || (kk & 1))
                 NestingError();
@@ -384,7 +384,7 @@ void Parse()
 {
     while (1) {
         if (! (yyType == T_CR ||( yyType >= K_END && yyType <= K_ENDIF))
-           && skipIf[0] || ((opFlags[yyType] < 128 || b9058) && (b905E & 1))) {
+           && skipIf[0] || ((opFlags[yyType] < 128 || inQuotes) && (mSpoolMode & 1))) {
             needsAbsValue = false;
             PopToken();
             return;

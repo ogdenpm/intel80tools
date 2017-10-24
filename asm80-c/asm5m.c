@@ -294,8 +294,7 @@ byte Lookup(byte tableId)
 
     packedTokP = (apointer)tokPtr;
     /* Keyword() lookup */
-    if (tableId == TID_KEYWORD)        /* hash chain look up key word */
-    {
+    if (tableId == TID_KEYWORD) {       /* hash chain look up key word */
 		/* code modified to keep deltaToNext as offset */
         entryOffset = symTab[TID_KEYWORD] /* is 0 in plm */;    /* offset to current symbol to compare */
                     /* offset of first to use - hashes packed symbol name */
@@ -414,17 +413,16 @@ reGetCh:
                 if (prevCH >= 0x80 || lookAhead == 0x80)
                     goto reGetCh;
             } else if (curCH == '!' && prevCH != 0) {
-                if (! (b905D || (b905E & 1)) && b905C) {
+                if (! (b905D || (mSpoolMode & 1)) && macroDivert) {
                     curCH = 0;
                     goto reGetCh;
                 }
             } else if (curCH >= 128) {
-                if (! (b905C = ! b905C))
-                    macro.top.bufP = w9197;
+                if (! (macroDivert = ! macroDivert))
+                    macro.top.bufP = savedMacroBufP;
                 else {
-                    w9197 = macro.top.bufP;
-                    if (curCH == 0x80)
-                    {
+                    savedMacroBufP = macro.top.bufP;
+                    if (curCH == 0x80) {
                         macro.top.bufP = macro.top.w12;
                         if (b9062 == 2) {
                             b91A1[1] = *macro.top.bufP;
@@ -441,10 +439,11 @@ reGetCh:
 							macro.top.bufP++;
                         }
                     } else {
-                        macro.top.bufP = b91A4;
+                        macro.top.bufP = localVarName;
                         word tmp = lookAhead + macro.top.w4;		// plm reuses pAddr
+						// generate local variable name
                         for (ii = 1; ii <= 4; ii++) {
-                            b91A4[6 - ii] = tmp % 10 + '0';
+                            localVarName[6 - ii] = tmp % 10 + '0';
                             tmp /= 10;
                         }
                     }
@@ -458,22 +457,18 @@ reGetCh:
         if (expandingMacro > 1)
             if (IsPhase2Print())
                 if (macroP < macroLine + 127)    /* append character */
-                {
-                    *macroP = curCH;    
-                    macroP = macroP + 1;
-                }
+                    *macroP++ = curCH;    
 
-        if (b905E & 1)
+        if (mSpoolMode & 1)
             if (w919D != macroInPtr && curCH == CR || ! excludeCommentInExpansion)
             InsertCharInMacroTbl(curCH);
 
-        if (!(prevCH == '!' || inComment))
-        {
+        if (!(prevCH == '!' || inComment)) {
             if (curCH == '>')
-                argNestCnt = argNestCnt - 1;
+                argNestCnt--;
 
             if (curCH == '<')
-                argNestCnt = argNestCnt + 1;
+                argNestCnt++;
         }
     }
 doneGetCh:
@@ -496,11 +491,10 @@ void ChkLF()
 {
     if (lookAhead == LF)
         lookAhead = 0;
-    else
-    {
-        b905E &= 0xFE;
+    else {
+        mSpoolMode &= 0xFE;
         IllegalCharError();
-        b905E = b905E > 0 ? 0xff : 0;
+        mSpoolMode = mSpoolMode > 0 ? 0xff : 0;
     }
 }
 

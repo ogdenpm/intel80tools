@@ -285,7 +285,7 @@ void ParseControlLines()
         if (IsSkipping()) {
             Skip2NextLine();
             isControlLine = true;
-            if (b905E == 1)
+            if (mSpoolMode == 1)
                 b6897 = true;
         } else
             ParseControls();
@@ -328,7 +328,7 @@ void InitLine()
     excludeCommentInExpansion = b9060 = needsAbsValue = bZERO;
 
     atStartLine = expectingOpcode = isInstr = expectOp = bTRUE;
-    controls.eject = hasVarRef = tokenIdx = b9058 = argNestCnt =
+    controls.eject = hasVarRef = tokenIdx = inQuotes = argNestCnt =
     tokenSize[0] = tokenType[0] = acc1ValType = acc2ValType = inComment = acc1Flags = bZERO;
 
     asmErrCode = ' ';

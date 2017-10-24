@@ -61,22 +61,22 @@ static void Sub720A()
 
 static bool Sub727F()
 {
-    if (! (b905E & 1))
+    if (! (mSpoolMode & 1))
         return true;
-    b9064 = b9064 + 1;
+    b9064++;
     b6B2C = topOp != K_REPT;
     yyType = 0x37;
     return false;
 }
 
 
-void Sub72A4(byte arg1b)
+void Sub72A4(byte mtype)
 {    /* 1 -> IRP, 2 -> IRPC */
     if (Sub727F()) {
         Sub71F2();
         Nest(1);
         macro.top.w14 = 0;
-        macro.top.mtype = arg1b;
+        macro.top.mtype = mtype;
     }
 }
 
@@ -121,7 +121,7 @@ static void Sub7383()
 {
     b9064 = 1;
     macroInPtr = symHighMark;
-    b905E = 1;
+    mSpoolMode = 1;
     w9C75 = macroBlkCnt;
 }
 
@@ -277,9 +277,9 @@ void Sub753E()
 
 void Sub75FF()
 {
-    if (b905E & 1) {
+    if (mSpoolMode & 1) {
         if (--b9064 == 0) {
-            b905E = 0;
+            mSpoolMode = 0;
             if (! (macro.top.mtype == 5)) {
                 if (macro.top.mtype == 2)
                     w9199 = baseMacroTbl + 3;
@@ -291,7 +291,7 @@ void Sub75FF()
                 }
 
                 macroInPtr = w919D;
-                *macroInPtr = 0x1B;
+                *macroInPtr = ESC;
                 FlushM();
                 WriteM();
 				symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);
@@ -394,7 +394,7 @@ void Sub7844()
     if ((yyType = newOp) != T_CR)
         SyntaxError();
 
-    if (! (b905E & 1)) {
+    if (! (mSpoolMode & 1)) {
         macro.top.w14 = accum1;
         if (! BlankMorPAsmErrCode()) {
             Sub739A();
@@ -407,7 +407,7 @@ void Sub7844()
 
 void Sub787A()
 {
-    if (b905E == 2) {
+    if (mSpoolMode == 2) {
         if (HaveTokens()) {
             if ((byte)(++macro.top.b3) == 0)
                 StackError();
@@ -419,7 +419,7 @@ void Sub787A()
             macroInPtr = symHighMark;
         }
         if (newOp == T_CR) {
-            b905E = 1;
+            mSpoolMode = 1;
             macroInPtr = symHighMark;
         }
     } else

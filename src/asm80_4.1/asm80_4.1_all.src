@@ -567,11 +567,11 @@ b6BD9           "bool"
 b6BDA           "bool"
 jj           B
 macroLine          BS        /* globlm */
-b9058          "bool"        /* globlm */
+inQuotes          "bool"        /* globlm */
 excludeCommentInExpansion          "bool"        /* globlm */
 b905A          "bool"        /* globlm */
 expandingMacro B        /* globlm */
-b905C          "bool"        /* globlm */
+macroDivert          "bool"        /* globlm */
 b905D          "bool"        /* globlm */
 b905E          B        /* globlm */
 b9060          "bool"        /* globlm */
@@ -582,7 +582,7 @@ b9064          B        /* globlm */
 b9065          B        /* globlm */
 b9066          B        /* globlm */
 b91A1          BS        /* globlm */
-b91A4          BS        /* globlm */
+localVarName          BS        /* globlm */
 accFixFlags          BS
 cmdch$p         "pointer"
 cmdLineBuf      BS
@@ -720,7 +720,7 @@ controlFileType "word"
 w9068          "pointer"    /* globlm */
 macroInPtr     "pointer"    /* globlm */
 macroBlkCnt    "word"        /* globlm */
-w9197          "pointer"        /* globlm */
+savedMacroBufP          "pointer"        /* globlm */
 w9199          "pointer"        /* globlm */
 w919B          "word"        /* globlm */
 w919D          "pointer"        /* globlm */
@@ -796,11 +796,11 @@ $IF MACRO
 declare    byteAt(1) byte public at(0),
     macroLine(129) byte public,
     macro$p pointer public initial(.macroLine),
-    b9058 bool public initial(FALSE),
+    inQuotes bool public initial(FALSE),
     excludeCommentInExpansion bool public,
     b905A bool public,
     expandingMacro byte public,
-    b905C bool public,
+    macroDivert bool public,
     b905D bool public initial(FALSE),
     b905E byte public,
     b905F byte,
@@ -837,13 +837,13 @@ declare    byteAt(1) byte public at(0),
     maxMacroBlk word public initial(0),
     macroBlkCnt word public,
     macroBuf(129) byte public,
-    w9197 pointer public,
+    savedMacroBufP pointer public,
     w9199 pointer public,
     w919B word public,
     w919D pointer public,
     w919F pointer public,
     b91A1(3) byte public initial(0, 0, 81h),
-    b91A4(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h);
+    localVarName(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h);
 $ENDIF
 /* ov4 compat 2C8C */
 declare    contentBytePtr pointer public,
@@ -1479,7 +1479,7 @@ Parse: procedure public;
         if not (yyType = T$CR or yyType >= K$END and yyType <= K$ENDIF)
            and skipIf(0)
 $IF MACRO
-               or (opFlags(yyType) < 128 or b9058) and b905E
+               or (opFlags(yyType) < 128 or inQuotes) and b905E
 
 $ENDIF
             then
@@ -2530,7 +2530,7 @@ $ENDIF
     atStartLine, expectingOpcode, isInstr, expectOp = bTRUE;
     ctlEJECT, hasVarRef, tokenIdx,
 $IF MACRO
-    b9058, argNestCnt,
+    inQuotes, argNestCnt,
 $ENDIF
     tokenSize(0), tokenType(0), acc1ValType, acc2ValType, inComment, acc1Flags = bZERO;
 
@@ -2723,31 +2723,31 @@ ReadM: procedure(blk) public;
     declare blk word;
     declare actual word;
 
-    if blk >= maxMacroBlk then
+    if blk >= maxMacroBlk then      /* does not exist */
         actual = 0;
-    else if blk = curMacroBlk then
+    else if blk = curMacroBlk then  /* already loaded */
         return;
-    else
+    else                            /* load the buffer */
     do;
         call SeekM(blk);
         call Read(macrofd, .macroBuf, 128, .actual, .statusIO);
         call IoErrChk;
     end;
 
-    tmac$blk, curMacroBlk = blk;
-    macroBuf(actual) = 0FEh;    /* flag end of macro buffer */
+    tmac$blk, curMacroBlk = blk;    /* set relevant trackers */
+    macroBuf(actual) = MACROEOB;    /* flag end of macro buffer */
 end;
 
 /* write the macro to disk */
 WriteM: procedure public;
-    if phase = 1 then
+    if phase = 1 then               /* only needs writing on pass 1 */
     do;
-        call SeekM(maxMacroBlk);
+        call SeekM(maxMacroBlk);    /* seek to end of spooled disk */
         maxMacroBlk = maxMacroBlk + 1;
         call Write(macrofd, symHighMark, 128, .statusIO);
         call IoErrChk;
     end;
-    macroBlkCnt = macroBlkCnt + 1;
+    macroBlkCnt = macroBlkCnt + 1;  /* increase this macro's buffer cnt */
 end;
 
 
@@ -2813,7 +2813,7 @@ Tokenise: procedure public;
             ;                /* CC$WS */
             do;                /* CC$SEMI */
 $IF MACRO
-                if not b9058 then
+                if not inQuotes then
 $ENDIF
                 do;
                     inComment = TRUE;
@@ -2861,7 +2861,7 @@ $ENDIF
                 call ChkLF;
                 yyType = T$CR;
 $IF MACRO
-                b9058 = FALSE;
+                inQuotes = FALSE;
 $ENDIF
                 return;
             end;
@@ -2892,7 +2892,7 @@ $IF MACRO
                     return;
                 end;
                 if b905E then
-                    b9058 = not b9058;
+                    inQuotes = not inQuotes;
                 else
 $ENDIF
                 do;
@@ -2935,7 +2935,7 @@ $ENDIF
 $IF MACRO
                 if Lookup(TID$MACRO) <> O$NAME and b905E then
                 do;
-                    if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
+                    if not inQuotes or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
                     do;
                         macroInPtr = w919F;
                         call InsertCharInMacroTbl(kk + 81h);
@@ -4183,7 +4183,7 @@ $IF MACRO
             end;
             else if curCH = '!' and prevCH <> 0 then
             do;
-                if not (b905D or b905E) and b905C then
+                if not (b905D or b905E) and macroDivert then
                 do;
                     curCH = 0;
                     goto reGetCh;
@@ -4191,11 +4191,11 @@ $IF MACRO
             end;
             else if curCH >= 128 then
             do;
-                if not (b905C := not b905C) then
-                    tmac$buf$p = w9197;
+                if not (macroDivert := not macroDivert) then
+                    tmac$buf$p = savedMacroBufP;
                 else
                 do;
-                    w9197 = tmac$buf$p;
+                    savedMacroBufP = tmac$buf$p;
                     if curCH = 80h then
                     do;
                         tmac$buf$p = tmac$w12;
@@ -4221,10 +4221,11 @@ $IF MACRO
                     end;
                     else
                     do;
-                        tmac$buf$p = .b91A4;
+                        tmac$buf$p = .localVarName;
                         pAddr = lookAhead + tmac$w4;
+                        /* generate local var name */
                         do ii = 1 to 4;
-                            b91A4(6 - ii) = pAddr mod 10 + '0';
+                            localVarName(6 - ii) = pAddr mod 10 + '0';
                             pAddr = pAddr / 10;
                         end;
                     end;
@@ -5321,7 +5322,7 @@ Sub75FF: procedure public;
                 end;
 
                 macroInPtr = w919D;
-                ch = 1Bh;
+                ch = ESC;
                 call FlushM;
                 call WriteM;
                 symHighMark, endSymTab(TID$MACRO) = symTab(TID$MACRO);
@@ -5355,7 +5356,7 @@ Sub76CE: procedure public;
             macroCondSP = tmac$macroCondSP;
             ifDepth = tmac$ifDepth;
             tmac$w14 = 1;
-            lookAhead = 1Bh;
+            lookAhead = ESC;
             macroCondStk(0) = 1;
         end;
         else
@@ -6160,7 +6161,7 @@ ResetData: procedure public;    /* extended initialisation */
 
     b6B33, scanCmdLine, skipIf(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
 $IF MACRO
-    expandingMacro, b905C, b905E,
+    expandingMacro, macroDivert, b905E,
 $ENDIF
     hasVarRef, needToOpenFile = bZERO;
     noOpsYet, primaryValid, ctlLIST, ctlLISTChanged = bTRUE;

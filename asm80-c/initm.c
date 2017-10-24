@@ -113,7 +113,7 @@ void ResetData()
     InitLine();
 
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = finished =
-		segHasData[0] = segHasData[1] = inComment = expandingMacro = b905C = b905E =
+		segHasData[0] = segHasData[1] = inComment = expandingMacro = macroDivert = mSpoolMode =
 		hasVarRef = needToOpenFile = bZERO;
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;

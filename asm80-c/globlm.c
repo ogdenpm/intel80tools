@@ -5,13 +5,13 @@
 
 byte macroLine[129];
 pointer macroP = macroLine;
-bool b9058 = false;
+bool inQuotes = false;
 bool excludeCommentInExpansion;
 bool b905A;
 byte expandingMacro;		// 0,1 or 0xff
-bool b905C;
+bool macroDivert;
 bool b905D = false;
-byte b905E;					// 0, 1, 2, 0xfe, 0xff
+byte mSpoolMode;					// 0, 1, 2, 0xfe, 0xff
 static byte b905F;		// unused
 bool b9060;
 bool b9061;
@@ -40,14 +40,14 @@ word nxtMacroBlk = 0;
 word maxMacroBlk = 0;
 word macroBlkCnt;
 byte macroBuf[129];
-pointer w9197;
+pointer savedMacroBufP;
 pointer w9199;
 word w919B;
 pointer w919D;
 pointer w919F;
 byte b91A1[3] = { 0, 0, 0x81 };
 
-byte b91A4[] = {0x3F, 0x3F, 0, 0, 0, 0, 0x80};
+byte localVarName[] = {'?', '?', 0, 0, 0, 0, 0x80};
 /* ov4 compat 2C8C */
 pointer contentBytePtr;
 byte fixupSeg;
