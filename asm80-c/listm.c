@@ -210,7 +210,7 @@ void Sub7041_8447()
 
 									PrintStr(tokStr);
 									PrintChar(' ');
-									if (type == K_MACRONAME)
+									if (type == T_MACRONAME)
 										PrintChar('+');
 									else if ((zeroAddr = (flags & UF_EXTRN) != 0))
 										PrintChar('E');

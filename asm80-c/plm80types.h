@@ -121,6 +121,7 @@ typedef struct {
 		};
 		word line;
 		word value;
+		word offset;
 	};
 	byte type;
 	byte flags;

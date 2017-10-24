@@ -70,7 +70,7 @@ byte typeHasValue[] = {0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20};
     3 - OR, XOR,
     2 - ! used
     1 - COMMA, DB - STKLEN, O_37, ENDM, EXITM, O_3D, REPT, LOCAL
-    0 - T_BEGIN,T_CR,T_LPAREN,T_RPAREN,K_MACRO,K_MACRONAME,K_IRP,K_IRPC
+    0 - T_BEGIN,T_CR,T_LPAREN,T_RPAREN,K_MACRO,T_MACRONAME,K_IRP,K_IRPC
 */
 byte precedence[] = {
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */

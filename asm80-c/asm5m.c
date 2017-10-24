@@ -143,7 +143,7 @@ void UpdateSymbolEntry(word line, byte type)
     if (IsPhase1())
         if (tokenType[0] == O_NAME) {
             if (createdUsrSym) {
-                if (tokenSym.curP->type >= 0x80 || (type == K_MACRONAME && tokenSym.curP->line != srcLineCnt)) {
+                if (tokenSym.curP->type >= 0x80 || (type == T_MACRONAME && tokenSym.curP->line != srcLineCnt)) {
                     LocationError();
                     absFlag = 0x80;
                 }
@@ -221,7 +221,7 @@ void UpdateSymbolEntry(word line, byte type)
             tokenType[0] = 3;
 
     if (! inPublic && TestBit(tokenType[0], b5669))
-        flags = acc1Flags | (tokenType[0] != K_MACRONAME ? flags & UF_PUBLIC : 0);
+        flags = acc1Flags | (tokenType[0] != T_MACRONAME ? flags & UF_PUBLIC : 0);
     else
     {
         if (IsPhase1())
@@ -247,7 +247,7 @@ endUpdateSymbol:
 
     if (IsPhase1() && (tokenType[0] == type || (type == 5 && tokenType[0] == 7))
        || (type == 4 && BlankAsmErrCode()) || lineSet
-       || type == K_MACRONAME)
+       || type == T_MACRONAME)
         tokenSym.curP->line = line;
 
     tokenSym.curP->flags = flags;

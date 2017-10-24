@@ -223,7 +223,7 @@ void Sub7517()
     if (Sub727F()) {
         expectingOperands = false;
         w9068 = (pointer)&tokenSym.curP->line;
-        UpdateSymbolEntry(0, K_MACRONAME);
+        UpdateSymbolEntry(0, T_MACRONAME);
         macro.top.mtype = 0;
         Sub71F2();
     }

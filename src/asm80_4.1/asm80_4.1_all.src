@@ -20,6 +20,8 @@ ESC     '1Bh'
 TAB             '9'
 MACROEOB    '0FEh'
 
+MAXSYMSIZE  '6'
+
 # primiative types
 bool             'byte'
 word             'address'
@@ -161,7 +163,7 @@ K$MACRO         '36h'
 O$37            '37h'
 K$ENDM          '38h'
 K$EXITM         '39h'
-O$3A            '3Ah'
+T$MACRONAME            '3Ah'
 K$IRP           '3Bh'
 K$IRPC          '3Ch'
 O$3D            '3Dh'
@@ -207,7 +209,7 @@ RELOC$T         'structure(type byte, len word, hilo byte, dta(62) word)'
 KEYWORD$T    'structure(tok(2) word, base byte, delta byte, type byte, flags byte)'
 
 /* common based variables */
-curTokenSym     "TOKENSYM$T"..curTokenSym$p
+curTokenSym     "TOKENSYM$T"..tokenSymCurP
 
 $file(startm.plm)
 b3782          BS
@@ -610,7 +612,7 @@ curChar         B
 curCol          B
 curFileName$p   "pointer"
 curMacroBlk     "word"        /* globlm */
-curTokenSym$p   "pointer"
+tokenSymCurP   "pointer"
 tokPtr          "pointer"
 endLineBuf      "pointer"
 endOutBuf       "pointer"
@@ -885,7 +887,7 @@ declare    contentBytePtr pointer public,
     tokStart(9) pointer public initial(.lineBuf),
     tokPtr pointer public at(.tokStart),
     tokenSym(9) pointer public initial(0),
-    curTokenSym$p pointer public at(.tokenSym(0)),
+    tokenSymCurP pointer public at(.tokenSym(0)),
     tokenType(9) byte public,
     tokenSize(9) byte public initial(0),
     tokenAttr(9) byte public,
@@ -1601,6 +1603,7 @@ declare    fixupInitialLen(*) byte data(1, 2, 1, 3),
     fixupRecLenPtrs(*) apointer data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
     fixupRecLenChks(*) byte data(123, 58, 57, 124),
     b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
+                                      /* O_LABEL, O_REF, O_NAME */
 
 
 declare    r$modhdr MODHDR$T initial(2),
@@ -1791,23 +1794,24 @@ WriteExtName: procedure public;
     extNamIdx = extNamIdx + nameLen + 1;    /* update where next ref writes */
 end;
 
-WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else LOCALs */
-    declare isPublic byte;
+WriteSymbols: procedure(publics);            /* publics= TRUE -> PUBLICs else LOCALs */
+    declare publics byte;
     declare segId byte;
-    declare symb based curTokenSym$p (1) byte;
+    declare tf based tokenSymCurP structure(type byte, flags byte);
 
     AddSymbol: procedure;
-        declare offsetInSeg$p apointer;
+        declare offsetP apointer;
         declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
         declare symOffset based recSym$p word;
-        declare offsetInSeg based offsetInSeg$p word;
+        declare offsetInSeg based offsetP word;
 
-        if (symb(1) and 40h) <> 0 then
+        if (tf.flags and UF$EXTRN) <> 0 then
             return;
-        offsetInSeg$p = curTokenSym$p - 2;
-        symOffset = offsetInSeg; 
-        call UnpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
+        offsetP = tokenSymCurP - 2;   /* tokenSymCurP -> type so back off to offset info */
+        symOffset = offsetInSeg;            /* pick up the offset */
+                                            /* packed name is at tokenSymCurP - 6 */
+        call UnpackToken(tokenSymCurP - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
         symNam(6) = ' ';    /* trailing space to ensure end */
         len = 0;
 
@@ -1822,7 +1826,7 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
     flushSymRec: procedure;
         if (r$publics.len := recSym$p - .r$publics.segid) > 1 then    /* something to Write */
             call WriteRec(.r$publics);
-        r$publics.type = (isPublic and 4) or OMF$LOCALS;        /* PUBLIC or LOCAL */
+        r$publics.type = (publics and 4) or OMF$LOCALS;        /* PUBLIC or LOCAL */
         r$publics.segid = segId;
         recSym$p = .r$publics.dta;
     end;
@@ -1830,18 +1834,18 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
         call FlushSymRec;    /* also sets up segid for new record */
-        curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* point to type byte of user symbol (-1) */
+        tokenSymCurP = symTab(TID$SYMBOL) - 2;        /* point to type byte of user symbol (-1) */
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
-            if recSym$p > .r$publics.crc - 10 then        /* make sure there is room */
+        do while (tokenSymCurP := tokenSymCurP + 8) < endSymTab(TID$SYMBOL);
+            if recSym$p > .r$publics.crc - (MAXSYMSIZE + 4) then        /* make sure there is room */
                 call FlushSymRec;
 
-            if (symb(1) and UF$SEGMASK) = segId
+            if (tf.flags and UF$SEGMASK) = segId     /* seg id matches */
 $IF MACRO
-               and symb(0) <> O$3A and nonHiddenSymbol
+               and tf.type <> T$MACRONAME and nonHiddenSymbol  /* not macro name or hidden symbol */
 $ENDIF
-               and not TestBit(symb(0), .b6D7E) and
-               (not isPublic or (symb(1) and UF$PUBLIC) <> 0) then
+               and not TestBit(tf.type, .b6D7E) and     /* not O_LABEL, O_REF or O_NAME */
+               (not publics or (tf.flags and UF$PUBLIC) <> 0) then
                    call AddSymbol;
         end;
         call FlushSymRec;
@@ -1858,8 +1862,8 @@ WriteModhdr: procedure public;
     /* fill the module name */
     call move((r$modhdr.dta(0) := moduleNameLen), .aModulePage, .r$modhdr.dta(1));
     dta$p = .r$modhdr + moduleNameLen + 4;
-    w = 0;    /* the two xx bytes */
-    dta$p = dta$p + 1;    /* past first x byte */
+    w = 0;    /* the trnId & trnVn bytes */
+    dta$p = dta$p + 1;    /* past trnId byte */
 
     if segSize(SEG$CODE) < maxSegSize(SEG$CODE) then    /* code segment */
         segSize(SEG$CODE) = maxSegSize(SEG$CODE);
@@ -1874,7 +1878,7 @@ WriteModhdr: procedure public;
         dta$p = dta$p + 2;
         b = alignTypes(i - 1);    /* aln typ */
     end;
-    r$modhdr.len = moduleNameLen + 19;    /* set record length */
+    r$modhdr.len = moduleNameLen + 19;    /* set record length (trnId/Vn, 4 * (segid, segsize, align), crc) */
     call WriteRec(.r$modhdr);
 end;
 
@@ -2687,7 +2691,7 @@ nonHiddenSymbol: procedure byte public;
     declare name$p pointer,
         name based name$p word;
 
-    name$p = curTokenSym$p - 6;
+    name$p = tokenSymCurP - 6;
     /* check name < '??0' or '??9' < name */
     return (name < 4679h) or ctlMACRODEBUG or (4682h < name);
 end;
@@ -2909,13 +2913,13 @@ $IF MACRO
                 w919F = macroInPtr - 1;
 $ENDIF
                 call GetId(O$NAME);    /* assume it's a name */
-                if tokenSize(0) > 6 then    /* cap length */
-                    tokenSize(0) = 6;
+                if tokenSize(0) > MAXSYMSIZE then    /* cap length */
+                    tokenSize(0) = MAXSYMSIZE;
 
                 if ctlXREF then
                 do;
-                    call move(6, .name, .savName);
-                    call move(6, .spaces6, .name);
+                    call move(MAXSYMSIZE, .name, .savName);
+                    call move(MAXSYMSIZE, .spaces6, .name);
                 end;
                 /* copy the token to name */
                 call move(tokenSize(0), tokPtr, .name);
@@ -2950,8 +2954,8 @@ $ENDIF
                     end;
 
                     yyType = tokenType(0);
-                    needsAbsValue = absValueReq(tokenType(0)); /* DS, ORG, IF, O$3A, IRP, IRPC REPT */
-                    if not tokReq(tokenType(0)) then /* i.e. not instruction, reg or O$3A or 1->A */
+                    needsAbsValue = absValueReq(tokenType(0)); /* DS, ORG, IF, T$MACRONAME, IRP, IRPC REPT */
+                    if not tokReq(tokenType(0)) then /* i.e. not instruction, reg or T$MACRONAME or 1->A */
                         call PopToken;
 
                     if lhsUserSymbol then
@@ -3099,7 +3103,7 @@ $ENDIF
     3 - OR, XOR,
     2 - not used
     1 - COMMA, DB - STKLEN, O$37, ENDM, EXITM, O$3D, REPT, LOCAL
-    0 - T$BEGIN,T$CR,T$LPAREN,T$RPAREN,K$MACRO,O$3A,K$IRP,K$IRPC
+    0 - T$BEGIN,T$CR,T$LPAREN,T$RPAREN,K$MACRO,T$MACRONAME,K$IRP,K$IRPC
 */
     precedence(*) byte data(
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
@@ -3243,9 +3247,9 @@ $ENDIF
             acc1ValType = tokenType(0);
             if TestBit(acc1ValType, .typeHasValue) then
             do;
-                tokPtr = curTokenSym$p + 7;    /* point to flags */
+                tokPtr = tokenSymCurP + 7;    /* point to flags */
                 acc1Flags = tokByte(0) and not UF$PUBLIC; /* remove public attribute */
-                tokPtr, val$p = curTokenSym$p + 4;    /* point to value */
+                tokPtr, val$p = tokenSymCurP + 4;    /* point to value */
                 acc1NumVal = val;            /* pick up value */
                 tokenSize(0) = 2;        /* word value */
 
@@ -3794,13 +3798,13 @@ InsertSym: procedure public;
     if baseMacroTbl < p then
         call RuntimeError(1);    /* table Error */
 
-    do while q > curTokenSym$p;    /* byte coqy */
+    do while q > tokenSymCurP;    /* byte coqy */
         p = p - 1;
         q = q - 1;
         pCh = qCh;
     end;
     /* insert the new symbol name */
-    call move(4, tokPtr, curTokenSym$p);
+    call move(4, tokPtr, tokenSymCurP);
 $IF MACRO
     endSymTab(TID$MACRO) = endSymTab(TID$MACRO) + 8;    /* mark new top of macro table */
 $ENDIF
@@ -3808,10 +3812,10 @@ $ENDIF
 end;
 
 $IF MACRO
-OutSideTable: procedure(tableId) bool;        /* check if curTokenSym$p is outside table bounds */
+OutSideTable: procedure(tableId) bool;        /* check if tokenSymCurP is outside table bounds */
     declare tableId byte;
 
-    if endSymTab(tableId) >= curTokenSym$p and curTokenSym$p >= symTab(tableId) then
+    if endSymTab(tableId) >= tokenSymCurP and tokenSymCurP >= symTab(tableId) then
         return FALSE;
 
     call SyntaxError;
@@ -3864,7 +3868,7 @@ $IF MACRO
     if OutSideTable(TID$SYMBOL) then        /* oops if outside normal symbol table */
     do;
 $ELSE                    /* same for non macro version */
-    if curTokenSym$p > endSymTab(TID$SYMBOL) or curTokenSym$p < symTab(TID$SYMBOL) then
+    if tokenSymCurP > endSymTab(TID$SYMBOL) or tokenSymCurP < symTab(TID$SYMBOL) then
     do;
         call SyntaxError;
 $ENDIF
@@ -3881,7 +3885,7 @@ $ENDIF
             do;
                 if curTokenSym.type >= 80h
 $IF MACRO
-                     or type = O$3A and curTokenSym.line <> srcLineCnt
+                     or type = T$MACRONAME and curTokenSym.line <> srcLineCnt
 $ENDIF
                 then
                 do;
@@ -3968,7 +3972,7 @@ $ENDIF
             tokenType(0) = 3;
 
     if not inPublic and TestBit(tokenType(0), .b5669) then
-        flags = (flags and UF$PUBLIC) and tokenType(0) <> O$3A or acc1Flags;
+        flags = (flags and UF$PUBLIC) and tokenType(0) <> T$MACRONAME or acc1Flags;
     else
     do;
         if IsPhase1 then
@@ -3995,7 +3999,7 @@ endUpdateSymbol:
     if IsPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
        or type = 4 and BlankAsmErrCode or lineSet
 $IF MACRO
-       or type = O$3A
+       or type = T$MACRONAME
 $ENDIF
     then
         curTokenSym.line = line;
@@ -4052,7 +4056,7 @@ Lookup: procedure(tableId) byte public;
             if symEntry.tok(0) = packedTok(0) then        /* check for exact match */
                 if symEntry.tok(1) = packedTok(1) then
                 do;
-                    curTokenSym$p = entryOffset;
+                    tokenSymCurP = entryOffset;
                     tokenType(0) = curTokenSym.type;
                     if tokenType(0) < K$SINGLE then    /* instruction with arg */
                         if op16(tokenType(0)) then
@@ -4087,7 +4091,7 @@ Lookup: procedure(tableId) byte public;
         do;
             if packedTok(1) = symEntry.tok(1) then
             do;
-                curTokenSym$p = entryOffset;
+                tokenSymCurP = entryOffset;
                 tokenType(0) = curTokenSym.type;
                 if tokenType(0) = O$MACROID then
                     tokenType(0) = O$NAME;
@@ -4110,7 +4114,7 @@ Lookup: procedure(tableId) byte public;
             lowOffset = entryOffset;
     end;
 
-    curTokenSym$p = highOffset;
+    tokenSymCurP = highOffset;
     if tableId = TID$SYMBOL and not IsSkipping then
     do;
         createdUsrSym = FALSE;
@@ -4120,7 +4124,7 @@ Lookup: procedure(tableId) byte public;
         pAddr = .tokenSym;
         do i = 1 to tokenIdx;
             pAddr = pAddr + 2;
-            if addr >= curTokenSym$p then
+            if addr >= tokenSymCurP then
                 addr = addr + 8;
         end;
 
@@ -5237,8 +5241,8 @@ Sub7517: procedure public;
     if Sub727F then
     do;
         expectingOperands = FALSE;
-        w9068 = curTokenSym$p + 4;
-        call UpdateSymbolEntry(0, O$3A);
+        w9068 = tokenSymCurP + 4;
+        call UpdateSymbolEntry(0, T$MACRONAME);
         tmac$mtype = 0;
         call Sub71F2;
     end;
@@ -5696,13 +5700,13 @@ Sub7041$8447: procedure public;
         flagsAndType word,
         (type, flags) byte at(.flagsAndType),
         zeroAddr byte;
-    declare tokBytePair based curTokenSym$p word;
+    declare tokBytePair based tokenSymCurP word;
 
     PrintAddr2: procedure(printFunc);
         declare printFunc address;
-        declare ch based curTokenSym$p byte;
+        declare ch based tokenSymCurP byte;
 
-        curTokenSym$p = curTokenSym$p - 1;    /* backup into value */
+        tokenSymCurP = tokenSymCurP - 1;    /* backup into value */
         call printFunc(ch and not zeroAddr);    /* print address or 0 */
     end;
 
@@ -5717,11 +5721,11 @@ Sub7041$8447: procedure public;
 $IF MACRO
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
-        curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
+        tokenSymCurP = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
         call PrintCRLF;
         call PrintStr(symbolMsgTable(symGrp));
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
+        do while (tokenSymCurP := tokenSymCurP + 8) < endSymTab(TID$SYMBOL);
             flagsAndType = tokBytePair;
             if type <> 9 then
                 if type <> 6 then
@@ -5734,7 +5738,7 @@ $ENDIF
                         if symGrp <> 0 or type <> 3 then
                             if symGrp = 2 or (flags and symGrpFlags(symGrp)) <> 0 then
                             do;
-                                call UnpackToken(curTokenSym$p - 6, .tokStr);
+                                call UnpackToken(tokenSymCurP - 6, .tokStr);
                                 if kk then
                                 do;
                                     if (ctlPAGEWIDTH - curCol) < 17 then
@@ -5743,7 +5747,7 @@ $ENDIF
                                     call PrintStr(.tokStr);
                                     call PrintChar(' ');
 $IF MACRO
-                                    if type = O$3A then
+                                    if type = T$MACRONAME then
                                         call PrintChar('+');
                                     else
 $ENDIF
@@ -5755,7 +5759,7 @@ $ENDIF
                                     call PrintChar(' ');
                                     call PrintAddr2(.print2Hex);    /* print value/line */
                                     call PrintAddr2(.print2Hex);
-                                    curTokenSym$p = curTokenSym$p + 2;  /* compensate for -2 due to PrintAddr2 */
+                                    tokenSymCurP = tokenSymCurP + 2;  /* compensate for -2 due to PrintAddr2 */
                                     call PrintStr(.spaces4);
                                 end;
                             end;

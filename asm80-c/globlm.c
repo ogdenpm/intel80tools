@@ -116,7 +116,7 @@ byte acc2ValType;
 word acc1NumVal;
 word acc2NumVal;
 byte curChar = 0;
-bool reget = false;
+byte reget = false;
 byte lookAhead;
 static byte pad6861 = 0;
 tokensym_t *symTab[3];

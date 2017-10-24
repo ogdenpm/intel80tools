@@ -170,9 +170,9 @@ void WriteExtName()
         rExtnames.len = 0;
         extNamIdx = 0;
     }
-    rExtnames.len = rExtnames.len + nameLen + 2;    /* update length for this ref */
+    rExtnames.len += nameLen + 2;    /* update length for this ref */
     rExtnames.dta[extNamIdx] = nameLen;        /* Write() len */
-    extNamIdx = extNamIdx + 1;
+    extNamIdx++;
     for (i = 0; i <= nameLen; i++)            /* and name */
         rExtnames.dta[extNamIdx + i] = name[i];
 
@@ -184,15 +184,14 @@ void WriteExtName()
 
 void AddSymbol()
 {
-    apointer offsetInSegP;
 
-    if ((tokenSym.curP->flags & 0x40) != 0)
+    if ((tokenSym.curP->flags & UF_EXTRN) != 0)
         return;
-	offsetInSegP = &tokenSym.curP->value;
-    *(apointer)recSymP = *offsetInSegP; 
+
+    *(apointer)recSymP = tokenSym.curP->offset;
     UnpackToken(tokenSym.curP->tok, (dtaP = (recSymP += 2) + 1));
     dtaP[6] = ' ';    /* trailing space to ensure end */
-    *recSymP = 0;
+    *recSymP = 0;	  /* length of symbol */
 
     while (dtaP[0] != ' ') {    /* find *recSymPgth of name */
         ++*recSymP;
@@ -202,31 +201,31 @@ void AddSymbol()
     recSymP = dtaP + 1;
 }
 
-void FlushSymRec(byte segId, byte isPublic)
+void FlushSymRec(byte segId, byte isPublic)			/* args to because procedure is no longer nested */
 {
     if ((rPublics.len = recSymP - &rPublics.segid) > 1)    /* something to Write() */
         WriteRec((pointer)&rPublics);
-    rPublics.type = (isPublic & 4) | OMF_LOCALS;        /* PUBLIC or LOCAL */
+    rPublics.type = isPublic ? OMF_PUBLICS : OMF_LOCALS;        /* PUBLIC or LOCAL */
     rPublics.segid = segId;
     recSymP = rPublics.dta;
 }
 
-static void WriteSymbols(byte isPublic)
-{            /* isPublic= true -> PUBLICs else LOCALs */
+static void WriteSymbols(byte isPublic)	/* isPublic= true -> PUBLICs else LOCALs */
+{
     byte segId;
 
     recSymP = rPublics.dta;
     for (segId = 0; segId <= 4; segId++) {
         FlushSymRec(segId, isPublic);    /* also sets up segid for new record */
-        tokenSym.curP = &symTab[TID_SYMBOL] - 1;        /* point to type byte of user symbol (-1) */
+        tokenSym.curP = symTab[TID_SYMBOL] - 1;        /* point to type byte of user symbol (-1) */
 
         while (++tokenSym.curP < endSymTab[TID_SYMBOL]) {	// converted for C pointer arithmetic */
-            if (recSymP > &rPublics.crc - 10)        /* make sure there is room */
+            if (recSymP > &rPublics.crc - (MAXSYMSIZE + 4)) /* make sure there is room offset, len, symbol, 0 */
                 FlushSymRec(segId, isPublic);
 
             if ((tokenSym.curP->flags & UF_SEGMASK) == segId
-               && tokenSym.curP->type != K_MACRONAME && NonHiddenSymbol()
-               && !TestBit(tokenSym.curP->type, b6D7E) &&
+               && tokenSym.curP->type != T_MACRONAME && NonHiddenSymbol()
+               && !TestBit(tokenSym.curP->type, b6D7E) &&		// not O_LABEL, O_REF or O_NAME
                (! isPublic || (tokenSym.curP->flags & UF_PUBLIC) != 0))
                    AddSymbol();
         }
@@ -241,10 +240,10 @@ void WriteModhdr()
     byte i;
 
     /* fill the module name */
-    memcpy(&rModhdr.dta[1], aModulePage, (rModhdr.dta[0] = moduleNameLen));
+    memcpy(rModhdr.dta + 1, aModulePage, (rModhdr.dta[0] = moduleNameLen));
     dtaP = &rModhdr.dta[moduleNameLen + 1];
-    *(apointer)dtaP = 0;    /* the two xx bytes */
-    dtaP++;					/* past first x byte */
+    *(apointer)dtaP = 0;    /* the trnId & trnVn bytes */
+    dtaP++;					/* past trnId byte */
     if (segSize[SEG_CODE] < maxSegSize[SEG_CODE])    /* code segment */
         segSize[SEG_CODE] = maxSegSize[SEG_CODE];
     if (segSize[SEG_DATA] < maxSegSize[SEG_DATA])    /* data segment */
@@ -256,7 +255,7 @@ void WriteModhdr()
         dtaP += 2;
         *dtaP = alignTypes[i - 1];    /* aln typ */
     }
-    rModhdr.len = moduleNameLen + 19;    /* set record length */
+    rModhdr.len = moduleNameLen + (2 + 4 * 4 + 1);    /* set record length (trnId/trnVn 4 * (segid, segsize, align), crc) */
     WriteRec((pointer)&rModhdr);
 }
 
