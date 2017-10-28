@@ -90,3 +90,8 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
 #define XREF_DEF    0
 #define XREF_REF    1
 #define XREF_FIN    2
+
+#define M_IRP		1
+#define M_IRPC		2
+#define M_REPT		3
+#define M_INVOKE	4

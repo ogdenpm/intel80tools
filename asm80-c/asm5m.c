@@ -424,7 +424,7 @@ reGetCh:
                     savedMacroBufP = macro.top.bufP;
                     if (curCH == 0x80) {
                         macro.top.bufP = macro.top.w12;
-                        if (b9062 == 2) {
+                        if (savedMtype == M_IRPC) {
                             b91A1[1] = *macro.top.bufP;
                             macro.top.bufP = &b91A1[1];
                             if (*macro.top.bufP == '!') {

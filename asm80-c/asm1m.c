@@ -264,8 +264,7 @@ void Tokenise()
 					if (b6897)
 						SyntaxError();
 					b6897 = false;
-				}
-				else {
+				} else {
 					b6897 = false;
 					mSpoolMode = 0xff;
 				}
@@ -284,9 +283,9 @@ void Tokenise()
 			}
 			break;
 		case CC_MAC:
-			b6BDA = false;
+			nestedMacroSeen = false;
 			Sub73AD();
-			if (b6BDA)
+			if (nestedMacroSeen)
 				return;
 			break;
 		case CC_ESC:

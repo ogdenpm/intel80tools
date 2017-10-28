@@ -332,12 +332,12 @@ void HandleOp()
 	case 57:	Sub76CE();            /* EXITM */
             break;
 	case 58:
-            macro.top.mtype = 4;
+            macro.top.mtype = M_INVOKE;
             Sub7327();
             break;
-	case 59:	Sub72A4(1);        /* IRP ? */
+	case 59:	Sub72A4(M_IRP);        /* IRP ? */
             break;
-	case 60:	Sub72A4(2);        /* IRPC */
+	case 60:	Sub72A4(M_IRPC);        /* IRPC */
             break;
 	case 61:	Sub770B();
             break;

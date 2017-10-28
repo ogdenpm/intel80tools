@@ -1,12 +1,12 @@
 #pragma once
-#include <stdbool.h>
-#include <memory.h>
+
+#pragma pack(push, 1)
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
 typedef word *apointer;
 
-#pragma pack(push, 1)
+
 typedef union {
 	word w;
 	struct {
@@ -109,7 +109,7 @@ typedef struct {
 	word blk;
 	word w10;
 	pointer w12;
-	word w14;
+	word cnt;		// IRPC -> char count
 } macro_t;
 
 typedef struct {

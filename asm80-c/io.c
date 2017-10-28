@@ -13,6 +13,119 @@ pointer top;
 #define AVAILMEM	0x7000
 
 
+/* Given a device name (eg, :F0:) look up the appropriate environment
+* variable (eg: ISIS_F0) */
+const char *xlt_device(const char *dev)
+{
+	char buf[20];
+
+	if (strlen(dev) != 4 || dev[0] != ':' || dev[3] != ':')
+		return NULL;
+
+	sprintf(buf, "ISIS_%-2.2s", dev + 1);
+
+	return getenv(buf);
+}
+
+int isis_drive_exists(int n)
+{
+	char buf[5];
+
+	if (n < 0 || n > 9) return 0;	/* Bad drive number */
+	if (n == 1)						// drive 0 always exists
+		return 1;
+	sprintf(buf, ":F%d:", n);
+	return xlt_device(buf) != NULL;
+
+}
+
+/* Is this filename for an ISIS device?
+*
+* Returns:
+* 0: It is not
+* 1: It is a character device eg :CI: :BB:
+* 2: It is a block device     eg :F0: :F2:
+*/
+int isis_isdev(const char *ifile)
+{
+	/* All devices have 4-character names */
+	if (strlen(ifile) != 4) return 0;
+
+	/* All devices have names of the form :??: */
+	if (ifile[0] != ':' || ifile[3] != ':') return 0;
+
+	/* Block devices of the form :F<digit>: */
+	if (isdigit(ifile[2]) &&
+		(ifile[1] == 'F' || ifile[1] == 'f')) return 2;
+
+	/* Everything else is a character device */
+	return 1;
+}
+
+
+int mapfile(char *dfile, const char *ifile)
+{
+	char isisdev[5];
+	const char *src;
+
+	*dfile = 0;
+
+	/* It's an ISIS filename. If it doesn't start with a device
+	* specifier, assume :F0: */
+	if (strlen(ifile) < 4 || ifile[0] != ':' || ifile[3] != ':')
+		strcpy(isisdev, ":F0:");
+	else
+	{
+		sprintf(isisdev, "%-4.4s", ifile);
+		ifile += 4;
+	}
+	_strupr(isisdev);
+	/* The bit bucket (:BB:) is always defined, and is null */
+	if (!strcmp(isisdev, ":BB:"))
+	{
+		strcpy(dfile, "nul");
+		return ERROR_SUCCESS;
+	}
+	/* Check for other mapped devices */
+	if (isis_isdev(ifile) == 1)	/* Character device */
+	{
+		src = xlt_device(ifile);
+		if (!src)
+		{
+			fprintf(stderr, "No UNIX mapping for ISIS "
+				"character device %s\n", isisdev);
+			return ERROR_BADDEVICE;
+		}
+		strncpy(dfile, src, _MAX_PATH - 1);
+		dfile[_MAX_PATH - 1] = 0;
+		return ERROR_SUCCESS;
+	}
+	/* isisdev had just better be a valid block device by now */
+	if (isis_isdev(isisdev) != 2) return ERROR_BADFILENAME;
+
+	if (src = xlt_device(isisdev)) {
+		strcpy(dfile, src);
+		/* Append a path separator if there isn't one */
+		if (*dfile && strchr(dfile, 0)[-1] != '/' && strchr(dfile, 0)[-1] != '\\')
+			strcat(dfile, "/");
+	}
+	else if (strcmp(isisdev, ":F0:") != 0)		// note if :F0: dfile is left as ""
+	{
+		fprintf(stderr, "No UNIX mapping for ISIS "
+			"block device %s\n", isisdev);
+		return ERROR_BADFILENAME;
+	}
+
+	dfile = strchr(dfile, 0);
+	while (isalnum(*ifile) || *ifile == '.')
+		*dfile++ = tolower(*ifile++);
+	*dfile = 0;
+
+	return ERROR_SUCCESS;
+}
+
+
+
 void sysInit(int argc, char **argv)
 {
 	int i, len;
@@ -36,17 +149,6 @@ void sysInit(int argc, char **argv)
 	top = memory + AVAILMEM;
 }
 
-
-void mapfile(char *dfile, char *ifile)
-{
-	/* for now don't map drive names*/
-
-	if (ifile[0] == ':' && tolower(ifile[1]) == 'f' && isdigit(ifile[2]) && ifile[3] == ':')
-		ifile += 4;
-	while (isalnum(*ifile) || *ifile == '.' || *ifile == ':')
-		*dfile++ = tolower(*ifile++);
-	*dfile = 0;
-}
 
 
 void Close(word conn, apointer statusP)

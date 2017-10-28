@@ -7,19 +7,19 @@ byte macroLine[129];
 pointer macroP = macroLine;
 bool inQuotes = false;
 bool excludeCommentInExpansion;
-bool b905A;
+bool inAngleBrackets;
 byte expandingMacro;		// 0,1 or 0xff
 bool macroDivert;
 bool b905D = false;
 byte mSpoolMode;					// 0, 1, 2, 0xfe, 0xff
 static byte b905F;		// unused
 bool b9060;
-bool b9061;
-byte b9062;
+bool nestMacro;
+byte savedMtype;
 byte macroDepth;
 byte b9064;
 byte b9065;
-byte b9066;
+byte startNestCnt;
 byte argNestCnt = 0;
 pointer w9068;
 pointer macroInPtr;
@@ -28,13 +28,13 @@ pointer macroInPtr;
 	1 -> IRP
 	2 -> IRPC
 	3 -> REPT
-	4 -> ???
+	4 -> MACRO Invocation
 	5 -> ???
 */
 #pragma pack(push, 1)
 extern macroStk_t macro = { .top.blk = 0xffff };
 #pragma pack(pop)
-static word w910C;
+static word w910C;	// unused
 word curMacroBlk = 0xFFFF;
 word nxtMacroBlk = 0;
 word maxMacroBlk = 0;
@@ -230,7 +230,7 @@ word azero = 0;
 pointer cmdchP = cmdLineBuf;
 pointer controlsP;
 bool b6BD9 = false;
-bool b6BDA;
+bool nestedMacroSeen;
 byte ii;
 byte jj;
 byte kk;

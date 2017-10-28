@@ -119,7 +119,7 @@ void Nest(byte sw)
             //memcpy(&macro.stack[macroDepth], &macro.stack[0], sizeof(macro_t));
             macro.top.condSP = macroCondSP;
             macro.top.ifDepth = ifDepth;
-            b9061 = true;
+            nestMacro = true;
         }
     } else {
         if (++ifDepth > 8) {
@@ -149,7 +149,7 @@ void UnNest(byte sw)
 		macro.stack[0] = macro.stack[macroDepth];
         memcpy(&macro.stack[0], &macro.stack[macroDepth], sizeof(macro_t));
         ReadM(macro.top.blk);
-        b9062 = macro.top.mtype;
+        savedMtype = macro.top.mtype;
         if (--macroDepth == 0) { /* end of macro nest */
             expandingMacro = 0;     /* not expanding */
             baseMacroTbl = Physmem() + 0xBF;
