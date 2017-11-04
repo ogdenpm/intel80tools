@@ -31,7 +31,7 @@ static bool IsEndParam()
 static void Sub71F2()
 {
     symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;
-    b9065 = macro.top.b3 = bZERO;
+    paramCnt = macro.top.b3 = bZERO;
     yyType = 0x37;
 }
 
@@ -106,11 +106,11 @@ void Sub7327()
 }
 
 
-static pointer EnterMacro(pointer lowAddr, pointer highAddr)
+static pointer AddMacroText(pointer lowAddr, pointer highAddr)
 {
     while (lowAddr <= highAddr) {
         if (baseMacroTbl <= symHighMark)
-            RuntimeError(1);    /* table Error() */
+            RuntimeError(RTE_TABLE);    /* table Error() */
         *baseMacroTbl-- = *highAddr--;
     }
     return baseMacroTbl;
@@ -220,7 +220,7 @@ void Sub7517()
 {
     if (Sub727F()) {
         expectingOperands = false;
-        w9068 = (pointer)&tokenSym.curP->line;
+        w9068 = (pointer)&tokenSym.curP->addr;
         UpdateSymbolEntry(0, T_MACRONAME);
         macro.top.mtype = 0;
         Sub71F2();
@@ -233,7 +233,7 @@ void Sub753E()
         if (tokenType[0] == 0)
             MultipleDefError();
 
-        Sub5CAD(++b9065, 0);
+        InsertMacroSym(++paramCnt, 0);
     }
     else if (! (macro.top.mtype == 0))
         SyntaxError();
@@ -261,7 +261,7 @@ void Sub753E()
     }
     else if (newOp == T_CR)
     {
-        if (! BlankMorPAsmErrCode())
+        if (! MPorNoErrCode())
         {
             macro.top.mtype = 5;
             w9068 += 2;		// now points to type
@@ -281,7 +281,7 @@ void Sub75FF()
                 if (macro.top.mtype == M_IRPC)
                     w9199 = baseMacroTbl + 3;
 
-                for (byte *p = w919D; p <= w919F - 1; p++) {	// plm reuses pAddr
+                for (byte *p = w919D; p <= w919F - 1; p++) {	// plm reuses aVar
                     curChar = *p;
                     if (! IsWhite())
                         SyntaxError();
@@ -338,10 +338,10 @@ void Sub770B()
         }
 
 		if (macro.top.mtype == M_IRPC)
-			macro.top.cnt = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. True in C is 1
+			macro.top.cnt = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. Replaced here for clarity
 
-        CollectByte((tokenSize[0] + 1) | 0x80);
-        baseMacroTbl = EnterMacro(tokPtr, tokPtr + tokenSize[0] - 1);
+        CollectByte((tokenSize[0] + 1) | 0x80);						// append a byte to record the token length + 0x80
+        baseMacroTbl = AddMacroText(tokPtr, tokPtr + tokenSize[0] - 1);
         PopToken();
 
         if (macro.top.mtype == 0 || (macro.top.mtype == M_IRP && argNestCnt > 0))
@@ -360,7 +360,7 @@ void Sub770B()
         if (argNestCnt > 0)
             BalanceError();
 
-        if (! BlankMorPAsmErrCode()) {
+        if (! MPorNoErrCode()) {
             Sub739A();
             if (macro.top.mtype == 0) {
                 Sub720A();
@@ -369,7 +369,7 @@ void Sub770B()
             } else
                 macro.top.cnt = 0;
         } else {
-            baseMacroTbl = EnterMacro(b3782, b3782 + 1);
+            baseMacroTbl = AddMacroText(b3782, b3782 + 1);		// append 0x80 0x81
             if (macro.top.mtype == 0) {
                 macro.top.b3 = tokenSym.curP->flags;
                 macro.top.w10 = GetNumVal();
@@ -393,7 +393,7 @@ void Sub7844()
 
     if (! (mSpoolMode & 1)) {
         macro.top.cnt = accum1;
-        if (! BlankMorPAsmErrCode()) {
+        if (! MPorNoErrCode()) {
             Sub739A();
             macro.top.cnt = 0;
         }
@@ -412,7 +412,7 @@ void Sub787A()
             if (tokenType[0] != O_NAME)
                 MultipleDefError();
 
-            Sub5CAD(macro.top.b3, 1);
+            InsertMacroSym(macro.top.b3, 1);
             macroInPtr = symHighMark;
         }
         if (newOp == T_CR) {

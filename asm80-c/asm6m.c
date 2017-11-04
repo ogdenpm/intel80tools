@@ -52,12 +52,12 @@ void PhaseError()
 
 void StackError()
 {
-    RuntimeError(0);
+    RuntimeError(RTE_STACK);
 }
 
 void FileError()
 {
-    RuntimeError(4);
+    RuntimeError(RTE_FILE);
 }
 
 void IllegalCharError()
@@ -261,13 +261,13 @@ void GetStr()
 
     while (GetCh() != CR) {
         if (curChar == '\'')
-            if (GetCh() != '\'')
+            if (GetCh() != '\'')	// if not '' then all done
                 goto L6268;
-        CollectByte(curChar);
+        CollectByte(curChar);	// collect char - '' becomes '
     }
 
-    BalanceError();
+    BalanceError();				// EOL seen before closing '
 
 L6268:
-    reget = 1;
+    reget = 1;					// push back CR or char after '
 }

@@ -43,14 +43,14 @@ byte NonHiddenSymbol()
 
 void SeekM(word blk)
 {
-	if (pAddr.w = blk - nxtMacroBlk) {
+	if (aVar.w = blk - nxtMacroBlk) {
 		kk = SEEKFWD;
 		if (blk < nxtMacroBlk) {
-			pAddr.w = -pAddr.w;
+			aVar.w = -aVar.w;
 			kk = SEEKBACK;
 		}
 
-		Seek(macrofd, kk, &pAddr.w, &w3780, &statusIO);
+		Seek(macrofd, kk, &aVar.w, &seekMZero, &statusIO);
 		IoErrChk();
 	}
 	nxtMacroBlk = blk + 1;

@@ -1,3 +1,4 @@
+// vim:ts=4:shiftwidth=4:expandtab:
 #include <ctype.h>
 #include <io.h>
 #include <fcntl.h>
@@ -77,9 +78,9 @@ int mapfile(char *dfile, const char *ifile)
 	else
 	{
 		sprintf(isisdev, "%-4.4s", ifile);
+        _strupr(isisdev);
 		ifile += 4;
 	}
-	_strupr(isisdev);
 	/* The bit bucket (:BB:) is always defined, and is null */
 	if (!strcmp(isisdev, ":BB:"))
 	{
@@ -89,16 +90,17 @@ int mapfile(char *dfile, const char *ifile)
 	/* Check for other mapped devices */
 	if (isis_isdev(ifile) == 1)	/* Character device */
 	{
-		src = xlt_device(ifile);
-		if (!src)
-		{
-			fprintf(stderr, "No UNIX mapping for ISIS "
-				"character device %s\n", isisdev);
-			return ERROR_BADDEVICE;
-		}
-		strncpy(dfile, src, _MAX_PATH - 1);
-		dfile[_MAX_PATH - 1] = 0;
-		return ERROR_SUCCESS;
+		if (src = xlt_device(ifile)) {
+            strncpy(dfile, src, _MAX_PATH - 1);
+            dfile[_MAX_PATH - 1] = 0;
+            return ERROR_SUCCESS;
+        }
+        if (strcmp(ifile, ":CO:") == 0 || strcmp(ifile, ":CI:") == 0) {
+            strcpy(dfile, ifile);
+            return ERROR_SUCCESS;
+        }
+        fprintf(stderr, "No UNIX mapping for ISIS character device %s\n", isisdev);
+        return ERROR_BADDEVICE;
 	}
 	/* isisdev had just better be a valid block device by now */
 	if (isis_isdev(isisdev) != 2) return ERROR_BADFILENAME;
@@ -240,6 +242,7 @@ void Open(apointer connP, pointer pathP, word access, word echo, apointer status
 {
 	int mode, conn;
 	char path[_MAX_PATH];
+
 	mapfile(path, pathP);
 
 	*statusP = 0;
@@ -252,9 +255,9 @@ void Open(apointer connP, pointer pathP, word access, word echo, apointer status
 		*connP = -1;
 		return;
 	}
-	if (strcmp(path, ":ci:") == 0)
+	if (strcmp(path, ":CI:") == 0)
 		*connP = 1;
-	else if (strcmp(path, ":co:") == 0)
+	else if (strcmp(path, ":CO:") == 0)
 		*connP = 0;
 	else if (*path == ':') {
 		*statusP = 13;

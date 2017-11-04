@@ -1,6 +1,7 @@
 #include "asm80.h"
 
 static byte b5666[] = {9, 0x2D, 0x80}; /* bit vector 10 -> 00101101 10 */
+		/* target, set, equ, type7 type8 */
 static byte b5669[] = {0x3A, 8, 0x80, 0, 0, 0, 0, 0, 0x20};
 		/* bit vector 59 -> 00001000 1000000 00000000 0000000
 							00000000 0000000 00000000 001 */
@@ -70,7 +71,7 @@ void InsertSym()
 	symHighMark = p = (q = symHighMark) + sizeof(tokensym_t);
 
     if (baseMacroTbl < p)
-        RuntimeError(1);    /* table Error() */
+        RuntimeError(RTE_TABLE);    /* table Error() */
 
     while (q > (pointer)tokenSym.curP)   /* byte coqy */
         *--p = *--q;
@@ -90,12 +91,12 @@ static bool OutSideTable(byte tableId)
 }
 
 
-void Sub5CAD(word line, byte type)
+void InsertMacroSym(word paramId, byte type)
 {
     if (OutSideTable(TID_MACRO))
         return;
     InsertSym();
-    tokenSym.curP->line = line;        /* fill in the rest of the new entry */
+    tokenSym.curP->paramId = paramId;        /* fill in the rest of the new entry */
     tokenSym.curP->type = type;
     tokenSym.curP->flags = 0;
     PopToken();
@@ -112,7 +113,7 @@ void SetTokenType(byte type, bool isSetOrEqu)
 		tokenType[0] = 12 - type;    /* set-> K_SP, equ->K_REGNAME */
 }
 
-void UpdateSymbolEntry(word line, byte type)
+void UpdateSymbolEntry(word value, byte type)
 {
 	byte flags, absFlag;
 	bool lineSet, isSetOrEqu;
@@ -121,7 +122,7 @@ void UpdateSymbolEntry(word line, byte type)
     /* type = 2 -> target
           4 -> set
           5 -> equ
-          6 -> public
+          6 -> reference
           9 -> word ref
          0x3a-> ??
              0x8x-> needs absolute value
@@ -129,12 +130,12 @@ void UpdateSymbolEntry(word line, byte type)
 
 
     origType = tokenType[0];
-    isSetOrEqu = type == 5 || type == 4;
+    isSetOrEqu = type == O_EQU || type == O_SET;
     absFlag = 0;
     
 	flags = tokenSym.curP->flags;
     lineSet = false;
-    if (OutSideTable(TID_SYMBOL))        /* oops if outside normal symbol table */
+    if (OutSideTable(TID_SYMBOL))        /* ignore if outside normal symbol table */
         return;
 
     if (tokenIdx > 1)
@@ -155,7 +156,7 @@ void UpdateSymbolEntry(word line, byte type)
             }
 
             flags = (activeSeg == SEG_ABS ? 0 : UF_BOTH) | (inPublic ? UF_PUBLIC : 0) | (inExtrn ? (UF_EXTRN + UF_BOTH) : 0);
-            if (labelUse == 1)    /* set || equ */
+            if (labelUse == 1)    /* set or equ */
                 flags = acc1Flags;
 
             if (labelUse == 2)    /* label: */
@@ -178,7 +179,7 @@ void UpdateSymbolEntry(word line, byte type)
                     if (tokenSym.curP->type < 128)
                     {
                         tokenSym.curP->type = tokenType[0];
-                        tokenSym.curP->line = line;
+                        tokenSym.curP->addr = value;
                         flags = acc1Flags;
                         lineSet = true;
                     }
@@ -190,12 +191,12 @@ void UpdateSymbolEntry(word line, byte type)
             if (TestBit(type, b5666))
             {
                 if (inExtrn)
-                    tokenType[0] = 3;
+                    tokenType[0] = O_LABEL;
                 else
                 {
                     tokenType[0] = type;
-                    flags &= 0xE0;    /* mask off seg, low, high */
-                    if (labelUse == 1) /* set || equ */
+                    flags &= ~ (UF_BOTH | UF_SEGMASK);    /* mask off seg, low, high */
+                    if (labelUse == 1) /* set or equ */
                         flags = acc1Flags | UF_PUBLIC;
 
                     if (labelUse == 2) /* label: */
@@ -217,43 +218,43 @@ void UpdateSymbolEntry(word line, byte type)
             }
 
     if (IsPhase1())
-        if (tokenType[0] != type && tokenType[0] != 8 || type == 5)
-            tokenType[0] = 3;
+        if (tokenType[0] != type && tokenType[0] != 8 || type == O_EQU )
+            tokenType[0] = O_LABEL;
 
     if (! inPublic && TestBit(tokenType[0], b5669))
         flags = acc1Flags | (tokenType[0] != T_MACRONAME ? flags & UF_PUBLIC : 0);
     else
     {
         if (IsPhase1())
-            tokenType[0] = 3;
+            tokenType[0] = O_LABEL;
 
         if (! (inPublic || inExtrn))
-            if (tokenSym.curP->line != line)
+            if (tokenSym.curP->addr != value)
                 PhaseError();
     }
 
 endUpdateSymbol:
     absFlag |= (tokenSym.curP->type & 0x80);
 
-    if (IsPhase1() && (type == 9 || type == 6 || origType != tokenType[0]))
+    if (IsPhase1() && (type == O_NAME || type == O_REF || origType != tokenType[0]))
         tokenSym.curP->type = tokenType[0] | absFlag;
 
     kk = tokenSym.curP->type;
-    if (tokenType[0] == 3 || kk == 3)
+    if (tokenType[0] == O_LABEL || kk == O_LABEL)
         MultipleDefError();
 
     if (kk >= 0x80)
         LocationError();
 
-    if (IsPhase1() && (tokenType[0] == type || (type == 5 && tokenType[0] == 7))
+    if (IsPhase1() && (tokenType[0] == type || (type == O_EQU && tokenType[0] == 7))
        || (type == 4 && BlankAsmErrCode()) || lineSet
        || type == T_MACRONAME)
-        tokenSym.curP->line = line;
+        tokenSym.curP->addr = value;
 
     tokenSym.curP->flags = flags;
     inPublic = 0;
     inExtrn = 0;
-    if (tokenSym.curP->type == 6)
+    if (tokenSym.curP->type == O_REF)
         UndefinedSymbolError();
 
     hasVarRef = false;
@@ -265,20 +266,29 @@ endUpdateSymbol:
 }
 
 /*
-    two different tables are used in lookup
+    two different tables types are used in lookup
     table 0: static keyword lookup the individual entries are coded as
         packed keyword - byte * 4 - 3 chars per word
         opcode base - byte
         offset to next entry || 0 if end - byte
-        type - byte (add 0x80 if abs value)
+        type - byte
         flags - byte
     initial entry is determined by hashing the name
 
-    table 1: is a dynamic symbol table 8 bytes per entry kept sorted to allow binary chop search
-    individual entries encoded as
-        
+	The other two tables are kept as sorted 8 byte entries to allow binary chop search
+	individual entries are encoded as follows
+		packed keyword - byte * 4 - 3 chars per word
+		word value used differently for different types of symbol
+		type - byte (add 0x80 if abs value)
+		flags - byte
+			xxxxxnnn	nnn = seg 0->ABS, 1->CODE, 2->DATA, 
+			xxxx1xxx	low byte used
+			xxx1xxxx	high byte used
+			xx1xxxxx	is public
+			x1xxxxxx	is external
 
-    table 2: is a dynamic macro table 8 bytes per entry kept sorted to allow binary chop search
+    table 1: is the main symbol table which grows dynamically as new entries are inserted
+    table 2: is a dynamic macro table 8 bytes per entry it holds the names of the current macro paramaters
 
 */    
 
@@ -290,7 +300,7 @@ byte Lookup(byte tableId)
 	apointer packedTokP;
     byte i, gt;
 //    symEntry based entryOffset KEYWORD_T,
-//    addr based pAddr word;
+//    addr based aVar word;
 
     packedTokP = (apointer)tokPtr;
     /* Keyword() lookup */
@@ -366,9 +376,9 @@ byte Lookup(byte tableId)
     {
         createdUsrSym = false;
         labelUse = 0;
-        UpdateSymbolEntry(srcLineCnt, (needsAbsValue & 0x80) | O_NAME);
+        UpdateSymbolEntry(srcLineCnt, needsAbsValue ? 0x80 | O_NAME : O_NAME);
         /* update symbol stack to adjust pointers for entries above insert point */
-        tokensym_t **p = tokenSym.stack;		// plm uses pAddr
+        tokensym_t **p = tokenSym.stack;		// plm uses aVar
         for (i = 1; i <= tokenIdx; i++) {
             if (*++p >= tokenSym.curP)
                 ++*p;
@@ -440,7 +450,7 @@ reGetCh:
                         }
                     } else {
                         macro.top.bufP = localVarName;
-                        word tmp = lookAhead + macro.top.w4;		// plm reuses pAddr
+                        word tmp = lookAhead + macro.top.w4;		// plm reuses aVar
 						// generate local variable name
                         for (ii = 1; ii <= 4; ii++) {
                             localVarName[6 - ii] = tmp % 10 + '0';

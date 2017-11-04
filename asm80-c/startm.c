@@ -1,6 +1,6 @@
 #include "asm80.h"
 
-word w3780 = 0;
+word seekMZero = 0;
 byte b3782[2] = { 0x80, 0x81 };
 byte spaces24[] = "                        ";
 byte ascCRLF[] = "\r\n";
@@ -143,26 +143,26 @@ void WrConsole(pointer bufP, word count)
 
 void RuntimeError(byte errCode)
 {
-    if (b6BD9)
+    if (skipRuntimeError)
         return;
 
-    if (IsPhase1() && errCode == 0) {
+    if (IsPhase1() && errCode == RTE_STACK) {
         b6B33 = true;
         return;
     }
 
-    pAddr.bp = " ERROR\r\n";        /* assume " ERROR\r\n" */
-    if (errCode == 4)        /* file Error() */
-        pAddr.bp = " ERROR, r\n";    /* replace message */
+    aVar.bp = " ERROR\r\n";        /* assume " ERROR\r\n" */
+    if (errCode == RTE_FILE)        /* file Error() */
+        aVar.bp = " ERROR, ";    /* replace message */
 
     WrConsole(aErrStrs[errCode], aErrStrsLen[errCode]);    /* Write() the ERROR type */
-    WrConsole(pAddr.bp, 8);    /* Write() the ERROR string */
+    WrConsole(aVar.bp, 8);    /* Write() the ERROR string */
     if (IsPhase2Print()) {       /* repeat to the print file if required */
         OutStrN(aErrStrs[errCode], aErrStrsLen[errCode]);
-        OutStrN(pAddr.bp, 8);
+        OutStrN(aVar.bp, 8);
     }
 
-    if (errCode == 4 || errCode == 3) {    /* file || EOF Error() */
+    if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file || EOF Error() */
         if (tokBufIdx == 0) {
             WrConsole("BAD SYNTAX\r\n", 12);
             if (! scanCmdLine) {
@@ -177,8 +177,8 @@ void RuntimeError(byte errCode)
         }
     }
 
-    if (errCode == 0) {   /* stack Error() */
-        b6BD9 = true;
+    if (errCode == RET_STACK) {   /* stackError - suppress cascade errors */
+        skipRuntimeError = true;
         return;
     }
 
@@ -195,8 +195,8 @@ void IoError(pointer path)
         path++;
     }
     if (missingEnd)
-        RuntimeError(3);    /* EOF Error*/
-    RuntimeError(4);        /* file Error() */
+        RuntimeError(RTE_EOF);    /* EOF Error*/
+    RuntimeError(RTE_FILE);        /* file Error() */
 }
 
 /* open file for read with status check */
@@ -230,7 +230,7 @@ bool BlankAsmErrCode()
     return asmErrCode == ' ';
 }
 
-bool BlankMorPAsmErrCode()
+bool MPorNoErrCode()
 {
     return BlankAsmErrCode() || asmErrCode == 'M' || asmErrCode == 'P';
 }
@@ -255,7 +255,7 @@ void SourceError(byte errCh)
         if (BlankAsmErrCode())
             errCnt++;
 
-        if (BlankMorPAsmErrCode() || errCh == 'L' || errCh == 'U')    /* no Error() || M, P L || U */
+        if (MPorNoErrCode() || errCh == 'L' || errCh == 'U')    /* no Error() || M, P L || U */
             if (asmErrCode != 'L')    /* override unless already location counter Error() */
                 asmErrCode = errCh;
     }
@@ -266,7 +266,7 @@ void InsertByteInMacroTbl(byte c)
 {
     *macroInPtr++ = c;
     if (macroInPtr > baseMacroTbl)
-        RuntimeError(1);    /* table Error() */
+        RuntimeError(RTE_TABLE);    /* table Error() */
 }
 
 
@@ -302,10 +302,10 @@ void InitialControls()
     ParseControls();
     if (IsPhase2Print())
         PrintCmdLine();
-    if (needToOpenFile)
+    if (pendingInclude)
         OpenSrc();
 	
-	needToOpenFile = isControlLine = scanCmdLine = bZERO;
+	pendingInclude = isControlLine = scanCmdLine = bZERO;
     ParseControlLines();            /* initial control lines allow primary controls */
     primaryValid = false;            /* not allowed from now on */
     controls.debug == controls.debug && controls.object;    /* debug doesn't make sense if no object code */
@@ -319,7 +319,7 @@ void InitLine()
 {
     startLineP = inChP + 1;    
     lineChCnt = 0;
-    if (needToOpenFile)
+    if (pendingInclude)
         OpenSrc();
 
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = lhsUserSymbol =

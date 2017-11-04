@@ -119,9 +119,11 @@ typedef struct {
 			byte base;
 			byte delta;
 		};
+		word addr;
 		word line;
 		word value;
 		word offset;
+		word paramId;
 	};
 	byte type;
 	byte flags;

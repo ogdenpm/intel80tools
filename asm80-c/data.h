@@ -6,7 +6,7 @@ extern byte opFlags[];
 // defined in asm5m.c
 extern byte labelUse;
 // defined in startm.c
-extern word w3780;
+extern word seekMZero;
 extern byte b3782[2];
 
 extern byte spaces24[];
@@ -43,7 +43,7 @@ extern bool nestMacro;
 extern byte savedMtype;
 extern byte macroDepth;
 extern byte b9064;
-extern byte b9065;
+extern byte paramCnt;
 extern byte startNestCnt;
 extern byte argNestCnt;
 extern pointer w9068;
@@ -190,7 +190,7 @@ extern byte titleLen;
 extern bool controlSeen[12];
 extern byte saveStack[8][3];
 extern byte saveIdx;
-extern byte ctlTitleStr[64];
+extern byte titleStr[64];
 extern byte tokBufLen;
 extern byte tokType;
 extern byte controlId;
@@ -228,15 +228,15 @@ extern pointer w6BCE;
 extern word azero;
 extern pointer cmdchP;
 extern pointer controlsP;
-extern bool b6BD9;
+extern bool skipRuntimeError;
 extern bool nestedMacroSeen;
 extern byte ii;
 extern byte jj;
 extern byte kk;
 extern pointer curFileNameP;
 
-extern address pAddr;
-#define accFixFlags	pAddr.b
+extern address aVar;
+#define accFixFlags	aVar.b
 
 extern word controlFileType;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
 
@@ -245,7 +245,7 @@ extern keyword_t extKeywords[151];
 
 // defined in rdsrc.c
 
-extern bool needToOpenFile;
+extern bool pendingInclude;
 extern bool includeOnCmdLine;
 extern byte fileIdx;
 extern pointer endInBufP;

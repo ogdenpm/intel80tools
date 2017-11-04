@@ -1,7 +1,7 @@
 void AsmComplete();
 void BalanceError();
 bool BlankAsmErrCode();
-bool BlankMorPAsmErrCode();
+bool MPorNoErrCode();
 bool ChkGenObj();
 void ChkInvalidRegOperand();
 void ChkLF();
@@ -96,7 +96,7 @@ void StackError();
 bool StrUcEqu(pointer s, pointer t);
 void Sub4291();
 void Sub546F();
-void Sub5CAD(word val, byte type);
+void InsertMacroSym(word val, byte type);
 void Sub7041_8447();
 void Sub72A4(byte mtype);
 void Sub7327();

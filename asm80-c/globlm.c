@@ -18,7 +18,7 @@ bool nestMacro;
 byte savedMtype;
 byte macroDepth;
 byte b9064;
-byte b9065;
+byte paramCnt;
 byte startNestCnt;
 byte argNestCnt = 0;
 pointer w9068;
@@ -189,7 +189,7 @@ static byte pad6A72[3] = {120, true};
 bool controlSeen[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 byte saveStack[8][3];
 byte saveIdx = 0;
-byte ctlTitleStr[64];
+byte titleStr[64];
 byte tokBufLen;
 byte tokType;
 byte controlId;
@@ -229,7 +229,7 @@ static byte pad6BD0[3] = { 0 };
 word azero = 0;
 pointer cmdchP = cmdLineBuf;
 pointer controlsP;
-bool b6BD9 = false;
+bool skipRuntimeError = false;
 bool nestedMacroSeen;
 byte ii;
 byte jj;
@@ -237,6 +237,6 @@ byte kk;
 static byte b9B34 = 0;
 pointer curFileNameP;
 
-address pAddr;
+address aVar;
 
 word controlFileType;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */

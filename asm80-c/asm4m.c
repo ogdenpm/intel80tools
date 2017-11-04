@@ -67,7 +67,7 @@ void FinishLine()
             PrintLine();
     }
 
-    if (b6BD9) {
+    if (skipRuntimeError) {
 		outP++;
         Flushout();
         Exit();

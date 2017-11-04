@@ -1,6 +1,6 @@
 #include "asm80.h"
 
-bool needToOpenFile = false;
+bool pendingInclude = false;
 bool includeOnCmdLine = false;
 static byte padb6C23;
 byte fileIdx = {0};
@@ -45,18 +45,18 @@ void ReadSrc(pointer bufLoc)
 
 
 
-void CloseSrc()
+void CloseSrc()	/* close current source file. Revert to any parent file */
 {
     Close(srcfd, &statusIO);
     IoErrChk();
-    if (fileIdx == 0) {
+    if (fileIdx == 0) {		/* if it the original file we had no end statement so error */
         missingEnd = true;
         IoError(files[0].name);
         return;
     }
 	fileIdx--;
     /* Open() the previous file */
-    if (fileIdx == 0)
+    if (fileIdx == 0)		/* original source is kept open across include files */
         srcfd = rootfd;
     else
         srcfd = SafeOpen(files[fileIdx].name, READ_MODE);
@@ -69,7 +69,7 @@ void CloseSrc()
 }
 
 
-byte GetSrcCh()
+byte GetSrcCh()	/* get next source character */
 {
     pointer insertPt;
 	while (1) {
@@ -87,15 +87,15 @@ byte GetSrcCh()
 			inChP = insertPt;
 		}
 
-		if (readFActual == 0) {
+		if (readFActual == 0) {		/* end of file so close this one*/
 			CloseSrc();
 			continue;
 		}
 		break;
 	}
 
-    lineChCnt++;
-    return *inChP & 0x7F;
+    lineChCnt++;			// track chars on this line
+    return *inChP & 0x7F;	// remove parity
 }
 
 
@@ -104,7 +104,7 @@ void OpenSrc()
 	byte curByteLoc;
 	word curBlkLoc;
 
-    needToOpenFile = 0;
+    pendingInclude = false;
     SeekI(SEEKTELL);
     if (seekIByte == 128) {        /* adjust for 128 boundary */
         seekIBlk++;

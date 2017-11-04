@@ -85,7 +85,7 @@ static void NewPageHeader()
     PrintDecimal(pageCnt);
     PrintCRLF();
     if (controls.title)
-        PrintNStr(titleLen, ctlTitleStr);
+        PrintNStr(titleLen, titleStr);
 
     PrintCRLF();
     PrintCRLF();
@@ -337,8 +337,8 @@ void PrintLine()
 
 		if (fileIdx > 0) {
 			byte nestLevel[] = "  1234";
-			/* plm uses byte arith so needToOpenFile = true(255) treated as -1 */
-			Outch(nestLevel[ii = fileIdx - needToOpenFile]);
+			/* plm uses byte arith so pendingInclude = true(255) treated as -1 */
+			Outch(nestLevel[ii = pendingInclude ? fileIdx + 1 : fileIdx]);
 			if (ii > 0)
 				Outch('=');
 			else

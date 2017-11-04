@@ -21,8 +21,7 @@ enum {T_BEGIN = 0, T_CR, T_LPAREN, T_RPAREN, T_STAR, T_PLUS, T_COMMA,
     T_MINUS, T_UPLUS, T_SLASH, T_UMINUS};
 
 enum {
-O_ID = 1, O_TARGET, O_LABEL,
-O_REF = 6,
+O_ID = 1, O_TARGET, O_LABEL, O_SET, O_EQU, O_REF,
 O_NAME = 9, O_STRING, O_DATA, O_NUMBER
 };
 enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
@@ -95,3 +94,11 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
 #define M_IRPC		2
 #define M_REPT		3
 #define M_INVOKE	4
+
+
+/* runtime errors */
+#define	RTE_STACK	0
+#define	RTE_TABLE	1
+#define RTE_CMDLINE	2
+#define RTE_EOF		3
+#define	RTE_FILE	4

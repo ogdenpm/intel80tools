@@ -45,7 +45,7 @@ void AddExtents()
 
 
 /* inits usage include overlay file initiatisation */
-bool CmdIsWhite(byte c)
+bool IsWhiteOrCr(byte c)
 {
     return c == ' ' || c == TAB || c == CR;
 }
@@ -65,20 +65,20 @@ void GetAsmFile()
     CmdSkipWhite();
     asxref[2] = GetDrive();     /* asxref tmp file defaults to current drive */
 
-    while (! CmdIsWhite(*cmdchP)) {    /* skip to end of program name */
+    while (! IsWhiteOrCr(*cmdchP)) {    /* skip to end of program name */
         cmdchP++;
     }
 
     CmdSkipWhite();
     if (*cmdchP == CR)        /* no args !! */
-        RuntimeError(4);
+        RuntimeError(RTE_FILE);
 
     infd = SafeOpen(cmdchP, READ_MODE);    /* Open() file for reading */
     rootfd = srcfd = infd;
     ii = true;      /* copying name */
 
     kk = 0;     /* length of file name */
-    while (! CmdIsWhite(*cmdchP)) {    /* copy file name over to the files list */
+    while (! IsWhiteOrCr(*cmdchP)) {    /* copy file name over to the files list */
         files[0].name[kk] = *cmdchP;
         if (ii)        /* && the name for the lst && obj files */
             lstFile[kk] = objFile[kk] = *cmdchP;
@@ -114,7 +114,7 @@ void ResetData()
 
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = finished =
 		segHasData[0] = segHasData[1] = inComment = expandingMacro = macroDivert = mSpoolMode =
-		hasVarRef = needToOpenFile = bZERO;
+		hasVarRef = pendingInclude = bZERO;
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;
     controls.cond = bTRUE;
