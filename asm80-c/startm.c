@@ -177,7 +177,7 @@ void RuntimeError(byte errCode)
         }
     }
 
-    if (errCode == RET_STACK) {   /* stackError - suppress cascade errors */
+    if (errCode == RTE_STACK) {   /* stackError - suppress cascade errors */
         skipRuntimeError = true;
         return;
     }
