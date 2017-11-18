@@ -205,7 +205,7 @@ void FlushSymRec(byte segId, byte isPublic)			/* args to because procedure is no
 {
     if ((rPublics.len = recSymP - &rPublics.segid) > 1)    /* something to Write() */
         WriteRec((pointer)&rPublics);
-    rPublics.type = isPublic ? OMF_PUBLICS : OMF_LOCALS;        /* PUBLIC or LOCAL */
+    rPublics.type = isPublic ? OMF_PUBLICS : OMF_LOCALS;        /* PUBLIC or DoLocal */
     rPublics.segid = segId;
     recSymP = rPublics.dta;
 }

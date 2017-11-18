@@ -36,17 +36,17 @@ extern bool excludeCommentInExpansion;
 extern bool inAngleBrackets;
 extern byte expandingMacro;
 extern bool macroDivert;
-extern bool b905D;
+extern bool inMacroBody;
 extern byte mSpoolMode;
 extern bool b9060;
 extern bool nestMacro;
 extern byte savedMtype;
 extern byte macroDepth;
-extern byte b9064;
+extern byte macroSpoolNestDepth;
 extern byte paramCnt;
 extern byte startNestCnt;
 extern byte argNestCnt;
-extern pointer w9068;
+extern pointer pMacro;
 extern pointer macroInPtr;
 extern macroStk_t macro;
 extern word curMacroBlk;
@@ -55,11 +55,11 @@ extern word maxMacroBlk;
 extern word macroBlkCnt;
 extern byte macroBuf[129];
 extern pointer savedMacroBufP;
-extern pointer w9199;
-extern word w919B;
-extern pointer w919D;
-extern pointer w919F;
-extern byte b91A1[3];
+extern pointer pNextArg;
+extern word localIdCnt;
+extern pointer startMacroLine;
+extern pointer startMacroToken;
+extern byte irpcChr[3];
 
 extern byte localVarName[];
 extern pointer contentBytePtr;
@@ -236,7 +236,6 @@ extern byte kk;
 extern pointer curFileNameP;
 
 extern address aVar;
-#define accFixFlags	aVar.b
 
 extern word controlFileType;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
 

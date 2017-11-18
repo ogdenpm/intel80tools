@@ -167,7 +167,7 @@ void RuntimeError(byte errCode)
             WrConsole("BAD SYNTAX\r\n", 12);
             if (! scanCmdLine) {
                 Skip2NextLine();
-                outfd = 0;
+                outfd = 0;		// :CO:
                 PrintDecimal(srcLineCnt);    /* overlay 1 */
                 Outch(LF);
             }
@@ -333,7 +333,7 @@ void InitLine()
 
     asmErrCode = ' ';
     macroP = macroLine;
-    w919D = macroInPtr;
+    startMacroLine = macroInPtr;
 	expandingMacro = expandingMacro > 0 ? 0xff : 0;
     tokI = 1;
 	srcLineCnt++;

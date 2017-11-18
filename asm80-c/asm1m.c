@@ -19,7 +19,7 @@ bool absValueReq[] = {
 	   false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false, false,
 	   false, false, false, false, false, false, false, false, false, false, true,  true,  true, false,  true,  false,
 	   false, false };
-/* true for DS, ORG, IF, 3A?, IRP, IRPC REPT */
+/* true for DS, ORG, IF, 3A?, IRP, IRPC DoRept */
 byte b3F88[] = { 0x41, 0x90, 0, 0, 0, 0, 0, 0, 0, 0x40 };
 /* bit vector 66 -> 10010000 0 x 56 01 */
 
@@ -213,7 +213,7 @@ void Tokenise()
 			Sub416B();
 			break;
 		case CC_LET:
-			w919F = macroInPtr - 1;
+			startMacroToken = macroInPtr - 1;
 			GetId(O_NAME);    /* assume it's a name */
 			if (tokenSize[0] > MAXSYMSIZE)  /* cap length */
 				tokenSize[0] = MAXSYMSIZE;
@@ -234,26 +234,26 @@ void Tokenise()
 
 			if (Lookup(TID_MACRO) != O_NAME && (mSpoolMode & 1)) {
                 kk = tokenType[0] == 0; // assignment pulled out to allow short circuit tests
-				if (!inQuotes || (kk && (curChar == '&' || w919F[-1] == '&'))) {
-					macroInPtr = w919F;
+				if (!inQuotes || (kk && (curChar == '&' || startMacroToken[-1] == '&'))) {
+					macroInPtr = startMacroToken;
 					InsertCharInMacroTbl(kk ? 0x80 : 0x81);
 					InsertByteInMacroTbl((byte)GetNumVal());
 					InsertCharInMacroTbl(curChar);
 					yyType = O_NAME;
 				}
 			}
-			else if (yyType != O_37 && mSpoolMode != 2) {
+			else if (yyType != O_MACROARG && mSpoolMode != 2) {
 				if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
 					tokenType[0] = Lookup(TID_SYMBOL);    /* look up in symbol space */
 					rhsUserSymbol = true;        /* note we have a used symbol */
 				}
 
 				yyType = tokenType[0];
-				needsAbsValue = absValueReq[tokenType[0]]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC REPT */
+				needsAbsValue = absValueReq[tokenType[0]]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC DoRept */
 				if (!tokReq[tokenType[0]]) /* i.e. not instruction, reg or K_MACRONAME or 1->A */
 					PopToken();
 
-				if (lhsUserSymbol) {               /* EQU, SET or O_37 */
+				if (lhsUserSymbol) {               /* EQU, SET or O_MACROARG */
 					EmitXref(!TestBit(yyType, b3EA0), savName);
 					lhsUserSymbol = false;
 				}
@@ -284,7 +284,7 @@ void Tokenise()
 			break;
 		case CC_MAC:
 			nestedMacroSeen = false;
-			Sub73AD();
+			GetMacroToken();
 			if (nestedMacroSeen)
 				return;
 			break;

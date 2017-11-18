@@ -118,12 +118,12 @@ void ResetData()
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;
     controls.cond = bTRUE;
-    macroDepth = b9064 = macroCondStk[0] = macroCondSP = bZERO; 
+    macroDepth = macroSpoolNestDepth = macroCondStk[0] = macroCondSP = bZERO; 
     saveIdx = lookAhead = activeSeg = ifDepth = opSP = opStack[0] = bZERO;
     macroBlkCnt = wZERO;
     segSize[SEG_ABS] = segSize[SEG_CODE] = segSize[SEG_DATA] =
 		maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
-		effectiveAddr.w = w919B = externId = errCnt = wZERO;
+		effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
     passCnt++;
 #pragma warning(disable:4244)
     srcLineCnt = newOp = pageCnt = pageLineCnt = 1;

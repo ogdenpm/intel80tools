@@ -417,30 +417,30 @@ reGetCh:
             if (curCH == 0 || curCH == 0x7F || curCH == FF)
                 goto nextCh;
         if (expandingMacro) {
-            if (curCH == ESC)
+            if (curCH == ESC)		// reached end of spooled macro
                 goto doneGetCh;
             else if (curCH == '&') {
-                if (prevCH >= 0x80 || lookAhead == 0x80)
+                if (prevCH >= 0x80 || lookAhead == 0x80)	// macro param/DoLocal before or after
                     goto reGetCh;
             } else if (curCH == '!' && prevCH != 0) {
-                if (! (b905D || (mSpoolMode & 1)) && macroDivert) {
+                if (! (inMacroBody || (mSpoolMode & 1)) && macroDivert) {
                     curCH = 0;
                     goto reGetCh;
                 }
-            } else if (curCH >= 128) {
+            } else if (curCH >= 0x80) {
                 if (! (macroDivert = ! macroDivert))
-                    macro.top.bufP = savedMacroBufP;
+                    macro.top.bufP = savedMacroBufP;	// was end of macro divert
                 else {
-                    savedMacroBufP = macro.top.bufP;
-                    if (curCH == 0x80) {
-                        macro.top.bufP = macro.top.w12;
+                    savedMacroBufP = macro.top.bufP;	// is parameter or DoLocal
+                    if (curCH == 0x80) {				// parameter
+                        macro.top.bufP = macro.top.pCurArg;	// parameter text
                         if (savedMtype == M_IRPC) {
-                            b91A1[1] = *macro.top.bufP;
-                            macro.top.bufP = &b91A1[1];
-                            if (*macro.top.bufP == '!') {
-                                b91A1[0] = '!';
-                                b91A1[1] = macro.top.w12[1];
-                                macro.top.bufP--;
+                            irpcChr[1] = *macro.top.bufP;	// copy the char
+                            macro.top.bufP = &irpcChr[1];
+                            if (*macro.top.bufP == '!') {	// if it was '!' then include escaped char
+                                irpcChr[0] = '!';
+                                irpcChr[1] = macro.top.pCurArg[1];
+                                macro.top.bufP--;			// allow for the two chars
                             }
                         } else {
                             while ((byte)(--lookAhead) != 0xFF) {
@@ -448,10 +448,10 @@ reGetCh:
                             }
 							macro.top.bufP++;
                         }
-                    } else {
-                        macro.top.bufP = localVarName;
-                        word tmp = lookAhead + macro.top.w4;		// plm reuses aVar
-						// generate local variable name
+                    } else {										// DoLocal
+                        macro.top.bufP = localVarName;				// generate DoLocal id from instance & current DoLocal base
+                        word tmp = lookAhead + macro.top.localIdBase;		// plm reuses aVar instead of tmp
+						// generate DoLocal variable name
                         for (ii = 1; ii <= 4; ii++) {
                             localVarName[6 - ii] = tmp % 10 + '0';
                             tmp /= 10;
@@ -470,7 +470,7 @@ reGetCh:
                     *macroP++ = curCH;    
 
         if (mSpoolMode & 1)
-            if (w919D != macroInPtr && curCH == CR || ! excludeCommentInExpansion)
+            if (startMacroLine != macroInPtr && curCH == CR || ! excludeCommentInExpansion)
             InsertCharInMacroTbl(curCH);
 
         if (!(prevCH == '!' || inComment)) {
@@ -489,7 +489,7 @@ doneGetCh:
 byte GetChClass()
 {
     curChar = GetCh();
-    if (b905D)
+    if (inMacroBody)
         return CC_MAC;
 
     return chClass[curChar];

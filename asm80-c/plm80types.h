@@ -103,13 +103,13 @@ typedef struct {
 	byte condSP;
 	byte ifDepth;
 	byte mtype;
-	byte b3;
-	word w4;
+	byte localsCnt;
+	word localIdBase;
 	pointer bufP;
 	word blk;
-	word w10;
-	pointer w12;
-	word cnt;		// IRPC -> char count
+	word savedBlk;
+	pointer pCurArg;	// pointer to current IRPC char or IRP arg
+	word cnt;		// IRPC -> char count, IRP -> num args, DoRept -> count
 } macro_t;
 
 typedef struct {
@@ -124,6 +124,7 @@ typedef struct {
 		word value;
 		word offset;
 		word paramId;
+		word blk;
 	};
 	byte type;
 	byte flags;

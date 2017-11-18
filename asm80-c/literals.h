@@ -22,7 +22,7 @@ enum {T_BEGIN = 0, T_CR, T_LPAREN, T_RPAREN, T_STAR, T_PLUS, T_COMMA,
 
 enum {
 O_ID = 1, O_TARGET, O_LABEL, O_SET, O_EQU, O_REF,
-O_NAME = 9, O_STRING, O_DATA, O_NUMBER
+O_NAME = 9, O_STRING, O_DATA, O_NUMBER, O_PARAM
 };
 enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
     K_EQ = 11, K_LT, K_LE, K_GT, K_GE, K_NE,
@@ -33,7 +33,7 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
     K_LXI, K_REG16, K_LDSTAX, K_ARITH, K_IMM8,
     K_MVI, K_INRDCR, K_MOV, K_IMM16, K_SINGLE,
     K_RST, K_ASEG, K_CSEG, K_DSEG, K_PUBLIC,
-    K_EXTRN, K_NAME, K_STKLN, K_MACRO, O_37,
+    K_EXTRN, K_NAME, K_STKLN, K_MACRO, O_MACROARG,
     K_ENDM, K_EXITM, T_MACRONAME, K_IRP, K_IRPC,
     I_3D, K_REPT, K_LOCAL, O_OPTVAL, K_NUL,
     O_MACROID = 0x64
@@ -90,10 +90,12 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
 #define XREF_REF    1
 #define XREF_FIN    2
 
+#define M_MACRO		0
 #define M_IRP		1
 #define M_IRPC		2
 #define M_REPT		3
 #define M_INVOKE	4
+#define M_BODY		5
 
 
 /* runtime errors */

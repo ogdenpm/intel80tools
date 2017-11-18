@@ -323,27 +323,27 @@ void HandleOp()
             break;
 	case 53:	segSize[SEG_STACK] = accum1;    /* STKLN ? */
             break;
-	case 54:	Sub7517();            /* MACRO ? */
+	case 54:	DoMacro();            /* MACRO ? */
             break;
-	case 55:	Sub753E();
+	case 55:	DoMacroBody();			  /* MACRO BODY */
             break;
-	case 56:	Sub75FF();            /* ENDM */
+	case 56:	DoEndm();            /* DoEndm */
             break;
-	case 57:	Sub76CE();            /* EXITM */
+	case 57:	DoExitm();            /* DoExitm */
             break;
 	case 58:
             macro.top.mtype = M_INVOKE;
             Sub7327();
             break;
-	case 59:	Sub72A4(M_IRP);        /* IRP ? */
+	case 59:	DoIrpX(M_IRP);        /* IRP ? */
             break;
-	case 60:	Sub72A4(M_IRPC);        /* IRPC */
+	case 60:	DoIrpX(M_IRPC);        /* IRPC */
             break;
 	case 61:	Sub770B();
             break;
-	case 62:	Sub7844();            /* REPT ? */
+	case 62:	DoRept();            /* DoRept ? */
             break;
-	case 63:	Sub787A();            /* LOCAL */
+	case 63:	DoLocal();            /* DoLocal */
             break;
 	case 64:	Sub78CE();
             break;

@@ -18,8 +18,8 @@
     47h    -> 2 operand topOp
     4Dh    -> start word list
     80h    -> end expression
-    81h    -> rept operand
-    0C0h    -> local operand
+    81h    -> DoRept operand
+    0C0h    -> DoLocal operand
 
     -------x    -> getnum to acc1 & copy to acc2
     ------x-    -> getnum to acc1
@@ -43,6 +43,7 @@ byte noRegOperand[] = {0x41, 0, 0, 0, 0x19, 0x40, 0, 0x1C, 0, 0};
     /* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
 byte b41C1[] = {0x1A, 5, 0x80, 0, 0xC0};
     /* bit vector 27 -> 00000101 10000000 00000000 110 */
+	/* K_SPECIAL, K_REGNAME, K_SP, K_HIGH, K_LOW*/
 byte opCompat[] = {0x57, 0x71, 0xF4, 0x57, 0x76, 0x66, 0x66, 0x67, 0x77, 0x77, 0x77, 0x55};
     /* bit vector 88 -> 01110001 11110100 01010111 01110110
                         01100110 01100110 01100111 01110111
@@ -69,7 +70,7 @@ byte typeHasValue[] = {0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20};
     4 - AND
     3 - OR, XOR,
     2 - ! used
-    1 - COMMA, DB - STKLEN, O_37, ENDM, EXITM, O_3D, REPT, LOCAL
+    1 - COMMA, DB - STKLEN, O_MACROARG, DoEndm, DoExitm, O_3D, DoRept, DoLocal
     0 - T_BEGIN,T_CR,T_LPAREN,T_RPAREN,K_MACRO,T_MACRONAME,K_IRP,K_IRPC
 */
 byte precedence[] = {
@@ -115,36 +116,33 @@ void Sub4291()
         OperandError();
 
     acc1ValType = O_NUMBER;
-    accFixFlags[0] = (acc1Flags & UF_BOTH) != 0;
-    accFixFlags[1] = (acc2Flags & UF_BOTH) != 0;
+    aVar.lb = (acc1Flags & UF_BOTH) ? 0xff : 0;		// needs to be 0xff or 0 for correct constuction of kk below
+    aVar.hb = (acc2Flags & UF_BOTH) ? 0xff : 0;
     if ((acc1Flags & UF_SEGMASK) != SEG_ABS)
         if ((acc2Flags & UF_SEGMASK) != SEG_ABS)
             if (((acc1Flags ^ acc2Flags) & 0x1F) != 0)
                 ExpressionError();
-    // assignments  lifted to allow short circuit tests
-    ii = (acc1Flags & UF_EXTRN) != 0;
-    jj = (acc2Flags & UF_EXTRN) != 0;
-    if (ii || jj) {
+    if ((ii = (acc1Flags & UF_EXTRN) != 0) | (jj = (acc2Flags & UF_EXTRN) != 0)) {
         if (topOp == K_SPECIAL)    /* +? (PAGE INPAGE)? */
-            if (! (ii || accFixFlags[0])) {
+            if (! (ii || aVar.lb)) {
                 acc1NumVal = acc2NumVal;
                 acc1Flags = acc2Flags;
                 return;
             }
-        if (jj || accFixFlags[1] || ! TestBit(topOp, b41C1))
-            goto L4394;
-        else
-            return;
+		if (jj || aVar.hb || !TestBit(topOp, b41C1)) {	// unrolled jump to inside if statement
+			ExpressionError();
+			acc1Flags = 0;
+		}
+        return;
     }
-    kk = ((topOp - 4) << 2) | (accFixFlags[0] & 2) | (accFixFlags[1] & 1);
-    if (TestBit(kk, opCompat))
-L4394:    {
+    kk = ((topOp - 4) << 2) | (aVar.lb & 2) | (aVar.hb & 1);
+    if (TestBit(kk, opCompat)) {
         ExpressionError();
         acc1Flags = 0;
         return;
     }
     if (TestBit(kk, propagateFlags)) {
-        if (! accFixFlags[0])
+        if (! aVar.lb)
             acc1Flags = acc2Flags;
         return;
     }
