@@ -9,7 +9,7 @@ REF = $(call ipath,lib,2.1)
 
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
-PLMFLAGS:=DEBUG
+PLMFLAGS:=DEBUG CODE
 LINKFLAGS:=
 
 objs =	lib.obj lib1.obj isis1.obj isisa.obj isis2.obj lib3.obj lib4.obj

@@ -100,7 +100,8 @@ foreach $f (glob("*.plm"), glob("*.ipx")) {
 			s/Last/last/g;
 			s/do\s+(.*?)\s*=\s*(.*?)\s*to\s*(.*);/for (\1 = \2; \1 <= \3; \1++) {/;
 			s/do while\s+(.*);/while (\1) {/;
-			s/if\s+(.*?)\s*then/if (\1)/;
+			s/\bif\b\s+/if (/;
+			s/\s+\bthen\b/ )/;
 			s/end;/}/;
 			s/do;/{/;
 			s/call\s*//;
