@@ -70,6 +70,13 @@ currently ignores :Fx: specifications and will load files from the current
 directory only. If you compile the code you will get warnings about the pack
 pragma. These are safe to ignore, once I get a chance I will clean them up.
 
+28-Nov-2017 Added isis 4.0 decompilations for isis.bin and isis.t0
+Note I have done more work on the C port of asm80 but put on a separate feature
+branch. Will merge back in once I feel enough work has been done. This branch
+includes fixes and adds drive specifier support. If you are interested
+check out feature/asm80
+
+
 What's here
 asm80-c/*.*	the port of asm80 v4.1 to C. The current version does not
 		support :Fx: specifications, it just ignores them.
@@ -178,7 +185,13 @@ src\isis_3.4\*.*	files to build isis 3.4
 src\isis.t0_3.4\*.* files to build isis 3.4 boot file
 		 isis.t0_3.4_all.src contains the packed source code.
 
-src\isis_4.11\*.*	files to build isis 4.1
+src\isis_4.0\*.*	files to build isis 4.0
+		 isis_4.0_all.src contains the packed source code.
+		
+src\isis.t0_4.0\*.* files to build isis 4.0 boot file
+		 isis.t0_4.0_all.src contains the packed source code.
+
+src\isis_4.1\*.*	files to build isis 4.1
 		 isis_4.1_all.src contains the packed source code.
 		
 src\isis.t0_4.1\*.* files to build isis 4.1 boot file
@@ -379,3 +392,4 @@ Update 18-May-2017   minor reorganisation of isis toolbox v1.0 to use nested pac
 		     tool_ver_all.src
 Update 8-Jun-2017    Updated thames to use 8080 emulation. This allows basic to be run
 		     Added isis toolbox 2.0 and a new version of relst.pl
+Update 28-Nov-2017   Added decompilations isis.bin and isis.t0 for isis 4.0
