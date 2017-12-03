@@ -188,7 +188,7 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
         if $(PEXFILE) is defined
             ngenpex will be run to generate any .ipx file
         else
-            makedepend is run to generate a dependency file in .deps
+            makedepend is run to generate a dependency file in .deps``
 
 	``Usage: $(call plm80,objfile,asmfile[,target specific options])``
 
@@ -200,8 +200,7 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
             except for **print** and **map** which are used internally.  
        *Note. Unlike other macros the listing file does not use the input
        filename as the basis of its name.*
-
-       ``Usage:	$(call link,relocfile,object files[,target specific options])``
+	``Usage:	$(call link,relocfile,object files[,target specific options])``
 
 * **link-nocheck** - this is the same as link with the exception that unresolved
                      names are not treated as an error. It is designed to support
