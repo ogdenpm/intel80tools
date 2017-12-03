@@ -10,7 +10,7 @@ static byte Pack1(byte i)
 
 void PackToken()
 {
-	*(apointer)tokPtr = (Pack1(0) * 40 + Pack1(1)) * 40 + Pack1(2);
-	*(apointer)(tokPtr + 2) = (Pack1(3) * 40 + Pack1(4)) * 40 + Pack1(5);
+	*(wpointer)tokPtr = (Pack1(0) * 40 + Pack1(1)) * 40 + Pack1(2);
+	*(wpointer)(tokPtr + 2) = (Pack1(3) * 40 + Pack1(4)) * 40 + Pack1(5);
 	tokenSize[0] = 4;
 }

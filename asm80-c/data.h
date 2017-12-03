@@ -1,6 +1,5 @@
 // linker defined
-extern byte *memory;
-#define MEMORY	memory[0]
+extern byte *MEMORY;
 // defined in asm2m.c
 extern byte opFlags[];
 // defined in asm5m.c

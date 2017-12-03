@@ -55,7 +55,7 @@ void GetAsmFile()
     /* select key words depending on whether macro version | ~ */
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
-	endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = &MEMORY);
+	endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
     Rescan(1, &statusIO);    /* get the command line */
     IoErrChk();
     Read(1, cmdLineBuf, 128, &actRead.w, &statusIO);

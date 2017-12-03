@@ -341,10 +341,8 @@ void InitLine()
     skipIf[0] = skipIf[0] > 0 ? 0xff : 0;
 }
 
-void main(int argc, char **argv)
+void Start()
 {
-	sysInit(argc, argv);
-
     GetAsmFile();
     phase = 1;
     ResetData();

@@ -38,7 +38,7 @@ void DumpTokenStack()
 	printf("TokenStack:\n");
 	for (int i = 0; i <= tokenIdx; i++) {
 		if (tokenSize[i] == 4) {
-			UnpackToken((apointer)tokStart[i], token);
+			UnpackToken((wpointer)tokStart[i], token);
 			printf("%2d: start = %s", i, token);
 		} else
 			printf("%2d: Start = %02X", i, tokStart[i] - lineBuf);

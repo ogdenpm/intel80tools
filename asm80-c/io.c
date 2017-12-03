@@ -7,173 +7,197 @@
 #include "asm80.h"
 
 
-static char *commandLine;
-static char *commandLinePtr;
-byte *memory;
+// access modes are 1-3
+#define NOTOPEN	0
+
+// device types stored << 2 in aft type
+#define CHARDEV	1
+#define BBDEV	2
+#define FILEDEV	3
+
+
+
+#define CO_DEV	0
+#define CI_DEV	1
+
+#define AFTSIZE	18
+static struct {
+	int	fd;
+	int type;
+} aft[AFTSIZE] = { { 1, WRITE_MODE | (CHARDEV << 2) },{ 0, READ_MODE | (CHARDEV << 2) } }; // :CO:, :CI:
+
+#define MAXLL	122
+static char _commandLine[MAXLL + 1];
+static char *_commandLinePtr;
+pointer MEMORY;
 pointer top;
-#define AVAILMEM	0x7000
+
+#define AVAILMEM	0x9000
 
 
-/* Given a device name (eg, :F0:) look up the appropriate environment
-* variable (eg: ISIS_F0) */
-const char *xlt_device(const char *dev)
-{
-	char buf[20];
-
-	if (strlen(dev) != 4 || dev[0] != ':' || dev[3] != ':')
-		return NULL;
-
-	sprintf(buf, "ISIS_%-2.2s", dev + 1);
-
-	return getenv(buf);
-}
-
-int isis_drive_exists(int n)
-{
-	char buf[5];
-
-	if (n < 0 || n > 9) return 0;	/* Bad drive number */
-	if (n == 1)						// drive 0 always exists
-		return 1;
-	sprintf(buf, ":F%d:", n);
-	return xlt_device(buf) != NULL;
-
-}
-
-/* Is this filename for an ISIS device?
-*
-* Returns:
-* 0: It is not
-* 1: It is a character device eg :CI: :BB:
-* 2: It is a block device     eg :F0: :F2:
+/* make sure ISIS name is clean - maps device to upper case, adding :F0: if none present
+converts rest of name to lower case
+returnd standard error codes as appropriate
 */
-int isis_isdev(const char *ifile)
+static word ParseIsisName(char *cleanIsisName, const char *isisPath)
 {
-	/* All devices have 4-character names */
-	if (strlen(ifile) != 4) return 0;
+	strcpy(cleanIsisName, ":F0:");	// default to F0 drive
 
-	/* All devices have names of the form :??: */
-	if (ifile[0] != ':' || ifile[3] != ':') return 0;
+	if (isisPath[0] == ':') {	// check for :Fn: or :XX: where X is a character
+		if (strlen(isisPath) < 4 || isisPath[3] != ':')
+			return ERROR_BADDEVICE;
+		if (toupper(isisPath[1]) == 'F' && isdigit(isisPath[2]))
+			cleanIsisName[2] = isisPath[2];
+		else if (isalpha(isisPath[1]) && isalpha(isisPath[2])) {
+			cleanIsisName[1] = toupper(isisPath[1]);
+			cleanIsisName[2] = toupper(isisPath[2]);
+		}
+		else
+			return ERROR_BADFILENAME;
 
-	/* Block devices of the form :F<digit>: */
-	if (isdigit(ifile[2]) &&
-		(ifile[1] == 'F' || ifile[1] == 'f')) return 2;
-
-	/* Everything else is a character device */
-	return 1;
-}
-
-
-int mapfile(char *dfile, const char *ifile)
-{
-	char isisdev[5];
-	const char *src;
-
-	*dfile = 0;
-
-	/* It's an ISIS filename. If it doesn't start with a device
-	* specifier, assume :F0: */
-	if (strlen(ifile) < 4 || ifile[0] != ':' || ifile[3] != ':')
-		strcpy(isisdev, ":F0:");
-	else
-	{
-		sprintf(isisdev, "%-4.4s", ifile);
-        _strupr(isisdev);
-		ifile += 4;
+		isisPath += 4;
 	}
-	/* The bit bucket (:BB:) is always defined, and is null */
-	if (!strcmp(isisdev, ":BB:"))
-	{
-		strcpy(dfile, "nul");
-		return ERROR_SUCCESS;
-	}
-	/* Check for other mapped devices */
-	if (isis_isdev(ifile) == 1)	/* Character device */
-	{
-		if (src = xlt_device(ifile)) {
-            strncpy(dfile, src, _MAX_PATH - 1);
-            dfile[_MAX_PATH - 1] = 0;
-            return ERROR_SUCCESS;
-        }
-        if (strcmp(ifile, ":CO:") == 0 || strcmp(ifile, ":CI:") == 0) {
-            strcpy(dfile, ifile);
-            return ERROR_SUCCESS;
-        }
-        fprintf(stderr, "No UNIX mapping for ISIS character device %s\n", isisdev);
-        return ERROR_BADDEVICE;
-	}
-	/* isisdev had just better be a valid block device by now */
-	if (isis_isdev(isisdev) != 2) return ERROR_BADFILENAME;
+	else if (!isalnum(isisPath[0]))
+		return ERROR_NOFILENAME;
 
-	if (src = xlt_device(isisdev)) {
-		strcpy(dfile, src);
-		/* Append a path separator if there isn't one */
-		if (*dfile && strchr(dfile, 0)[-1] != '/' && strchr(dfile, 0)[-1] != '\\')
-			strcat(dfile, "/");
-	}
-	else if (strcmp(isisdev, ":F0:") != 0)		// note if :F0: dfile is left as ""
-	{
-		fprintf(stderr, "No UNIX mapping for ISIS "
-			"block device %s\n", isisdev);
+	if (!isdigit(cleanIsisName[2]))
+		if (strcmp(cleanIsisName, ":CO:") == 0 || strcmp(cleanIsisName, ":CI:") == 0
+			|| strcmp(cleanIsisName, ":BB:") == 0)
+			return isalnum(*isisPath) ? ERROR_BADFILENAME : ERROR_SUCCESS;
+		else
+			return ERROR_BADDEVICE;
+
+	int i;
+	char *s;
+
+	s = &cleanIsisName[4];
+	for (i = 0; i < 6 && isalnum(*isisPath); i++)
+		*s++ = tolower(*isisPath++);
+	if (i == 0 || isalnum(*isisPath))
 		return ERROR_BADFILENAME;
+	if (*isisPath == '.') {
+		*s++ = *isisPath++;
+		for (i = 0; i < 3 && isalnum(*isisPath); i++)
+			*s++ = tolower(*isisPath++);
+		if (i == 0 || isalnum(*isisPath))
+			return ERROR_BADEXT;
 	}
-
-	dfile = strchr(dfile, 0);
-	while (isalnum(*ifile) || *ifile == '.')
-		*dfile++ = tolower(*ifile++);
-	*dfile = 0;
-
+	*s = 0;
 	return ERROR_SUCCESS;
 }
 
 
 
-void sysInit(int argc, char **argv)
-{
-	int i, len;
 
-	for (i = 1, len = 6; i < argc; i++)
+static word MapFile(char *realFile, const char *isisPath)
+{
+	char isisName[15];
+	const char *src;
+	char buf[8];
+	word status;
+
+	*realFile = 0;
+	if ((status = ParseIsisName(isisName, isisPath)) != ERROR_SUCCESS) // get canocial name
+		return status;
+	if (!isdigit(isisName[2])) {		// all devices except Fn are two alpha chars
+		strcpy(realFile, isisName);
+		return ERROR_SUCCESS;
+	}
+
+	sprintf(buf, "ISIS_F%c", isisName[2]);
+	if (src = getenv(buf)) {
+		strcpy(realFile, src);
+		/* Append a path separator if there isn't one */
+		if (*realFile && strchr(realFile, 0)[-1] != '/' && strchr(realFile, 0)[-1] != '\\')
+			strcat(realFile, "/");
+	}
+	else if (isisName[2] == '0')	// always allow default F0 of current directory
+		*realFile = 0;
+	else {
+		fprintf(stderr, "No mapping for ISIS "
+			"block device :F%c:\n", isisName[2]);
+		return ERROR_BADDEVICE;
+	}
+
+	strcat(realFile, isisName + 4);	// append the file name
+	return ERROR_SUCCESS;
+}
+
+
+
+int main(int argc, char **argv)
+{
+	int i;
+	size_t len;
+
+	_setmode(_fileno(stdin), _O_BINARY);
+	_setmode(_fileno(stdout), _O_BINARY);
+	aft[CO_DEV].fd = _fileno(stdout);
+	aft[CI_DEV].fd = _fileno(stdin);
+
+	strcpy(_commandLine, "lib80");
+	len = strlen(_commandLine);
+
+	for (i = 1; i < argc && len + strlen(argv[i]) + 1 < MAXLL - 2; i++) {	// add args if room
 		len += strlen(argv[i]) + 1;
-	commandLinePtr = commandLine = malloc(len + 2);
-	if (commandLine == NULL) {
-		fprintf(stderr, "sysInit out of memory\n");
-		exit(2);
+		strcat(_commandLine, " ");
+		strcat(_commandLine, argv[1]);
 	}
-	strcpy(commandLine, "asm80 ");
-	for (i = 1; i < argc; i++) {
-		if (i != 1)
-			strcat(commandLine, " ");
-		strcat(commandLine, argv[i]);
-	}
-	strcat(commandLine, "\r\n");
+	if (i < argc)
+		fprintf(stderr, "command line truncated\n");
 
-	memory = (pointer) malloc(AVAILMEM);
-	top = memory + AVAILMEM;
+	_commandLinePtr = strcat(_commandLine, "\r\n");
+
+	MEMORY = (pointer)malloc(AVAILMEM);
+	top = MEMORY + AVAILMEM - 1;
+	Start();
 }
 
-
-
-void Close(word conn, apointer statusP)
+pointer MemCk()
 {
-	*statusP = 0;
-	if (conn > 1)	// don't close stdin or stdout	
-		if (_close(conn) < 0)
-			*statusP = 2;
+	return MEMORY + AVAILMEM - 1;	// address of last isis user memory
 }
 
-void Delete(pointer pathP, apointer statusP)
+void Close(word conn, wpointer statusP)
+{
+	if (conn >= AFTSIZE) {
+		*statusP = ERROR_BADPARAM;
+		return;
+	}
+	if (!(aft[conn].type & 3)) {	// no access mode set
+		*statusP = ERROR_NOTOPEN;
+		return;
+	}
+
+	*statusP = ERROR_SUCCESS;
+
+	switch (aft[conn].type >> 2) {
+	case CHARDEV: return;					// ignore reqests to close CO & CI
+	case BBDEV: aft[conn].type = 0; return;
+	case FILEDEV:
+		if (_close(aft[conn].fd) < 0)
+			*statusP = ERROR_NOTOPEN;
+		aft[conn].type = 0;
+	}
+}
+
+
+void Delete(pointer pathP, wpointer statusP)
 {
 	char path[_MAX_PATH];
-	mapfile(path, pathP);
-	*statusP = 0;
 
-	if (_unlink(path) < 0)
-		if (errno == EACCES)
-			*statusP = 14;
-		else if (errno == ENOENT)
-			*statusP = 13;
-		else
-			*statusP = 30;
+	if ((*statusP = MapFile(path, pathP)) == ERROR_SUCCESS) {
+		if (*path == ':')
+			*statusP = ERROR_ISDEVICE;
+		else if (_unlink(path) < 0) {
+			if (errno == EACCES)
+				*statusP = ERROR_PERMISSIONS;
+			else if (errno == ENOENT)
+				*statusP = ERROR_FILENOTFOUND;
+			else
+				*statusP = ERROR_NOTREADY;
+		}
+	}
 }
 
 static const char *error_strings[] =
@@ -232,127 +256,254 @@ void Exit()
 	_exit(1);
 }
 
-void Load(pointer pathP, word LoadOffset, word swt, word entryP, apointer statusP)
+void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer statusP)
 {
 	fprintf(stderr, "load not implmented\n");
 	exit(2);
 }
 
-void Open(apointer connP, pointer pathP, word access, word echo, apointer statusP)
+
+
+
+void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP)
 {
 	int mode, conn;
 	char path[_MAX_PATH];
+	int handle;
 
-	mapfile(path, pathP);
+	*connP = -1;		// unused conn
+	if ((*statusP = MapFile(path, pathP)) != ERROR_SUCCESS)
+		return;
 
-	*statusP = 0;
 	switch (access) {
 	case READ_MODE: mode = _O_RDONLY | O_BINARY; break;
 	case WRITE_MODE: mode = _O_WRONLY | _O_CREAT | _O_TRUNC | O_BINARY; break;
 	case UPDATE_MODE: mode = _O_RDWR | _O_CREAT | _O_TRUNC | O_BINARY; break;
 	default: fprintf(stderr, "bad access mode %d for %s\n", access, path);
-		*statusP = 22;
-		*connP = -1;
+		*statusP = ERROR_BADACCESS;
 		return;
 	}
-	if (strcmp(path, ":CI:") == 0)
-		*connP = 1;
-	else if (strcmp(path, ":CO:") == 0)
-		*connP = 0;
-	else if (*path == ':') {
-		*statusP = 13;
-		*connP = -1;
+	if (strcmp(path, ":CI:") == 0) {
+		if (access != READ_MODE)
+			*statusP = ERROR_BADACCESS;
+		else
+			aft[CI_DEV].type = (CHARDEV << 2) | READ_MODE;
+		*connP = CI_DEV;
+		return;
 	}
-	else if ((conn = _open(path, mode, _S_IREAD | _S_IWRITE)) >= 0)
-		*connP = conn;
-	else {
+
+	if (strcmp(path, ":CO:") == 0) {
+		if (access != WRITE_MODE)
+			*statusP = ERROR_BADACCESS;
+		else
+			aft[CO_DEV].type = (CHARDEV << 2) | WRITE_MODE;
+		*connP = CO_DEV;
+		return;
+	}
+
+	// allocate a handle
+	for (handle = 2; handle < AFTSIZE; handle++)
+		if (aft[handle].type == 0)
+			break;
+
+	// if BB check not already open
+	if (strcmp(path, ":BB:") == 0)
+		for (int i = 0; i < AFTSIZE; i++)
+			if ((aft[i].type >> 2) == BBDEV) {
+				*statusP = ERROR_ALREADYOPEN;
+				*connP = i;
+				return;
+			}
+
+	if (handle >= AFTSIZE) {
+		*statusP = ERROR_NOHANDLES;
+		return;
+	}
+
+	if (strcmp(path, ":BB:") == 0) {
+		*connP = handle;
+		aft[handle].type = (BBDEV << 2) + access;	// fd not used as BB handled internally
+		return;
+	}
+
+
+	conn = _open(path, mode, _S_IREAD | _S_IWRITE);
+
+	if (conn < 0)
 		switch (errno) {
-		case EACCES: *statusP = 14; break;
-		case EEXIST: *statusP = 6; break;
-		case EMFILE: *statusP = 3; break;
-		case ENOENT: *statusP = 13; break;
+		case EACCES: *statusP = ERROR_PERMISSIONS; break;
+		case EEXIST: *statusP = ERROR_NOWRITE; break;
+		case EMFILE: *statusP = ERROR_NOHANDLES; break;
+		case ENOENT: *statusP = ERROR_FILENOTFOUND; break;
 		default: fprintf(stderr, "unknown error %d for open %s", errno, path);
-			*statusP = 30;
+			*statusP = ERROR_NOTREADY;
 		}
-		*connP = -1;
+	else {
+		aft[handle].fd = conn;
+		aft[handle].type = (FILEDEV << 2) + access;
+		*connP = handle;
 	}
 }
 
-void Read(word conn, pointer buffP, word count, apointer actualP, apointer statusP)
+char *ReadLine(char *buf)
+{
+	int c;
+	int i;
+	bool trunc = false;
+
+	i = 0;
+	while ((c = getchar()) != EOF && c != '\n' && c != '\r') {
+		if (i < MAXLL - 2)
+			buf[i++] = c;
+		else
+			trunc = true;
+	}
+	if (c == '\r' && (c = getchar()) != '\n')		// pick up \r\n else singleton \r
+		ungetc(c, stdin);
+	strcpy(buf + i, "\r\n");
+	if (trunc)
+		fprintf(stderr, ":CI: line truncated\n");
+	return buf;
+}
+
+
+void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statusP)
 {
 	int actual;
-	
-	if (conn == 1 && *commandLinePtr) {		// rescanning command line
-		for (actual = 0; actual < count && *commandLinePtr; actual++)
-			*buffP++ = *commandLinePtr++;
-		*actualP = actual;
-		*statusP = 0;
+
+	if (conn >= AFTSIZE) {
+		*statusP = ERROR_BADPARAM;
 		return;
 	}
-	
-	if (conn < 2)
-		conn = 1 - conn;	// isis has stdout/stdin swapped cf. dos/unix
 
-	if ((actual = _read(conn, buffP, count)) >= 0) {
-		*actualP = actual;
-		*statusP = 0;
+	switch (aft[conn].type & 3) {
+	case 0: *statusP = ERROR_NOTOPEN; return;
+	case WRITE_MODE: *statusP = ERROR_NOREAD; return;
 	}
-	else {
-		*actualP = 0;
-		if (errno == EBADF)
-			*statusP = 2;
-		else if (errno == EINVAL)
-			*statusP = 33;
-		else
-			*statusP = 30;
+
+	*statusP = 0;
+	switch (aft[conn].type >> 2) {
+	case CHARDEV:
+		if (!*_commandLinePtr)
+			_commandLinePtr = ReadLine(_commandLine);
+
+		for (actual = 0; actual < count && *_commandLinePtr; actual++)
+			*buffP++ = *_commandLinePtr++;
+		*actualP = actual;
+		return;
+
+	case BBDEV: *actualP = 0; return;
+	case FILEDEV:
+		if ((actual = _read(aft[conn].fd, buffP, count)) >= 0) {
+			*actualP = actual;
+			*statusP = 0;
+		}
+		else {
+			*actualP = 0;
+			if (errno == EBADF)
+				*statusP = ERROR_NOTOPEN;
+			else if (errno == EINVAL)
+				*statusP = ERROR_BADPARAM;
+			else
+				*statusP = ERROR_NOTREADY;
+		}
 	}
 }
-void Rescan(word conn, apointer statusP)
+void Rescan(word conn, wpointer statusP)
 {
-	if (conn == 1) {
-		commandLinePtr = commandLine;
-		*statusP = 0;
+	if (conn == CI_DEV) {
+		_commandLinePtr = _commandLine;
+		*statusP = ERROR_SUCCESS;
 	}
 	else
-		*statusP = 21;
+		*statusP = ERROR_NOTLINEMODE;
 }
 
 
 
-void Seek(word conn, word mode, apointer blockP, apointer byteP, apointer statusP)
+void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer statusP)
 {
-	long offset = *blockP * 128 + *byteP;
+	long offset;
 	int origin;
 
-	if (conn <= 1) {
-		*statusP = 19;
+	if (conn >= AFTSIZE) {
+		*statusP = ERROR_BADPARAM;
 		return;
 	}
 
+
+	switch (aft[conn].type & 3) {
+	case 0: *statusP = ERROR_NOTOPEN; return;
+	case WRITE_MODE: *statusP = ERROR_SEEKWRITE; return;
+	}
+	if ((aft[conn].type >> 2) != FILEDEV) {
+		*statusP = ERROR_CANTSEEKDEV;
+		return;
+	}
+
+	if (mode != SEEKTELL)
+		offset = *blockP * 128 + *byteP;
+
 	switch (mode) {
+	case SEEKTELL:
+		offset = _tell(aft[conn].fd);
+		*blockP = (word)(offset / 128);
+		*byteP = offset % 128;
+		*statusP = 0;
+		return;
 	case SEEKABS:	origin = SEEK_SET; break;
 	case SEEKBACK:	offset = -offset;
 	case SEEKFWD:	origin = SEEK_CUR; break;
 	case SEEKEND:	origin = SEEK_END; break;
 	default: fprintf(stderr, "Unsupported seek mode %d\n", mode);
-		*statusP = 27;
+		*statusP = ERROR_BADMODE;
 		return;
 	}
-	if (_lseek(conn, offset, origin) >= 0)
+	if (_lseek(aft[conn].fd, offset, origin) >= 0)
 		*statusP = 0;
 	else
-		*statusP = 33;
+		*statusP = ERROR_BADPARAM;
 }
-void Write(word conn, pointer buffP, word count, apointer statusP)
+void Write(word conn, pointer buffP, word count, wpointer statusP)
 {
-	if (conn < 2)
-		conn = 1 - conn;	// isis has stdout/stdin swapped cf. dos/unix
-	if (_write(conn, buffP, count) == count)
+	if (conn >= AFTSIZE) {
+		*statusP = ERROR_BADPARAM;
+		return;
+	}
+
+	switch (aft[conn].type & 3) {
+	case 0: *statusP = ERROR_NOTOPEN; return;
+	case READ_MODE: *statusP = ERROR_NOREAD; return;
+	}
+
+
+	if ((aft[conn].type >> 2) == BBDEV)
+		*statusP = ERROR_SUCCESS;
+	if (_write(aft[conn].fd, buffP, count) == count)
+		*statusP = ERROR_SUCCESS;
+	else
+		switch (errno) {
+		case ENOSPC: *statusP = ERROR_DISKFULL; break;
+		case EINVAL: *statusP = ERROR_BADPARAM;
+		default: *statusP = ERROR_NOTREADY;
+		}
+}
+
+void Rename(pointer oldP, pointer newP, wpointer statusP)
+{
+	char oldFile[_MAX_PATH], newFile[_MAX_PATH];
+
+	if ((*statusP = MapFile(oldFile, oldP)) != ERROR_SUCCESS || (*statusP = MapFile(newFile, newP)) != ERROR_SUCCESS)
+		return;
+	if (*oldFile == ':' || *newFile == ':')
+		*statusP = ERROR_ISDEVICE;
+	else if (rename(oldFile, newFile) == 0)
 		*statusP = 0;
 	else
 		switch (errno) {
-		case ENOSPC: *statusP = 7; break;
-		case EINVAL: *statusP = 33;
-		default: *statusP = 30;
+		case EACCES: *statusP = ERROR_EXISTS; break;
+		case ENOENT: *statusP = ERROR_FILENOTFOUND; break;
+		case EINVAL: *statusP = ERROR_BADFILENAME; break;
+		default: *statusP = ERROR_BADPARAM; break;
 		}
 }

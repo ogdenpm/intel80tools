@@ -46,7 +46,7 @@ static byte Unpack1(word packedWord)
 
 
 
-void UnpackToken(apointer src, pointer dst)
+void UnpackToken(wpointer src, pointer dst)
 {
     word packedword;
 
@@ -297,12 +297,12 @@ byte Lookup(byte tableId)
 	tokensym_t *lowOffset, *highOffset, *midOffset;
 	word deltaToNext;
 	tokensym_t *entryOffset;
-	apointer packedTokP;
+	wpointer packedTokP;
     byte i, gt;
 //    symEntry based entryOffset KEYWORD_T,
 //    addr based aVar word;
 
-    packedTokP = (apointer)tokPtr;
+    packedTokP = (wpointer)tokPtr;
     /* Keyword() lookup */
     if (tableId == TID_KEYWORD) {       /* hash chain look up key word */
 		/* code modified to keep deltaToNext as offset */

@@ -178,7 +178,7 @@ void LogError(byte ch)
 
 word GetNumVal()
 {
-	apointer valP;
+	wpointer valP;
 
     acc1Flags = 0;
     accum1 = 0;
@@ -196,7 +196,7 @@ word GetNumVal()
             {
                 tokPtr = &tokenSym.curP->flags;    /* point to flags */
                 acc1Flags = *tokPtr & ~UF_PUBLIC; /* remove public attribute */
-                valP = (apointer)tokPtr = &tokenSym.curP->value;    /* point to value */
+                valP = (wpointer)tokPtr = &tokenSym.curP->value;    /* point to value */
                 acc1NumVal = *valP;            /* pick up value */
                 tokenSize[0] = 2;        /* word value */
 

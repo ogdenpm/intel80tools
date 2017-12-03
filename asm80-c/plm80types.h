@@ -4,7 +4,7 @@
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
-typedef word *apointer;
+typedef word *wpointer;
 
 
 typedef union {

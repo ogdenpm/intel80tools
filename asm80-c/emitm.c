@@ -3,7 +3,7 @@
 #include "asm80.h"
 
 static byte fixupInitialLen[] = {1, 2, 1, 3};
-static apointer fixupRecLenPtrs[] = {&rPublics.len, &rInterseg.len, &rExtref.len, &rContent.len};
+static wpointer fixupRecLenPtrs[] = {&rPublics.len, &rInterseg.len, &rExtref.len, &rContent.len};
 static byte fixupRecLenChks[] = {123, 58, 57, 124};
 static byte b6D7E[] = {10, 0x12, 0x40}; /* 11 bits 00010010010 index left to right */
 
@@ -18,7 +18,7 @@ void WriteRec(pointer recP)
     byte i, crc;
 
 	lenP = recP + 1;		// point to the length word
-	recLen = ++*(apointer)lenP + 3;    /* include crc byte + type + len word */
+	recLen = ++*(wpointer)lenP + 3;    /* include crc byte + type + len word */
     crc = 0;            /* crc */
     lenP--;
     for (i = 2; i <= recLen; i++)
@@ -45,7 +45,7 @@ static byte GetFixupType()
 void ReinitFixupRecs()
 {
     byte i;
-	apointer dtaP;	// to check for conflicts with global dtaP usage in plm
+	wpointer dtaP;	// to check for conflicts with global dtaP usage in plm
 
     for (i = 0; i <= 3; i++) {
         ii = (i - 1) & 3; /* order as content, publics, interseg, externals */
@@ -69,7 +69,7 @@ void ReinitFixupRecs()
 static void AddFixupRec()
 {
     word effectiveOffset;
-	apointer dtaP;				// to check doesn't conflict with plm global usage 
+	wpointer dtaP;				// to check doesn't conflict with plm global usage 
 
     dtaP = fixupRecLenPtrs[curFixupType = GetFixupType()];
     if (*dtaP > fixupRecLenChks[curFixupType] || rContent.len + tokenSize[spIdx] > 124)
@@ -188,7 +188,7 @@ void AddSymbol()
     if ((tokenSym.curP->flags & UF_EXTRN) != 0)
         return;
 
-    *(apointer)recSymP = tokenSym.curP->offset;
+    *(wpointer)recSymP = tokenSym.curP->offset;
     UnpackToken(tokenSym.curP->tok, (dtaP = (recSymP += 2) + 1));
     dtaP[6] = ' ';    /* trailing space to ensure end */
     *recSymP = 0;	  /* length of symbol */
@@ -242,7 +242,7 @@ void WriteModhdr()
     /* fill the module name */
     memcpy(rModhdr.dta + 1, aModulePage, (rModhdr.dta[0] = moduleNameLen));
     dtaP = &rModhdr.dta[moduleNameLen + 1];
-    *(apointer)dtaP = 0;    /* the trnId & trnVn bytes */
+    *(wpointer)dtaP = 0;    /* the trnId & trnVn bytes */
     dtaP++;					/* past trnId byte */
     if (segSize[SEG_CODE] < maxSegSize[SEG_CODE])    /* code segment */
         segSize[SEG_CODE] = maxSegSize[SEG_CODE];
