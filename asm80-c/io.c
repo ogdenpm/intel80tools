@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 	for (i = 1; i < argc && len + strlen(argv[i]) + 1 < MAXLL - 2; i++) {	// add args if room
 		len += strlen(argv[i]) + 1;
 		strcat(_commandLine, " ");
-		strcat(_commandLine, argv[1]);
+		strcat(_commandLine, argv[i]);
 	}
 	if (i < argc)
 		fprintf(stderr, "command line truncated\n");
