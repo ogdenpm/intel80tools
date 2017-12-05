@@ -126,7 +126,7 @@ static void ModNotFound()
 
 	s = argChain->name;
 	Log("  ", 2);	/* "  " */
-	Log(s, PastFileName(SkipSpc(s)) - s);	/* emit the file name */
+	Log(s, (word)(PastFileName(SkipSpc(s)) - s));	/* emit the file name */
 	Log("(", 1);	/* ( */
 	Log(moduleP->name + 1, moduleP->name[0]);	/* and the module name */
 	LogCRLF("): NOT FOUND", 12); /* ): NOT FOUND */
@@ -869,7 +869,7 @@ static void ListCmd()
 		OpenLib();
 		/* header line "  file\n\n" */
 		WriteFile(outConn, "  ", 2, &status);
-		WriteFile(outConn, argFilename, PastFileName(argFilename) - argFilename, &status);
+		WriteFile(outConn, argFilename, (word)(PastFileName(argFilename) - argFilename), &status);
 		WriteFile(outConn, "\r\n", 2, &status);
 
 		AcceptRecord(LIBHDR);

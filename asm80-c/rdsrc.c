@@ -39,7 +39,7 @@ void ReadSrc(pointer bufLoc)
 {
  //   byte pad;
 
-    ReadF((byte)srcfd, bufLoc, &inBuf[sizeInBuf] - bufLoc);
+    ReadF((byte)srcfd, bufLoc, (word)(&inBuf[sizeInBuf] - bufLoc));
     endInBufP = bufLoc + readFActual;
 }
 
@@ -111,7 +111,7 @@ void OpenSrc()
         seekIByte = 0;
     }
 
-    curBlkLoc = endInBufP - startLineP;    /* un-used characters */
+    curBlkLoc = (word)(endInBufP - startLineP);    /* un-used characters */
 //x:                        /* forces code alignment */
     if ((curByteLoc = curBlkLoc % 128) > seekIByte) {
         seekIByte += 128;	    /* adjust to allow for un-used chars */

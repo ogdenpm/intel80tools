@@ -86,7 +86,7 @@ void FinishLine()
         if (ChkGenObj())
             Ovl8();
         b6B2C = true;
-        segSize[activeSeg] = effectiveAddr.w = segSize[activeSeg] + (w6BCE - lineBuf);
+        segSize[activeSeg] = effectiveAddr.w = (word)(segSize[activeSeg] + (w6BCE - lineBuf));
     }
 
     if (controls.xref && rhsUserSymbol)

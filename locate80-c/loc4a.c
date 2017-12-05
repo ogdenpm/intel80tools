@@ -8,7 +8,7 @@ void ErrChkReport(word errCode, pointer file, bool errExit)
 	{
 		file = SkipSpc(file);
 		Write(0, " ", 1, &status);
-		Write(0, file, PastAFN(file) - file, &status);	/* Write() file name */
+		Write(0, file, (word)(PastAFN(file) - file), &status);	/* Write() file name */
 		Write(0, ",", 1, &status);
 		Errmsg(errCode);
 		if (errExit )

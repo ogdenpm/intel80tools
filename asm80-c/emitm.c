@@ -203,7 +203,7 @@ void AddSymbol()
 
 void FlushSymRec(byte segId, byte isPublic)			/* args to because procedure is no longer nested */
 {
-    if ((rPublics.len = recSymP - &rPublics.segid) > 1)    /* something to Write() */
+    if ((rPublics.len = (word)(recSymP - &rPublics.segid)) > 1)    /* something to Write() */
         WriteRec((pointer)&rPublics);
     rPublics.type = isPublic ? OMF_PUBLICS : OMF_LOCALS;        /* PUBLIC or DoLocal */
     rPublics.segid = segId;

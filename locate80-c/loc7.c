@@ -81,7 +81,7 @@ void ProcArgsInit()
 
 	/* work out a good io buf size */
 	/* checks are for >= 32k of space, >= 16k of space */
-	if ((pageCacheSize = ((MemCk() - baseMemImage) >> 8) - 1) >= 128)
+	if ((pageCacheSize = (((word)(MemCk() - baseMemImage)) >> 8) - 1) >= 128)
 		npbuf = 4096;
 	else if (pageCacheSize >= 64)
 		npbuf = 2048;
@@ -140,7 +140,7 @@ void ProcArgsInit()
 		ErrNotADisk();
 	MakeFullName(&spathInfo, &inFileName[1]);
 	/* convert to a omf style string by putting the length in at the front */
-	inFileName[0] = PastFileName(&inFileName[1]) - &inFileName[1];
+	inFileName[0] = (byte)(PastFileName(&inFileName[1]) - &inFileName[1]);
 	/* check for TO (followed by space or & */
 	if (Strequ(cmdP, mto, 3) || Strequ(cmdP, mtoand, 3))
 	{
@@ -157,14 +157,14 @@ void ProcArgsInit()
 	}
 	/* get the output file name in standard format */
 	MakeFullName(&spathInfo, &outFileName[1]);
-	outFileName[0] = PastFileName(&outFileName[1]) - &outFileName[1];
+	outFileName[0] = (byte)(PastFileName(&outFileName[1]) - &outFileName[1]);
 	/* only accept a disk file or the bit bucket */
 	if (spathInfo.deviceType != 3 && spathInfo.deviceId != 22)	/* 22 -> :BB: */
 		ErrNotADisk();
 	/* copy the disk name over and create the tmp file name */
 	tmpFileInfo[0] = spathInfo.deviceId;
 	MakeFullName((spath_t *)tmpFileInfo, &tmpFileName[1]);
-	tmpFileName[0] = PastFileName(&tmpFileName[1]) - &tmpFileName[1];
+	tmpFileName[0] = (byte)(PastFileName(&tmpFileName[1]) - &tmpFileName[1]);
 	/* record if (we are creating a real file */
 	outRealFile = spathInfo.deviceId != 22;
 	/* Open() the file to locate */
@@ -208,7 +208,7 @@ void ProcArgsInit()
 	roundRobinIndex = 0;
 	pageIndexTmpFil = 0;
 	/* recalculate pageCache size */
-	pageCacheSize = ((outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1))) >> 8) - 1;
+	pageCacheSize = (((word)(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1)))) >> 8) - 1;
 	/* set a new baseMemImage after Allocting() pageTab1 slots - one for each page */
 	baseMemImage =  ((pointer)pageTab1P) + (pageCacheSize + 1) * 2 ;
 	/* initialise the paging table control information */
@@ -225,7 +225,7 @@ void ProcArgsInit()
 	/* set up the heap locations below the print buffer */
 	topHeap = topDataFrags = botHeap = spbufP;
 	/* recalculate the pageCacheSize now available */
-	pageCacheSize = ((outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1)))) >> 8) - 1;
+	pageCacheSize = ((word)((outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1))))) >> 8) - 1;
 	/* create the output file*/
 	Delete(&outFileName[1], &statusIO);
 	Open(&outputfd, &outFileName[1], 3, 0, &statusIO);
@@ -239,7 +239,7 @@ void ProcArgsInit()
 		PrintString(signonMsg, 24);
 		PrintString(version, 4);
 		PrintString(aInvokedBy, 14);
-		PrintString(scmdP, cmdP - scmdP + 2);
+		PrintString(scmdP, (word)(cmdP - scmdP) + 2);
 	}
 } /* ProcArgsInit */
 

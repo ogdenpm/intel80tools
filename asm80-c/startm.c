@@ -41,7 +41,7 @@ void IoErrChk()
 
 void Flushout()
 {
-    Write(outfd, outbuf, outP - outbuf, &statusIO);
+    Write(outfd, outbuf, (word)(outP - outbuf), &statusIO);
     outP = outbuf;
 }
 

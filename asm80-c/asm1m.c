@@ -95,7 +95,7 @@ void FlushM()
 	word bytesLeft;
 
 	if (mSpoolMode & 1) { /* spool macros to disk in 128 byte blocks */
-		while ((bytesLeft = macroInPtr - symHighMark) >= 128) {
+		while ((bytesLeft = (word)(macroInPtr - symHighMark)) >= 128) {
 			WriteM();
 			symHighMark += 128;
 		}

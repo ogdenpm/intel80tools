@@ -36,7 +36,7 @@ void SeekOutFile(word mode, wpointer pblk, wpointer pbyt)
 
 void FlushOut()
 {
-	Write(outputfd, outRecordP, outP - outRecordP, &statusIO);
+	Write(outputfd, outRecordP, (word)(outP - outRecordP), &statusIO);
 	ErrChkReport(statusIO, &outFileName[1], true);
 	outP = outRecordP;
 } /* FlushOut */
@@ -45,7 +45,7 @@ void WriteBytes(pointer bufP, word cnt)
 {
 	word bcnt;
 
-	bcnt = eoutP - outP;
+	bcnt = (word)(eoutP - outP);
 	while (cnt > bcnt) {
 		memmove(outP, bufP, bcnt);
 		cnt = cnt - bcnt;
@@ -75,7 +75,7 @@ void EndRecord()
 	pointer pch;
 
 	/* check record not too long */
-	if ((lsoutP->reclen = outP - &lsoutP->rectyp - 2) > 1025 )
+	if ((lsoutP->reclen = (word)(outP - &lsoutP->rectyp) - 2) > 1025 )
 		ErrChkReport(ERR211, &outFileName[1], true);	/* RECORD TOO LONG */
 	/* for what is there generate the CRC */
 	crc = 0;
@@ -283,7 +283,7 @@ void ProcModdat()
 				ConAndPrint(aReferenceToUns, 34);
 				/* print the 'XXXXX) AT XXXXH\r\n' skipping leading spaces */
 				ConAndPrint((curColumn.bp = SkipSpc(&aReferenceToUns[34])),
-						17 - (curColumn.bp - &aReferenceToUns[34]));
+						17 - (word)(curColumn.bp - &aReferenceToUns[34]));
 				outP = outP + 4;	/* advance out and in position */
 				inP = inP + 4;
 			}

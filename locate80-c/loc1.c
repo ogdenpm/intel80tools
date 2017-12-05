@@ -73,7 +73,7 @@ void FlushPrintBuf()
 {
 	if (usePrintBuf)	/* only process if buffered print */
 	{
-		Write(printfd, spbufP, pbufP - spbufP, &statusIO);
+		Write(printfd, spbufP, (word)(pbufP - spbufP), &statusIO);
 		ErrChkReport(statusIO, &printFileName[1], true);
 	}
 	pbufP = spbufP;	/* rest buffer pointer */
@@ -124,7 +124,7 @@ void PrintString(pointer bufp, word cnt)
 
 	if (usePrintBuf)	/* using buffer ? */
 	{
-		bcnt = epbufP - pbufP; 	/* space in buffer */
+		bcnt = (word)(epbufP - pbufP); 	/* space in buffer */
 		while (cnt > bcnt) {		/* ! enough room for all chars */
 			memmove(pbufP, bufp, bcnt);	/* copy what we can */
 			cnt = cnt - bcnt;	/* adjust what is left */
@@ -162,12 +162,12 @@ void ChkRead(word cnt)
 {
 	word bcnt;
 
-	if ((bcnt = eiBufP - iBufP) < cnt)	/* data alReady in buffer */
+	if ((bcnt = (word)(eiBufP - iBufP)) < cnt)	/* data alReady in buffer */
 	{
 		memmove(sibufP, iBufP, bcnt);	/* move down bytes in buffer */
 		Read(readfd, sibufP + bcnt, npbuf - bcnt, &actRead, &statusIO);
 		ErrChkReport(statusIO, &inFileName[1], true);
-		inBlk = inBlk + (inByt + iBufP - sibufP) / 128;
+		inBlk = inBlk + (inByt + (word)(iBufP - sibufP)) / 128;
 		inByt = (inByt + iBufP - sibufP) % 128;
 		if ((bcnt = bcnt + actRead) < cnt)
 			ErrChkReport(ERR204, &inFileName[1], TRUE);  /* Premature() EOF */
@@ -180,7 +180,7 @@ void GetRecord()
 
 	word bcnt;
 
-	if ((bcnt = eiBufP - iBufP) >= 4)
+	if ((bcnt = (word)(eiBufP - iBufP)) >= 4)
 	{
 		inRecordP = (record_t *)iBufP;
 		erecP = (pointer)inRecordP + inRecordP->reclen + 2;
@@ -283,7 +283,7 @@ void AnotherPage(byte page)
 		/* page Allocated() is first after the current max pageCacheSize */
 		nxtPageNo = pageCacheSize + 1;
 		/* increase the pageCacheSize available */
-		pageCacheSize = (((botHeap = botHeap + npbuf) - baseMemImage) >> 8) - 1;
+		pageCacheSize = (((word)((botHeap = botHeap + npbuf) - baseMemImage)) >> 8) - 1;
 		return;
 	}
 	if (! havePagingFile)	/* have to page, create file if ! done */
@@ -356,7 +356,7 @@ void Alloc(word cnt)
 		if (! pageTab1P[pageCacheSize].state)	/* if current cache all used, try forcing using print buf */
 			AnotherPage(pageCacheSize);	/* or paging the last page to disk */
 
-		if ((pageCacheSize = ((botHeap - baseMemImage) >> 8) - 1) == 0xff)	/* check we haven't eliminated all cache */
+		if ((pageCacheSize = (((word)(botHeap - baseMemImage) >> 8)) - 1) == 0xff)	/* check we haven't eliminated all cache */
 			ErrChkReport(ERR210, &inFileName[1], true);	/* Insufficient() memory */
 	}
 }

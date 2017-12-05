@@ -112,7 +112,7 @@ void ProcExtnam()
         /* print to the start of the number */
         ConAndPrint(aUnsatisfiedExt, 21);
         /* print the rest of the message omitting leading spaces in the number */
-        ConAndPrint(curColumn.bp = SkipSpc(&aUnsatisfiedExt[21]), 7 - (curColumn.bp - &aUnsatisfiedExt[21]));
+        ConAndPrint(curColumn.bp = SkipSpc(&aUnsatisfiedExt[21]), 7 - (word)(curColumn.bp - &aUnsatisfiedExt[21]));
         /* print the name */
         ConAndPrint(&inP[1], inP[0]);		// pascal string at *inP
         ConAndPrint(crlf, 2);

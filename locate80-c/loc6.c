@@ -49,7 +49,7 @@ void CmdErr(word err)
 	*cmdP = '#';	/* put a marker in */
 	ConStrOut(aCommandTailErr, 26);
 	Errmsg(err);
-	ConStrOut(scmdP, cmdP - scmdP + 1);
+	ConStrOut(scmdP, (word)(cmdP - scmdP) + 1);
 	ConStrOut(crlf, 2);
 	Exit();
 } /* CmdErr */
@@ -148,7 +148,7 @@ void ProcessControls()
 	byte cid, caux, clen, cSegId;
 
 	/* find the command length */
-	clen = PastFileName(cmdP) - cmdP;
+	clen = (byte)(PastFileName(cmdP) - cmdP);
 	cindex.lb = 3;
 	cid = 0;
 	if (*cmdP == '/')	/* common seg address */
@@ -196,7 +196,7 @@ void ProcessControls()
 			ExpectLP();
 			GetFile();
 			MakeFullName(&spathInfo, &printFileName[1]);
-			printFileName[0] = PastFileName(&printFileName[1]) - &printFileName[1];
+			printFileName[0] = (byte)(PastFileName(&printFileName[1]) - &printFileName[1]);
 			ExpectRP();
 	    	break;
 	    case 6:		/* ORDER */		/* process the order list */

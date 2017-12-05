@@ -125,7 +125,7 @@ void FileStatusChk(word errCode, pointer pathP, bool isFatal)
     {
         pathP = SkipSpc(pathP);
         Write(0, " ", 1, &fstatus);
-        Write(0, pathP, SkipAfn(pathP) - pathP, &fstatus);
+        Write(0, pathP, (word)(SkipAfn(pathP) - pathP), &fstatus);
         Write(0, ",", 1, &fstatus);
         WriteErrStr(errCode);
         longjmp(reset, 2); // goto reset;
@@ -469,9 +469,9 @@ __declspec(noreturn) void LibError(byte err)
     /* this logic looks flawed I suspect the else clause is generally taken */
     /* would be reasonable if curLineP->len was used */
     if (s > (pointer)curLineP  && curLineP->text + 1 + curLineP->len > s)	// next changed to len
-        Write(0, curLineP->text, s - curLineP->text, &status);
+        Write(0, curLineP->text, (word)(s - curLineP->text), &status);
     else
-        Write(0, lineP->text, s - lineP->text, &status);
+        Write(0, lineP->text, (word)(s - lineP->text), &status);
 
     Write(0, "#\r\n", 3, &status);
     longjmp(reset, 9); // goto reset;
@@ -500,7 +500,7 @@ static word GetTokenLen(pointer str)
         if (str - tmp > 32)
             LibError(ERR226);   /* MODULE NAME TOO LONG */
 
-        return str - tmp;
+        return (word)(str - tmp);
     }
     if (*str == '(')
         return 1;
@@ -508,7 +508,7 @@ static word GetTokenLen(pointer str)
         return 1;
     else if (*str == ',')
         return 1;
-    wtmp = PastFileName(str) - str;
+    wtmp = (word)(PastFileName(str) - str);
     if (wtmp > 0)
         return wtmp;
     else

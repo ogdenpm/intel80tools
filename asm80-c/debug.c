@@ -41,7 +41,7 @@ void DumpTokenStack()
 			UnpackToken((wpointer)tokStart[i], token);
 			printf("%2d: start = %s", i, token);
 		} else
-			printf("%2d: Start = %02X", i, tokStart[i] - lineBuf);
+			printf("%2d: Start = %02X", i, (unsigned)(tokStart[i] - lineBuf));
 		s = tokenSym.stack[i];
 		if (s && (symTab[TID_SYMBOL] <= s && s <= endSymTab[TID_SYMBOL] || symTab[TID_MACRO] <= s && s <= endSymTab[TID_MACRO])) {
 				UnpackToken(s->tok, token);
