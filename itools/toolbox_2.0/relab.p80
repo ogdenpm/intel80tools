@@ -1,0 +1,135 @@
+$ TITLE ('RELAB -- DISK RELABELLING TOOL')
+
+RELAB$MOD:
+DO;
+
+/************************************************************************/
+/*																		*/
+/*     'Copyright 1981,1983 Intel Corporation'.  All rights reserved.	*/
+/*      No part of this program or publication may be reproduced,		*/
+/*      transmitted, transcribed, stored in a retrievel system, or		*/
+/*      translated into any language or computer language, in any		*/
+/*      form or by any means, electronic, mechanical, magnetic,			*/
+/*      optical, chemical, manual or otherwise, without the prior		*/
+/*      written permission of Intel Corporation, 3065 Bowers			*/
+/*      Avenue, Santa Clara, California, 95051, Attn: Software			*/
+/*      License Administration.											*/
+/*																		*/
+/************************************************************************/
+
+$IF XVERSION
+DECLARE PROPRIETARY(*) BYTE DATA ('INTEL PROPRIETARY SOFTWARE');
+DECLARE PROGRAM$VERSION$NUMBER$STRING (*) BYTE DATA
+    ('program_version_number=X103',0);
+$ELSE
+DECLARE COPYRIGHT (*) BYTE DATA  ('COPYRIGHT 1981,1983 INTEL ');
+DECLARE PROGRAM$VERSION$NUMBER$STRING (*) BYTE DATA
+    ('program_version_number=V1.1',0);
+$ENDIF
+
+    
+
+ATTRIB:
+	PROCEDURE(FILE$NAME$PTR,WHICH$ATTRIBUTE,SET$OR$RESET,STATUS$PTR) EXTERNAL;
+	DECLARE(FILE$NAME$PTR,WHICH$ATTRIBUTE,SET$OR$RESET,STATUS$PTR)ADDRESS; END;
+CLOSE: PROCEDURE(AFTN,STATUS) EXTERNAL; DECLARE(AFTN,STATUS) ADDRESS; END;
+ERROR: PROCEDURE(ERROR$NUMBER) EXTERNAL; DECLARE ERROR$NUMBER ADDRESS; END;
+EXIT: PROCEDURE EXTERNAL; END;
+OPEN: PROCEDURE(AFTN,FILENAME,ACCESS$MODE,LINE$EDIT$AFTN,ERROR) EXTERNAL;
+	DECLARE(AFTN,FILENAME,ACCESS$MODE,LINE$EDIT$AFTN,ERROR) ADDRESS; END;
+READ: PROCEDURE(AFTN,BUFFER,COUNT,ACTUAL,STATUS) EXTERNAL;
+	DECLARE(AFTN,BUFFER,COUNT,ACTUAL,STATUS) ADDRESS; END;
+SPATH: PROCEDURE(FILE,BUFFER,STATUS) EXTERNAL;
+	DECLARE(FILE,BUFFER,STATUS) ADDRESS; END;
+WRITE: PROCEDURE(AFTN,BUFFER,COUNT,STATUS) EXTERNAL;
+	DECLARE(AFTN,BUFFER,COUNT,STATUS) ADDRESS; END;
+
+
+DECLARE	AS	LITERALLY	'LITERALLY',
+		BLANK		AS	'020H',
+		CR			AS	'0DH',
+		ESCAPE		AS	'01BH',
+		LF			AS	'0AH',
+		TAB			AS	'09H';
+
+DECLARE
+    ACTUAL ADDRESS,
+    AFTN ADDRESS,
+    STATUS ADDRESS,
+
+	FILE$INFO STRUCTURE (
+		DEVICE$NUMBER	BYTE,
+		FILE$NAME(6)	BYTE,
+		EXTENSION(3)	BYTE,
+		DEVICE$TYPE		BYTE,
+		DRIVE$TYPE(11)	BYTE);
+
+DECLARE ISIS$LAB(*) BYTE INITIAL(':F0:ISIS.LAB ');
+
+DECLARE CHAR$PTR ADDRESS INITIAL (.CI$BUF),
+		CHAR BASED CHAR$PTR BYTE;
+
+DECLARE CI$BUF (128) BYTE;
+
+DECLARE BANNER(*) BYTE INITIAL
+$IF XVERSION
+		('ISIS-II DISK RELABELLING UTILITY, X103',cr,lf);
+$ELSE
+		('ISIS-II DISK RELABELLING UTILITY, V1.1',cr,lf);
+$ENDIF
+DECLARE DOC(*) BYTE INITIAL
+		('syntax is RELAB <isis$disk$filename> | ? | EOL',CR,LF);
+
+DECLARE	CHK	AS	'CALL CHECK$STATUS';
+
+
+CHECK$STATUS: PROCEDURE;
+	IF STATUS <> 0 THEN
+		DO;
+			CALL ERROR(STATUS);
+			CALL EXIT;
+		END;
+END;
+
+
+CALL WRITE(0,.BANNER,SIZE(BANNER),.STATUS); CHK;
+CALL READ(1,.CI$BUF,SIZE(CI$BUF),.ACTUAL,.STATUS); CHK;
+DO WHILE CHAR=TAB OR CHAR=BLANK;
+	CHAR$PTR = CHAR$PTR + 1;
+END;
+	/*	If question mark... */
+IF CHAR='?' THEN
+	DO;
+		CALL WRITE(0,.DOC,SIZE(DOC),.STATUS); CHK;
+		CALL EXIT;
+   	END;
+    /*	If null command tail...*/
+IF CHAR=CR OR CHAR=LF OR CHAR=ESCAPE THEN
+	CALL EXIT;
+
+CALL SPATH(CHAR$PTR,.FILE$INFO,.STATUS); CHK;
+IF (FILE$INFO.DEVICE$NUMBER > 5 AND FILE$INFO.DEVICE$NUMBER < 25) OR
+	(FILE$INFO.DEVICE$NUMBER > 28) THEN
+	DO;
+		CALL ERROR(17);
+		CALL EXIT;
+	END;
+IF FILE$INFO.DEVICE$NUMBER >=25 THEN
+	FILE$INFO.DEVICE$NUMBER = FILE$INFO.DEVICE$NUMBER - 19;
+ISIS$LAB(2) = FILE$INFO.DEVICE$NUMBER + '0';
+
+	/*	remove software write-protection. */
+CALL ATTRIB(.ISIS$LAB,2,0,.STATUS); CHK; /* reset write protect */
+CALL ATTRIB(.ISIS$LAB,3,0,.STATUS); CHK; /* reset format */
+
+	/*	alter isis.lab */
+CALL OPEN(.AFTN,.ISIS$LAB,3,0,.STATUS); CHK;  /* update */
+CALL WRITE(AFTN,.FILE$INFO.FILE$NAME,9,.STATUS); CHK;
+CALL CLOSE(AFTN,.STATUS); CHK;
+
+    /*	restore "format" attribute. */
+CALL ATTRIB(.ISIS$LAB,3,1,.STATUS); CHK;  /* set format */
+
+CALL EXIT;
+
+END;
