@@ -175,4 +175,13 @@ typedef union {
 	macro_t stack[10];
 	macro_t top;
 } macroStk_t;
+
+typedef struct {
+	byte deviceId;
+	byte name[6];
+	byte ext[3];
+	byte deviceType;
+	byte driveType;
+} spath_t;
+
 #pragma pack(pop)

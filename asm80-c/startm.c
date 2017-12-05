@@ -15,9 +15,7 @@ byte aErrStrsLen[] = {7, 7, 9, 5, 6, 8};
 
 pointer Physmem()
 {
-    extern pointer top;
-
-	return (top - 0x100);
+	return (MemCk() - 0x100);	// top of memory
 }
 
 

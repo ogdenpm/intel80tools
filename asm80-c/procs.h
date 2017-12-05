@@ -53,6 +53,7 @@ bool IsWhite();
 void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer statusP);
 void LocationError();
 byte Lookup(byte tableId);
+pointer MemCk();
 void MkCode(byte arg1b);
 void MultipleDefError();
 void Nest(byte arg1b);

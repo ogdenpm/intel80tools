@@ -61,6 +61,15 @@ typedef struct _symbol {
 	byte symbol[1];
 } symbol_t;
 
+typedef struct {
+	byte deviceId;
+	byte name[6];
+	byte ext[3];
+	byte deviceType;
+	byte driveType;
+} spath_t;
+
+
 #pragma pack(pop)
 #define	CR	0xd
 #define	ENDFILE	0xE
