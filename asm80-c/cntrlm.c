@@ -174,8 +174,7 @@ static byte LookupControl()
     cmdLen = tokBufLen;
     cmdStartIdx = 0;
     ctlVal = true;
-    if (*(word *)tokBuf == 'ON')    /* NO stored with bytes swapped */
-    {
+    if (tokBuf[0] == 'N' && tokBuf[1] == 'O') {   /* check for NO prefix */
         cmdStartIdx = 2;    /* don't match the NO in the table */
         ctlVal = false;        /* control will be set as false */
         cmdLen = tokBufLen - 2;    /* length of string to match excludes the NO */
@@ -277,7 +276,7 @@ static void ProcessControl()
             }
 			break;
 	case 7:            /* INCLUDE */
-            if (! needToOpenFile) {
+            if (! pendingInclude) {		// multiple includes on control line not supported
                 controlFileType = 1;
                 if (fileIdx == 5)
                     StackError();
@@ -286,7 +285,7 @@ static void ProcessControl()
                     fileIdx = fileIdx + 1;
                     curFileNameP = files[fileIdx].name;
                     GetFileParam();
-                    needToOpenFile = true;
+                    pendingInclude = true;
                     if (scanCmdLine)
                         includeOnCmdLine = true;
                     return;
@@ -298,8 +297,8 @@ static void ProcessControl()
                 tokVal = GetTok();
                 if (tokType == TT_STR && tokBufLen != 0) {
                     if (phase != 1 || IsPhase1() && primaryValid) {
-                        memcpy(ctlTitleStr, tokBuf, tokBufLen);
-                        ctlTitleStr[titleLen = tokBufLen] = 0;
+                        memcpy(titleStr, tokBuf, tokBufLen);
+                        titleStr[titleLen = tokBufLen] = 0;
                         if (ChkParen(1)) {
                             controls.title = true;
                             return;
@@ -352,7 +351,7 @@ void ParseControls()
         }
 
         if (scanCmdLine)
-            RuntimeError(2);    /* command Error() */
+            RuntimeError(RTE_CMDLINE);    /* command line error */
         else
             CommandError();
     }

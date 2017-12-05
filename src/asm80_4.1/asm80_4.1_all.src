@@ -1,4 +1,4 @@
-src/asm80.pex
+processing src/asm80.pex
 # vim:ts=4:expandtab:shiftwidth=4:
 /* assembler routines & linkage */
 Isis            P(B syscall,A param$p)
@@ -19,6 +19,8 @@ LF              '0Ah'
 ESC     '1Bh'
 TAB             '9'
 MACROEOB    '0FEh'
+
+MAXSYMSIZE  '6'
 
 # primiative types
 bool             'byte'
@@ -72,6 +74,14 @@ READ$MODE       '1'        /* Open mode */
 WRITE$MODE      '2'
 UPDATE$MODE     '3'
 
+/* runtime error codes */
+RTE$STACK       '0'
+RTE$TABLE       '1'
+RTE$CMDLINE     '2'
+RTE$EOF         '3'
+RTE$FILE        '4'
+RTE$MEMORY      '5'
+
 /* relocatable record types */
 OMF$MODHDR      '2'
 OMF$MODEND      '4'
@@ -106,6 +116,8 @@ T$UMINUS        '0Ah'
 O$ID            '1'
 O$TARGET        '2'
 O$LABEL         '3'
+O$SET           '4'
+O$EQU           '5'
 O$REF           '6'
 O$NAME          '9'
 O$STRING        '0Ah'
@@ -161,7 +173,7 @@ K$MACRO         '36h'
 O$37            '37h'
 K$ENDM          '38h'
 K$EXITM         '39h'
-O$3A            '3Ah'
+T$MACRONAME            '3Ah'
 K$IRP           '3Bh'
 K$IRPC          '3Ch'
 O$3D            '3Dh'
@@ -189,11 +201,19 @@ TID$KEYWORD    '0'
 TID$SYMBOL    '1'
 TID$MACRO    '2'
 
+/* macro types */
+M$MACRO     '0'
+M$IRP       '1'
+M$IRPC      '2'
+M$REPT      '3'
+M$INVOKE    '4'
+M$BODY      '5'
+
 /* user defined types */
-TOKENSYM$T      'structure(tok(2) word, line word, type byte, flags byte)'
+TOKENSYM$T      'structure(tok(2) word, value word, type byte, flags byte)'
 FILE$T          'structure(name(15) byte, blk word, byt word, b19 byte)'
-MACRO$T1    'macroCondSP byte, ifDepth byte, mtype byte, b3 byte,w4 word'
-MACRO$T2        'buf$p pointer, blk word, w10 word, w12 pointer, w14 word'
+MACRO$T1    'macroCondSP byte, ifDepth byte, mtype byte, localsCnt byte, localIdBase word'
+MACRO$T2        'buf$p pointer, blk word, savedBlk word, pCurArg pointer, cnt word'
 MACRO$T         'structure(MACRO$T1,MACRO$T2)'
 CONTENT$T       'structure(type byte, len word, segid byte, offset word, dta(121) byte, crc byte)'
 EOF$T           'structure(type byte, len word, crc byte)'
@@ -207,11 +227,11 @@ RELOC$T         'structure(type byte, len word, hilo byte, dta(62) word)'
 KEYWORD$T    'structure(tok(2) word, base byte, delta byte, type byte, flags byte)'
 
 /* common based variables */
-curTokenSym     "TOKENSYM$T"..curTokenSym$p
+curTokenSym     "TOKENSYM$T"..tokenSymCurP
 
 $file(startm.plm)
 b3782          BS
-w3780          "word"
+seekMZero          "word"
 IsGT            P"bool"
 IsLT            P"bool"
 InsertByteInMacroTbl        P(B c)
@@ -242,7 +262,7 @@ spaces4         BS
 spaces5         BS
 spaces6         BS
 BlankAsmErrCode P"bool"
-BlankMorPAsmErrCode PB
+MPorNoErrCode PB
 ChkGenObj       P"bool"
 CloseF          P(A conn)
 Flushout        P
@@ -311,7 +331,7 @@ FinishLine    P
 Sub546F        P
 
 $file(rdsrc.plm)
-needToOpenFile   "bool"
+pendingInclude   "bool"
 includeOnCmdLine "bool"
 missingEnd      "bool"
 lineChCnt           B
@@ -338,7 +358,7 @@ UpdateHiLo        P(B hilo)
 DoPass        P
 
 $file(asm5m.plm)
-Sub5CAD        P(A val,B type)
+InsertMacroSym        P(A val,B type)
 Sub65D9        P
 
 $file(asm5m.plm,asm5n.plm)
@@ -385,15 +405,15 @@ ParseControls   P
 
 $file(asm8m.plm)
 b9C77          B
-Sub72A4        P(B arg1b)
+DoIrpX        P(B arg1b)
 Sub7327        P
-Sub73AD        P
-Sub7517        P
-Sub753E        P
-Sub75FF        P
-Sub76CE        P
+GetMacroToken        P
+DoMacro        P
+DoMacroBody        P
+DoEndm        P
+DoExitm        P
 Sub770B        P
-Sub7844        P
+DoRept        P
 Sub787A        P
 Sub78CE        P
 
@@ -540,7 +560,6 @@ showAddr        "bool"
 lineNumberEmitted           "bool"
 b68AE           "bool"
 inBuf           BS
-b6A00           B
 spIdx           B
 lastErrorLine           BS
 ctlLISTChanged           "bool"
@@ -561,26 +580,26 @@ b6B33           "bool"
 isInstr           "bool"
 expectOp           "bool"
 b6B36           "bool"
-b6BD9           "bool"
-b6BDA           "bool"
+skipRuntimeError           "bool"
+nestedMacroSeen           "bool"
 jj           B
 macroLine          BS        /* globlm */
-b9058          "bool"        /* globlm */
+inQuotes          "bool"        /* globlm */
 excludeCommentInExpansion          "bool"        /* globlm */
-b905A          "bool"        /* globlm */
+inAngleBrackets          "bool"        /* globlm */
 expandingMacro B        /* globlm */
-b905C          "bool"        /* globlm */
-b905D          "bool"        /* globlm */
-b905E          B        /* globlm */
+macroDivert          "bool"        /* globlm */
+inMacroBody          "bool"        /* globlm */
+mSpoolMode          B        /* globlm */
 b9060          "bool"        /* globlm */
-b9061          "bool"        /* globlm */
-b9062          B        /* globlm */
+nestMacro          "bool"        /* globlm */
+savedMtype          B        /* globlm */
 macroDepth          B        /* globlm */
-b9064          B        /* globlm */
-b9065          B        /* globlm */
-b9066          B        /* globlm */
-b91A1          BS        /* globlm */
-b91A4          BS        /* globlm */
+macroSpoolNestDepth          B        /* globlm */
+paramCnt          B        /* globlm */
+startNestCnt          B        /* globlm */
+irpcChr          BS        /* globlm */
+localVarName          BS        /* globlm */
 accFixFlags          BS
 cmdch$p         "pointer"
 cmdLineBuf      BS
@@ -603,14 +622,14 @@ ctlPAGING       "bool"
 ctlPRINT        "bool"
 ctlSYMBOLS      "bool"
 ctlTITLE        "bool"
-ctlTITLESTR     BS
+titleStr     BS
 ctlTTY          "bool"
 ctlXREF         "bool"
 curChar         B
 curCol          B
 curFileName$p   "pointer"
 curMacroBlk     "word"        /* globlm */
-curTokenSym$p   "pointer"
+tokenSymCurP   "pointer"
 tokPtr          "pointer"
 endLineBuf      "pointer"
 endOutBuf       "pointer"
@@ -651,6 +670,7 @@ opSP            B
 opStack         BS
 newOp          B
 outbuf          BS
+b6A00           B
 outfd           "word"
 out$p           "pointer"
 pageCnt         "word"
@@ -676,16 +696,7 @@ startSeg        B
 statusIO        A
 symTab          "pointer"S
 titleLen        B
-tmac$b3         B        /* globlm */
-tmac$blk        A        /* globlm */
-tmac$buf$p      "pointer"    /* globlm */
-tmac$ifDepth    B        /* globlm */
-tmac$macroCondSP B        /* globlm */
-tmac$mtype      B        /* globlm */
-tmac$w10        A        /* globlm */
-tmac$w12        A        /* globlm */
-tmac$w14        A        /* globlm */
-tmac$w4         A        /* globlm */
+tmac            "MACRO$T"
 tokBuf          BS
 tokBufIdx       B
 tokBufLen       B
@@ -713,16 +724,16 @@ sizeInBuf      "word"
 srcLineCnt     "word"
 tokNumVal      "word"
 w6BCE          "pointer"
-pAddr          A
-controlFileType "word"
-w9068          "pointer"    /* globlm */
+aVar          A
+controlFileType "word"	/* not used */
+pMacro          "pointer"    /* globlm */
 macroInPtr     "pointer"    /* globlm */
 macroBlkCnt    "word"        /* globlm */
-w9197          "pointer"        /* globlm */
-w9199          "pointer"        /* globlm */
-w919B          "word"        /* globlm */
-w919D          "pointer"        /* globlm */
-w919F          "pointer"        /* globlm */
+savedMacroBufP          "pointer"        /* globlm */
+pNextArg          "pointer"        /* globlm */
+localIdCnt          "word"        /* globlm */
+startMacroLine          "pointer"        /* globlm */
+startMacroToken          "pointer"        /* globlm */
 wZERO           "word"
 xreffd          "word"
 
@@ -794,54 +805,50 @@ $IF MACRO
 declare    byteAt(1) byte public at(0),
     macroLine(129) byte public,
     macro$p pointer public initial(.macroLine),
-    b9058 bool public initial(FALSE),
+    inQuotes bool public initial(FALSE),
     excludeCommentInExpansion bool public,
-    b905A bool public,
+    inAngleBrackets bool public,
     expandingMacro byte public,
-    b905C bool public,
-    b905D bool public initial(FALSE),
-    b905E byte public,
-    b905F byte,
+    macroDivert bool public,
+    inMacroBody bool public initial(FALSE),
+    mSpoolMode byte public,
+    b905F byte,             /* unused */
     b9060 bool public,
-    b9061 bool public,
-    b9062 byte public,
+    nestMacro bool public,
+    savedMtype byte public,
     macroDepth byte public,
-    b9064 byte public,
-    b9065 byte public,
-    b9066 byte public,
+    macroSpoolNestDepth byte public,
+    paramCnt byte public,
+    startNestCnt byte public,
     argNestCnt byte public initial(0),
-    w9068 pointer public,
+    pMacro pointer public,
     macroInPtr pointer public,
     /*
         mtype has the following values
         1 -> IRP
         2 -> IRPC
         3 -> REPT
-        4 -> ???
+        4 -> INVOKE
         5 -> ???
     */
         
     macroStk(10) MACRO$T public,
-    (tmac$macroCondSP, tmac$ifDepth,  tmac$mtype, tmac$b3) byte public at (.macroStk(0)),
-    tmac$w4 word public at (.macroStk(0).w4),
-    tmac$buf$p pointer public at (.macroStk(0).bufP),
-    tmac$blk word public  at(.macroStk(0).blk) initial(0FFFFh),
-    tmac$w10 word public at(.macroStk(0).w10),
-    tmac$w12 pointer public at(.macroStk(0).w12),
-    tmac$w14 word public at(.macroStk(0).w14),
-    w910C word,
+    tmac MACRO$T public at (.macroStk(0)),
+    /* initialise the blk value for macro spooling */
+    tmac$blk word at(.tmac.blk) initial(0FFFFh),
+    w910C word,     /* unused */
     curMacroBlk word public initial(0FFFFh),
     nxtMacroBlk word public initial(0),
     maxMacroBlk word public initial(0),
     macroBlkCnt word public,
     macroBuf(129) byte public,
-    w9197 pointer public,
-    w9199 pointer public,
-    w919B word public,
-    w919D pointer public,
-    w919F pointer public,
-    b91A1(3) byte public initial(0, 0, 81h),
-    b91A4(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h);
+    savedMacroBufP pointer public,
+    pNextArg pointer public,
+    localIdCnt word public,
+    startMacroLine pointer public,
+    startMacroToken pointer public,
+    irpcChr(3) byte public initial(0, 0, 81h),
+    localVarName(*) byte public initial(3Fh, 3Fh, 0, 0, 0, 0, 80h);
 $ENDIF
 /* ov4 compat 2C8C */
 declare    contentBytePtr pointer public,
@@ -885,7 +892,7 @@ declare    contentBytePtr pointer public,
     tokStart(9) pointer public initial(.lineBuf),
     tokPtr pointer public at(.tokStart),
     tokenSym(9) pointer public initial(0),
-    curTokenSym$p pointer public at(.tokenSym(0)),
+    tokenSymCurP pointer public at(.tokenSym(0)),
     tokenType(9) byte public,
     tokenSize(9) byte public initial(0),
     tokenAttr(9) byte public,
@@ -898,7 +905,7 @@ declare    contentBytePtr pointer public,
 $IF MACRO
 declare    macroCondSP byte public initial(0),
     macroCondStk(17) byte public,
-    b94DD(2) byte;
+    b94DD(2) byte;      /* unused */
 $ENDIF
 declare    opSP byte public,
     opStack(17) byte public,
@@ -915,7 +922,7 @@ declare    opSP byte public,
     curChar byte public initial(0),
     reget byte public initial(0),
     lookAhead byte public,
-    pad6861 byte initial(0),
+    pad6861 byte initial(0),        /* unused */
     symTab(3) pointer public,
     endSymTab(3) pointer public,
     symHighMark pointer public,
@@ -937,7 +944,7 @@ declare    opSP byte public,
     macrofd word public,
     statusIO word public,
     openStatus word public,  /* status of last open for Read */
-    pad6894 word initial(0FFFFh),
+    pad6894 word initial(0FFFFh),       /* unused */
     asmErrCode byte public initial(' '), 
     b6897 bool public initial(FALSE),
     primaryValid bool public initial(TRUE);
@@ -956,22 +963,22 @@ declare    tokI byte public,
     pageLineCnt word public,
     effectiveAddr address public,
     pageCnt word public,
-    pad68AA byte,
+    pad68AA byte,       /* unused */
     showAddr bool public,
-    pad68AC byte,
+    pad68AC byte,       /* unused */
     lineNumberEmitted bool public initial(FALSE),
     b68AE bool public initial(FALSE),
     tokStr(7) byte public initial(0, 0, 0, 0, 0, 0, 0),
     sizeInBuf word public initial(IN$BUF$SIZE),
     inBuf(IN$BUF$SIZE) byte public,
     outbuf(OUT$BUF$SIZE) byte public,
+    b6A00 byte public,      /* guard byte */
 /* end */
-    b6A00 byte public,
 /* ov4 compat 2F57 */
     out$p pointer public initial(.outbuf),
     endOutBuf pointer public,
-    pad6A05 pointer initial(.outbuf),
-    pad6A07 byte initial(0),
+    pad6A05 pointer initial(.outbuf),   /* unused */
+    pad6A07 byte initial(0),            /* unused */
     objFile(15) byte public initial('               '), /* 15 spaces */
     lstFile(15) byte public initial('               '), /* 15 spaces */
     asxref$tmp(*) byte public initial(':F0:ASXREF.TMP '),
@@ -1006,13 +1013,13 @@ declare    tokI byte public,
     ctlCOND        bool public at(.controls(19)) initial(TRUE),   /* COND */
     ctlLISTChanged bool public initial(TRUE),
     titleLen byte public initial(0),
-    pad6A71 byte,
-    pad6A72(3) byte initial(120, TRUE),
+    pad6A71 byte,       /* unused */
+    pad6A72(3) byte initial(120, TRUE), /* unused */
     controlSeen(12) bool public initial(false,false,false,false,false,false,
                                         false,false,false,false,false,false),
     saveStack(24) byte public,
     saveIdx byte public initial(0),
-    ctlTITLESTR(64) byte public,
+    titleStr(64) byte public,
     tokBufLen byte public,
     tokType byte public,
     controlId byte public,
@@ -1053,12 +1060,12 @@ declare    scanCmdLine bool public,
     errCnt word public,
     padw6BCB word,    /* not used */
     w6BCE pointer public,
-    pad6BD0(3) byte initial(0),
+    pad6BD0(3) byte initial(0), /* unused */
     azero word public initial(0),
     cmdch$p pointer public initial(.cmdLineBuf),
     controls$p pointer public,
-    b6BD9 bool public initial(FALSE),
-    b6BDA bool public,
+    skipRuntimeError bool public initial(FALSE),
+    nestedMacroSeen bool public,
     ii byte public,     /* warning global variable misused see note in init.plx */
     jj byte public,
     kk byte public;
@@ -1068,9 +1075,9 @@ declare    b9B34 byte initial(0);
 $ENDIF
 /* ov4 compat 2F57 */
 declare    curFileName$p pointer public,
-    pAddr address public,
-    accFixFlags(2) byte public at(.pAddr),
-    controlFileType word public;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */
+    aVar address public,
+    accFixFlags(2) byte public at(.aVar),
+    controlFileType word public;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */	/* not used */
 /* end */
 end;
 src/asm3.plx
@@ -1296,8 +1303,8 @@ HandleOp: procedure public;
                 showAddr = TRUE;
             end;
 $IF MACRO
-            kk = b905E;
-            b905E = 0;
+            kk = mSpoolMode;
+            mSpoolMode = 0;
 
             if macroCondSP > 0 or kk then
 $ELSE
@@ -1424,18 +1431,18 @@ $ENDIF
         end;
 /* 53 */    segSize(SEG$STACK) = accum1;    /* STKLN ? */
 $IF MACRO
-/* 54 */    call Sub7517;            /* MACRO ? */
-/* 55 */    call Sub753E;
-/* 56 */    call Sub75FF;            /* ENDM */
-/* 57 */    call Sub76CE;            /* EXITM */
+/* 54 */    call DoMacro;            /* MACRO ? */
+/* 55 */    call DoMacroBody;
+/* 56 */    call DoEndm;            /* ENDM */
+/* 57 */    call DoExitm;            /* EXITM */
 /* 58 */    do;
-            tmac$mtype = 4;
+            tmac.mtype = M$INVOKE;
             call Sub7327;
         end;
-/* 59 */    call Sub72A4(1);        /* IRP ? */
-/* 60 */    call Sub72A4(2);        /* IRPC */
+/* 59 */    call DoIrpX(1);        /* IRP ? */
+/* 60 */    call DoIrpX(2);        /* IRPC */
 /* 61 */    call Sub770B;
-/* 62 */    call Sub7844;            /* REPT ? */
+/* 62 */    call DoRept;            /* REPT ? */
 /* 63 */    call Sub787A;            /* LOCAL */
 /* 64 */    call Sub78CE;
 /* 65 */    do;                /* NUL */
@@ -1477,7 +1484,7 @@ Parse: procedure public;
         if not (yyType = T$CR or yyType >= K$END and yyType <= K$ENDIF)
            and skipIf(0)
 $IF MACRO
-               or (opFlags(yyType) < 128 or b9058) and b905E
+               or (opFlags(yyType) < 128 or inQuotes) and mSpoolMode
 
 $ENDIF
             then
@@ -1601,6 +1608,7 @@ declare    fixupInitialLen(*) byte data(1, 2, 1, 3),
     fixupRecLenPtrs(*) apointer data(.r$publics.len, .r$interseg.len, .r$extref.len, .r$content.len),
     fixupRecLenChks(*) byte data(123, 58, 57, 124),
     b6D7E(*) byte data(10, 12h, 40h); /* 11 bits 00010010010 index left to right */
+                                      /* O_LABEL, O_REF, O_NAME */
 
 
 declare    r$modhdr MODHDR$T initial(2),
@@ -1791,23 +1799,24 @@ WriteExtName: procedure public;
     extNamIdx = extNamIdx + nameLen + 1;    /* update where next ref writes */
 end;
 
-WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else LOCALs */
-    declare isPublic byte;
+WriteSymbols: procedure(publics);            /* publics= TRUE -> PUBLICs else LOCALs */
+    declare publics byte;
     declare segId byte;
-    declare symb based curTokenSym$p (1) byte;
+    declare tf based tokenSymCurP structure(type byte, flags byte);
 
     AddSymbol: procedure;
-        declare offsetInSeg$p apointer;
+        declare offsetP apointer;
         declare symNam based dta$p (1) byte;
         declare len based recSym$p byte;
         declare symOffset based recSym$p word;
-        declare offsetInSeg based offsetInSeg$p word;
+        declare offsetInSeg based offsetP word;
 
-        if (symb(1) and 40h) <> 0 then
+        if (tf.flags and UF$EXTRN) <> 0 then
             return;
-        offsetInSeg$p = curTokenSym$p - 2;
-        symOffset = offsetInSeg; 
-        call UnpackToken(curTokenSym$p - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
+        offsetP = tokenSymCurP - 2;   /* tokenSymCurP -> type so back off to offset info */
+        symOffset = offsetInSeg;            /* pick up the offset */
+                                            /* packed name is at tokenSymCurP - 6 */
+        call UnpackToken(tokenSymCurP - 6, (dta$p := (recSym$p := recSym$p + 2) + 1));
         symNam(6) = ' ';    /* trailing space to ensure end */
         len = 0;
 
@@ -1822,7 +1831,7 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
     flushSymRec: procedure;
         if (r$publics.len := recSym$p - .r$publics.segid) > 1 then    /* something to Write */
             call WriteRec(.r$publics);
-        r$publics.type = (isPublic and 4) or OMF$LOCALS;        /* PUBLIC or LOCAL */
+        r$publics.type = (publics and 4) or OMF$LOCALS;        /* PUBLIC or LOCAL */
         r$publics.segid = segId;
         recSym$p = .r$publics.dta;
     end;
@@ -1830,18 +1839,18 @@ WriteSymbols: procedure(isPublic);            /* isPublic= TRUE -> PUBLICs else 
     recSym$p = .r$publics.dta;
     do segId = 0 to 4;
         call FlushSymRec;    /* also sets up segid for new record */
-        curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* point to type byte of user symbol (-1) */
+        tokenSymCurP = symTab(TID$SYMBOL) - 2;        /* point to type byte of user symbol (-1) */
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
-            if recSym$p > .r$publics.crc - 10 then        /* make sure there is room */
+        do while (tokenSymCurP := tokenSymCurP + 8) < endSymTab(TID$SYMBOL);
+            if recSym$p > .r$publics.crc - (MAXSYMSIZE + 4) then        /* make sure there is room */
                 call FlushSymRec;
 
-            if (symb(1) and UF$SEGMASK) = segId
+            if (tf.flags and UF$SEGMASK) = segId     /* seg id matches */
 $IF MACRO
-               and symb(0) <> O$3A and nonHiddenSymbol
+               and tf.type <> T$MACRONAME and nonHiddenSymbol  /* not macro name or hidden symbol */
 $ENDIF
-               and not TestBit(symb(0), .b6D7E) and
-               (not isPublic or (symb(1) and UF$PUBLIC) <> 0) then
+               and not TestBit(tf.type, .b6D7E) and     /* not O_LABEL, O_REF or O_NAME */
+               (not publics or (tf.flags and UF$PUBLIC) <> 0) then
                    call AddSymbol;
         end;
         call FlushSymRec;
@@ -1858,8 +1867,8 @@ WriteModhdr: procedure public;
     /* fill the module name */
     call move((r$modhdr.dta(0) := moduleNameLen), .aModulePage, .r$modhdr.dta(1));
     dta$p = .r$modhdr + moduleNameLen + 4;
-    w = 0;    /* the two xx bytes */
-    dta$p = dta$p + 1;    /* past first x byte */
+    w = 0;    /* the trnId & trnVn bytes */
+    dta$p = dta$p + 1;    /* past trnId byte */
 
     if segSize(SEG$CODE) < maxSegSize(SEG$CODE) then    /* code segment */
         segSize(SEG$CODE) = maxSegSize(SEG$CODE);
@@ -1874,7 +1883,7 @@ WriteModhdr: procedure public;
         dta$p = dta$p + 2;
         b = alignTypes(i - 1);    /* aln typ */
     end;
-    r$modhdr.len = moduleNameLen + 19;    /* set record length */
+    r$modhdr.len = moduleNameLen + 19;    /* set record length (trnId/Vn, 4 * (segid, segsize, align), crc) */
     call WriteRec(.r$modhdr);
 end;
 
@@ -2122,7 +2131,7 @@ declare CHKOVL$0 lit    ' ',
 $ENDIF
 
 $IF MACRO
-declare w3780 word public data(0),
+declare seekMZero word public data(0),
     b3782(2) byte public data(80h, 81h);
 $ENDIF
 
@@ -2308,28 +2317,28 @@ end;
 RuntimeError: procedure(errCode) public;
     declare errCode byte;
 
-    if b6BD9 then
+    if skipRuntimeError then
         return;
 
-    if IsPhase1 and errCode = 0 then
+    if IsPhase1 and errCode = RTE$STACK then
     do;
         b6B33 = TRUE;
         return;
     end;
 
-    pAddr = .aError;        /* assume " ERROR\r\n" */
-    if errCode = 4 then        /* file Error */
-        pAddr = .aError$0;    /* replace with " ERROR, " */
+    aVar = .aError;        /* assume " ERROR\r\n" */
+    if errCode = RTE$FILE then        /* file Error */
+        aVar = .aError$0;    /* replace with " ERROR, " */
 
     call WrConsole(aErrStrs(errCode), aErrStrsLen(errCode));    /* Write the ERROR type */
-    call WrConsole(pAddr, 8);    /* Write the ERROR string */
+    call WrConsole(aVar, 8);    /* Write the ERROR string */
     if IsPhase2Print then        /* repeat to the print file if required */
     do;
         call OutStrN(aErrStrs(errCode), aErrStrsLen(errCode));
-        call OutStrN(pAddr, 8);
+        call OutStrN(aVar, 8);
     end;
 
-    if errCode = 4 or errCode = 3 then    /* file or EOF Error */
+    if errCode = RTE$FILE or errCode = RTE$EOF then    /* file or EOF Error */
     do;
         if tokBufIdx = 0 then
         do;
@@ -2352,7 +2361,7 @@ RuntimeError: procedure(errCode) public;
 
     if errCode = 0 then    /* stack Error */
     do;
-        b6BD9 = TRUE;
+        skipRuntimeError = TRUE;
         return;
     end;
 
@@ -2371,8 +2380,8 @@ IoError: procedure(path) public;
         path = path + 1;
     end;
     if missingEnd then
-        call RuntimeError(3);    /* EOF Error*/
-    call RuntimeError(4);        /* file Error */
+        call RuntimeError(RTE$EOF);    /* EOF Error*/
+    call RuntimeError(RTE$FILE);        /* file Error */
 end;
 
 /* open file for read with status check */
@@ -2406,7 +2415,7 @@ BlankAsmErrCode: procedure bool public;
     return asmErrCode = ' ';
 end;
 
-BlankMorPAsmErrCode: procedure bool public;
+MPorNoErrCode: procedure bool public;
     return BlankAsmErrCode or asmErrCode = 'M' or asmErrCode = 'P';
 end;
 
@@ -2433,7 +2442,7 @@ SourceError: procedure(errCh) public;
         if BlankAsmErrCode then
             errCnt = errCnt + 1;
 
-        if BlankMorPAsmErrCode or errCh = 'L' or errCh = 'U' then    /* no Error or M, P L or U */
+        if MPorNoErrCode or errCh = 'L' or errCh = 'U' then    /* no Error or M, P L or U */
             if asmErrCode <> 'L' then    /* override unless already location counter Error */
                 asmErrCode = errCh;
 
@@ -2448,7 +2457,7 @@ InsertByteInMacroTbl: procedure(c) public;
 
     ch = c;
     if (macroInPtr := macroInPtr + 1) > baseMacroTbl then
-        call RuntimeError(1);    /* table Error */
+        call RuntimeError(RTE$TABLE);    /* table Error */
 end;
 
 
@@ -2471,7 +2480,7 @@ ParseControlLines: procedure public;
             call Skip2NextLine;
             isControlLine = TRUE;
 $IF MACRO
-            if b905E = 1 then
+            if mSpoolMode = 1 then
                 b6897 = TRUE;
 $ENDIF
         end;
@@ -2496,10 +2505,10 @@ InitialControls: procedure public;
         CHKOVL$1;
         call PrintCmdLine;
     end;
-    if needToOpenFile then
+    if pendingInclude then
         call OpenSrc;
 
-    needToOpenFile, isControlLine, scanCmdLine = bZERO;
+    pendingInclude, isControlLine, scanCmdLine = bZERO;
     call ParseControlLines;            /* initial control lines allow primary controls */
     primaryValid = FALSE;            /* not allowed from now on */
     ctlDEBUG = ctlDEBUG and ctlOBJECT;    /* debug doesn't make sense if no object code */
@@ -2512,7 +2521,7 @@ end;
 InitLine: procedure public;
     startLine$p = inCh$p + 1;    
     lineChCnt = 0;
-    if needToOpenFile then
+    if pendingInclude then
         call OpenSrc;
 
     lineNumberEmitted, has16bitOperand, isControlLine, errorOnLine, lhsUserSymbol,
@@ -2526,14 +2535,14 @@ $ENDIF
     atStartLine, expectingOpcode, isInstr, expectOp = bTRUE;
     ctlEJECT, hasVarRef, tokenIdx,
 $IF MACRO
-    b9058, argNestCnt,
+    inQuotes, argNestCnt,
 $ENDIF
     tokenSize(0), tokenType(0), acc1ValType, acc2ValType, inComment, acc1Flags = bZERO;
 
     asmErrCode = ' ';
 $IF MACRO
     macro$p = .macroLine;
-    w919D = macroInPtr;
+    startMacroLine = macroInPtr;
     expandingMacro = expandingMacro > 0;
 $ENDIF
     tokI = 1;
@@ -2554,7 +2563,7 @@ $IF SMALL
     if ctlMACROFILE then
     do;
         if Physmem < 8001h then        /* need > 32k memory */
-            call RuntimeError(5);     /* memory Error */
+            call RuntimeError(RTE$MEMORY);     /* memory Error */
         if srcfd <> rootfd then       /* had include file before end of initial controls */
             call CloseF(srcfd);       /* close it */
         call CloseF(infd);            /* close initial file */
@@ -2573,7 +2582,7 @@ $IF SMALL
     end;
 
     if MacroDebugOrGen then            /* attempt to use macro features */
-        call RuntimeError(2);        /* command Error */
+        call RuntimeError(RTE$CMDLINE);        /* command Error */
 $ELSEIF MACRO
     macrofd = SafeOpen(.asmac$ref, UPDATE$MODE);
 $ENDIF
@@ -2687,7 +2696,7 @@ nonHiddenSymbol: procedure byte public;
     declare name$p pointer,
         name based name$p word;
 
-    name$p = curTokenSym$p - 6;
+    name$p = tokenSymCurP - 6;
     /* check name < '??0' or '??9' < name */
     return (name < 4679h) or ctlMACRODEBUG or (4682h < name);
 end;
@@ -2697,16 +2706,16 @@ end;
 SeekM: procedure(blk);
     declare blk word;
 
-    if (pAddr := blk - nxtMacroBlk) <> 0 then
+    if (aVar := blk - nxtMacroBlk) <> 0 then   /* is seek needed */
     do;
         kk = SEEKFWD;
-        if blk < nxtMacroBlk then
+        if blk < nxtMacroBlk then       /* -ve so seek backwards */
         do;
-            pAddr = - pAddr;
+            aVar = - aVar;
             kk = SEEKBACK;
         end;
 
-        call Seek(macrofd, kk, .pAddr, .w3780, .statusIO);
+        call Seek(macrofd, kk, .aVar, .seekMZero, .statusIO);
         call IoErrChk;
     end;
     nxtMacroBlk = blk + 1;
@@ -2719,31 +2728,31 @@ ReadM: procedure(blk) public;
     declare blk word;
     declare actual word;
 
-    if blk >= maxMacroBlk then
+    if blk >= maxMacroBlk then      /* does not exist */
         actual = 0;
-    else if blk = curMacroBlk then
+    else if blk = curMacroBlk then  /* already loaded */
         return;
-    else
+    else                            /* load the buffer */
     do;
         call SeekM(blk);
         call Read(macrofd, .macroBuf, 128, .actual, .statusIO);
         call IoErrChk;
     end;
 
-    tmac$blk, curMacroBlk = blk;
-    macroBuf(actual) = 0FEh;    /* flag end of macro buffer */
+    tmac.blk, curMacroBlk = blk;    /* set relevant trackers */
+    macroBuf(actual) = MACROEOB;    /* flag end of macro buffer */
 end;
 
 /* write the macro to disk */
 WriteM: procedure public;
-    if phase = 1 then
+    if phase = 1 then               /* only needs writing on pass 1 */
     do;
-        call SeekM(maxMacroBlk);
-        maxMacroBlk = maxMacroBlk + 1;
+        call SeekM(maxMacroBlk);    /* seek to end of spooled disk */
+        maxMacroBlk = maxMacroBlk + 1;  /* account for this block */
         call Write(macrofd, symHighMark, 128, .statusIO);
         call IoErrChk;
     end;
-    macroBlkCnt = macroBlkCnt + 1;
+    macroBlkCnt = macroBlkCnt + 1;  /* increase this macro's buffer cnt */
 end;
 
 
@@ -2751,7 +2760,7 @@ end;
 FlushM: procedure public;
     declare bytesLeft word;
 
-    if b905E then
+    if mSpoolMode then
     do; /* spool macros to disk in 128 byte blocks */
         do while (bytesLeft := macroInPtr - symHighMark) >= 128;
             call WriteM;
@@ -2809,12 +2818,12 @@ Tokenise: procedure public;
             ;                /* CC$WS */
             do;                /* CC$SEMI */
 $IF MACRO
-                if not b9058 then
+                if not inQuotes then
 $ENDIF
                 do;
                     inComment = TRUE;
 $IF MACRO
-                    if GetChClass = CC$SEMI and b905E then
+                    if GetChClass = CC$SEMI and mSpoolMode then
                     do;
                         excludeCommentInExpansion = TRUE;
                         macroInPtr = macroInPtr - 2;
@@ -2830,7 +2839,7 @@ $ENDIF
                 do;
                     if skipIf(0)
 $IF MACRO
-                       or b905E
+                       or mSpoolMode
 $ENDIF
                     then
                         call PopToken;
@@ -2857,7 +2866,7 @@ $ENDIF
                 call ChkLF;
                 yyType = T$CR;
 $IF MACRO
-                b9058 = FALSE;
+                inQuotes = FALSE;
 $ENDIF
                 return;
             end;
@@ -2887,8 +2896,8 @@ $IF MACRO
                     call IllegalCharError;
                     return;
                 end;
-                if b905E then
-                    b9058 = not b9058;
+                if mSpoolMode then
+                    inQuotes = not inQuotes;
                 else
 $ENDIF
                 do;
@@ -2906,16 +2915,16 @@ $ENDIF
             end;
             do;                /* CC$LET */
 $IF MACRO
-                w919F = macroInPtr - 1;
+                startMacroToken = macroInPtr - 1;
 $ENDIF
                 call GetId(O$NAME);    /* assume it's a name */
-                if tokenSize(0) > 6 then    /* cap length */
-                    tokenSize(0) = 6;
+                if tokenSize(0) > MAXSYMSIZE then    /* cap length */
+                    tokenSize(0) = MAXSYMSIZE;
 
                 if ctlXREF then
                 do;
-                    call move(6, .name, .savName);
-                    call move(6, .spaces6, .name);
+                    call move(MAXSYMSIZE, .name, .savName);
+                    call move(MAXSYMSIZE, .spaces6, .name);
                 end;
                 /* copy the token to name */
                 call move(tokenSize(0), tokPtr, .name);
@@ -2929,18 +2938,18 @@ $ENDIF
 
 
 $IF MACRO
-                if Lookup(TID$MACRO) <> O$NAME and b905E then
+                if Lookup(TID$MACRO) <> O$NAME and mSpoolMode then
                 do;
-                    if not b9058 or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(w919F-1) = '&') then
+                    if not inQuotes or (kk := tokenType(0) = 0) and (curChar = '&' or byteAt(startMacroToken-1) = '&') then
                     do;
-                        macroInPtr = w919F;
+                        macroInPtr = startMacroToken;
                         call InsertCharInMacroTbl(kk + 81h);
                         call InsertByteInMacroTbl(GetNumVal);
                         call InsertCharInMacroTbl(curChar);
                         yyType = O$NAME;
                     end;
                 end;
-                else if yyType <> O$37 and not b905E = 2 then
+                else if yyType <> O$37 and not mSpoolMode = 2 then
 $ENDIF
                 do;
                     if Lookup(TID$KEYWORD) = O$NAME then        /* not a key word */
@@ -2950,8 +2959,8 @@ $ENDIF
                     end;
 
                     yyType = tokenType(0);
-                    needsAbsValue = absValueReq(tokenType(0)); /* DS, ORG, IF, O$3A, IRP, IRPC REPT */
-                    if not tokReq(tokenType(0)) then /* i.e. not instruction, reg or O$3A or 1->A */
+                    needsAbsValue = absValueReq(tokenType(0)); /* DS, ORG, IF, T$MACRONAME, IRP, IRPC REPT */
+                    if not tokReq(tokenType(0)) then /* i.e. not instruction, reg or T$MACRONAME or 1->A */
                         call PopToken;
 
                     if lhsUserSymbol then
@@ -2961,11 +2970,11 @@ $ENDIF
                     end;
                 end;
 $IF MACRO
-                if b905E = 1 then
+                if mSpoolMode = 1 then
                 do;
                     if yyType = K$LOCAL then
                     do;
-                        b905E = 2;
+                        mSpoolMode = 2;
                         if b6897 then
                             call SyntaxError;
                         b6897 = FALSE;
@@ -2973,7 +2982,7 @@ $IF MACRO
                     else
                     do;
                         b6897 = FALSE;
-                        b905E = 0FFh;
+                        mSpoolMode = 0FFh;
                     end;
                 end;
 
@@ -2994,9 +3003,9 @@ $ENDIF
             end;
 $IF MACRO
             do;                /* 10? */
-                b6BDA = FALSE;
-                call Sub73AD;
-                if b6BDA then
+                nestedMacroSeen = FALSE;
+                call GetMacroToken;
+                if nestedMacroSeen then
                     return;
             end;
             do;                /* CC$ESC */
@@ -3099,7 +3108,7 @@ $ENDIF
     3 - OR, XOR,
     2 - not used
     1 - COMMA, DB - STKLEN, O$37, ENDM, EXITM, O$3D, REPT, LOCAL
-    0 - T$BEGIN,T$CR,T$LPAREN,T$RPAREN,K$MACRO,O$3A,K$IRP,K$IRPC
+    0 - T$BEGIN,T$CR,T$LPAREN,T$RPAREN,K$MACRO,T$MACRONAME,K$IRP,K$IRPC
 */
     precedence(*) byte data(
      /* 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F */
@@ -3243,9 +3252,9 @@ $ENDIF
             acc1ValType = tokenType(0);
             if TestBit(acc1ValType, .typeHasValue) then
             do;
-                tokPtr = curTokenSym$p + 7;    /* point to flags */
+                tokPtr = tokenSymCurP + 7;    /* point to flags */
                 acc1Flags = tokByte(0) and not UF$PUBLIC; /* remove public attribute */
-                tokPtr, val$p = curTokenSym$p + 4;    /* point to value */
+                tokPtr, val$p = tokenSymCurP + 4;    /* point to value */
                 acc1NumVal = val;            /* pick up value */
                 tokenSize(0) = 2;        /* word value */
 
@@ -3460,7 +3469,7 @@ end;
 IsSkipping: procedure byte public;
     return 
 $IF MACRO
-        b905E or
+        mSpoolMode or
 $ENDIF
         skipIf(0);
 end;
@@ -3515,7 +3524,7 @@ FinishLine: procedure public;
         end;
     end;
 
-    if b6BD9 then
+    if skipRuntimeError then
     do;
         out$p = out$p + 1;
         call Flushout;
@@ -3577,7 +3586,7 @@ end;
 rdsrc: do;
 $include(:f3:rdsrc.ipx)
 
-declare    needToOpenFile bool public initial(FALSE),
+declare    pendingInclude bool public initial(FALSE),
     includeOnCmdLine bool public initial(FALSE),
     padb6C23 byte,
     fileIdx byte public initial(0),
@@ -3679,7 +3688,7 @@ end;
 OpenSrc: procedure public;
     declare curByteLoc byte, curBlkLoc word;
 
-    needToOpenFile = FALSE;
+    pendingInclude = FALSE;
     call SeekI(SEEKTELL);
     if seekIByte = 128 then        /* adjust for 128 boundary */
     do;
@@ -3792,15 +3801,15 @@ InsertSym: procedure public;
     /* move up the top block of the symbol tables to make room */
     symHighMark, p = (q := symHighMark) + 8;
     if baseMacroTbl < p then
-        call RuntimeError(1);    /* table Error */
+        call RuntimeError(RTE$TABLE);    /* table Error */
 
-    do while q > curTokenSym$p;    /* byte coqy */
+    do while q > tokenSymCurP;    /* byte coqy */
         p = p - 1;
         q = q - 1;
         pCh = qCh;
     end;
     /* insert the new symbol name */
-    call move(4, tokPtr, curTokenSym$p);
+    call move(4, tokPtr, tokenSymCurP);
 $IF MACRO
     endSymTab(TID$MACRO) = endSymTab(TID$MACRO) + 8;    /* mark new top of macro table */
 $ENDIF
@@ -3808,10 +3817,10 @@ $ENDIF
 end;
 
 $IF MACRO
-OutSideTable: procedure(tableId) bool;        /* check if curTokenSym$p is outside table bounds */
+OutSideTable: procedure(tableId) bool;        /* check if tokenSymCurP is outside table bounds */
     declare tableId byte;
 
-    if endSymTab(tableId) >= curTokenSym$p and curTokenSym$p >= symTab(tableId) then
+    if endSymTab(tableId) >= tokenSymCurP and tokenSymCurP >= symTab(tableId) then
         return FALSE;
 
     call SyntaxError;
@@ -3819,13 +3828,13 @@ OutSideTable: procedure(tableId) bool;        /* check if curTokenSym$p is outsi
 end;
 
 
-Sub5CAD: procedure(line, type) public;
-    declare line word, type byte;
+InsertMacroSym: procedure(paramId, type) public;
+    declare paramId word, type byte;
 
     if OutSideTable(TID$MACRO) then
         return;
     call InsertSym;
-    curTokenSym.line = line;        /* fill in the rest of the new entry */
+    curTokenSym.value = paramId;        /* fill in the rest of the new entry */
     curTokenSym.type = type;
     curTokenSym.flags = 0;
     call PopToken;
@@ -3856,7 +3865,7 @@ UpdateSymbolEntry: procedure(line, type) public;
     end;
 
     origType = tokenType(0);
-    isSetOrEqu = type = 5 or type = 4;
+    isSetOrEqu = type = O$EQU or type = O$SET;
     absFlag = 0;
     flags = curTokenSym.flags;
     lineSet = FALSE;
@@ -3864,7 +3873,7 @@ $IF MACRO
     if OutSideTable(TID$SYMBOL) then        /* oops if outside normal symbol table */
     do;
 $ELSE                    /* same for non macro version */
-    if curTokenSym$p > endSymTab(TID$SYMBOL) or curTokenSym$p < symTab(TID$SYMBOL) then
+    if tokenSymCurP > endSymTab(TID$SYMBOL) or tokenSymCurP < symTab(TID$SYMBOL) then
     do;
         call SyntaxError;
 $ENDIF
@@ -3881,7 +3890,7 @@ $ENDIF
             do;
                 if curTokenSym.type >= 80h
 $IF MACRO
-                     or type = O$3A and curTokenSym.line <> srcLineCnt
+                     or type = T$MACRONAME and curTokenSym.value <> srcLineCnt
 $ENDIF
                 then
                 do;
@@ -3925,7 +3934,7 @@ $ENDIF
                     if curTokenSym.type < 128 then
                     do;
                         curTokenSym.type = tokenType(0);
-                        curTokenSym.line = line;
+                        curTokenSym.value = line;
                         flags = acc1Flags;
                         lineSet = TRUE;
                     end;
@@ -3937,7 +3946,7 @@ $ENDIF
             if TestBit(type, .b5666) then
             do;
                 if inExtrn then
-                    tokenType(0) = 3;
+                    tokenType(0) = O$LABEL;
                 else
                 do;
                     tokenType(0) = type;
@@ -3964,18 +3973,18 @@ $ENDIF
             end;
 
     if IsPhase1 then
-        if tokenType(0) <> type and tokenType(0) <> 8 or type = 5 then
-            tokenType(0) = 3;
+        if tokenType(0) <> type and tokenType(0) <> 8 or type = O$EQU then
+            tokenType(0) = O$LABEL;
 
     if not inPublic and TestBit(tokenType(0), .b5669) then
-        flags = (flags and UF$PUBLIC) and tokenType(0) <> O$3A or acc1Flags;
+        flags = (flags and UF$PUBLIC) and tokenType(0) <> T$MACRONAME or acc1Flags;
     else
     do;
         if IsPhase1 then
-            tokenType(0) = 3;
+            tokenType(0) = O$LABEL;
 
         if not (inPublic or inExtrn) then
-            if curTokenSym.line <> line then
+            if curTokenSym.value <> line then
                 call PhaseError;
     end;
 
@@ -3986,24 +3995,24 @@ endUpdateSymbol:
         curTokenSym.type = tokenType(0) or absFlag;
 
     kk = curTokenSym.type;
-    if tokenType(0) = 3 or kk = 3 then
+    if tokenType(0) = O$LABEL or kk = O$LABEL then
         call MultipleDefError;
 
     if kk >= 80h then
         call LocationError;
 
-    if IsPhase1 and (tokenType(0) = type or type = 5 and tokenType(0) = 7)
-       or type = 4 and BlankAsmErrCode or lineSet
+    if IsPhase1 and (tokenType(0) = type or type = O$EQU and tokenType(0) = 7)
+       or type = O$SET and BlankAsmErrCode or lineSet
 $IF MACRO
-       or type = O$3A
+       or type = T$MACRONAME
 $ENDIF
     then
-        curTokenSym.line = line;
+        curTokenSym.value = line;
 
     curTokenSym.flags = flags;
     inPublic = FALSE;
     inExtrn = FALSE;
-    if curTokenSym.type = 6 then
+    if curTokenSym.type = O$REF then
         call UndefinedSymbolError;
 
     hasVarRef = FALSE;
@@ -4037,7 +4046,7 @@ Lookup: procedure(tableId) byte public;
         (i, gt) byte;
     declare symEntry based entryOffset KEYWORD$T,
         packedTok based packedTok$p (2) word;
-    declare addr based pAddr word;
+    declare addr based aVar word;
 
     packedTok$p = tokPtr;
     /* Keyword lookup */
@@ -4052,7 +4061,7 @@ Lookup: procedure(tableId) byte public;
             if symEntry.tok(0) = packedTok(0) then        /* check for exact match */
                 if symEntry.tok(1) = packedTok(1) then
                 do;
-                    curTokenSym$p = entryOffset;
+                    tokenSymCurP = entryOffset;
                     tokenType(0) = curTokenSym.type;
                     if tokenType(0) < K$SINGLE then    /* instruction with arg */
                         if op16(tokenType(0)) then
@@ -4087,7 +4096,7 @@ Lookup: procedure(tableId) byte public;
         do;
             if packedTok(1) = symEntry.tok(1) then
             do;
-                curTokenSym$p = entryOffset;
+                tokenSymCurP = entryOffset;
                 tokenType(0) = curTokenSym.type;
                 if tokenType(0) = O$MACROID then
                     tokenType(0) = O$NAME;
@@ -4110,17 +4119,17 @@ Lookup: procedure(tableId) byte public;
             lowOffset = entryOffset;
     end;
 
-    curTokenSym$p = highOffset;
+    tokenSymCurP = highOffset;
     if tableId = TID$SYMBOL and not IsSkipping then
     do;
         createdUsrSym = FALSE;
         labelUse = 0;
         call UpdateSymbolEntry(srcLineCnt, (needsAbsValue and 80h) or O$NAME);
         /* update symbol stack to adjust pointers for entries above insert point */
-        pAddr = .tokenSym;
+        aVar = .tokenSym;
         do i = 1 to tokenIdx;
-            pAddr = pAddr + 2;
-            if addr >= curTokenSym$p then
+            aVar = aVar + 2;
+            if addr >= tokenSymCurP then
                 addr = addr + 8;
         end;
 
@@ -4134,7 +4143,7 @@ end;
 GetCh: procedure byte public;
     declare (curCH, prevCH) byte;
 $IF MACRO
-    declare ch based tmac$buf$p byte;
+    declare ch based tmac.buf$p byte;
     declare ch1 based macro$p byte;
 $ENDIF
 
@@ -4150,10 +4159,10 @@ $IF MACRO
         do;
             do while (lookAhead := ch) = MACROEOB;
                 call ReadM(curMacroBlk + 1);
-                tmac$buf$p = .macroBuf;
+                tmac.buf$p = .macroBuf;
             end;
 
-            tmac$buf$p = tmac$buf$p + 1;
+            tmac.buf$p = tmac.buf$p + 1;
         end;
         else
 $ENDIF
@@ -4179,7 +4188,7 @@ $IF MACRO
             end;
             else if curCH = '!' and prevCH <> 0 then
             do;
-                if not (b905D or b905E) and b905C then
+                if not (inMacroBody or mSpoolMode) and macroDivert then
                 do;
                     curCH = 0;
                     goto reGetCh;
@@ -4187,41 +4196,42 @@ $IF MACRO
             end;
             else if curCH >= 128 then
             do;
-                if not (b905C := not b905C) then
-                    tmac$buf$p = w9197;
+                if not (macroDivert := not macroDivert) then
+                    tmac.buf$p = savedMacroBufP;
                 else
                 do;
-                    w9197 = tmac$buf$p;
+                    savedMacroBufP = tmac.buf$p;
                     if curCH = 80h then
                     do;
-                        tmac$buf$p = tmac$w12;
-                        if b9062 = 2 then
+                        tmac.buf$p = tmac.pCurArg;
+                        if savedMtype = 2 then
                         do;
-                            b91A1(1) = ch;
-                            tmac$buf$p = .b91A1 + 1;
+                            irpcChr(1) = ch;
+                            tmac.buf$p = .irpcChr + 1;
                             if ch = '!' then
                             do;
-                                b91A1(0) = 21h;
-                                b91A1(1) = byteAt(tmac$w12 + 1);
-                                tmac$buf$p = tmac$buf$p - 1;
+                                irpcChr(0) = '!';
+                                irpcChr(1) = byteAt(tmac.pCurArg + 1);
+                                tmac.buf$p = tmac.buf$p - 1;
                             end;
                         end;
                         else
                         do;
                             do while (lookAhead := lookAhead - 1) <> 0FFh;
-                                tmac$buf$p = tmac$buf$p - (ch and 7Fh);
+                                tmac.buf$p = tmac.buf$p - (ch and 7Fh);
                             end;
 
-                            tmac$buf$p = tmac$buf$p + 1;
+                            tmac.buf$p = tmac.buf$p + 1;
                         end;
                     end;
                     else
                     do;
-                        tmac$buf$p = .b91A4;
-                        pAddr = lookAhead + tmac$w4;
+                        tmac.buf$p = .localVarName;
+                        aVar = lookAhead + tmac.localIdBase;
+                        /* generate local var name */
                         do ii = 1 to 4;
-                            b91A4(6 - ii) = pAddr mod 10 + '0';
-                            pAddr = pAddr / 10;
+                            localVarName(6 - ii) = aVar mod 10 + '0';
+                            aVar = aVar / 10;
                         end;
                     end;
                 end;
@@ -4239,8 +4249,8 @@ $IF MACRO
                     macro$p = macro$p + 1;
                 end;
 
-        if b905E then
-            if w919D <> macroInPtr and curCH = CR or not excludeCommentInExpansion then
+        if mSpoolMode then
+            if startMacroLine <> macroInPtr and curCH = CR or not excludeCommentInExpansion then
             call InsertCharInMacroTbl(curCH);
 
         if not(prevCH = '!' or inComment) then
@@ -4261,7 +4271,7 @@ end;
 GetChClass: procedure byte public;
     curChar = GetCh;
 $IF MACRO
-    if b905D then
+    if inMacroBody then
         return CC$MAC;
 $ENDIF
 
@@ -4276,11 +4286,11 @@ ChkLF: procedure public;
     else
     do;
 $IF MACRO 
-        b905E = b905E and 0FEh;
+        mSpoolMode = mSpoolMode and 0FEh;
 $ENDIF
         call IllegalCharError;
 $IF MACRO
-        b905E = b905E > 0;
+        mSpoolMode = mSpoolMode > 0;
 $ENDIF
     end;
 end;
@@ -4337,11 +4347,11 @@ PhaseError: procedure public;
 end;
 
 StackError: procedure public;
-    call RuntimeError(0);
+    call RuntimeError(RTE$STACK);
 end;
 
 FileError: procedure public;
-    call RuntimeError(4);
+    call RuntimeError(RTE$FILE);
 end;
 
 IllegalCharError: procedure public;
@@ -4398,9 +4408,9 @@ $IF MACRO
         else
         do;
             call move(16, .macroStk(0), .macroStk(macroDepth));
-            tmac$macroCondSP = macroCondSP;
-            tmac$ifDepth = ifDepth;
-            b9061 = TRUE;
+            tmac.macroCondSP = macroCondSP;
+            tmac.ifDepth = ifDepth;
+            nestMacro = TRUE;
         end;
     end;
     else
@@ -4429,8 +4439,8 @@ $IF MACRO
         call NestingError;
         if sw = 2 then          /* not macro unnest */
             return;
-        macroCondSP = tmac$macroCondSP;
-        ifDepth = tmac$ifDepth;
+        macroCondSP = tmac.macroCondSP;
+        ifDepth = tmac.ifDepth;
     end;
 
     macroCondStk(0) = macroCondStk(macroCondSP);    /* restore macro stack */
@@ -4438,8 +4448,8 @@ $IF MACRO
     if sw = 1 then          /* is unnest macro */
     do;
         call move(16, .macroStk(macroDepth), .macroStk(0));
-        call ReadM(tmac$blk);
-        b9062 = tmac$mtype;
+        call ReadM(tmac.blk);
+        savedMtype = tmac.mtype;
         if (macroDepth := macroDepth - 1) = 0 then  /* end of macro nest */
         do;
             expandingMacro = 0;     /* not expanding */
@@ -4856,19 +4866,19 @@ ProcessControl: procedure;
             return;
         end;
 /* 2 */ do;            /* PRINT */
-            controlFileType = 2;
+            controlFileType = 2;	/* not used */
             curFileName$p = .lstFile;
             call GetFileParam;
             return;
         end;
 /* 3 */ do;            /* OBJECT */
-            controlFileType = 3;
+            controlFileType = 3;	/* not used */
             curFileName$p = .objFile;
             call GetFileParam;
             return;
         end;
 /* 4 */ do;            /* MACROFILE */
-            controlFileType = 3;
+            controlFileType = 3;	/* not used */
             if ChkParen(0) then    /* optional drive for tmp file */
                 call GetMacroFileDrive;
             else
@@ -4897,9 +4907,9 @@ ProcessControl: procedure;
             end;
         end;
 /* 7 */ do;            /* INCLUDE */
-            if not needToOpenFile then
+            if not pendingInclude then
             do;
-                controlFileType = 1;
+                controlFileType = 1;	/* not used */
                 if fileIdx = 5 then
                     call StackError;
                 else
@@ -4907,7 +4917,7 @@ ProcessControl: procedure;
                     fileIdx = fileIdx + 1;
                     curFileName$p = .files(fileIdx);
                     call GetFileParam;
-                    needToOpenFile = TRUE;
+                    pendingInclude = TRUE;
                     if scanCmdLine then
                         includeOnCmdLine = TRUE;
                     return;
@@ -4922,8 +4932,8 @@ ProcessControl: procedure;
                 do;
                     if phase <> 1 or IsPhase1 and primaryValid then
                     do;
-                        call move(tokBufLen, .tokBuf, .ctlTITLESTR);
-                        ctlTITLESTR(titleLen := tokBufLen) = 0;
+                        call move(tokBufLen, .tokBuf, .titleStr);
+                        titleStr(titleLen := tokBufLen) = 0;
                         if ChkParen(1) then
                         do;
                             ctlTITLE = TRUE;
@@ -4984,7 +4994,7 @@ $ENDIF
         end;
 
         if scanCmdLine then
-            call RuntimeError(2);    /* command Error */
+            call RuntimeError(RTE$CMDLINE);    /* command Error */
         else
             call CommandError;
     end;
@@ -5009,21 +5019,21 @@ declare b7183(*) byte data(3Fh, 0, 4, 0, 0, 0, 8, 0, 10h);
     /* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
     /*                 CR, COMMA, SEMI */                                  
 
-declare w9C75 word,
+declare baseMacroBlk word,
     b9C77 byte public;
 
 
-Sub7192: procedure bool;
+IsEndParam: procedure bool;
     if IsCR then
     do;
-        b905A = FALSE;
+        inAngleBrackets = FALSE;
         return TRUE;
     end;
 
-    if b905A then
-        return argNestCnt = b9066;
+    if inAngleBrackets then
+        return argNestCnt = startNestCnt;
 
-    if IsLT or (not (tmac$mtype = 1) and IsGT) then
+    if IsLT or (not (tmac.mtype = M$IRP) and IsGT) then
     do;
         call IllegalCharError;
         return TRUE;
@@ -5034,53 +5044,53 @@ end;
 
 
 
-Sub71F2: procedure;
+InitParamCollect: procedure;
     symTab(TID$MACRO), endSymTab(TID$MACRO) = symHighMark;
-    b9065, tmac$b3 = bZERO;
+    paramCnt, tmac.localsCnt = bZERO;
     yyType = 37h;
 end;
 
 
 Sub720A: procedure;
 
-    b9062 = tmac$mtype;
+    savedMtype = tmac.mtype;
     if not expandingMacro then
         expandingMacro = 1;
 
     if macroDepth = 0 then
         expandingMacro = 0FFh;
 
-    if b9061 then
+    if nestMacro then
         call move(4, .macroStk(0).buf$p, .macroStk(macroDepth).buf$p);
 
-    b9061 = FALSE;
-    tmac$w12 = w9199;
-    tmac$w4 = w919B;
-    w919B = w919B + tmac$b3;
-    call ReadM(tmac$w10);
-    tmac$buf$p = .macroBuf;
+    nestMacro = FALSE;
+    tmac.pCurArg = pNextArg;
+    tmac.localIdBase = localIdCnt;
+    localIdCnt = localIdCnt + tmac.localsCnt;
+    call ReadM(tmac.savedBlk);
+    tmac.buf$p = .macroBuf;
 end;
 
 
 Sub727F: procedure bool;
-    if not b905E then
+    if not mSpoolMode then
         return TRUE;
-    b9064 = b9064 + 1;
+    macroSpoolNestDepth = macroSpoolNestDepth + 1;
     b6B2C = topOp <> K$REPT;
     yyType = 37h;
     return FALSE;
 end;
 
 
-Sub72A4: procedure(arg1b) public;    /* 1 -> IRP, 2 -> IRPC */
+DoIrpX: procedure(arg1b) public;    /* 1 -> IRP, 2 -> IRPC */
     declare arg1b byte;
 
     if Sub727F then
     do;
-        call Sub71F2;
+        call InitParamCollect;
         call Nest(1);
-        tmac$w14 = 0;
-        tmac$mtype = arg1b;
+        tmac.cnt = 0;
+        tmac.mtype = arg1b;
     end;
 end;
 
@@ -5104,21 +5114,21 @@ end;
 
 
 Sub7327: procedure public;
-    w9199 = baseMacroTbl;
+    pNextArg = baseMacroTbl;
     yyType = 3Dh;
-    b905D = TRUE;
+    inMacroBody = TRUE;
     b9060 = FALSE;
 end;
 
 
-EnterMacro: procedure(lowAddr, highAddr) pointer;
+AddMacroText: procedure(lowAddr, highAddr) pointer;
     declare (lowAddr, highAddr) pointer;
     declare ch1 based baseMacroTbl byte,
         ch2 based highAddr byte;
 
     do while lowAddr <= highAddr;
         if baseMacroTbl <= symHighMark then
-            call RuntimeError(1);    /* table Error */
+            call RuntimeError(RTE$TABLE);    /* table Error */
         ch1 = ch2;
         baseMacroTbl = baseMacroTbl - 1;
         highAddr = highAddr - 1;
@@ -5127,43 +5137,43 @@ EnterMacro: procedure(lowAddr, highAddr) pointer;
 end;
 
 
-Sub7383: procedure;
-    b9064 = 1;
+InitSpoolMode: procedure;
+    macroSpoolNestDepth = 1;
     macroInPtr = symHighMark;
-    b905E = 1;
-    w9C75 = macroBlkCnt;
+    mSpoolMode = 1;
+    baseMacroBlk = macroBlkCnt;
 end;
 
 
 
-Sub739A: procedure;
+ChkForLocationError: procedure;
     if usrLookupIsID then
         if asmErrCode <> 'U' then
             call LocationError;
 end;
 
 
-Sub73AD: procedure public;
+GetMacroToken: procedure public;
     declare isPercent byte;
 
     b9C77 = tokenIdx;
     call SkipWhite;
     if not (isPercent := curChar = '%') then
     do;
-        b9066 = argNestCnt - 1;
-        if (b905A := IsLT) then
+        startNestCnt = argNestCnt - 1;
+        if (inAngleBrackets := IsLT) then
             curChar = GetCh;
 
         call PushToken(CR);
 
-    L73E2:    do while not Sub7192;
+    L73E2:    do while not IsEndParam;
             if curChar = '''' then
             do;
                 if (curChar := GetCh) = '''' then
                 do;
                     curChar = GetCh;
                     call SkipWhite;
-                    if Sub7192 then
+                    if IsEndParam then
                         goto L7463;
                     else
                     do;
@@ -5178,8 +5188,8 @@ Sub73AD: procedure public;
                 end;
             end;
             call CollectByte(curChar);
-            if tmac$mtype = 2 then
-                tmac$w14 = tmac$w14 + 1;
+            if tmac.mtype = M$IRPC then
+                tmac.cnt = tmac.cnt + 1;
 
             if curChar = '!' and GetCh <> CR then
             do;
@@ -5188,7 +5198,7 @@ Sub73AD: procedure public;
             end;
         end;
 
-    L7463:    if b905A then
+    L7463:    if inAngleBrackets then
             curChar = GetCh;
 
         call SkipWhite;
@@ -5201,25 +5211,25 @@ Sub73AD: procedure public;
         reget = 1;
     end;
 
-    b905D = FALSE;
-    if tmac$mtype = 4 then
+    inMacroBody = FALSE;
+    if tmac.mtype = M$INVOKE then
     do;
-        if not b905A and tokenSize(0) = 5 then
+        if not inAngleBrackets and tokenSize(0) = 5 then
             if StrUcEqu(.('MACRO', 0), tokPtr) then
             do;
                 yyType = K$MACRO;
                 call PopToken;
-                w9199 = tmac$w12;
+                pNextArg = tmac.pCurArg;
                 opSP = opSP - 1;
                 reget = 1;
                 call EmitXref(XREF$DEF, .name);
                 rhsUserSymbol = FALSE;
-                b6BDA = TRUE;
+                nestedMacroSeen = TRUE;
                 return;
             end;
-        tmac$mtype = b9062;
+        tmac.mtype = savedMtype;
         call Nest(1);
-        tmac$mtype = 0;
+        tmac.mtype = M$MACRO;
     end;
 
     if not isPercent then
@@ -5233,31 +5243,31 @@ end;
 
 
 
-Sub7517: procedure public;
+DoMacro: procedure public;
     if Sub727F then
     do;
         expectingOperands = FALSE;
-        w9068 = curTokenSym$p + 4;
-        call UpdateSymbolEntry(0, O$3A);
-        tmac$mtype = 0;
-        call Sub71F2;
+        pMacro = tokenSymCurP + 4;      /* pMacro points to blk */
+        call UpdateSymbolEntry(0, T$MACRONAME);
+        tmac.mtype = M$MACRO;
+        call InitParamCollect;
     end;
 end;
 
-Sub753E: procedure public;
-    declare ch based w9068 byte;
+DoMacroBody: procedure public;
+    declare ch based pMacro byte;
 
     if HaveTokens then
     do;
         if tokenType(0) = 0 then
             call MultipleDefError;
 
-        call Sub5CAD((b9065 := b9065 + 1), 0);
+        call InsertMacroSym((paramCnt := paramCnt + 1), 0);
     end;
-    else if not (tmac$mtype = 0) then
+    else if not (tmac.mtype = M$MACRO) then
         call SyntaxError;
 
-    if not tmac$mtype = 0 then
+    if not tmac.mtype = M$MACRO then
     do;
         call SkipWhite;
         if IsComma then
@@ -5265,7 +5275,7 @@ Sub753E: procedure public;
             reget = 0;
             newOp = T$BEGIN;
             call Sub7327;
-            if tmac$mtype = 1 then
+            if tmac.mtype = M$IRP then
             do;
                 curChar = GetCh;
                 call SkipWhite;
@@ -5279,59 +5289,62 @@ Sub753E: procedure public;
         else
         do;
             call SyntaxError;
-            call Sub7383;
+            call InitSpoolMode;
         end;
     end;
     else if newOp = T$CR then
     do;
-        if not BlankMorPAsmErrCode then
+        if not MPorNoErrCode then
         do;
-            tmac$mtype = 5;
-            w9068 = w9068 + 2;
+            tmac.mtype = M$BODY;
+            pMacro = pMacro + 2;
             if (ch and 7Fh) = 3Ah then
                 ch = (asmErrCode = 'L') and 80h or 9;
         end;
-        call Sub7383;
+        call InitSpoolMode;
     end;
 end;
 
-Sub75FF: procedure public;
+DoEndm: procedure public;
     declare ch based macroInPtr byte;
-    declare ch2 based w9068 byte;
-    declare wrd based w9068 word;
+    declare ch2 based pMacro byte;
+    declare wrd based pMacro word;
 
-    if b905E then
-    do;
-        if (b9064 := b9064 - 1) = 0 then
+    if mSpoolMode then
+    do; /* check for end of spool */
+        if (macroSpoolNestDepth := macroSpoolNestDepth - 1) = 0 then
         do;
-            b905E = 0;
-            if not (tmac$mtype = 5) then
+            mSpoolMode = 0;
+            if not (tmac.mtype = M$BODY) then
             do;
-                if tmac$mtype = 2 then
-                    w9199 = baseMacroTbl + 3;
+                if tmac.mtype = M$IRPC then
+                    pNextArg = baseMacroTbl + 3;
 
-                do pAddr = w919D to w919F - 1;
-                    curChar = byteAt(pAddr);
+                /* endm cannot have a label */
+                do aVar = startMacroLine to startMacroToken - 1;
+                    curChar = byteAt(aVar);
                     if not IsWhite then
                         call SyntaxError;
                 end;
 
-                macroInPtr = w919D;
-                ch = 1Bh;
-                call FlushM;
+                /* replace line with ESC to mark end of spool */
+                macroInPtr = startMacroLine;
+                ch = ESC;
+                call FlushM;    /* force spool to disk */
                 call WriteM;
+                /* reset the macro parmater symbol table */
                 symHighMark, endSymTab(TID$MACRO) = symTab(TID$MACRO);
-                if tmac$mtype = 0 then
+                if tmac.mtype = M$MACRO then
                 do;
-                    wrd = w9C75;
-                    w9068 = w9068 + 3;
-                    ch2 = tmac$b3;
+                    wrd = baseMacroBlk;
+                    pMacro = pMacro + 3;    /* now points to flags */
+                    ch2 = tmac.localsCnt;   /* save the number of locals */
                 end;
                 else
                 do;
-                    tmac$w10 = w9C75;
+                    tmac.savedBlk = baseMacroBlk;
                     call Sub720A;
-                    if tmac$w14 = 0 then
+                    if tmac.cnt = 0 then
                         call UnNest(1);
                 end;
             end;
@@ -5342,17 +5355,17 @@ Sub75FF: procedure public;
 end;
 
 
-Sub76CE: procedure public;
+DoExitm: procedure public;
     if expandingMacro then
     do;
-        if newOp = T$CR then
+        if newOp = T$CR then        /* check exitm on its own */
         do;
             condAsmSeen = TRUE;
-            macroCondSP = tmac$macroCondSP;
-            ifDepth = tmac$ifDepth;
-            tmac$w14 = 1;
-            lookAhead = 1Bh;
-            macroCondStk(0) = 1;
+            macroCondSP = tmac.macroCondSP;
+            ifDepth = tmac.ifDepth;
+            tmac.cnt = 1;           /* force apparent endmi - last repetition */
+            lookAhead = ESC;        /* synthetic endm */
+            macroCondStk(0) = 1;    /* and out of any if else */
         end;
         else
             call SyntaxError;
@@ -5373,98 +5386,98 @@ Sub770B: procedure public;
             call Acc1ToDecimal;
         end;
 
-        if tmac$mtype = 2 then
-            tmac$w14 = tokenSize(0) - (tokenSize(0) = 0);
+        if tmac.mtype = M$IRPC then
+            tmac.cnt = tokenSize(0) - (tokenSize(0) = 0);
 
         call CollectByte((tokenSize(0) + 1) or 80h);
-        baseMacroTbl = EnterMacro(tokPtr, tokPtr + tokenSize(0) - 1);
+        baseMacroTbl = AddMacroText(tokPtr, tokPtr + tokenSize(0) - 1);
         call PopToken;
 
-        if tmac$mtype = 0 or tmac$mtype = 1 and argNestCnt > 0 then
-            b905D = TRUE;
+        if tmac.mtype = M$MACRO or tmac.mtype = M$IRP and argNestCnt > 0 then
+            inMacroBody = TRUE;
         else
             b9060 = TRUE;
 
-        if tmac$mtype = 1 then
-            tmac$w14 = tmac$w14 + 1;
+        if tmac.mtype = M$IRP then
+            tmac.cnt = tmac.cnt + 1;
     end;
     else
         call SyntaxError;
 
     if newOp = T$CR then
     do;
-        b905D = FALSE;
+        inMacroBody = FALSE;
         if argNestCnt > 0 then
             call BalanceError;
 
-        if not BlankMorPAsmErrCode then
+        if not MPorNoErrCode then
         do;
-            call Sub739A;
-            if tmac$mtype = 0 then
+            call ChkForLocationError;
+            if tmac.mtype = M$MACRO then
             do;
                 call Sub720A;
                 call UnNest(1);
                 return;
             end;
             else
-                tmac$w14 = 0;
+                tmac.cnt = 0;
         end;
         else
         do;
-            baseMacroTbl = EnterMacro(.b3782, .b3782 + 1);
-            if tmac$mtype = 0 then
+            baseMacroTbl = AddMacroText(.b3782, .b3782 + 1);
+            if tmac.mtype = M$MACRO then
             do;
-                tmac$b3 = curTokenSym.flags;
-                tmac$w10 = GetNumVal;
+                tmac.localsCnt = curTokenSym.flags;
+                tmac.savedBlk = GetNumVal;
                 call Sub720A;
             end;
-            else if tmac$w14 = 0 then
+            else if tmac.cnt = 0 then
                 call SyntaxError;
         end;
 
-        if not (tmac$mtype = 0) then
-            call Sub7383;
+        if not (tmac.mtype = M$MACRO) then
+            call InitSpoolMode;
     end;
 end;
 
 
 
-Sub7844: procedure public;
-    call Sub72A4(3);
+DoRept: procedure public;
+    call DoIrpX(M$REPT);
     if (yyType := newOp) <> T$CR then
         call SyntaxError;
 
-    if not b905E then
+    if not mSpoolMode then
     do;
-        tmac$w14 = accum1;
-        if not BlankMorPAsmErrCode then
+        tmac.cnt = accum1;          /* get the repeat count */
+        if not MPorNoErrCode then   /* skip processing if error other than M or P */
         do;
-            call Sub739A;
-            tmac$w14 = 0;
+            call ChkForLocationError;
+            tmac.cnt = 0;           /* reset repeat count */
         end;
 
-        call Sub7383;
+        call InitSpoolMode;
     end;
 end;
 
 
 Sub787A: procedure public;
-    if b905E = 2 then
+    if mSpoolMode = 2 then
     do;
         if HaveTokens then
         do;
-            if (tmac$b3 := tmac$b3 + 1) = 0 then
+            if (tmac.localsCnt := tmac.localsCnt + 1) = 0 then
                 call StackError;
 
             if tokenType(0) <> 9 then
                 call MultipleDefError;
 
-            call Sub5CAD(tmac$b3, 1);
+            call InsertMacroSym(tmac.localsCnt, 1);
             macroInPtr = symHighMark;
         end;
         if newOp = T$CR then
         do;
-            b905E = 1;
+            mSpoolMode = 1;
             macroInPtr = symHighMark;
         end;
     end;
@@ -5475,18 +5488,18 @@ end;
 
 
 Sub78CE: procedure public;
-    kk = byteAt(tmac$w12);
-    accFixFlags(0) = 1 - (kk = 21h and b9062 = 2);
-    if b9062 = 0 or (tmac$w14 := tmac$w14 - accFixFlags(0)) = 0 then
+    kk = byteAt(tmac.pCurArg);
+    accFixFlags(0) = 1 - (kk = 21h and savedMtype = 2);
+    if savedMtype = 0 or (tmac.cnt := tmac.cnt - accFixFlags(0)) = 0 then
         call UnNest(1);
     else
     do;
-        if b9062 = 1 then
-            w9199 = tmac$w12 - (kk and 7Fh);
+        if savedMtype = 1 then
+            pNextArg = tmac.pCurArg - (kk and 7Fh);
         else
-            w9199 = tmac$w12 + accFixFlags(0);
+            pNextArg = tmac.pCurArg + accFixFlags(0);
 
-        tmac$mtype = b9062;
+        tmac.mtype = savedMtype;
         call Sub720A;
     end;
     lookAhead = 0;
@@ -5605,7 +5618,7 @@ NewPageHeader: procedure;
     call PrintDecimal(pageCnt);
     call PrintCRLF;
     if ctlTITLE then
-        call PrintNStr(titleLen, .ctlTITLESTR);
+        call PrintNStr(titleLen, .titleStr);
 
     call PrintCRLF;
     call PrintCRLF;
@@ -5696,13 +5709,13 @@ Sub7041$8447: procedure public;
         flagsAndType word,
         (type, flags) byte at(.flagsAndType),
         zeroAddr byte;
-    declare tokBytePair based curTokenSym$p word;
+    declare tokBytePair based tokenSymCurP word;
 
     PrintAddr2: procedure(printFunc);
         declare printFunc address;
-        declare ch based curTokenSym$p byte;
+        declare ch based tokenSymCurP byte;
 
-        curTokenSym$p = curTokenSym$p - 1;    /* backup into value */
+        tokenSymCurP = tokenSymCurP - 1;    /* backup into value */
         call printFunc(ch and not zeroAddr);    /* print address or 0 */
     end;
 
@@ -5717,11 +5730,11 @@ Sub7041$8447: procedure public;
 $IF MACRO
         ctlDEBUG = ctlDEBUG or ctlMACRODEBUG;
 $ENDIF
-        curTokenSym$p = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
+        tokenSymCurP = symTab(TID$SYMBOL) - 2;        /* address user sym(-1).type */
         call PrintCRLF;
         call PrintStr(symbolMsgTable(symGrp));
 
-        do while (curTokenSym$p := curTokenSym$p + 8) < endSymTab(TID$SYMBOL);
+        do while (tokenSymCurP := tokenSymCurP + 8) < endSymTab(TID$SYMBOL);
             flagsAndType = tokBytePair;
             if type <> 9 then
                 if type <> 6 then
@@ -5734,7 +5747,7 @@ $ENDIF
                         if symGrp <> 0 or type <> 3 then
                             if symGrp = 2 or (flags and symGrpFlags(symGrp)) <> 0 then
                             do;
-                                call UnpackToken(curTokenSym$p - 6, .tokStr);
+                                call UnpackToken(tokenSymCurP - 6, .tokStr);
                                 if kk then
                                 do;
                                     if (ctlPAGEWIDTH - curCol) < 17 then
@@ -5743,7 +5756,7 @@ $ENDIF
                                     call PrintStr(.tokStr);
                                     call PrintChar(' ');
 $IF MACRO
-                                    if type = O$3A then
+                                    if type = T$MACRONAME then
                                         call PrintChar('+');
                                     else
 $ENDIF
@@ -5755,7 +5768,7 @@ $ENDIF
                                     call PrintChar(' ');
                                     call PrintAddr2(.print2Hex);    /* print value/line */
                                     call PrintAddr2(.print2Hex);
-                                    curTokenSym$p = curTokenSym$p + 2;  /* compensate for -2 due to PrintAddr2 */
+                                    tokenSymCurP = tokenSymCurP + 2;  /* compensate for -2 due to PrintAddr2 */
                                     call PrintStr(.spaces4);
                                 end;
                             end;
@@ -5872,7 +5885,7 @@ loop:
 
     call Outch(asmErrCode);
 $IF MACRO
-    if b905E = 0FFh then
+    if mSpoolMode = 0FFh then
         call Outch('-');
     else
 $ENDIF
@@ -5891,8 +5904,8 @@ $ENDIF
     if fileIdx > 0 then
     do;
         declare nestLevel(*) byte data('  1234');
-    /* note byte arith used so needToOpenFile = TRUE(255) treated as -1 */
-        call Outch(nestLevel(ii := needToOpenFile + fileIdx));
+    /* note byte arith used so pendingInclude = TRUE(255) treated as -1 */
+        call Outch(nestLevel(ii := pendingInclude + fileIdx));
         if ii > 0 then    
             call Outch('=');
         else
@@ -6111,7 +6124,7 @@ $ENDIF
 
     call CmdSkipWhite;
     if cmdch = CR then        /* no args !! */
-        call RuntimeError(4);
+        call RuntimeError(RTE$FILE);
 
     infd = SafeOpen(cmdch$p, READ$MODE);    /* Open file for reading */
     rootfd, srcfd = infd;
@@ -6156,16 +6169,16 @@ ResetData: procedure public;    /* extended initialisation */
 
     b6B33, scanCmdLine, skipIf(0), b6B2C, inElse(0), finished, segHasData(0), segHasData(1), inComment,
 $IF MACRO
-    expandingMacro, b905C, b905E,
+    expandingMacro, macroDivert, mSpoolMode,
 $ENDIF
-    hasVarRef, needToOpenFile = bZERO;
+    hasVarRef, pendingInclude = bZERO;
     noOpsYet, primaryValid, ctlLIST, ctlLISTChanged = bTRUE;
 $IF MACRO
     ctlGEN = bTRUE;
 $ENDIF
     ctlCOND = bTRUE;
 $IF MACRO
-    macroDepth, b9064, macroCondStk(0), macroCondSP = bZERO; 
+    macroDepth, macroSpoolNestDepth, macroCondStk(0), macroCondSP = bZERO; 
 $ENDIF
     saveIdx, lookAhead, activeSeg, ifDepth, opSP, opStack(0) = bZERO;
 $IF MACRO
@@ -6174,7 +6187,7 @@ $ENDIF
     segSize(SEG$ABS), segSize(SEG$CODE), segSize(SEG$DATA),
     maxSegSize(SEG$ABS), maxSegSize(SEG$CODE), maxSegSize(SEG$DATA), effectiveAddr,
 $IF MACRO
-    w919B,
+    localIdCnt,
 $ENDIF
     externId, errCnt = wZERO;
     passCnt = passCnt + 1;

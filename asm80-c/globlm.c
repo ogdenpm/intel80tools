@@ -5,49 +5,49 @@
 
 byte macroLine[129];
 pointer macroP = macroLine;
-bool b9058 = false;
+bool inQuotes = false;
 bool excludeCommentInExpansion;
-bool b905A;
+bool inAngleBrackets;
 byte expandingMacro;		// 0,1 or 0xff
-bool b905C;
-bool b905D = false;
-byte b905E;					// 0, 1, 2, 0xfe, 0xff
+bool macroDivert;
+bool inMacroBody = false;
+byte mSpoolMode;					// 0, 1, 2, 0xfe, 0xff
 static byte b905F;		// unused
 bool b9060;
-bool b9061;
-byte b9062;
+bool nestMacro;
+byte savedMtype;
 byte macroDepth;
-byte b9064;
-byte b9065;
-byte b9066;
+byte macroSpoolNestDepth;
+byte paramCnt;
+byte startNestCnt;
 byte argNestCnt = 0;
-pointer w9068;
+pointer pMacro;
 pointer macroInPtr;
 /*
 	mtype has the following values
 	1 -> IRP
 	2 -> IRPC
-	3 -> REPT
-	4 -> ???
+	3 -> DoRept
+	4 -> MACRO Invocation
 	5 -> ???
 */
 #pragma pack(push, 1)
 extern macroStk_t macro = { .top.blk = 0xffff };
 #pragma pack(pop)
-static word w910C;
+static word w910C;	// unused
 word curMacroBlk = 0xFFFF;
 word nxtMacroBlk = 0;
 word maxMacroBlk = 0;
 word macroBlkCnt;
 byte macroBuf[129];
-pointer w9197;
-pointer w9199;
-word w919B;
-pointer w919D;
-pointer w919F;
-byte b91A1[3] = { 0, 0, 0x81 };
+pointer savedMacroBufP;
+pointer pNextArg;
+word localIdCnt;
+pointer startMacroLine;
+pointer startMacroToken;
+byte irpcChr[3] = { 0, 0, 0x81 };		// where irpc char is built (0x81 is end marker)
 
-byte b91A4[] = {0x3F, 0x3F, 0, 0, 0, 0, 0x80};
+byte localVarName[] = {'?', '?', 0, 0, 0, 0, 0x80};	// where DoLocal vars are constructed (0x80 is end marker)
 /* ov4 compat 2C8C */
 pointer contentBytePtr;
 byte fixupSeg;
@@ -116,7 +116,7 @@ byte acc2ValType;
 word acc1NumVal;
 word acc2NumVal;
 byte curChar = 0;
-bool reget = false;
+byte reget = false;
 byte lookAhead;
 static byte pad6861 = 0;
 tokensym_t *symTab[3];
@@ -163,7 +163,7 @@ byte tokStr[7] = {0, 0, 0, 0, 0, 0, 0};
 word sizeInBuf = {IN_BUF_SIZE};
 byte inBuf[IN_BUF_SIZE];
 byte outbuf[OUT_BUF_SIZE+1];
-//byte b6A00;
+
 pointer outP = {outbuf};
 pointer endOutBuf;
 static pointer pad6A05 = {outbuf};
@@ -181,7 +181,7 @@ byte lastErrorLine[4] = "   0";
 controls_t controls = { .all = {false, false, false, true, true, false, false,
 			 true, true, false, 120, 66, 0, false, 0, 0, 0,
 			 true, true, true} };
-		     ;
+
 bool ctlListChanged = true;
 byte titleLen = {0};
 static byte pad6A71;
@@ -189,7 +189,7 @@ static byte pad6A72[3] = {120, true};
 bool controlSeen[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
 byte saveStack[8][3];
 byte saveIdx = 0;
-byte ctlTitleStr[64];
+byte titleStr[64];
 byte tokBufLen;
 byte tokType;
 byte controlId;
@@ -229,14 +229,14 @@ static byte pad6BD0[3] = { 0 };
 word azero = 0;
 pointer cmdchP = cmdLineBuf;
 pointer controlsP;
-bool b6BD9 = false;
-bool b6BDA;
+bool skipRuntimeError = false;
+bool nestedMacroSeen;
 byte ii;
 byte jj;
 byte kk;
 static byte b9B34 = 0;
 pointer curFileNameP;
 
-address pAddr;
+address aVar;
 
 word controlFileType;     /* 1->INCLUDE 2->PRINT, 3->OBJECT or MACROFILE */

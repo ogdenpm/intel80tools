@@ -85,7 +85,7 @@ static void NewPageHeader()
     PrintDecimal(pageCnt);
     PrintCRLF();
     if (controls.title)
-        PrintNStr(titleLen, ctlTitleStr);
+        PrintNStr(titleLen, titleStr);
 
     PrintCRLF();
     PrintCRLF();
@@ -210,7 +210,7 @@ void Sub7041_8447()
 
 									PrintStr(tokStr);
 									PrintChar(' ');
-									if (type == K_MACRONAME)
+									if (type == T_MACRONAME)
 										PrintChar('+');
 									else if ((zeroAddr = (flags & UF_EXTRN) != 0))
 										PrintChar('E');
@@ -321,7 +321,7 @@ void PrintLine()
 			endItem = startItem;
 
 		Outch(asmErrCode);
-		if (b905E == 0xFF)
+		if (mSpoolMode == 0xFF)
 			Outch('-');
 		else
 			Outch(' ');
@@ -337,8 +337,8 @@ void PrintLine()
 
 		if (fileIdx > 0) {
 			byte nestLevel[] = "  1234";
-			/* plm uses byte arith so needToOpenFile = true(255) treated as -1 */
-			Outch(nestLevel[ii = fileIdx - needToOpenFile]);
+			/* plm uses byte arith so pendingInclude = true(255) treated as -1 */
+			Outch(nestLevel[ii = pendingInclude ? fileIdx + 1 : fileIdx]);
 			if (ii > 0)
 				Outch('=');
 			else
@@ -424,16 +424,17 @@ void FinishAssembly()
     Delete(asmacRef, &statusIO);
     if (controls.object)   /* ?? why only for MACRO version */
         CloseF(objfd);
-    if (controls.xref) /* invoke asxref ?? */
-    {
-        effectiveAddr.bp = Physmem() - 1;
-        *effectiveAddr.bp = '0';    /* put drive in a known location */
-        if (asxrefTmp[0] == ':')
-            *effectiveAddr.bp = asxrefTmp[2];
-    
-        Load(asxref, 0, 1, 0, &statusIO);
-        IoErrChk();
-    }
+	/* asxref is currently not supported */
+    //if (controls.xref) /* invoke asxref ?? */
+    //{
+    //    effectiveAddr.bp = Physmem() - 1;
+    //    *effectiveAddr.bp = '0';    /* put drive in a known location */
+    //    if (asxrefTmp[0] == ':')
+    //        *effectiveAddr.bp = asxrefTmp[2];
+    //
+    //    Load(asxref, 0, 1, 0, &statusIO);
+    //    IoErrChk();
+    //}
 
     Exit();
 }

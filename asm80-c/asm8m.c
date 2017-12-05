@@ -4,21 +4,21 @@ static byte b7183[] = {0x3F, 0, 4, 0, 0, 0, 8, 0, 0x10};
     /* bit vector 64 - 00000000 00000100 00000000 00000000 00000000 00001000 00000000 00010000 */
     /*                 CR, COMMA, SEMI */                                  
 
-static word w9C75;
-byte b9C77;
+static word baseMacroBlk;
+byte savedTokenIdx;
 
 
-static bool Sub7192()
+static bool IsEndParam()
 {
-    if (IsCR()) {
-        b905A = false;
+    if (IsCR()) {		// new line forces end
+        inAngleBrackets = false;
         return true;
     }
 
-    if (b905A)
-        return argNestCnt == b9066;
+    if (inAngleBrackets)	// return whether end of balanced list
+        return argNestCnt == startNestCnt;
 
-    if (IsLT() || (! (macro.top.mtype == 1) && IsGT())) {
+    if (IsLT() || (macro.top.mtype != M_IRP && IsGT())) {
         IllegalCharError();
         return true;
     }
@@ -28,55 +28,55 @@ static bool Sub7192()
 
 
 
-static void Sub71F2()
+static void InitParamCollect()
 {
-    symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;
-    b9065 = macro.top.b3 = bZERO;
-    yyType = 0x37;
+    symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;	// init macro parameter table
+    paramCnt = macro.top.localsCnt = bZERO;	// no params yet
+    yyType = O_MACROARG;
 }
 
 
 static void Sub720A()
 {
-    b9062 = macro.top.mtype;
+    savedMtype = macro.top.mtype;
     if (! expandingMacro)
         expandingMacro = 1;
 
     if (macroDepth == 0)
         expandingMacro = 0xFF;
 
-	if (b9061) {
+	if (nestMacro) {
 		macro.stack[macroDepth].bufP = macro.stack[0].bufP;
 		macro.stack[macroDepth].blk = macro.stack[0].blk;
 	}
 
-    b9061 = false;
-    macro.top.w12 = w9199;
-    macro.top.w4 = w919B;
-    w919B += macro.top.b3;
-    ReadM(macro.top.w10);
+    nestMacro = false;
+    macro.top.pCurArg = pNextArg;
+    macro.top.localIdBase = localIdCnt;
+    localIdCnt += macro.top.localsCnt;		
+    ReadM(macro.top.savedBlk);
     macro.top.bufP = macroBuf;
 }
 
 
 static bool Sub727F()
 {
-    if (! (b905E & 1))
+    if (! (mSpoolMode & 1))
         return true;
-    b9064 = b9064 + 1;
+    macroSpoolNestDepth++;
     b6B2C = topOp != K_REPT;
     yyType = 0x37;
     return false;
 }
 
 
-void Sub72A4(byte arg1b)
+void DoIrpX(byte mtype)
 {    /* 1 -> IRP, 2 -> IRPC */
     if (Sub727F()) {
-        Sub71F2();
+        InitParamCollect();
         Nest(1);
-        macro.top.w14 = 0;
-        macro.top.mtype = arg1b;
+        macro.top.cnt = 0;
+        macro.top.mtype = mtype;
     }
 }
 
@@ -99,35 +99,35 @@ static void Acc1ToDecimal()
 
 void Sub7327()
 {
-    w9199 = baseMacroTbl;
+    pNextArg = baseMacroTbl;
     yyType = 0x3D;
-    b905D = true;
+    inMacroBody = true;
     b9060 = false;
 }
 
 
-static pointer EnterMacro(pointer lowAddr, pointer highAddr)
+static pointer AddMacroText(pointer lowAddr, pointer highAddr)
 {
     while (lowAddr <= highAddr) {
         if (baseMacroTbl <= symHighMark)
-            RuntimeError(1);    /* table Error() */
+            RuntimeError(RTE_TABLE);    /* table Error() */
         *baseMacroTbl-- = *highAddr--;
     }
     return baseMacroTbl;
 }
 
 
-static void Sub7383()
+static void InitSpoolMode()
 {
-    b9064 = 1;
+    macroSpoolNestDepth = 1;
     macroInPtr = symHighMark;
-    b905E = 1;
-    w9C75 = macroBlkCnt;
+    mSpoolMode = 1;
+    baseMacroBlk = macroBlkCnt;
 }
 
 
 
-static void Sub739A()
+static void ChkForLocationError()
 {
     if (usrLookupIsID)
         if (asmErrCode != 'U')
@@ -135,26 +135,25 @@ static void Sub739A()
 }
 
 
-void Sub73AD()
+void GetMacroToken()
 {
     byte isPercent;
-	bool tst;
 
-    b9C77 = tokenIdx;
+    savedTokenIdx = tokenIdx;
     SkipWhite();
     if (! (isPercent = curChar == '%')) {
-        b9066 = argNestCnt - 1;
-        if ((b905A = IsLT()))
+        startNestCnt = argNestCnt - 1;		// if nested than argNestCnt will already have been incremented for the <
+        if ((inAngleBrackets = IsLT()))
             curChar = GetCh();
 
-        PushToken(CR);
+        PushToken(O_PARAM);
 
-        while (! Sub7192()) {
+        while (! IsEndParam()) {
             if (curChar == '\'') {
                 if ((curChar = GetCh()) == '\'') {
                     curChar = GetCh();
                     SkipWhite();
-					if (Sub7192())
+					if (IsEndParam())
 						break;
                     else {
                         CollectByte('\'');
@@ -166,17 +165,16 @@ void Sub73AD()
                 }
             }
             CollectByte(curChar);
-            if (macro.top.mtype == 2)
-                macro.top.w14++;
+            if (macro.top.mtype == M_IRPC)
+                macro.top.cnt++;
 
-			tst = curChar == '!';
-            if (GetCh() != CR && tst) {
+            if ((curChar == '!') & (GetCh() != CR)) {
                 CollectByte(curChar);
                 curChar = GetCh();
             }
         }
 
-        if (b905A)
+        if (inAngleBrackets)
             curChar = GetCh();
 
         SkipWhite();
@@ -188,28 +186,28 @@ void Sub73AD()
         reget = 1;
     }
 
-    b905D = false;
-    if (macro.top.mtype == 4)
+    inMacroBody = false;
+    if (macro.top.mtype == M_INVOKE)
     {
-        if (! b905A && tokenSize[0] == 5)
-            if (StrUcEqu("MACRO", tokPtr)) {
+        if (! inAngleBrackets && tokenSize[0] == 5)
+            if (StrUcEqu("MACRO", tokPtr)) {	// nested macro definition
                 yyType = K_MACRO;
                 PopToken();
-                w9199 = macro.top.w12;
+                pNextArg = macro.top.pCurArg;
                 opSP--;
                 reget = 1;
                 EmitXref(XREF_DEF, name);
                 rhsUserSymbol = false;
-                b6BDA = true;
+                nestedMacroSeen = true;
                 return;
             }
-        macro.top.mtype = b9062;
+        macro.top.mtype = savedMtype;
         Nest(1);
-        macro.top.mtype = 0;
+        macro.top.mtype = M_MACRO;
     }
 
     if (! isPercent)
-        if (! TestBit(curChar, b7183)) {    /* ! CR, COMMA || SEMI */
+        if (! TestBit(curChar, b7183)) {    /* ! CR, COMMA or SEMI */
             Skip2EOL();
             SyntaxError();
             reget = 1;
@@ -218,39 +216,38 @@ void Sub73AD()
 
 
 
-void Sub7517()
+void DoMacro()
 {
     if (Sub727F()) {
         expectingOperands = false;
-        w9068 = (pointer)&tokenSym.curP->line;
-        UpdateSymbolEntry(0, K_MACRONAME);
-        macro.top.mtype = 0;
-        Sub71F2();
+        pMacro = (pointer)&tokenSym.curP->blk;
+        UpdateSymbolEntry(0, T_MACRONAME);
+        macro.top.mtype = M_MACRO;
+        InitParamCollect();
     }
 }
 
-void Sub753E()
+void DoMacroBody()
 {
 	if (HaveTokens()) {
         if (tokenType[0] == 0)
             MultipleDefError();
 
-        Sub5CAD(++b9065, 0);
+        InsertMacroSym(++paramCnt, 0);
     }
-    else if (! (macro.top.mtype == 0))
+    else if (! (macro.top.mtype == M_MACRO))
         SyntaxError();
 
-    if (! macro.top.mtype == 0) {
+    if (! macro.top.mtype == M_MACRO) {
         SkipWhite();
         if (IsComma()) {
             reget = 0;
             newOp = T_BEGIN;
             Sub7327();
-            if (macro.top.mtype == 1) {
+            if (macro.top.mtype == M_IRP) {
                 curChar = GetCh();
                 SkipWhite();
-                if (! IsLT())
-                {
+                if (! IsLT()) {
                     SyntaxError();
                     reget = 1;
                 }
@@ -259,50 +256,52 @@ void Sub753E()
         else
         {
             SyntaxError();
-            Sub7383();
+            InitSpoolMode();
         }
     }
-    else if (newOp == T_CR)
+    else if (newOp == T_CR)		// got the parameters
     {
-        if (! BlankMorPAsmErrCode())
+        if (! MPorNoErrCode())
         {
-            macro.top.mtype = 5;
-            w9068 += 2;		// now points to type
-            if ((*w9068 & 0x7F) == 0x3A)
-				*w9068 = asmErrCode == 'L' ? 0x89 : 9;
+            macro.top.mtype = M_BODY;
+            pMacro += 2;		// now points to type
+            if ((*pMacro & 0x7F) == 0x3A)
+				*pMacro = asmErrCode == 'L' ? 0x89 : 9;
         }
-        Sub7383();
+        InitSpoolMode();
     }
 }
 
-void Sub75FF()
+void DoEndm()
 {
-    if (b905E & 1) {
-        if (--b9064 == 0) {
-            b905E = 0;
-            if (! (macro.top.mtype == 5)) {
-                if (macro.top.mtype == 2)
-                    w9199 = baseMacroTbl + 3;
+    if (mSpoolMode & 1) {
+        if (--macroSpoolNestDepth == 0) {	// Reached end of spooling ?
+            mSpoolMode = 0;		// spooling done
+            if (! (macro.top.mtype == M_BODY)) {
+                if (macro.top.mtype == M_IRPC)
+                    pNextArg = baseMacroTbl + 3;
 
-                for (byte *p = w919D; p <= w919F - 1; p++) {	// plm reuses pAddr
+				/* endm cannot have a label */
+                for (byte *p = startMacroLine; p <= startMacroToken - 1; p++) {	// plm reuses aVar
                     curChar = *p;
                     if (! IsWhite())
                         SyntaxError();
                 }
 
-                macroInPtr = w919D;
-                *macroInPtr = 0x1B;
-                FlushM();
+				/* replace line with the ESC char to mark end */
+                macroInPtr = startMacroLine;
+                *macroInPtr = ESC;
+                FlushM();		// write to disk
                 WriteM();
-				symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);
-                if (macro.top.mtype == 0) {
-                    *(word *)w9068 = w9C75;
-                    w9068 += 3;		// points to flags
-					*w9068 = macro.top.b3;
+				symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);	// reset macro parameter symbol table
+                if (macro.top.mtype == M_MACRO) {
+                    *(word *)pMacro = baseMacroBlk;
+                    pMacro += 3;		// points to flags
+					*pMacro = macro.top.localsCnt;		// number of locals
                 } else {
-                    macro.top.w10 = w9C75;
+                    macro.top.savedBlk = baseMacroBlk;
                     Sub720A();
-                    if (macro.top.w14 == 0)
+                    if (macro.top.cnt == 0)
                         UnNest(1);
                 }
             }
@@ -313,16 +312,16 @@ void Sub75FF()
 }
 
 
-void Sub76CE()
+void DoExitm()
 {
     if (expandingMacro) {
         if (newOp == T_CR) {
             condAsmSeen = true;
             macroCondSP = macro.top.condSP;
             ifDepth = macro.top.ifDepth;
-            macro.top.w14 = 1;
-            lookAhead = 0x1B;
-            macroCondStk[0] = 1;
+            macro.top.cnt = 1;		// force apparent endm - last repitition
+            lookAhead = ESC;		// and endm marker
+            macroCondStk[0] = 1;	// and any if else
         } else
             SyntaxError();
     } else
@@ -332,94 +331,94 @@ void Sub76CE()
 
 void Sub770B()
 {
-    if (b9C77 + 1 != tokenIdx)
+    if (savedTokenIdx + 1 != tokenIdx)
         SyntaxError();
     else if (! b9060) {
-        if (tokenType[0] != 0xD) {
+        if (tokenType[0] != O_PARAM) {
             accum1 = GetNumVal();
             Acc1ToDecimal();
         }
 
-		if (macro.top.mtype == 2)
-			macro.top.w14 = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. True in C is 1
+		if (macro.top.mtype == M_IRPC)
+			macro.top.cnt = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. Replaced here for clarity
 
-        CollectByte((tokenSize[0] + 1) | 0x80);
-        baseMacroTbl = EnterMacro(tokPtr, tokPtr + tokenSize[0] - 1);
+        CollectByte((tokenSize[0] + 1) | 0x80);						// append a byte to record the token length + 0x80
+        baseMacroTbl = AddMacroText(tokPtr, tokPtr + tokenSize[0] - 1);
         PopToken();
 
-        if (macro.top.mtype == 0 || (macro.top.mtype == 1 && argNestCnt > 0))
-            b905D = true;
+        if (macro.top.mtype == M_MACRO || (macro.top.mtype == M_IRP && argNestCnt > 0))
+            inMacroBody = true;
         else
             b9060 = true;
 
-        if (macro.top.mtype == 1)
-            macro.top.w14++;
+        if (macro.top.mtype == M_IRP)
+            macro.top.cnt++;
     }
     else
         SyntaxError();
 
     if (newOp == T_CR) {
-        b905D = false;
+        inMacroBody = false;
         if (argNestCnt > 0)
             BalanceError();
 
-        if (! BlankMorPAsmErrCode()) {
-            Sub739A();
-            if (macro.top.mtype == 0) {
+        if (! MPorNoErrCode()) {
+            ChkForLocationError();
+            if (macro.top.mtype == M_MACRO) {
                 Sub720A();
                 UnNest(1);
                 return;
             } else
-                macro.top.w14 = 0;
+                macro.top.cnt = 0;
         } else {
-            baseMacroTbl = EnterMacro(b3782, b3782 + 1);
-            if (macro.top.mtype == 0) {
-                macro.top.b3 = tokenSym.curP->flags;
-                macro.top.w10 = GetNumVal();
+            baseMacroTbl = AddMacroText(b3782, b3782 + 1);		// append 0x80 0x81
+            if (macro.top.mtype == M_MACRO) {
+                macro.top.localsCnt = tokenSym.curP->flags;
+                macro.top.savedBlk = GetNumVal();
                 Sub720A();
-            } else if (macro.top.w14 == 0)
+            } else if (macro.top.cnt == 0)
                 SyntaxError();
         }
 
-        if (! (macro.top.mtype == 0))
-            Sub7383();
+        if (! (macro.top.mtype == M_MACRO))
+            InitSpoolMode();
     }
 }
 
 
 
-void Sub7844()
+void DoRept()
 {
-    Sub72A4(3);
+    DoIrpX(M_REPT);
     if ((yyType = newOp) != T_CR)
         SyntaxError();
 
-    if (! (b905E & 1)) {
-        macro.top.w14 = accum1;
-        if (! BlankMorPAsmErrCode()) {
-            Sub739A();
-            macro.top.w14 = 0;
+    if (! (mSpoolMode & 1)) {
+        macro.top.cnt = accum1;		// get the repeat count
+        if (! MPorNoErrCode()) {	// skip processing if error other than M or P
+            ChkForLocationError();
+            macro.top.cnt = 0;
         }
-        Sub7383();
+        InitSpoolMode();
     }
 }
 
 
-void Sub787A()
+void DoLocal()
 {
-    if (b905E == 2) {
+    if (mSpoolMode == 2) {
         if (HaveTokens()) {
-            if ((byte)(++macro.top.b3) == 0)
+            if ((byte)(++macro.top.localsCnt) == 0)
                 StackError();
 
-            if (tokenType[0] != 9)
+            if (tokenType[0] != O_NAME)
                 MultipleDefError();
 
-            Sub5CAD(macro.top.b3, 1);
+            InsertMacroSym(macro.top.localsCnt, 1);
             macroInPtr = symHighMark;
         }
         if (newOp == T_CR) {
-            b905E = 1;
+            mSpoolMode = 1;
             macroInPtr = symHighMark;
         }
     } else
@@ -430,17 +429,17 @@ void Sub787A()
 
 void Sub78CE()
 {
-    kk = *macro.top.w12;
-    accFixFlags[0] = (kk == 0x21 && b9062 == 2) ? 2 : 1;	
-    if (b9062 == 0 || (macro.top.w14 -= accFixFlags[0]) == 0)
+    kk = *macro.top.pCurArg;
+    aVar.lb = (kk == '!' && savedMtype == M_IRPC) ? 2 : 1;	// size arg (2 if escaped char)
+    if (savedMtype == M_MACRO || (macro.top.cnt -= aVar.lb) == 0)	// all done
         UnNest(1);
     else {
-        if (b9062 == 1)
-            w9199 = macro.top.w12 - (kk & 0x7F);
+        if (savedMtype == M_IRP)
+            pNextArg = macro.top.pCurArg - (kk & 0x7F);		// skip foward to start of arg (stored as arg, len)
         else
-            w9199 = macro.top.w12 + accFixFlags[0];
+            pNextArg = macro.top.pCurArg + aVar.lb;	// skip char or escaped char
 
-        macro.top.mtype = b9062;
+        macro.top.mtype = savedMtype;
         Sub720A();
     }
     lookAhead = 0;

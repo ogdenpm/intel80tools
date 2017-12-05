@@ -52,12 +52,12 @@ void PhaseError()
 
 void StackError()
 {
-    RuntimeError(0);
+    RuntimeError(RTE_STACK);
 }
 
 void FileError()
 {
-    RuntimeError(4);
+    RuntimeError(RTE_FILE);
 }
 
 void IllegalCharError()
@@ -119,7 +119,7 @@ void Nest(byte sw)
             //memcpy(&macro.stack[macroDepth], &macro.stack[0], sizeof(macro_t));
             macro.top.condSP = macroCondSP;
             macro.top.ifDepth = ifDepth;
-            b9061 = true;
+            nestMacro = true;
         }
     } else {
         if (++ifDepth > 8) {
@@ -149,7 +149,7 @@ void UnNest(byte sw)
 		macro.stack[0] = macro.stack[macroDepth];
         memcpy(&macro.stack[0], &macro.stack[macroDepth], sizeof(macro_t));
         ReadM(macro.top.blk);
-        b9062 = macro.top.mtype;
+        savedMtype = macro.top.mtype;
         if (--macroDepth == 0) { /* end of macro nest */
             expandingMacro = 0;     /* not expanding */
             baseMacroTbl = Physmem() + 0xBF;
@@ -261,13 +261,13 @@ void GetStr()
 
     while (GetCh() != CR) {
         if (curChar == '\'')
-            if (GetCh() != '\'')
+            if (GetCh() != '\'')	// if not '' then all done
                 goto L6268;
-        CollectByte(curChar);
+        CollectByte(curChar);	// collect char - '' becomes '
     }
 
-    BalanceError();
+    BalanceError();				// EOL seen before closing '
 
 L6268:
-    reget = 1;
+    reget = 1;					// push back CR or char after '
 }

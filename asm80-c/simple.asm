@@ -1,5 +1,7 @@
 
-	irpc	x,abc
-	add	x
+	irpc	x,'abc'' def'
+	db	'&x'
 	endm
 	end
+
+	

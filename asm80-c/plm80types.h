@@ -1,12 +1,12 @@
 #pragma once
-#include <stdbool.h>
-#include <memory.h>
+
+#pragma pack(push, 1)
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
-typedef word *apointer;
+typedef word *wpointer;
 
-#pragma pack(push, 1)
+
 typedef union {
 	word w;
 	struct {
@@ -103,13 +103,13 @@ typedef struct {
 	byte condSP;
 	byte ifDepth;
 	byte mtype;
-	byte b3;
-	word w4;
+	byte localsCnt;
+	word localIdBase;
 	pointer bufP;
 	word blk;
-	word w10;
-	pointer w12;
-	word w14;
+	word savedBlk;
+	pointer pCurArg;	// pointer to current IRPC char or IRP arg
+	word cnt;		// IRPC -> char count, IRP -> num args, DoRept -> count
 } macro_t;
 
 typedef struct {
@@ -119,8 +119,12 @@ typedef struct {
 			byte base;
 			byte delta;
 		};
+		word addr;
 		word line;
 		word value;
+		word offset;
+		word paramId;
+		word blk;
 	};
 	byte type;
 	byte flags;
@@ -171,4 +175,13 @@ typedef union {
 	macro_t stack[10];
 	macro_t top;
 } macroStk_t;
+
+typedef struct {
+	byte deviceId;
+	byte name[6];
+	byte ext[3];
+	byte deviceType;
+	byte driveType;
+} spath_t;
+
 #pragma pack(pop)

@@ -13,7 +13,7 @@ keyword_t extKeywords[151] = {
  /* [     token     ] opBase offset type        flags */
     { 0xA528, 0,      0,      0,      K_NE,      0},      /* NE */
     { 0x63B0, 0,      0xCC,   0,      K_IMM16,   0},      /* CZ */
-    { 0x6E60, 0x9C40, 0,      0,      K_ENDM,    0},      /* ENDM */
+    { 0x6E60, 0x9C40, 0,      0,      K_ENDM,    0},      /* DoEndm */
     { 0xBFB6, 0,      0xC0,   0,      K_SINGLE,  0},      /* RNZ */
     { 0xB354, 0,      0xC1,   0,      K_REG16,   0},      /* POP */
     { 0x6EE9, 0,      0,      0,      K_EQU,     0},      /* EQU */
@@ -85,7 +85,7 @@ keyword_t extKeywords[151] = {
     { 0x6231, 0,      0xEC,   0,      K_IMM16,   0},      /* CPE */
     { 0xB436, 0x9957, 0,      0xA8,   K_PUBLIC,  0},      /* PUBLIC */
     { 0xBDA0, 0,      0x17,   0xA8,   K_SINGLE,  0},      /* RAL */
-    { 0x6FF5, 0xCBE8, 0,      0xD8,   K_EXITM,   0},      /* EXITM */
+    { 0x6FF5, 0xCBE8, 0,      0xD8,   K_EXITM,   0},      /* DoExitm */
     { 0x6235, 0,      0xFE,   0,      K_IMM8,    0},      /* CPI */
     { 0xBF68, 0,      0xF8,   0,      K_SINGLE,  0},      /* RM */
 	{ 0,      0,      0,      0,      0,         0},
@@ -111,7 +111,7 @@ keyword_t extKeywords[151] = {
     { 0x8774, 0,      3,      0x90,   K_REG16,   0},      /* INX */
     { 0x61B5, 0,      0x2F,   0x90,   K_SINGLE,  0},      /* CMA */
     { 0x876C, 0x5449, 1,      0,      K_SPECIAL, 0},      /* INPAGE */
-    { 0x9A47, 0x5500, 0,      0x98,   K_LOCAL,   0},      /* LOCAL */
+    { 0x9A47, 0x5500, 0,      0x98,   K_LOCAL,   0},      /* DoLocal */
     { 0xE5BD, 0,      0xA8,   8,      K_ARITH,   0},      /* XRA */
     { 0x80E0, 0,      0x76,   0,      K_SINGLE,  0},      /* HLT */
     { 0x8DE0, 0,      0xF2,   0,      K_IMM16,   0},      /* JP */
@@ -125,7 +125,7 @@ keyword_t extKeywords[151] = {
     { 0x8D68, 0,      0xFA,   0,      K_IMM16,   0},      /* JM */
     { 0x5560, 0,      0,      0,      K_AND,     0},      /* AND */
     { 0x5140, 0,      7,      0x58,   K_REGNAME, 0},      /* A */
-    { 0xBE44, 0xC800, 0,      0,      K_REPT,    0},      /* REPT */
+    { 0xBE44, 0xC800, 0,      0,      K_REPT,    0},      /* DoRept */
     { 0x8DF1, 0,      0xEA,   0,      K_IMM16,   0},      /* JPE */
     { 0x880C, 0,      0,      0,      K_IRP,     0},      /* IRP */
     { 0x5565, 0,      0xE6,   0,      K_IMM8,    0},      /* ANI */

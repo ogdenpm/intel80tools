@@ -14,7 +14,7 @@ void DumpSymbols(byte tableId)
 		while (s < e) {
 			UnpackToken(s->tok, token);
 			token[6] = 0;
-			printf("tok = \"%s\", line/val = %04X, type = %02X, flags = %02X\n", token, s->line, s->type, s->flags);
+			printf("tok = \"%s\", line/val = %04X, type = %02X, flags = %02X\n", token, s->addr, s->type, s->flags);
 
 			s++;
 		}
@@ -38,7 +38,7 @@ void DumpTokenStack()
 	printf("TokenStack:\n");
 	for (int i = 0; i <= tokenIdx; i++) {
 		if (tokenSize[i] == 4) {
-			UnpackToken((apointer)tokStart[i], token);
+			UnpackToken((wpointer)tokStart[i], token);
 			printf("%2d: start = %s", i, token);
 		} else
 			printf("%2d: Start = %02X", i, tokStart[i] - lineBuf);
@@ -46,7 +46,7 @@ void DumpTokenStack()
 		if (s && (symTab[TID_SYMBOL] <= s && s <= endSymTab[TID_SYMBOL] || symTab[TID_MACRO] <= s && s <= endSymTab[TID_MACRO])) {
 				UnpackToken(s->tok, token);
 				token[6] = 0;
-				printf(" Sym (\"%s\" %04X %02X %02X)", token, s->line, s->type, s->flags);
+				printf(" Sym (\"%s\" %04X %02X %02X)", token, s->addr, s->type, s->flags);
 			}
 			else
 				printf(" Sym (%p)", s);
