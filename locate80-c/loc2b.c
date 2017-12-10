@@ -100,13 +100,13 @@ void EmitModDat(dataFrag_t *curDataFragP)
 	((moddat_t *)outP)->segId = SABS;		/* abs seg */
 	curPC = (((moddat_t *)outP)->offset = curDataFragP->saddr);		/* load address */
 					/* initialise the CRC */
-	crc = (lsoutP->reclen >> 8) + 6 + (lsoutP->reclen & 0xff) + (((moddat_t *)outP)->offset >> 8) + (((moddat_t *)outP)->offset & 0xff);
+	crc = High(lsoutP->reclen) + 6 + Low(lsoutP->reclen) + High(((moddat_t *)outP)->offset) + Low(((moddat_t *)outP)->offset);
 	outP = outP + 3;
 
 	while (len > 0) {
 		bcnt = 256;	/* Write() 256, || less if (no page boundary || less bytes available */
-		if ((curPC & 0xff) != 0 )
-			bcnt = 256 - (curPC & 0xff);
+		if (Low(curPC) != 0 )
+			bcnt = 256 - Low(curPC);
 		if (bcnt > len )
 			bcnt = len;
 		pmem =  AddrInCache(curPC);	/* get a pointer to where the data is now */
@@ -116,8 +116,8 @@ void EmitModDat(dataFrag_t *curDataFragP)
 		WriteBytes(pmem, bcnt);	/* add the bytes to the output record */
 		if (bcnt == 256 )		/* if was a whole page then free it */
 		{
-			pageTab1P[pageTab2P[curPC >> 8].pageIdx].state = 0xff;
-			pageTab2P[curPC >> 8].pageIdx = 0xff;	/* mark page as free */
+			pageTab1P[pageTab2P[High(curPC)].pageIdx].state = 0xff;
+			pageTab2P[High(curPC)].pageIdx = 0xff;	/* mark page as free */
 		}
 		curPC = curPC + bcnt;		/* account for written data */
 		len = len - bcnt;
@@ -310,10 +310,10 @@ void ProcModdat()
 				/* find the fixup location in memory */
 				fixLoc = AddrInCache(fixRaddr);
 				switch (loHiBoth - 1) {
-				case 0:	*fixLoc = *fixLoc + (workingSegBase & 0xff); break;	/* LO add in low of target base address */
-				case 1: *fixLoc = *fixLoc + (workingSegBase >> 8);	break;  /* HI add in high of target base address */
+				case 0:	*fixLoc = *fixLoc + Low(workingSegBase); break;	/* LO add in low of target base address */
+				case 1: *fixLoc = *fixLoc + High(workingSegBase);	break;  /* HI add in high of target base address */
 				case 2:						/* BOTH */
-					if ((fixRaddr & 0xff) != 0xff)	/* doesn't span pages */
+					if (Low(fixRaddr) != 0xff)	/* doesn't span pages */
 						*(wpointer)fixLoc += workingSegBase;	/* simple add in to existing word value */
 					else
 					{

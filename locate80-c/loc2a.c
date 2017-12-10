@@ -45,11 +45,11 @@ void Errmsg(word errCode)
 	word i;
 	word status;
 	
-	if ((errCode & 0xff) != 0 )
+	if (Low(errCode) != 0 )
 	{
 		i = 0;
 		while (i < sizeof(errTab)) {
-			if ((errCode & 0xff) == errTab[i])
+			if (Low(errCode) == errTab[i])
 			{
 				Write(0, " ", 1, &status);
 				while (errTab[i = i + 1] != 0) {

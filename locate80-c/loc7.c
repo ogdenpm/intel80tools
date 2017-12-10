@@ -81,7 +81,7 @@ void ProcArgsInit()
 
 	/* work out a good io buf size */
 	/* checks are for >= 32k of space, >= 16k of space */
-	if ((pageCacheSize = (((word)(MemCk() - baseMemImage)) >> 8) - 1) >= 128)
+	if ((pageCacheSize = High((word)(MemCk() - baseMemImage)) - 1) >= 128)
 		npbuf = 4096;
 	else if (pageCacheSize >= 64)
 		npbuf = 2048;
@@ -208,7 +208,7 @@ void ProcArgsInit()
 	roundRobinIndex = 0;
 	pageIndexTmpFil = 0;
 	/* recalculate pageCache size */
-	pageCacheSize = (((word)(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1)))) >> 8) - 1;
+	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = (page1_t *)(pageTab2P + 1))) - 1;
 	/* set a new baseMemImage after Allocting() pageTab1 slots - one for each page */
 	baseMemImage =  ((pointer)pageTab1P) + (pageCacheSize + 1) * 2 ;
 	/* initialise the paging table control information */
@@ -225,7 +225,7 @@ void ProcArgsInit()
 	/* set up the heap locations below the print buffer */
 	topHeap = topDataFrags = botHeap = spbufP;
 	/* recalculate the pageCacheSize now available */
-	pageCacheSize = ((word)((outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1))))) >> 8) - 1;
+	pageCacheSize = (word)High(outRecordP - (pointer)(pageTab1P = ((page1_t *)(pageTab2P + 1)))) - 1;
 	/* create the output file*/
 	Delete(&outFileName[1], &statusIO);
 	Open(&outputfd, &outFileName[1], 3, 0, &statusIO);
@@ -257,7 +257,7 @@ word AlignAddress(byte align, word size, word laddr)
 	if (align == AINPAGE)
 		if (size <= 256)	/* check if fits in page */
 		{
-			if ((laddr >> 8) == ((laddr + size - 1) >> 8))
+			if (High(laddr) == High(laddr + size - 1))
 				return laddr;
 		}
 		else    /* inpage seg > 256 coerced to page boundary */

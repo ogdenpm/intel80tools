@@ -15,6 +15,10 @@ typedef word *wpointer;
 // defined a MEMCK value to use in calculation
 #define MEMCK	0xff00
 
+// accessor macros for HIGH and LOW
+// word cast is to avoid 64bit warnings
+#define High(n) ((word)((n) >> 8))
+#define Low(n)  ((word)((n) & 0xff))
 
 #pragma pack(push, 1)
 typedef union {
@@ -147,13 +151,13 @@ typedef struct {
 #define ERR17   17 /* NOT A DISK FILE */
 #define ERR19   19 /* ATTEMPTED SEEK ON NON-DISK FILE */
 #define ERR20   20 /* ATTEMPTED BACK SEEK TOO FAR */
-#define ERR21   21' /* CANT RESCAN */
+#define ERR21   21 /* CANT RESCAN */
 #define ERR22   22 /* ILLEGAL ACCESS MODE TO OPEN */
 #define ERR23   23 /* MISSING FILENAME */
 #define ERR27   27 /* ILLEGAL SEEK COMMAND */
 #define ERR28   28 /* MISSING EXTENSION */
-#define ERR31   31' /* CANT SEEK ON WRITE ONLY FILE */
-#define ERR32   32' /* CANT DELETE OPEN FILE */
+#define ERR31   31 /* CANT SEEK ON WRITE ONLY FILE */
+#define ERR32   32 /* CANT DELETE OPEN FILE */
 #define ERR35   35 /* SEEK PAST EOF */
 #define ERR203  203 /* INVALID SYNTAX */
 #define ERR204  204 /* PREMATURE EOF */

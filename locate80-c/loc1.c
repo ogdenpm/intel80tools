@@ -283,7 +283,7 @@ void AnotherPage(byte page)
 		/* page Allocated() is first after the current max pageCacheSize */
 		nxtPageNo = pageCacheSize + 1;
 		/* increase the pageCacheSize available */
-		pageCacheSize = (((word)((botHeap = botHeap + npbuf) - baseMemImage)) >> 8) - 1;
+		pageCacheSize = High((word)((botHeap += npbuf) - baseMemImage)) - 1;
 		return;
 	}
 	if (! havePagingFile)	/* have to page, create file if ! done */
@@ -328,22 +328,22 @@ pointer AddrInCache(word addr)
 	address baddr;
 	page2_t *pt;
 
-	pt = &pageTab2P[addr >> 8];
+	pt = &pageTab2P[High(addr)];
 	if (pt->pageIdx == 0xFF)	/* needs Allocating() */
-		return AllocNewPage(addr >> 8) + (addr & 0xff);
+		return AllocNewPage(High(addr)) + Low(addr);
 	if (pt->pageIdx == 0xFE)	/* on disk */
 	{
-		baddr.bp = AllocNewPage(addr >> 8);		/* Alloc page in cache */
+		baddr.bp = AllocNewPage(High(addr));		/* Alloc page in cache */
 		SeekPagingFile(pt->fileIdx);		/* Seek() to its place in the paging file */
 		Read(tmpfd, baddr.bp, 256, &actRead, &statusIO);	/* Read() in */
 		ErrChkReport(statusIO, &tmpFileName[1], true);
 		if (actRead != 256)			/* if problems & ~ :BB: out file then Error() */
 			if (outRealFile)
 				ErrChkReport(ERR204, &tmpFileName[1], true);    /* premature EOF */
-		return baddr.bp + (addr & 0xff);		/* return the mapped address */
+		return baddr.bp + Low(addr);		/* return the mapped address */
 	}
 	baddr.hb = pt->pageIdx;		/* page offset in cache */
-	baddr.lb = addr & 0xff;		/* offset in page */
+	baddr.lb = Low(addr);		/* offset in page */
 	return baseMemImage + baddr.w;	/* mapped address */
 }
 
@@ -351,12 +351,12 @@ pointer AddrInCache(word addr)
 void Alloc(word cnt)
 {
 	/* Allocate() but check whether we have crossed a page boundary */
-	if (((botHeap - baseMemImage) >> 8) != (((botHeap = botHeap - cnt) - baseMemImage) >> 8))
+	if (High(botHeap - baseMemImage) != High((botHeap -= cnt) - baseMemImage))
 	{
 		if (! pageTab1P[pageCacheSize].state)	/* if current cache all used, try forcing using print buf */
 			AnotherPage(pageCacheSize);	/* or paging the last page to disk */
 
-		if ((pageCacheSize = (((word)(botHeap - baseMemImage) >> 8)) - 1) == 0xff)	/* check we haven't eliminated all cache */
+		if ((pageCacheSize = High((word)(botHeap - baseMemImage)) - 1) == 0xff)	/* check we haven't eliminated all cache */
 			ErrChkReport(ERR210, &inFileName[1], true);	/* Insufficient() memory */
 	}
 }
@@ -480,12 +480,12 @@ void LoadModdat(byte segId)
 	byte curLoadPage;
 
 	dataLen = recLen - 4;
-	inCRC = (recLen >> 8) + 6 + (recLen & 0xff) + inP[0] + inP[1] + inP[2];
+	inCRC = High(recLen) + 6 + Low(recLen) + inP[0] + inP[1] + inP[2];
 	iBufP = iBufP + 3;
-	if (((curLoadAddr = inFragment.saddr) & 0xff) != 0)
+	if (Low(curLoadAddr = inFragment.saddr) != 0)
 	{
-		if (((curLoadAddr + (bytes2Read = dataLen) -1) >> 8) != (curLoadAddr >> 8))
-			bytes2Read = 256 - (curLoadAddr & 0xff);	/* don't go over page boundary */
+		if (High(curLoadAddr + (bytes2Read = dataLen) - 1) != High(curLoadAddr))
+			bytes2Read = 256 - Low(curLoadAddr);	/* don't go over page boundary */
 		ChkRead(bytes2Read);			/* make sure data is in the buffer */
 		for (inbP = iBufP; inbP <= iBufP + bytes2Read - 1; inbP++) {	/* add the data to the crc */
 			inCRC = inCRC + *inbP;
@@ -504,7 +504,7 @@ void LoadModdat(byte segId)
 								/* there is no fixup involved */
 		{
 			/* if (a page cache entry exists) this would be trashed anyway so free up */
-			if (pageTab2P[curLoadPage = (curLoadAddr >> 8)].pageIdx <= 0xfd)
+			if (pageTab2P[curLoadPage = High(curLoadAddr)].pageIdx <= 0xfd)
 				pageTab1P[pageTab2P[curLoadPage].pageIdx].state = 0xff;
 			PageOut(curLoadPage, iBufP);
 		}
