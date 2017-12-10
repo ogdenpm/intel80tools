@@ -369,7 +369,7 @@ void Pass2CONTENT()
     pointer savedOutP;
     word savedRecLen;
     word bytes2Read;
-    pointer markheap;
+    pointer markheap = 0;	// compiler complains
     fixup_t *headexternP;
 
     inRecordP = (record_t *)fakeModhdr;    /* keep inRecordP pointing to a modhdr */

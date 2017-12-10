@@ -649,7 +649,7 @@ void P1LibScan()
 //	byte pad[3];
 	word blk, byt, blk2A, byt2A, modIdx, toResolve;
     word i, libModulesToLoad;
-    loc_t *modlocsP;
+    loc_t *modlocsP = 0;
 
 	curObjFile->hasModules = true;
 	if (unresolved > 0)
