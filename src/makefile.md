@@ -79,7 +79,7 @@ The basic structure of the makefile is
 * **SHELL** - set to bash.exe
 * **COMPARE** - set to $(ROOT)/tools/omfcmp if not defined
 * **OBJ,LST,SRC** - set to current directory if not defined, paths converted to unix format and any trailing / removed.
-* **ISIS_F0** - set to current directory if not defined
+* **ISIS\_F0** - set to current directory if not defined
 * **ISIS** - set to the thames program with the -m option set
 * **PLMPP** - set to the plmpp program
 * **NGENPEX** - set to the ngenpex program
@@ -292,19 +292,19 @@ elsewhere, especially fixpath, ipath and ifile
 
 * **notlast** - returns all but the last item in a list
 
-   	Usage: $(call notlast,list)
-   	Example:
-   	    $(call notlast,1 2 3 4 5)
-   	returns
-   	    1 2 3 4
+    Usage: $(call notlast,list)
+    	Example:
+    	    $(call notlast,1 2 3 4 5)
+    	returns
+    	    1 2 3 4
 
 * **mklist** - converts a space separated list into a comma separated list
 
-   	Usage: $(call mklist,list)
-   	Example:
-   	    $(call mklist,a b c)
-   	returns
-   	    a,b,c
+    Usage: $(call mklist,list)
+    	Example:
+    	    $(call mklist,a b c)
+    	returns
+    	    a,b,c
 
 ### Rules defined in isis.mk
 As with normal make usage a number of predefined rules are added by isis.mk.
