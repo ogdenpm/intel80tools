@@ -1,0 +1,697 @@
+submit.pex
+# vim:ts=4:shiftwidth=4:expandtab
+# common literals
+TRUE    '0FFh'
+FALSE   '0'
+CR      '0Dh'
+LF      '0Ah'
+FOREVER 'WHILE TRUE'
+CONTROL$P   '10h'
+
+# my user types
+pointer     'address'
+bool        'byte'
+apointer    'address'
+word        'address'
+
+# supported record types
+RELOC$TYPE      '22h'
+MODEND$TYPE     '4'
+CONTENT$TYPE    '6'
+
+# seek modes
+SEEK$ABS    '2'
+SEEK$RETURN '0'
+
+# error codes
+TOO$MANY$PARAMS '0D8h'
+ARG$TOO$LONG   '0D7h'
+INVALID$SYNTAX  '0CBh'
+BAD$PARAM       '0D6h'
+
+# external procedures
+Deblank     P("pointer" ptr)"pointer"
+Delimit     P("pointer" ptr)"pointer"
+MoveAscii   P("pointer" dst,"pointer" src,B cnt)
+FileError   P("word" status,"pointer" ptr,"bool" fatal)
+NumOut      P("word" val,B base,B lc,"pointer" buf,B width)
+Path        P("pointer" filename,"pointer" pn)B
+Seq         P("pointer" str1,"pointer" str2,B cnt)"bool"
+ReportError P("word" errNum)
+ScanInteger P("pointer" buf$p)"word"
+TestRange   P(B device,A buffer$p)B
+Unpath      P("pointer" int,"pointer" ext)
+UpperCase   P(B char)B
+WDelimit    P("pointer" ptr)"pointer"
+
+Close       P("word" conn,"apointer" status$p)
+Consol      P("pointer" ci$p, "pointer" co$p,"apointer" status$p)
+Delete      P("pointer" path$p,"apointer" status$p)
+Error       P("word" errnum)
+Exit        P
+Memck       P"apointer"
+Open        P("apointer" conn$p,"pointer" path$p,"word" access,"word" echo,"apointer" status$p)
+Read        P("word" conn,"pointer" buff$p,"word" count,"apointer" actual$p,"apointer" status$p)
+Rescan      P("word" conn, "apointer" status$p)
+Seek        P("word" conn,"word" mode,"apointer" block$p,"apointer" byte$p, "apointer" status$p)
+Spath       P("pointer" path$p,"pointer" info$p,"apointer" status$p)    
+Whocon      P("word" conn,"pointer" buff$p)
+Write       P("word" conn,"pointer" buff$p,"word" count,"apointer" status$p)
+
+# file access modes
+READ$MODE   '1'
+WRITE$MODE  '2'
+
+submit.plm
+SUBMIT:
+DO;
+$include(submit.ipx)
+DECLARE copyRight(*) byte data(
+    '(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP');
+DECLARE programVersion(*) byte data(4, 0, 'program_version_number=', 1, 'V4.3', 0);
+
+/*
+    THIS VERSION OF SUBMIT HAS BEEN MODIFIED TO WORK ON DOUBLE DENSITY.
+    IT RECOGNIZES DISK DRIVES 4 AND 5.
+*/
+
+/*
+
+ THIS CUSP HAY BE CALLED BY EITHER OF 2 COMMAND STRINGS:
+
+1.   -SUBMIT RESTORE <MACRO-FILENAME> (<PATHNAHE>,<BLOCKNO>,<BYTENO>)
+
+       WHEN INVOKED IN THIS FASHION, SUBMIT WILL REPLACE THE
+     CURRENT CONSOLE INPUT DEVICE (:CI:) BY THE FILE SPECIFIED
+     BY <PATHNAME>; THEN THE FILE CALLED :FX:<MACRO-FILENAME>.CF
+     IS DELETED.
+
+       FURTHERMORE, IF <PATHNAME> SPECIFIES A DISK FILE, THEN
+     A SEEK IS PERFORMED ON IT, AFTER IT BECOMES THE NEW :CI:
+     FILE, USING THE <BLOCKNO> AHD <BYTENO> PARAMETERS, WHICH
+     ARE ASSUMED TO BE INTEGERS.
+
+2.    -SUBMIT <MACRO-FILENAME>(<ARG0>,<ARG1>,...,<ARG9>)
+
+        WHEN INVOKED IN THIS FASHION, SUBMIT WILL CREATE A FILE
+      :FX:<MACRO-FILENAME>.CF BY SUBSTITUTING THE ACTUAL
+      PARAMETERS (<ARGS>'S) GIVEN FOR THE FORMAL PARAMATERS IN THE
+      FILE SPECIFIED BY <MACRO-FILENAME>. (THE K'TH FORMAL PARAMATER
+      IS %K, K A DIGIT.) THE CURRENT CONSOLE INPUT DEVICE IS THEN
+      TEMPORARILY REDEFINED AS :FX:<MACRO-FILENAME>.CF; WHEN END OF
+      FILE ON :FX:<MACRO-FILENAME>.CF IS REACHED, IT IS DELETED,
+      AND :CI: IS RESUMED AS BEFORE. (NOTE THAT SUBMITS CAN BE NESTED).
+*/
+
+/*
+  STRUCTURE TO STORE ACTUAL PARAMETERS AND CORRESPONDING LENGTHS.
+*/
+
+declare params(10) structure(
+    dat(31) byte,
+    length byte);
+
+declare buffer(1024) byte;
+declare buffer$ptr pointer;
+declare buffer$count word;
+declare char based buffer$ptr byte;
+declare auxptr pointer;
+declare pn(10) byte;
+declare i word;
+declare l byte;
+declare (restore,scanning,debug,param$scan) bool;
+declare (csd,cs,status,actual) word, (blockNo,byteNo) address;
+declare (csdName,csName,nickName,ci) (15) byte;
+
+/* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* 
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+    Beginning of main program
+
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* */
+
+    /*
+      Initialize parameter arrays.
+    */
+    do i=0 to size(params);
+        params(0).dat(i) = 0;
+    end;
+    call Rescan(1, .status);
+    call Read(1, .buffer, length(buffer), .actual, .status);
+    buffer(actual) = CR;
+    buffer$ptr = .buffer; /* force$upper that stops at params */
+    do while char <> CR and char <> '(';
+        char = UpperCase(char);
+        buffer$ptr = buffer$ptr + 1;
+    end;
+    buffer$ptr = Deblank(.buffer);
+    /*
+      save name submit was invoked by.
+    */
+    debug = FALSE;
+    if Seq(buffer$ptr, .('DEBUG '), 6) then
+    do;
+        debug = TRUE;
+        buffer$ptr = Deblank(buffer$ptr + 5);
+    end;
+    status = Path(buffer$ptr, .pn);
+    call Unpath(.pn, .nickName);
+    buffer$ptr = Deblank(Delimit(buffer$ptr));
+    /*
+      Test for restore command.
+    */
+    restore = FALSE;
+    if Seq(buffer$ptr, .('RESTORE '), 8) then
+    do;
+        restore = TRUE;
+        buffer$ptr = Deblank(buffer$ptr + 8);
+    end;
+    /*
+      Parse filenames.
+    */
+    call FileError(Path(buffer$ptr,.pn), buffer$ptr, TRUE);
+    if pn(7) = 0 then
+    do;
+        pn(7) = 'C';
+        pn(8) = 'S';
+        pn(9) = 'D';
+    end;
+    call  Unpath(.pn, .csdName);
+    pn(7) = 'C';
+    pn(8) = 'S';
+    pn(9) = 0;
+    call  Unpath(.pn, .csName);
+    buffer$ptr = Deblank(Delimit(buffer$ptr));
+    /*
+      Process actual paramaters.
+    */
+    i = 0;  /* parameter count */
+    if char = '(' then
+    do;
+        buffer$ptr = buffer$ptr + 1;
+        scanning = TRUE;
+        do while scanning;
+            auxptr, buffer$ptr = Deblank(buffer$ptr);
+            if i = length(params) then
+                call FileError(TOO$MANY$PARAMS, auxptr, TRUE);
+            l = 0;  /* parameter length counter */
+            if char = '''' then
+            do;
+                param$scan = TRUE;
+                buffer$ptr = buffer$ptr + 1;
+                do while param$scan;
+                    if l = length(params.dat) then
+                        call FileError(ARG$TOO$LONG, auxptr, TRUE);
+                    params(i).dat(l) = char;
+                    if char = '''' then
+                    do;
+                        param$scan = FALSE;
+                        buffer$ptr = buffer$ptr + 1;
+                        if char = '''' then
+                        do;
+                            param$scan = true;
+                            buffer$ptr = buffer$ptr + 1;
+                        end;
+                    end;
+                    else buffer$ptr = buffer$ptr + 1;
+                    l = l + 1;
+                end;
+                l = l - 1;
+            end;
+            else
+            do;
+                param$scan = TRUE;
+                do while param$scan;
+                    if l = length(params.dat) then
+                        call FileError(ARG$TOO$LONG, auxptr, TRUE);
+                    if char > ' ' and char <= 'z'
+                    and char <> ','
+                    and char <> ')' then
+                    do;
+                        params(i).dat(l) = char;
+                        buffer$ptr = buffer$ptr + 1;
+                        l = l + 1;
+                    end;
+                    else param$scan = FALSE;
+                end;
+            end;
+            buffer$ptr = Deblank(buffer$ptr);
+            if char = ',' then
+            do;
+                buffer$ptr = buffer$ptr + 1;
+            end;
+            else
+            if char = ')' then
+            do;
+                scanning = FALSE;
+                buffer$ptr = Deblank(buffer$ptr + 1);
+            end;
+            else call FIleError(INVALID$SYNTAX, auxptr, TRUE);
+            params(i).length = l;
+            i = i + 1;
+        end;
+    end;
+    if char <> CR  then call FileError(INVALID$SYNTAX, buffer$ptr, TRUE);
+    if restore then
+    do;
+        /*
+            change console to previous file
+        */
+        call Consol(.params(0).dat, .(':CO: '), .status);
+        status = Path(.params(0).dat, .pn);
+        if TestRange(pn(0), 1) <= 9 then   /* disk file */
+        do;
+            blockNo = .params(1).dat;
+            blockNo = ScanInteger(.blockNo);
+            byteNo = .params(2).dat;
+            byteNo = ScanInteger(.byteNo);
+            call Seek(1, SEEK$ABS, .blockNo, .byteNo, .status);
+        end;
+        /*
+            delete file which just was the console
+        */
+        call Delete(.csName, .status);
+        call FileError(status, .csName, TRUE);
+    end;
+    else
+    do;
+        /*
+            write <MACRO-FILENAME>.CS.
+        */
+        GetInput: procedure byte;
+            declare temp byte;
+
+            if buffer$count = 0 then
+            do;
+                buffer$ptr = .buffer;
+                call Read(csd, .buffer, length(buffer), .buffer$count, .status);
+            end;
+            if buffer$count = 0 then return 0;
+            temp = char;
+            buffer$ptr = buffer$ptr + 1;
+            buffer$count = buffer$count - 1;
+            return temp;
+        end GetInput;
+
+        call Open(.csd, .csdName, READ$MODE, 0, .status);
+        call FileError(status, .csdName, TRUE);
+        call Open(.cs, .csName, WRITE$MODE, 0, .status);
+        call FileError(status, .csName, TRUE);
+        buffer$count = 0;
+        do while (l:=GetInput) <> 0;
+            if l = CONTROL$P then
+            do;
+                l = GetInput;
+                call Write(cs, .l, 1, .status);
+            end;
+            else
+            if l <> '%' then call Write(cs, .l, 1, .status);
+            else
+            do;
+                l = GetInput - '0';
+                if l > last(params) then
+                    call FileError(BAD$PARAM, buffer$ptr - 1, TRUE);
+                call Write(cs, .params(l).dat, params(l).length, .status);
+            end;
+        end;
+        /*
+            add command to restore prior console
+        */
+        call Close(csd, .status);
+        if debug then
+        do;
+            call Write(cs, .('DEBUG '), 6, .status);
+        end;
+        call Write(cs, .nickName, Delimit(.nickName) - .nickName + 1, .status);
+        call Write(cs, .('RESTORE '), 8, .status);
+        call Write(cs, .csName, Delimit(.csName) - .csName, .status);
+        call Write(cs, .('('), 1, .status);
+        /*
+            ci := current console input device
+        */
+        call Whocon(1, .ci);
+        call Write(cs, .ci, Delimit(.ci) - .ci, .status);
+        status = Path(.ci, .pn);
+        if TestRange(pn(0), 1) <= 9 then  /* disk file */
+        do;
+            PrintBlockOrByte: procedure(x);
+                declare x word, ptr pointer;
+                declare buf(6) byte;
+
+                buf(5) = ' ';
+                call Write(cs, .(','), 1, .status);
+                call NumOut(x, 10, ' ', .buf, 5);
+                ptr = Deblank(.buf);
+                call Write(cs, ptr, Delimit(ptr) - ptr, .status);
+            end PrintBlockOrByte;
+
+            call Seek(1, SEEK$RETURN, .blockNo, .byteNo, .status);
+            call PrintBlockOrByte(blockNo);
+            call PrintBlockOrByte(byteNo);
+        end;
+        call Write(cs, .(')', CR, LF), 3, .status);
+        call Close(cs, .status);
+        call Consol(.csname, .(':CO: '), .status);
+    end;
+    call Exit;
+end;
+eof;
+ 
+dblank.plm
+DEBLANK: DO;
+Deblank: procedure(str) address public;
+    declare str address;
+    declare c based str byte;
+
+    do while (c = ' ');
+        str = str + 1;
+    end;
+    return str;
+end;
+
+end;
+dlimit.plm
+DELIMIT: DO;
+Delimit: procedure(ptr) address public;
+    declare ptr address, ch based ptr byte;
+
+    do while ch = ':' or ch = '.' or
+         ('0' <= ch and ch <= '9') or
+         ('A' <= ch and ch <= 'Z');
+        ptr = ptr + 1;
+    end;
+    return ptr;
+end;
+end;
+filerr.plm
+FILEERROR: DO;
+$include(filerr.ipx)
+
+FileError: procedure(status, ptr, callExit) public;
+    declare (status, ptr) address, callExit byte;
+    declare actual address;
+
+    if status <> 0 then
+    do;
+        ptr = Deblank(ptr);
+        call Write(0, .(' '), 1, .actual);
+        call Write(0, ptr, WDelimit(ptr) - ptr, .actual);
+        call Write(0, .(','), 1, .actual);
+        call ReportError(status);
+        if callExit then
+            call exit;
+    end;
+end;
+end;
+numout.plm
+NUMOUT: DO;
+
+declare digits(*) byte data('0123456789ABCDEF');
+
+NumOut: procedure(val, base, lc, bufAdr, width) public;
+    declare (val, bufAdr) address, (base, lc, width) byte; 
+    declare i byte;
+    declare buf based bufAdr (1) byte;
+
+    do i = 1 to width;
+        buf(width - i) = digits(val mod base);
+        val = val / base;   
+    end;
+
+    i = 0;
+    do while buf(i) = '0' and i < width - 1;
+        buf(i) = lc;
+        i = i + 1;
+    end;
+end;
+end;
+path.plm
+PATH: DO;
+$include(path.ipx)
+
+Path: procedure(filename, pn) byte public;
+    declare (filename, pn) address;
+    declare info(12) byte;
+    declare status byte;    /* ? bug should be word */
+
+    call Spath(filename, .info, .status);
+    call MoveAscii(pn, .info, size(info) - 2);
+    return status;
+end;
+end;
+scanin.plm
+SCANIN: do;
+declare hexDigits(*) byte data('0123456789ABCDEF');
+
+ScanInteger: procedure(buf$p) address public;
+    declare buf$p address;
+    declare buf based buf$p address;
+    declare (s, pastNum$p, endNum$p) address;
+    declare (i, radix, digit) byte;
+    declare (newValue, curValue) address;
+    declare c based s byte;
+
+    s = buf;    
+    do while c = ' ';
+        s = s + 1;
+    end;
+    buf = s;
+    do while '0' <= c and c <= '9' or 'A' <= c and c <= 'F';
+        s = s + 1;
+    end;
+
+    endNum$p = s;
+    pastNum$p = s + 1;
+    if c = 'H' then
+        radix = 16;
+    else if c = 'O' or c = 'Q' then
+        radix = 8;
+    else
+    do;
+        pastNum$p = s;
+        endNum$p, s = s - 1;
+        if c = 'B' then     /* force reload of s */
+            radix = 2;
+        else
+        do;
+            radix = 10;
+            if c <> 'D' then    /* include last digit */
+                endNum$p = endNum$p + 1;
+        end;
+    end;
+    s = buf;
+    newValue, curValue = 0; 
+    do while s < endNum$p;
+        do i = 0 to 15;
+            if c = hexdigits(i) then
+                digit = i;
+        end;
+        if digit >= radix then
+            return 0;
+        newValue = curValue * radix + digit;
+        if newValue < curValue then /* force reload of newValue */
+            return 0;
+        curValue = newValue;
+        s = s + 1;
+    end;        
+    buf = pastNum$p;
+    return newValue;
+end;
+end;
+seq.plm
+SEQ: DO;
+Seq: procedure(s1, s2, cnt) byte public;
+    declare (s1,s2) address, cnt byte;
+    declare s1a based s1(1) byte;
+    declare s2a based s2(1) byte;
+    declare i byte;
+    cnt = cnt - 1;
+    do i = 0 to cnt;
+        if s1a(i) <> s2a(i) then
+            return 0;
+    end;
+    return 0ffh;
+end;
+end;
+trange.plm
+TESTRANGE: DO;
+$include(trange.ipx)
+
+TestRange: procedure(device, buffer$p) byte public;
+    declare device byte, buffer$p address;
+
+    if device >= 25 then    /* diskdrive 6-9 */
+        device = device - 19;   /* bring disks together */
+    else if device > 5 then     /* shift others above disks */
+        device = device + 4;
+
+    if device <=  9 or buffer$p = 1 then
+        return device;
+    if buffer$p <> 0 then
+        call FileError(0EBh, buffer$p, TRUE);
+    else
+    do;
+        call ReportError(0EBh);
+        call exit;
+    end;
+end;
+end;
+upcase.plm
+UPPERCASE: DO;
+UpperCase: procedure(char) byte public;
+    declare char byte;
+    if char < 'a' then
+        return char;
+    if char > 'z' then
+        return char;
+    return char and 0dfh;
+end;
+end;
+unpath.plm
+UNPATH: DO;
+
+declare devTab(*) byte data('F0F1F2F3F4F5TITO',
+                 'VIVOI1O1TRHRR1R2',
+                 'TPHPP1P2LPL1BBCICO',
+                 'F6F7F8F9');
+
+Unpath: procedure(int, ext) public;
+    declare (int, ext) address;
+    declare i byte;
+    declare intName based int (1) byte;
+    declare extName based ext (1) byte;
+
+    extName(0) = ':';
+    extName(1) = devTab(intName(0) + intName(0));
+    extName(2) = devTab(intName(0) + intName(0) + 1);
+    extName(3) = ':';   
+    ext = ext + 4;
+    do i = 0 to 5;
+        if (extName(0) := intName(i + 1)) <> 0 then
+            ext = ext + 1; 
+    end;
+    if intName(7) <> 0 then
+    do;
+        extName(0) = '.';
+        ext = ext + 1;
+    end;
+    do i = 0 to 2;
+        if (extName(0) := intName(i + 7)) <> 0 then
+            ext = ext + 1; 
+
+    end;
+    extName(0) = ' ';
+end;
+end;
+mvasci.plm
+MOVEASCII: DO;
+MoveAscii: procedure(dst, src, cnt) public;
+    declare (dst, src) address, cnt byte, i byte;
+    declare dch based dst (1) byte, sch based src (1) byte;
+
+    do i = 0 to cnt - 1;
+        dch(i) = sch(i);
+    end;
+end;
+end;
+reperr.plm
+REPORTERROR: DO;
+$include(reperr.ipx)
+
+declare msg(*) byte DATA(0, 0,
+    2, 'ILLEGAL AFTN ARGUMENT', 0,
+    4, 'INCORRECTLY SPECIFIED FILE', 0,
+    5, 'UNRECOGNIZED DEVICE NAME', 0,
+    6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+    8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+    9, 'DISK DIRECTORY FULL', 0,
+    0AH, 'NOT ON SAME DISK', 0,
+    0BH, 'FILE ALREADY EXISTS', 0,
+    0CH, 'FILE IS ALREADY OPEN', 0,
+    0DH, 'NO SUCH FILE', 0,
+    0EH, 'WRITE PROTECTED', 0,
+    11H, 'NOT A DISK FILE', 0,
+    12H, 'ILLEGAL ISIS COMMAND', 0,
+    13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+    14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+    15H, 'CAN''T RESCAN', 0,
+    16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+    17H, 'MISSING FILENAME', 0,
+    19H, 'ILLEGAL ECHO FILE', 0,
+    1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+    1BH, 'ILLEGAL SEEK COMMAND', 0,
+    1CH, 'MISSING EXTENSION', 0,
+    1FH, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+    20H, 'CAN''T DELETE OPEN FILE', 0,
+    23H, 'SEEK PAST EOF', 0,
+    0C9H, 'UNRECOGNIZED SWITCH', 0,
+    0CAH, 'UNRECOGNIZED DELIMITER', 0,
+    0CBH, 'INVALID SYNTAX', 0,
+    0CCH, 'PREMATURE EOF', 0,
+    0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+    0D0H, 'CHECKSUM ERROR', 0,
+    0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+    0D2H, 'INSUFFICIENT MEMORY', 0,
+    0D3H, 'RECORD TOO LONG', 0,
+    0D4H, 'ILLEGAL RELO RECORD', 0,
+    0D5H, 'FIXUP BOUNDS ERROR', 0,
+    0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+    0D7H, 'ARGUMENT TOO LONG', 0,
+    0D8H, 'TOO MANY PARAMETERS', 0,
+    0D9H, 'OBJECT RECORD TOO SHORT', 0,
+    0DAH, 'ILLEGAL RECORD FORMAT', 0,
+    0DBH, 'PHASE ERROR', 0,
+    0EAh, 'CANNOT FORMAT FROM TARGET DRIVE', 0,
+    0EBh, 'NON-DISK DEVICE', 0,
+    3DH, 'UNASSIGNED DEVICE', 0,
+    0ECH, 'ILLEGAL FORMAT ON REMOTE DEVICE', 0
+    );
+
+
+ReportError: procedure(errNum) public;
+    declare errNum address;
+    declare numberBuffer(3) byte, i address, status address;
+    
+    if errNum <> 0 then
+    do;
+        i = 0;
+        do while i < size(msg);
+            if errNum = msg(i) and msg(i + 1) <> 0 then
+            do;
+                i = i + 1;
+                call write(0, .(' '), 1, .status);
+                do while msg(i) <> 0;
+                    call Write(0, .msg(i), 1, .status);
+                    i = i + 1;
+                end;
+                call Write(0, .(0dh, 0ah), 2, .status);
+                return;
+            end;
+            else
+            do;
+                do while msg(i) <> 0;
+                    i = i + 1;
+                end;
+                i = i + 1;
+            end;
+        end;
+        call error(errNum);
+    end;
+end;
+end;
+
+wdlmt.plm
+WDELIMIT: DO;
+/* b1=01, b2=31, CODE(63H) byte, DATA(2H) byte, STACK(4H) byte, MEMORY(0H) byte,*/
+WDelimit: procedure(ptr) address public;
+    declare ptr address;
+    declare ch based ptr byte;
+
+    do while (ch = ':' or ch = '.' or ch = '*' or ch = '?' or
+          ('0' <= ch and ch <= '9') or ('A' <= ch and ch <= 'Z'));
+        ptr = ptr + 1;
+    end;
+    return ptr;
+end;
+end;
