@@ -1,0 +1,536 @@
+objhex.pex
+# common literals
+TRUE            '0FFh'
+FALSE           '0'
+CR              '0Dh'
+LF		'0Ah'
+FOREVER		'WHILE TRUE'
+
+# my user types
+pointer		'address'
+bool		'byte'
+apointer	'address'
+word		'address'
+
+# supported record types
+RELOC$TYPE	'22h'
+MODEND$TYPE	'4'
+CONTENT$TYPE	'6'
+
+# error codes
+INVALID$SYNTAX	'203'
+EARLY$EOF	'204'
+BAD$REC$TYP	'212'
+
+# external procedures
+Deblank		P("pointer" ptr)"pointer"
+Delimit		P("pointer" ptr)"pointer"
+MoveAscii	P("pointer" dst,"pointer" src,B cnt)
+FileError	P("word" status,"pointer" ptr,"bool" fatal)
+ForceUpper	P("pointer" ptr)
+NumOut		P("word" val,B base,B lc,"pointer" buf,B width)
+Path		P("pointer" filename,"pointer" pn)B
+Seq		P("pointer" str1,"pointer" str2,B cnt)"bool"
+ReportError	P("word" errNum)
+UpperCase	P(B char)B
+WDelimit	P("pointer" ptr)"pointer"
+
+Close           P("word" conn,"apointer" status$p)
+Error		P("word" errnum)
+Exit		P
+Memck           P"apointer"
+Open            P("apointer" conn$p,"pointer" path$p,"word" access,"word" echo,"apointer" status$p)
+Read            P("word" conn,"pointer" buff$p,"word" count,"apointer" actual$p,"apointer" status$p)
+Spath		P("pointer" path$p,"pointer" info$p,"apointer" status$p)	
+Write           P("word" conn,"pointer" buff$p,"word" count,"apointer" status$p)
+
+# file access modes
+READ$MODE	'1'
+WRITE$MODE	'2'
+
+objhex.plm
+OBJHEX:
+DO;
+$include(objhex.ipx)
+DECLARE programVersion(*) byte data(
+	'PROGRAM VERSION NUMBER=', 1, 'V2.2N ', 0, 'OBJHEX X212', 2);
+DECLARE copyRight(*) byte data(
+	'Copyright 1975, 1981, 1982 Intel Corporation');
+
+DECLARE BUFFER$COUNT WORD;
+DECLARE SEG$ID BYTE;
+DECLARE RECLEN WORD;
+DECLARE TYPE BYTE;
+DECLARE CHECKSUM BYTE;
+DECLARE (I,J) WORD;
+DECLARE HEXLEN WORD;
+DECLARE ADDR WORD;
+DECLARE TEMP BYTE;
+DECLARE BUFFER$SIZE WORD;
+DECLARE IPTR WORD;
+DECLARE BUFFER(128) BYTE;
+DECLARE BUFFER$PTR POINTER, CHAR BASED BUFFER$PTR BYTE;
+DECLARE (OUTPUT$PTR,INPUT$PTR) POINTER;
+DECLARE ACTUAL WORD;
+DECLARE STATUS WORD;
+DECLARE (AFT$OUT,AFT$IN) WORD;
+/*
+   HEXADECIMAL CONTENT RECORD.
+*/
+DECLARE HEXRECORD STRUCTURE(
+                     HEADER BYTE,
+                     LENGTH WORD,
+                     ADDR(2) WORD,
+                     TYPE WORD,
+                     DAT(16) WORD,
+                     CHKSUM WORD,
+                     TRAILER(2) BYTE);
+/*
+   HEXADECIMAL END RECORD.
+*/
+DECLARE ENDRECORD STRUCTURE(
+                   HEADER BYTE,
+                   LENGTH WORD,
+                   ADDR(2) WORD,
+                   TYPE WORD,
+                   CHKSUM WORD,
+                   TRAILER(2) BYTE);
+
+GET$BYTE:
+  PROCEDURE BYTE;
+     IF BUFFER$COUNT = 0 THEN
+     DO;
+      CALL READ(AFT$IN,.MEMORY,BUFFER$SIZE,.BUFFER$COUNT,.STATUS);
+      CALL FILE$ERROR(STATUS,INPUT$PTR,TRUE);
+      IF BUFFER$COUNT = 0 THEN
+      DO;
+         CALL FILE$ERROR(EARLY$EOF,INPUT$PTR,TRUE);
+         CALL EXIT;
+      END;
+      IPTR = 0;
+     END;
+     BUFFER$COUNT = BUFFER$COUNT - 1;
+     IPTR = IPTR + 1;
+     RETURN MEMORY(IPTR-1);
+  END GET$BYTE;
+
+GET$ADDRESS:
+  PROCEDURE ADDRESS;
+     RETURN GET$BYTE + GET$BYTE*256;
+  END GET$ADDRESS;
+
+/* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+      BEGINNING OF MAIN PROGRAM.
+
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* */
+
+/*
+  INITIALIZE RECORD STRUCTURES.
+*/
+HEXRECORD.HEADER = ':';
+HEXRECORD.TYPE = '00';
+ENDRECORD.HEADER = ':';
+ENDRECORD.TRAILER(0) = CR;
+ENDRECORD.TRAILER(1) = LF;
+/*
+  READ AND PROCESS COMMAND TAIL.
+*/
+INPUT$PTR = .(':CI: ');
+CALL READ(1, .BUFFER,LENGTH(BUFFER),.ACTUAL, .STATUS);
+CALL FILE$ERROR(STATUS, INPUT$PTR, TRUE);
+BUFFER(ACTUAL) = CR;
+CALL FORCE$UPPER(.BUFFER);
+INPUT$PTR,BUFFER$PTR = DEBLANK(.BUFFER);
+CALL OPEN(.AFT$IN, INPUT$PTR,READ$MODE,0,.STATUS);
+CALL FILE$ERROR(STATUS,INPUT$PTR,TRUE);
+BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR));
+IF SEQ( .('TO '),BUFFER$PTR,3) THEN
+DO;
+   OUTPUT$PTR,BUFFER$PTR = DEBLANK(BUFFER$PTR+2);
+   BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR));
+END;
+ELSE
+DO;
+   CALL FILE$ERROR(INVALID$SYNTAX,OUTPUT$PTR,TRUE);
+END;
+IF CHAR <> CR THEN CALL FILE$ERROR(INVALID$SYNTAX,BUFFER$PTR,TRUE);
+CALL OPEN(.AFT$OUT,OUTPUT$PTR,WRITE$MODE,0,.STATUS);
+CALL FILE$ERROR(STATUS,OUTPUT$PTR,TRUE);
+/*
+   COMPUTE SIZE OF WORKSPACE.
+*/
+BUFFER$SIZE = MEMCK - .MEMORY;
+BUFFER$COUNT = 0;
+/*
+   READ OBJECT RECORDS, WRITE HEXADECIBAL RECORDS.
+*/
+DO FOREVER;
+   TYPE = GET$BYTE;
+   IF TYPE >= RELOC$TYPE THEN
+     CALL FILE$ERROR(BAD$REC$TYP,INPUT$PTR,TRUE);
+   IF TYPE = MODEND$TYPE THEN
+   DO;
+     RECLEN = GET$ADDRESS;
+     TEMP = GET$BYTE;
+     TEMP = GET$BYTE;
+     ADDR = GET$ADDRESS;
+     CHECKSUM = LOW(ADDR) + HIGH(ADDR) + 1;
+     CALL NUMOUT(0,16,'0',.ENDRECORD.LENGTH,2);
+     CALL NUMOUT(ADDR,16,'0',.ENDRECORD.ADDR,4);
+     CALL NUMOUT(1,16,'0',.ENDRECORD.TYPE,2);
+     CALL NUMOUT(-CHECKSUM,16,'0',.ENDRECORD.CHKSUM,2);
+     CALL WRITE(AFT$OUT,.ENDRECORD,SIZE(ENDRECORD),.STATUS);
+     CALL CLOSE(AFT$IN,.STATUS);
+     CALL CLOSE(AFT$OUT,.STATUS);
+     CALL EXIT;
+   END;
+   IF TYPE <> CONTENT$TYPE THEN
+   DO;
+     RECLEN = GET$ADDRESS;
+     DO I = 1 TO RECLEN;
+       TEMP = GET$BYTE;
+     END;
+   END;
+   ELSE
+   DO;
+     RECLEN = GET$ADDRESS;
+     SEG$ID = GET$BYTE;
+     ADDR = GET$ADDRESS;
+     RECLEN = RECLEN - 4;
+     DO WHILE RECLEN <> 0;
+       HEXLEN = RECLEN;
+       IF HEXLEN > LENGTH(HEXRECORD.DAT) THEN
+         HEXLEN = LENGTH(HEXRECORD.DAT);
+       RECLEN = RECLEN - HEXLEN;
+       DO I = 0 TO LENGTH(HEXRECORD.DAT)+1;
+         HEXRECORD.DAT(I) = 0A0DH;
+       END;
+       CHECKSUM = HEXLEN + LOW(ADDR) + HIGH(ADDR);
+       CALL NUMOUT(HEXLEN,16,'0',.HEXRECORD.LENGTH,2);
+       CALL NUMOUT(ADDR,16,'0',.HEXRECORD.ADDR,4);
+       DO J = 0 TO HEXLEN - 1;
+         ADDR = ADDR + 1;
+         TEMP = GET$BYTE;
+         CHECKSUM = CHECKSUM + TEMP;
+         CALL NUMOUT(TEMP,16,'0',.HEXRECORD.DAT(J),2);
+       END;
+       CALL NUMOUT(-CHECKSUM,16,'0',.HEXRECORD.DAT(HEXLEN),2);
+       CALL WRITE(AFT$OUT,.HEXRECORD,HEXLEN+HEXLEN+13, .STATUS);
+     END;
+     TEMP = GET$BYTE;
+   END;
+END;
+END OBJHEX;
+EOF
+dblank.plm
+DEBLANK: DO;
+Deblank: procedure(str) address public;
+	declare str address;
+	declare c based str byte;
+
+	do while (c = ' ');
+		str = str + 1;
+	end;
+	return str;
+end;
+
+end;
+dlimit.plm
+DELIMIT: DO;
+delimit: procedure(ptr) address public;
+	declare ptr address, ch based ptr byte;
+
+	do while ch = ':' or ch = '.' or
+		 ('0' <= ch and ch <= '9') or
+		 ('A' <= ch and ch <= 'Z');
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+end;
+filerr.plm
+FILEERROR: DO;
+$include(filerr.ipx)
+
+fileerror: procedure(status, ptr, callExit) public;
+	declare (status, ptr) address, callExit byte;
+	declare actual address;
+
+	if status <> 0 then
+	do;
+		ptr = Deblank(ptr);
+		call Write(0, .(' '), 1, .actual);
+		call Write(0, ptr, WDelimit(ptr) - ptr, .actual);
+		call Write(0, .(','), 1, .actual);
+		call ReportError(status);
+		if callExit then
+			call exit;
+	end;
+end;
+end;
+forupp.plm
+FORCEUPPER: DO;
+$include(forupp.ipx)
+
+forceupper: procedure(bufferPtr) public;
+	declare bufferPtr address, ch based bufferPtr byte;
+
+	do while ch <> CR;
+		ch = uppercase(ch);
+		bufferPtr = bufferPtr + 1;
+	end;
+end;
+end;
+numout.plm
+NUMOUT: DO;
+
+declare digits(*) byte data('0123456789ABCDEF');
+
+numout: procedure(val, base, lc, bufAdr, width) public;
+	declare (val, bufAdr) address, (base, lc, width) byte; 
+	declare i byte;
+	declare buf based bufAdr (1) byte;
+
+	do i = 1 to width;
+		buf(width - i) = digits(val mod base);
+		val = val / base;	
+	end;
+
+	i = 0;
+	do while buf(i) = '0' and i < width - 1;
+		buf(i) = lc;
+		i = i + 1;
+	end;
+end;
+end;
+path.plm
+PATH: DO;
+$include(path.ipx)
+
+PATH: procedure(filename, pn) byte public;
+	declare (filename, pn) address;
+	declare info(12) byte;
+	declare status byte;	/* ? bug should be word */
+
+	call Spath(filename, .info, .status);
+	call MoveAscii(pn, .info, size(info) - 2);
+	return status;
+end;
+end;
+seq.plm
+SEQ: DO;
+seq: procedure(s1, s2, cnt) byte public;
+	declare (s1,s2) address, cnt byte;
+	declare s1a based s1(1) byte;
+	declare s2a based s2(1) byte;
+	declare i byte;
+	cnt = cnt - 1;
+	do i = 0 to cnt;
+		if s1a(i) <> s2a(i) then
+			return 0;
+	end;
+	return 0ffh;
+end;
+end;
+mvasci.plm
+MOVEASCII: DO;
+moveascii: procedure(dst, src, cnt) public;
+	declare (dst, src) address, cnt byte, i byte;
+	declare dch based dst (1) byte, sch based src (1) byte;
+
+	do i = 0 to cnt - 1;
+		dch(i) = sch(i);
+	end;
+end;
+end;
+reperr.plm
+REPORTERROR: DO;
+$include(reperr.ipx)
+
+declare msg(*) byte DATA(0, 0, 0,
+	2, 0, 'ILLEGAL AFTN ARGUMENT', 0,
+	4, 0, 'INCORRECTLY SPECIFIED FILE', 0,
+	5, 0, 'UNRECOGNIZED DEVICE NAME', 0,
+	6, 0, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+	8, 0, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+	9, 0, 'DISK DIRECTORY FULL', 0,
+	0AH, 0, 'NOT ON SAME DISK', 0,
+	0BH, 0, 'FILE ALREADY EXISTS', 0,
+	0CH, 0, 'FILE IS ALREADY OPEN', 0,
+	0DH, 0, 'NO SUCH FILE', 0,
+	0EH, 0, 'WRITE PROTECTED', 0,
+	11H, 0, 'NOT A DISK FILE', 0,
+	12H, 0, 'ILLEGAL ISIS COMMAND', 0,
+	13H, 0, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+	14H, 0, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+	15H, 0, 'CAN''T RESCAN', 0,
+	16H, 0, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+	17H, 0, 'MISSING FILENAME', 0,
+	19H, 0, 'ILLEGAL ECHO FILE', 0,
+	1AH, 0, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+	1BH, 0, 'ILLEGAL SEEK COMMAND', 0,
+	1CH, 0, 'MISSING EXTENSION', 0,
+	1FH, 0, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+	20H, 0, 'CAN''T DELETE OPEN FILE', 0,
+	23H, 0, 'SEEK PAST EOF', 0,
+	28H, 0, 'INVALID DIRECTORY CONNECTION SPECIFIED', 0,
+	29H, 0, 'ATTEMPT TO DISCONNECT A NONCONNECTED DIRECTORY', 0,
+	2AH, 0, 'PUBLIC/PRIVATE FILE WITH THIS NAME ALREADY EXISTS', 0,
+	2BH, 0, 'ISIS OV0 ENVIRONMENT ERROR', 0,
+	2Fh, 0, 'ILLEGAL ASSIGN MODE', 0,
+	30h, 0, 'ILLEGAL MIP PARAMETER MODE', 0,
+	32h, 0, 'INVALID USER NAME', 0,
+	33h, 0, 'COMM LINE LOST', 0,
+	34h, 0, 'ATTEMPT TO ACCESS REMOTE FILE WITHOUT LOGON', 0,
+	35h, 0, 'ATTEMPT TO ACCESS NON-EXISTENT AFTN', 0,
+	36h, 0, 'ATTEMPT TO LOGON TO SYSTEM WHEN ALREADY LOGGED ON AT A DIFFERENT STATION', 0,
+	37h, 0, 'BAD EOF DETECTED', 0,
+	38h, 0, 'CANNOT MODIFY FILE CURRENTLY IN USE', 0,
+	39h, 0, 'WRONG XIH', 0,
+	3Ah, 0, 'OUT OF MEMORY', 0,
+	3Bh, 0, 'BAD DRIVE NUMBER', 0,
+	3Ch, 0, 'BAD WORKSTATION REQUEST', 0,
+	3Dh, 0, 'DEVICE NOT ASSIGNED', 0,
+	3Eh, 0, 'ILLEGAL DFS REQUEST CODE', 0,
+	3Fh, 0, 'ISIS/DFS SYNCHRONIZATION ERROR', 0,
+	40h, 0, 'COMM ERROR', 0,
+	41h, 0, 'MIP ERROR', 0,
+	42h, 0, 'ILLEGAL ATTRIBUTE FOR REMOTE FILE', 0,
+	43h, 0, 'FILE TOO LONG', 0,
+	45h, 0, 'PREFIX CAT IN MEMORY; NOT WRITTEN IN FILE', 0,
+	46h, 0, 'NETWORK FILE ACCESS RIGHTS VIOLATION', 0,
+	47h, 0, 'ILLEGAL OPERATION ON SHARED FILE', 0,
+	48h, 0, 'FNODES FILE IS FULL', 0,
+	49h, 0, 'ATTEMPT TO DELETE A NON-EMPTY DIRECTORY', 0,
+	4Ah, 0, 'ILLEGAL DFS PATH NAME SYNTAX', 0,
+	4Bh, 0, 'NONTERMINATING PATH ELEMENT IS NOT A DIRECTORY', 0,
+	4Ch, 0, 'ATTEMPT TO CREATE A CONNECTED NETWORK FILE', 0,
+	4Dh, 0, 'USERNAME/PASSWORD MISMATCH', 0,
+	4Eh, 0, 'USER NAME NOT KNOWN', 0,
+	4Fh, 0, 'FILE ERROR ON SYSTEM FILE', 0,
+	50h, 0, 'NETWORK FILE DETACHED, DEVICE DISMOUNTED', 0,
+	51h, 0, 'MAXIMUM REMOTE ATTACHES EXCEEDED', 0,
+	52h, 0, 'ILLEGAL PASSWORD SYNTAX', 0,
+	53h, 0, 'ILLEGAL USERNAME SYNTAX', 0,
+	54h, 0, 'DATA FILE CATALOGUED AS A PREFIX', 0,
+	55h, 0, 'FILES LEFT OPEN DURING LOGOFF SEQUENCE', 0,
+	56h, 0, 'END OF FILE READ VIA READ DIR EXP', 0,
+	57h, 0, 'SPOOL DIRECTORY OPENED FOR UPDATE', 0,
+	5Bh, 0, 'INSUFFICIENT$PRM$MEMORY', 0,
+	5Ch, 0, 'BAD DIRECTORY IDENTIFIER', 0,
+	5Dh, 0, 'DID ALREADY ASSIGNED', 0,
+	5Eh, 0, 'NO HOME DIRECTORY', 0,
+	5Fh, 0, 'HOME DIRECTORY IGNORED', 0,
+	60h, 0, 'VOLUME NAME DOES NOT EXIST', 0,
+	61h, 0, 'CANNOT DELETE THIS FILE', 0,
+	62h, 0, 'ILLEGAL ACTION ON FLIPPY DRIVES', 0,
+	63h, 0, 'UNDEFINED BATCH FILE', 0,
+	0C9H, 0, 'UNRECOGNIZED SWITCH', 0,
+	0CAH, 0, 'UNRECOGNIZED DELIMITER', 0,
+	0CBH, 0, 'INVALID SYNTAX', 0,
+	0CCH, 0, 'PREMATURE EOF', 0,
+	0CEH, 0, 'ILLEGAL DISKETTE LABEL', 0,
+	0D0H, 0, 'CHECKSUM ERROR', 0,
+	0D1H, 0, 'RELO FILE SEQUENCE ERROR', 0,
+	0D2H, 0, 'INSUFFICIENT MEMORY', 0,
+	0D3H, 0, 'RECORD TOO LONG', 0,
+	0D4H, 0, 'ILLEGAL RELO RECORD', 0,
+	0D5H, 0, 'FIXUP BOUNDS ERROR', 0,
+	0D6H, 0, 'ILLEGAL SUBMIT PARAMETER', 0,
+	0D7H, 0, 'ARGUMENT TOO LONG', 0,
+	0D8H, 0, 'TOO MANY PARAMETERS', 0,
+	0D9H, 0, 'OBJECT RECORD TOO SHORT', 0,
+	0DAH, 0, 'ILLEGAL RECORD FORMAT', 0,
+	0DBH, 0, 'PHASE ERROR', 0,
+	0EAh, 0, 'CANNOT FORMAT FROM TARGET DRIVE', 0,
+	0EBh, 0, 'NON-DISK DEVICE', 0,
+	00h, 24h, 'TOO MANY QUEUES', 0,
+	01h, 24h, 'TOO MANY IMPORT WORKSTATIONS', 0,
+	02h, 24h, 'QUEUE FULL', 0,
+	03h, 24h, 'NO IMPORT WORKSTATION CURRENTLY ASSIGNED TO THIS QUEUE', 0,
+	05h, 24h, 'NON-EXISTENT QUEUE NAME', 0,
+	06h, 24h, 'NO SUCH JOB', 0,
+	09h, 24h, 'BAD JOB NUMBER', 0,
+	0Ah, 24h, 'BUFFER TOO SMALL', 0,
+	0Bh, 24h, 'INVALID REQUEST', 0,
+	13h, 24h, 'JOB NOT EXECUTING', 0,
+	14h, 24h, 'BAD QUEUE TABLE', 0,
+	15h, 24h, 'PROTOCOL VERSION ERROR ', 0,
+	16h, 24h, 'JOB CONTROL IS DEAD', 0,
+	17h, 24h, 'QUEUE ALREADY EXISTS', 0,
+	18h, 24h, 'CAN NOT DELETE A NON-EMPTY QUEUE', 0,
+	19h, 24h, 'FILE CLASH', 0,
+	1Bh, 24h, 'CAN NOT CANCEL A CLUSTER JOB', 0,
+	01h, 25h, 'DJC SYSNCRONIZATION ERROR', 0
+	);
+
+declare errorMsg(*) byte initial('ERROR:     H', CR, LF);
+
+reporterror: procedure(errNum) public;
+	declare errNum address;
+	declare ptr address, val based ptr word;
+	declare numberBuffer(3) byte, i address, status address;
+	
+	if errNum <> 0 then
+	do;
+		i = 0;
+		do while i < size(msg);
+			ptr = .msg(i);
+			if errNum = val and msg(i + 2) <> 0 then
+			do;
+				i = i + 2;
+				call write(0, .(' '), 1, .status);
+				do while msg(i) <> 0;
+					call write(0, .msg(i), 1, .status);
+					i = i + 1;
+				end;
+				call write(0, .(0dh, 0ah), 2, .status);
+				return;
+			end;
+			else
+			do;
+				i = i + 2;
+				do while msg(i) <> 0;
+					i = i + 1;
+				end;
+				i = i + 1;
+			end;
+		end;
+		if errNum > 255 then
+		do;
+			call NumOut(errNum, 16, ' ', .errorMsg(7), 4);
+			call Write(0, .errorMsg, 14, .status);
+		end;
+		else
+			call error(errNum);
+	end;
+end;
+end;
+upcase.plm
+UPPERCASE: DO;
+uppercase: procedure(char) byte public;
+	declare char byte;
+	if char < 'a' then
+		return char;
+	if char > 'z' then
+		return char;
+	return char and 0dfh;
+end;
+end;
+wdlmt.plm
+WDELIMIT: DO;
+/* b1=01, b2=31, CODE(63H) byte, DATA(2H) byte, STACK(4H) byte, MEMORY(0H) byte,*/
+wdelimit: procedure(ptr) address public;
+	declare ptr address;
+	declare ch based ptr byte;
+
+	do while (ch = ':' or ch = '.' or ch = '*' or ch = '?' or
+		  ('0' <= ch and ch <= '9') or ('A' <= ch and ch <= 'Z'));
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+end;
