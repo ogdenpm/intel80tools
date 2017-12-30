@@ -208,7 +208,7 @@ ifdef PEXFILE
 endif
 endif
 
-distclean:: 
+distclean:: clean
 	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ)) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST)) 
 ifdef _masterfile
