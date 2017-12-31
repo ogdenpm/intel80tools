@@ -196,7 +196,9 @@ verify: all
 endif
 
 rebuild: distclean all
-
+# to allow the toolbox to creat the utility clean
+# clean target is only defined here if the make command explicitly has
+# it as a target
 ## housekeeping rules
 ifeq ($(MAKECMDGOALS),clean)
 .PHONY: clean
@@ -208,9 +210,9 @@ ifdef PEXFILE
 endif
 endif
 
-distclean:: clean
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ)) 
-	-$(if $(filter-out .,$(LST)),rm -fr $(LST)) 
+distclean::
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
+	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map)
 ifdef _masterfile
 	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 
 else
