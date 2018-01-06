@@ -88,10 +88,12 @@ void HandleOp()
 	case 8:	;                /* unary + */
             break;
 	case 9:	                /* / */
-            if (accum2 == 0)
-                ValueError();
-
-            accum1 /= accum2;
+		if (accum2 == 0) {
+			ValueError();
+			accum1 = 0xffff;	/* synthesise what 8085 does on / 0 */
+		} 
+		else
+	            accum1 /= accum2;
             break;
 	case 10:	accum1 = -accum1;            /* unary - */
             break;
@@ -392,7 +394,7 @@ void Parse()
         
         if (phase != 1)
             if (inExpression)
-                if (IsExpressionOp)
+                if (IsExpressionOp())
                     if (GetPrec(yyType) <= GetPrec(opStack[opSP]))
                         ExpressionError();
 
