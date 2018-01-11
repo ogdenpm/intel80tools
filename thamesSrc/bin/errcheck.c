@@ -132,8 +132,10 @@ void errCheck(char *buffer, int count)
         if (buffer[i] == '\r') {
             lineBuffer[col] = 0;
             appError = match(lineBuffer);
+#ifdef SHOWERROR
             if (appError)
                 printf("\n***%s\n", lineBuffer);
+#endif
             col = 0;
         }
         else if (buffer[i] != '\n' && col < MAXERRSTR)
