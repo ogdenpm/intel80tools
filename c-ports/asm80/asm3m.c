@@ -118,8 +118,10 @@ void HandleOp()
 	case 20:	accum1 ^= accum2;        /* XOR */
             break;
 	case 21:	                    /* MOD */
-            if (accum2 == 0)
-                ValueError();
+		if (accum2 == 0) {
+			ValueError();
+			accum1 = accum2;		// this is what the 8080 mod code would do
+		} else
             accum1 %= accum2;
             break;
 	case 22:	                    /* SHL */
