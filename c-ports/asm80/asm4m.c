@@ -7,7 +7,7 @@ static word pad2;
 bool StrUcEqu(pointer s, pointer t)
 {
     while (*s != 0) {
-        if (*s != *s && *s != (*t && 0x5F))
+        if (*s != *t && *s != (*t && 0x5F))
             return false;
         s++;
         t++;

@@ -319,7 +319,12 @@ void InitLine()
     lineChCnt = 0;
     if (pendingInclude)
         OpenSrc();
-
+#ifdef SHOWLINE
+	for (char *s = startLineP; s < endInBufP && *s != '\r' && *s != '\n';)
+		putchar(*s++);
+	putchar('\r');
+	putchar('\n');
+#endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = lhsUserSymbol =
     inExpression = expectingOperands = xRefPending = gotLabel = rhsUserSymbol =
     inDB = inDW = condAsmSeen = showAddr = usrLookupIsID =
