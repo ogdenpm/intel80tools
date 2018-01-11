@@ -133,7 +133,8 @@ void UpdateSymbolEntry(word value, byte type)
     isSetOrEqu = type == O_EQU || type == O_SET;
     absFlag = 0;
     
-	flags = tokenSym.curP->flags;
+	if (tokenSym.curP)
+		flags = tokenSym.curP->flags;
     lineSet = false;
     if (OutSideTable(TID_SYMBOL))        /* ignore if outside normal symbol table */
         return;
