@@ -182,8 +182,6 @@ void Sub7041_8447()
 	b68AE = true;
 	if (!controls.symbols)
 		return;
-	DumpSymbols(TID_SYMBOL);
-
 	/* changes to better reflect what is happening rather than use strange offsets */
 	segChar[0] = 'A';        /* show A instead of space for absolute */
 	for (symGrp = 0; symGrp <= 2; symGrp++) {
