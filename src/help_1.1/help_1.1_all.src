@@ -1,0 +1,471 @@
+help.pex
+# common literals
+TRUE            '0FFh'
+FALSE           '0'
+CR              '0Dh'
+LF		'0Ah'
+ESC     '1Bh'
+FOREVER		'WHILE TRUE'
+
+#
+CONSOLE$IN  '1'
+CONSOLE$OUT '0'
+
+# my user types
+pointer		'address'
+bool		'byte'
+wpointer	'address'
+word		'address'
+
+PstrEq      P("pointer" sPtr, "pointer" tPtr)"bool"
+# asm version of PstrEq - not called
+PSeq      P("pointer" sPtr,"pointer" tPtr)"bool"
+Scanin    P("pointer" bufP,"wpointer" numP,"pointer" statusP)"pointer"
+ForceUpper	P("pointer" ptr)
+ShowError	P("word" errNum)
+NumOut		P("word" val,B base,B lc,"pointer" buf,B width)
+UpperCase	P(B char)B
+
+Close       P("word" conn,"wpointer" status$p)
+Error		P("word" errnum)
+Exit		P
+Open        P("wpointer" conn$p,"pointer" path$p,"word" access,"word" echo,"wpointer" status$p)
+Read        P("word" conn,"pointer" buff$p,"word" count,"wpointer" actual$p,"wpointer" status$p)
+Rescan      P("word" conn,"wpointer" status$p)
+Seek        P("word" conn,"word" mode,"wpointer" block$p,"wpointer" byte$p,"wpointer" status$p)
+Write       P("word" conn,"pointer" buff$p,"word" count,"wpointer" status$p) 
+# file access modes
+READ$MODE	'1'
+WRITE$MODE	'2'
+# Seek operations
+SEEKTELL        '0'
+SEEKBACK        '1'
+SEEKABS         '2'
+SEEKFWD         '3'
+SEEKEND         '4'
+
+help.plm
+help: do;
+$include(help.ipx)
+/* Stacksize = 68 */
+declare copyRight(*) byte data('(C) INTEL CORP 1982, 83');
+declare version(*) byte data('VER 1.1');
+
+declare cmdTable(*) byte data(
+/* format
+    (lb, hb) location of help in 16 byte paragraphs
+    pascal string (len + text) of key word
+*/        
+    3, 0, 1, 'H',
+    43h, 0, 8, 'NOTATION',
+    6Ch, 0, 8, 'KEYBOARD',
+    9Ch, 0, 7, 'DEVICES',
+    0D8h, 0, 8, 'WILDCARD',
+    0FCh, 0, 5, 'ASM80',
+    30h, 1, 6, 'ASSIGN',
+    74h, 1, 6, 'ATTACH',
+    8Dh, 1, 6, 'ATTRIB',
+    0BBh, 1, 4, 'COPY',
+    3, 2, 6, 'DELETE',
+    19h, 2, 6, 'DETACH',
+    32h, 2, 3, 'DIR',
+    68h, 2, 6, 'ENDJOB',
+    73h, 2, 5, 'IDISK',
+    92h, 2, 3, 'JOB',
+    0CEh, 2, 6, 'OBJHEX',
+    0E2h, 2, 6, 'HEXOBJ',
+    1, 3, 3, 'LIB',
+    47h, 3, 4, 'LINK',
+    6Bh, 3, 6, 'LOCATE',
+    8Bh, 3, 6, 'RENAME',
+    0A1h, 3, 6, 'SERIAL',
+    0F9h, 3, 6, 'SUBMIT',
+    2Ch, 4, 1, '?',
+    39h, 4, 1, '@',
+    6Ch, 4, 1, '/',
+    7Dh, 4, 1, '#',
+    8Dh, 4, 1, '.',
+    0BDh, 4, 8, 'FUNCTION',
+    0, 5, 3, 'ESC',
+    2Bh, 5, 5, 'DEBUG'
+);
+ 
+declare w45F8 address;
+declare tokenIdx byte initial(0);
+declare helpfd byte;
+declare actual address;
+declare status address;
+declare bytNo address;
+declare blkNo address;
+declare idx word initial(0);
+declare userErrNum word;
+declare cmdBuf(128) byte;
+declare helpTxt(1840) byte;
+declare token(122) byte;
+declare helpFile(*) byte initial(':F0:PDS.HLP NOT AVAILABLE', CR, LF);
+declare b4E4D byte initial(0);
+declare b4E4E bool;
+
+/* define Scanin without return value !!! */
+Scanin: procedure(bufP, numP, statusP) external;
+    declare (bufP, statusP) pointer, numP wpointer;
+end;
+
+/* define Error with two parameters !!! */
+Error: procedure(err, status$p) external;
+    declare err word, status$p pointer;
+end;
+
+ChkStatus: procedure;
+    if status <> 0 then
+    do;
+        call Error(status, .status); /* non standard error call!! */
+        call Exit;
+    end;
+end;
+
+MakeWord: procedure(lowByte, HighByte) word;
+    declare (lowByte, HighByte) byte;
+
+    return shl(double(HighByte), 8) or LowByte;
+end;
+
+DisplayHelp: procedure(argbc);
+    declare argbc word;
+
+    blkNo = shr(argbc, 3);
+    bytNo = shl(argbc, 4) and 07fh;
+    call Rescan(CONSOLE$IN, .status);
+    call Read(CONSOLE$IN, .cmdBuf, 128, .actual, .status);
+    idx = 0;
+    do while cmdBuf(idx) = ' ';
+        idx = idx + 1;
+    end;
+    if cmdBuf(idx) = ':' then   /* if drive specfied for HELP - assume helpfile is there */
+    do;
+        idx = idx + 2;
+        helpFile(2) = cmdBuf(idx);
+    end;
+    call Open(.helpfd, .helpFile, READ$MODE, 0, .status);
+    if status = 13 then
+    do;
+        call Write(CONSOLE$OUT, .helpFile, 27, .status);
+        call Exit;
+    end;
+    call ChkStatus;
+    call Seek(helpfd, SEEKABS, .blkNo, .bytNo, .status);
+    call ChkStatus;
+    call Read(helpfd, .helpTxt, 1840, .actual, .status);
+    call ChkStatus;
+    call Close(helpfd, .status);
+    /* clear screen */
+    call Write(CONSOLE$OUT, .(ESC, 'E'), 2, .status);
+    call Write(CONSOLE$OUT, .helpTxt(2), MakeWord(helpTxt(0), helpTxt(1)), .status);
+    call ChkStatus;
+end;
+
+main:
+    call Read(CONSOLE$IN, .cmdBuf, 128, .actual, .status);
+    call ChkStatus;
+    do while cmdBuf(idx) = ' ';
+        idx = idx + 1;
+    end;
+    if cmdBuf(idx) = CR then
+    do;
+        call DisplayHelp(3);
+        call Exit;
+    end;
+    if cmdBuf(idx) < '9' + 1 and cmdBuf(idx) > '0' - 1 then
+    do;
+        call Scanin(.cmdBuf(idx), .userErrNum, .status);
+        if status <> 0 or userErrNum >0f0h then
+        do;
+            call Write(CONSOLE$OUT, .('ILLEGAL ERROR NUMBER', LF, CR), 22, .status);
+            call Exit;
+        end;
+        call ShowError(userErrNum);
+        call Exit;
+    end;
+    do while cmdBuf(idx) <> CR and cmdBuf(idx) <> ' ';
+        call ForceUpper(.cmdBuf(idx));      /* needlessly in loop */
+        token(tokenIdx := tokenIdx + 1) = cmdBuf(idx);
+        idx = idx + 1;
+    end;
+    token(0) = tokenIdx;        /* store length */
+    
+    idx = 2;
+    b4E4E = TRUE;
+    do while idx < 248;
+        if PstrEq(.cmdTable(idx), .token) then
+        do;
+            if b4E4E = TRUE then
+                b4E4E = FALSE;
+            else
+                b4E4E = TRUE;
+            if b4E4E = TRUE then
+            do;
+                call Write(CONSOLE$OUT, .(CR, LF, 'Ambiguous keyword', CR, LF, CR, LF), 23, .status);
+                call Exit;
+            end;
+            b4E4D = idx;
+        end;
+        idx = idx + cmdTable(idx) + 3;
+    end; 
+    if b4E4D <> FALSE then
+    do;
+        call DisplayHelp(MakeWord(cmdTable(b4E4D - 2), cmdTable(b4E4D - 1)));
+        call Exit;
+    end;
+    call Write(CONSOLE$OUT, .(LF, CR, 'No HELP available '), 21, .status);
+    call Write(CONSOLE$OUT, .(CR, LF, LF), 3, .status); 
+    call Exit;
+
+end help;
+pstreq.plm
+PstrEq: do;
+$include(pstreq.ipx)
+pstrEq: procedure(sPtr, tPtr) bool public;
+    declare (sPtr, tPtr) pointer;
+    declare s based sPtr byte;
+    declare t based tPtr byte;
+    declare (i, j) byte;
+
+    if s < t then
+        return false;
+    j = t;
+    do i = 1 to j;
+        sPtr = sPtr + 1;
+        tPtr = tPtr + 1;
+        if s <> t then
+            return false;
+    end;
+    return true;
+end;
+end;
+pseq.asm
+; compare pstrings for equality
+; included in file but not actually used
+        CSEG
+        public  pseq
+
+pseq: xchg
+        mov     e,m
+        inr     e
+loop:   ldax    b
+        cmp     m
+        jnz     ret0
+        inx     h
+        inx     b
+        dcr     e
+        jnz     loop
+        mvi     a,0ffh
+        ret
+
+ret0:   xra     a
+        ret
+        end
+
+scanin.plm
+Scanin: do;
+$include(scanin.ipx)
+
+declare pow10(*) word data(1, 10, 100, 1000, 10000);
+
+Scanin: procedure(bufP, numP, statusP) pointer public;
+    declare (bufP, statusP) pointer;
+    declare ch based bufP byte;
+    declare status based statusP byte;  /* not consistent with caller */
+    declare numP wpointer;
+    declare num based numP word;
+    declare asciiNum(5) byte, (i, digitCnt) byte;
+
+    digitCnt = 0;
+    num, status = 0;
+
+    do while ch = ' ';
+        bufP = bufP + 1;
+    end;
+    do while '0' <= ch and ch <= '9' and digitCnt < 6;
+        asciiNum(digitCnt) = ch;
+        digitCnt = digitCnt + 1;
+        bufP = bufP + 1;
+    end;
+    if digitCnt > 5 then
+    do;
+        status = 1;
+        return bufP;
+    end;
+    i = 0;
+    do while digitCnt > 0;
+        digitCnt = digitCnt - 1;
+        num = (asciiNum(digitCnt) - '0') * pow10(i) + num;
+        if carry then
+        do;
+            status = 2;
+            return bufP;
+        end;    
+        i = i + 1;
+    end;   
+    return bufP;
+end;
+end;
+forupp.plm
+FORCEUPPER: DO;
+$include(forupp.ipx)
+
+ForceUpper: procedure(bufferPtr) public;
+	declare bufferPtr address, ch based bufferPtr byte;
+
+	do while ch <> CR;
+		ch = uppercase(ch);
+		bufferPtr = bufferPtr + 1;
+	end;
+end;
+end;
+
+shwerr.plm
+ShowError: DO;
+$include(shwerr.ipx)
+
+/* non standard def of NumOut */
+NumOut: procedure(val, base, lc, bufAdr, width) external;
+    declare (val, base, lc, width) word, bufAdr pointer;
+end;
+declare msg(*) byte DATA(0, 0,
+    1, 'NO FREE BUFFER', 0,
+	2, 'ILLEGAL AFTN ARGUMENT', 0,
+    3, 'TOO MANY FILES OPEN', 0,
+	4, 'INCORRECTLY SPECIFIED FILE', 0,
+	5, 'UNRECOGNIZED DEVICE NAME', 0,
+	6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+    7, 'INSUFFICIENT DISK SPACE', 0,
+	8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+	9, 'DISK DIRECTORY FULL', 0,
+	0AH, 'NOT ON SAME DISK', 0,
+	0BH, 'FILE ALREADY EXISTS', 0,
+	0CH, 'FILE IS ALREADY OPEN', 0,
+	0DH, 'NO SUCH FILE', 0,
+	0EH, 'WRITE PROTECTED', 0,
+    0FH, 'CANNOT LOAD INTO ISIS AREA', 0,
+    10H, 'ILLEGAL FORMAT RECORD', 0,
+	11H, 'NOT A DISK FILE', 0,
+	12H, 'ILLEGAL ISIS COMMAND', 0,
+	13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+	14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+	15H, 'CAN''T RESCAN', 0,
+	16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+	17H, 'MISSING FILENAME', 0,
+    18H, 'DISK ERROR', 0,
+	19H, 'ILLEGAL ECHO FILE', 0,
+	1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+	1BH, 'ILLEGAL SEEK COMMAND', 0,
+	1CH, 'MISSING EXTENSION', 0,
+    1Dh, 'EOF ON CONSOLE INPUT', 0,
+    1Eh, 'DRIVE NOT READY', 0,
+	1FH, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+	20H, 'CAN''T DELETE OPEN FILE', 0,
+    21H, 'ILLEGAL SYSTEM CALL PARAMETER', 0,
+    22H, 'BAD RETURN SWITCH ARGUMENT TO LOAD', 0,
+	23H, 'SEEK PAST EOF', 0,
+    3CH, 'MODULE ALREADY ASSIGNED', 0,
+    3DH, 'MODULE ALREADY ASSIGNED TO BUBBLE', 0,
+    3EH, 'ILLEGAL TRACK ADDRESS', 0,
+    3FH, 'FILE OPEN FOR WRITE OR UPDATE BY OTHER PROCESSOR', 0,
+	0C9H, 'UNRECOGNIZED SWITCH', 0,
+	0CAH, 'UNRECOGNIZED DELIMITER', 0,
+	0CBH, 'INVALID SYNTAX', 0,
+	0CCH, 'PREMATURE EOF', 0,
+	0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+    0CFH, 'NO END STATEMENT', 0,
+	0D0H, 'CHECKSUM ERROR', 0,
+	0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+	0D2H, 'INSUFFICIENT MEMORY', 0,
+	0D3H, 'RECORD TOO LONG', 0,
+	0D4H, 'ILLEGAL RELO RECORD', 0,
+	0D5H, 'FIXUP BOUNDS ERROR', 0,
+	0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+	0D7H, 'ARGUMENT TOO LONG', 0,
+	0D8H, 'TOO MANY PARAMETERS', 0,
+	0D9H, 'OBJECT RECORD TOO SHORT', 0,
+	0DAH, 'ILLEGAL RECORD FORMAT', 0,
+	0DBH, 'PHASE ERROR', 0,
+    0DCH, 'NO END-OF-FILE', 0,
+    0DDH, 'SEGMENT OVERFLOW', 0,
+    0DEH, 'UNRECOGNIZED RECORD', 0,
+    0DFH, 'BAD FIXUP RECORD POINTER', 0,
+    0E0H, 'ILLEGAL RECORD SEQUENCE', 0,
+    0E3H, 'COMMAND REQUIRES ''(''', 0,
+    0E6H, 'DUPLICATE SYMBOL FOUND', 0,
+    0E7H, 'FILE ALREADY EXISTS', 0,
+    0E8H, 'UNRECOGNIZED COMMAND', 0
+	);
+
+
+ShowError: procedure(errNum) public;
+	declare errNum word;
+	declare numberBuffer(4) byte, i address, status address;
+	
+	if errNum <> 0 then
+	do;
+		i = 0;
+		do while i < size(msg);
+			if errNum = msg(i) and msg(i + 1) <> 0 then
+			do;
+				i = i + 1;
+				call Write(CONSOLE$OUT, .('ISIS ERROR NUMBER '), 18, .status);
+                call NumOut(errNum, double(10), 0, .numberBuffer, 3);
+                call Write(CONSOLE$OUT, .numberBuffer, 3, .status);
+                call Write(CONSOLE$OUT, .(': '), 2, .status);
+
+				do while msg(i) <> 0;
+					call Write(CONSOLE$OUT, .msg(i), 1, .status);
+					i = i + 1;
+				end;
+				call Write(0, .(CR, LF), 2, .status);
+				return;
+			end;
+			else
+			do;
+				do while msg(i) <> 0;
+					i = i + 1;
+				end;
+				i = i + 1;
+			end;
+		end;
+        call Write(CONSOLE$OUT, .('UNDEFINED ERROR', CR, LF), 17, .status);
+	end;
+end;
+end;
+numout.plm
+NUMOUT: DO;
+
+declare digits(*) byte data('0123456789ABCDEF');
+
+NumOut: procedure(val, base, lc, bufAdr, width) public;
+	declare (val, bufAdr) address, (base, lc, width) byte; 
+	declare i byte;
+	declare buf based bufAdr (1) byte;
+
+	do i = 1 to width;
+		buf(width - i) = digits(val mod base);
+		val = val / base;	
+	end;
+
+	i = 0;
+	do while buf(i) = '0' and i < width - 1;
+		buf(i) = lc;
+		i = i + 1;
+	end;
+end;
+end;
+upcase.plm
+UPPERCASE: DO;
+UpperCase: procedure(char) byte public;
+	declare char byte;
+	if char < 'a' then
+		return char;
+	if char > 'z' then
+		return char;
+	return char and 0dfh;
+end;
+end;
