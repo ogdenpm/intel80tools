@@ -1,10 +1,11 @@
 #include "plm.h"
 #include <stdio.h>
 #include <stdlib.h>
-#define LOWMEM  0x9f00
+#define LOWMEM  0x613F      // plm lowest value of MEMORY
 #define HIGHMEM 0xf7ff
 
-pointer memory;
+static pointer memory;
+offset_t MEMORY;
 
 void initMem()
 {

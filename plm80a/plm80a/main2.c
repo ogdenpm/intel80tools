@@ -100,6 +100,7 @@ jmp_buf finalise;
 static void Sub_3F27()
 {
     byte emsg[] = "COMPILER ERROR: INSUFFICIENT MEMORY FOR CODE GENERATION";
+    MEMORY = 0xC3BD;  // to align with ov2
 
     botMem = MEMORY + 256;
     if (w3822 < botMem)

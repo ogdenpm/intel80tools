@@ -636,6 +636,7 @@ void Sub_4EC5()
 
 word Start5()
 {
+    MEMORY = 0x6936;
 	botMem = MEMORY + 0x100;
 	topSymbol = topSymbol + 4;
 	if (PRINT) {

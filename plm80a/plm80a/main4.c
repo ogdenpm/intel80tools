@@ -47,6 +47,7 @@ void Sub_408B()
     }
 
     Sub_3FC8();
+    MEMORY = 0xA30A;
     if (MEMORY + 256 > botMem)
         Fatal("COMPILER ERROR: INSUFFICIENT MEMORY FOR FINAL ASSEMBLY", 54);
     stmtNo = 0;

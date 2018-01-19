@@ -34,10 +34,7 @@ static struct {
 #define MAXLL	122
 static char _commandLine[MAXLL + 1];
 static char *_commandLinePtr;
-offset_t MEMORY;
-pointer memory;   // base of malloc memory
 word ovl = 255;   // current ovl
-#define AVAILMEM	0x9000
 
 struct {
 	char *dev;
