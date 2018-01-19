@@ -336,11 +336,11 @@ static void Sub_75F7()
 	w381E = localLabelsP - (localLabelCnt + 1);
 	w3822 = botInfo - 2;
 	while (w3822 >= w381E) {
-		*(wpointer)w3822 = 0;
+		*WordP(w3822) = 0;
 		w3822 = w3822 - 2;
 	}
 	if (w3822 == w381E - 1)
-		*(wpointer)w3822 &= 0xff;
+		*WordP(w3822) &= 0xff;
 	w3822 = w381E - 2;
 }
 

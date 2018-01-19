@@ -24,7 +24,7 @@ static void Sub_3F23()
 	ocurch = olstch;
 	if (offNxtCmdChM1 != 0)
 		while (cmdLineP != 0) {
-			DoControl(offNxtCmdChM1 + (pointer)cmdLineP);
+			DoControl(offNxtCmdChM1 + ByteP(cmdLineP));
 			offNxtCmdChM1 = 2;
 			cmdLineP = CmdP(cmdLineP)->link;
 		}

@@ -157,7 +157,7 @@ void Sub_9F2F()
     if (ExitBlk()) {
         while (p < wC1CF) {
             wC1DC[0] = 14;
-            wC1DC[1] = ((wpointer)botMem)[p];
+            wC1DC[1] = WordP(botMem)[p];
             EncodeFragData(CF_DW);
             pc = pc + 2;
             p = p + 1;  

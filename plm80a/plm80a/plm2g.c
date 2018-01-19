@@ -271,7 +271,7 @@ void Sub_994D()
 		WordP(localLabelsP)[tx2op1[tx2qp]] = pc;
 		ByteP(w381E)[tx2op1[tx2qp]] = curExtProcId;
 		if ((w3822 - botMem) / 2 >= wC1CF) {
-			((wpointer)botMem)[wC1CF] = tx2op1[tx2qp];
+			WordP(botMem)[wC1CF] = tx2op1[tx2qp];
 			wC1CF = wC1CF + 1;
 		}
 		else {

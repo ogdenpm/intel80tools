@@ -176,7 +176,7 @@ static void ParseSrcFile()
     if (*cmdTextP == '\r')
         offNxtCmdChM1 = 0;
     else
-        offNxtCmdChM1 = cmdTextP - (pointer)cmdLineP - 1;
+        offNxtCmdChM1 = cmdTextP - ByteP(cmdLineP) - 1;
 } /* ParseSrcFile() */
 
 static void Sub_45F6()

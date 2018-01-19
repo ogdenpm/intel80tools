@@ -6,7 +6,7 @@ bool TestFlag(pointer base, byte flag)
 
 	off = tblOffsets[flag];
 	bit = tblBitFlags[flag];
-	if ((base[off] && bit) != 0 )
+	if ((base[off] & bit) != 0 )
 		return true;
 	else
 		return false;
