@@ -62,7 +62,7 @@ byte debugSwitches[26];
 offset_t cmdLineP;
 offset_t startCmdLineP;
 byte overlay[7][FILE_NAME_LEN] = { ":F0:PLM80 .OV0 ", ":F0:PLM80 .OV1 ", ":F0:PLM80 .OV2 ", ":F0:PLM80 .OV3 ",
-								   ":F0:PLM80 .OV4 ", ":F0:PLM80 .OV5 ", ":F0:PLM80 .OV1 "};
+								   ":F0:PLM80 .OV4 ", ":F0:PLM80 .OV5 ", ":F0:PLM80 .OV6 "};
 byte ixiFileName[FILE_NAME_LEN];
 byte lstFileName[FILE_NAME_LEN];
 byte objFileName[FILE_NAME_LEN];

@@ -702,7 +702,6 @@ static void AcceptRangeChrs(byte lch, byte hch)
 
 static bool AcceptDrive(pointer fname, byte follow)
 {
-    bool isOK;
     lFname = fname;
 
     isOK = true;
