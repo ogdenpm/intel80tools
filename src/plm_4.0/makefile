@@ -20,7 +20,7 @@ TARGETS = plm80 plm80.ov0 plm80.ov1 plm80.ov2 plm80.ov3 plm80.ov4 plm80.ov5 plm8
 
 
 LOCATEFLAGS:=SYMBOLS PUBLICS
-PLMFLAGS:=
+PLMFLAGS:= DEBUG CODE
 ASMFLAGS:=
 
 objs = main.obj plma.obj plmb.obj memchk.obj movmem.obj fill.obj plmc.obj\
