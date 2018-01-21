@@ -238,7 +238,7 @@ static void Sub_7925()
                 tx2op1[tx2qp] = tx2op2[1];
                 if (boC20F) {
                     i = 0x43 - i;
-                    boC20F = 0;
+                    boC20F = false;
                 }
             }
         }
@@ -284,7 +284,7 @@ void Sub_7550()
             tx2op1[tx2qp + 1] = tx2op2[1];
             if (boC20F) {
                 tx2op2[tx2qp + 1] = bC209[curOp];
-                boC20F = 0;
+                boC20F = false;
             } else
                 tx2op2[tx2qp + 1] = curOp;
             tx2Auxw[tx2qp] = 0;

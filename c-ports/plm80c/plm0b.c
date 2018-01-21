@@ -67,10 +67,10 @@ byte tknLen;
 pointer optStrValP;
 word optNumValue;
 byte optFileName[16];
-byte ixiGiven;
-byte objGiven;
-byte lstGiven;
-byte inIFpart;
+bool ixiGiven;
+bool objGiven;
+bool lstGiven;
+bool inIFpart;
 word skippingCONDDepth;
 
 #pragma pack(push, 1)
@@ -432,9 +432,9 @@ static bool ParseIfCond()
     word val1, val2;
     byte relOp, not1, not2;
 
-    andFactor = true;
-    orFactor = false;
-    xorFactor = false;
+    andFactor = 0xff;
+    orFactor = 0;
+    xorFactor = 0;
     
     while ((1)) {
         not1 = ChkNot();
@@ -460,17 +460,17 @@ static bool ParseIfCond()
             }
         }
         val1 = (not1 ^ val1) & andFactor;
-        andFactor = true;
+        andFactor = 0xff;
         switch(GetLogical()) {
-        case 0: return (val1 | orFactor) ^ xorFactor;
+        case 0: return ((val1 | orFactor) ^ xorFactor) & 1;
         case 1:
             orFactor = (val1 | orFactor) ^ xorFactor; 
-            xorFactor = false;
+            xorFactor = 0;
             break;
         case 2: andFactor = (byte)val1; break;
         case 3:
             xorFactor = (val1 | orFactor) ^ xorFactor;
-            orFactor = false;
+            orFactor = 0;
             break;
         case 4: return true;
         }

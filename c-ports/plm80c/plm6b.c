@@ -361,8 +361,8 @@ void GetSourceLine_6()      // same as GetSourceLine in plm4b.c but need to rati
     while (1) {
         lstBuf[lstLineLen] = GetSourceCh();
         if (lstBuf[lstLineLen] == '\n') {
-            b7AF1 = 0;
-            b7AF2 = 0;
+            b7AF1 = false;
+            b7AF2 = false;
             return;
         }
         else if (lstBuf[lstLineLen] == '\r')     /* allow cr */

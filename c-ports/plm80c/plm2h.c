@@ -243,11 +243,11 @@ static void Sub_A266()
 {
     byte i;
 
-    boC1CD = 0;
+    boC1CD = false;
     for (i = 0; i <= 3; i++) {
         bC045[i] = 0xc;
         bC04E[i] = 0;
-        boC057[i] = 0;
+        boC057[i] = false;
     }
 }
 

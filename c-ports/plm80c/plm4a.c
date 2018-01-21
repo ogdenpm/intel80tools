@@ -751,7 +751,7 @@ void Sub_54BA()
     else if (0x9D <= cfCode && cfCode <= 0xA2)
         MiscControl();
     else if (cfCode == 0x9C)
-        bo812B = 0;
+        bo812B = false;
     else if (cfCode == 0xA3)
         EmitFullError();
     else

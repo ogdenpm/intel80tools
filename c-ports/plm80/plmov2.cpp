@@ -184,8 +184,8 @@ word wC1C7;
 byte blkSP;
 byte blkOverCnt;
 byte procCallDepth;
-byte boC1CC;
-byte boC1CD;
+bool boC1CC;
+bool boC1CD;
 byte eofSeen;
 word wC1CF;
 byte curOp;
@@ -194,7 +194,7 @@ byte padC1D3;
 byte curExtProcId = 1;
 byte procChainId;
 word wC1D6;
-byte boC1D8;
+bool boC1D8;
 byte bC1D9;
 byte cfrag1;
 byte bC1DB;
@@ -202,7 +202,7 @@ word wC1DC[5];
 byte bC1E6;
 byte buf_C1E7[34];
 const byte bC209[] = {4, 5, 3, 2, 0, 1};
-byte boC20F;
+bool boC20F;
 
 byte MEMORY;
 
@@ -1855,7 +1855,7 @@ void sub_6D52()
 		sub_6C73(sub_6FE2());
 		if (curOp == T2_JMPFALSE) {
 			if (tx2opc[tx2qp - 1] == T2_NOT) {
-				boC20F = 0xff;
+				boC20F = true;
 				tx2op2[tx2qp] = tx2op1[tx2qp - 1];
 				sub_56A0(tx2qp, tx2qp - 1);
 				tx2opc[tx2qp] = T2_SEMICOLON;
@@ -2119,7 +2119,7 @@ void sub_7550()
 			tx2op1[tx2qp + 1] = tx2op2[1];
 			if (boC20F) {
 				tx2op2[tx2qp + 1] = bC209[curOp];
-				boC20F = 0;
+				boC20F = false;
 			} else
 				tx2op2[tx2qp + 1] = curOp;
 			tx2Auxw[tx2qp] = 0;
@@ -2272,7 +2272,7 @@ void sub_7925()
 				tx2op1[tx2qp] = tx2op2[1];
 				if (boC20F) {
 					i = 0x43 - i;
-					boC20F = 0;
+					boC20F = false;
 				}
 			}
 		}
@@ -2307,7 +2307,7 @@ void sub_7A85()
 			if (bC0B5[m] == 9 && bC140[wC1C3] == bC0B7[m]) {
 				k = m;
 				bC28F = 0xce;
-				boC1D8 = 0;
+				boC1D8 = false;
 			} else
 				bC28F = 0x32;
 			sub_7D7E(b52B5[bC0BF[m]]);
@@ -2352,7 +2352,7 @@ void sub_7A85()
 				bC0B3[1 - k] = bC045[j];
 				sub_61A9(1 - k);
 			} else
-				boC1D8 = 0xff;
+				boC1D8 = true;
 		}
 		bC0B5[k] = j;
 		bC0B3[k] = bC045[j];
@@ -2420,7 +2420,7 @@ void sub_7DA9()
 		bC0B3[bC295] = b528D[bC0C1[bC295]];
 		bC0B5[bC295] = b52B5[bC0C1[bC295]];
 	} else if (bC298 == 0x12)
-		boC1D8 = 0xff;
+		boC1D8 = true;
 	else {
 		if ((bC294 = bt4C2D[bC298] >> 5) > 3)
 			bC294 = b52B5[bC0BF[bC295]];
@@ -2805,7 +2805,7 @@ void sub_89D1()
 					i++;
 			}
 			if (i < 4)
-				boC1D8 = 0xff;
+				boC1D8 = true;
 			else
 				bC0B5[bC2A5] = 0xA;
 		}
@@ -2977,7 +2977,7 @@ void sub_8F35()
 		sub_5795(0);
 		if (boC20F) {
 			cfrag1 = CF_JMPTRUE;
-			boC20F = 0;
+			boC20F = false;
 		}
 	} else if (curOp == T2_63) 
 		sub_5795(0);
@@ -3340,11 +3340,11 @@ void sub_994D()
 	byte i, j;
 
 	if (curOp == T2_LABELDEF) {
-		boC1CC = 0;
+		boC1CC = false;
 		curInfo_p = off2Info(tx2op1[tx2qp]);
 		setAddr(pc);
 	} else if (curOp == T2_LOCALLABEL) {
-		boC1CC = 0;
+		boC1CC = false;
 		((word *)localLabels_p)[tx2op1[tx2qp]] = pc;
 		((byte *)word_381E)[tx2op1[tx2qp]] = curExtProcId;
 	} else if (curOp == T2_CASELABEL) {

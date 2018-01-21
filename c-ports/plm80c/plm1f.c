@@ -353,7 +353,7 @@ static void Sub_7695()
 		CreatF(&nmsFile, xrfBuf, 512, 2);
 	}
 	CreatF(&atFile, atBuf, 512, 1);
-	csegSize, dsegSize = 0;
+	csegSize = dsegSize = 0;
 }
 
 

@@ -1,26 +1,6 @@
 #include "plm.h"
 
 static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-extern byte b7AD9;
-extern byte b7ADA;
-extern byte listing;
-extern byte listOff;
-extern byte codeOn;
-extern word errNum;
-extern word w7AE0;
-extern word STMTNum;
-extern bool b7AE4;
-extern word w7AE5;
-extern word lineNo;
-extern word w7AE9;
-extern word w7AEB;
-extern word offLastCh;
-extern word offCurCh;
-extern byte b7AF1;
-extern byte b7AF2;
-extern byte lstLineLen;
-extern byte lstbuf[130];
-extern byte srcbuf[2048];
 
 void Sub_3F96()
 {
@@ -85,7 +65,7 @@ void Sub_404A()
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
-        STMTNum, w7AE0 = 0;
+        STMTNum = w7AE0 = 0;
         errNum = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
@@ -93,7 +73,7 @@ void Sub_404A()
     listing = PRINT;
     listOff = false;
     codeOn = false;
-    programErrCnt, linesRead, csegSize = 0;
+    programErrCnt = linesRead = csegSize = 0;
 }
 
 void Sub_4149()     // similar to Sub_4201 in main3.c

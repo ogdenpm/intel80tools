@@ -137,6 +137,7 @@ word Start4()
 {
 // reinitialise some variables that are now shared. Just in case
     olstch = ocurch = 0;
+
     ((rec_t *)rec20)->len = 0;
     ((rec_t *)rec20)->val[0] = 3;   // hilo
     ((rec_t *)rec22)->len = 0;

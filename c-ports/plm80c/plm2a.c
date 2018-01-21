@@ -1111,7 +1111,8 @@ void Sub_652B()
 
 void FillTx2Q()
 {
-    byte i, j, k;
+    bool i, j;
+    byte k;
 
     tx2qp = 4;
     if (tx2qEnd > bC1BF) {

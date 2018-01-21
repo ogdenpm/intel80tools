@@ -73,7 +73,7 @@ static void Sub_6F20(byte arg1b)
 
 static void Sub_6EE1(byte arg1b)
 {
-    boC25D = 0;
+    boC25D = false;
     if (tx2opc[arg1b] == T2_MEMBER) {
         Sub_6F20((byte)tx2op1[arg1b]);
         Sub_6F20((byte)tx2op2[arg1b]);

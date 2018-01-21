@@ -1,9 +1,9 @@
 #include "plm.h"
 
 byte helperModId, endHelperId;
-byte listing;
-byte listOff;
-byte codeOn;
+bool listing;
+bool listOff;
+bool codeOn;
 byte locLabStr[32];		/* used to hold symbol name */
 word wa8125[3];
 bool bo812B = true;
@@ -45,7 +45,7 @@ byte line[80];
 byte opByteCnt;
 byte opBytes[3];
 byte dstRec;
-byte srcbuf[640];
+// byte srcbuf[640]; use larger version in pdata6.c
 byte tx1buf[640];
 byte objbuf[640];
 byte lstbuf[640];

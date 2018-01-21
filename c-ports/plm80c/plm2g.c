@@ -258,12 +258,12 @@ void Sub_994D()
 	byte i, j;
 
 	if (curOp == T2_LABELDEF) {
-		boC1CC = 0;
+		boC1CC = false;
 		curInfoP = tx2op1[tx2qp] + botInfo;
 		SetLinkVal(pc);
 	}
 	else if (curOp == T2_LOCALLABEL) {
-		boC1CC = 0;
+		boC1CC = false;
 		WordP(localLabelsP)[tx2op1[tx2qp]] = pc;
 		ByteP(w381E)[tx2op1[tx2qp]] = curExtProcId;
 	}

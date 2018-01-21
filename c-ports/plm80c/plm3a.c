@@ -144,7 +144,7 @@ static struct {
 static byte dat[255];
 
 static word w8115, w8117, w8119, w811B;
-static byte b811D;
+static bool b811D;
 static word w811E;
 
 
@@ -155,11 +155,11 @@ static void Sub_4B6C()
             w8119 = w8119 - 1;
             curInfoP = atFData.infoP;
         } else if (curInfoP == 0) {
-            b811D = 0;
+            b811D = false;
             return;
         } else {
             if (!TestInfoFlag(F_PACKED))
-                b811D = 0;
+                b811D = false;
             if (GetType() == STRUCT_T) {
                 if (TestInfoFlag(F_ARRAY))
                     w8119 = GetDimension();
@@ -325,13 +325,13 @@ static void Sub_4A31()
     ((rec6_t *)rec6)->addr = GetLinkVal();
     w7197 = ((rec6_t *)rec6)->addr;
     if (curInfoP == botInfo)
-        b811D = 0;
+        b811D = false;
     else if (TestInfoFlag(F_EXTERNAL)) {
         Sub_49BC(0xd9, w811E, atFData.stmtNum);
-        b811D = 0;
+        b811D = false;
     } else {
         Sub_4B6C();
-        b811D = 0xff;
+        b811D = true;
     }
 
     Sub_4BF4();

@@ -239,8 +239,8 @@ void GetSourceLine()
     while (1) {
         lstLine[lstLineLen] = GetSourceCh();
         if (lstLine[lstLineLen] == '\n') {
-            bo813B = 0;
-            bo813C = 0;
+            bo813B = false;
+            bo813C = false;
             return;
         } else if (lstLine[lstLineLen] == '\r')
             bA187 = bA187 + 1;

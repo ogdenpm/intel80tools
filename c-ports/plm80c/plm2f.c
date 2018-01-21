@@ -117,7 +117,7 @@ static void Sub_8A9C()
     }
     if (bC0B5[bC2A5] <= 3) {
         bC2A8 = bC0B5[bC2A5];
-        bC045[bC2A8], bC0B3[bC2A5] = j;
+        bC045[bC2A8] = bC0B3[bC2A5] = j;
         bC04E[bC2A8] = bC0B7[bC2A5];
         bC0A8[bC2A8] = wC084[bC2A8] + bC0A8[bC2A8] - p;
         wC084[bC2A8] = p;
@@ -232,13 +232,13 @@ static void Sub_8F35()
         if (wC1C5 < Shl(wC1C3, 1))
             wC1C5 = Shl(wC1C3, 1);
     } else if (curOp == T2_RETURN || curOp == T2_RETURNBYTE || curOp == T2_RETURNWORD) {
-        boC1CD = 0xff;
+        boC1CD = true;
         Sub_5EE8();
     } else if (curOp == T2_JMPFALSE) {
         Sub_5795(0);
         if (boC20F) {
             cfrag1 = CF_JMPTRUE;
-            boC20F = 0;
+            boC20F = false;
         }
     } else if (curOp == T2_63) 
         Sub_5795(0);

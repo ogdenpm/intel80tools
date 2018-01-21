@@ -6,7 +6,7 @@ static word lastNo = 1;
 void LstLineNo()
 {
     pointer q;
-    byte i;
+    bool i;
 
 	if (lineNo > lastNo + 20 )
 	{

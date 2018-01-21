@@ -301,7 +301,7 @@ static void StmtParse7()
     PopParseStack();
     i = st2Stack[w99BF] - 1;
     p = st3Stack[w99BF];
-    q, r = 0;
+    q = r = 0;
     if (i > 1) {
         q = Sub_42EF(st3Stack[p + i - 1]);
         r = Sub_42EF(st3Stack[p + i]);
@@ -467,7 +467,7 @@ word StmtParse(word arg1w)
 }
 
 static byte b99FF[20];
-static byte b9A13[20];
+static bool b9A13[20];
 static word procInfoStack[20];
 static word hNodes[20];
 static word eNodes[20];
@@ -497,7 +497,7 @@ static void PushControl(byte arg1b)
         FatalError(ERR84);  /*  LIMIT EXCEEDED: BLOCK NESTING */
     else {
         b99FF[controlSP = controlSP + 1] = arg1b;
-        b9A13[controlSP] = 0;
+        b9A13[controlSP] = false;
         procInfoStack[controlSP] = 0;
         hNodes[controlSP] = 0;
         eNodes[controlSP] = 0;
@@ -787,7 +787,7 @@ static void ParseReturn()
             WrTx2Error(ERR137); /* MISSING VALUE IN return FOR TYPED procedure */
         p = WrTx2Item(T2_RETURN);
     }
-    b9A13[controlSP] = 0xff;
+    b9A13[controlSP] = true;
     ChkEndOfStmt();
 }
 

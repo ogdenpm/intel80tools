@@ -135,7 +135,7 @@ word st3Stack[300];
 void FatalError_ov1(byte err)
 {
     hasErrors = true;
-    b91C0, fatalErrorCode = err;
+    b91C0 = fatalErrorCode = err;
     longjmp(cleanup, -1);
 }
 

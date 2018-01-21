@@ -53,7 +53,7 @@ void Sub_7A85()
 			if (bC0B5[m] == 9 && bC140[wC1C3] == bC0B7[m]) {
 				k = m;
 				bC28F = 0xce;
-				boC1D8 = 0;
+				boC1D8 = false;
 			}
 			else
 				bC28F = 0x32;
@@ -102,7 +102,7 @@ void Sub_7A85()
 				Sub_61A9(1 - k);
 			}
 			else
-				boC1D8 = 0xff;
+				boC1D8 = true;
 		}
 		bC0B5[k] = j;
 		bC0B3[k] = bC045[j];
