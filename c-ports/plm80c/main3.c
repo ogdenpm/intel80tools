@@ -291,7 +291,9 @@ word Start3()
         Sub_4105();
         csegSize = w7197;
         Sub_4201();
+#ifdef _DEBUG
         symMode = 2;    // now info points to pstr symbols
+#endif
     }
     if (OBJECT) {
         Sub_426E();

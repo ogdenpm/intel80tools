@@ -169,7 +169,7 @@ static void AccessOptStrVal()
             }
             NxtCh();
         }
-        tknLen = curChP - optStrValP;
+        tknLen = (byte)(curChP - optStrValP);
         AcceptRP();
     }           
 
@@ -186,7 +186,7 @@ static void AcceptFileName()
         optStrValP = curChP;
         while (*curChP != ' ' && *curChP != ')' && chrClass != CC_NEWLINE)
             NxtCh();
-        tknLen = curChP - optStrValP;
+        tknLen = (byte)(curChP - optStrValP);
         if (tknLen > 14) {
             BadCmdTail(ERR17);  /* INVALID PATH-NAME */
             tknLen = 0;
@@ -281,7 +281,7 @@ static void GetToken()
     optStrValP = curChP;
     while (*curChP != ' ' && *curChP != '(' && chrClass != CC_NEWLINE)
         NxtCh();
-    tknLen = curChP - optStrValP;
+    tknLen = (byte)(curChP - optStrValP);
 }
 
 

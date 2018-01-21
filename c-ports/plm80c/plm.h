@@ -1218,12 +1218,14 @@ void Sub_6550();
 //cmd             "CMD_ST"..cmdLineP
 //inChr           B..inChrP
 //*curProcData        A..curProcData
+#ifdef _DEBUG
 extern int symMode;    // used to control debug of symbol space
 extern int infoMode;
 
 void showInfo(offset_t off);
 void dumpAllInfo();
 void dumpBuf(file_t *fp);
+#endif
 
 /* adninf.plm */
 void AdvNxtInfo();

@@ -117,7 +117,7 @@ static void ParseInvokeName()
     if (*cmdTextP == ':')
         cmdTextP = cmdTextP + 4;    // skip drive
     SkipAlphaNum();
-    if ((len = cmdTextP - startP) > 10)
+    if ((len = (word)(cmdTextP - startP)) > 10)
         len = 10;
     /* plm had the overlay & invokename (ov0) split out
      * I have combined them to avoid spaces in address ranges
@@ -154,18 +154,18 @@ static void ParseSrcFile()
     }
     fileName = cmdTextP;
     SkipAlphaNum();
-    if ((nameLen = cmdTextP - fileName) == 0 || nameLen > 6)
+    if ((nameLen = (word)(cmdTextP - fileName)) == 0 || nameLen > 6)
         Fatal(aSourceFileName, sizeof(aSourceFileName) - 1);
-    srcStemLen = cmdTextP - fullName;
+    srcStemLen = (byte)(cmdTextP - fullName);
     memset(srcStemName, ' ', 10);
     memmove(srcStemName, fullName, srcStemLen);
     if (*cmdTextP == '.') {
         fileName = (cmdTextP = cmdTextP + 1);
         SkipAlphaNum();
-        if ((nameLen = cmdTextP - fileName) == 0 || nameLen > 3)
+        if ((nameLen = (word)(cmdTextP - fileName)) == 0 || nameLen > 3)
             Fatal(aSourceFileBadExt, sizeof(aSourceFileBadExt) - 1);
     }
-    nameLen = cmdTextP - fullName;
+    nameLen = (word)(cmdTextP - fullName);
     srcFileIdx = 0;
     memset(srcFileTable, ' ', 16);
     memmove(srcFileTable, fullName, nameLen);
@@ -176,7 +176,7 @@ static void ParseSrcFile()
     if (*cmdTextP == '\r')
         offNxtCmdChM1 = 0;
     else
-        offNxtCmdChM1 = cmdTextP - ByteP(cmdLineP) - 1;
+        offNxtCmdChM1 = (word)(cmdTextP - ByteP(cmdLineP) - 1);
 } /* ParseSrcFile() */
 
 static void Sub_45F6()

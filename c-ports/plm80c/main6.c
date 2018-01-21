@@ -137,7 +137,9 @@ word Start6()
         Sub_404A();
         if (b7AD9 || IXREF) {
             Sub_4149();
+#ifdef _DEBUG
             symMode = 2;
+#endif
         }
         Sub_3F96();
         while (b7AE4) {

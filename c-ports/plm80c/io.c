@@ -189,8 +189,10 @@ int main(int argc, char **argv)
 
     initMem();
     ovl = 255;
+#ifdef _DEBUG
     symMode = 1;        // standard sym_t
     infoMode = 0;
+#endif
     while (1) {
         switch (ovl) {
         case 255: ovl = Start(); break;

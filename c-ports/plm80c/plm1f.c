@@ -374,14 +374,18 @@ static void Sub_76D9()
 	for (i = 1; i <= procCnt; i++) {
 		procInfo[i] = procInfo[i] - botMem;
 	}
+#ifdef _DEBUG
     infoMode = 1;
+#endif
 }
 
 void Sub_6EE0()
 {
 	Sub_7695();
 	Sub_7049();
+#ifdef _DEBUG
     symMode = 0;    // use hex for symbols as info updated to final pstr locations
+#endif
     Sub_711F();
     Sub_719D();
     ProcAtFile();

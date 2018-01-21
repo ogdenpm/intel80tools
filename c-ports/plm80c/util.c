@@ -28,7 +28,7 @@ offset_t ptr2Off(pointer p)
         fprintf(stderr, "out of range memory ref %p\n", p);
         exit(3);
     }
-    return p - memory + LOWMEM;
+    return (offset_t)(p - memory + LOWMEM);
 }
 
 pointer off2Ptr(offset_t off)
