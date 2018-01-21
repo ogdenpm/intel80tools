@@ -76,16 +76,40 @@ branch. Will merge back in once I feel enough work has been done. This branch
 includes fixes and adds drive specifier support. If you are interested
 check out feature/asm80
 
+10-Dec-2017 Added C ports of asm80 v4.1, lib v2.1, link v3.0, locate v3.0.
+	    The command line is as per the ISIS versions and you need to set
+	    environment variables of form ISIS_Fn=dir to support :Fx: drive
+	    prefixes. As a convienence for all but plm80 :F0: defaults to the
+	    current directory.
+	    I have also added my old plm80 port to C++. It supports :Fx:
+	    prefixes, but :F0: map to current directory and other :Fn: prefixes
+	    map to ./fn. At somepoint I will convert to the format used for
+	    the other tools.
+	    To clean up the directories all the C ports are now under c-ports
+	    and managed via a single solution
 
 What's here
-asm80-c/*.*	the port of asm80 v4.1 to C. The current version does not
-		support :Fx: specifications, it just ignores them.
+c-ports/
+  asm80/*.*	the port of asm80 v4.1 to C. 
 		The port is based on asm80.ov4 which is the macro version of
 		the assembler. I have seen this distributed as asm80 without
 		the other overlays, as the main asm80 just determines whether
 		to run asm80.ov4 (macro support), asm80.ov5 (large memory
 		support no macros) or to use overlays asm80.ov1, asm80.ov2 and
 		asm80.ov3 for small memory support.
+
+  lib/*.*	the port of lib v2.1 to C
+
+  link/*.*	the port of link v3.0 to C
+
+  locate/*.*	the port of locate v3.0 to C
+
+  plm80/*.*	this is an old port of plm80 v4.1 to C++. It was written
+		before I had completed the decompilation of plm80. Also I use
+		a number of kludges to map address variables, some of which I
+		would do differently in a future version.
+		Note it currently maps isis drives differently from the other
+		tools. Note the 10-Dec-2017 comment above. 
 
 itools/*/*.*	the various isis tools each set specified under a sub
 		directory of the format tool_version. Tools include
@@ -393,3 +417,4 @@ Update 18-May-2017   minor reorganisation of isis toolbox v1.0 to use nested pac
 Update 8-Jun-2017    Updated thames to use 8080 emulation. This allows basic to be run
 		     Added isis toolbox 2.0 and a new version of relst.pl
 Update 28-Nov-2017   Added decompilations isis.bin and isis.t0 for isis 4.0
+Update 10-Dec-2017   Added C ports

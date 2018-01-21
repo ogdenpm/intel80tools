@@ -7,14 +7,18 @@ die "usage: makedepend.pl target source\n" if $#ARGV != 1;
 sub realfile {
 	my $isisfile = $_[0];
 	my $path;
-	$isisfile =~ s/:(..)://;	# remove drive from file if present
-	if ($1 ne '') {
+
+	return $isisfile if $isisfile =~ /\/\\/;	# passed in dos/unix filename. Assume user has correct char case
+
+	$isisfile = lc($isisfile);
+	if ($isisfile =~ s/:(..)://) {	# remove drive from file if present
+		$device = uc($1);
 		$path = $ENV{"ISIS_".uc($1)};
 		$path =~ s/[\/\\]$//;	# remove training / or \ if present
-	} else {
-		$path = '.';
-	}
-	return ($path eq '.' || $path eq '') ? $isisfile : "$path/$isisfile";
+		return "$path/$isisfile" if $path && $path ne '.';
+		print "warning ISIS_$device not defined\n";
+	} 
+	return $isisfile;
 }
 
 # scan the source file for include files and recursively process
@@ -24,11 +28,12 @@ sub depend {
 	my ($src) = realfile($_[0]);
 	
 	if (!defined($incs{$src})) {
-		$incs{$src} = $incCnt++;
-		print $depfile " $src";
-		if (open(my $inc, "<$src")) {
+		$incs{$src}++;
+		$deps .= " $src";
+		if (open(my $inc, '<', $src)) {
 			while (<$inc>) {
-				if (/^\$.*include\s*\(\s*([^\s\)]*)/i) {
+				next unless /^\$/;
+				if (/include\s*\(\s*([^\s\)]*)/i) {
 					depend($1);
 				}
 			}
@@ -41,23 +46,24 @@ sub depend {
 
 $target = realfile(shift @ARGV);
 $src = $source = realfile(shift @ARGV);
-$src =~ s/.*[\/\\]// if $src =~ /[\/\\]/;
-$src =~ s/\.[^\.]*//;
+$src =~ s/.*[\/\\]//;					# remove any path
+$src =~ s/\.[^\.]*?$// unless $src =~ /^\.+[^\.]*?$/;	# remove any ext
 
 $incCnt = 0;
-
-mkdir ".deps" if (!-d ".deps");
-open($depfile, ">.deps/$src.d") or die "can't create .deps/$src.d\n";
-
-# put the target dependency in place
-print $depfile "$target:";
+$deps = '';
 
 depend($source);
+unlink ".deps/$src.d" if -f ".deps/$src.d";
 
-print $depfile "\n";
-foreach $f (keys(%incs)) {
-	print $depfile "$f:\n" if $f ne $source;
+if ($deps ne " $source") {
+	mkdir ".deps" if (!-d ".deps");
+	open($depfile, ">.deps/$src.d") or die "can't create .deps/$src.d\n";
+
+	# put the target dependency in place
+	print $depfile "$target:$deps\n";
+
+	foreach $f (keys(%incs)) {
+		print $depfile "$f:\n" if $f ne $source;
+	}
+	close $depfile;
 }
-close $depfile;
-
-unlink ".deps/$src.d" if $incCnt <= 1;

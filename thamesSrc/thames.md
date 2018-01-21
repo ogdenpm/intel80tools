@@ -14,10 +14,10 @@
    unfortunately to getchar requires cr before returing. Not a major problem but we aware.
  * **Note** to revert to z80 emulation uncomment the #define Z80 line in thames.h
  * Added -i option to Thames (v0.1.3) that allows cobol80 to load
- 
+
 Other programs known to work include
- * asm80 versions 3.0 & 4.1
- * plm80 versions 3.0 & 3.1
+ * asm80 versions 3.0, 3.1 & 4.1
+ * plm80 versions 3.0, 3.1 & 4.0
  * lib v2.1
  * Fort80 v2.1
  * Pasc80 v2.2 - from thames 0.1.1g
@@ -114,9 +114,9 @@ If you invoke thames with a -m option the command line will be pre-processed as 
   This is the common approach taken in many ISIS tools to support long lists of arguments.
 * The automatic line split can be overridden as follows:
   * A single & forces a line split and is replaced by & CR LF and is useful for the LIB tool which requires the
-  last file name in an ADD operation to be on the same line as the TO target.lib options.
+    last file name in an ADD operation to be on the same line as the TO target.lib options.
   * A double & also forces a line split but is replaced by CR LF and is again useful for the LIB tool to support
-  multiple commands.
+    multiple commands.
 * The pre-processed command is echoed to stdout
 
 #### Examples:
@@ -168,7 +168,7 @@ There are additionally three options that are used to modify the error processin
    the junk data present in memory when Intel create the isis.t0 files.
 3. -i this allows applications with invalid checksums to load. This is needed for cobol80. Normally
    you would not need this
-   
+
 ## Implementation notes
 
 Areas of functionality not used by the CP/M 3 build tools are untested.
@@ -192,10 +192,12 @@ set to an integer between 0 and 4:
 ## Acknowledgements
 
 * The Z80 emulation engine was written by Ian Collier.
-* The [ISX documentation](http://p112.sourceforge.net/index.php?isx) on the P112 pages, and the documentation
-  of ISIS internals at [bitsavers.org](http://www.bitsavers.org/pdf/intel/ISIS_II/), were both invaluable to me
-  in the course of writing thames.
-     __________________________________________________________________
+
+* The [ISX documentation](http://p112.sourceforge.net/index.php?isx) on the P112 pages, and the documentation of ISIS internals at [bitsavers.org](http://www.bitsavers.org/pdf/intel/ISIS_II/), were both invaluable to me in the course of writing thames.
+
+* John Elliott for the initial implementation.
+
+  __________________________________________________________________
 
 
-    Mark Ogden 1-May-2017
+    Updated by Mark Ogden 22-Dec-2017
