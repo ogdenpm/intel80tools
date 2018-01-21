@@ -1,0 +1,4334 @@
+/*
+vim:ts=4:expandtab:
+ */
+
+GAP$T   'structure(link address, start address, len address, seg address)'
+CMDLINE$T   'structure(link address, len address, text(1) byte)'
+
+link: do;
+declare HASH$T literally
+     'STRUCTURE (link ADDRESS, flags BYTE, linkedSeg BYTE, val ADDRESS, link ADDRESS, name(1) BYTE)';
+
+
+declare copyright(*) byte data('(C) 1976, 1977 INTEL CORP');
+declare isisVec address data(40h);
+declare zero address data(0);
+
+
+declare
+    commandTail address public,
+    outFile address public,
+    outFilePtr address public,
+    mapWanted byte public initial(FALSE),
+    mapFile address public,
+    mapFilePtr address public,
+    inFile address public,
+    inFilePtr address public,
+    outModuleNameLength byte public,
+    outModuleName(32) byte public,
+    needAncestorName byte public,
+    outTranId byte public,
+    outTranVn byte public,
+    initTranIdVn byte initial(0ffh) public,
+    modEndTyp byte public,
+    modEndSegId byte public,
+    modEndOffset address public,
+    fileList address public,
+    fileListEnd address public,
+    contigPtr address public initial(.contigEnd) public,
+    contigEndi structure(w0 address, w2 address, w3 address) public initial(0, 0ffffh, 0),
+    moduleListBase address public,
+    moduleListEnd address public,
+    currentLenth(5) address public,
+    currentRelTyp(5) byte public,
+    currentOffset(5) address public,
+    gapPtr byte public initial(0),
+    b4C4A byte initial(0),
+    b4C4B byte initial(0),
+    lastGap address public,
+    cEntryBase address public,
+    commonThread address public iniitla(0),
+    lastCommon address public initial(.b4c4A),
+    blankRelTyp byte public initial(0),
+    w4C55 address public,
+    noCommon bool public initial(TRUE),
+    hashTab(128) address public,
+    sEntryBase address public,
+    nExts address public,
+    eDict(128) address,
+    newExternals byte public,
+    eDictFilei(*) byte public initial(':F0:LINK.TMP '),
+    externalsOnDisk bool public initial(0),
+    eDictAftn address public,
+    tempName(32) byte public,
+    publicsMode byte public,
+    status address public,
+    actual byte public,
+    overlayFileName(*) byte public initial(':F0:LINK.OVL ');
+
+entry:
+    call Init;
+    call sub58B0;
+    call sub652D;
+    call sub6726;
+    call Load(.overlayFileName, 0, 0, .actual, .status);
+    if status <> 0 then
+        call FileError(status, .overlayFileName, TRUE);
+    call Pass2;
+    if externalsOnDisk then
+    do;
+        call FatalClose(eDictAftn, .status);
+        call FatalDelete(.eDictFile, .status);
+    end;
+    call Exit;
+end;
+
+
+GAbort: procedure public;
+    declare abortMsg(*) byte data('LINK PROGRAM HAS ABORTED', CR, LF),
+
+    call Write(0, .abortMsg, size(abortMsg), .status);
+    call zero;
+    call Exit;
+end;
+
+ReportError: procedure(errNum) public;
+    declare errNum address;
+    declare numberBuffer(3) byte, i address, status address;
+    declare errMsg(*) byte DATA(
+        0, 0,
+        2, 'ILLEGAL AFTN ARGUMENT', 0,
+        4, 'INCORRECTLY SPECIFIED FILE', 0,
+        5, 'UNRECOGNIZED DEVICE NAME', 0,
+        6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+        8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+        9, 'DISK DIRECTORY FULL', 0,
+        0AH, 'NOT ON SAME DISK', 0,
+        0BH, 'FILE ALREADY EXISTS', 0,
+        0CH, 'FILE IS ALREADY OPEN', 0,
+        0DH, 'NO SUCH FILE', 0,
+        0EH, 'WRITE PROTECTED', 0,
+        11H, 'NOT A DISK FILE', 0,
+        12H, 'ILLEGAL ISIS COMMAND', 0,
+        13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+        14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+        15H, 'CAN', 27H, 'T RESCAN', 0,
+        16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+        17H, 'MISSING FILENAME', 0,
+        19H, 'ILLEGAL ECHO FILE', 0,
+        1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+        1BH, 'ILLEGAL SEEK COMMAND', 0,
+        1CH, 'MISSING EXTENSION', 0,
+        1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+        20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+        23H, 'SEEK PAST EOF', 0,
+        0C9H, 'UNRECOGNIZED SWITCH', 0,
+        0CAH, 'UNRECOGNIZED DeLimitER', 0,
+        0CBH, 'INVALID SYNTAX', 0,
+        0CCH, 'PREMATURE EOF', 0,
+        0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+        0D0H, 'CHECKSUM ERROR', 0,
+        0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+        0D2H, 'INSUFFICIENT MEMORY', 0,
+        0D3H, 'RECORD TOO LONG', 0,
+        0D4H, 'ILLEGAL RELO RECORD', 0,
+        0D5H, 'FIXUP BOUNDS ERROR', 0,
+        0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+        0D7H, 'ARGUMENT TOO LONG', 0,
+        0D8H, 'TOO MANY PARAMETERS', 0,
+        0D9H, 'OBJECT RECORD TOO SHORT', 0,
+        0DAH, 'ILLEGAL RECORD FORMAT', 0,
+        0DBH, 'PHASE ERROR', 0,
+        0DCh, 'NO EOF', 0,
+        0DDh, 'SEGMENT TOO LARGE', 0,
+        0DEh, 'UNRECOGNIZED RECORD TYPE', 0,
+        0DFh, 'BAD FIXUP RECORD', 0,
+        0E0h, 'BAD RECORD SEQUENCE', 0,
+        0E1h, 'INVALID MODULE NAME', 0,
+        0E2h, 'MODULE NAME TOO LONG', 0,
+        0E3h, 'LEFT PARENTHESIS EXPECTED', 0,
+        0E4h, 'RIGHT PARENTHESIS EXPECTED', 0,
+        0E5h, 'UNRECOGNIZED CONTROL', 0,
+        0E7h, 'FILE ALREADY EXISTS', 0,
+        0E8h, 'UNRECOGNIZED COMMAND', 0,
+        0E9h, '''TO'' EXPECTED', 0,
+        0EAh, 'DUPLICATE FILE NAME', 0,
+        0EBh, 'NOT LIBRARY', 0,
+        0ECh, 'TOO MANY COMMON SEGMENTS', 0
+        );
+
+
+    if errNum <> 0 then
+    do;
+        i = 0;
+        do while i < size(msg);
+            if errNum = errMsg(i) and errMsg(i + 1) <> 0 then
+            do;
+                i = i + 1;
+                call write(0, .(' '), 1, .status);
+                do while errMsg(i) <> 0;
+                    call write(0, .msg(i), 1, .status);
+                    i = i + 1;
+                end;
+                call write(0, .(CR, LF), 2, .status);
+                return;
+            end;
+            else
+            do;
+                do while errMsg(i) <> 0;
+                    i = i + 1;
+                end;
+                i = i + 1;
+            end;
+        end;
+    call error(errNum);
+    end;
+end;
+
+
+Warn: procedure(str, len) public;
+    declare (str, len) address;
+
+    call Write(0, str, len, .status);
+    if mapFile <> 0 and mapWanted then
+        call Write(mapFile, str, len, .status);
+end;
+
+WarnCr: procedure(str, len) public;
+    declare (str, len) address;
+
+    call Warn(str, len);
+    call Warn(.(CR, LF), 2);    
+end;
+
+FatalInputError(errCode) public;
+    declare errCode byte;
+
+    call FileError(errCode, inFilePtr, TRUE);
+    call Exit;
+end;
+
+
+IllFmt: procedure public;
+    call FileError(218, inFilePtr, TRUE);
+end;
+
+
+IsisReturnTest: procedure(arg1w, errCode) public;
+    if errCode = 0 then
+        return;
+    call ReportError(errCode);
+    call Exit;
+end;
+
+safeRead: procedure (conn, buff$p, count, actual$p, status$p) public;
+    declare (conn, buff$p, count, actual$p, status$p) address;
+
+    call isisVec(I$READ, .conn);
+    call IsisReturnTest(conn, status$p);
+end;
+
+safeWrite: procedure (conn, buff$p, count, status$p) public;
+    declare (conn, buff$p, count, status$p) address;
+
+    call isisVec(I$WRITE, .conn);
+    call IsisReturnTest(conn, status$p);
+end;
+
+FatalOpen: procedure (conn$p, path$p, access, echo, status$p) public;
+    declare (conn$p, path$p, access, echo, status$p) address;
+    declare status based status$p address;
+
+    call isisVec(I$OPEN, .conn$p);
+    if status <> 0 then
+        call FileError(status, path$p, TRUE);
+end;
+
+FatalClose: procedure (conn, status$p) public;
+    declare (conn, status$p) address;
+
+    call isisVec(I$CLOSE, .conn);
+    call IsisReturnTest(conn, status$p);
+end;
+
+SafeSeek: procedure (conn, mode, block$p, byte$p, status$p) public;
+    declare (conn, mode, block$p, byte$p, status$p) address;
+
+    call isisVec(I$SEEK, .conn);
+    call IsisReturnTest(conn, status$p);
+end;
+
+FatalDelete: procedure (path$p, status$p) public;
+    declare (path$p, status$p) address;
+    declare status based status$p address;
+
+    call isisVec(I$DELETE, .path$p);
+    if status <> 0 then
+        call FileError(status, path$p, TRUE);
+end;
+
+declare
+    membot address public,
+    topHeap address;
+    
+GetHigh: procedure(count) address public;
+    declare count address;
+
+    if topHeap - memBot >= count then
+        return (memBot := memBot + count) - count;
+    CALL ReportError(ERR210);   /* Insufficient memory */
+END GetHigh;
+
+GetLow: procedure(count) address public;
+    declare count address;
+    if topHeap - memBot >= count THEN
+        RETURN (topHeap := topHeap - count);
+    CALL ReportError(ERR210);   /* Insufficient memory */
+END GetLow;
+
+GetHigh: procedure(count) public;
+    declare count address;
+
+OpenNextInputElement: procedure;
+    call FatalOpen(.inFile, inFilePtr, 1, 0, .status);
+    remainder = 0;
+end;
+
+
+declare
+    b4EE8 byte,
+    tp byte public,
+    recLen address public,
+    remainder address public
+    (recordBlock0, recordByte0) address public,
+    b4EF2(4) byte,
+    b4EF6(10) byte,
+    b4F00(4) byte;
+    
+ReadInput(count, buf$p) public;
+    declare (count, buf$p) address;
+ 
+    call SafeRead(inFile, buf$p, count, .actual, .status);
+end;
+
+
+ReadRecord(count, buf$p) public;
+    declare (count, buf$p) address;
+    declare ch based buf$p byte;
+
+    call ReadInput(count, buf$p);
+    if count <> actual or count > remainder then
+        call FileError(217, inFilePtr, TRUE);
+    remainder = remainder - count;
+
+    do while count <> 0;
+        count = count - 1;
+        crc = crc + ch;
+    end;    
+end;
+
+VerifyChkSum: procedure public;
+    declare crcByte byte;
+    call ReadRecord(1, .crcByte);
+    if crc <> 0 then
+        call FileError(208, inFilePtr, TRUE);
+end;
+
+
+SkipRecord: procedure public;
+
+    if remainder = 1 then
+        call VerifyChkSum;
+    else
+        call SafeSeek(inFile, 3, .zero, .remainder, .status);
+    remainder = 0;
+end;
+
+ReadHeader: procedure public;
+    call SkipRecord;
+    call SafeSeek(inFile, 0, .recordBlock0, .recordByte0, .status);
+    remainder = 3;
+    crc = 0;
+    call ReadRecord(3, .tp);
+    remainder = recLen;
+end;
+
+Ascertain: procedure(type) public;
+    declare type byte;
+
+    call ReadHeader;
+    if tp <> type then
+        call FatalInputError(218);
+end;
+
+ReadName: procedure(name$p) public;
+    declare name$p address;
+    declare len based name$p byte;
+
+    call ReadRecord(1, name$p);
+    if len > 31 then
+        call IllFmt;
+    call ReadRecord(len, name$p + 1);
+end;
+
+SkipModule: procedure public;
+    do while tp <> 4;
+        call ReadHeader;
+    call SkipRecord;
+end;
+
+Position: procedure(mode, loc$p) public;
+    declare mode byte, loc$p address;
+    
+    call SafeSeek(inFile, mode, loc$p, loc$p + 2, .status);
+    if status = 2 then
+        remainder = 0;
+end;    
+
+PushRecord: procedure public;
+    declare i byte;
+    declare recInfo(6) byte at (.crc);
+
+    call Position(0, .b4EF2);
+    do i = 0 to 6;  /* push crc, tp, recLen & remainder */
+        recordStack(i) = recInfo(i);
+    end;
+end;
+
+
+PopRecord: procedure public;
+    declare i byte;
+    declare recInfo(6) byte at (.crc);
+
+    call Position(2, .b4F00);
+    do i = 0 to 6;  /* pop crc, tp, recLen & remainder */
+        recInfo(i) = recordStack(i);
+    end;
+end;
+
+SwapRecord: procedure public;
+    declare i byte, tmp address;
+    declare recInfo(*) byte at(.crc);
+
+    call Position(0, .b4EF2);
+    tmp = remainder;
+    call Position(2, .b4F00);
+    remainder = tmp;
+
+    do i = 0 to 6;
+        tmp = recInfo(i);
+        recInfo(i) = recordStack(i);
+        recordStack(i) = tmp;
+    end;
+end;
+
+
+InputTypeInfo: procedure address public;
+    call ReadRecord(1, .b4F18);
+    return .b4F18;
+end;
+
+LengthTypeInfo: procedure(info$p) address public;
+    declare info$p address;
+    return 1;
+end;
+
+CompareTypeInfo: procedure(info1$p, info2$p) byte public;
+    declare (info1$p, info2$p) address;
+    declare info1 based info1$p byte;
+    declare info2 based info2$p byte;
+
+    return info1 = info2;
+end;
+
+TransferTypeInfo: procedure(info1$p, info2$p) public;
+    declare (info1$p, info2$p) address;
+    declare info1 based info1$p byte;
+    declare info2 based info2$p byte;
+
+    info2 = info1;
+end;
+
+PutTypeInfo: procedure(info$p) public;
+    call PutRecord(1, info$p); /* in overlay */
+end;
+
+HashF: procedure(pstr) byte public;
+    declare pstr address;
+    declare str based pstr (1) byte;
+    declare (i, j) byte;
+
+    j = 0;
+    do i = 0 to str(0);
+        j = ror(j, 1) xor str(i);
+    end;
+    return j mod 80h;
+end HashF;
+
+
+Lookup: procedure(pstr, ref$p, arg3b, mask) byte public;
+    declare (pstr, ref$p) address, (arg3b, mask) byte;
+    declare str based pstr (1) byte;
+    declare ref based ref$p address;
+    declare (item$p, name$p) address, (i, j) byte;
+    declare item based item$p HASH$T;
+    declare name based name$p (1) byte;
+
+    declare clashMsg(*) byte data(', COMMON/PUBLIC/EXTERNAL NAME CLASH');
+
+    item$p = .hashTab(HashF(pstr));
+    j = FALSE;
+    do while link <> 0;
+        item$p = item.link;
+        name$p = .item.name;
+        do i = 0 to str(0);
+            if name(i) <> str(i) then
+                goto next;
+        end;
+        if (item.flags and 0Eh) = 0) xor arg3b)
+            j = TRUE;
+        else
+        do;
+            ref = item$p;
+            return TRUE;
+        end;
+    next:
+    end;
+
+    if mask and j then
+    do;
+        call Warn(.str(1), str(0));
+        call WarnCR(.clashMsg, size(clashMsg));
+    end;
+    ref = item$p;
+    return FALSE;
+end;
+
+
+
+PutEDict: procedure(arg1w, arg2w) public;
+    declare (arg1w, arg2w) address;
+
+    if arg2w <= last(eDict) then
+        eDict(arg2w) = arg1w;
+    else 
+    do;
+        if not externalsOnDisk then
+        do;
+            call FatalOpen(.eDictAftn, .eDictFile, UPDATE$MODE, 0, .status);
+            externalsOnDisk = TRUE;
+        end;    
+        arg2w = (arg2w - length(eDict)) * 2;
+        call SafeSeek(eDictAftn, SEEK$ABS, .ZERO, .arg2w, .status);
+        call SafeWrite(eDictAftn, .arg1w, 2, .status);
+    end;
+end;
+
+
+GetEDict: procedure(arg1w) address public;
+    declare arg1w address;
+   
+    if arg1w <= last(eDict) then
+        return eDict(arg1w);
+    arg1w = (arg1w - length(eDict)) * 2;
+    call SafeSeek(eDictAftn, SEEK$ABS, .ZERO, .arg1w, .status);
+    call SafeRead(eDictAftn, .arg1w, 2, .actual, .status);
+    return arg1w;
+end;
+
+InitSegComb: procedure public;
+    declare i byte, 
+
+    do i = 0 to 4;
+        currentLength(i) = 0;
+        currentRelTyp(i) = 0;
+        currentOffset(i) = 0;
+    end;
+    lastGap = .gapPtr;
+end;
+
+Init: procedure public;
+    declare i address;
+
+    memBot = valMemory; 
+    topHeap = Memck;
+    fileListEnd = .fileList;
+
+    do i = 0 to last(hashTab);
+        hashTab(i) = 0;
+    end;
+    mapFilePtr = .(':CO: ');
+    call InitSegComb;
+end;
+
+UpdateSegComb: procedure(seg, segLen, combine) public;
+    declare (seg, combine) byte, segLen address;
+    declare (oldLen, gapLen) address;
+    declare gap based lastGap GAP$T;
+
+    if seg > 4 or seg = 0 then
+        call FatalInputError(0DAh);
+    if currentRelTyp(seg) = 0 then
+        currentRelTyp(seg) = combine;
+    if combine - 1 > 2 then
+        call FatalInputError(0DAh);
+
+    oldLen = currentLength(seg);
+    if seg = 3 or seg = 4 then
+    do;
+        currentLength(seg) = oldLen + segLen;
+        if currentRelTyp(seg) = 3 and currentRelTyp(combine) = 3 then
+            ;
+        else
+            currentRelTyp(seg) = 2;
+    end;
+    else
+    do case combine - 1;
+        do; /* INPAGE */
+            if low(oldLen) + segLen <= 100h then
+                currentLength(seg) = oldLen + segLen;            
+            else
+                currentLength(seg) = ((oldLen + 0ffh) and 0ff00h) + segLen;
+            if currentRelTyp(seg) = ALN$INPAGE and currentLength(seg) <= 100h then
+                ;
+            else
+                currentRelTyp(seg) = ALN$PAGE;
+        end;
+        do; /* PAGE */
+            currentRelTyp(seg) = 2;
+            currentLength(seg) = ((oldLen + 0ffh) and 0ff00h) + segLen;
+        end;
+        do; /* BYTE */
+            if currentRelTyp(seg) = ALN$INPAGE then
+                currentRelTyp(seg) = ALN$PAGE;
+            currentLength(seg) = oldLen + segLen;
+        end;
+    end;
+
+    currentOffset(seg) = currentLength(seg) - segLen;
+    if currentLength(seg) < currentOffset(seg) then
+        call FatalInputError(0ddh);
+    if b4C4B then
+        if (gapLen := currentLength(seg) - oldLen - segLen) > 0 then
+        do;
+            gap.link = GetHigh(8);
+            lastGap = gap.link;
+            gap.link = 0;
+            gap.start = oldLen;
+            gap.len = gapLen;
+            gap.seg = seg;
+        end;
+end;
+
+P12ModHdr: procedure(arg1b) public;
+    declare arg1b byte;
+    declare (tranId, tranVn) byte;
+    declare r structure(segId byte, segLen address, alnTyp byte);
+    declare i byte, stdSegSeen(5) bool;
+
+    if arg1b then
+    do;
+        call ReadName(.OutModuleNameLength);
+        needAncestorName = TRUE;
+    end;
+
+   call ReadRecord(2, .tranId);
+    if initTranIdVn then
+    do;
+        initTranIdVn = FALSE;
+        outTranId = tranId;
+        outTranVn = tranVn;
+    end;
+    if tranId <> outTranId then
+        outTranId = 0;
+    if tranVn <> outTranVn then
+        outTranVn = 0;
+
+    do i = 1 to 4;
+        stdSegSeen(i) = 0;
+    end;
+
+    do while remainder > 1;
+        call ReadRecord(4, .r.segId);
+        if r.segId >= 6 then
+        do;
+            if arg1b then
+                call sub5AE1(r.segId, r.segLen, r.alnTyp);
+        end;
+        else
+        do;
+            if stdSegSeen(r.segId) then
+                call FatalInputError(0DAh);
+            stdSegSeen(r.segId) = TRUE;
+            call UpdateSegComb(r.segId, r.segLen, r.alnTyp);
+        end;
+    end;
+
+    do i = 1 to 2;
+        if not stdSegSeen(i) then
+            currentOffset(i) = currentLength(i);
+    end;
+    call VerifyChksum;
+    call ReadHeader;
+end;
+
+; [00000013 BYTES: COLLAPSED FUNCTION CLOSE. PRESS KEYPAD "+" TO EXPAND]
+; [00000013 BYTES: COLLAPSED FUNCTION DELETE. PRESS KEYPAD "+" TO EXPAND]
+; [00000015 BYTES: COLLAPSED FUNCTION ERROR. PRESS KEYPAD "+" TO EXPAND]
+; [0000000F BYTES: COLLAPSED FUNCTION Exit. PRESS KEYPAD "+" TO EXPAND]
+; [00000024 BYTES: COLLAPSED FUNCTION LOAD. PRESS KEYPAD "+" TO EXPAND]
+; [00000006 BYTES: COLLAPSED FUNCTION MEMCK. PRESS KEYPAD "+" TO EXPAND]
+; [00000024 BYTES: COLLAPSED FUNCTION OPEN. PRESS KEYPAD "+" TO EXPAND]
+; [00000024 BYTES: COLLAPSED FUNCTION READ. PRESS KEYPAD "+" TO EXPAND]
+; [00000024 BYTES: COLLAPSED FUNCTION SEEK. PRESS KEYPAD "+" TO EXPAND]
+; [0000001F BYTES: COLLAPSED FUNCTION WRITE. PRESS KEYPAD "+" TO EXPAND]
+Deblank: procedure(ptr) address public;
+    declare ptr address;
+    declare c based ptr byte;
+
+    do while (c = ' ');
+        ptr = ptr + 1;
+    end;
+    return ptr;
+end;
+
+Delimit: procedure(ptr) address public;
+    declare ptr address;
+    declare c based ptr byte;
+
+    do while (c = ':' or c = '.' or ('0' <= c and c <= '9') or ('A' <= c and c <= 'Z'));
+        ptr = ptr + 1;
+    end;
+    return ptr;
+end;
+
+FileError: procedure(status, ptr, callExit) public;
+    declare (status, ptr) address, callExit byte;
+    declare actual address;
+
+    if status <> 0 then
+    do;
+        ptr = deblank(ptr);
+        call write(0, .(' '), 1, .actual);
+        call write(0, ptr, ScanBlank(ptr) - ptr, .actual);
+        call write(0, .(','), 1, .actual);
+        call reporterror(status);
+        if callExit then
+            call exit;
+    end;
+end;
+
+declare digits(*) byte data('0123456789ABCDEF');
+
+NumOut: procedure(value, base, lc, bufAdr, width) public;
+    declare (value, bufAdr) address, (base, lc, width) byte;
+    declare i byte;
+    declare buf based bufAdr (1) byte;
+
+    do i = 1 to width;
+        buf(width - i) = digits(value mod base);
+        value = value / base;
+    end;
+
+    i = 0;
+    do while buf(i) = '0' and i < width - 1;
+        buf(i) = lc;
+        i = i + 1;
+    end;
+end;
+
+ScanBlank: procedure(ptr) address public;
+    declare ptr address;
+    declare ch based ptr byte;
+
+    do while 1;
+        ptr = Delimit(ptr);
+        if ch = '*' or ch = '?' then
+            ptr = ptr + 1;
+        else
+            return ptr;
+    end;
+end;
+
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0
+aF0:        .text ":F0:"        ; DATA XREF: sub5810+Ao sub5810+26o
+aIsisIiLinkerV2:.text "ISIS-II LINKER V2.1" ; DATA XREF: sub58B0+9Co
+aWasInvokedBy:  .text " WAS INVOKED BY:" ; DATA XREF: sub58B0+B8o
+        .db 0Dh
+        .db 0Ah
+asc_5029:   .text "#"       ; DATA XREF: FataCmdLineError+D9o
+        .db 0Dh
+        .db 0Ah
+asc_502C:   .text "**"      ; DATA XREF: GetNextToken+B0o
+asc_502E:   .text "**"      ; DATA XREF: sub52FE+4Ao
+aDebug:     .text "DEBUG"       ; DATA XREF: sub5416+25o
+aPublics:   .text "PUBLICS"     ; DATA XREF: sub5593+5o
+aName:      .text "NAME"        ; DATA XREF: sub570D+11o
+aMap:       .text "MAP"     ; CODE XREF: PUTTYPEINFO+Dp
+                    ; DATA XREF: sub570D+83o
+aPrint:     .text "PRINT"       ; DATA XREF: sub570D+97o
+b5048:  .db ','         ; DATA XREF: sub58B0+Bo
+aTo:        .text "TO"      ; DATA XREF: sub58B0+26o
+unk_504B:   .db  0Ch ;      ; DATA XREF: sub58B0+93o
+unk_504C:   .db  0Dh ;      ; DATA XREF: sub58B0+F4o
+        .db  0Ah ;  
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+FataCmdLineError: procedure(errCode);
+    declare errCode byte;
+    declare (cmdLinePtr, cmdLineErrPtr) address;
+    declare cmdLine based cmdLinePtr CMDLINE$T;
+
+    call ReportError(errCode);
+    cmdLineErrPtr = lastTokenPtr + lastTokenLen;
+    cmdLinePtr = commandTail;
+
+    do while cmdLinePtr > cmdLineErrPtr or cmdLineErrPtr > (cmdLinePtr + cmdLine.len + 4);
+        call SafeWrite(0, .cmdLine.name, cmdLine.len, .status);
+        cmdLinePtr = cmdLine.link;
+    end;
+    if cmdLineErrPtr > linePtr and (linePtr + 5 + s6B6E.w0) > cmdLineErrPtr then
+        call SafeWrite(0, linePtr + 3, lastTokenPtr - (linePtr + 3), .status);
+    else
+        call SafeWrite(0, .cmdLine.name, cmdLineErrPtr - .cmdLine.name, .status); 
+
+    call SafeWrite(0, .('#', CR, LF), 3, .status);
+    call Exit
+end;
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+ParseToken: procedure(ptr) address;
+    declare ptr address;
+    declare i address;
+
+    declare ch based ptr byte;
+
+    if ch = CR then
+        return 0;
+    if ch = '(' then
+        return 1;
+    if ch = ')' then
+        return 1;
+    if ch = ',' then
+        return 1;
+
+    if gettingSymbol then
+    do;
+        if ch < '?' or 'Z' < ch then
+            call FatalCmdError(0E1h);
+        i = ptr;
+
+        do while '0' <= c and c <= '9' or 
+              'Z' >= c and c >= '?' and ptr - i < 31)
+            ptr = ptr + 1; 
+        end;
+        if ptr - i >= 32 then
+            call FatalCmdLineError(0E2h);
+
+        return ptr - i;
+    end;
+
+    if ch = '?' then
+        return 1;
+
+    if (i := Delimit(ptr) - ptr) > 0 then
+        return i;
+
+    call FatalCmdLineError(0CBh);
+end;
+
+
+GetNextToken: procedure;
+    declare i byte;
+    declare chars based linePtr (1) byte;
+    declare ch based tokenPtr byte;
+    declare line based linePtr CMDLINE$T;
+
+    do while 1;
+        line.link = GetHigh(126);
+        linePtr = line.link
+        line.link = 0;
+        call SafeRead(1, .line.text, 122, .line.len, .status);
+    
+        /* convert to upper case */
+        do i = 4 to 125;
+            if 'a' <= chars(i) and chars(i) <= 'z' then
+                chars(i) = chars(i) - 20h;
+        end;
+        
+        tokenPtr = Deblank(.linePtr.text);    
+        if ch <> '&' then
+            goto done;
+        tokenPtr = Deblank(tokenPtr + 1);
+        if ch <> CR then
+            call FatalCmdLineError(0CBh);
+        call SafeWrite(0, .('**'), 2, .status);
+    end;
+done:
+    tokenLen = ParseToken(tokenPtr);
+end;
+ 
+sub52FE: procedure;
+    declare ch based tokenPtr ch;
+
+    lastTokenPtr = tokenPtr;
+    cmdCmdLineCol = tokenLen;
+    tokenPtr = Deblank(tokenPtr + lastTokenLen);
+
+    if ch = '&' then
+    do;
+        tokenPtr = Deblank(tokenPtr + 1); 
+        if ch <> CR then
+        do;
+            lastTokenPtr = tokenPtr;
+            call FatalCmdLineError(0CBh);
+        end;
+        call SafeWrite(0, .('**'), 2, .status);
+        call GetNextToken;
+    end;
+    tokenLen = ParseToken(tokenPtr);
+end;
+
+
+sub5366:                ; CODE XREF: sub5416+28p sub5593+8p
+                    ; sub570D+8p sub570D+14p
+                    ; sub570D+86p sub570D+9Ap
+                    ; sub58B0+Ep sub58B0+29p
+        lxi h, ?sub5366.arg2b ; sub5366(arg1w, arg2b)
+        lxi h, ?sub5366.arg2b
+        lda lastTokenLen
+        cmp m
+        jz  loc_537B
+        mvi a, 0
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_537B:               ; CODE XREF: sub5366+Fj
+        lda ?sub5366.arg2b
+        cpi 0
+        jnz loc_5386
+        mvi a, 0FFh
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5386:               ; CODE XREF: sub5366+1Aj
+        lxi h, b6B86
+        mvi m, 0
+
+loc_538B:               ; CODE XREF: sub5366+52j
+        lda ?sub5366.arg2b
+        dcr a
+        lxi h, b6B86
+        cmp m
+        jc  loc_53BB
+        lhld    b6B86
+        mvi h, 0
+        xchg
+        lhld    ?sub5366.arg1w
+        dad d
+        push    h
+        lhld    b6B86
+        mvi h, 0
+        xchg
+        lhld    lastTokenPtr
+        dad d
+        pop b
+        ldax    b
+        cmp m
+        jz  loc_53B4
+        mvi a, 0
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_53B4:               ; CODE XREF: sub5366+48j
+        lxi h, b6B86
+        inr m
+        jnz loc_538B
+
+loc_53BB:               ; CODE XREF: sub5366+2Dj
+        mvi a, 0FFh
+        ret
+; End of function sub5366
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub53BE: procedure(arg1w, arg2b) byte;
+    declare arg1w address, arg2b byte;
+    declare i byte;
+    declare s based arg1w (1) byte;
+    declare t based tokenPtr (1) byte;
+
+    if arg2b <> tokenLen then
+        return 0;
+
+    if arg2b = 0 then
+        return TRUE;
+
+    do i = 0 to arg2b - 1;
+        if s(i) <> t(i) then
+            return FALSE;
+    end;
+    return TRUE;
+end;
+
+
+sub5416: procedure;
+    declare chars based lastTokenPtr (1) byte;
+
+    gettingSymbol, b6B76 = FALSE;
+    commandTail = 0;
+    linePtr = .commandTail;
+
+    call Rescan(1, .status);
+    call GetNextToken;
+    call sub52FE;
+    if sub5366(.('DEBUG'), 5) then
+        call sub52FE;
+    if chars(0) = ':' and chars(1) = 'F' then
+        overlayFileName(2) = chars(2);
+
+    if sub53BE(0, 0) then
+    do;
+        b6B76 = TRUE;
+        return;
+    end;
+end;
+
+
+sub547F:                ; CODE XREF: sub5593+7Bp sub5593+8Ap
+        call    sub52FE
+        lda lastTokenLen
+        adi 7
+        mov c, a
+        mvi b, 0
+        call    GETLOW
+        shld    w6B8C
+        lhld    moduleListEnd
+        push    h
+        lhld    w6B8C
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    w6B8C
+        shld    moduleListEnd
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+        lxi b, 6
+        lhld    w6B8C
+        dad b
+        lda lastTokenLen
+        mov m, a
+        lxi h, b6B8B
+        mvi m, 1
+
+loc_54B8:               ; CODE XREF: sub547F+62j
+        lda lastTokenLen
+        lxi h, b6B8B
+        cmp m
+        jc  locret_54E4
+        lda b6B8B
+        dcr a
+        mov c, a
+        mvi b, 0
+        lhld    lastTokenPtr
+        dad b
+        lda b6B8B
+        adi 6
+        mov c, a
+        mvi b, 0
+        push    h
+        lhld    w6B8C
+        dad b
+        pop b
+        ldax    b
+        mov m, a
+        lxi h, b6B8B
+        inr m
+        jnz loc_54B8
+
+locret_54E4:                ; CODE XREF: sub547F+40j
+        ret
+; End of function sub547F
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub54E5:                ; CODE XREF: sub5593+25p sub5593+39p
+                    ; sub5593+67p
+        lxi h, ?sub54E5 ; sub54E5(arg1b)
+        lxi b, 14h
+        call    GETLOW
+        shld    b6B90
+        lhld    fileListEnd
+        push    h
+        lhld    b6B90
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    b6B90
+        shld    fileListEnd
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+        lhld    b6B90
+        inx h
+        inx h
+        shld    moduleListBase
+        shld    moduleListEnd
+        lhld    moduleListBase
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+        lda ?sub54E5.arg1b
+        rar
+        jnc loc_5531
+        lxi b, 4
+        lhld    b6B90
+        dad b
+        mvi m, 1
+        jmp loc_553A
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5531:               ; CODE XREF: sub54E5+3Dj
+        lxi b, 4
+        lhld    b6B90
+        dad b
+        mvi m, 0
+
+loc_553A:               ; CODE XREF: sub54E5+49j
+        lxi h, b6B8F
+        mvi m, 0
+
+loc_553F:               ; CODE XREF: sub54E5+84j
+        lda lastTokenLen
+        lxi h, b6B8F
+        cmp m
+        jc  loc_556C
+        lhld    b6B8F
+        mvi h, 0
+        xchg
+        lhld    lastTokenPtr
+        dad d
+        push    h
+        lhld    b6B8F
+        mvi h, 0
+        lxi b, 5
+        dad b
+        xchg
+        lhld    b6B90
+        dad d
+        pop d
+        ldax    d
+        mov m, a
+        lxi h, b6B8F
+        inr m
+        jnz loc_553F
+
+loc_556C:               ; CODE XREF: sub54E5+61j
+        lda lastTokenLen
+        sta b6B8F
+
+loc_5572:               ; CODE XREF: sub54E5+AAj
+        mvi a, 0Eh
+        lxi h, b6B8F
+        cmp m
+        jc  locret_5592
+        lhld    b6B8F
+        mvi h, 0
+        lxi b, 5
+        dad b
+        xchg
+        lhld    b6B90
+        dad d
+        mvi m, 0
+        lxi h, b6B8F
+        inr m
+        jnz loc_5572
+
+locret_5592:                ; CODE XREF: sub54E5+93j
+        ret
+; End of function sub54E5
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5593:                ; CODE XREF: sub58B0+3p sub58B0+15p
+        call    sub52FE
+        mvi e, 7
+        lxi b, aPublics ; "PUBLICS"
+        call    sub5366
+        rar
+        jnc loc_55E6
+        call    sub52FE
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 28h
+        jz  loc_55B3
+        mvi c, 0E3h
+        call    FataCmdLineError
+
+loc_55B3:               ; CODE XREF: sub5593+18j
+        call    sub52FE
+        mvi c, 0FFh
+        call    sub54E5
+        call    sub52FE
+
+loc_55BE:               ; CODE XREF: sub5593+3Fj
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 2Ch
+        jnz loc_55D5
+        call    sub52FE
+        mvi c, 0FFh
+        call    sub54E5
+        call    sub52FE
+        jmp loc_55BE
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_55D5:               ; CODE XREF: sub5593+31j
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 29h
+        jz  loc_55E3
+        mvi c, 0E4h
+        call    FataCmdLineError
+
+loc_55E3:               ; CODE XREF: sub5593+48j
+        jmp locret_5647
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_55E6:               ; CODE XREF: sub5593+Cj
+        lhld    lastTokenPtr
+        mov b, h
+        mov c, l
+        call    DeLimit
+        lxi d, lastTokenPtr
+        call    hl$deiSUBhl
+        ora l
+        jz  loc_563C
+        mvi c, 0
+        call    sub54E5
+        lhld    tokenPtr
+        mov a, m
+        cpi 28h
+        jnz loc_5639
+        lxi h, gettingSymbol
+        mvi m, 0FFh
+        call    sub52FE
+        call    sub547F
+        call    sub52FE
+
+loc_5614:               ; CODE XREF: sub5593+90j
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 2Ch
+        jnz loc_5626
+        call    sub547F
+        call    sub52FE
+        jmp loc_5614
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5626:               ; CODE XREF: sub5593+87j
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 29h
+        jz  loc_5634
+        mvi c, 0E4h
+        call    FataCmdLineError
+
+loc_5634:               ; CODE XREF: sub5593+99j
+        lxi h, gettingSymbol
+        mvi m, 0
+
+loc_5639:               ; CODE XREF: sub5593+70j
+        jmp locret_5647
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_563C:               ; CODE XREF: sub5593+62j
+        mvi c, 0CBh
+        call    FataCmdLineError
+        jmp locret_5647
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+        call    GABORT
+
+locret_5647:                ; CODE XREF: sub5593+50j sub5593+A6j
+                    ; sub5593+AEj
+        ret
+; End of function sub5593
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5648:                ; CODE XREF: sub58B0+30p
+        call    sub52FE
+        lhld    lastTokenPtr
+        mov b, h
+        mov c, l
+        call    DeLimit
+        lxi d, lastTokenPtr
+        call    hl$deiSUBhl
+        ora l
+        jnz loc_5662
+        mvi c, 0CBh
+        call    FataCmdLineError
+
+loc_5662:               ; CODE XREF: sub5648+12j
+        lhld    lastTokenPtr
+        shld    outFilePtr
+        shld    w6B95
+        mov a, m
+        cpi 3Ah
+        jnz loc_5690
+        lhld    w6B95
+        inx h
+        shld    w6B93
+        mov a, m
+        cpi 46h
+        jnz loc_5686
+        lhld    w6B93
+        inx h
+        mov a, m
+        sta eDictFile+2
+
+loc_5686:               ; CODE XREF: sub5648+33j
+        lxi d, 4
+        lhld    w6B95
+        dad d
+        shld    w6B95
+
+loc_5690:               ; CODE XREF: sub5648+26j
+        lhld    w6B95
+        shld    w6B93
+
+loc_5696:               ; CODE XREF: sub5648+7Cj
+        lhld    w6B95
+        mov a, m
+        sui 41h
+        sbb a
+        cma
+        push    psw
+        mvi a, 5Ah
+        sub m
+        sbb a
+        cma
+        pop b
+        mov c, b
+        ana c
+        push    psw
+        mov a, m
+        sui 30h
+        sbb a
+        cma
+        push    psw
+        mvi a, 39h
+        sub m
+        sbb a
+        cma
+        pop b
+        mov c, b
+        ana c
+        pop b
+        mov c, b
+        ora c
+        rar
+        jnc loc_56C7
+        lhld    w6B95
+        inx h
+        shld    w6B95
+        jmp loc_5696
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_56C7:               ; CODE XREF: sub5648+72j
+        lxi b, w6B93
+        lxi d, w6B95
+        call    hl$deiSUBbci
+        xchg
+        lxi h, outModuleNameLength
+        mov m, e
+        mvi a, 0
+        call    hl$deSUB0a
+        ora l
+        jz  locret_570C
+        lxi h, b6B97
+        mvi m, 0
+
+loc_56E3:               ; CODE XREF: sub5648+C1j
+        lda outModuleNameLength
+        dcr a
+        lxi h, b6B97
+        cmp m
+        jc  locret_570C
+        lhld    b6B97
+        mvi h, 0
+        xchg
+        lhld    w6B93
+        dad d
+        push    h
+        lhld    b6B97
+        mvi h, 0
+        lxi b, outModuleName
+        dad b
+        pop d
+        ldax    d
+        mov m, a
+        lxi h, b6B97
+        inr m
+        jnz loc_56E3
+
+locret_570C:                ; CODE XREF: sub5648+93j sub5648+A3j
+        ret
+; End of function sub5648
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub570D:                ; CODE XREF: sub58B0+79p
+        call    sub52FE
+
+loc_5710:               ; CODE XREF: sub570D+E3j
+        mvi e, 0
+        lxi b, 0
+        call    sub5366
+        rar
+        jc  loc_57ED
+        mvi e, 4
+        lxi b, aName    ; "NAME"
+        call    sub5366
+        rar
+        jnc loc_578E
+        lxi h, gettingSymbol
+        mvi m, 0FFh
+        call    sub52FE
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 28h
+        jz  loc_573E
+        mvi c, 0E3h
+        call    FataCmdLineError
+
+loc_573E:               ; CODE XREF: sub570D+29j
+        call    sub52FE
+        lxi h, gettingSymbol
+        mvi m, 0
+        lda lastTokenLen
+        sta outModuleNameLength
+        lxi h, b6B98
+        mvi m, 0
+
+loc_5751:               ; CODE XREF: sub570D+6Aj
+        lda lastTokenLen
+        dcr a
+        lxi h, b6B98
+        cmp m
+        jc  loc_577A
+        lhld    b6B98
+        mvi h, 0
+        xchg
+        lhld    lastTokenPtr
+        dad d
+        push    h
+        lhld    b6B98
+        mvi h, 0
+        lxi b, outModuleName
+        dad b
+        pop d
+        ldax    d
+        mov m, a
+        lxi h, b6B98
+        inr m
+        jnz loc_5751
+
+loc_577A:               ; CODE XREF: sub570D+4Cj
+        call    sub52FE
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 29h
+        jz  loc_578B
+        mvi c, 0E4h
+        call    FataCmdLineError
+
+loc_578B:               ; CODE XREF: sub570D+76j
+        jmp loc_57E7
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_578E:               ; CODE XREF: sub570D+18j
+        mvi e, 3
+        lxi b, aMap     ; "MAP"
+        call    sub5366
+        rar
+        jnc loc_57A2
+        lxi h, mapWanted
+        mvi m, 0FFh
+        jmp loc_57E7
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_57A2:               ; CODE XREF: sub570D+8Aj
+        mvi e, 5
+        lxi b, aPrint   ; "PRINT"
+        call    sub5366
+        rar
+        jnc loc_57DC
+        call    sub52FE
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 28h
+        jz  loc_57BF
+        mvi c, 0E3h
+        call    FataCmdLineError
+
+loc_57BF:               ; CODE XREF: sub570D+AAj
+        call    sub52FE
+        lhld    lastTokenPtr
+        shld    mapFilePtr
+        call    sub52FE
+        lhld    lastTokenPtr
+        mov a, m
+        cpi 29h
+        jz  loc_57D9
+        mvi c, 0E4h
+        call    FataCmdLineError
+
+loc_57D9:               ; CODE XREF: sub570D+C4j
+        jmp loc_57E7
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_57DC:               ; CODE XREF: sub570D+9Ej
+        mvi c, 0E5h
+        call    FataCmdLineError
+        jmp loc_57E7
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+        call    GABORT
+
+loc_57E7:               ; CODE XREF: sub570D+7Ej sub570D+92j
+                    ; sub570D+CCj sub570D+D4j
+        call    sub52FE
+        jmp loc_57F0
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_57ED:               ; CODE XREF: sub570D+Cj
+        jmp loc_57F3
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_57F0:               ; CODE XREF: sub570D+DDj
+        jmp loc_5710
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_57F3:               ; CODE XREF: sub570D+E0j
+        lda mapWanted
+        rar
+        jnc locret_580F
+        lxi b, mapFile
+        push    b
+        lhld    mapFilePtr
+        push    h
+        lxi b, 2
+        push    b
+        lxi d, status
+        lxi b, 0
+        call    FATALOPEN
+
+locret_580F:                ; CODE XREF: sub570D+EAj
+        ret
+; End of function sub570D
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5810: procedure(arg1w, arg2w);
+        lxi b, aF0      ; ":F0:"
+        push    b
+        lhld    ?sub5810.arg1w
+        mov b, h
+        mov c, l
+        mvi e, 4
+        call    sub6ABF
+        rar
+        jnc loc_5836
+        lxi d, 4
+        lhld    ?sub5810.arg1w
+        dad d
+        shld    ?sub5810.arg1w
+
+loc_5836:               ; CODE XREF: sub5810+19j
+        lxi b, aF0      ; ":F0:"
+        push    b
+        lhld    ?sub5810.arg2w
+        mov b, h
+        mov c, l
+        mvi e, 4
+        call    sub6ABF
+        rar
+        jnc loc_5852
+        lxi d, 4
+        lhld    ?sub5810.arg2w
+        dad d
+        shld    ?sub5810.arg2w
+
+loc_5852:               ; CODE XREF: sub5810+35j
+        lhld    ?sub5810.arg1w
+        mov b, h
+        mov c, l
+        call    DeLimit
+        shld    w6B9D
+        xchg
+        lhld    ?sub5810.arg1w
+        call    hl$deSUBhl
+        push    h
+        lhld    ?sub5810.arg2w
+        mov b, h
+        mov c, l
+        call    DeLimit
+        xchg
+        lhld    ?sub5810.arg2w
+        call    hl$deSUBhl
+        pop d
+        call    hl$deSUBhl
+        ora l
+        jz  loc_587F
+        mvi a, 0
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_587F:               ; CODE XREF: sub5810+69j sub5810+9Aj
+        lxi b, w6B9D
+        lxi d, ?sub5810
+        call    hl$deiSUBbci
+        ora l
+        jz  loc_58AD
+        lhld    ?sub5810.arg1w
+        push    h
+        lhld    ?sub5810.arg2w
+        pop b
+        ldax    b
+        cmp m
+        jz  loc_589C
+        mvi a, 0
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_589C:               ; CODE XREF: sub5810+86j
+        lhld    ?sub5810.arg1w
+        inx h
+        shld    ?sub5810.arg1w
+        lhld    ?sub5810.arg2w
+        inx h
+        shld    ?sub5810.arg2w
+        jmp loc_587F
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_58AD:               ; CODE XREF: sub5810+79j
+        mvi a, 0FFh
+        ret
+; End of function sub5810
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub58B0:                ; CODE XREF: ROM:3BC3p
+        call    sub5416
+        call    sub5593
+        call    sub52FE
+
+loc_58B9:               ; CODE XREF: sub58B0+21j
+        mvi e, 1
+        lxi b, b5048
+        call    sub5366
+        rar
+        jnc loc_58CE
+        call    sub5593
+        call    sub52FE
+        jmp loc_58D1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_58CE:               ; CODE XREF: sub58B0+12j
+        jmp loc_58D4
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_58D1:               ; CODE XREF: sub58B0+1Bj
+        jmp loc_58B9
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_58D4:               ; CODE XREF: sub58B0+1Ej
+        mvi e, 2
+        lxi b, aTo      ; "TO"
+        call    sub5366
+        rar
+        jnc loc_58E6
+        call    sub5648
+        jmp loc_58F1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_58E6:               ; CODE XREF: sub58B0+2Dj
+        mvi c, 0CBh
+        call    FataCmdLineError
+        jmp loc_58F1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+        call    GABORT
+
+loc_58F1:               ; CODE XREF: sub58B0+33j sub58B0+3Bj
+        lhld    fileList
+        shld    w6B9F
+
+loc_58F7:               ; CODE XREF: sub58B0+76j
+        mvi a, 0
+        lxi d, w6B9F
+        call    hl$deiSUB0a
+        ora l
+        jz  loc_5929
+        lxi b, 5
+        lhld    w6B9F
+        dad b
+        mov b, h
+        mov c, l
+        lhld    outFilePtr
+        xchg
+        call    sub5810
+        rar
+        jnc loc_591C
+        mvi c, 0EAh
+        call    FataCmdLineError
+
+loc_591C:               ; CODE XREF: sub58B0+64j
+        lhld    w6B9F
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6B9F
+        jmp loc_58F7
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5929:               ; CODE XREF: sub58B0+50j
+        call    sub570D
+        mvi a, 0
+        lxi d, mapFile
+        call    hl$deiSUB0a
+        ora l
+        adi 0FFh
+        sbb a
+        lxi h, mapWanted
+        ana m
+        rar
+        jnc loc_5949
+        lxi d, 1
+        lxi b, unk_504B
+        call    StrToMapFile
+
+loc_5949:               ; CODE XREF: sub58B0+8Dj
+        lxi d, 13h
+        lxi b, aIsisIiLinkerV2 ; "ISIS-II LINKER V2.1"
+        call    WARN
+        lda mapWanted
+        rar
+        jnc loc_59A1
+        mvi a, 0
+        lxi d, mapFile
+        call    hl$deiSUB0a
+        ora l
+        jz  loc_59A1
+        lxi d, 12h
+        lxi b, aWasInvokedBy ; " WAS INVOKED BY:\r\n"
+        call    StrToMapFile
+        lhld    commandTail
+        shld    w6B9F
+
+loc_5974:               ; CODE XREF: sub58B0+EEj
+        mvi a, 0
+        lxi d, w6B9F
+        call    hl$deiSUB0a
+        ora l
+        jz  loc_59A1
+        lxi b, 4
+        lhld    w6B9F
+        dad b
+        push    h
+        lhld    w6B9F
+        inx h
+        inx h
+        mov e, m
+        inx h
+        mov d, m
+        pop b
+        call    StrToMapFile
+        lhld    w6B9F
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6B9F
+        jmp loc_5974
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_59A1:               ; CODE XREF: sub58B0+A6j sub58B0+B2j
+                    ; sub58B0+CDj
+        lxi d, 2
+        lxi b, unk_504C
+        call    WARN
+        ret
+; End of function sub58B0
+
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+valMemory:   .dw MEMORY      ; DATA XREF: Initr
+aHasDifferingTy:.text " HAS DIFFERING TYPES" ; DATA XREF: sub5BDD+B1o
+                    ; sub5BDD+DAo
+aMultipleDefini:.text ", MULTIPLE DEFINITION" ; DATA XREF: sub5BDD+8Co
+aUnequalCommonL:.text ", UNEQUAL COMMON LENGTHS" ; DATA XREF: sub5E9F+125o
+aMoreThan1MainM:.text "MORE THAN 1 MAIN MODULE" ; DATA XREF: P1Records+109o
+aModuleNotFound:.text " - MODULE NOT FOUND IN LIBRARY " ; DATA XREF: sub63F4+C7o
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5A24:                ; CODE XREF: P1Records+89p
+        lda publicsMode
+        rar
+        jc  locret_5AB0
+        lxi d, b6BA4
+        lxi b, 3
+        call    ReadRecord
+        lda b6BA4
+        cpi 0
+        jnz locret_5AB0
+        lxi b, 6
+        call    GetHigh
+        shld    w6BAB
+        lhld    w6BAB
+        inx h
+        inx h
+        push    h
+        lhld    w6BA5
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    recLen
+        xchg
+        lhld    w6BA5
+        dad d
+        xchg
+        mvi a, 5
+        call    hl$deSUB0a
+        lxi b, 4
+        push    h
+        lhld    w6BAB
+        dad b
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        lxi h, contigPtr
+        shld    w6BA9
+        lhld    contigPtr
+        shld    w6BA7
+
+loc_5A79:               ; CODE XREF: sub5A24+71j
+        lhld    w6BA7
+        inx h
+        inx h
+        xchg
+        lxi b, w6BA5
+        call    hl$deiSUBbci
+        jnc loc_5A98
+        lhld    w6BA7
+        shld    w6BA9
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6BA7
+        jmp loc_5A79
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5A98:               ; CODE XREF: sub5A24+61j
+        lhld    w6BAB
+        push    h
+        lhld    w6BA7
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    w6BA9
+        push    h
+        lhld    w6BAB
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+
+locret_5AB0:                ; CODE XREF: sub5A24+4j sub5A24+15j
+        ret
+; End of function sub5A24
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5AB1:                ; CODE XREF: sub5AE1+22p
+                    ; P1Records+71p
+        lda noCommon
+        rar
+        jnc loc_5AB9
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5AB9:               ; CODE XREF: sub5AB1+4j
+        lxi h, b6BAD
+        mvi m, 6
+
+loc_5ABE:               ; CODE XREF: sub5AB1+2Cj
+        mvi a, 0FEh
+        lxi h, b6BAD
+        cmp m
+        jc  locret_5AE0
+        lxi d, 3
+        lhld    b6BAD
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mvi m, 0
+        lxi h, b6BAD
+        inr m
+        jnz loc_5ABE
+
+locret_5AE0:                ; CODE XREF: sub5AB1+13j
+        ret
+; End of function sub5AB1
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5AE1: procedure(arg1b, arg2w, arg3b);
+        lda noCommon
+        rar
+        jnc loc_5B06
+        lxi h, noCommon
+        mvi m, 0
+        lxi b, 2FDh
+        call    GetHigh
+        shld    w6BA2
+        call    sub5AB1
+
+loc_5B06:               ; CODE XREF: sub5AE1+11j
+        lda ?sub5AE1.arg3b
+        dcr a
+        mov c, a
+        mvi a, 2
+        cmp c
+        jnc loc_5B14
+        call    ILLFMT
+
+loc_5B14:               ; CODE XREF: sub5AE1+2Dj
+        lda ?sub5AE1.arg1b
+        cpi 0FFh
+        jnz loc_5B65
+        lda blankRelTyp
+        cpi 0
+        jnz loc_5B33
+        lda ?sub5AE1.arg3b
+        sta blankRelTyp
+        lhld    ?sub5AE1.arg2w
+        shld    w4C55
+        jmp loc_5B62
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5B33:               ; CODE XREF: sub5AE1+40j
+        lxi d, w4C55
+        lxi b, ?sub5AE1.arg2w
+        call    hl$deiSUBbci
+        jnc loc_5B45
+        lhld    ?sub5AE1.arg2w
+        shld    w4C55
+
+loc_5B45:               ; CODE XREF: sub5AE1+5Bj
+        lda ?sub5AE1.arg3b
+        sui 3
+        adi 0FFh
+        sbb a
+        push    psw
+        lda blankRelTyp
+        sui 3
+        adi 0FFh
+        sbb a
+        pop b
+        mov c, b
+        ora c
+        rar
+        jnc loc_5B62
+        lxi h, blankRelTyp
+        mvi m, 2
+
+loc_5B62:               ; CODE XREF: sub5AE1+4Fj sub5AE1+79j
+        jmp locret_5BAF
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5B65:               ; CODE XREF: sub5AE1+38j
+        lxi d, 3
+        lhld    ?sub5AE1.arg1b
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mov a, m
+        cpi 0
+        jz  loc_5B7E
+        call    ILLFMT
+
+loc_5B7E:               ; CODE XREF: sub5AE1+97j
+        lxi d, 3
+        lhld    ?sub5AE1.arg1b
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+        .db  3Ah ; :
+PASS2:      .dw ?sub5AE1.arg3b  ; CODE XREF: ROM:3BF9p
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+        mov m, a
+        lxi d, 3
+        lhld    ?sub5AE1.arg1b
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        push    h
+        lhld    ?sub5AE1.arg2w
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+
+locret_5BAF:                ; CODE XREF: sub5AE1+81j
+        ret
+; End of function sub5AE1
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5BB0:                ; CODE XREF: sub5BDD+8Fp sub5BDD+B4p
+                    ; sub5BDD+DDp sub5E9F+128p
+        lxi h, ?sub5BB0.arg3b ; sub5BB0(arg1w, arg2w, arg3b)
+        lhld    ?sub5BB0.arg1w
+        inx h
+        push    h
+        lhld    ?sub5BB0.arg1w
+        mov e, m
+        mvi d, 0
+        pop b
+        call    WARN
+        lhld    ?sub5BB0.arg2w
+        mov b, h
+        mov c, l
+        lhld    ?sub5BB0.arg3b
+        mvi h, 0
+        xchg
+        call    WarnCr
+        ret
+; End of function sub5BB0
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5BDD:                ; CODE XREF: P1Records+99p
+                    ; P1Records+A9p
+        lxi h, ?sub5BDD ; sub5BDD(arg1b)
+        lda ?sub5BDD.arg1b
+        rar
+        jnc loc_5BF1
+        lxi d, b6BB8
+        lxi b, 1
+        call    ReadRecord
+
+loc_5BF1:               ; CODE XREF: sub5BDD+8j
+        lda ?sub5BDD.arg1b
+        cma
+        push    psw
+        lda b6BB8
+        sui 0
+        adi 0FFh
+        sbb a
+        pop b
+        mov c, b
+        ora c
+        lxi h, publicsMode
+        ana m
+        rar
+        jnc loc_5C0D
+        call    SKIPRECORD
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5C0D:               ; CODE XREF: sub5BDD+29j
+                    ; sub5BDD+212j
+        mvi a, 1
+        lxi h, remainder
+        call    hl$0aSUBhli
+        jnc locret_5DF2
+        lda ?sub5BDD.arg1b
+        rar
+        jnc loc_5C28
+        lxi d, b6BB9
+        lxi b, 2
+        call    ReadRecord
+
+loc_5C28:               ; CODE XREF: sub5BDD+3Fj
+        lxi b, tempName
+        call    ReadName
+        call    INPUTTYPEINFO
+        shld    w6BBE
+        lhld    w6BBE
+        mov b, h
+        mov c, l
+        call    LENGTHTYPEINFO
+        shld    w6BC0
+        lxi b, tempName
+        push    b
+        lxi b, sEntryBase
+        push    b
+        mvi e, 0FFh
+        mvi c, 0FFh
+        call    LOOKUP
+        rar
+        jnc loc_5D38
+        lhld    sEntryBase
+        inx h
+        inx h
+        mov a, m
+        rar
+        jnc loc_5C97
+        lda ?sub5BDD.arg1b
+        rar
+        jnc loc_5C72
+        lxi b, tempName
+        push    b
+        mvi e, 15h
+        lxi b, aMultipleDefini ; ", MULTIPLE DEFINITION"
+        call    sub5BB0
+        jmp loc_5C94
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5C72:               ; CODE XREF: sub5BDD+83j
+        lxi b, 6
+        lhld    sEntryBase
+        dad b
+        mov e, m
+        inx h
+        mov d, m
+        lhld    w6BBE
+        mov b, h
+        mov c, l
+        call    COMPARETYPEINFO
+        rar
+        jc  loc_5C94
+        lxi b, tempName
+        push    b
+        mvi e, 14h
+        lxi b, aHasDifferingTy ; " HAS DIFFERING TYPES"
+        call    sub5BB0
+
+loc_5C94:               ; CODE XREF: sub5BDD+92j sub5BDD+A8j
+        jmp loc_5D35
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5C97:               ; CODE XREF: sub5BDD+7Cj
+        lxi b, 6
+        lhld    sEntryBase
+        dad b
+        mov e, m
+        inx h
+        mov d, m
+        lhld    w6BBE
+        mov b, h
+        mov c, l
+        call    COMPARETYPEINFO
+        rar
+        jc  loc_5CEA
+        lxi b, 8
+        lhld    sEntryBase
+        dad b
+        push    h
+        mvi e, 14h
+        lxi b, aHasDifferingTy ; " HAS DIFFERING TYPES"
+        call    sub5BB0
+        lda ?sub5BDD.arg1b
+        rar
+        jnc loc_5CEA
+        lhld    w6BC0
+        mov b, h
+        mov c, l
+        call    GETLOW
+        lxi b, 6
+        push    h
+        lhld    sEntryBase
+        dad b
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        lxi b, 6
+        lhld    sEntryBase
+        dad b
+        mov e, m
+        inx h
+        mov d, m
+        lhld    w6BBE
+        mov b, h
+        mov c, l
+        call    TRANSFERTYPEINFO
+
+loc_5CEA:               ; CODE XREF: sub5BDD+CDj sub5BDD+E4j
+        lda ?sub5BDD.arg1b
+        rar
+        jnc loc_5D35
+        lhld    nExts
+        dcx h
+        shld    nExts
+        lhld    nExts
+        mov b, h
+        mov c, l
+        call    GetEDict
+        shld    w6BBB
+        lxi b, 4
+        lhld    sEntryBase
+        dad b
+        mov e, m
+        inx h
+        mov d, m
+        lhld    w6BBB
+        mov b, h
+        mov c, l
+        call    PutEDict
+        lxi b, 4
+        lhld    sEntryBase
+        dad b
+        push    h
+        lhld    w6BBB
+        dad b
+        xthl
+        mov c, m
+        inx h
+        mov b, m
+        pop h
+        mov m, c
+        inx h
+        mov m, b
+        lhld    sEntryBase
+        inx h
+        inx h
+        mvi a, 1
+        ora m
+        mov m, a
+        call    sub5DF3
+
+loc_5D35:               ; CODE XREF: sub5BDD+B7j
+                    ; sub5BDD+111j
+        jmp loc_5DEF
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5D38:               ; CODE XREF: sub5BDD+72j
+        lda tempName
+        adi 9
+        mov c, a
+        mvi b, 0
+        call    GETLOW
+        push    h
+        lhld    sEntryBase
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        lhld    sEntryBase
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    sEntryBase
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+
+        lhld    sEntryBase
+        inx h
+        inx h
+
+        mvi m, 0
+        lda ?sub5BDD.arg1b
+        rar
+        jnc loc_5D78
+        lhld    sEntryBase
+        inx h
+        inx h
+        mvi a, 1
+        ora m
+        mov m, a
+        call    sub5DF3
+        jmp loc_5DA0
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5D78:               ; CODE XREF: sub5BDD+189j
+        lxi h, newExternals
+        mvi m, 0FFh
+        lxi b, 4
+        lhld    sEntryBase
+        dad b
+        push    h
+        lhld    nExts
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    sEntryBase
+        mov b, h
+        mov c, l
+        lhld    nExts
+        xchg
+        call    PutEDict
+        lhld    nExts
+        inx h
+        shld    nExts
+
+loc_5DA0:               ; CODE XREF: sub5BDD+198j
+        lhld    w6BC0
+        mov b, h
+        mov c, l
+        call    GETLOW
+        lxi b, 6
+        push    h
+        lhld    sEntryBase
+        dad b
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        mov d, b
+        mov e, c
+        lhld    w6BBE
+        mov b, h
+        mov c, l
+        call    TRANSFERTYPEINFO
+        lxi h, b6BBD
+        mvi m, 0
+
+loc_5DC3:               ; CODE XREF: sub5BDD+20Fj
+        lda tempName
+        lxi h, b6BBD
+        cmp m
+        jc  loc_5DEF
+        lhld    b6BBD
+        mvi h, 0
+        lxi b, tempName
+        dad b
+        push    h
+        lhld    b6BBD
+        mvi h, 0
+        lxi b, 8
+        dad b
+        xchg
+        lhld    sEntryBase
+        dad d
+        pop d
+        ldax    d
+        mov m, a
+        lxi h, b6BBD
+        inr m
+        jnz loc_5DC3
+
+loc_5DEF:               ; CODE XREF: sub5BDD+158j
+                    ; sub5BDD+1EDj
+        jmp loc_5C0D
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+locret_5DF2:                ; CODE XREF: sub5BDD+38j
+        ret
+; End of function sub5BDD
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5DF3:                ; CODE XREF: sub5BDD+155p
+                    ; sub5BDD+195p
+        lda b6BB8
+        cpi 6
+        jnc loc_5E23
+        lxi b, 3
+        lhld    sEntryBase
+        dad b
+        lda b6BB8
+        mov m, a
+        mov c, a
+        mvi b, 0
+        lxi h, currentOffset
+        dad b
+        dad b
+        lxi d, b6BB9
+        call    hl$deiADDhli
+        lxi b, 4
+        push    h
+        lhld    sEntryBase
+        dad b
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        jmp locret_5E9E
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5E23:               ; CODE XREF: sub5DF3+5j
+        lda b6BB8
+        cpi 0FFh
+        jnz loc_5E47
+        lxi b, 3
+        lhld    sEntryBase
+        dad b
+        lda b6BB8
+        mov m, a
+        lhld    sEntryBase
+        inx b
+        dad b
+        push    h
+        lhld    b6BB9
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        jmp locret_5E9E
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5E47:               ; CODE XREF: sub5DF3+35j
+        lxi d, 3
+        lhld    b6BB8
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mov a, m
+        cpi 0FFh
+        jnz loc_5E95
+        lxi d, 3
+        lhld    b6BB8
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    cEntryBase
+        lxi b, 3
+        dad b
+        push    h
+        lhld    sEntryBase
+        dad b
+        pop d
+        ldax    d
+        mov m, a
+        lhld    sEntryBase
+        inx b
+        dad b
+        push    h
+        lhld    b6BB9
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        jmp locret_5E9E
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5E95:               ; CODE XREF: sub5DF3+67j
+        call    ILLFMT
+        jmp locret_5E9E
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+        call    GABORT
+
+locret_5E9E:                ; CODE XREF: sub5DF3+2Dj sub5DF3+51j
+                    ; sub5DF3+9Fj sub5DF3+A5j
+        ret
+; End of function sub5DF3
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub5E9F:                ; CODE XREF: P1Records+B7p
+        lda publicsMode
+        rar
+        jnc loc_5EA7
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5EA7:               ; CODE XREF: sub5E9F+4j sub5E9F+23Ej
+        mvi a, 1
+        lxi h, remainder
+        call    hl$0aSUBhli
+        jnc locret_60E0
+        lxi d, b6BC2
+        lxi b, 1
+        call    ReadRecord
+        lda b6BC2
+        inr a
+        sui 7
+        sbb a
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        push    psw
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mov a, m
+        sui 0FFh
+        sui 1
+        sbb a
+        pop b
+        mov c, b
+        ora c
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        push    psw
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mvi a, 0
+        sub m
+        sbb a
+        cma
+        pop b
+        mov c, b
+        ora c
+        rar
+        jnc loc_5EFC
+        call    ILLFMT
+
+loc_5EFC:               ; CODE XREF: sub5E9F+57j
+        lxi b, tempName
+        call    ReadName
+        lxi b, tempName
+        push    b
+        lxi b, cEntryBase
+        push    b
+        mvi e, 0FFh
+        mvi c, 0
+        call    LOOKUP
+        rar
+        jnc loc_5FCD
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mov a, m
+        sui 3
+        adi 0FFh
+        sbb a
+        lhld    cEntryBase
+        inx h
+        inx h
+        push    psw
+        mvi a, 0Eh
+        ana m
+        ora a
+        rar
+        sui 3
+        adi 0FFh
+        sbb a
+        pop b
+        mov c, b
+        ora c
+        rar
+        jnc loc_5F52
+        lhld    cEntryBase
+        inx h
+        inx h
+        mvi a, 0F1h
+        ana m
+        push    psw
+        mvi a, 2
+        add a
+        pop b
+        mov c, b
+        ora c
+        mov m, a
+
+loc_5F52:               ; CODE XREF: sub5E9F+A0j
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        lxi b, 4
+        push    h
+        lhld    cEntryBase
+        dad b
+        pop d
+        call    hl$deiSUBhli
+        ora l
+        jz  loc_5FCA
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        lxi b, 4
+        push    h
+        lhld    cEntryBase
+        dad b
+        xchg
+        pop b
+        call    hl$deiSUBbci
+        jnc loc_5FBE
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        lxi b, 4
+        push    h
+        lhld    cEntryBase
+        dad b
+        xthl
+        mov c, m
+        inx h
+        mov b, m
+        pop h
+        mov m, c
+        inx h
+        mov m, b
+
+loc_5FBE:               ; CODE XREF: sub5E9F+F8j
+        lxi b, tempName
+        push    b
+        mvi e, 18h
+        lxi b, aUnequalCommonL ; ", UNEQUAL COMMON LENGTHS"
+        call    sub5BB0
+
+loc_5FCA:               ; CODE XREF: sub5E9F+D4j
+        jmp loc_60AE
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_5FCD:               ; CODE XREF: sub5E9F+73j
+        lda tempName
+        adi 9
+        mov c, a
+        mvi b, 0
+        call    GETLOW
+        push    h
+        lhld    cEntryBase
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        lhld    cEntryBase
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    cEntryBase
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mov a, m
+        add a
+        lhld    cEntryBase
+        inx h
+        inx h
+        mov m, a
+        lxi b, 3
+        lhld    cEntryBase
+        dad b
+        lda b6BA1
+        mov m, a
+        lda b6BA1
+        dcr a
+        sta b6BA1
+        cpi 6
+        jnc loc_6024
+        mvi c, 0ECh
+        call    FatalInputError
+
+loc_6024:               ; CODE XREF: sub5E9F+17Dj
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        lxi b, 4
+        push    h
+        lhld    cEntryBase
+        dad b
+        xthl
+        mov c, m
+        inx h
+        mov b, m
+        pop h
+        mov m, c
+        inx h
+        mov m, b
+        lxi b, 6
+        lhld    cEntryBase
+        dad b
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+        lxi h, b6BC5
+        mvi m, 0
+
+loc_605A:               ; CODE XREF: sub5E9F+1E4j
+        lda tempName
+        lxi h, b6BC5
+        cmp m
+        jc  loc_6086
+        lhld    b6BC5
+        mvi h, 0
+        lxi b, tempName
+        dad b
+        push    h
+        lhld    b6BC5
+        mvi h, 0
+        lxi b, 8
+        dad b
+        xchg
+        lhld    cEntryBase
+        dad d
+        pop d
+        ldax    d
+        mov m, a
+        lxi h, b6BC5
+        inr m
+        jnz loc_605A
+
+loc_6086:               ; CODE XREF: sub5E9F+1C2j
+        lhld    cEntryBase
+        shld    w6BC3
+        lhld    lastCommon
+        shld    cEntryBase
+        lhld    w6BC3
+        shld    lastCommon
+        lxi b, 6
+        lhld    cEntryBase
+        dad b
+        push    h
+        lhld    lastCommon
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    w6BC3
+        shld    cEntryBase
+
+loc_60AE:               ; CODE XREF: sub5E9F+12Bj
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        xchg
+        lhld    w6BA2
+        dad d
+        mvi m, 0FFh
+        lxi d, 3
+        lhld    b6BC2
+        mvi h, 0
+        call    hl$deMULhl
+        lxi b, 1
+        dad b
+        xchg
+        lhld    w6BA2
+        dad d
+        push    h
+        lhld    cEntryBase
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        jmp loc_5EA7
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+locret_60E0:                ; CODE XREF: sub5E9F+10j
+        ret
+; End of function sub5E9F
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+P1Records:              ; CODE XREF: sub6220+1C0p
+                    ; sub63F4+114p sub650F+Ap
+        lxi h, ?sub60E1 ; sub60E1(arg1b)
+        lxi d, b6BCB
+        lxi b, 1
+        call    ReadRecord
+        lda ?sub60E1.arg1b
+        rar
+        jnc loc_6118
+        lda b6BCB
+        adi 7
+        mov c, a
+        mvi b, 0
+        call    GETLOW
+        push    h
+        lhld    moduleListEnd
+        pop b
+        mov m, c
+        inx h
+        mov m, b
+        lhld    moduleListEnd
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    moduleListEnd
+        mvi a, 0
+        mov m, a
+        inx h
+        mvi m, 0
+
+loc_6118:               ; CODE XREF: P1Records+11j
+        lhld    moduleListEnd
+        inx h
+        inx h
+        push    h
+        lhld    recordBlock0
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lxi b, 4
+        lhld    moduleListEnd
+        dad b
+        push    h
+        lhld    recordByte0
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lxi b, 6
+        lhld    moduleListEnd
+        dad b
+        lda b6BCB
+        mov m, a
+        lxi b, 7
+        lhld    moduleListEnd
+        dad b
+        xchg
+        lhld    b6BCB
+        mov c, l
+        mvi b, 0
+        call    ReadRecord
+        call    sub5AB1
+        mvi c, 0
+        call    P12ModHdr
+
+loc_615A:               ; CODE XREF: P1Records+C3j
+        lda tp
+        cpi 4
+        jz  loc_61A7
+        lda tp
+        cpi 6
+        jnz loc_6170
+        call    sub5A24
+        jmp loc_61A1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6170:               ; CODE XREF: P1Records+86j
+        lda tp
+        cpi 16h
+        jnz loc_6180
+        mvi c, 0FFh
+        call    sub5BDD
+        jmp loc_61A1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6180:               ; CODE XREF: P1Records+94j
+        lda tp
+        cpi 18h
+        jnz loc_6190
+        mvi c, 0
+        call    sub5BDD
+        jmp loc_61A1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6190:               ; CODE XREF: P1Records+A4j
+        lda tp
+        cpi 2Eh
+        jnz loc_619E
+        call    sub5E9F
+        jmp loc_61A1
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_619E:               ; CODE XREF: P1Records+B4j
+        call    SKIPRECORD
+
+loc_61A1:               ; CODE XREF: P1Records+8Cj
+                    ; P1Records+9Cj P1Records+ACj
+                    ; P1Records+BAj
+        call    ReadHeader
+        jmp loc_615A
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_61A7:               ; CODE XREF: P1Records+7Ej
+        lxi d, b6BC7
+        lxi b, 4
+        call    ReadRecord
+        lda publicsMode
+        rar
+        jc  loc_61F0
+        lda modEndTyp
+        cpi 0
+        jnz loc_61DF
+        lda b6BC7
+        sta modEndTyp
+        lda b6BC8
+        sta modEndSegId
+        mov c, a
+        mvi b, 0
+        lxi h, currentOffset
+        dad b
+        dad b
+        lxi d, w6BC9
+        call    hl$deiADDhli
+        shld    modEndOffset
+        jmp loc_61F0
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_61DF:               ; CODE XREF: P1Records+DBj
+        lda b6BC7
+        cpi 0
+        jz  loc_61F0
+        lxi d, 17h
+        lxi b, aMoreThan1MainM ; "MORE THAN 1 MAIN MODULE"
+        call    WarnCr
+
+loc_61F0:               ; CODE XREF: P1Records+D3j
+                    ; P1Records+FBj P1Records+103j
+        call    SKIPRECORD
+        call    ReadHeader
+        lda tp
+        sui 0Eh
+        adi 0FFh
+        sbb a
+        push    psw
+        lda tp
+        sui 2
+        adi 0FFh
+        sbb a
+        pop b
+        mov c, b
+        ana c
+        push    psw
+        lda tp
+        sui 28h
+        adi 0FFh
+        sbb a
+        pop b
+        mov c, b
+        ana c
+        rar
+        jnc locret_621F
+        mvi c, 0DCh
+        call    FatalInputError
+
+locret_621F:                ; CODE XREF: P1Records+136j
+        ret
+; End of function P1Records
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub6220:                ; CODE XREF: sub652D+52p
+        mvi a, 0
+        lxi d, nExts
+        call    hl$deiSUB0a
+        ora l
+        jz  locret_63F3
+        lxi d, unk_6BDC
+        lxi b, 2
+        call    ReadRecord
+        lxi d, w6BD8
+        lxi b, 4
+        call    ReadRecord
+        call    VerifyChksum
+        lxi d, w6BD8
+        mvi c, 2
+        call    POSITION
+        mvi c, 28h
+        call    ASCERTAIN
+        call    SKIPRECORD
+        lxi d, b6BD4
+        mvi c, 0
+        call    POSITION
+        mvi c, 26h
+        call    ASCERTAIN
+        call    SKIPRECORD
+        lxi d, b6BD0
+        mvi c, 0
+        call    POSITION
+        lxi h, newExternals
+        mvi m, 0FFh
+
+loc_626E:               ; CODE XREF: sub6220+1D0j
+        mvi a, 0
+        lxi d, nExts
+        call    hl$deiSUB0a
+        ora l
+        adi 0FFh
+        sbb a
+        lxi h, newExternals
+        ana m
+        rar
+        jnc locret_63F3
+        lxi h, newExternals
+        mvi m, 0
+        lxi h, 0
+        shld    w6BE2
+        lxi b, 0
+        call    GetHigh
+        shld    w6BE6
+        lxi d, b6BD0
+        mvi c, 2
+        call    POSITION
+        mvi c, 2Ah
+        call    ASCERTAIN
+        lxi h, 0
+        shld    w6BDE
+
+loc_62A9:               ; CODE XREF: sub6220+10Ej
+        mvi a, 1
+        lxi h, remainder
+        call    hl$0aSUBhli
+        jnc loc_6331
+        lxi b, tempName
+        call    ReadName
+        lda tempName
+        cpi 0
+        jnz loc_62CC
+        lhld    w6BDE
+        inx h
+        shld    w6BDE
+        jmp loc_632E
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_62CC:               ; CODE XREF: sub6220+9Fj
+        lxi b, tempName
+        push    b
+        lxi b, sEntryBase
+        push    b
+        mvi e, 0
+        mvi c, 0FFh
+        call    LOOKUP
+        rar
+        jnc loc_632E
+        lhld    sEntryBase
+        inx h
+        inx h
+        mov a, m
+        rar
+        jc  loc_632E
+        lxi b, 4
+        call    GetHigh
+        shld    w6BE0
+        lhld    w6BE0
+        push    h
+        lhld    w6BDE
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        lhld    w6BE2
+        inx h
+        shld    w6BE2
+
+loc_6305:               ; CODE XREF: sub6220+104j
+        lda tempName
+        sui 0
+        adi 0FFh
+        sbb a
+        push    psw
+        mvi a, 1
+        lxi h, remainder
+        call    hl$0aSUBhli
+        sbb a
+        pop b
+        mov c, b
+        ana c
+        rar
+        jnc loc_6327
+        lxi b, tempName
+        call    ReadName
+        jmp loc_6305
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6327:               ; CODE XREF: sub6220+FBj
+        lhld    w6BDE
+        inx h
+        shld    w6BDE
+
+loc_632E:               ; CODE XREF: sub6220+A9j sub6220+BCj
+                    ; sub6220+C6j
+        jmp loc_62A9
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6331:               ; CODE XREF: sub6220+91j
+        call    VerifyChksum
+        mvi a, 0
+        lxi h, w6BE2
+        call    hl$0aSUBhli
+        jnc loc_63F0
+        lxi d, b6BD4
+        mvi c, 2
+        call    POSITION
+        mvi c, 26h
+        call    ASCERTAIN
+        lxi h, 0
+        shld    w6BD8
+        shld    w6BE4
+        shld    w6BDE
+
+loc_6358:               ; CODE XREF: sub6220+192j
+        lhld    w6BE2
+        dcx h
+        xchg
+        lxi h, w6BDE
+        call    hl$deSUBhli
+        jc  loc_63B5
+        lhld    w6BDE
+        dad h
+        dad h
+        xchg
+        lhld    w6BE6
+        dad d
+        xchg
+        lxi b, w6BE4
+        call    hl$deiSUBbci
+        dad h
+        dad h
+        shld    w6BDA
+        lxi d, w6BD8
+        mvi c, 3
+        call    POSITION
+        lhld    w6BDE
+        dad h
+        dad h
+        xchg
+        lhld    w6BE6
+        dad d
+        mov c, m
+        inx h
+        mov b, m
+        inx b
+        mov h, b
+        mov l, c
+        shld    w6BE4
+        lhld    w6BDE
+        dad h
+        dad h
+        xchg
+        lhld    w6BE6
+        dad d
+        xchg
+        lxi b, 4
+        call    READINPUT
+        lxi d, 1
+        lhld    w6BDE
+        dad d
+        shld    w6BDE
+        jnc loc_6358
+
+loc_63B5:               ; CODE XREF: sub6220+143j
+        lxi h, 0
+        shld    w6BDE
+
+loc_63BB:               ; CODE XREF: sub6220+1CDj
+        lhld    w6BE2
+        dcx h
+        xchg
+        lxi h, w6BDE
+        call    hl$deSUBhli
+        jc  loc_63F0
+        lhld    w6BDE
+        dad h
+        dad h
+        xchg
+        lhld    w6BE6
+        dad d
+        xchg
+        mvi c, 2
+        call    POSITION
+        mvi c, 2
+        call    ASCERTAIN
+        mvi c, 0FFh
+        call    P1Records
+        lxi d, 1
+        lhld    w6BDE
+        dad d
+        shld    w6BDE
+        jnc loc_63BB
+
+loc_63F0:               ; CODE XREF: sub6220+11Cj
+                    ; sub6220+1A6j
+        jmp loc_626E
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+locret_63F3:                ; CODE XREF: sub6220+9j sub6220+5Fj
+        ret
+; End of function sub6220
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub63F4:                ; CODE XREF: sub652D+58p
+        lxi d, w6BEC
+        lxi b, 6
+        call    ReadRecord
+        call    VerifyChksum
+
+loc_6400:               ; CODE XREF: sub63F4+117j
+        lhld    moduleListEnd
+        mvi a, 0
+        call    hl$0aSUBhli
+        ora l
+        jz  locret_650E
+        lhld    moduleListEnd
+        shld    w6BF3+1
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    moduleListEnd
+        lxi d, b6BEE
+        mvi c, 2
+        call    POSITION
+        mvi c, 28h
+        call    ASCERTAIN
+        lxi h, b6BF2
+        mvi m, 0
+        lxi h, 0
+        shld    w6BE8
+        lxi h, 0FFFCh
+        shld    w6BEA
+
+loc_6437:               ; CODE XREF: sub63F4+A6j
+        mvi a, 1
+        lxi h, remainder
+        call    hl$0aSUBhli
+        sbb a
+        push    psw
+        lda b6BF2
+        cma
+        pop b
+        mov c, b
+        ana c
+        rar
+        jnc loc_649D
+        lxi h, b6BF2
+        mvi m, 0FFh
+        lxi b, tempName
+        call    ReadName
+        lxi d, 4
+        lhld    w6BEA
+        dad d
+        shld    w6BEA
+        lxi h, w6BF3
+        mvi m, 0
+
+loc_6466:               ; CODE XREF: sub63F4+A3j
+        lda tempName
+        lxi h, w6BF3
+        cmp m
+        jc  loc_649A
+        lhld    w6BF3
+        mvi h, 0
+        lxi b, tempName
+        dad b
+        push    h
+        lhld    w6BF3
+        mvi h, 0
+        lxi b, 6
+        dad b
+        xchg
+        lhld    moduleListEnd
+        dad d
+        pop d
+        ldax    d
+        cmp m
+        jz  loc_6493
+        lxi h, b6BF2
+        mvi m, 0
+
+loc_6493:               ; CODE XREF: sub63F4+97j
+        lxi h, w6BF3
+        inr m
+        jnz loc_6466
+
+loc_649A:               ; CODE XREF: sub63F4+79j
+        jmp loc_6437
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_649D:               ; CODE XREF: sub63F4+55j
+        lda b6BF2
+        rar
+        jc  loc_64DD
+        lxi b, 7
+        lhld    moduleListEnd
+        dad b
+        push    h
+        lhld    moduleListEnd
+        dcx b
+        dad b
+        mov e, m
+        mvi d, 0
+        pop b
+        call    WARN
+        lxi d, 1Fh
+        lxi b, aModuleNotFound ; " - MODULE NOT FOUND IN LIBRARY "
+        call    WarnCr
+        lhld    moduleListEnd
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6BF6
+        lhld    w6BF3+1
+        shld    moduleListEnd
+        push    h
+        lhld    w6BF6
+        xchg
+        pop h
+        mov m, e
+        inx h
+        mov m, d
+        jmp loc_650B
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_64DD:               ; CODE XREF: sub63F4+ADj
+        call    SKIPRECORD
+        mvi c, 26h
+        call    ASCERTAIN
+        lxi d, w6BE8
+        mvi c, 3
+        call    POSITION
+        lxi d, w6BE8
+        lxi b, 4
+        call    ReadRecord
+        call    PUSHRECORD
+        lxi d, w6BE8
+        mvi c, 2
+        call    POSITION
+        mvi c, 2
+        call    ASCERTAIN
+        mvi c, 0
+        call    P1Records
+
+loc_650B:               ; CODE XREF: sub63F4+E6j
+        jmp loc_6400
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+locret_650E:                ; CODE XREF: sub63F4+15j
+        ret
+; End of function sub63F4
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub650F:                ; CODE XREF: sub650F+Dj sub652D+72p
+        lda tp
+        cpi 2
+        jnz loc_651F
+        mvi c, 0FFh
+        call    P1Records
+        jmp sub650F
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_651F:               ; CODE XREF: sub650F+5j
+        lda tp
+        cpi 0Eh
+        jz  locret_652C
+        mvi c, 0E0h
+        call    FatalInputError
+
+locret_652C:                ; CODE XREF: sub650F+15j
+        ret
+; End of function sub650F
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub652D:                ; CODE XREF: ROM:3BC6p
+        lxi h, 0        ; sub652D()
+        shld    nExts
+        lhld    fileList
+        shld    w6BF8
+
+loc_6539:               ; CODE XREF: sub652D+9Aj
+        mvi a, 0
+        lxi d, w6BF8
+        call    hl$deiSUB0a
+        ora l
+        jz  locret_65CA
+        lxi b, 5
+        lhld    w6BF8
+        dad b
+        shld    inFilePtr
+        call    OPENNEXTINPUTELEMENT
+        lhld    w6BF8
+        inx h
+        inx h
+        shld    moduleListEnd
+        shld    moduleListBase
+        lxi b, 4
+        lhld    w6BF8
+        dad b
+        mov a, m
+        sta publicsMode
+        call    ReadHeader
+        lda tp
+        cpi 2Ch
+        jnz loc_658B
+        lhld    moduleListBase
+        mvi a, 0
+        call    hl$0aSUBhli
+        ora l
+        jnz loc_6585
+        call    sub6220
+        jmp loc_6588
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6585:               ; CODE XREF: sub652D+4Fj
+        call    sub63F4
+
+loc_6588:               ; CODE XREF: sub652D+55j
+        jmp loc_65B2
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_658B:               ; CODE XREF: sub652D+43j
+        lda tp
+        cpi 2
+        jnz loc_65AD
+        lhld    moduleListBase
+        mvi a, 0
+        call    hl$0aSUBhli
+        ora l
+        jnz loc_65A5
+        call    sub650F
+        jmp loc_65AA
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_65A5:               ; CODE XREF: sub652D+6Fj
+        mvi c, 0EBh
+        call    FatalInputError
+
+loc_65AA:               ; CODE XREF: sub652D+75j
+        jmp loc_65B2
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_65AD:               ; CODE XREF: sub652D+63j
+        mvi c, 0E0h
+        call    FatalInputError
+
+loc_65B2:               ; CODE XREF: sub652D+5Bj sub652D+7Dj
+        lhld    inFile
+        mov b, h
+        mov c, l
+        lxi d, status
+        call    FATALCLOSE
+        lhld    w6BF8
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6BF8
+        jmp loc_6539
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+locret_65CA:                ; CODE XREF: sub652D+15j
+        ret
+; End of function sub652D
+
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+spaces:   .text "       " ; DATA XREF: sub6A32+3Co sub6A94+9o
+aCodeDataStackM:.text "      CODE    DATA    STACK   MEMORY " ; DATA XREF: sub6726+98o
+aAIPB:      .text "     A  I  P  B" ; DATA XREF: sub6A32+55o
+b660E:  .db 'H'         ; DATA XREF: HexNumToMapFile+24o
+asc_660F:   .db 0Dh         ; DATA XREF: CrLfToMapFile+3o
+        .db 0Ah
+aLinkMapFor:    .db 0Dh         ; DATA XREF: sub6726+Ao
+        .db 0Ah
+        .text "LINK MAP FOR "
+b6620:  .db '('         ; DATA XREF: sub6726+2Bo
+aSegmentInforma:.text ")"       ; DATA XREF: sub6726+40o
+        .db 0Dh
+        .db 0Ah
+        .db 0Dh
+        .db 0Ah
+        .text "SEGMENT INFORMATION:"
+        .db 0Dh
+        .db 0Ah
+aStartStopLengt:.db 0Dh         ; DATA XREF: sub6726+49o
+        .db 0Ah
+        .text "  START   STOP LENGTH REL NAME"
+        .db 0Dh
+        .db 0Ah
+aGap:       .text "    *GAP*"   ; DATA XREF: sub6726+E9o
+asc_6667:   .text "  /  /   "   ; DATA XREF: sub6726+114o
+asc_6670:   .text "  /"     ; DATA XREF: sub6726+14Do
+b6673:  .db '/'         ; DATA XREF: sub6726+16Ao
+aAbsolute:  .text "  ABSOLUTE"  ; DATA XREF: sub6726+1C3o
+aConflict:  .text "  *CONFLICT*"    ; DATA XREF: sub6726+1D3o
+aInputModulesIn:.db 0Dh         ; DATA XREF: sub6726+1F6o
+        .db 0Ah
+        .db 0Dh
+        .db 0Ah
+        .text "INPUT MODULES INCLUDED:"
+        .db 0Dh
+        .db 0Ah
+        .text " "
+b66A8:  .db '('         ; DATA XREF: sub6726+24Eo
+aPublics_0: .text ") (PUBLICS"  ; DATA XREF: sub6726+277o
+asc_66B3:   .text ")"       ; DATA XREF: sub6726+280o
+        .db 0Dh
+        .db 0Ah
+        .text " "
+aUnresolvedExte:.db 0Dh         ; DATA XREF: sub6726+2BBo
+        .db 0Ah
+        .text "UNRESOLVED EXTERNAL NAMES:"
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+StrToMapFile: procedure(str, len);
+    declare (str, len) address;
+
+    call SafeWrite(mapFile, str, len, .status);
+end;
+
+
+
+HexNumToMapFile: procedure(arg1w);
+    declare arg1w address;
+    declare buf(5) byte;
+
+    call NumOut(arg1w, 16, ' ', 5, .buf);
+    call StrToMapFile(.buf, 5);
+    call StrToMapFile(.('H'), 1);
+end;
+
+CrLfToMapFile: procedure;
+    call StrToMapFile(.(CR, LF), 2);
+end;
+
+sub6726: procedure;
+    if mapWanted then
+    do;
+        lda mapWanted
+        rar
+        jnc loc_69D2
+        lxi d, 0Fh
+        lxi b, aLinkMapFor  ; "\r\nLINK MAP FOR "
+        call    StrToMapFile
+        lhld    outFilePtr
+        mov b, h
+        mov c, l
+        call    DeLimit
+        xchg
+        lhld    outFilePtr
+        call    hl$deSUBhl
+        xchg
+        lhld    outFilePtr
+        mov b, h
+        mov c, l
+        call    StrToMapFile
+        lxi d, 1
+        lxi b, b6620
+        call    StrToMapFile
+        lhld    outModuleNameLength
+        mvi h, 0
+        xchg
+        lxi b, outModuleName
+        call    StrToMapFile
+        lxi d, 19h
+        lxi b, aSegmentInforma ; ")\r\n\r\nSEGMENT INFORMATION:\r\n"
+        call    StrToMapFile
+        lxi d, 22h
+        lxi b, aStartStopLengt ; "\r\n  START   STOP LENGTH REL NAME\r\n"
+        call    StrToMapFile
+        lxi h, b6C07
+        mvi m, 1
+
+loc_677A:               ; CODE XREF: sub6726+F6j
+        mvi a, 4
+        lxi h, b6C07
+        cmp m
+        jc  loc_681F
+        lhld    b6C07
+        mvi h, 0
+        lxi b, currentLenth
+        dad h
+        dad b
+        mvi a, 0
+        call    hl$0aSUBhli
+        ora l
+        jz  loc_6818
+        lxi b, 0
+        push    b
+        lhld    b6C07
+        mvi h, 0
+        lxi b, currentLenth
+        dad h
+        dad b
+        push    h
+        lhld    b6C07
+        mvi h, 0
+        lxi b, currentRelTyp
+        dad b
+        mov e, m
+        pop h
+        mov c, m
+        inx h
+        mov b, m
+        call    sub6A32
+        lhld    b6C07
+        mvi h, 0
+        dad h
+        dad h
+        dad h
+        lxi b, aCodeDataStackM ; "      CODE    DATA    STACK   MEMOR"...
+        dad b
+        mov b, h
+        mov c, l
+        lxi d, 9
+        call    StrToMapFile
+        lxi h, gapPtr
+        shld    lastGap
+
+loc_67D0:               ; CODE XREF: sub6726+EFj
+        lhld    lastGap
+        mvi a, 0
+        call    hl$0aSUBhli
+        ora l
+        jz  loc_6818
+        lhld    lastGap
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    lastGap
+        lxi b, 6
+        dad b
+        lda b6C07
+        call    hl$0aSUBhli
+        ora l
+        jnz loc_6815
+        lhld    lastGap
+        inx h
+        inx h
+        mov c, m
+        inx h
+        mov b, m
+        push    b
+        lxi b, 4
+        lhld    lastGap
+        dad b
+        mov c, m
+        inx h
+        mov b, m
+        mvi e, 0FFh
+        call    sub6A32
+        lxi d, 9
+        lxi b, aGap     ; "    *GAP*"
+        call    StrToMapFile
+
+loc_6815:               ; CODE XREF: sub6726+CBj
+        jmp loc_67D0
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6818:               ; CODE XREF: sub6726+6Dj sub6726+B3j
+        lxi h, b6C07
+        inr m
+        jnz loc_677A
+
+loc_681F:               ; CODE XREF: sub6726+5Aj
+        lda blankRelTyp
+        cpi 0
+        jz  loc_6840
+        lxi b, 0
+        push    b
+        lhld    w4C55
+        mov b, h
+        mov c, l
+        lhld    blankRelTyp
+        xchg
+        call    sub6A32
+        lxi d, 9
+        lxi b, asc_6667 ; "  /  /   "
+        call    StrToMapFile
+
+loc_6840:               ; CODE XREF: sub6726+FEj
+        lhld    commonThread
+        shld    cEntryBase
+
+loc_6846:               ; CODE XREF: sub6726+17Ej
+        mvi a, 0
+        lxi d, cEntryBase
+        call    hl$deiSUB0a
+        ora l
+        jz  loc_68A7
+        lxi b, 0
+        push    b
+        lxi b, 4
+        lhld    cEntryBase
+        dad b
+        push    h
+        lhld    cEntryBase
+        inx h
+        inx h
+        mvi a, 0Eh
+        ana m
+        ora a
+        rar
+        pop h
+        mov c, m
+        inx h
+        mov b, m
+        mov e, a
+        call    sub6A32
+        lxi d, 3
+        lxi b, asc_6670 ; "  /"
+        call    StrToMapFile
+        lxi b, 9
+        lhld    cEntryBase
+        dad b
+        push    h
+        lhld    cEntryBase
+        dcx b
+        dad b
+        mov e, m
+        mvi d, 0
+        pop b
+        call    StrToMapFile
+        lxi d, 1
+        lxi b, b6673
+        call    StrToMapFile
+        lxi b, 6
+        lhld    cEntryBase
+        dad b
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    cEntryBase
+        jmp loc_6846
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_68A7:               ; CODE XREF: sub6726+129j
+        lhld    contigPtr
+        shld    w6C08
+        lxi h, b6C10
+        mvi m, 0
+
+loc_68B2:               ; CODE XREF: sub6726+1F0j
+        lhld    w6C08
+        mvi a, 0
+        call    hl$0aSUBhli
+        ora l
+        jz  loc_6919
+        lhld    w6C08
+        inx h
+        inx h
+        mov c, m
+        inx h
+        mov b, m
+        push    b
+        lxi b, 4
+        lhld    w6C08
+        dad b
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6C0E
+        lhld    w6C08
+        inx h
+        inx h
+        dcx d
+        call    hl$deiSUBhli
+        inx h
+        mov b, h
+        mov c, l
+        mvi e, 0
+        call    sub6A32
+        lxi d, 0Ah
+        lxi b, aAbsolute    ; "  ABSOLUTE"
+        call    StrToMapFile
+        lda b6C10
+        rar
+        jnc loc_68FF
+        lxi d, 0Ch
+        lxi b, aConflict    ; "  *CONFLICT*"
+        call    StrToMapFile
+
+loc_68FF:               ; CODE XREF: sub6726+1CDj
+        lhld    w6C08
+        mov e, m
+        inx h
+        mov d, m
+        xchg
+        shld    w6C08
+        inx h
+        inx h
+        lxi d, w6C0E
+        call    hl$deiSUBhli
+        sbb a
+        cma
+        xchg
+        inx h
+        mov m, a
+        jmp loc_68B2
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6919:               ; CODE XREF: sub6726+195j
+        call StrToMapFile(.(CR, LF, CR, LF, 'INPUT MODULES INCLUDED:', CR, LF), 30);
+        w6C08 = fileList;
+
+        do while w6C08 <> 0;
+            w6C0A = s6C08.w2;
+            do while w6C0A <> 0;
+                call StrToMapFile(.s6C08, Delimit(.s6C08.b5) - .s6C08.b5);
+                call StrToMapFile(.('('), 1);
+                call StrToMapFile(.s6C0A.b7, s6C0A.b6);
+                if s6C08.b4 then
+                    call StrToMapFile(.(') (PUBLICS'), 10);
+                call StrToMapFile(.(')', CR, LF, ' '), 4);
+                w6C0A = s6C0A.w0;
+            end;
+            w6C08 = s6C08.w0;
+        end;
+    end;
+    if nExts <> 0 then
+    do;
+        call WarnCr(.(CR, LF, 'UNRESOLVED EXTERNAL NAMES:', 28);
+        do w6C0C = 0 to nExts - 1;
+            w6C0E = GetEDict(w6C0C);
+            call WarnCr(.s6C0E.b9, s6C0E.b8);
+        end;
+    end;
+    if mapWanted then
+        acll CrLfToMapFile;
+end;
+
+
+sub6A32:                ; CODE XREF: sub6726+8Dp sub6726+E3p
+                    ; sub6726+10Ep sub6726+147p
+                    ; sub6726+1BDp
+        lxi h, ?sub6A32.arg3b ; sub6A32(arg1w, arg2w, arg3b)
+        call    CrLfToMapFile
+        lda ?sub6A32.arg3b
+        inr a
+        sta ?sub6A32.arg3b
+        mov c, a
+        mvi a, 1
+        cmp c
+        jc  loc_6A6B
+        lhld    ?sub6A32.arg1w
+        mov b, h
+        mov c, l
+        call    sub6A94
+        lhld    ?sub6A32.arg2w
+        xchg
+        lhld    ?sub6A32.arg1w
+        dad d
+        dcx h
+        mov b, h
+        mov c, l
+        call    sub6A94
+        jmp loc_6A74
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6A6B:               ; CODE XREF: sub6A32+1Dj
+        lxi d, 0Eh
+        lxi b, spaces ; "       "
+        call    StrToMapFile
+
+loc_6A74:               ; CODE XREF: sub6A32+36j
+        lhld    ?sub6A32.arg2w
+        mov b, h
+        mov c, l
+        call    sub6A94
+        lhld    ?sub6A32.arg3b
+        mvi h, 0
+        lxi d, 3
+        call    hl$deMULhl
+        lxi b, aAIPB    ; " A  I  P  B"
+        dad b
+        mov b, h
+        mov c, l
+        lxi d, 3
+        call    StrToMapFile
+        ret
+; End of function sub6A32
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+sub6A94: procedure(n);
+    declare n address;
+
+    call StrToMapFile(.spaces, 1);
+    call HexNumToMapFile(n);
+end;
+
+Rescan: procedure(conn, status$p);
+    declare (conn, status$p) address;
+
+    call Isis(I$RESCAN, .conn);
+end;
+
+
+sub6ABF: procedure (arg1w, arg2w, arg3b);
+        lxi h, ?sub6ABF.arg3b
+        dcr m
+        inx h
+        mvi m, 0
+
+loc_6AD5:               ; CODE XREF: sub6ABF+42j
+        lda ?sub6ABF.arg3b
+        lxi h, b6C21
+        cmp m
+        jc  loc_6B04
+        lhld    b6C21
+        mvi h, 0
+        xchg
+        lhld    ?sub6ABF.arg1w
+        dad d
+        push    h
+        lhld    b6C21
+        mvi h, 0
+        xchg
+        lhld    ?sub6ABF.arg2w
+        dad d
+        pop b
+        ldax    b
+        cmp m
+        jz  loc_6AFD
+        mvi a, 0
+        ret
+; ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+loc_6AFD:               ; CODE XREF: sub6ABF+38j
+        lxi h, b6C21
+        inr m
+        jnz loc_6AD5
+
+loc_6B04:               ; CODE XREF: sub6ABF+1Dj
+        mvi a, 0FFh
+        ret
+; End of function sub6ABF
+
+
+; ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ S U B R O U T I N E ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+
+
+hl$deiSUBbci:
+
+hl$deiADDhli:                ; CODE XREF: FataCmdLineError+30p sub5DF3+1Ep
+
+hl$deMULhl:                ; CODE XREF: sub5AB1+1Ep sub5AE1+8Cp
+
+
+hl$deSUB0a:                ; CODE XREF: ParseToken+8Cp sub5648+8Fp
+
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        .db 0, 0, 0, 0, 0, 0, 0, 0, 0
+linePtr:  .dw 0           ; DATA XREF: FataCmdLineError+6Do FataCmdLineError+9Dr
+                    ; FataCmdLineError+A2r GetNextToken+7r
+                    ; GetNextToken+Er GetNextToken+15w
+                    ; GetNextToken+25r GetNextToken+2Er
+                    ; GetNextToken+4Fr GetNextToken+6Br
+                    ; GetNextToken+7Dr sub5416+11w
+tokenPtr:  .dw 0           ; DATA XREF: GetNextToken+86w GetNextToken+89r
+                    ; GetNextToken+92r GetNextToken+9Bw
+                    ; GetNextToken+9Er GetNextToken+C0r sub52FEr
+                    ; sub52FE+Fo sub52FE+1Aw
+                    ; sub52FE+1Dr sub52FE+26r
+                    ; sub52FE+2Fw sub52FE+32r
+                    ; sub52FE+3Br sub52FE+5Ar
+                    ; sub53BE+41r sub5593+6Ar
+tokenLen:  .db 0           ; DATA XREF: GetNextToken+C9o sub52FE+6r
+                    ; sub52FE+Cr sub52FE+63o
+                    ; sub53BE+Br
+lastTokenPtr:  .dw 0           ; DATA XREF: FataCmdLineError+Eo FataCmdLineError+A6o
+                    ; sub52FE+3w sub52FE+3Ew
+                    ; sub5366+41r sub5416+32r
+                    ; sub5416+3Br sub5416+4Dr
+                    ; sub547F+4Ar sub54E5+6Ar
+                    ; sub5593+12r sub5593+2Br
+                    ; sub5593+42r sub5593+53r
+                    ; sub5593+5Bo sub5593+81r
+                    ; sub5593+93r sub5648+3r
+                    ; sub5648+Bo sub5648+1Ar ...
+lastTokenLen:  .db 0           ; DATA XREF: FataCmdLineError+Br sub52FE+9w
+                    ; sub5366+Br sub547F+3r
+                    ; sub547F+30r sub547F+39r
+                    ; sub54E5+5Ar sub54E5+87r
+                    ; sub570D+39r sub570D+44r
+b6B76:  .db 0           ; DATA XREF: sub5416+62o
+gettingSymbol:  .db 0           ; DATA XREF: ParseToken+3Ar sub5416o
+                    ; sub5593+73o sub5593+A1o
+                    ; sub570D+1Bo sub570D+34o
+?FataCmdLineError:   .db 0           ; arg1b ; DATA XREF: FataCmdLineErroro
+                    ; FataCmdLineError+4r
+gapPtr:  .dw 0           ; DATA XREF: FataCmdLineError+1Aw FataCmdLineError+1Do
+                    ; FataCmdLineError+27r FataCmdLineError+2Co
+                    ; FataCmdLineError+4Dr FataCmdLineError+52r
+                    ; FataCmdLineError+60r FataCmdLineError+67w
+                    ; FataCmdLineError+BEr FataCmdLineError+C3r
+cmdLineErrPtr:  .dw 0           ; DATA XREF: FataCmdLineError+14w FataCmdLineError+20o
+                    ; FataCmdLineError+38o FataCmdLineError+70o
+                    ; FataCmdLineError+88o FataCmdLineError+C7o
+?ParseToken:   .dw 0           ; arg1w ; DATA XREF: ParseToken+6r
+                    ; ParseToken+13r ParseToken+20r
+                    ; ParseToken+2Dr ParseToken+41r
+                    ; ParseToken+59r ParseToken+5Fr
+                    ; ParseToken+82o ParseToken+9Ar
+                    ; ParseToken+9Ew ParseToken+A7o
+                    ; ParseToken+BDo ParseToken+C4r
+                    ; ParseToken+D1r ParseToken+DAr ParseTokeno
+        .db 0
+len:  .dw 0           ; DATA XREF: ParseToken+5Cw ParseToken+7Fo
+                    ; ParseToken+A4o ParseToken+BAo
+                    ; ParseToken+E0w ParseToken+E5o
+                    ; ParseToken+EEr
+b6B82:  .db 0           ; DATA XREF: GetNextToken+3Bo GetNextToken+42o
+                    ; GetNextToken+49r GetNextToken+65r
+                    ; GetNextToken+73o
+?sub5366:   .dw 0           ; arg1w ; DATA XREF: sub5366+36r
+                    ; sub5366o sub5366+8o sub5366+15r
+                    ; sub5366+25r
+        .db 0           ; arg2b
+b6B86:  .db 0           ; DATA XREF: sub5366+20o sub5366+29o
+                    ; sub5366+30r sub5366+3Br
+                    ; sub5366+4Eo
+?sub53BE:   .dw 0           ; arg1w ; DATA XREF: sub53BE+36r
+                    ; sub53BEo sub53BE+8o sub53BE+15r
+                    ; sub53BE+25r
+        .db 0           ; arg2b
+b6B8A:  .db 0           ; DATA XREF: sub53BE+20o sub53BE+29o
+                    ; sub53BE+30r sub53BE+3Br
+                    ; sub53BE+4Eo
+b6B8B:  .db 0           ; DATA XREF: sub547F+34o sub547F+3Co
+                    ; sub547F+43r sub547F+4Er
+                    ; sub547F+5Eo
+w6B8C:  .dw 0           ; DATA XREF: sub547F+Ew sub547F+15r
+                    ; sub547F+1Dr sub547F+2Cr
+                    ; sub547F+57r
+?sub54E5:   .db 0           ; arg1b ; DATA XREF: sub54E5o
+                    ; sub54E5+39r
+b6B8F:  .db 0           ; DATA XREF: sub54E5+55o sub54E5+5Do
+                    ; sub54E5+64r sub54E5+6Fr
+                    ; sub54E5+80o sub54E5+8Aw
+                    ; sub54E5+8Fo sub54E5+96r
+                    ; sub54E5+A6o
+b6B90:  .db 0, 0, 0     ; DATA XREF: sub54E5+Aw sub54E5+11r
+                    ; sub54E5+19r sub54E5+25r
+                    ; sub54E5+43r sub54E5+4Fr
+                    ; sub54E5+79r sub54E5+A0r
+w6B93:  .dw 0           ; DATA XREF: sub5648+2Dw sub5648+36r
+                    ; sub5648+4Bw sub5648+7Fo
+                    ; sub5648+ACr
+w6B95:  .dw 0           ; DATA XREF: sub5648+20w sub5648+29r
+                    ; sub5648+41r sub5648+45w
+                    ; sub5648+48r sub5648+4Er
+                    ; sub5648+75r sub5648+79w
+                    ; sub5648+82o
+b6B97:  .db 0           ; DATA XREF: sub5648+96o sub5648+9Fo
+                    ; sub5648+A6r sub5648+B1r
+                    ; sub5648+BDo
+b6B98:  .db 0           ; DATA XREF: sub570D+3Fo sub570D+48o
+                    ; sub570D+4Fr sub570D+5Ar
+                    ; sub570D+66o
+?sub5810:   .dw 0           ; arg1w ; DATA XREF: sub5810+Er
+                    ; sub5810+1Fr sub5810+23w
+                    ; sub5810+42r sub5810+4Er
+                    ; sub5810+72o sub5810+7Cr
+                    ; sub5810+8Cr sub5810+90w
+                    ; sub5810+2Ar sub5810+3Br
+                    ; sub5810+3Fw sub5810+55r
+                    ; sub5810+5Er sub5810+80r
+                    ; sub5810+93r sub5810+97w sub5810o
+        .dw 0           ; arg2w
+w6B9D:  .dw 0           ; DATA XREF: sub5810+4Aw sub5810+6Fo
+w6B9F:  .dw 0           ; DATA XREF: sub58B0+44w sub58B0+49o
+                    ; sub58B0+56r sub58B0+6Cr
+                    ; sub58B0+73w sub58B0+C1w
+                    ; sub58B0+C6o sub58B0+D3r
+                    ; sub58B0+D8r sub58B0+E4r
+                    ; sub58B0+EBw
+b6BA1:  .db 0FEh        ; DATA XREF: sub5E9F+170r
+                    ; sub5E9F+174r sub5E9F+178w
+w6BA2:  .block 2        ; DATA XREF: sub5AB1+22r sub5AE1+1Fw
+                    ; sub5AE1+90r sub5AE1+A9r
+                    ; sub5AE1+C1r sub5DF3+60r
+                    ; sub5DF3+7Ar sub5E9F+30r
+                    ; sub5E9F+4Ar sub5E9F+82r
+                    ; sub5E9F+C3r sub5E9F+E7r
+                    ; sub5E9F+10Br sub5E9F+15Dr
+                    ; sub5E9F+195r sub5E9F+21Br
+                    ; sub5E9F+231r
+b6BA4:  .block 1        ; DATA XREF: sub5A24+7o sub5A24+10r
+w6BA5:  .block 2        ; DATA XREF: sub5A24+27r sub5A24+33r
+                    ; sub5A24+5Bo
+w6BA7:  .block 2        ; DATA XREF: sub5A24+52w sub5A24+55r
+                    ; sub5A24+64r sub5A24+6Ew
+                    ; sub5A24+78r
+w6BA9:  .block 2        ; DATA XREF: sub5A24+4Cw sub5A24+67w
+                    ; sub5A24+80r
+w6BAB:  .block 2        ; DATA XREF: sub5A24+1Ew sub5A24+21r
+                    ; sub5A24+41r sub5A24+74r
+                    ; sub5A24+84r
+b6BAD:  .block 1        ; DATA XREF: sub5AB1+8o sub5AB1+Fo
+                    ; sub5AB1+19r sub5AB1+28o
+?sub5AE1:   .block 1        ; arg1b ; DATA XREF: sub5AE1+33r
+                    ; sub5AE1+87r sub5AE1+A0r
+                    ; sub5AE1+B4r sub5AE1+49r
+                    ; sub5AE1+55o sub5AE1+5Er
+                    ; sub5AE1+C6r sub5AE1o sub5AE1+25r
+                    ; sub5AE1+43r sub5AE1+64r
+                    ; sub5AE1+AEo
+        .block 2        ; arg2w
+        .block 1        ; arg3b
+?sub5BB0:   .block 2        ; arg1w ; DATA XREF: sub5BB0+Fr
+                    ; sub5BB0+14r sub5BB0+1Er sub5BB0o
+                    ; sub5BB0+23r
+        .block 2        ; arg2w
+        .block 1        ; arg3b
+?sub5BDD:   .block 1        ; arg1b ; DATA XREF: sub5BDDo
+                    ; sub5BDD+4r sub5BDD+14r
+                    ; sub5BDD+3Br sub5BDD+7Fr
+                    ; sub5BDD+E0r sub5BDD+10Dr
+                    ; sub5BDD+185r
+b6BB8:  .block 1        ; DATA XREF: sub5BDD+Bo sub5BDD+19r
+                    ; sub5DF3r sub5DF3+Fr sub5DF3+30r
+                    ; sub5DF3+3Fr sub5DF3+57r
+                    ; sub5DF3+6Dr
+b6BB9:  .block 1        ; DATA XREF: sub5BDD+42o sub5DF3+1Bo
+                    ; sub5DF3+49r sub5DF3+97r
+        .block 1
+w6BBB:  .block 2        ; DATA XREF: sub5BDD+123w
+                    ; sub5BDD+130r sub5BDD+140r
+b6BBD:  .block 1        ; DATA XREF: sub5BDD+1E1o
+                    ; sub5BDD+1E9o sub5BDD+1F0r
+                    ; sub5BDD+1FAr sub5BDD+20Bo
+w6BBE:  .block 2        ; DATA XREF: sub5BDD+54w sub5BDD+57r
+                    ; sub5BDD+9Fr sub5BDD+C4r
+                    ; sub5BDD+105r sub5BDD+1D9r
+w6BC0:  .block 2        ; DATA XREF: sub5BDD+5Fw sub5BDD+E7r
+                    ; sub5BDD+1C3r
+b6BC2:  .block 1        ; DATA XREF: sub5E9F+13o sub5E9F+1Cr
+                    ; sub5E9F+26r sub5E9F+40r
+                    ; sub5E9F+79r sub5E9F+B6r
+                    ; sub5E9F+DAr sub5E9F+FEr
+                    ; sub5E9F+154r sub5E9F+188r
+                    ; sub5E9F+212r sub5E9F+224r
+w6BC3:  .block 2        ; DATA XREF: sub5E9F+1EAw
+                    ; sub5E9F+1F3r sub5E9F+209r
+b6BC5:  .block 1        ; DATA XREF: sub5E9F+1B6o
+                    ; sub5E9F+1BEo sub5E9F+1C5r
+                    ; sub5E9F+1CFr sub5E9F+1E0o
+?sub60E1:   .block 1        ; arg1b ; DATA XREF: P1Recordso
+                    ; P1Records+Dr
+b6BC7:  .block 1        ; DATA XREF: P1Records+C6o
+                    ; P1Records+DEr P1Records+FEr
+b6BC8:  .block 1        ; DATA XREF: P1Records+E4r
+w6BC9:  .block 2        ; DATA XREF: P1Records+F2o
+b6BCB:  .block 5        ; DATA XREF: P1Records+4o
+                    ; P1Records+14r P1Records+5Cr
+                    ; P1Records+68r
+b6BD0:  .block 4        ; DATA XREF: sub6220+41o sub6220+76o
+b6BD4:  .block 4        ; DATA XREF: sub6220+31o
+                    ; sub6220+11Fo
+w6BD8:  .block 2        ; DATA XREF: sub6220+15o sub6220+21o
+                    ; sub6220+12Fw sub6220+15Co
+w6BDA:  .block 2        ; DATA XREF: sub6220+159w
+unk_6BDC:   .block 1        ; DATA XREF: sub6220+Co
+        .block 1
+w6BDE:  .block 2        ; DATA XREF: sub6220+86w sub6220+A2r
+                    ; sub6220+A6w sub6220+D6r
+                    ; sub6220+107r sub6220+10Bw
+                    ; sub6220+135w sub6220+13Do
+                    ; sub6220+146r sub6220+164r
+                    ; sub6220+177r sub6220+18Br
+                    ; sub6220+18Fw sub6220+198w
+                    ; sub6220+1A0o sub6220+1A9r
+                    ; sub6220+1C6r sub6220+1CAw
+w6BE0:  .block 2        ; DATA XREF: sub6220+CFw sub6220+D2r
+w6BE2:  .block 2        ; DATA XREF: sub6220+6Aw sub6220+DEr
+                    ; sub6220+E2w sub6220+116o
+                    ; sub6220+138r sub6220+19Br
+w6BE4:  .block 2        ; DATA XREF: sub6220+132w
+                    ; sub6220+151o sub6220+174w
+w6BE6:  .block 2        ; DATA XREF: sub6220+73w
+                    ; sub6220+14Cr sub6220+16Ar
+                    ; sub6220+17Dr sub6220+1AFr
+w6BE8:  .block 2        ; DATA XREF: sub63F4+3Aw sub63F4+F1o
+                    ; sub63F4+F9o sub63F4+105o
+w6BEA:  .block 2        ; DATA XREF: sub63F4+40w sub63F4+66r
+                    ; sub63F4+6Aw
+w6BEC:  .block 2        ; DATA XREF: sub63F4o
+b6BEE:  .block 4        ; DATA XREF: sub63F4+25o
+b6BF2:  .block 1        ; DATA XREF: sub63F4+32o sub63F4+4Dr
+                    ; sub63F4+58o sub63F4+9Ao
+                    ; sub63F4+A9r
+w6BF3:  .block 2        ; DATA XREF: sub63F4+6Do sub63F4+75o
+                    ; sub63F4+7Cr sub63F4+86r
+                    ; sub63F4+9Fo sub63F4+1Bw
+                    ; sub63F4+D7r
+        .block 1
+w6BF6:  .block 2        ; DATA XREF: sub63F4+D4w sub63F4+DEr
+w6BF8:  .block 2        ; DATA XREF: sub652D+9w sub652D+Eo
+                    ; sub652D+1Br sub652D+25r
+                    ; sub652D+33r sub652D+90r
+                    ; sub652D+97w
+        .block 1
+        .block 1
+?StrToMapFile:   .block 2        ; arg1w ; DATA XREF: StrToMapFile+Er
+                    ; StrToMapFile+12r StrToMapFileo
+        .block 2        ; arg2w
+?HexNumToMapFile:   .block 2        ; arg1w ; DATA XREF: HexNumToMapFile+6r
+                    ; HexNumToMapFileo
+b6C02:  .block 5        ; DATA XREF: HexNumToMapFile+12o HexNumToMapFile+1Bo
+b6C07:  .block 1        ; DATA XREF: sub6726+4Fo sub6726+56o
+                    ; sub6726+5Dr sub6726+74r
+                    ; sub6726+7Fr sub6726+90r
+                    ; sub6726+C4r sub6726+F2o
+w6C08:  .block 2        ; DATA XREF: sub6726+184w
+                    ; sub6726+18Cr sub6726+198r
+                    ; sub6726+1A4r sub6726+1AFr
+                    ; sub6726+1D9r sub6726+1E0w
+                    ; sub6726+1FFw sub6726+204o
+                    ; sub6726+20Er sub6726+229r
+                    ; sub6726+231r sub6726+23Er
+                    ; sub6726+26Br sub6726+299r
+                    ; sub6726+2A0w
+w6C0A:  .block 2        ; DATA XREF: sub6726+217w
+                    ; sub6726+21Co sub6726+257r
+                    ; sub6726+25Cr sub6726+286r
+                    ; sub6726+28Dw
+w6C0C:  .block 2        ; DATA XREF: sub6726+2C4w
+                    ; sub6726+2CCo sub6726+2D5r
+                    ; sub6726+2F7r sub6726+2FBw
+w6C0E:  .block 2        ; DATA XREF: sub6726+1ACw
+                    ; sub6726+1E5o sub6726+2DDw
+                    ; sub6726+2E3r sub6726+2E8r
+b6C10:  .block 1        ; DATA XREF: sub6726+187o
+                    ; sub6726+1C9r
+?sub6A32:   .block 2        ; arg1w ; DATA XREF: sub6A32+20r
+                    ; sub6A32+2Cr sub6A32+28r
+                    ; sub6A32+42r sub6A32o sub6A32+12r
+                    ; sub6A32+16w sub6A32+4Ar
+        .block 2        ; arg2w
+        .block 1        ; arg3b
+?sub6A94:   .block 2        ; arg1w ; DATA XREF: sub6A94+Fr
+                    ; sub6A94o
+?Rescan:   .block 2        ; arg1w ; DATA XREF: Rescan+Ao
+                    ; Rescano
+        .block 2        ; arg2w
+?sub6ABF:   .block 2        ; arg1w ; DATA XREF: sub6ABF+26r
+                    ; sub6ABF+31r sub6ABFo sub6ABF+Fo
+                    ; sub6ABF+16r
+        .block 2        ; arg2w
+        .block 1        ; arg3b
+b6C21:  .block 1        ; DATA XREF: sub6ABF+19o sub6ABF+20r
+                    ; sub6ABF+2Br sub6ABF+3Eo
+MEMORY:     .block 3600h        ; DATA XREF: ROM:59ABo
+; end of 'ROM'
+
+
+        .end
