@@ -154,7 +154,6 @@ word Start4()
     ((rec_t *)rec22)->len = 0;
     ((rec_t *)rec22)->len = 3;
 
-
     if (setjmp(errCont) == 0) {
         Sub_408B();
 

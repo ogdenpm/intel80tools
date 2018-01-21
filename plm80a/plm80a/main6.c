@@ -96,7 +96,7 @@ void Sub_404A()
     programErrCnt, linesRead, csegSize = 0;
 }
 
-void Sub_4149()
+void Sub_4149()     // similar to Sub_4201 in main3.c
 {
     topSymbol = localLabelsP - 3;
     curSymbolP = topSymbol - 1;
@@ -135,8 +135,10 @@ word Start6()
 {
     if (setjmp(errCont) == 0) {
         Sub_404A();
-        if (b7AD9 || IXREF)
+        if (b7AD9 || IXREF) {
             Sub_4149();
+            symMode = 2;
+        }
         Sub_3F96();
         while (b7AE4) {
             Sub_42E7();

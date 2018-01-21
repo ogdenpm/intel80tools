@@ -181,7 +181,7 @@ static bool Sub_7801()
         if (Sub_76E2(arg2b_765B) != Sub_76E2(arg3b_765B))
             return false;
     if ((bC27F & 4) != 0) {
-        if ((bC27F && 8) != 0)
+        if ((bC27F & 8) != 0)
             if (wC27B != 0)
                 return true;
             else
@@ -234,7 +234,7 @@ static void Sub_7925()
         } else {
             if (tx2op2[tx2qp] != 0)
                 tx2Auxw[tx2op2[tx2qp]] = tx2Auxw[tx2op2[tx2qp]] - 1;  
-            if ((bC1D2 && 4) != 0) {
+            if ((bC1D2 & 4) != 0) {
                 tx2op1[tx2qp] = tx2op2[1];
                 if (boC20F) {
                     i = 0x43 - i;

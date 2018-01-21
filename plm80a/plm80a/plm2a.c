@@ -521,7 +521,7 @@ static void Sub_5410()
 {
     bC214 = 0;
     bC215 = bC1E6;
-    if ((Shr(b4029[l_arg1b], 4) && 7) != 0) {
+    if ((Shr(b4029[l_arg1b], 4) & 7) != 0) {
         Sub_545D();
         if (wC1DC[bC214] != 0 || wC1DC[0] <= 12)
             Sub_545D();
@@ -534,7 +534,7 @@ void EncodeFragData(byte arg1b)
 /* EncodeFragData() */
     bC1E6 = 0;
     PutTx1Byte(arg1b);
-    if (Rol(b4029[arg1b], 1))
+    if (Rol(b4029[arg1b], 1) & 1)
         PutTx1Byte(curOp);
     Sub_5410();
     memset(wC1DC, 0, 10);
@@ -550,7 +550,7 @@ void EmitTopItem()
         if (tx2opc[tx2qp] == T2_LINEINFO || tx2opc[tx2qp] == T2_INCLUDE)
             return;
     PutTx1Byte(tx2opc[tx2qp]);
-    if (Rol(b4029[tx2opc[tx2qp]], 1)) {
+    if (Rol(b4029[tx2opc[tx2qp]], 1) & 1) {
         PutTx1Byte((byte)tx2op2[tx2qp]);
         PutTx1Word(tx2op1[tx2qp]);
     } else 
@@ -1173,7 +1173,7 @@ void Sub_67A9()
     else
         for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
             bC1D2 = b5124[tx2opc[tx2qp]];
-            if ((bC1D2 && 0x10) != 0) {
+            if ((bC1D2 & 0x10) != 0) {
                 if (i + 4 < tx2qp) {
                     if (tx2opc[tx2qp] == T2_LOCALLABEL)
                         bC1BF = tx2qp;
@@ -1183,11 +1183,11 @@ void Sub_67A9()
                 }
                 i = i + 1;  
             }
-            if ((bC1D2 && 8) != 0) {
+            if ((bC1D2 & 8) != 0) {
                 SkipBB(tx2qp, 1);
                 return;
             }
-            if ((bC1D2 && 0x20) != 0)
+            if ((bC1D2 & 0x20) != 0)
                 i = i + 1;  
         }
 }

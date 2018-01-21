@@ -77,7 +77,8 @@ static void Sub_40B6()
 
 static void Sub_4105()
 {
-    byte i, j, k, m;
+    byte i, j, k;
+    bool m;
     word p;
 
     if (!standAlone)
@@ -91,13 +92,13 @@ static void Sub_4105()
     for (i = 0; i <= 45; i++) {
         k = b47B7[i];
         j = k + b4789[i];
-        m = 0;
+        m = false;
         while (k < j) {
             if (m) {
                 WordP(helpersP)[k] = w7197;
                 w7197 = w7197 + b4813[k];
             } else if (WordP(helpersP)[k] != 0) {
-                m = 0xFF;
+                m = true;
                 WordP(helpersP)[k] = w7197;
                 w7197 = w7197 + b4813[k];
             }
@@ -290,6 +291,7 @@ word Start3()
         Sub_4105();
         csegSize = w7197;
         Sub_4201();
+        symMode = 2;    // now info points to pstr symbols
     }
     if (OBJECT) {
         Sub_426E();

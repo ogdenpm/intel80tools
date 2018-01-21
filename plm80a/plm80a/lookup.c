@@ -3,10 +3,9 @@
 byte Hash(pointer pstr)
 {
     pointer p = pstr;
-    byte len = pstr[0];
-    byte hash;
+    byte len = *p;
+    byte hash = 0;
 
-    hash = 0;
     while (len != 0) {
         hash = Rol(hash, 1) + *p++;
         len = len - 1;

@@ -17,7 +17,7 @@ byte tx1Aux1;
 byte tx1RdBuf[512];
 byte tx2Buf[512];
 byte xrfBuf[512];
-byte atBuf[512];
+// byte atBuf[512]; use version in plm3a.c
 byte b91C0;
 
 
@@ -77,6 +77,7 @@ word Start1()
 	}
 	Sub_3F8B();
 	Sub_6EE0();
+
     if (hasErrors)
         return 6; // Chain(overlay[6]);
     else

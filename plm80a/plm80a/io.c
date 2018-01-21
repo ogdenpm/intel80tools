@@ -189,6 +189,8 @@ int main(int argc, char **argv)
 
     initMem();
     ovl = 255;
+    symMode = 1;        // standard sym_t
+    infoMode = 0;
     while (1) {
         switch (ovl) {
         case 255: ovl = Start(); break;
@@ -202,6 +204,7 @@ int main(int argc, char **argv)
         default: fprintf(stderr, "unexpected overlay %d\n", ovl);
             exit(1);
         }
+//        dumpAllInfo();
     }
 }
 
@@ -324,6 +327,9 @@ void Error(word ErrorNum)
 
 void Exit()
 {
+#ifdef _DEBUG
+    getchar();
+#endif
 	_exit(1);
 }
 

@@ -263,7 +263,7 @@ static void StmtParse5()
     PopParseStack();
     r = st3Stack[w99BF];
     i = st2Stack[w99BF] - 1;
-    p, q = 0;
+    p = q = 0;
     if (i > 1) {
         p = Sub_42EF(st3Stack[r + i - 1]);
         q = Sub_42EF(st3Stack[r + i]);
@@ -554,7 +554,7 @@ static void  ChkEndOfStmt()
 {
     if (MatchTx2AuxFlag(128)) {
         WrTx2ExtError(ERR32);   /* INVALID SYNTAX, TEXT IGNORED UNTIL ';' */
-        while ((tx1Aux2 && 0x80) != 0) {
+        while ((tx1Aux2 & 0x80) != 0) {
             GetTx1Item();
         }
         SetRegetTx1Item();

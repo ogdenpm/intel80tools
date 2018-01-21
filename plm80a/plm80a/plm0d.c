@@ -14,7 +14,7 @@ static void GetSrcLine()
     *inChrP = '\n';
     inChrP = lineBuf;
     linfo.lineCnt = linfo.lineCnt + 1;
-    linfo.stmtCnt, linfo.blkCnt = 0;
+    linfo.stmtCnt = linfo.blkCnt = 0;
     lineInfoToWrite = true;
 }
 

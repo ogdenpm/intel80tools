@@ -70,7 +70,7 @@ void Fwrite(file_t * fp, pointer buf, word len)
 
 	word wcnt;
 	word spaceInBuf = fp->bsize - fp->curoff;
-	
+
 	for (;;) {
 		wcnt = spaceInBuf >= len ? len : spaceInBuf;
 		memmove(&fp->bufP[fp->curoff], buf, wcnt);

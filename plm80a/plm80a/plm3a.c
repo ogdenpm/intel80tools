@@ -30,7 +30,7 @@ byte b4813[] = {
     8, 1, 3, 1, 8 };
 
 
-byte tx1Buf[1280], nmsBuf[1280], atBuf[1280], objBuf[1280];
+byte /* tx1Buf[1280], */ nmsBuf[1280], atBuf[1280], objBuf[1280];   // use buffer in plm0a.c
 word w7197;
 byte b7199;
 byte rec2[54] = { 2, 0, 0 };

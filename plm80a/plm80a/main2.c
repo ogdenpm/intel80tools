@@ -21,7 +21,7 @@ word wAF54[] = {
 	0xC3, 0xC6, 0xCF, 0x1DC, 0, 0};	/* wB05C & wB05E assumed at end */
 
 static byte tx2Buf[512];
-static byte tx1Buf[512];
+// static byte tx1Buf[512]; use larger buffer in plm0a.c
 offset_t blkCurInfo[20];
 word wB488[20];
 word wB4B0[20];

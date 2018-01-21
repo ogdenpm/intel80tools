@@ -38,19 +38,19 @@ static word GetVarSize()
 		return GetElementSize();
 }
 
-static void RevMemMov(wpointer srcp, wpointer dstp, word cnt)
+static void RevMemMov(pointer srcp, pointer dstp, word cnt)
 {
 
 	srcp = srcp + cnt - 2;
 	dstp = dstp + cnt - 2;
 	while (cnt > 1) {
-		*dstp = *srcp;
+		*(wpointer)dstp = *(wpointer)srcp;
 		cnt = cnt - 2;
 		dstp = dstp - 2;
 		srcp = srcp - 2;
 	}
 	if (cnt == 1)
-		*dstp = (*dstp & 0xff) | (*srcp & 0xff00);
+		*(wpointer)dstp = (*(wpointer)dstp & 0xff) | (*(wpointer)srcp & 0xff00);
 }
 
 static void AdvNextDataInfo()
@@ -80,7 +80,7 @@ static void Sub_7049()
 			{
 				p = p - SymbolP(curSymbolP)->name[0] - 1;
 				while (curInfoP != 0) {
-					SetSymbol(p);
+                    SetSymbol(p);
 					curInfoP = GetLinkOffset();
 				}
 				Fwrite(&nmsFile, SymbolP(curSymbolP)->name, SymbolP(curSymbolP)->name[0] + 1);
@@ -328,9 +328,9 @@ static void ProcAtFile()
 
 static void Sub_75F7()
 {
-	botInfo = botMem + (topMem - topInfo);
+	botInfo = botMem + topMem - topInfo;
 	topInfo = topMem;
-	RevMemMov(WordP(botMem), WordP(botInfo), topInfo - botInfo + 1);
+	RevMemMov(ByteP(botMem), ByteP(botInfo), topInfo - botInfo + 1);
 	helpersP = botInfo - Shl(117, 1);
 	localLabelsP = helpersP - (localLabelCnt + 1) * 2;
 	w381E = localLabelsP - (localLabelCnt + 1);
@@ -374,17 +374,19 @@ static void Sub_76D9()
 	for (i = 1; i <= procCnt; i++) {
 		procInfo[i] = procInfo[i] - botMem;
 	}
+    infoMode = 1;
 }
 
 void Sub_6EE0()
 {
 	Sub_7695();
 	Sub_7049();
-	Sub_711F();
-	Sub_719D();
-	ProcAtFile();
-	Sub_75F7();
-	Sub_76D9();
+    symMode = 0;    // use hex for symbols as info updated to final pstr locations
+    Sub_711F();
+    Sub_719D();
+    ProcAtFile();
+    Sub_75F7();
+    Sub_76D9();
 } /* Sub_6EE0() */
 
 

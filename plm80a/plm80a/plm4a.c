@@ -731,7 +731,6 @@ static void SetNewAddr()
 
 void Sub_54BA()
 {
-
     Fread(&tx1File, &cfCode, 1);
     if (cfCode == 0x98)
         EmitSource();

@@ -456,10 +456,10 @@ static void Sub_67AD(byte arg1b, byte arg2b)
 
 Sub_6720()
 {
-    byte i;
+    static byte i;
 
     b96D6 = 0;
-    if (Rol(b4332[cfCode], 1)) {
+    if (Rol(b4332[cfCode], 1) & 1) {
         Fread(&tx1File, &b969C, 1);
         b969D = b457C[b969C];
     }
