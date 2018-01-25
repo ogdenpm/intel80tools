@@ -11,10 +11,8 @@ typedef word offset_t;
 
 #define High(n)	((n) >> 8)
 #define Low(n)	((n) & 0xff)
-#define Shr(v, n)	((v) >> n)
-#define Shl(v, n)	((v) << n)
 #define Ror(v, n)	(((v) >> n) | ((v) << (8 - n)))
-#define Rol(v, n)	(((v) << n) | (((v) & (~0 << n)) >> (8 - n)))
+#define Rol(v, n)	(((v) << n) | (((v) >> (8 - n)))
 #define Move(s, d, c)	memcpy(d, s, c)
 
 
@@ -496,11 +494,12 @@ typedef struct {
 	byte val[1];
 } rec6_t;
 
+typedef struct { offset_t infoOffset; word arrayIndex, nestedArrayIndex, val; } var_t;
 
 #pragma pack(pop)
 // helper functions for converting offsets to pointers
 pointer off2Ptr(offset_t off);
-offset_t ptr2Off(void *addr);
+offset_t ptr2Off(pointer addr);
 
 // useful macros to cast off2Ptr
 #define ByteP(off)   off2Ptr(off)
@@ -681,10 +680,7 @@ extern byte tx1Aux2;
 extern tx1item_t tx1Item;
 extern byte tx1RdBuf[];
 extern byte tx2Buf[];
-extern word varArrayIndex;
-extern word varInfoOffset;
-extern word varNestedArrayIndex;
-extern word varVal;
+extern var_t var;
 extern byte xrfBuf[];
 
 /* main1.plm,plm3a.plm */
@@ -1059,7 +1055,7 @@ extern byte b969D;
 extern byte b96B0[];
 //extern byte b96B1[];
 extern byte b96D6;
-extern offset_t baseAddr;
+extern word baseAddr;
 extern bool bo812B;
 extern bool bo813B;
 extern bool bo813C;
@@ -1068,12 +1064,11 @@ extern byte commentStr[];
 extern byte curExtId;
 extern word depth;
 extern byte dstRec;
-extern byte endHelperId;
+//extern byte endHelperId; now local var
 extern byte helperId;
-extern byte helperModId;
+//extern byte helperModId; now local var
 extern byte helperStr[];
 extern byte line[];
-extern byte lineLen;
 extern byte locLabStr[];
 extern byte lstLine[];
 extern byte opByteCnt;
@@ -1198,7 +1193,7 @@ extern word w7AEB;
 void Sub_42E7();
 
 /* plm6b.plm */
-void Sub_6550();
+void EmitLinePrefix();
 
 
 /* files in common dir */
@@ -1225,6 +1220,8 @@ extern int infoMode;
 void showInfo(offset_t off);
 void dumpAllInfo();
 void dumpBuf(file_t *fp);
+void copyFile(pointer src, pointer dst);
+char *tx2Name(byte op);
 #endif
 
 /* adninf.plm */
@@ -1300,7 +1297,7 @@ extern bool haveModule;
 extern offset_t helpersP;
 extern word intVecLoc;
 extern byte intVecNum;
-extern byte invokeName[];
+//extern byte invokeName[];
 extern address ISIS;
 extern file_t ixiFile;
 extern byte ixiFileName[];
@@ -1324,8 +1321,8 @@ extern bool OBJECTSet;
 extern file_t objFile;
 extern byte objFileName[];
 extern word offNxtCmdChM1;
-extern byte ov0[];
-extern byte ov6[];
+//extern byte ov0[];
+//extern byte ov6[];
 extern byte overlay[7][FILE_NAME_LEN];
 extern byte pad3C43;
 extern byte pad_3C4E[];

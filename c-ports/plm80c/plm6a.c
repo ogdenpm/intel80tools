@@ -21,7 +21,7 @@ static byte cfCode;
 static word itemArgs[4];
 
 
-static void Sub_4396()
+static void UpdateLineInfo()
 {
     word i;
     if (itemArgs[1] > 0 || itemArgs[2] == 0 )
@@ -31,7 +31,7 @@ static void Sub_4396()
         itemArgs[2] = 0;
     }
     for (i = itemArgs[0]; i <= itemArgs[3]; i++) {
-        Sub_6550();
+        EmitLinePrefix();
         w7AE5 = i;
         lineNo = itemArgs[1];
         w7AE9 = itemArgs[2];
@@ -39,34 +39,34 @@ static void Sub_4396()
     }
 }
 
-static void Sub_4400()
+static void SyntaxError_6()
 {
     errNum = itemArgs[0];
     w7AE0 = 0;
     STMTNum = w7AEB;
-    EmitError();
+    EmitError_6();
 }
 
 
-static void Sub_4416()
+static void TokenError_6()
 {
     errNum = itemArgs[0];
     w7AE0 = itemArgs[1];
     STMTNum = w7AEB;
-    EmitError();
+    EmitError_6();
 }
 
 
-static void Sub_442C()
+static void Error_6()
 {
     errNum = itemArgs[0];
     w7AE0 = itemArgs[1];
     STMTNum = itemArgs[2];
-    EmitError();
+    EmitError_6();
 }
 
 
-static void Sub_4442()
+static void UpdateCmdInfo_6()
 {
     byte name[19];
 
@@ -79,7 +79,7 @@ static void Sub_4442()
                 NewPageNextChLst();
             break;
     case 5:
-            Sub_6550();
+            EmitLinePrefix();
             TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
             Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
             srcFileIdx = srcFileIdx + 10;
@@ -98,22 +98,24 @@ static void Sub_4442()
 
 void Sub_42E7()
 {
+
 	itemArgs[0] = itemArgs[1] = itemArgs[2] = 0;
 	Fread(&tx2File, &cfCode, 1);
+
 	if (cfCode != 0xa2 )
-		Fread(&tx2File, (pointer)itemArgs, Shl(b4222[cfCode] & 3,1));
+		Fread(&tx2File, (pointer)itemArgs, (b4222[cfCode] & 3) * 2);
 	if (cfCode == 0x98 )
-		Sub_4396();
+		UpdateLineInfo();
 	else if (cfCode == 0x97 )
 		w7AEB = itemArgs[0];
 	else if (cfCode == 0x9A )
-		Sub_4400();
+		SyntaxError_6();
 	else if (cfCode == 0x9B )
-		Sub_4416();
+		TokenError_6();
 	else if (cfCode == 0xA3 )
-		Sub_442C();
+		Error_6();
 	else if (0x9D <= cfCode && cfCode <= 0xA2 )
-		Sub_4442();
+		UpdateCmdInfo_6();
 	else if (cfCode == 0x9C )
 		b7AE4 = false;
 }

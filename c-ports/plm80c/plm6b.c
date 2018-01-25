@@ -214,38 +214,33 @@ static byte errStrings[] = {
 "\xDA" "ILLEGAL SUCCESSIVE USES OF RELATIONAL OPERATORS\0"
 "\xDB" "LIMIT EXCEEDED: NUMBER OF EXTERNALS > 255\0"};
 
-void Sub_6550()
+void EmitLinePrefix()
 {
-if (! b7AF1 && listing)
-{
-    SetStartAndTabW(15, 4);
-    if (lineNo != 0)
-        LstLineNo();
-    TabLst(-7);
-    if (w7AE9 < 10)
-    {
-        PutLst(' ');
-        PutLst(digits[w7AE9]);
+    if (!b7AF1 && listing) {
+        SetStartAndTabW(15, 4);
+        if (lineNo != 0)
+            LstLineNo();
+        TabLst(-7);
+        if (w7AE9 < 10) {
+            PutLst(' ');
+            PutLst(digits[w7AE9]);
+        } else
+            XnumLst(w7AE9, 2, 10);
+        if (srcFileIdx != 0) {
+            TabLst(-11);
+            XwrnstrLst("=", 1);
+            if (srcFileIdx != 10)
+                XnumLst(srcFileIdx / 10 - 1, 1, 10);
+        }
+        if (lstLineLen > 0) {
+            TabLst(-15);
+            XwrnstrLst(lstBuf, lstLineLen);
+        }
+        NewLineLst();
+        b7AF2 = true;
     }
-    else
-        XnumLst(w7AE9, 2, 10);
-    if (srcFileIdx != 0)
-    {
-        TabLst(-11);
-        XwrnstrLst("=", 1);
-        if (srcFileIdx != 10)
-            XnumLst(srcFileIdx / 10 - 1, 1, 10);
-    }
-    if (lstLineLen > 0)
-    {
-        TabLst(-15);
-        XwrnstrLst(lstBuf, lstLineLen);
-    }
-    NewLineLst();
-    b7AF2 = true;
-}
-b7AF1 = true;
-listing = !listOff && PRINT;
+    b7AF1 = true;
+    listing = !listOff && PRINT;
 }
 
 static word errOff, errLen; // file scope because of nested function
@@ -280,7 +275,7 @@ void EmitError_6()      // basically same as Emit Error in plm4b.c but need to c
     {
         b7AF1 = b7AF2;
         listing = true;
-        Sub_6550();
+        EmitLinePrefix();
         XwrnstrLst("*** ERROR #", 11);
         XnumLst(errNum, 0, 10);
         XwrnstrLst(", ", 2);

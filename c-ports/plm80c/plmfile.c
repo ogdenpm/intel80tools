@@ -70,7 +70,14 @@ void Fwrite(file_t * fp, pointer buf, word len)
 
 	word wcnt;
 	word spaceInBuf = fp->bsize - fp->curoff;
-
+#ifdef _DEBUG
+    if (fp == &tx1File) {
+        for (int i = 0; i < len; i++) {
+            if (buf[i] == 178)
+                break;
+        }
+    }
+#endif
 	for (;;) {
 		wcnt = spaceInBuf >= len ? len : spaceInBuf;
 		memmove(&fp->bufP[fp->curoff], buf, wcnt);

@@ -46,7 +46,7 @@ void Sub_7A85()
 			bC28B[i] = b7A81[i];
 	}
 
-	if (Shr(bC0C3[wC1C3], 4) != 0xb && bC140[wC1C3] != 0)
+	if ((bC0C3[wC1C3] >> 4) != 0xb && bC140[wC1C3] != 0)
 		bC28B[0] = 0xC8;
 	for (m = 0; m <= 1; m++) {
 		if (bC0B7[m] != 0) {
@@ -58,7 +58,7 @@ void Sub_7A85()
 			else
 				bC28F = 0x32;
 			Sub_7D7E(b52B5[bC0BF[m]]);
-			Sub_7D7E(Shr(b4C2D[bC0BD[m]], 5));
+			Sub_7D7E(b4C2D[bC0BD[m]] >> 5);
 		}
 	}
 
@@ -126,7 +126,7 @@ static void Sub_7F19()
 	for (bC295 = 0; bC295 <= 1; bC295++) {
 		if (bC0B7[bC295] != 0 && bC0BB[bC295] != 0) {
 			if (bC0BB[bC296 = 1 - bC295] != 0) {
-				if (Sub_7FD9(Shr(b4C2D[bC0BD[bC295]], 5)) || Sub_7FD9(b52B5[bC0BF[bC295]]))
+				if (Sub_7FD9(b4C2D[bC0BD[bC295]] >> 5) || Sub_7FD9(b52B5[bC0BF[bC295]]))
 					bC0BB[bC296] = 10 + bC0BB[bC296];
 			}
 		}
@@ -173,7 +173,7 @@ static void Sub_8086()
 	if (9 <= bC298 && bC298 <= 13)
 		Sub_63AC(bC297);
 
-	if (b4C2D[bC298]) {
+	if (b4C2D[bC298] & 1) {
 		if (bC294 != bC297)
 			Sub_5D6B(bC294);
 		else if (9 <= bC298 && bC298 <= 13) {
@@ -223,7 +223,7 @@ static void Sub_8148(byte arg1b, byte arg2b)
 
 static void Sub_8207()
 {
-	switch (Shr(b4C15[bC298], 4)) {
+	switch (b4C15[bC298] >> 4) {
 	case 0:
 		Sub_5C97(bC294);
 		wC1C3 = wC1C3 - 1;
@@ -239,7 +239,7 @@ static void Sub_8207()
 		bC04E[bC294] = bC0B7[bC295];
 		wC096[bC294] = 0x100;
 		if (wC1DC[0] == 0xA) {
-			wC084[bC294] = -Shl(wC1DC[1], 1);
+			wC084[bC294] = -(wC1DC[1] * 2);
 			if (bC0C3[tx2op3[bC0B7[bC295]]] == 0xb0)
 				if (bC298 == 5) {
 					wC084[bC294] = wC084[bC294] - 1;
@@ -247,7 +247,7 @@ static void Sub_8207()
 				}
 		}
 		else
-			wC084[bC294] = wC1DC[3] - Shl(wC1C3, 1);
+			wC084[bC294] = wC1DC[3] - wC1C3 * 2;
 		break;
 	case 3:
 		boC057[bC294] = true;
@@ -317,7 +317,7 @@ void Sub_7DA9()
 	else if (bC298 == 0x12)
 		boC1D8 = true;
 	else {
-		bC294 = Shr(b4C2D[bC298], 5);
+		bC294 = b4C2D[bC298] >> 5;
 		if (bC294 > 3)
 			bC294 = b52B5[bC0BF[bC295]];
 		bC297 = bC0B5[bC295];
@@ -326,8 +326,8 @@ void Sub_7DA9()
 		i = b5012[bC298];
 		Sub_8086();
 		bC1DB = 0;
-		Sub_8148(Shr(b4C2D[bC298], 3) & 3, Shr(b4029[i], 4) & 7);
-		Sub_8148(Shr(b4C2D[bC298], 1) & 3, Shr(b4029[i], 1) & 7);
+		Sub_8148((b4C2D[bC298] >> 3) & 3, (b4029[i] >> 4) & 7);
+		Sub_8148((b4C2D[bC298] >> 1) & 3, (b4029[i] >> 1) & 7);
 		Sub_8207();
 		Sub_841E();
 		bC0B3[bC295] = bC045[bC294];
@@ -394,27 +394,27 @@ void Sub_84ED()
 
 	if (cfrag1 > CF_3) {
 		bC1DB = 0;
-		Sub_8698(Shr(b42F9[cfrag1], 4), Shr(b4029[cfrag1], 4) & 7);
+		Sub_8698(b42F9[cfrag1] >> 4, (b4029[cfrag1] >> 4) & 7);
 		if (cfrag1 == CF_67 || cfrag1 == CF_68)
 			wC1DC[bC1DB - 1] = wC1DC[bC1DB - 1] + 2;
-		Sub_8698(b42F9[cfrag1] & 0xf, Shr(b4029[cfrag1], 1) & 7);
+		Sub_8698(b42F9[cfrag1] & 0xf, (b4029[cfrag1] >> 1) & 7);
 		EncodeFragData(cfrag1);
 		pc = pc + (b43F8[cfrag1] & 0x1f);
 		if (cfrag1 == CF_DELAY) {
 			WordP(helpersP)[105] = 1;
-			if (wC1C5 < Shl(wC1C3 + 1, 1))
-				wC1C5 = Shl(wC1C3 + 1, 1);
+			if (wC1C5 < (wC1C3 + 1) * 2)
+				wC1C5 = (wC1C3 + 1) * 2;
 		}
 		else if (cfrag1 > CF_171) {
 			i = b413B[cfrag1 - CF_174];
 			i = b4128[i] + 11 * b425D[b4273[curOp]];
-			i = b3FCD[Shr(b418C[i], 2)] + (b418C[i] & 3);
+			i = b3FCD[b418C[i] >> 2] + (b418C[i] & 3);
 			WordP(helpersP)[i] = 1;
 			if (curOp == T2_SLASH || curOp == T2_MOD || curOp == T2_44) {
-				if (wC1C5 < Shl(wC1C3 + 2, 1))
-					wC1C5 = Shl(wC1C3 + 2, 1);
-			} else if (wC1C5 < Shl(wC1C3 + 1, 1))
-				wC1C5 = Shl(wC1C3 + 1, 1);
+				if (wC1C5 < (wC1C3 + 2) * 2)
+					wC1C5 = (wC1C3 + 2) * 2;
+			} else if (wC1C5 < (wC1C3 + 1) * 2)
+				wC1C5 = (wC1C3 + 1) * 2;
 		}
 	}
 }

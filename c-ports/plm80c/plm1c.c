@@ -71,7 +71,7 @@ static void GetRestrictedVar()
         return;
     }
     Sub_45E0();
-    varInfoOffset = curInfoP;
+    var.infoOffset = curInfoP;
     if (GetType() == BUILTIN_T) {
         WrTx2Error(123);    /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
         Sub_4599();
@@ -79,11 +79,11 @@ static void GetRestrictedVar()
     }
     if (MatchTx2Item(L_LPAREN)) {
         GetRestrictedArrayIndex();
-        varArrayIndex = rValue;
+        var.arrayIndex = rValue;
     }
     if (MatchTx2Item(L_PERIOD))
     {
-        curInfoP = varInfoOffset;
+        curInfoP = var.infoOffset;
         if (GetType() != STRUCT_T) {
             WrTx2ExtError(148); /* INVALID QUALIFICATION IN RESTRICTED REFERENCE */
             Sub_4599();
@@ -91,22 +91,22 @@ static void GetRestrictedVar()
         }
         if (NotMatchTx2Item(L_VARIABLE)) {
             WrTx2Error(147);    /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
-            varInfoOffset = varInfoOffset - botInfo;
+            var.infoOffset = var.infoOffset - botInfo;
             return;
         }
         Sub_4631();
-        varInfoOffset = curInfoP;
+        var.infoOffset = curInfoP;
         if (MatchTx2Item(L_LPAREN)) {
             GetRestrictedArrayIndex();
-            varNestedArrayIndex = rValue;
+            var.nestedArrayIndex = rValue;
         }
     }
-    varInfoOffset = varInfoOffset - botInfo;
+    var.infoOffset = var.infoOffset - botInfo;
 }
 
 void GetRestrictedExpr()
 {
-    varInfoOffset = varArrayIndex = varNestedArrayIndex = varVal = 0;
+    var.infoOffset = var.arrayIndex = var.nestedArrayIndex = var.val = 0;
     if (MatchTx2Item(L_PERIOD)) {
         GetRestrictedVar();
         if (MatchTx2Item(L_PLUSSIGN))
@@ -117,14 +117,14 @@ void GetRestrictedExpr()
             return;
         use8bit = false;
         EvalSimpleExpr();
-        varVal = rValue;
+        var.val = rValue;
     }
     else if (MatchTx2Item(L_RPAREN))
         SetRegetTx1Item();
     else {
         use8bit = true;
         EvalSimpleExpr();
-        varVal = rValue;
+        var.val = rValue;
     }
 }
 
@@ -149,7 +149,7 @@ word ParseDataItems(offset_t arg1w)
         } else {
             GetRestrictedExpr();
             WrAtFileByte(ATI_DATA);
-            WrAtFile((pointer)&varInfoOffset, 8);
+            WrAtFile((pointer)&var, 8);
             p = p + 1;
         }
         if (NotMatchTx2Item(L_COMMA))

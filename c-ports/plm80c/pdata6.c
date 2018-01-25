@@ -17,6 +17,6 @@ word offCurCh = 0;
 bool b7AF1 = true;
 bool b7AF2 = true;
 byte lstLineLen;
-// byte lstbuf[130]; use larger version in pdata4.c
+// byte lstbuf[130]; use larger version in main5.c
 byte srcbuf[2048];
 

@@ -72,7 +72,7 @@ void Sub_9D06()
             AdvNxtInfo();
             j = j - 1;
             if (j < 2) {
-                *pbyt = Rol(*pbyt, 4) & 0xf0;
+                *pbyt = (*pbyt << 4) & 0xf0;
                 if (GetType() == ADDRESS_T)
                     *pbyt = *pbyt | b9BA8[k];
                 else
@@ -82,7 +82,7 @@ void Sub_9D06()
         }
 
         if (m == 1)
-            *pbyt = Rol(*pbyt, 4) & 0xf0;
+            *pbyt = (*pbyt << 4) & 0xf0;
         Sub_9BB0();
         wC1C3 = wB528[procCallDepth];
     }
@@ -96,7 +96,7 @@ static pointer pb_C2EB;
 static void Sub_9EAA(byte arg1b, byte arg2b)
 {
     
-    *pb_C2EB = Rol(*pb_C2EB, 4) & 0xf0;
+    *pb_C2EB = (*pb_C2EB << 4) & 0xf0;
     if (arg1b != 0)
         if (tx2Aux1b[arg1b] == 0)
             *pb_C2EB = *pb_C2EB | b9BAE[arg2b];
@@ -257,7 +257,7 @@ void Sub_A153()
     for (tx2qp = 4; tx2qp <= bC1BF - 1; tx2qp++) {
         curOp = tx2opc[tx2qp];
         bC1D2 = b5124[curOp];
-        switch (Shr(bC1D2, 6)) {
+        switch (bC1D2 >> 6) {
         case 0:
                 if (curOp == T2_CALL)
                     Sub_9D06();

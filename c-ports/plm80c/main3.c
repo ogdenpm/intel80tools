@@ -14,6 +14,9 @@ static void Sub_3F3C()
         PRINTSet = false;
     }
     CloseF(&tx2File);
+#ifdef _DEBUG
+    copyFile(tx2File.fNam, "plmtx2.tmp_main3");
+#endif
     DeletF(&tx2File);
     CreatF(&tx1File, tx1Buf, 1280, 2);
     if (b7199 || IXREF)
@@ -135,7 +138,7 @@ static void Sub_426E()
     else
         Sub_48BA(rec2, 0, SymbolP(curSymbolP)->name[0], &SymbolP(curSymbolP)->name[1]);
     RecAddByte(rec2, 0, 1);
-    RecAddByte(rec2, 0, Shl(version[1], 4) | (version[3] & 0xf));
+    RecAddByte(rec2, 0, (version[1] << 4) | (version[3] & 0xf));
     RecAddByte(rec2, 0, 1);
     RecAddWord(rec2, 0, csegSize);
     RecAddByte(rec2, 0, 3);
@@ -273,10 +276,16 @@ static void Sub_4746()
         Fflush(&tx1File);
         Rewind(&tx1File);
         CloseF(&nmsFile);
+#ifdef _DEBUG
+        copyFile(nmsFile.fNam, "plmnms.tmp_main3");
+#endif
         DeletF(&nmsFile);
         Fflush(&objFile);
     }
     CloseF(&atFile);
+#ifdef _DEBUG
+    copyFile(atFile.fNam, "plmat.tmp_main3");
+#endif
     DeletF(&atFile);
 }
 
@@ -306,6 +315,9 @@ word Start3()
         return 4; // Chain(overlay[4]);
     else {
         CloseF(&tx1File);
+#ifdef _DEBUG
+        copyFile(tx1File.fNam, "plmtx1.tmp_main3");
+#endif
         DeletF(&tx1File);
         if (IXREF)
             return 5; // Chain(overlay[5]);

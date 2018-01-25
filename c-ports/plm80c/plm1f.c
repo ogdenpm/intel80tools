@@ -208,10 +208,7 @@ struct {
 	byte type;
 	offset_t  infoP;
 	word stmtNum;
-	offset_t varInfoOffset;
-	word varArrayIndex;
-	word varNestedArrayIndex;
-	word val;
+    var_t var;
 	byte pad[242];
 } atFData;
 #pragma pack(pop)
@@ -221,7 +218,7 @@ word atOffset;
 static void  Sub_7486()
 {
 	byte i, j;
-	if (atFData.varInfoOffset == 0)
+	if (atFData.var.infoOffset == 0)
 		i = 0;
 	else if (GetType() > STRUCT_T || GetType() < BYTE_T) {
 		i = 0;
@@ -286,16 +283,16 @@ static void     Sub_73DC()
 		return;
 	atFData.infoP = atFData.infoP + botInfo;
 	atStmtNum = atFData.stmtNum;
-	atOffset = atFData.val;
-	if (atFData.varInfoOffset != 0)
+	atOffset = atFData.var.val;
+	if (atFData.var.infoOffset != 0)
 	{
-		curInfoP = atFData.varInfoOffset + botInfo;
+		curInfoP = atFData.var.infoOffset + botInfo;
 		if (TestInfoFlag(F_MEMBER))
 		{
-			atOffset = GetElementSize() * atFData.varNestedArrayIndex + atOffset + GetLinkVal();
+			atOffset = GetElementSize() * atFData.var.nestedArrayIndex + atOffset + GetLinkVal();
 			curInfoP = GetParentOffset();
 		}
-		atOffset = GetLinkVal() + GetElementSize() * atFData.varArrayIndex + atOffset;
+		atOffset = GetLinkVal() + GetElementSize() * atFData.var.arrayIndex + atOffset;
 		if (TestInfoFlag(F_AT))
 			if (curInfoP >= atFData.infoP)
 				Sub_6EF6(ERR213);	/* UNDEFINED RESTRICTED REFERENCE IN 'at' */
@@ -311,12 +308,12 @@ static void ProcAtFile()
 		switch (atFData.type) {
 		case 0: Sub_73DC(); break;					/* AT_AHDR */
 		case 1: Fread(&atFile, (pointer)&atFData.infoP, 4); break;	/* AT_DHDR */
-		case 2: Fread(&atFile, (pointer)&atFData.val, 2); break;		/* AT_2 */
+		case 2: Fread(&atFile, (pointer)&atFData.var.val, 2); break;		/* AT_2 */
 		case 3:						/* AT_STRING */
-			Fread(&atFile, (pointer)&atFData.val, 2);
-			Fread(&atFile, (pointer)&atFData.type, atFData.val);
+			Fread(&atFile, (pointer)&atFData.var.val, 2);
+			Fread(&atFile, (pointer)&atFData.type, atFData.var.val);
 			break;
-		case 4: Fread(&atFile, (pointer)&atFData.varInfoOffset, 8); break; /* AT_DATA */
+		case 4: Fread(&atFile, (pointer)&atFData.var.infoOffset, 8); break; /* AT_DATA */
 		case 5: break;						/* AT_END */
 		case 6:return;						/* AT_EOF */
 		}
@@ -331,7 +328,7 @@ static void Sub_75F7()
 	botInfo = botMem + topMem - topInfo;
 	topInfo = topMem;
 	RevMemMov(ByteP(botMem), ByteP(botInfo), topInfo - botInfo + 1);
-	helpersP = botInfo - Shl(117, 1);
+	helpersP = botInfo - 117 * 2;
 	localLabelsP = helpersP - (localLabelCnt + 1) * 2;
 	w381E = localLabelsP - (localLabelCnt + 1);
 	w3822 = botInfo - 2;

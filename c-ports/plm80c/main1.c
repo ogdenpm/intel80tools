@@ -7,7 +7,8 @@ word markedStSP;
 word t2CntForStmt;
 word curProcInfoP = {0};
 word curStmtNum;
-word varInfoOffset, varArrayIndex, varNestedArrayIndex, varVal;
+var_t var;
+
 bool regetTx1Item = false;
 bool b88B3 = false;
 linfo_t linfo;
@@ -15,7 +16,7 @@ tx1item_t tx1Item;
 byte tx1Aux2;
 byte tx1Aux1;
 byte tx1RdBuf[512];
-byte tx2Buf[512];
+//byte tx2Buf[512]; use larger buf in main6.c
 byte xrfBuf[512];
 // byte atBuf[512]; use version in plm3a.c
 byte b91C0;
@@ -42,6 +43,9 @@ static void Sub_3F8B()
     if (b88B3) 
         WrTx2File((pointer)&linfo, 7);
     CloseF(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fNam, "plmtx1.tmp_main1");
+#endif
     DeletF(&tx1File);
     OpenF(&tx1File, 3);
     if (XREF || IXREF || SYMBOLS)

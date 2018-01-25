@@ -79,6 +79,8 @@ void Sub_408B()
 
 void Sub_4162()
 {
+    byte helperModId, endHelperId;
+
     if (! standAlone)
         return;
     for (helperModId = 0; helperModId <= 45; helperModId++) {
@@ -116,6 +118,9 @@ void Sub_423C()
     linesRead = w812F;
     Sub_4208();
     CloseF(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fNam, "plmtx1.tmp_main4");
+#endif
     if (OBJECT) {
         Fwrite(&objFile, objEOF, 4);
         Fflush(&objFile);
@@ -135,25 +140,9 @@ void Sub_423C()
 
 word Start4()
 {
-// reinitialise some variables that are now shared. Just in case
-    olstch = ocurch = 0;
-
-    ((rec_t *)rec20)->len = 0;
-    ((rec_t *)rec20)->val[0] = 3;   // hilo
-    ((rec_t *)rec22)->len = 0;
-    ((rec_t *)rec22)->val[0] = 3;   // hilo
-    ((rec_t *)rec24_1)->len = 0;
+// rec24_2 is has different seg c.f. plm3a.c
     ((rec_t *)rec24_1)->val[0] = 2; // data seg
-    ((rec_t *)rec24_1)->val[1] = 3; // hilo
-    ((rec_t *)rec24_2)->len = 0;
     ((rec_t *)rec24_2)->val[0] = 3; // stack seg
-    ((rec_t *)rec24_2)->val[1] = 3; // hilo
-    ((rec_t *)rec24_3)->len = 0;
-    ((rec_t *)rec24_3)->val[0] = 4; // memory seg
-    ((rec_t *)rec24_3)->val[1] = 3; // hilo
-    ((rec_t *)rec22)->len = 3;
-    ((rec_t *)rec22)->len = 0;
-    ((rec_t *)rec22)->len = 3;
 
     if (setjmp(errCont) == 0) {
         Sub_408B();

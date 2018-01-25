@@ -30,7 +30,7 @@ byte b4813[] = {
     8, 1, 3, 1, 8 };
 
 
-byte /* tx1Buf[1280], */ nmsBuf[1280], atBuf[1280], objBuf[1280];   // use buffer in plm0a.c
+byte /* tx1Buf[1280], use plm0a.c nmsBuf[1280], use main6.c */ atBuf[1280], objBuf[1280];   // use buffer in plm0a.c
 word w7197;
 byte b7199;
 byte rec2[54] = { 2, 0, 0 };
@@ -135,10 +135,7 @@ static struct {
     byte type;
     offset_t infoP;
     word stmtNum;
-    offset_t atVarInfoOffset;
-    word atVarArrayIndex;
-    word atNestedArrayIndex;
-    word atVal;
+    var_t var;
 } atFData;
 #pragma pack(pop)
 static byte dat[255];
@@ -177,13 +174,13 @@ static void Sub_4BF4()
     if (!b811D || w8117 >= w8115) {
         Fread(&atFile, &atFData.type, 1);
         switch (atFData.type - 2) {
-        case 0: Fread(&atFile, (pointer)&atFData.atVal, 2); break; /* ATI_2 */
+        case 0: Fread(&atFile, (pointer)&atFData.var.val, 2); break; /* ATI_2 */
         case 1:     /* ATI_STRING */
             Fread(&atFile, (pointer)&w8115, 2);
             Fread(&atFile, dat, w8115);
             w8117 = 0;
             break;
-        case 2: Fread(&atFile, (pointer)&atFData.atVarInfoOffset, 8); break; /* ATI_DATA */
+        case 2: Fread(&atFile, (pointer)&atFData.var.infoOffset, 8); break; /* ATI_DATA */
         case 3: break;    /* ATI_END */
         }
     }
@@ -195,11 +192,11 @@ static void Sub_4CAC()
 {
     if (GetType() == BYTE_T) {
         Sub_4908(rec6, 0x12c, 1);
-        RecAddByte(rec6, 3, (byte)atFData.atVal);
+        RecAddByte(rec6, 3, (byte)atFData.var.val);
         w7197 = w7197 + 1;
     } else {
         Sub_4908(rec6, 0x12C, 2);
-        RecAddWord(rec6, 3, atFData.atVal);
+        RecAddWord(rec6, 3, atFData.var.val);
         w7197 = w7197 + 2;
     }
 }
@@ -215,10 +212,10 @@ static void Sub_4D13()
     pointer w8120;
 
     if (GetType() == BYTE_T) {
-        atFData.atVal = dat[w8117];
+        atFData.var.val = dat[w8117];
         w8117 = w8117 + 1;
     } else {
-        w8120 = (pointer)&atFData.atVal;
+        w8120 = (pointer)&atFData.var.val;
         w8120[1] = dat[w8117];
         w8117 = w8117 + 1;
         if (w8117 < w8115) {
@@ -236,7 +233,7 @@ static void Sub_4D13()
 
 static void Sub_4D85()
 {
-    if (atFData.atVal > 255 && GetType() == BYTE_T)
+    if (atFData.var.val > 255 && GetType() == BYTE_T)
         Sub_4CF9();
     else
         Sub_4CAC();
@@ -248,19 +245,19 @@ static void Sub_4DA8()
     offset_t p;
     pointer q;
 
-    if (atFData.atVarInfoOffset == 0)
+    if (atFData.var.infoOffset == 0)
         Sub_4D85();
     else if (GetType() == BYTE_T)
         Sub_4CF9();
     else {
         p = curInfoP;
-        curInfoP = botInfo + atFData.atVarInfoOffset;
+        curInfoP = botInfo + atFData.var.infoOffset;
         if (TestInfoFlag(F_MEMBER)) {
-            atFData.atVal = atFData.atVal + Sub_4984() * atFData.atNestedArrayIndex + GetLinkVal();
+            atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.nestedArrayIndex + GetLinkVal();
             curInfoP = GetParentOffset();
         }
 
-        atFData.atVal = atFData.atVal + Sub_4984() * atFData.atVarArrayIndex + GetLinkVal();
+        atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.arrayIndex + GetLinkVal();
         if (TestInfoFlag(F_EXTERNAL)) {
             i = GetExternId();
             curInfoP = p;

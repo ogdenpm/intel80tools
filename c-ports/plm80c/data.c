@@ -95,11 +95,11 @@ byte tblBitFlags[] = {0x80, 0x40, 0x20, 0x10, 0x10, 8, 8, 4, 2, 1,
 byte intVecNum = 8;
 word intVecLoc = 0;
 bool hasErrors = false;
-byte overlay6[]  = ":F0:PLM80 ";
-byte ov6[] = ".OV6 ";
+//byte overlay6[]  = ":F0:PLM80 ";
+//byte ov6[] = ".OV6 ";
 byte version[] = "X000";
-byte pad3DA1;
-byte invokeName[] = ":F0:PLM80 ";
-byte ov0[] =  ".OV0 ";
+//byte pad3DA1;
+//byte invokeName[] = ":F0:PLM80 ";
+//byte ov0[] =  ".OV0 ";
 
 

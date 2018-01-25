@@ -258,9 +258,9 @@ byte b4A78[] = {
 /* 0050 */ "\xE6" "\tANI\t" "\x84\xFC\x80"
 /* 0059 */ "\xE6" "\tANI\t" "\x84\xFE\x80"
 /* 0062 */ "\xE6" "\tANI\t" "\x84\xF0\x80"
-/* 006B */ "\xCD" "\tcall\t" "\x82\x80"
-/* 0074 */ "\xCD" "\tcall\t" "\x83 \x80"
-/* 007E */ "\xCD" "\tcall\t" "\x93     \x80"
+/* 006B */ "\xCD" "\tCALL\t" "\x82\x80"
+/* 0074 */ "\xCD" "\tCALL\t" "\x83 \x80"
+/* 007E */ "\xCD" "\tCALL\t" "\x93     \x80"
 /* 008C */ "\x2F" "\tCMA" "\x80"
 /* 0092 */ "\x27" "\tDAA" "\x80"
 /* 0098 */ "\x9" "\tDAD\tB" "\x80"
@@ -598,7 +598,7 @@ word w506F[] = {
 /*  A118-2 */ 0x485, 0x5df
 };
 
-byte stackOrigin[] = "\xE@STACK_ORIGIN ";
+byte stackOrigin[] = "\xE@STACK$ORIGIN ";
 
 
 
@@ -624,7 +624,7 @@ static void EmitSource()
 
 
 
-static void AddrCheck(offset_t arg1w)
+static void AddrCheck(word arg1w)
 {
     if (arg1w != baseAddr)
         Sub_5E1B(0xD8);
@@ -637,7 +637,7 @@ static void NewStatementNo()
         return;
     if (DEBUG) { 
         if (((rec_t *)rec8)->len + 4 >= 1020)
-            WriteRec(&((rec_t *)rec8)->type, 1);
+            WriteRec(rec8, 1);
         RecAddWord(rec8, 1, baseAddr);
         RecAddWord(rec8, 1, stmtNo);
     }
@@ -725,7 +725,7 @@ static void SetNewAddr()
     Fread(&tx1File, (pointer)&curInfoP, 2);
     Fread(&tx1File, (pointer)&baseAddr, 2);
     curInfoP = curInfoP + botInfo;
-    baseAddr = baseAddr + GetLinkVal();
+    baseAddr += GetLinkVal();
     FlushRecs();
 }
 

@@ -84,8 +84,8 @@ void Sub_9624(word arg1w)
 
 void Sub_9646(word arg1w)
 {
-	if (Shr(arg1w, 1) + (arg1w & 1) <= 5) {
-		if (arg1w) {
+	if ((arg1w >> 1) + (arg1w & 1) <= 5) {
+		if (arg1w & 1) {
 			EncodeFragData(CF_DCXSP);
 			pc = pc + 1;
 		}
@@ -226,7 +226,7 @@ void Sub_981C()
 			Sub_9646(wC1C7);
 
 		if (curParamCnt > 2)
-			wC1C7 = wC1C7 + Shl(curParamCnt - 2, 1);
+			wC1C7 += (curParamCnt - 2) * 2;
 
 		wC1C5 = 0;
 	}
@@ -247,7 +247,7 @@ void Sub_981C()
 		}
 		wC1C7 = 0;
 		if (curParamCnt > 2)
-			wC1C5 = Shl(curParamCnt - 2, 1);
+			wC1C5 = (curParamCnt - 2) * 2;
 		else
 			wC1C5 = 0;
 	}

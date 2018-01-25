@@ -37,13 +37,13 @@ void FlushRecs()
 void AddWrdDisp(pointer str, word arg2w)
 {
     if (arg2w != 0) { 
-        str[0] = str[0] + 1;
+        str[0]++;
         if (arg2w > 0x8000) {
             str[str[0]] = '-';
             arg2w = -arg2w;
         } else
             str[str[0]] = '+';
-        str[0] = str[0] + Num2Asc(arg2w, 0, -16, &str[str[0] + 1]);
+        str[0] += Num2Asc(arg2w, 0, -16, &str[str[0] + 1]);
     }
 }
 
@@ -126,7 +126,7 @@ static void Sub_5DB7()
 void EmitError()
 {
 
-    programErrCnt = programErrCnt + 1;
+    programErrCnt++;
     if (PRINT) {
         bo813B = bo813C;
         listing = true;
@@ -189,7 +189,7 @@ void Sub_5E3E()
         }
         TabLst(-26);
         SetStartAndTabW(26, 8);
-        XwrnstrLst(line, lineLen);
+        XwrnstrLst(&line[1], line[0]);
         NewLineLst();
     }
 }

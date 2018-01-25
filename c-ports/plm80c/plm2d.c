@@ -108,10 +108,10 @@ void Sub_717B()
     bC266 = curOp - 0x12;
     bC26F = (byte)tx2op1[tx2qp];
     Sub_5FBF(bC26F, &wC267, &wC269);
-    if (Sub_7254(Shr(b5112[bC266], 6), wC269)) {
+    if (Sub_7254(b5112[bC266] >> 6, wC269)) {
         bC26F = (byte)tx2op2[tx2qp];
         Sub_5FBF(bC26F, &wC26B, &wC26D);
-        if (Sub_7254(Shr(b5112[bC266], 3) & 7, wC26D)) {
+        if (Sub_7254((b5112[bC266] >> 3) & 7, wC26D)) {
             Sub_611A();
             p = Sub_72F2();
             Sub_73C5();
@@ -186,7 +186,7 @@ static bool Sub_7801()
                 return true;
             else
                 return false;
-        p = w502A[Shr(b5048[arg1b_765B], 3)];
+        p = w502A[b5048[arg1b_765B] >> 3];
         if (p != wC27B)
             return false;
         if ((bC27F & 0x80) != 0)
@@ -194,7 +194,7 @@ static bool Sub_7801()
         return true;
     }
     if ((bC27F & 0x40) == 0) {
-        p = w502A[Shr(b5048[arg1b_765B], 3)];
+        p = w502A[b5048[arg1b_765B] >> 3];
         bC27A = wC27B % p;
         return true;
     } else if (wC27B <= 4) {

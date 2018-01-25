@@ -2971,7 +2971,7 @@ void sub_8F35()
 			wC1C5 = wC1C3 * 2;
 	} else if (curOp == T2_RETURN || curOp == T2_RETURNBYTE
 	    || curOp == T2_RETURNWORD) {
-		boC1CD = 0xff;
+		boC1CD = true;
 		sub_5EE8();
 	} else if (curOp == T2_JMPFALSE) {
 		sub_5795(0);

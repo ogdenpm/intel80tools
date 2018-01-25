@@ -19,7 +19,7 @@ void PutLst(byte ch)
 
 
     if (ch == '\t') {
-        if (col >= margin)
+        if (col < margin)
             return;
         i = tWidth - (col - margin) % tWidth;
         if (col + i >= PWIDTH) {
