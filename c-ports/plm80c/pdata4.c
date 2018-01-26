@@ -45,7 +45,7 @@ byte line[81];  // pstr
 byte opByteCnt;
 byte opBytes[3];
 byte dstRec;
-// byte srcbuf[640]; use larger version in pdata6.c
+//byte srcbuf[640]; use larger version in pdata6.c
 //byte tx1buf[640]; use larger version in plm0a.c
 //byte objbuf[640]; use larger buff in plm3a.c
 //byte lstbuf[640]; use larger version in main5.c

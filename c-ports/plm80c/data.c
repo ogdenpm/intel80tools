@@ -53,16 +53,16 @@ bool debugFlag = false;
 bool unexpectedEOF = false;
 bool haveModule = false;
 byte fatalErrorCode = 0;
-byte pad3C43 = 1;
+//byte pad3C43 = 1;
 offset_t w3C44 = 0xA000;
 byte CONTROLS[8];
-byte pad_3C4E[2];
+//byte pad_3C4E[2];
 byte srcStemName[10];
 bool debugSwitches[26];
 offset_t cmdLineP;
 offset_t startCmdLineP;
-byte overlay[7][FILE_NAME_LEN] = { ":F0:PLM80 .OV0 ", ":F0:PLM80 .OV1 ", ":F0:PLM80 .OV2 ", ":F0:PLM80 .OV3 ",
-								   ":F0:PLM80 .OV4 ", ":F0:PLM80 .OV5 ", ":F0:PLM80 .OV6 "};
+//byte overlay[7][FILE_NAME_LEN] = { ":F0:PLM80 .OV0 ", ":F0:PLM80 .OV1 ", ":F0:PLM80 .OV2 ", ":F0:PLM80 .OV3 ",
+//								   ":F0:PLM80 .OV4 ", ":F0:PLM80 .OV5 ", ":F0:PLM80 .OV6 "};
 byte ixiFileName[FILE_NAME_LEN];
 byte lstFileName[FILE_NAME_LEN];
 byte objFileName[FILE_NAME_LEN];

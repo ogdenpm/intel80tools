@@ -103,9 +103,9 @@ static void GetCmdLine()
 
 static void ParseInvokeName()
 {
-    pointer startP;
-    word len;
-    word p;
+    //pointer startP;
+    //word len;
+    //word p;
 
     SkipSpace();
     if (TestToken("DEBUG", 5))
@@ -113,12 +113,12 @@ static void ParseInvokeName()
     else
         debugFlag = false;
     SkipSpace();
-    startP = cmdTextP;
+    //startP = cmdTextP;
     if (*cmdTextP == ':')
         cmdTextP = cmdTextP + 4;    // skip drive
     SkipAlphaNum();
-    if ((len = (word)(cmdTextP - startP)) > 10)
-        len = 10;
+    //if ((len = (word)(cmdTextP - startP)) > 10)
+    //    len = 10;
     /* plm had the overlay & invokename (ov0) split out
      * I have combined them to avoid spaces in address ranges
      * note invokeName is now overlay[0]
@@ -126,10 +126,10 @@ static void ParseInvokeName()
      * In the end this code is not actually needed as overlays are
      * handled differently
      */
-    for (p = 0; p <= 6; p++) {
-        memmove(overlay[p], startP, len);               // copy fileName
-        memmove(overlay[p] + len, overlay[p] + 10, 5);  // move up the ext
-    }
+    //for (p = 0; p <= 6; p++) {
+    //    memmove(overlay[p], startP, len);               // copy fileName
+    //    memmove(overlay[p] + len, overlay[p] + 10, 5);  // move up the ext
+    //}
 } /* ParseInvokeName() */
 
 
