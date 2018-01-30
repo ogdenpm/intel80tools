@@ -159,7 +159,7 @@ word Start4()
         }
         Sub_4162();
         FlushRecs();
-        FindErrStr();
+        EmitLinePrefix();
     }
 	Sub_423C();
     if (IXREF)

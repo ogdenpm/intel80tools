@@ -12,6 +12,7 @@ static byte aSourceFileName[] = "SOURCE FILE NAME INCORRECT";
 static byte aSourceFileBadExt[] = "SOURCE FILE EXTENSION INCORRECT";
 static byte aIllegalCommand[] = "ILLEGAL COMMAND TAIL SYNTAX";
 
+static byte  ioBuffer[128];     // only 128 bytes read so 2048 was overkill
 pointer cmdTextP;
 
 
@@ -100,8 +101,8 @@ static void ParseInvokeName()
     //word p;
 
     SkipSpace();
-    debugFlag = TestToken("DEBUG", 5);
-    SkipSpace();
+//    debugFlag = TestToken("DEBUG", 5);        // cannot occur under windows
+//    SkipSpace();
     //startP = cmdTextP;
     if (*cmdTextP == ':')
         cmdTextP += 4;    // skip drive
