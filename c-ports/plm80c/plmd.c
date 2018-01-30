@@ -17,9 +17,9 @@ void SetPageLen(word len)
 
 //void SetMarkerInfo(byte b1, byte b2, byte b3)
 //{
-//	b3CFB = b1;
-//	b3CFC = b2;
-//	b3CFD = b3;
+//	wrapMarkerCol = b1;
+//	wrapMarker = b2;
+//	wrapTextCol = b3;
 //}
 
 void SetPageNo(word v)

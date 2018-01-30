@@ -1,24 +1,7 @@
 #include "plm.h"
 
-byte b4789[] = {
-    2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3,
-    3, 2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2,
-    2, 3, 2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4 };
 
-byte b47B7[] = {
-    0, 2, 4, 7, 0xB, 0xE, 0x12, 0x14,
-    0x16, 0x19, 0x1D, 0x1F, 0x22, 0x24, 0x27, 0x2A,
-    0x2D, 0x30, 0x32, 0x34, 0x37, 0x3B, 0x3D, 0x40,
-    0x42, 0x45, 0x47, 0x49, 0x4B, 0x4D, 0x50, 0x52,
-    0x54, 0x56, 0x59, 0x5B, 0x5E, 0x60, 0x62, 0x65,
-    0x67, 0x69, 0x6A, 0x6C, 0x6E, 0x71, 0x24, 0x24,
-    0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0x18,
-    0x16, 0x2C, 0x15, 0x1F, 0x1F, 0x20, 0x20, 0x19,
-    0x19, 0x19, 0x19, 8, 8, 9, 9, 6,
-    7, 0x25, 0x25, 0x25, 0x25, 0x25, 0xA, 0xA,
-    0xB, 0xB, 0x14, 0x14, 0x14, 0x14, 0x14, 0x39,
-    0x1A, 0x1A, 0x1A, 0x1A };
-
+    
 byte b4813[] = {
     3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 3, 8, 1, 3,
     1, 8, 3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 0x1D, 3,
@@ -134,7 +117,7 @@ void Sub_49BC(word arg1w, word arg2w, word arg3w)
 static struct {
     byte type;
     offset_t infoP;
-    word stmtNum;
+    word stmt;
     var_t var;
 } atFData;
 #pragma pack(pop)
@@ -203,7 +186,7 @@ static void Sub_4CAC()
 
 static void Sub_4CF9()
 {
-    Sub_49BC(0xd2, curInfoP - botInfo, atFData.stmtNum);
+    Sub_49BC(0xd2, curInfoP - botInfo, atFData.stmt);
     Sub_4CAC();
 }
 
@@ -324,7 +307,7 @@ static void Sub_4A31()
     if (curInfoP == botInfo)
         b811D = false;
     else if (TestInfoFlag(F_EXTERNAL)) {
-        Sub_49BC(0xd9, w811E, atFData.stmtNum);
+        Sub_49BC(0xd9, w811E, atFData.stmt);
         b811D = false;
     } else {
         Sub_4B6C();
@@ -355,7 +338,7 @@ static void Sub_4A31()
                 }
                 Sub_4B6C();
                 if (!b811D)
-                    Sub_49BC(0xd1, w811E, atFData.stmtNum);
+                    Sub_49BC(0xd1, w811E, atFData.stmt);
             }
         }
     }

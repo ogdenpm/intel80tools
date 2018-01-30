@@ -1,7 +1,7 @@
 #include "plm.h"
 
 static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
-jmp_buf cleanup;
+
 
 word markedStSP;
 word t2CntForStmt;
@@ -63,11 +63,11 @@ static void Sub_3F8B()
 word Start1()
 {
 
-	if (setjmp(cleanup) == 0) {
+	if (setjmp(exception) == 0) {
 		Sub_3F19();	/* create files and preload tx1 */
 		Sub_6523();
 	} else {
-		/* here longjmp(cleanup, -1) */
+		/* here longjmp(exception, -1) */
 		WrTx2ExtError(b91C0);
 		while (tx1Item.type != L_EOF) {
 			if (tx1Item.type == L_STMTCNT)

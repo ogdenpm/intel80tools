@@ -8,13 +8,13 @@ void LstLineNo()
     pointer q;
     bool i;
 
-	if (lineNo > lastNo + 20 )
+	if (stmtCnt > lastNo + 20 )
 	{
-		lastNo = Num2Asc(lineNo, 6, 10, tmp);
-		lastNo = lineNo;
+		lastNo = Num2Asc(stmtCnt, 6, 10, tmp);
+		lastNo = stmtCnt;
 	}
 	else
-	while (lastNo < lineNo) {
+	while (lastNo < stmtCnt) {
 		q = &tmp[5];
 		i = true;
 		while (i) {

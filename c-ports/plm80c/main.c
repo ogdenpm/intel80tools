@@ -3,10 +3,6 @@ static byte copyRight[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
 static byte stateMain;
 
-// FatalError is shared between passes
-byte currentModule = 0xff;		// 0xff for main 0-6 for each overlay
-
-
 void FatalError_main(byte err)
 {
     if (err == ERR83)

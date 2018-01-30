@@ -1,4 +1,7 @@
 shared/plm.pex
+@offCurCh   'oCurCh'
+@offLastCh  'oLstCh'
+
 /* isis command codes */
 IOPEN	'0'
 ICLOSE	'1'
@@ -19,7 +22,7 @@ ISPATH	'14'
 LIT             'literally'
 POINTER         'ADDRESS'
 WORD            'ADDRESS'
-BOOLEAN         'BYTE'
+bool            'byte'
 local           ' '
 TRUE            '0FFH'
 FALSE           '0'
@@ -67,8 +70,8 @@ TEMP$T	'9'
 
 /* Lex tokens */
 L$LINEINFO	'0'
-L$SyntaxERROR	'1'
-L$TokenERROR	'2'
+L$SYNTAXERROR	'1'
+L$TOKENERROR	'2'
 L$LIST	'3'
 L$NOLIST	'4'
 L$CODE	'5'
@@ -807,6 +810,7 @@ CMD$ST	'STRUCTURE(link ADDRESS, pstr(1) BYTE)'
 MAC$ST	'STRUCTURE(inChr$p ADDRESS, info$p ADDRESS)'
 LINFO$ST 'STRUCTURE(type BYTE, lineCnt ADDRESS, stmtCnt ADDRESS, blkCnt ADDRESS)'
 TX1ITEM$ST	'structure(type byte, dataw(129) address)'
+ERR$T   'STRUCTURE(num word, info word, stmt word)'
 
 VAL2$SIZE        '1'
 VAL6$SIZE        '1'
@@ -837,7 +841,7 @@ REC24$ST         'structure(type byte, len address, val(VAL24$SIZE) byte)'
 /* plm main */
 
 /* $file(main.plm) */
-$file(main.plm,plm0a.plm,plm1a.plm.plm6b.plm)
+$file(main.plm,plm0a.plm,plm1a.plm,plm4b.plm,plm6b.plm)
 FatalError      P(B err)
 
 $file(plmA.plm)
@@ -928,9 +932,9 @@ $file(plm0A.plm,main1.plm)
 curProcInfo$p   A
 linfo           "LINFO$ST"
 
-$file(plm0A.plm,pdata4.plm)
-ocurch          A
-olstch          A
+$file(plm0A.plm,pdata4.plm,pdata6.plm)
+offCurCh          A
+offLastCh          A
 
 $file(plm0A.plm,plm3a.plm,pdata4.plm)
 tx1Buf          BS
@@ -960,8 +964,8 @@ ParseExpresion  P(B endTok)
 ParseProcDcl    P
 SetYyAgain      P
 Yylex           P
-YylexMatch      P(B token)"BOOLEAN"
-YylexNotMatch   P(B token)"BOOLEAN"
+YylexMatch      P(B token)"bool"
+YylexNotMatch   P(B token)"bool"
 
 $file(plm0f.plm)
 curState        A
@@ -1296,8 +1300,8 @@ Sub$A153        P
 /* $file(main3.plm) no externals */
 
 $file(plm3a.plm)
-b4789           BS
-b47B7           BS
+b42A8           BS
+b42D6           BS
 b4813           BS
 b7199           B
 nmsBuf          BS
@@ -1366,12 +1370,9 @@ b96B1           BS
 b96D6           B
 baseAddr        A
 bo812B          B
-bo813B          B
-bo813C          B
 cfCode          B
 commentStr      BS
 curExtId        B
-depth           A
 dstRec          B
 endHelperId     B
 helperId        B
@@ -1391,30 +1392,25 @@ sValAry         AS
 w812F           A
 w969E           A
 w96D7           A
-wa8125          AS
 wValAry         AS
 
 $file(pdata4.plm,main5.plm,pdata6.plm)
 lstBuf          BS
 
 $file(pdata4.plm,pdata6.plm)
+errData         "ERR$T"
 codeOn          B
 lineNo          A
 listing         B
 listOff         B
 lstLineLen      B
 srcbuf          BS
+linePrefixChecked          "bool"
+linePrefixListed          "bool"
+depth           A
 
 $file(plm4a.plm)
-b42A8           BS
-b42D6           BS
 b4304           BS
-b4332           BS
-b4431           BS
-b4444           BS
-b4495           BS
-b4566           BS
-b457C           BS
 b4602           BS
 b473D           BS
 b475E           BS
@@ -1439,13 +1435,12 @@ AddWrdDisp      P(A str$p,A arg2w)
 EmitLabel       P
 EmitStatementNo P
 FlushRecs       P
-Sub$5BD3        P
-Sub$5E1B        P(B arg1b)
-Sub$5E3E        P
+ListCodeBytes        P
 
 $file(plm4b.plm,plm6b.plm)
 EmitError       P
 GetSourceLine   P
+LinePrefix        P
 
 $file(plm4c.plm)
 Sub$5FE7        P(A arg1w,B arg2b)
@@ -1485,22 +1480,10 @@ $file(pdata6.plm)
 b7AD9           B
 b7ADA           B
 b7AE4           B
-b7AF1           B
-b7AF2           B
-ERRNum          A
-offCurCh        A
-offLastCh       A
-STMTNum         A
-w7AE0           A
 w7AE5           A
-w7AE9           A
-w7AEB           A
 
 $file(plm6a.plm)
 Sub$42E7        P
-
-$file(plm6b.plm)
-Sub$6550        P
 
 
 /* files in common dir */
@@ -1565,10 +1548,10 @@ CreateInfo      P(A val,B type)
 $file(data.plm)
 atFile          "FILE$T"
 b3CF2           B
-b3CFB           B
-b3CFC           B
-b3CFD           B
-b3CFF           B
+wrapMarkerCol           B
+wrapMarker           B
+wrapTextCol           B
+skpCnt           B
 blk1Used        A
 blk2Used        A
 blkSize1        A
@@ -2239,9 +2222,9 @@ DECLARE
 	lBufSz ADDRESS PUBLIC INITIAL(0),
 	lfOpen BYTE PUBLIC INITIAL(0),
 	linlft BYTE PUBLIC INITIAL(0),
-	(b3CFB, b3CFC, b3CFD) BYTE PUBLIC INITIAL(0,0,0),
+	(wrapMarkerCol, wrapMarker, wrapTextCol) BYTE PUBLIC INITIAL(0,0,0),
 	col BYTE PUBLIC INITIAL(0),
-	b3CFF BYTE PUBLIC INITIAL(0),
+	skpCnt BYTE PUBLIC INITIAL(0),
 	tWidth BYTE PUBLIC INITIAL(0),
 	TITLELEN BYTE PUBLIC INITIAL(1),
 	PAGELEN BYTE PUBLIC INITIAL(60),
@@ -2885,9 +2868,9 @@ end;
 
 SetMarkerInfo: procedure(arg1b, arg2b, arg3b) public;
 	declare (arg1b, arg2b, arg3b) byte;
-	b3CFB = arg1b;
-	b3CFC = arg2b;
-	b3CFD = arg3b;
+	wrapMarkerCol = arg1b;
+	wrapMarker = arg2b;
+	wrapTextCol = arg3b;
 end;
 
 $if OVL<>5
@@ -2900,7 +2883,7 @@ $endif
 
 SetSkipLst: procedure(arg1b) public;
 	declare arg1b byte;
-	b3CFF = arg1b;
+	skpCnt = arg1b;
 end;
 
 
@@ -3710,7 +3693,7 @@ Sub$3EDF: PROCEDURE local;
 	call WrByte(L$EOF);
 	call Sub$4119;
 	call TellF(.srcFil, .srcFileTable(srcFileIdx + 8));
-	call Backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+	call Backup(.srcFileTable(srcFileIdx + 8), offLastCh - offCurCh);
 	call CloseF(.srcFil);
 end Sub$3EDF;
 
@@ -3719,7 +3702,7 @@ Sub$3F23: PROCEDURE local;
 	call InitF(.srcFil, .('SOURCE'), .srcFileTable(srcFileIdx));
 	call OpenF(.srcFil, 1);
 	call SeekF(.srcFil, .srcFileTable(srcFileIdx + 8));
-	ocurch = olstch;
+	offCurCh = offLastCh;
 	if offNxtCmdChM1 <> 0 then
 		do while cmdLine$p <> 0;
 			call Do$Control(offNxtCmdChM1 + cmdLine$p);
@@ -4067,8 +4050,8 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
 	p = w7197 - GetLinkVal;
 	call fwrite(.tx1File, .p, 2);
 	do i = 0 to 45;
-	    k = b47B7(i);
-	    j = k + b4789(i);
+	    k = b42D6(i);
+	    j = k + b42A8(i);
 	    m = 0;
 	    do while k < j;
 		if m then
@@ -4381,8 +4364,8 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
 		call SetMarkerInfo(11, '-', 15);
 		if fatalErrorCode > 0 then
 		do;
-			wa8125(2), wa8125(1) = 0;
-			wa8125(0) = fatalErrorCode;
+            errData.stmt, errData.info = 0;
+			errData.num = fatalErrorCode;
 			call EmitError;
 			call SetSkipLst(2);
 		end;
@@ -4407,7 +4390,7 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
 				do;
 					baseAddr = helpers(helperId);
 					b969C = b4304(helperModId);
-					b969D = b457C(b969C);
+					b969D = b4273(b969C);
 					call Sub$5FE7(w4919(helperId), b4A03(helperId));
 					goto break;
 				end;
@@ -4447,7 +4430,7 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
 		if PRINT then
 		do;
 			call TellF(.srcFil, .srcFileTable(srcFileIdx + 8));
-			call Backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+			call Backup(.srcFileTable(srcFileIdx + 8), offLastCh - offCurCh);
 			call CloseF(.srcFil);
 			call FlushLstBuf;
 		end;
@@ -4463,7 +4446,7 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
 	end;
 	call Sub$4162;
 	call FlushRecs;
-	call Sub$5BD3;
+	call LinePrefix;
 errCont:
 	call Sub$423C;
 	if IXREF then
@@ -5178,28 +5161,6 @@ $include(:f2:main6.ipx)
 
 declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
 declare errCont label public;
-declare b7AD9 byte external,
-	b7ADA byte external,
-	listing byte external,
-	listOff byte external,
-	codeOn byte external,
-	ERRNum address external,
-	w7AE0 address external,
-	STMTNum address external,
-	b7AE4 byte external,
-	w7AE5 address external,
-	lineNo address external,
-	w7AE9 address external,
-	w7AEB address external,
-	offLastCh address external,
-	offCurCh address external,
-	b7AF1 byte external,
-	b7AF2 byte external,
-	lstLineLen byte external,
-	lstbuf(130) byte external,
-	srcbuf(2048) byte external;
-
-
 
 	Sub$3F96: procedure;
 		declare cmd BASED cmdLine$p STRUCTURE(link ADDRESS, pstr(1) BYTE);
@@ -5256,7 +5217,7 @@ declare b7AD9 byte external,
 		call CreatF(.tx2File, .tx2Buf, 800h, 1);
 		if b7AD9 or IXREF then
 			call CreatF(.nmsFile, .nmsBuf, 800h, 1);
-		w7AEB = 0;
+		stmtNo = 0;
 		if PRINT then
 		do;
 			srcFileIdx = 0;
@@ -5268,8 +5229,8 @@ declare b7AD9 byte external,
 		call SetMarkerInfo(11, '-', 15);
 		if fatalErrorCode > 0 then
 		do;
-			STMTNum, w7AE0 = 0;
-			ERRNum = fatalErrorCode;
+			errData.stmt, errData.info = 0;
+			errData.num = fatalErrorCode;
 			call EmitError;
 			call SetSkipLst(2);
 		end;
@@ -5323,7 +5284,7 @@ declare b7AD9 byte external,
 		call Sub$42E7;
 	end;
 
-	call Sub$6550;
+	call LinePrefix;
 
 errCont:
 	call Sub$41B6;
@@ -5368,7 +5329,7 @@ NewPgl: procedure public;
 	call WrnstrLst(.('  PAGE '), 7);
 	call WrnstrLst(.pnum, 3);
 	call WrnstrLst(.(cr, lf, lf, lf), 4);
-	b3CFF = 0;
+	skpCnt = 0;
 end;
 
 
@@ -5378,16 +5339,16 @@ NlLead: procedure public;
 	linlft = linlft - 1;
 	if linlft = 0 then
 		call NewPgl;
-	do while col < b3CFB;
+	do while col < wrapMarkerCol;
 		call wrcLst(' ');
 		col = col + 1;
 	end;
-	if b3CFC <> 0 then
+	if wrapMarker <> 0 then
 	do;
-		call wrcLst(b3CFC);
+		call wrcLst(wrapMarker);
 		col = col + 1;
 	end;
-	do while col < b3CFD;
+	do while col < wrapTextCol;
 		call wrcLst(' ');
 		col = col + 1;
 	end;
@@ -5423,7 +5384,7 @@ NewPgl: procedure public;
 	call WrnstrLst(.('  PAGE '), 7);
 	call WrnstrLst(.pnum, 3);
 	call WrnstrLst(.(cr, lf, lf, lf), 4);
-	b3CFF = 0;
+	skpCnt = 0;
 end;
 
 end;
@@ -5437,16 +5398,16 @@ NlLead: procedure public;
 	linlft = linlft - 1;
 	if linlft = 0 then
 		call NewPgl;
-	do while col < b3CFB;
+	do while col < wrapMarkerCol;
 		call wrcLst(' ');
 		col = col + 1;
 	end;
-	if b3CFC <> 0 then
+	if wrapMarker <> 0 then
 	do;
-		call wrcLst(b3CFC);
+		call wrcLst(wrapMarker);
 		col = col + 1;
 	end;
-	do while col < b3CFD;
+	do while col < wrapTextCol;
 		call wrcLst(' ');
 		col = col + 1;
 	end;
@@ -5469,7 +5430,7 @@ declare (helperModId, endHelperId) byte public,
 	listOff byte public,
 	codeOn byte public,
 	locLabStr(32) byte public,		/* used to hold symbol name */
-	wa8125(3) address public,
+    errData ERR$T public,
 	bo812B  byte public initial(true),
 	baseAddr address public,
 	cfCode byte public,
@@ -5477,10 +5438,10 @@ declare (helperModId, endHelperId) byte public,
 	lineNo address public,
 	depth address public,
 	stmtNo address public,
-	olstch address public initial(0),
-	ocurch address public initial(0),
-	bo813B byte public initial(true),
-	bo813C byte public initial(true),
+	offLastCh address public initial(0),
+	offCurCh address public initial(0),
+	linePrefixChecked bool public initial(true),
+	linePrefixListed bool public initial(true),
 	lstLineLen byte public,
 	lstLine(130) byte public,
 	rec6$4 REC6$ST public initial(6, 0, 1),
@@ -5530,18 +5491,16 @@ declare b7AD9 byte public,
 	listing byte public,
 	listOff byte public,
 	codeOn byte public,
-	ERRNum address public,
-	w7AE0 address public,
-	STMTNum address public,
+    errData ERR$T public,
 	b7AE4 byte public initial(true),
 	w7AE5 address public,
 	lineNo address public,
-	w7AE9 address public,
-	w7AEB address public,
+	depth address public,
+	stmtNo address public,
 	offLastCh address public initial(0),
 	offCurCh address public initial(0),
-	b7AF1 byte public initial(true),
-	b7AF2 byte public initial(true),
+	linePrefixChecked bool public initial(true),
+	linePrefixListed bool public initial(true),
 	lstLineLen byte public,
 	lstbuf(130) byte public,
 	srcbuf(2048) byte public;
@@ -5617,8 +5576,8 @@ DECLARE	macroPtrs(12) ADDRESS /* six inChr$p, info$p pairs */ PUBLIC,
 	stmtLabelCnt ADDRESS PUBLIC,
 	curProcInfo$p ADDRESS PUBLIC,
 	pad8FA1 ADDRESS,
-	ocurch ADDRESS PUBLIC INITIAL(0),
-	olstch ADDRESS PUBLIC INITIAL(0),
+	offCurCh ADDRESS PUBLIC INITIAL(0),
+	offLastCh ADDRESS PUBLIC INITIAL(0),
 	curStmtCnt ADDRESS PUBLIC INITIAL(0),
 	curBlkCnt ADDRESS PUBLIC INITIAL(0),
 	curMacroInfo$p ADDRESS PUBLIC INITIAL(0),
@@ -6205,7 +6164,7 @@ GetTest: PROCEDURE BYTE local;
 	return test;
 end;
 
-ChkNot: PROCEDURE BOOLEAN local;
+ChkNot: PROCEDURE bool local;
 	DECLARE notStatus BYTE, tmp ADDRESS;
 
 	notStatus = FALSE;
@@ -6254,7 +6213,7 @@ GetIfVal: PROCEDURE ADDRESS local;
 	end;
 end;
 
-ParseIfCond: PROCEDURE BOOLEAN local;
+ParseIfCond: PROCEDURE bool local;
 	DECLARE (andFactor, orFactor, xorFactor) BYTE;
 	DECLARE (val1, val2) ADDRESS;
 	DECLARE (relOp, not1, not2) BYTE;
@@ -6442,13 +6401,13 @@ OptInclude: PROCEDURE local;
 	else
 	do;
 		call TellF(.srcFil, .srcFileTable(srcFileIdx + 8));
-		call Backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+		call Backup(.srcFileTable(srcFileIdx + 8), offLastCh - offCurCh);
 		srcFileIdx = srcFileIdx + 10;
 		call movmem(tknLen, optStrVal$p, .srcFileTable(srcFileIdx));
 		call CloseF(.srcFil);
 		call InitF(.srcFil, .('SOURCE'), optStrVal$p);
 		call OpenF(.srcFil, 1);
-		ocurch = olstch;
+		offCurCh = offLastCh;
 		call WrByte(L$INCLUDE);
 		call WrBuf(optStrVal$p + 12, 6);
 		call WrByte(L$INCLUDE);
@@ -6517,9 +6476,9 @@ OptIntVector: PROCEDURE local;
 	end;
 end;
 
-AcceptDrive: PROCEDURE(fname, follow) BOOLEAN local;
+AcceptDrive: PROCEDURE(fname, follow) bool local;
 	DECLARE fname ADDRESS, follow BYTE;
-	DECLARE isOK boolean;
+	DECLARE isOK bool;
 	DECLARE fnch BASED fname BYTE;
 
 	AcceptRangeChrs: PROCEDURE(lch, hch);
@@ -6938,7 +6897,7 @@ GetLin: PROCEDURE public;
 				call InitF(.srcFil, .('SOURCE'), .srcFileTable(srcFileIdx));
 				call OpenF(.srcFil, 1);
 				call SeekF(.srcFil, .srcFileTable(srcFileIdx + 8));
-				ocurch = olstch;
+				offCurCh = offLastCh;
 			end;
 		end;
 	end;
@@ -7080,7 +7039,7 @@ Yylex: PROCEDURE public;
 		end;
 	end NestMacro;
 
-	ChkMacro: PROCEDURE BOOLEAN;
+	ChkMacro: PROCEDURE bool;
 
 	    call Lookup(.tokenStr);
 	    markedSymbol$p = curSymbol$p;
@@ -7308,7 +7267,7 @@ end;
 /*
 	look for matching token
 */
-YylexMatch: PROCEDURE(token) BOOLEAN public;
+YylexMatch: PROCEDURE(token) bool public;
 	DECLARE token BYTE;
 
     call Yylex;			/* get the token to check */
@@ -7321,7 +7280,7 @@ YylexMatch: PROCEDURE(token) BOOLEAN public;
     end;
 end;
 
-YylexNotMatch: PROCEDURE(token) BOOLEAN public;
+YylexNotMatch: PROCEDURE(token) bool public;
 	DECLARE token BYTE;
     return not YylexMatch(token);
 end;
@@ -13716,7 +13675,7 @@ Sub$7DA9: procedure public;
 
 	Sub$7F19: procedure;
 
-		Bsub$7FD9: procedure(arg1b) boolean;
+		Bsub$7FD9: procedure(arg1b) bool;
 			declare arg1b byte;
 			if arg1b <= 3 then
 				if bC0B5(bC296) = arg1b then
@@ -14055,7 +14014,7 @@ Sub$87CB: procedure public;
 	declare (bC2A5, bC2A6, bC2A7, bC2A8) byte,
 		(wC2A9, wC2AB, wC2AD) address;
 
-	Bsub$8861: procedure boolean;
+	Bsub$8861: procedure bool;
 		declare i byte;
 		do wC1D6 = wC2AB to wC2AD;
 			i = Sub$5679(bC2A5);
@@ -15159,24 +15118,26 @@ declare	VAL2$SIZE	literally	'51',
 
 $include(:f2:plm3a.ipx)
 
-declare b4789(*) byte public data(
+declare b42A8(*) byte public data(
 	2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3,
 	3, 2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2,
 	2, 3, 2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4);
 
-declare b47B7(*) byte public data(
+declare b42D6(*) byte public data(
 	0, 2, 4, 7, 0Bh, 0Eh, 12h, 14h,
 	16h, 19h, 1Dh, 1Fh, 22h, 24h, 27h, 2Ah,
 	2Dh, 30h, 32h, 34h, 37h, 3Bh, 3Dh, 40h,
 	42h, 45h, 47h, 49h, 4Bh, 4Dh, 50h, 52h,
 	54h, 56h, 59h, 5Bh, 5Eh, 60h, 62h, 65h,
-	67h, 69h, 6Ah, 6Ch, 6Eh, 71h, 24h, 24h,
-	24h, 24h, 13h, 13h, 18h, 18h, 18h, 18h,
-	16h, 2Ch, 15h, 1Fh, 1Fh, 20h, 20h, 19h,
-	19h, 19h, 19h, 8, 8, 9, 9, 6,
-	7, 25h, 25h, 25h, 25h, 25h, 0Ah, 0Ah,
-	0Bh, 0Bh, 14h, 14h, 14h, 14h, 14h, 39h,
-	1Ah, 1Ah, 1Ah, 1Ah);
+	67h, 69h, 6Ah, 6Ch, 6Eh, 71h);
+
+declare b4304(*) byte data(
+    24h, 24h, 24h, 24h, 13h, 13h, 18h, 18h,
+    18h, 18h, 16h, 2Ch, 15h, 1Fh, 1Fh, 20h,
+    20h, 19h, 19h, 19h, 19h, 8, 8, 9,
+    9, 6, 7, 25h, 25h, 25h, 25h, 25h,
+    0Ah, 0Ah, 0Bh, 0Bh, 14h, 14h, 14h, 14h,
+    14h, 39h, 1Ah, 1Ah, 1Ah, 1Ah);
 
 declare b4813(*) byte public data(
 	3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 3, 8, 1, 3,
@@ -15636,7 +15597,7 @@ declare b42A8(*) byte public data(
 	 0Ah, 0Ah, 0Bh, 0Bh,14h,14h,14h,14h,
 	14h,39h,1Ah,1Ah,1Ah,1Ah),
 
-	b4332(*) byte public data(
+	b4029(*) byte public data(
 	   0,   0,   0,   0,26h,30h,30h,26h,
 	30h,20h,30h,12h,12h,12h,   0,10h,
 	10h,10h,10h,10h,10h,60h,   0,26h,
@@ -15670,12 +15631,12 @@ declare b42A8(*) byte public data(
 	80h,80h,80h,80h,80h,80h,80h,80h,
 	80h,80h,80h,80h,80h,80h,80h),
 
-	b4431(*) byte public data(
+	b4128(*) byte public data(
 	0, 0, 1, 1, 2, 2, 3, 3,
 	4, 4, 5, 5, 6, 6, 7, 7,
 	8, 9, 0Ah),
 
-	b4444(*) byte public data(
+	b413B(*) byte public data(
 	   0,   2,   4,   6,   8, 0Ah, 0Ch,10h,
 	11h, 0Eh,12h,   0,   2,   4,   6,   8,
 	 0Ah, 0Ch,10h,11h, 0Eh,12h,   0,   2,
@@ -15688,7 +15649,7 @@ declare b42A8(*) byte public data(
 	12h, 0Dh, 0Fh,   7,   9, 0Bh,   1,   5,
 	   3),
 
-	b4495(*) byte public data(	/* 11 byte entries */
+	b418C(*) byte public data(	/* 11 byte entries */
 	90h,91h,94h,95h,98h,99h,9Ah,9Ch,0A0h,0A1h,9Dh,
 	6Ch,6Dh,70h,71h,74h,75h,76h,78h,7Ch,7Dh,79h,
 	   0,   0,   0,   0,   0,   0,64h,65h,   0,   0,   0,
@@ -15709,12 +15670,12 @@ declare b42A8(*) byte public data(
 	   0,2Ch,   0,   0,2Dh,2Eh,   0,   0,   0,   0,   0,
 	0A4h,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0),
 
-	b4566(*) byte public data(
+	b425D(*) byte public data(
 	   8,1Ch, 0Ch,   0, 0Bh,11h,   1, 0Ah,
 	 0Fh,10h, 0Dh,   9,   2,   3,   4,   5,
 	   6,   7,   0,1Eh,12h,0Eh),
 
-	b457C(*) byte public data(
+	b4273(*) byte public data(
 	   3,   3,   3,   3,   3,   3, 0Ch, 0Dh,
 	 0Eh, 0Fh,10h,11h,   0,   0,   0,   0,
 	   0,   0,   0,   0,12h,   7,   4,   4,
@@ -16225,7 +16186,7 @@ Sub$54BA: procedure public;
 			p(2) = 0;
 		end;
 		do t = p(0) to s;
-			call Sub$5BD3;
+			call LinePrefix;
 			w812F = t;
 			lineNo = p(1);
 			depth = p(2);
@@ -16254,7 +16215,7 @@ Sub$54BA: procedure public;
 	AddrCheck: procedure(arg1w);
 		declare arg1w address;
 		if arg1w <> baseAddr then
-			call Sub$5E1B(0D8h);
+			call FatalError(0D8h);
 	end;
 
 
@@ -16279,21 +16240,21 @@ Sub$54BA: procedure public;
 	end;
 
 	EmitSimpleError: procedure;
-		call fread(.tx1File, .wa8125, 2);
-		wa8125(1) = 0;
-		wa8125(2) = stmtNo;
+		call fread(.tx1File, .errData, 2);
+        errData.info = 0;
+        errData.stmt = stmtNo;
 		call EmitError;
 	end;
 
 
 	EmitNearError: procedure;
-		call fread(.tx1File, .wa8125, 4);
-		wa8125(2) = stmtNo;
+		call fread(.tx1File, .errData, 4);
+        errData.stmt = stmtNo;
 		call EmitError;
 	end;
 
 	EmitFullError: procedure;
-		call fread(.tx1File, .wa8125, 6);
+		call fread(.tx1File, .errData, 6);
 		call EmitError;
 	end;
 
@@ -16308,9 +16269,9 @@ Sub$54BA: procedure public;
 			if listing then
 				call NewPageNextChLst;
 			do;
-				call Sub$5BD3;
+				call LinePrefix;
 				call TellF(.srcFil, .srcFileTable(srcFileIdx + 8));
-				call Backup(.srcFileTable(srcFileIdx + 8), olstch - ocurch);
+				call Backup(.srcFileTable(srcFileIdx + 8), offLastCh - offCurCh);
 				srcFileIdx = srcFileIdx + 10;
 				call fread(.tx1File, .fname(13), 6);
 				call fread(.tx1File, .fname(6), 7);
@@ -16319,7 +16280,7 @@ Sub$54BA: procedure public;
 				call CloseF(.srcFil);
 				call InitF(.srcFil, .('SOURCE'), .fname(1));
 				call OpenF(.srcFil, 1);
-				ocurch = olstch;
+				offCurCh = offLastCh;
 			end;
 		end;
 	end;
@@ -16420,8 +16381,8 @@ AddWrdDisp: procedure(str$p, arg2w) public;
 end;
 
 
-Sub$5BD3: procedure public;
-	if  not bo813B and listing then
+LinePrefix: procedure public;
+	if  not linePrefixChecked and listing then
 	do;
 		call SetStartAndTabW(15, 4);
 		if lineNo <> 0 then
@@ -16448,16 +16409,16 @@ Sub$5BD3: procedure public;
 		end;
 
 		call NewLineLst;
-		bo813C = true;
+		linePrefixListed = true;
 	end;
-	bo813B = true;
+	linePrefixChecked = true;
 	listing = not listOff and PRINT;
 end;
 
 
 
 EmitStatementNo: procedure public;
-	call Sub$5BD3;
+	call LinePrefix;
 	call TabLst(-50);
 	call XwrnstrLst(.('; STATEMENT # '), 14);
 	call XnumLst(stmtNo, 0, 0Ah);
@@ -16468,7 +16429,7 @@ end;
 EmitLabel: procedure public;
 	if codeOn then
 	do; 
-		call Sub$5BD3;
+		call LinePrefix;
 		call TabLst(-26);
 		call XwrnstrLst(.locLabStr(1), locLabStr(0));
 		call XwrnstrLst(.(':'), 1);
@@ -16481,7 +16442,7 @@ EmitError: procedure public;
 	declare (ErrOff, ErrLen) address;
 
 
-	Sub$5DB7: procedure;
+	FindErrStr: procedure;
 		declare (p, q) address;
 
 		q = 0;
@@ -16490,7 +16451,7 @@ EmitError: procedure public;
 			do while ErrStrings(q) <> 0;
 				q = q + 1;
 			end;
-			if ErrStrings(p) = wa8125(0) then
+			if ErrStrings(p) = errData.num then
 			do;
 				ErrOff = p + 1;
 				ErrLen = q - ErrOff;
@@ -16505,22 +16466,22 @@ EmitError: procedure public;
 	programErrCnt = programErrCnt + 1;
 	if PRINT then
 	do;
-		bo813B = bo813C;
+		linePrefixChecked = linePrefixListed;
 		listing = true;
-		call Sub$5BD3;
+		call LinePrefix;
 		call XwrnstrLst(.('*** ERROR #'), 11);
-		call XnumLst(wa8125(0), 0, 10);
+		call XnumLst(errData.num, 0, 10);
 		call XwrnstrLst(.(', '), 2);
-		if wa8125(2) <> 0 then
+		if errData.stmt <> 0 then
 		do;
 			call XwrnstrLst(.('STATEMENT #'), 11);
-			call XnumLst(wa8125(2), 0, 10);
+			call XnumLst(errData.stmt, 0, 10);
 			call XwrnstrLst(.(', '), 2);
 		end;
-		if wa8125(1) <> 0 then
+		if errData.info <> 0 then
 		do; 
 			call XwrnstrLst(.('NEAR '''), 6);
-			curInfo$p = wa8125(1) + botInfo;
+			curInfo$p = errData.info + botInfo;
 			curSymbol$p = GetSymbol;
 			if curSymbol$p <> 0 then
 				call XwrnstrLst(.cursym.name(1), cursym.name(0));
@@ -16528,7 +16489,7 @@ EmitError: procedure public;
 				call Xputstr2cLst(.('<LONG CONSTANT>', 0), 0);
 			call XwrnstrLst(.(''', '), 3);
 		end;
-		call Sub$5DB7;
+		call FindErrStr;
 		call TabLst(2);
 		if ErrLen = 0 then 
 			call XwrnstrLst(.('UNKNOWN ERROR'), 13);
@@ -16541,16 +16502,16 @@ end;
 
 
 
-Sub$5E1B: procedure(arg1b) public;
+FatalError: procedure(arg1b) public;
 	declare arg1b byte;
-	fatalErrorCode, wa8125(0) = arg1b;
-	wa8125(1) = 0;
-	wa8125(2) = stmtNo;
+	fatalErrorCode, errData.num = arg1b;
+	errData.info = 0;
+	errData.stmt = stmtNo;
 	call EmitError;
 	goto errCont;
 end;
 
-Sub$5E3E: procedure public;
+ListCodeBytes: procedure public;
 	declare i byte;
 	if codeOn then
 	do; 
@@ -16576,56 +16537,56 @@ end;
 
 
 GetSourceLine: procedure public;
-	declare bA187 byte;
+	declare crCnt byte;
 
 	GetSourceCh: procedure byte;
-		if ocurch = olstch then
+		if offCurCh = offLastCh then
 		do;
 			do while 1;
-				call Readf(.srcFil, .srcbuf, 640, .olstch);
-				ocurch = 0;
-				if olstch > 0 then
+				call Readf(.srcFil, .srcbuf, 640, .offLastCh);
+				offCurCh = 0;
+				if offLastCh > 0 then
 					goto break;
 				if lstLineLen <> 0 then
 					return lf;
 
 				if srcFileIdx = 0 then
 				do;
-					if bA187 <> 0 then
+					if crCnt <> 0 then
 						return lf;
 					else
-						call Sub$5E1B(0D7h);
+						call FatalError(0D7h);
 				end;
 
-				bA187 = 0;
+				crCnt = 0;
 				call CloseF(.srcFil);
 				srcFileIdx = srcFileIdx - 10;
 				call InitF(.srcFil, .('SOURCE'), .srcFileTable(srcFileIdx));
 				call OpenF(.srcFil, 1);
 				call SeekF(.srcFil, .srcFileTable(srcFileIdx + 8));
 			end;
-		break:	olstch = olstch - 1;
+		break:	offLastCh = offLastCh - 1;
 		end;
 		else
-			ocurch = ocurch + 1;
-		return srcbuf(ocurch) and 7fh;
+			offCurCh = offCurCh + 1;
+		return srcbuf(offCurCh) and 7fh;
 	end;
 
 
 
 	lstLineLen = 0;
-	bA187 = 0;
+	crCnt = 0;
 
 	do while 1;
 		lstLine(lstLineLen) = GetSourceCh;
 		if lstLine(lstLineLen) = lf then
 		do;
-			bo813B = 0;
-			bo813C = 0;
+			linePrefixChecked = false;
+			linePrefixListed = false;
 			return;
 		end;
 		else if lstLine(lstLineLen) = cr then
-			bA187 = bA187 + 1;
+			crCnt = crCnt + 1;
 		else if lstLine(lstLineLen) <> cr and lstLineLen < 80h  then
 			lstLinelen = lstLineLen + 1;
 	end;
@@ -16714,8 +16675,8 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 				q = 69h;
 			else
 			do;
-				i = b4566(b969D);
-				j = b4495(b9692 + 11 * i);
+				i = b425D(b969D);
+				j = b418C(b9692 + 11 * i);
 				q = b42D6(shr(j, 2)) + (j and 3);
 			end;
 			helperStr(0) = Num2Asc(q, -4, 10, .helperStr(3)) + 2;
@@ -16813,7 +16774,7 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 		Sub$64CF: procedure;
 			declare i byte;
 			do case bA190;
-				i= b4566(b969D);
+				i= b425D(b969D);
 				i= b475E(b969D);
 				i= b4774(b969D);
 				i= b478A(b969D);
@@ -16917,14 +16878,14 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 	do while arg2b > 0;
 		call Sub$603C;
 		call Sub$654F;
-		call Sub$5E3E;
+		call ListCodeBytes;
 		arg1w = arg1w + 1;
 		arg2b = arg2b - 1;
 		p = baseAddr + opByteCnt;
 		if baseAddr > p then
 		do;
-			wa8125(2), wa8125(1) = 0;
-			wa8125(0) = 0CEh;
+			errData.stmt, errData.info = 0;
+			errData.num = 0CEh;
 			call EmitError;
 		end; 
 		baseAddr = p;
@@ -16945,8 +16906,8 @@ Sub$668B: procedure public;
 		do; 
 			i = cfCode - 0AEh;
 			cfCode = b4602(i);
-			i = b4444(i);
-			b9692 = b4431(i);
+			i = b413B(i);
+			b9692 = b4128(i);
 		end;
 	end;
 
@@ -17103,19 +17064,19 @@ Sub$668B: procedure public;
 /* Sub$6720 */
 
 		b96D6 = 0;
-		if rol(b4332(cfCode), 1) then
+		if rol(b4029(cfCode), 1) then
 		do;
 			call fread(.tx1File, .b969C, 1);
-			b969D = b457C(b969C);
+			b969D = b4273(b969C);
 		end;
 		w969E = 0;
-		bA1AB = ror(b4332(cfCode), 4) and 7;
+		bA1AB = ror(b4029(cfCode), 4) and 7;
 		if bA1AB <> 0 then
 		do;
 			if bA1AB <= 3 then
 				call fread(.tx1File, .i, 1);
 			call Sub$67AD(ror(i, 4) and 0fh, 0);
-			bA1AB = ror(b4332(cfCode), 1) and 7;
+			bA1AB = ror(b4029(cfCode), 1) and 7;
 			call Sub$67AD(i and 0fh, 1);
 		end;
 	end Sub$6720;
@@ -17135,7 +17096,7 @@ Sub$668B: procedure public;
 		end;
 		call FlushRecs;
 	end;
-	call Sub$5BD3;
+	call LinePrefix;
 	call Sub$5FE7(w47C1(cfCode) and 0fffh, shr(w47C1(cfCode), 12));
 end;
 
@@ -17181,7 +17142,7 @@ end;
 plm6a: DO;
 $include(:f2:plm6a.ipx)
 
-declare b4222(*) byte data(
+declare b5124(*) byte data(
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0Eh, 1, 1, 1, 1,
 	1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 2, 1, 1, 1,
 	1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0,
@@ -17211,34 +17172,34 @@ Sub$42E7: procedure public;
 			itemArgs(2) = 0;
 		end;
 		do i = itemArgs(0) to itemArgs(3);
-			call Sub$6550;
+			call LinePrefix;
 			w7AE5 = i;
 			lineNo = itemArgs(1);
-			w7AE9 = itemArgs(2);
+			depth = itemArgs(2);
 			call GetSourceLine;
 		end;
 	end;
 
 	Sub$4400: procedure;
-		ERRNum = itemArgs(0);
-		w7AE0 = 0;
-		STMTNum = w7AEB;
+		errData.num = itemArgs(0);
+		errData.info = 0;
+		errData.stmt = stmtNo;
 		call EmitError;
 	end;
 
 
 	Sub$4416: procedure;
-		ERRNum = itemArgs(0);
-		w7AE0 = itemArgs(1);
-		STMTNum = w7AEB;
+		errData.num = itemArgs(0);
+		errData.info = itemArgs(1);
+		errData.stmt = stmtNo;
 		call EmitError;
 	end;
 
 
 	Sub$442C: procedure;
-		ERRNum = itemArgs(0);
-		w7AE0 = itemArgs(1);
-		STMTNum = itemArgs(2);
+		errData.num = itemArgs(0);
+		errData.info = itemArgs(1);
+		errData.stmt = itemArgs(2);
 		call EmitError;
 	end;
 
@@ -17254,7 +17215,7 @@ Sub$42E7: procedure public;
 			if listing then
 				call NewPageNextChLst;
 			do;
-				call Sub$6550;
+				call LinePrefix;
 				call TellF(.srcFil, .srcFileTable(srcFileIdx + 8));
 				call Backup(.srcFileTable(srcFileIdx + 8), offLastCh - offCurCh);
 				srcFileIdx = srcFileIdx + 10;
@@ -17275,11 +17236,11 @@ Sub$42E7: procedure public;
 	itemArgs(0), itemArgs(1), itemArgs(2) = 0;
 	call fread(.tx2File, .cfCode, 1);
 	if cfCode <> 0a2h then
-		call fread(.tx2File, .itemArgs, shl(b4222(cfCode) and 3,1));
+		call fread(.tx2File, .itemArgs, shl(b5124(cfCode) and 3,1));
 	if cfCode = 98h then
 		call Sub$4396;
 	else if cfCode = 97h then
-		w7AEB = itemArgs(0);
+		stmtNo = itemArgs(0);
 	else if cfCode = 9Ah then
 		call Sub$4400;
 	else if cfCode = 9Bh then
@@ -17512,20 +17473,20 @@ declare ERRStrings(*) byte data(
 	0);
 
 $list
-Sub$6550: procedure public;
-	if not b7AF1 and listing then
+LinePrefix: procedure public;
+	if not linePrefixChecked and listing then
 	do;
 		call SetStartAndTabW(15, 4);
 		if lineNo <> 0 then
 			call LstLineNo;
 		call TabLst(-7);
-		if w7AE9 < 10 then
+		if depth < 10 then
 		do;
 			call putLst(' ');
-			call putLst(digits(w7AE9));
+			call putLst(digits(depth));
 		end;
 		else
-			call XnumLst(w7AE9, 2, 10);
+			call XnumLst(depth, 2, 10);
 		if srcFileIdx <> 0 then
 		do;
 			call TabLst(-11);
@@ -17539,9 +17500,9 @@ Sub$6550: procedure public;
 			call XwrnstrLst(.lstbuf, lstLineLen);
 		end;
 		call NewLineLst;
-		b7AF2 = true;
+		linePrefixListed = true;
 	end;
-	b7AF1 = true;
+	linePrefixChecked = true;
 	listing = not listOff and PRINT;
 end;
 
@@ -17557,7 +17518,7 @@ EmitError: procedure public;
 			do while ERRStrings(j) <> 0;
 				j = j + 1;
 			end;
-			if ERRStrings(i) = ERRNum then
+			if ERRStrings(i) = errData.num then
 			do;
 				ErrOff = i + 1;
 				Errlen = j - ErrOff;
@@ -17571,22 +17532,22 @@ EmitError: procedure public;
 	programErrCnt = programErrCnt + 1;
 	if PRINT then
 	do;
-		b7AF1 = b7AF2;
+		linePrefixChecked = linePrefixListed;
 		listing = true;
-		call Sub$6550;
+		call LinePrefix;
 		call XwrnstrLst(.('*** ERROR #'), 11);
-		call XnumLst(ERRNum, 0, 10);
+		call XnumLst(errData.num, 0, 10);
 		call XwrnstrLst(.(', '), 2);
-		if STMTNum <> 0 then
+		if errData.stmt <> 0 then
 		do;
 			call XwrnstrLst(.('STATEMENT #'), 11);
-			call XnumLst(STMTNum, 0, 10);
+			call XnumLst(errData.stmt, 0, 10);
 			call XwrnstrLst(.(', '), 2);
 		end;
-		if w7AE0 <> 0 then
+		if errData.info <> 0 then
 		do;
 			call XwrnstrLst(.('NEAR '''), 6);
-			curInfo$p = w7AE0 + botInfo;
+			curInfo$p = errData.info + botInfo;
 			curSymbol$p = GetSymbol;
 			if curSymbol$p <> 0 then
 				call XwrnstrLst(.cursym.name(1), cursym.name(0));
@@ -17607,9 +17568,9 @@ end;
 
 FatalError: procedure(arg1b) public;
 	declare arg1b byte;
-	fatalErrorCode, ERRNum = arg1b;
-	w7AE0 = 0;
-	STMTNum = w7AEB;
+	fatalErrorCode, errData.num = arg1b;
+	errData.info = 0;
+	errData.stmt = stmtNo;
 	call EmitError;
 	goto errCont;
 end;
@@ -17654,8 +17615,8 @@ GetSourceLine: procedure public;
 		lstbuf(lstLineLen) = GetSourceCh;
 		if lstbuf(lstLineLen) = lf then
 		do;
-			b7AF1 = 0;
-			b7AF2 = 0;
+			linePrefixChecked = false;
+			linePrefixListed = false;
 			return;
 		end;
 		else if lstbuf(lstLineLen) = cr then		/* allow cr */
@@ -17713,7 +17674,7 @@ Sub$40AC: PROCEDURE PUBLIC;
 	end SkipSpace;
 
 
-	TestToken: PROCEDURE(str, len) BOOLEAN;
+	TestToken: PROCEDURE(str, len) bool;
 		DECLARE str ADDRESS, len BYTE;
 		DECLARE p ADDRESS;
 		DECLARE strch BASED str BYTE;
@@ -17894,7 +17855,7 @@ Sub$40AC: PROCEDURE PUBLIC;
 		OPTIMIZE = true;
 		call SetDate(.(' '), 1);
 		call SetPageLen(57);
-		call SetMarkerInfo(20, 45, 21);
+		call SetMarkerInfo(20, '-', 21);
 		call SetPageNo(0);
 		call SetMarginAndTabW(0FFH, 4);
 		call SetTitle(.(' '), 1);
@@ -18019,11 +17980,11 @@ SetPageLen: PROCEDURE(len) PUBLIC;
 end SetPageLen;
 
 
-SetMarkerInfo: PROCEDURE(b1, b2, b3) PUBLIC;
-	DECLARE (b1, b2, b3) BYTE;
-	b3CFB = b1;
-	b3CFC = b2;
-	b3CFD = b3;
+SetMarkerInfo: PROCEDURE(markerCol, marker, textCol) PUBLIC;
+	DECLARE (markerCol, marker, textCol) BYTE;
+	wrapMarkerCol = markerCol;
+	wrapMarker = marker;
+	wrapTextCol = textCol;
 end;
 
 SetPageNo: PROCEDURE(v) PUBLIC;
@@ -18635,7 +18596,7 @@ L7:	dcr	c
 	extrn	PWIDTH
 	extrn	tWidth
 	extrn	margin
-	extrn	b3CFF
+	extrn	skpCnt
 	extrn	linLft
 	extrn	col
 	extrn	@P0029	; dehl@deDIVhl
@@ -18657,7 +18618,7 @@ putLst:
 	jmp	L76BF
 
 L7695:	mov	b, a
-	lda	b3CFF
+	lda	skpCnt
 	cmp	b
 	jc	L76A3
 	call	NewPgl
@@ -18669,7 +18630,7 @@ L76A3:	ora	a
 	call	wrcLst
 	lxi	h, linLft
 	dcr	m
-	lxi	h, b3CFF
+	lxi	h, skpCnt
 	dcr	m
 	mov	a, m
 	jmp	L76A3
@@ -18796,8 +18757,8 @@ CSEG
 	extrn GetLin
 	extrn lastch
 	extrn Readf
-	extrn ocurch
-	extrn olstch
+	extrn oCurCh
+	extrn oLstCh
 	extrn srcFil
 	extrn inbuf
 	public trunc
@@ -18823,8 +18784,8 @@ L58F5:	sta	lastch
 ; char is 0x81 on EOF, cr is discarded
 ; Attributes: hidden
 
-ingetc:	lhld	ocurch
-	lxi	d, olstch	; see if characters left in buffer
+ingetc:	lhld	oCurCh
+	lxi	d, oLstCh	; see if characters left in buffer
 	ldax	d
 	cmp	l
 	jnz	L593A
@@ -18833,15 +18794,15 @@ ingetc:	lhld	ocurch
 	cmp	h
 	jnz	L593A
 	lxi	h, 0
-	shld	ocurch
+	shld	oCurCh
 	lxi	b, srcFil
 	push	b
 	lxi	b, inbuf
 	push	b
 	lxi	b, 200h
-	lxi	d, olstch
+	lxi	d, oLstCh
 	call	Readf
-	lhld	olstch
+	lhld	oLstCh
 	mov	a, h
 	ora	l
 	jnz	L5930
@@ -18851,12 +18812,12 @@ ingetc:	lhld	ocurch
 	ret
 
 L5930:	dcx	h
-	shld	olstch
-	lhld	ocurch
+	shld	oLstCh
+	lhld	oCurCh
 	jmp	L593E
 
 L593A:	inx	h
-	shld	ocurch
+	shld	oCurCh
 
 L593E:	lxi	b, inbuf
 	dad	b

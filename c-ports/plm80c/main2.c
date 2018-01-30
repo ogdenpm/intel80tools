@@ -95,7 +95,6 @@ bool boC20F = false;
 
 byte copyRight[] = "(C) 1976, 1977, 1982 INTEL CORP";
 
-jmp_buf finalise;
 
 static void Sub_3F27()
 {
@@ -104,7 +103,7 @@ static void Sub_3F27()
 
     botMem = MEMORY + 256;
     if (w3822 < botMem)
-        Fatal(emsg, sizeof(emsg) - 1);
+        Fatal(emsg, Length(emsg));
     CreatF(&tx1File, tx1Buf, 512, 2);
     CreatF(&tx2File, tx2Buf, 512, 1);
     memset(wC1DC, 0, 10);
@@ -123,7 +122,7 @@ static void Sub_3F7D()
 
 word Start2()
 {
-	if (setjmp(finalise) == 0) {
+	if (setjmp(exception) == 0) {
 		Sub_3F27();
 		while (1) {
 			FillTx2Q();

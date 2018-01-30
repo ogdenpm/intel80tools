@@ -136,7 +136,7 @@ void FatalError_ov1(byte err)
 {
     hasErrors = true;
     b91C0 = fatalErrorCode = err;
-    longjmp(cleanup, -1);
+    longjmp(exception, -1);
 }
 
 

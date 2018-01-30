@@ -93,8 +93,8 @@ static void Sub_4105()
     p = w7197 - GetLinkVal();
     Fwrite(&tx1File, (pointer)&p, 2);
     for (i = 0; i <= 45; i++) {
-        k = b47B7[i];
-        j = k + b4789[i];
+        k = b42D6[i];
+        j = k + b42A8[i];
         m = false;
         while (k < j) {
             if (m) {

@@ -3,7 +3,14 @@
 static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 static byte objEOF[] = {0xe, 1, 0, 0xf1};
 
-jmp_buf errCont;
+static byte b4304[] = {
+    0x24,0x24,0x24,0x24,0x13,0x13,0x18,0x18,
+    0x18,0x18,0x16,0x2C,0x15,0x1F,0x1F,0x20,
+    0x20,0x19,0x19,0x19,0x19,   8,   8,   9,
+    9,   6,   7,0x25,0x25,0x25,0x25,0x25,
+    0xA, 0xA, 0xB, 0xB,0x14,0x14,0x14,0x14,
+    0x14,0x39,0x1A,0x1A,0x1A,0x1A };
+
 
 static void Sub_3FC8()
 {
@@ -64,8 +71,8 @@ void Sub_408B()
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
-        wa8125[2] = wa8125[1] = 0;
-        wa8125[0] = fatalErrorCode;
+        errData.stmt = errData.info = 0;
+        errData.num = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
     }
@@ -90,7 +97,7 @@ void Sub_4162()
             if (WordP(helpersP)[helperId] != 0) {
                 baseAddr = WordP(helpersP)[helperId];
                 b969C = b4304[helperModId];
-                b969D = b457C[b969C];
+                b969D = b4273[b969C];
                 Sub_5FE7(w4919[helperId], b4A03[helperId]);
                 break;
             }
@@ -129,7 +136,7 @@ void Sub_423C()
 
     if (PRINT) {
         TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], olstch - ocurch);
+        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
         CloseF(&srcFil);
         FlushLstBuf();
     }
@@ -144,7 +151,7 @@ word Start4()
     ((rec_t *)rec24_1)->val[0] = 2; // data seg
     ((rec_t *)rec24_2)->val[0] = 3; // stack seg
 
-    if (setjmp(errCont) == 0) {
+    if (setjmp(exception) == 0) {
         Sub_408B();
 
         while (bo812B) {
@@ -152,7 +159,7 @@ word Start4()
         }
         Sub_4162();
         FlushRecs();
-        Sub_5BD3();
+        FindErrStr();
     }
 	Sub_423C();
     if (IXREF)

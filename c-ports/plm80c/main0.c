@@ -1,7 +1,7 @@
 #include "plm.h"
 static byte copyright[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
-jmp_buf resetPt;
+jmp_buf exception;
 
 static void Sub_3EDF()
 {
@@ -11,7 +11,7 @@ static void Sub_3EDF()
 	WrByte(L_EOF);
 	Sub_4119();
 	TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-	Backup((loc_t *)&srcFileTable[srcFileIdx + 8], olstch - ocurch);
+	Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
 	CloseF(&srcFil);
 } /* Sub_3EDF() */
 
@@ -21,7 +21,7 @@ static void Sub_3F23()
 	InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]);
 	OpenF(&srcFil, 1);
 	SeekF(&srcFil,  (loc_t *)&srcFileTable[srcFileIdx + 8]);
-	ocurch = olstch;
+	offCurCh = offLastCh;
 	if (offNxtCmdChM1 != 0)
 		while (cmdLineP != 0) {
 			DoControl(offNxtCmdChM1 + ByteP(cmdLineP));
@@ -45,10 +45,10 @@ static void Sub_3FAD()
 
 word Start0()
 {
-	if (setjmp(resetPt) == 0) {
+	if (setjmp(exception) == 0) {
 		state = 20;	/* 9B46 */
 		Sub_3FAD();
 	}
-	Sub_3EDF();		/* resetPt goes to here */
+	Sub_3EDF();		/* exception goes to here */
     return 1; // Chain(overlay[1]);
 }

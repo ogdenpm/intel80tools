@@ -1,4 +1,5 @@
 #include "plm.h"
+#include <stdio.h>
 
 static byte ccBits[] = {0x10, 0x18, 8, 0, 0x18, 0x10};
 static byte ccCodes[] =  "\x2" "NC" "\x1" "C " "\x1" "Z " "\x2" "NZ" "\x1" "C " "\x2" "NC";
@@ -68,8 +69,8 @@ static void AddHelper()
     if (bA190 == 1)
         q = 0x69;
     else {
-        i = b4566[b969D];
-        j = b4495[b9692 + 11 * i];
+        i = b425D[b969D];
+        j = b418C[b9692 + 11 * i];
         q = b42D6[(j >> 2)] + (j & 3);
     }
     helperStr[0] = Num2Asc(q, -4, 10, &helperStr[3]) + 2;
@@ -165,10 +166,12 @@ static void Sub_64CF()
 {
     byte i;
     switch (bA190) {
-    case 0: i = b4566[b969D]; break;
+    case 0: i = b425D[b969D]; break;
     case 1: i = b475E[b969D]; break;
     case 2: i = b4774[b969D]; break;
     case 3: i = b478A[b969D]; break;
+    default: fprintf(stderr, "out of bounds in Sub_64CF() bA190 = %d\n", bA190);
+        Exit();
     }
     opBytes[0] = b473D[i];
     opByteCnt = 1;
@@ -271,13 +274,13 @@ void Sub_5FE7(word arg1w, byte arg2b)
 	while (arg2b > 0) {
 		Sub_603C();
 		Sub_654F();
-		Sub_5E3E();
+		ListCodeBytes();
 		l_arg1w++;
 		arg2b--;
 		p = baseAddr + opByteCnt;
 		if (baseAddr > p) {
-			wa8125[2] = wa8125[1] = 0;
-			wa8125[0] = 0xCE;
+			errData.stmt = errData.info = 0;
+			errData.num = 0xCE;
 			EmitError();
 		} 
 		baseAddr = p;
@@ -295,8 +298,8 @@ Sub_66F1()
     if (cfCode >= 0xAE) { 
         i = cfCode - 0xAE;
         cfCode = b4602[i];
-        i = b4444[i];
-        b9692 = b4431[i];
+        i = b413B[i];
+        b9692 = b4128[i];
     }
 }
 
@@ -455,17 +458,17 @@ Sub_6720()
     static byte i;
 
     b96D6 = 0;
-    if (b4332[cfCode] & 0x80) {
+    if (b4029[cfCode] & 0x80) {
         Fread(&tx1File, &b969C, 1);
-        b969D = b457C[b969C];
+        b969D = b4273[b969C];
     }
     w969E = 0;
-    bA1AB = (b4332[cfCode] >> 4) & 7;
+    bA1AB = (b4029[cfCode] >> 4) & 7;
     if (bA1AB != 0) {
         if (bA1AB <= 3)
             Fread(&tx1File, &i, 1);
         Sub_67AD((i >> 4) & 0xf, 0);
-        bA1AB = (b4332[cfCode] >> 1) & 7;
+        bA1AB = (b4029[cfCode] >> 1) & 7;
         Sub_67AD(i & 0xf, 1);
     }
 } /* Sub_6720() */
@@ -484,7 +487,7 @@ void Sub_668B()
 		}
 		FlushRecs();
 	}
-	Sub_5BD3();
+	FindErrStr();
 	Sub_5FE7(w47C1[cfCode] & 0xfff, w47C1[cfCode] >> 12);
 }
 

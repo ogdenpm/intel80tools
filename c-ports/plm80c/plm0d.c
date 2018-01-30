@@ -60,7 +60,7 @@ static void GetCodeLine()
             InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]);
             OpenF(&srcFil, 1);
             SeekF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-            ocurch = olstch;
+            offCurCh = offLastCh;
         }
     }
 }

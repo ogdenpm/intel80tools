@@ -242,3 +242,71 @@ void SetType(byte type)
 	InfoP(curInfoP)->type = type;
 }
 
+// flag access functions
+
+static byte tblOffsets[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+1, 1, 1, 1, 1, 1, 1, 1, 2, 2 };
+static byte tblBitFlags[] = { 0x80, 0x40, 0x20, 0x10, 0x10, 8, 8, 4, 2, 1,
+0x80, 0x40, 0x20, 0x10, 8, 4, 2, 1, 0x80, 0x40 };
+
+
+void ClrFlag(pointer base, byte flag)
+{
+	byte off, mask;
+
+	off = tblOffsets[flag];
+	mask = ~tblBitFlags[flag];
+	base[off] &= mask;
+}
+
+void ClrFlags(pointer base)
+{
+	byte i;
+
+	for (i = 0; i <= 2; i++) {
+		base[i] = 0;
+	}
+}
+
+void ClrInfoFlag(byte flag)
+{
+	ClrFlag(InfoP(curInfoP)->flag, flag);
+}
+
+void CpyFlags(pointer base)
+{
+	byte i;
+
+	for (i = 0; i <= 2; i++) {
+		InfoP(curInfoP)->flag[i] = base[i];
+	}
+}
+
+void SetFlag(pointer base, byte flag)
+{
+	byte off, bit;
+
+	off = tblOffsets[flag];
+	bit = tblBitFlags[flag];
+	base[off] |= bit;
+}
+
+
+bool TestFlag(pointer base, byte flag)
+{
+	byte off, bit;
+
+	off = tblOffsets[flag];
+	bit = tblBitFlags[flag];
+	if ((base[off] & bit) != 0 )
+		return true;
+	else
+		return false;
+} /* TestFlag() */
+
+byte TestInfoFlag(byte flag)
+{
+	return TestFlag(InfoP(curInfoP)->flag, flag);
+}
+
+
