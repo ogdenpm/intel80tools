@@ -49,7 +49,6 @@ bool standAlone = true;
 bool IXREFSet = true;
 bool PRINTSet = true;
 bool OBJECTSet = true;
-bool debugFlag = false;
 bool unexpectedEOF = false;
 bool haveModule = false;
 byte fatalErrorCode = 0;

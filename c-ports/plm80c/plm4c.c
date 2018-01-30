@@ -487,7 +487,7 @@ void Sub_668B()
 		}
 		FlushRecs();
 	}
-	FindErrStr();
+	EmitLinePrefix();
 	Sub_5FE7(w47C1[cfCode] & 0xfff, w47C1[cfCode] >> 12);
 }
 

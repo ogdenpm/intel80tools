@@ -1,7 +1,6 @@
 #include "plm.h"
 
 // lifted to file scope
-static byte cfCode;
 static word itemArgs[4];
 
 

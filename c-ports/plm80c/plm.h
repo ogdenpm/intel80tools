@@ -550,7 +550,7 @@ void Sub_4767();
 extern byte verNo[];
 
 /* plmd.plm */
-void SetMarginAndTabW(byte b1,byte b2);
+void SetMarginAndTabW(byte startCol, byte width);
 void SetPageNo(word v);
 void SetTitle(pointer str,byte len);
 
@@ -561,11 +561,6 @@ void SetMarkerInfo(byte markerCol, byte marker, byte textCol);
 void SetDate(pointer str,byte len);
 void SetPageLen(word len);
 void SetPageWidth(word width);
-
-/* plmE.plm */
-extern byte builtins[];
-extern byte ioBuffer[];
-extern byte keywords[];
 
 
 /* plm0A.plm */
@@ -1280,8 +1275,6 @@ extern word csegSize;
 extern word curInfoP;	// individually cast
 extern offset_t curSymbolP;
 extern byte DATE[];
-extern bool debugFlag;
-extern bool debugSwitches[];
 extern word dsegSize;
 extern byte fatalErrorCode;
 extern bool hasErrors;
@@ -1290,7 +1283,6 @@ extern bool haveModule;
 extern offset_t helpersP;
 extern word intVecLoc;
 extern byte intVecNum;
-//extern byte invokeName[];
 extern address ISIS;
 extern file_t ixiFile;
 extern byte ixiFileName[];
@@ -1314,11 +1306,6 @@ extern bool OBJECTSet;
 extern file_t objFile;
 extern byte objFileName[];
 extern word offNxtCmdChM1;
-//extern byte ov0[];
-//extern byte ov6[];
-//extern byte overlay[7][FILE_NAME_LEN];
-//extern byte pad3C43;
-//extern byte pad_3C4E[];
 extern byte PAGELEN;
 extern word pageNo;
 extern byte plm80Compiler[];
