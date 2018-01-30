@@ -5,11 +5,6 @@ static byte noMemMsg[] = "NOT ENOUGH MEMORY FOR A COMPILATION";
 static byte aIxi[] = ".IXI";
 static byte aObj[] = ".OBJ";
 static byte aLst[] = ".LST";
-static byte plmtx1[] = ":F1:PLMTX1.TMP ";
-static byte plmtx2[] = ":F1:PLMTX2.TMP ";
-static byte plmat[] = ":F1:PLMAT.TMP ";
-static byte plmnms[] = ":F1:PLMNMS.TMP ";
-static byte plmxrf[] = ":F1:PLMXRF.TMP ";
 static byte aInvocationComm[] = "INVOCATION COMMAND DOES NOT END WITH <CR><LF>";
 static byte aIncorrectDevice[] = "INCORRECT DEVICE SPEC";
 static byte aSourceFileNotDisk[] = "SOURCE FILE NOT A DISKETTE FILE";
@@ -24,7 +19,7 @@ static void SkipSpace()
 {
     while (*cmdTextP == ' ' || *cmdTextP == '&') {
         if (*cmdTextP == ' ')
-            cmdTextP = cmdTextP + 1;
+            cmdTextP++;
         else if (CmdP(cmdLineP)->link) {
             cmdLineP = CmdP(cmdLineP)->link;
             cmdTextP = &CmdP(cmdLineP)->pstr[1];
@@ -38,14 +33,11 @@ static bool TestToken(pointer str, byte len)
     pointer p;
 
     p = cmdTextP;
-    while (len != 0) {
-        if ((*cmdTextP & 0x5F) != *str) {
+    while (len-- != 0) {
+        if ((*cmdTextP++ & 0x5F) != *str++) {
             cmdTextP = p;
             return false;
         }
-        cmdTextP = cmdTextP + 1;
-        str = str + 1;
-        len = len - 1;
     }
     return true;
 } /* TestToken() */
@@ -55,7 +47,7 @@ static void SkipAlphaNum()
 {
     while ('A' <= *cmdTextP && *cmdTextP <= 'Z' || 'a' <= *cmdTextP && *cmdTextP <= 'z'
                 || '0' <= *cmdTextP && *cmdTextP <= '9')
-        cmdTextP = cmdTextP + 1;
+        cmdTextP++;
 } /* SkipAlphaNum() */
 
 
@@ -75,7 +67,7 @@ static void GetCmdLine()
     for (;;) {
         ReadF(&conFile, ioBuffer, 128, &actual);
         if (ioBuffer[actual - 1] != '\n' || ioBuffer[actual - 2] != '\r')
-            Fatal(aInvocationComm, sizeof(aInvocationComm) - 1);
+            Fatal(aInvocationComm, Length(aInvocationComm));
         topMem = cmdLineP - (sizeof(cmd_t) + actual);
         if (startCmdLineP == 0)
             startCmdLineP = topMem;
@@ -108,14 +100,11 @@ static void ParseInvokeName()
     //word p;
 
     SkipSpace();
-    if (TestToken("DEBUG", 5))
-        debugFlag = true;
-    else
-        debugFlag = false;
+    debugFlag = TestToken("DEBUG", 5);
     SkipSpace();
     //startP = cmdTextP;
     if (*cmdTextP == ':')
-        cmdTextP = cmdTextP + 4;    // skip drive
+        cmdTextP += 4;    // skip drive
     SkipAlphaNum();
     //if ((len = (word)(cmdTextP - startP)) > 10)
     //    len = 10;
@@ -140,30 +129,30 @@ static void ParseSrcFile()
     word nameLen;
 
     while (*cmdTextP != ' ' && *cmdTextP != '\r' && *cmdTextP != '&')
-        cmdTextP = cmdTextP + 1;
+        cmdTextP++;
     SkipSpace();
     fullName = cmdTextP;
     if (*cmdTextP == ':') {
         if (cmdTextP[3] != ':')
-            Fatal(aIncorrectDevice, sizeof(aIncorrectDevice) - 1);
+            Fatal(aIncorrectDevice, Length(aIncorrectDevice));
         if (cmdTextP[1] >= 'a')
-            cmdTextP[1] = cmdTextP[1] & 0x5F;
+            cmdTextP[1] &= 0x5F;
         if (cmdTextP[1] != 'F')
-            Fatal(aSourceFileNotDisk, sizeof(aSourceFileNotDisk) - 1);
-        cmdTextP = cmdTextP + 4;
+            Fatal(aSourceFileNotDisk, Length(aSourceFileNotDisk));
+        cmdTextP += 4;
     }
     fileName = cmdTextP;
     SkipAlphaNum();
     if ((nameLen = (word)(cmdTextP - fileName)) == 0 || nameLen > 6)
-        Fatal(aSourceFileName, sizeof(aSourceFileName) - 1);
+        Fatal(aSourceFileName, Length(aSourceFileName));
     srcStemLen = (byte)(cmdTextP - fullName);
     memset(srcStemName, ' ', 10);
     memmove(srcStemName, fullName, srcStemLen);
     if (*cmdTextP == '.') {
-        fileName = (cmdTextP = cmdTextP + 1);
+        fileName = ++cmdTextP;
         SkipAlphaNum();
         if ((nameLen = (word)(cmdTextP - fileName)) == 0 || nameLen > 3)
-            Fatal(aSourceFileBadExt, sizeof(aSourceFileBadExt) - 1);
+            Fatal(aSourceFileBadExt, Length(aSourceFileBadExt));
     }
     nameLen = (word)(cmdTextP - fullName);
     srcFileIdx = 0;
@@ -172,7 +161,7 @@ static void ParseSrcFile()
     memset(&srcFileTable[8], 0, 4);
     SkipSpace();
     if (*cmdTextP == '$')
-        Fatal(aIllegalCommand, sizeof(aIllegalCommand) - 1);
+        Fatal(aIllegalCommand, Length(aIllegalCommand));
     if (*cmdTextP == '\r')
         offNxtCmdChM1 = 0;
     else
@@ -195,11 +184,11 @@ static void Sub_45F6()
     memmove(lstFileName, srcStemName, srcStemLen);
     memmove(&lstFileName[srcStemLen], aLst, 4);
     InitF(&lstFil, "LIST ", lstFileName);
-    InitF(&tx1File, "UT1 ", plmtx1);
-    InitF(&tx2File, "UT2 ", plmtx2);
-    InitF(&atFile, "AT  ", plmat);
-    InitF(&nmsFile, "NAMES ", plmnms);
-    InitF(&xrfFile, "XREF ", plmxrf);
+    InitF(&tx1File, "UT1 ", ":F1:PLMTX1.TMP ");
+    InitF(&tx2File, "UT2 ", ":F1:PLMTX2.TMP ");
+    InitF(&atFile, "AT  ", ":F1:PLMAT.TMP ");
+    InitF(&nmsFile, "NAMES ", ":F1:PLMNMS.TMP ");
+    InitF(&xrfFile, "XREF ", ":F1:PLMXRF.TMP ");
     IXREF = false;
     IXREFSet = false;
     PRINT = true;
@@ -213,7 +202,7 @@ static void Sub_45F6()
     OPTIMIZE = true;
     SetDate(" ", 1);
     SetPageLen(57);
-    SetMarkerInfo(20, 45, 21);
+    SetMarkerInfo(20, '-', 21);
     SetPageNo(0);
     SetMarginAndTabW(0xFF, 4);
     SetTitle(" ", 1);
@@ -227,15 +216,14 @@ void Sub_40AC()
 	OpenF(&conFile, 1);
 	topMem = MemCk() - 12;
 	if (topMem < 0xC000)
-		Fatal(noMemMsg, sizeof(noMemMsg) - 1);
+		Fatal(noMemMsg, Length(noMemMsg));
 	GetCmdLine();
-	PrintStr(signonMsg, sizeof(signonMsg) - 1);
+	PrintStr(signonMsg, Length(signonMsg));
 	PrintStr(version, 4);
 	PrintStr("\r\n", 2);
 	cmdTextP = &CmdP(cmdLineP)->pstr[1];
-// TOFIX
-//	blkSize1 = topMem - blkSize1 - 256;
-//	blkSize2 = topMem - blkSize2 - 256;
+	blkSize1 = topMem - blkSize1 - 256;
+	blkSize2 = topMem - blkSize2 - 256;
 	ParseInvokeName();
 	ParseSrcFile();
 	Sub_45F6();

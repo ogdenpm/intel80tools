@@ -244,6 +244,12 @@ void SetType(byte type)
 
 // flag access functions
 
+static byte tblOffsets[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+1, 1, 1, 1, 1, 1, 1, 1, 2, 2 };
+static byte tblBitFlags[] = { 0x80, 0x40, 0x20, 0x10, 0x10, 8, 8, 4, 2, 1,
+0x80, 0x40, 0x20, 0x10, 8, 4, 2, 1, 0x80, 0x40 };
+
+
 void ClrFlag(pointer base, byte flag)
 {
 	byte off, mask;

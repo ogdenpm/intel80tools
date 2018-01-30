@@ -1,4 +1,5 @@
 #include "plm.h"
+#include <stdio.h>
 
 static byte b7A81[4] = { 0x3C, 0x46, 0x50, 0x5A };
 
@@ -375,6 +376,8 @@ static void Sub_8698(byte arg1b, byte arg2b)
 		else
 			Sub_61E0((byte)tx2op3[tx2qp]);
 		return;
+    default: fprintf(stderr, "out of bounds in Sub_8698 arg1b = %d\n", arg1b);
+        Exit();
 	}
 	if (arg2b <= 3)
 		Sub_636A(i);

@@ -14,7 +14,7 @@ typedef word offset_t;
 #define Ror(v, n)	(((v) >> n) | ((v) << (8 - n)))
 #define Rol(v, n)	(((v) << n) | (((v) >> (8 - n)))
 #define Move(s, d, c)	memcpy(d, s, c)
-
+#define Length(str) (sizeof(str) - 1)
 
 
 /* isis command codes */
@@ -496,6 +496,8 @@ typedef struct {
 
 typedef struct { offset_t infoOffset; word arrayIndex, nestedArrayIndex, val; } var_t;
 
+typedef struct { word num; offset_t info; word stmt; } err_t;
+
 #pragma pack(pop)
 // helper functions for converting offsets to pointers
 pointer off2Ptr(offset_t off);
@@ -522,13 +524,11 @@ void FatalError(byte err);
 void FatalError_main(byte err);
 void FatalError_ov0(byte err);
 void FatalError_ov1(byte err);
-void FatalError_ov6(byte err);
+void FatalError_ov46(byte err);
 
-// the corresponding longjmp buffers
-extern jmp_buf resetPt;	// ov0
-extern jmp_buf cleanup;	// ov1
-extern jmp_buf finalise; // ov2
-extern jmp_buf errCont;	// ov6
+// the longjmp buffer
+extern jmp_buf exception;
+
 
 word Start();
 word Start0();
@@ -555,7 +555,7 @@ void SetPageNo(word v);
 void SetTitle(pointer str,byte len);
 
 /* plmd.plm,lstsp4.plm,lstsp5.plm,lstsp6.plm */
-void SetMarkerInfo(byte arg1b,byte arg2b,byte arg3b);
+void SetMarkerInfo(byte markerCol, byte marker, byte textCol);
 
 /* plmd.plm,plm0h.plm */
 void SetDate(pointer str,byte len);
@@ -623,8 +623,8 @@ extern word curProcInfoP;
 extern linfo_t linfo;
 
 /* plm0A.plm,pdata4.plm */
-extern word ocurch;
-extern word olstch;
+extern word offCurCh;
+extern word offLastCh;
 
 /* plm0A.plm,plm3a.plm,pdata4.plm */
 extern byte tx1Buf[];
@@ -985,8 +985,8 @@ void Sub_A153();
 /* File(main3.plm) no externals */
 
 /* plm3a.plm */
-extern byte b4789[];
-extern byte b47B7[];
+extern byte b42A8[];
+extern byte b42D6[];
 extern byte b4813[];
 extern byte b7199;
 extern byte nmsBuf[];
@@ -1057,12 +1057,12 @@ extern byte b96B0[];
 extern byte b96D6;
 extern word baseAddr;
 extern bool bo812B;
-extern bool bo813B;
-extern bool bo813C;
+extern bool linePrefixChecked;
+extern bool linePrefixListed;
 extern byte cfCode;
 extern byte commentStr[];
 extern byte curExtId;
-extern word depth;
+extern word blkCnt;
 extern byte dstRec;
 //extern byte endHelperId; now local var
 extern byte helperId;
@@ -1070,6 +1070,7 @@ extern byte helperId;
 extern byte helperStr[];
 extern byte line[];
 extern byte locLabStr[];
+extern err_t errData;
 extern byte lstLine[];
 extern byte opByteCnt;
 extern byte opBytes[];
@@ -1081,7 +1082,6 @@ extern pointer sValAry[];
 extern word w812F;
 extern pointer w969E;
 extern word w96D7;
-extern word wa8125[];
 extern word wValAry[];
 
 /* pdata4.plm,main5.plm,pdata6.plm */
@@ -1089,7 +1089,7 @@ extern byte lstBuf[];
 
 /* pdata4.plm,pdata6.plm */
 extern bool codeOn;
-extern word lineNo;
+extern word stmtCnt;
 extern bool listing;
 extern bool listOff;
 extern byte lstLineLen;
@@ -1098,13 +1098,12 @@ extern byte srcbuf[];
 /* plm4a.plm */
 extern byte b42A8[];
 extern byte b42D6[];
-extern byte b4304[];
-extern byte b4332[];
-extern byte b4431[];
-extern byte b4444[];
-extern byte b4495[];
-extern byte b4566[];
-extern byte b457C[];
+extern byte b4029[];
+extern byte b4128[];
+extern byte b413B[];
+extern byte b418C[];
+extern byte b425D[];
+extern byte b4273[];
 extern byte b4602[];
 extern byte b473D[];
 extern byte b475E[];
@@ -1129,16 +1128,15 @@ void AddWrdDisp(pointer strP, word arg2w);
 void EmitLabel();
 void EmitStatementNo();
 void FlushRecs();
-void Sub_5BD3();
-void Sub_5E1B(byte arg1b);
-void Sub_5E3E();
+void EmitLinePrefix();
+void FatalError(byte arg1b);
+void ListCodeBytes();
 
 /* plm4b.plm,plm6b.plm */
 void EmitError();
-void EmitError_6();
+void FindErrStr();
 
 void GetSourceLine();
-void GetSourceLine_6();
 
 /* plm4c.plm */
 void Sub_5FE7(word arg1w,byte arg2b);
@@ -1178,20 +1176,15 @@ extern offset_t xrefItemP;
 extern bool b7AD9;
 extern byte b7ADA;
 extern bool b7AE4;
-extern bool b7AF1;
-extern bool b7AF2;
-extern word errNum;
 extern word offCurCh;
 extern word offLastCh;
-extern word STMTNum;
-extern word w7AE0;
-extern word w7AE5;
-extern word w7AE9;
-extern word w7AEB;
+extern word lineCnt;
+extern word blkCnt;
+extern word stmtNo;
 
 /* plm6a.plm */
 void Sub_42E7();
-
+void MiscControl();     // merged with 
 /* plm6b.plm */
 void EmitLinePrefix();
 
@@ -1267,10 +1260,10 @@ void CreateInfo(word val, byte type);
 /* data.plm */
 extern file_t atFile;
 extern byte b3CF2;
-extern byte b3CFB;
-extern byte b3CFC;
-extern byte b3CFD;
-extern byte b3CFF;
+extern byte wrapMarkerCol;
+extern byte wrapMarker;
+extern byte wrapTextCol;
+extern byte skipCnt;
 extern word blk1Used;
 extern word blk2Used;
 extern word blkSize1;
@@ -1343,8 +1336,6 @@ extern byte srcStemLen;
 extern byte srcStemName[];
 extern bool standAlone;
 extern offset_t startCmdLineP;
-extern byte tblBitFlags[];
-extern byte tblOffsets[];
 extern byte TITLE[];
 extern byte TITLELEN;
 extern offset_t topInfo;

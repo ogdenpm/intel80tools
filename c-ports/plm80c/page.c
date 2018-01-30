@@ -27,7 +27,7 @@ void NewPgl()
 	WrnStrLst("  PAGE ", 7);
 	WrnStrLst(pnum, 3);
 	WrnStrLst("\r\n\n\n", 4);
-	b3CFF = 0;
+	skipCnt = 0;
 }
 
 
@@ -38,15 +38,15 @@ void NlLead()
 	linLft = linLft - 1;
 	if (linLft == 0)
 		NewPgl();
-	while (col < b3CFB) {
+	while (col < wrapMarkerCol) {
 		WrcLst(' ');
 		col = col + 1;
 	}
-	if (b3CFC != 0) {
-		WrcLst(b3CFC);
+	if (wrapMarker != 0) {
+		WrcLst(wrapMarker);
 		col = col + 1;
 	}
-	while (col < b3CFD) {
+	while (col < wrapTextCol) {
 		WrcLst(' ');
 		col = col + 1;
 	}

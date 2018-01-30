@@ -6,18 +6,18 @@ bool listing;
 bool listOff;
 bool codeOn;
 byte locLabStr[32];		/* used to hold symbol name */
-word wa8125[3];
+err_t errData;
 bool bo812B = true;
 word baseAddr;
 byte cfCode;
 word w812F;
-word lineNo;
-word depth;
+word stmtCnt;
+word blkCnt;
 word stmtNo;
-//word olstch = 0;  already defined in plm0a.c
-//word ocurch = 0;  already defined in plm0a.c
-bool bo813B = true;
-bool bo813C = true;
+//word offLastCh = 0;  already defined in plm0a.c
+//word offCurCh = 0;  already defined in plm0a.c
+bool linePrefixChecked = true;
+bool linePrefixListed = true;
 byte lstLineLen;
 byte lstLine[130];
 byte rec6_4[1024] = {6, 0, 0, 1};

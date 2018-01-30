@@ -218,9 +218,9 @@ void FatalError(byte errNum)
     case 1:   FatalError_ov1(errNum); break;
     case 2:
     case 3:
-    case 4:
     case 5:
-    case 6:   FatalError_ov6(errNum); break;
+    case 4:
+    case 6:   FatalError_ov46(errNum); break;
     }
 }
 

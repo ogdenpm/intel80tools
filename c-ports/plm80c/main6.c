@@ -56,7 +56,7 @@ void Sub_404A()
     CreatF(&tx2File, tx2Buf, 0x800, 1);
     if (b7AD9 || IXREF)
         CreatF(&nmsFile, nmsBuf, 0x800, 1);
-    w7AEB = 0;
+    stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
         InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]); /* note word array used */
@@ -66,8 +66,8 @@ void Sub_404A()
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
-        STMTNum = w7AE0 = 0;
-        errNum = fatalErrorCode;
+        errData.stmt = errData.info = 0;
+        errData.num = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
     }
@@ -112,7 +112,7 @@ void Sub_41B6()
 #endif
         DeletF(&nmsFile);
     }
-    linesRead = w7AE5;
+    linesRead = lineCnt;
     if (PRINT) {
         TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
         Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
@@ -123,7 +123,7 @@ void Sub_41B6()
 
 word Start6()
 {
-    if (setjmp(errCont) == 0) {
+    if (setjmp(exception) == 0) {
         Sub_404A();
         if (b7AD9 || IXREF) {
             Sub_4149();

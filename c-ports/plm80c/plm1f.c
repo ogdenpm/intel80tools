@@ -70,7 +70,7 @@ static void Sub_7049()
 	byte i;
 	byte zero = 0;
 
-	if (!b9B40 & ~IXREF)
+	if (!b9B40 && !IXREF)
 		return;
 	p = topSymbol - 1;
 	for (i = 0; i <= 63; i++) {
@@ -207,7 +207,7 @@ static void Sub_719D()
 struct {
 	byte type;
 	offset_t  infoP;
-	word stmtNum;
+	word stmt;
     var_t var;
 	byte pad[242];
 } atFData;
@@ -282,7 +282,7 @@ static void     Sub_73DC()
 	if (atFData.infoP == 0)
 		return;
 	atFData.infoP = atFData.infoP + botInfo;
-	atStmtNum = atFData.stmtNum;
+	atStmtNum = atFData.stmt;
 	atOffset = atFData.var.val;
 	if (atFData.var.infoOffset != 0)
 	{
