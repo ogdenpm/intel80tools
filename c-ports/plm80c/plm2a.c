@@ -1,8 +1,8 @@
 #include "plm.h"
 
-byte unused[] = {2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3, 3,
-            2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2, 2, 3,
-            2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4};
+//byte unused[] = {2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3, 3,
+//            2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2, 2, 3,
+//            2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4};
 
 byte b3FCD[] = {0, 2, 4, 7, 0xB, 0xE, 0x12, 0x14, 0x16, 0x19, 0x1D, 0x1F,
             0x22, 0x24, 0x27, 0x2A, 0x2D, 0x30, 0x32, 0x34, 0x37, 0x3B, 0x3D,
@@ -14,9 +14,11 @@ byte b3FCD[] = {0, 2, 4, 7, 0xB, 0xE, 0x12, 0x14, 0x16, 0x19, 0x1D, 0x1F,
             0xB, 0xB, 0x14, 0x14, 0x14, 0x14, 0x14, 0x39, 0x1A, 0x1A, 0x1A,
             0x1A};
 
-byte b4029[] = {0, 0, 0, 0, 0x26, 0x30, 0x30, 0x26, 0x30, 0x20, 0x30, 0x12,
-            0x12, 0x12, 0, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0,
-            0x26, 0x20, 0x20, 0, 0, 0, 0, 0, 0, 0x10, 0x80, 0x80, 0x80,
+byte b4029[] = {0, 0, 0, 0, 0x26, 0x30, 0x30, 0x26,     // was also b4332 in plm4a.c
+            0x30, 0x20, 0x30, 0x12, 0x12, 0x12, 0, 0x10,
+            0x10, 0x10, 0x10, 0x10, 0x10, 0x60, 0, 0x26,
+            0x20, 0x20, 0, 0, 0, 0, 0, 0,
+            0x10, 0x80, 0x80, 0x80,
             0x90, 0x90, 0x40, 0xA0, 0xA0, 0xA0, 0x80, 0xB0, 0x90, 0x80,
             0xB0, 0x90, 0x80, 0xB0, 0x90, 0x80, 0xB0, 0x90, 0x80, 0xB0,
             0x90, 0x20, 0x30, 0x30, 0x30, 0x10, 0x10, 0x70, 0x70, 0x30, 0x30,
@@ -37,10 +39,10 @@ byte b4029[] = {0, 0, 0, 0, 0x26, 0x30, 0x30, 0x26, 0x30, 0x20, 0x30, 0x12,
             0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
             0x80, 0x80, 0x80, 0x80, 0x80, 0x80};
 
-byte b4128[] = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
+byte b4128[] = {0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,  // was also b4431 in plm4a.c
             9, 0xA};
 
-byte b413B[] = {0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2,
+byte b413B[] = {0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2,   // was also b4444 in plm4a.c
             4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6,
             8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6, 8, 0xA,
             0xC, 0x10, 0x11, 0xE, 0x12, 0, 2, 4, 6, 8, 0xA, 0xC, 0x10,
@@ -48,28 +50,31 @@ byte b413B[] = {0, 2, 4, 6, 8, 0xA, 0xC, 0x10, 0x11, 0xE, 0x12, 0, 2,
             0, 4, 6, 8, 0xA, 0xC, 0xE, 0x10, 0x11, 0x12, 0xD, 0xF,
             7, 9, 0xB, 1, 5, 3};
 
-byte b418C[] = {0x90, 0x91, 0x94, 0x95, 0x98, 0x99, 0x9A, 0x9C, 0xA0, 0xA1,
-            0x9D, 0x6C, 0x6D, 0x70, 0x71, 0x74, 0x75, 0x76, 0x78, 0x7C, 0x7D,
-            0x79, 0, 0, 0, 0, 0, 0, 0x64, 0x65, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0x68, 0x69, 0, 0, 0, 0, 0x58, 0, 0, 0x59, 0x5A,
-            0x54, 0x55, 0, 0, 0, 0, 0x60, 0, 0, 0x61, 0x62, 0x5C, 0x5D,
-            0, 0, 0, 0, 0x84, 0, 0, 0x85, 0x86, 0x80, 0x81, 0, 0, 0,
-            0, 0x8C, 0, 0, 0x8D, 0x8E, 0x88, 0x89, 0, 0, 0, 0, 0, 0,
-            0, 0x10, 0x11, 0x12, 0x14, 0x15, 0x16, 0x17, 0, 1, 4, 5, 8,
-            9, 0xA, 0xC, 0xD, 0xE, 0xF, 0, 0x30, 0, 0x31, 0, 0, 0,
-            0, 0, 0, 0, 0, 0x28, 0, 0x29, 0, 0, 0, 0, 0, 0, 0, 0x18,
-            0x19, 0x1C, 0x1D, 0x20, 0x21, 0x22, 0x24, 0x25, 0x26, 0x27, 0x44,
-            0x45, 0x48, 0x49, 0x4C, 0x4D, 0x4E, 0x50, 0x51, 0x52, 0x53, 0xA8,
-            0xA9, 0xAC, 0xAD, 0xB0, 0xB1, 0xB2, 0xB4, 0xB5, 0xB6,
-            0xB7, 0x34, 0x36, 0x35, 0x38, 0x39, 0x3A, 0, 0, 0, 0, 0,
-            0x3C, 0x3D, 0x3E, 0x40, 0x41, 0x42, 0, 0, 0, 0, 0, 0, 0x2C,
-            0, 0, 0x2D, 0x2E, 0, 0, 0, 0, 0, 0xA4, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0};
+byte b418C[] = {      /* 11 byte entries */     // was also b4495 in plm4a.c
+    0x90,0x91,0x94,0x95,0x98,0x99,0x9A,0x9C,0xA0,0xA1,0x9D,
+    0x6C,0x6D,0x70,0x71,0x74,0x75,0x76,0x78,0x7C,0x7D,0x79,
+       0,   0,   0,   0,   0,   0,0x64,0x65,   0,   0,   0,
+       0,   0,   0,   0,   0,   0,0x68,0x69,   0,   0,   0,
+       0,0x58,   0,   0,0x59,0x5A,0x54,0x55,   0,   0,   0,
+       0,0x60,   0,   0,0x61,0x62,0x5C,0x5D,   0,   0,   0,
+       0,0x84,   0,   0,0x85,0x86,0x80,0x81,   0,   0,   0,
+       0,0x8C,   0,   0,0x8D,0x8E,0x88,0x89,   0,   0,   0,
+       0,   0,   0,   0,0x10,0x11,0x12,0x14,0x15,0x16,0x17,
+       0,   1,   4,   5,   8,   9, 0xA, 0xC, 0xD, 0xE, 0xF,
+       0,0x30,   0,0x31,   0,   0,   0,   0,   0,   0,   0,
+       0,0x28,   0,0x29,   0,   0,   0,   0,   0,   0,   0,
+    0x18,0x19,0x1C,0x1D,0x20,0x21,0x22,0x24,0x25,0x26,0x27,
+    0x44,0x45,0x48,0x49,0x4C,0x4D,0x4E,0x50,0x51,0x52,0x53,
+    0xA8,0xA9,0xAC,0xAD,0xB0,0xB1,0xB2,0xB4,0xB5,0xB6,0xB7,
+    0x34,0x36,0x35,0x38,0x39,0x3A,   0,   0,   0,   0,   0,
+    0x3C,0x3D,0x3E,0x40,0x41,0x42,   0,   0,   0,   0,   0,
+       0,0x2C,   0,   0,0x2D,0x2E,   0,   0,   0,   0,   0,
+    0xA4,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0};
 
-byte b425D[] = {8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF, 0x10, 0xD, 9,
+byte b425D[] = {8, 0x1C, 0xC, 0, 0xB, 0x11, 1, 0xA, 0xF, 0x10, 0xD, 9,  // was also b4566 in plm4a.c
             2, 3, 4, 5, 6, 7, 0, 0x1E, 0x12, 0xE};
 
-byte b4273[] = {3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0,
+byte b4273[] = {3, 3, 3, 3, 3, 3, 0xC, 0xD, 0xE, 0xF, 0x10, 0x11, 0,    // was also b457C in plm4a.c
             0, 0, 0, 0, 0, 0, 0, 0x12, 7, 4, 4, 2, 0xA, 0x15, 0,
             0, 0, 0, 8, 9, 0, 0, 0, 0xB, 6, 0x12, 0x12, 0x12, 0x12,
             0x12, 0x12, 5, 1, 1, 1, 0x13, 0x13, 0x13, 1, 1, 1, 0x13,
@@ -402,7 +407,7 @@ byte b50AD[] = {0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22, 0xFF, 0x22,
 byte b5112[] = {0x5A, 0x61, 0x69, 0x92, 0x92, 0x92, 0x91, 0x91, 0x91, 0x5D, 0xD3,
             0xD3, 0xDC, 0x9B, 0x9B, 0x98, 0x98, 0x1A};
 
-byte b5124[] = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0xE, 1, 1, 1, 1,
+byte b5124[] = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0xE, 1, 1, 1, 1,        // was also b4222 in plm6a.c
             1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 2, 1, 1, 1,
             1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 6, 1, 0, 0, 0,
@@ -484,7 +489,7 @@ void PutTx1Word(word arg1w)
     PutTx1Byte(High(arg1w));
 }
 
-static l_arg1b; // copied to file level for nested procedures
+static arg1b_53D6; // copied to file level for nested procedures
 static byte bC214, bC215;
 
 static void Sub_545D()
@@ -496,7 +501,7 @@ static void Sub_545D()
         if (bC1E6 == bC215)
             PutTx1Byte(j);
         else    
-            buf_C1E7[bC215]  = Rol(buf_C1E7[bC215], 4) | j;
+            buf_C1E7[bC215]  = (buf_C1E7[bC215] << 4) | (buf_C1E7[bC215] >> 4) | j;
     }
     bC214 = bC214 + 1;  
     if (j > 7) {
@@ -521,7 +526,7 @@ static void Sub_5410()
 {
     bC214 = 0;
     bC215 = bC1E6;
-    if ((Shr(b4029[l_arg1b], 4) & 7) != 0) {
+    if (((b4029[arg1b_53D6] >> 4) & 7) != 0) {
         Sub_545D();
         if (wC1DC[bC214] != 0 || wC1DC[0] <= 12)
             Sub_545D();
@@ -530,11 +535,11 @@ static void Sub_5410()
 
 void EncodeFragData(byte arg1b)
 {
-    l_arg1b = arg1b;
+    arg1b_53D6 = arg1b;
 /* EncodeFragData() */
     bC1E6 = 0;
-    PutTx1Byte(arg1b);
-    if (Rol(b4029[arg1b], 1) & 1)
+    PutTx1Byte(arg1b_53D6);
+    if (b4029[arg1b_53D6] & 0x80)
         PutTx1Byte(curOp);
     Sub_5410();
     memset(wC1DC, 0, 10);
@@ -550,7 +555,7 @@ void EmitTopItem()
         if (tx2opc[tx2qp] == T2_LINEINFO || tx2opc[tx2qp] == T2_INCLUDE)
             return;
     PutTx1Byte(tx2opc[tx2qp]);
-    if (Rol(b4029[tx2opc[tx2qp]], 1) & 1) {
+    if (b4029[tx2opc[tx2qp]] & 0x80) {
         PutTx1Byte((byte)tx2op2[tx2qp]);
         PutTx1Word(tx2op1[tx2qp]);
     } else 
@@ -579,7 +584,7 @@ void Tx2SyntaxError(byte arg1b)
 byte Sub_5679(byte arg1b)
 {
     if (arg1b == 0)
-        return Shr(b44F7[wC1D6], 4);
+        return b44F7[wC1D6] >> 4;
     else
         return b44F7[wC1D6] & 0xf;
 }
@@ -624,8 +629,8 @@ void Sub_5795(word arg1w)
 {
     word p, q;
 
-    p = arg1w + Shl(wC1C3, 1);
-    q = Shr(p, 1) + (p & 1) + 2;
+    p = arg1w + wC1C3 * 2;
+    q = (p >> 1) + (p & 1) + 2;
     if (curOp == T2_RETURNWORD)
         q = q - 2;
     if (q > 7) {
@@ -641,7 +646,7 @@ void Sub_5795(word arg1w)
         } else 
             pc = pc + 5;
     } else {
-        if (p) {
+        if (p & 1) {
             EncodeFragData(CF_INXSP);
             pc = pc + 1;  
         }
@@ -657,7 +662,7 @@ void Sub_5795(word arg1w)
         }
     }
     if (arg1w > 0xff00)
-        wC1C3 = Shr(-arg1w, 1);
+        wC1C3 = (word)(-arg1w) >> 1;
     else
         wC1C3 = 0;
 }
@@ -719,7 +724,7 @@ void Sub_58F5(byte arg1b)
             }
         }
     }
-    longjmp(finalise, -1);
+    longjmp(exception, -1);
 }
 
 
@@ -765,7 +770,7 @@ void Sub_597E()
                         boC072[j] = false;
                         if (i != 0) {
                             boC072[i] = false;
-                            m = m || boC069[j];
+                            m |= boC069[j];
                         }
                     }
                 }
@@ -798,7 +803,7 @@ void Sub_5C1D(byte arg1b)
         tx2op3[i] = wC1C3;
 
     if (arg1b != 0)
-        bC0C3[wC1C3] = Shl(bC045[arg1b], 4) | (bC0A8[arg1b] & 0xf);
+        bC0C3[wC1C3] = (bC045[arg1b] << 4) | (bC0A8[arg1b] & 0xf);
     else
         bC0C3[wC1C3] = 0xB0;
 }
@@ -814,7 +819,7 @@ void Sub_5C97(byte arg1b)
         tx2op3[i] = 0;
 
     boC057[arg1b] = 0;
-    bC045[arg1b] = Shr(bC0C3[wC1C3], 4);
+    bC045[arg1b] = bC0C3[wC1C3] >> 4;
     bC0A8[arg1b] = bC0C3[wC1C3] & 0xf;
     if (bC0A8[arg1b] > 7)
         bC0A8[arg1b] = bC0A8[arg1b] | 0xf0;
@@ -823,8 +828,8 @@ void Sub_5C97(byte arg1b)
 
 void Sub_5D27(byte arg1b)
 {
-    if (wC1C5 < Shl(wC1C3 = wC1C3 + 1, 1))
-        wC1C5 = Shl(wC1C3, 1);
+    if (wC1C5 < ++wC1C3 * 2)
+        wC1C5 = wC1C3 * 2;
     Sub_5C1D(arg1b);
     wC1DC[0] = arg1b;
     wC1DC[1] = 0xA;
@@ -833,17 +838,16 @@ void Sub_5D27(byte arg1b)
     pc = pc + 1;  
 }
 
-static byte bC233;  // lifted for nested procedure
-static byte arg1b_5D6B;
 
-static void Sub_5E16()
+static void Sub_5E16(byte arg1b)    // modified as passed in arg for nested proc
 {
-    for (bC233 = 0; bC233 <= 3; bC233++) {
-        if (boC072[bC233])
-            if (! boC069[bC233])
-                Sub_5D27(bC233);
+    byte i;     // avoids nested proc access to bC233
+    for (i = 0; i <= 3; i++) {
+        if (boC072[i])
+            if (! boC069[i])
+                Sub_5D27(i);
     }
-    if (bC0B5[0] == arg1b_5D6B)
+    if (bC0B5[0] == arg1b)
         bC0B5[0] = 9;
     else
         bC0B5[1] = 9;
@@ -853,26 +857,27 @@ static void Sub_5E16()
 
 void Sub_5D6B(byte arg1b)
 {
-	l_arg1b = arg1b;
+    byte i;     // was bC233
+
     if (boC072[arg1b]) {
         if (boC069[arg1b])
-            Sub_5E16();
+            Sub_5E16(arg1b);    // modified to pass as arg for nested proc
         Sub_5D27(arg1b);
     } else if (boC069[arg1b]) {
-        for (bC233 = 0; bC233 <= 3; bC233++) {
-            if (bC04E[bC233] == bC04E[arg1b]) {
-                if (bC233 != arg1b) {
-                    if (bC045[bC233] == bC045[arg1b]) {
-                        if (bC0B5[0]  == arg1b)
-                            bC0B5[0] = bC233;
+        for (i = 0; i <= 3; i++) {
+            if (bC04E[i] == bC04E[arg1b]) {
+                if (i != arg1b) {
+                    if (bC045[i] == bC045[arg1b]) {
+                        if (bC0B5[0] == arg1b)
+                            bC0B5[0] = i;
                         else
-                            bC0B5[1] = bC233;
+                            bC0B5[1] = i;
                         return;
                     }
                 }
             }
         }
-        Sub_5E16();
+        Sub_5E16(arg1b);
         Sub_5D27(arg1b);
     }
 }
@@ -888,17 +893,17 @@ void Sub_5E66(byte arg1b)
     k = bC0B7[1];
     bC0B7[0] = 0;
     bC0B7[1] = 0;
-    arg1b = Ror(arg1b, 3);
+    arg1b = (arg1b >> 3) | (arg1b << 5);
     Sub_597E();
     for (i = 0; i <= 3; i++) {
-        if (arg1b) {
+        if (arg1b & 1) {
             if (boC072[i])
                 Sub_5D27(i);
             boC057[i] = 0;
             bC04E[i] = 0;
             Sub_597E();
         }
-        arg1b = Rol(arg1b, 1);
+        arg1b = (arg1b << 1) | (arg1b & 0x80 ? 1 : 0);
     }
     bC0B7[0] = j;
     bC0B7[1] = k;
@@ -1001,7 +1006,7 @@ void Sub_61E0(byte arg1b)
     if ((b5124[tx2opc[arg1b]] & 0xc0) == 0) {
         wC1DC[bC1DB] = 0xa;
         wC1DC[bC1DB + 1] = tx2op3[arg1b];
-        wC1DC[bC1DB + 2] = Shl(wC1C3 - tx2op3[arg1b], 1);
+        wC1DC[bC1DB + 2] = (wC1C3 - tx2op3[arg1b]) * 2;
         bC1DB = bC1DB + 3;
     } else if (tx2op1[arg1b] != 0) {
         curInfoP = tx2op1[arg1b];
@@ -1009,7 +1014,7 @@ void Sub_61E0(byte arg1b)
         wC1DC[bC1DB + 1] = tx2op2[arg1b] - GetLinkVal();
         if (TestInfoFlag(F_AUTOMATIC)) {
             wC1DC[bC1DB] = 0xc;
-            wC1DC[bC1DB + 3] = tx2op2[arg1b] + Shl(wC1C3, 1);
+            wC1DC[bC1DB + 3] = tx2op2[arg1b] + wC1C3 * 2;
             bC1DB = bC1DB + 4;
         } else {
             wC1DC[bC1DB] = 0xb;
@@ -1070,20 +1075,35 @@ void Sub_6416(byte arg1b)
 void GetTx2Item()
 {
     Fread(&tx2File, &tx2opc[tx2qp], 1);
+#ifdef _DEBUGX
+    printf("Tx2: %d %s:", tx2opc[tx2qp], tx2Name(tx2opc[tx2qp]));
+#endif
     switch (3 & b5124[tx2opc[tx2qp]]) {
     case 0: if (tx2opc[tx2qp] == T2_EOF)
                 eofSeen = true;
+#ifdef _DEBUGX
+        putchar('\n');
+#endif
             break;
-    case 1: Fread(&tx2File, (pointer)&tx2op1[tx2qp], 2); break;
+    case 1: Fread(&tx2File, (pointer)&tx2op1[tx2qp], 2);
+#ifdef _DEBUGX
+        printf("%04X\n", tx2op1[tx2qp]);
+#endif
+            break;
     case 2:
             Fread(&tx2File, (pointer)&tx2op1[tx2qp], 2);
             Fread(&tx2File, (pointer)&tx2op2[tx2qp], 2);
+#ifdef _DEBUGX
+            printf("%04X %04X\n", tx2op1[tx2qp], tx2op2[tx2qp]);
+#endif
             break;
     case 3:
             Fread(&tx2File, (pointer)&tx2op1[tx2qp], 2);
             Fread(&tx2File, (pointer)&tx2op2[tx2qp], 2);
             Fread(&tx2File, (pointer)&tx2op3[tx2qp], 2);
-            break;
+#ifdef _DEBUGX
+            printf("%04X %04X %04X\n", tx2op1[tx2qp], tx2op2[tx2qp], tx2op3[tx2qp]);
+#endif            break;
     }
 }
 

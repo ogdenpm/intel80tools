@@ -73,7 +73,7 @@ static void Sub_89D1()
             else
                 bC0B5[bC2A5] = 0xA;
         }
-        wC2A9 = - Shl(wC2A9, 1);
+        wC2A9 = - (wC2A9 * 2);
     }
 } /* Sub_89D1() */
 
@@ -215,22 +215,22 @@ static void Sub_8F35()
     word p;
 
     if (curOp == T2_STKARG || curOp == T2_STKBARG || curOp == T2_STKWARG) {
-        Sub_5795(-Shl(wB53C[procCallDepth], 1));
+        Sub_5795(-(wB53C[procCallDepth] * 2));
         wB53C[procCallDepth] = wB53C[procCallDepth] + 1;  
         wC1C3 = wC1C3 + 1;  
     } else if (curOp == T2_CALL) {
-        Sub_5795(-Shl(wB53C[procCallDepth], 1));
+        Sub_5795(-(wB53C[procCallDepth] * 2));
         curInfoP = tx2op3[tx2qp];
         if (TestInfoFlag(F_EXTERNAL))
-            p = Shl(wB53C[procCallDepth] + 1, 1);
+            p = (wB53C[procCallDepth] + 1) * 2;
         else
-            p = Shl(wB528[procCallDepth] + 1, 1) + GetBaseVal();
+            p = (wB528[procCallDepth] + 1) * 2 + GetBaseVal();
         if (p > wC1C5)
             wC1C5 = p;
     } else if (curOp == T2_CALLVAR) {
-        Sub_5795(-Shl(wB53C[procCallDepth], 1));
-        if (wC1C5 < Shl(wC1C3, 1))
-            wC1C5 = Shl(wC1C3, 1);
+        Sub_5795(-(wB53C[procCallDepth] * 2));
+        if (wC1C5 < wC1C3 * 2)
+            wC1C5 = wC1C3 * 2;
     } else if (curOp == T2_RETURN || curOp == T2_RETURNBYTE || curOp == T2_RETURNWORD) {
         boC1CD = true;
         Sub_5EE8();
@@ -244,7 +244,7 @@ static void Sub_8F35()
         Sub_5795(0);
     else if (curOp == T2_MOVE) {
         if (wB53C[procCallDepth] != wC1C3) {
-            Sub_5795(-Shl(wB53C[procCallDepth] + 1, 1));
+            Sub_5795(-((wB53C[procCallDepth] + 1) * 2));
             Sub_6416(3);
         }
         if (bC045[3] == 1)
@@ -286,10 +286,10 @@ static void Sub_90EB()
     else if (T2_51 <= curOp && curOp <= T2_56)
         Sub_940D();
     for (bC2A8 = 5; bC2A8 <= 8; bC2A8++) {
-        i = Shr(p, 13);
-        j = Shr(q, 12);
-        p = Shl(p, 3);
-        q = Shl(q, 4);
+        i = p >> 13;
+        j = q >> 12;
+        p <<= 3;
+        q <<= 4;
         if (j <= 3) {
             Sub_5B96(j, bC2A8);
             if (i == 1)
@@ -307,7 +307,7 @@ static void Sub_90EB()
             boC057[k = bC2A8] = 0;
             if (0 < tx2Auxw[tx2qp]) {
                 bC04E[bC2A8] = tx2qp;
-                bC045[bC2A8] = tx2Aux1b[tx2qp] = Shr(b43F8[cfrag1], 5);
+                bC045[bC2A8] = tx2Aux1b[tx2qp] = b43F8[cfrag1] >> 5;
                 bC0A8[bC2A8] = 0;
             } else
                 bC04E[bC2A8] = 0;
@@ -361,7 +361,7 @@ void Sub_87CB()
 	}
 	Sub_8F16();
 	Sub_611A();
-	Sub_5E66(Shr(w48DF[bC1D9], 12));
+	Sub_5E66(w48DF[bC1D9] >> 12);
 	Sub_8F35();
 	Sub_84ED();
 	Sub_90EB();

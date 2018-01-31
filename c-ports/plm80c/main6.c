@@ -31,16 +31,14 @@ void Sub_3F96()
     }
 }
 
-
+byte tx2Buf[2048];
+byte nmsBuf[2048];
+byte lstBuf_6[2048];
 
 void Sub_404A()
 {
-    byte tx2Buf[2048];
-    byte nmsBuf[2048];
-    byte lstBuf[2048];
-
     if (PRINT) {
-        lBufP = lstBuf;
+        lBufP = lstBuf_6;
         lBufSz = 2047;
     }
     b7AD9 = PRINT | OBJECT;
@@ -51,11 +49,14 @@ void Sub_404A()
         PRINTSet = false;
     }
     CloseF(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fNam, "plmtx1.tmp_main6");
+#endif
     DeletF(&tx1File);
     CreatF(&tx2File, tx2Buf, 0x800, 1);
     if (b7AD9 || IXREF)
         CreatF(&nmsFile, nmsBuf, 0x800, 1);
-    w7AEB = 0;
+    stmtNo = 0;
     if (PRINT) {
         srcFileIdx = 0;
         InitF(&srcFil, "SOURCE", (pointer)&srcFileTable[srcFileIdx]); /* note word array used */
@@ -65,8 +66,8 @@ void Sub_404A()
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
-        STMTNum = w7AE0 = 0;
-        errNum = fatalErrorCode;
+        errData.stmt = errData.info = 0;
+        errData.num = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
     }
@@ -95,14 +96,23 @@ void Sub_4149()     // similar to Sub_4201 in main3.c
 void Sub_41B6()
 {
     CloseF(&atFile);
+#ifdef _DEBUG
+    copyFile(atFile.fNam, "plmat.tmp_main6");
+#endif
     DeletF(&atFile);
     CloseF(&tx2File);
+#ifdef _DEBUG
+    copyFile(tx2File.fNam, "plmtx2.tmp_main6");
+#endif
     DeletF(&tx2File);
     if (b7AD9 || IXREF) {
         CloseF(&nmsFile);
+#ifdef _DEBUG
+        copyFile(nmsFile.fNam, "plmnms.tmp_main6");
+#endif
         DeletF(&nmsFile);
     }
-    linesRead = w7AE5;
+    linesRead = lineCnt;
     if (PRINT) {
         TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
         Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
@@ -113,7 +123,7 @@ void Sub_41B6()
 
 word Start6()
 {
-    if (setjmp(errCont) == 0) {
+    if (setjmp(exception) == 0) {
         Sub_404A();
         if (b7AD9 || IXREF) {
             Sub_4149();
@@ -126,7 +136,7 @@ word Start6()
             Sub_42E7();
         }
 
-        Sub_6550();
+        EmitLinePrefix();
     }
 	Sub_41B6();
 	if (PRINT || IXREF)

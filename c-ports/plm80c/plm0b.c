@@ -103,7 +103,7 @@ void NxtCh()
 void BadCmdTail(byte err)
 {
     if (offNxtCmdChM1 != 0)
-        Fatal(ebadTail, sizeof(ebadTail) - 1);
+        Fatal(ebadTail, Length(ebadTail));
     else
         SyntaxError(err);
 }
@@ -113,7 +113,7 @@ void UnknownCtrl()
 {
 
     if (offNxtCmdChM1 != 0)
-        Fatal(ebadcontrol, sizeof(ebadcontrol) - 1);
+        Fatal(ebadcontrol, Length(ebadcontrol));
     else
         SyntaxError(ERR9);  /* INVALID CONTROL */
 }
@@ -605,7 +605,7 @@ static void OptInclude()
     if (optFileName[0] == ':') {
         if (optFileName[1] != 'F')
             if (offNxtCmdChM1 != 0)
-                Fatal(errNotDisk, sizeof(errNotDisk) - 1);
+                Fatal(errNotDisk, Length(errNotDisk));
             else
                 FatalError(ERR98);  /* INCLUDE FILE IS not A DISKETTE FILE */
     }
@@ -613,13 +613,13 @@ static void OptInclude()
         SyntaxError(ERR13); /* LIMIT EXCEEDED: INCLUDE NESTING */
     else {
         TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], olstch - ocurch);
+        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
         srcFileIdx = srcFileIdx + 10;
         memmove(&srcFileTable[srcFileIdx], optStrValP, tknLen);
         CloseF(&srcFil);
         InitF(&srcFil, "SOURCE", optStrValP);
         OpenF(&srcFil, 1);
-        ocurch = olstch;
+        offCurCh = offLastCh;
         WrByte(L_INCLUDE);
         WrBuf(optStrValP + 12, 6);
         WrByte(L_INCLUDE);
@@ -730,7 +730,7 @@ static void OptWorkFiles()
         if (! AcceptDrive(wrkFiles2, ')'))
             return;
         if (tx1File.aftn != 0)
-            Fatal(errWorkFiles, sizeof(errWorkFiles) - 1);
+            Fatal(errWorkFiles, Length(errWorkFiles));
         memmove(atFile.fNam, wrkFiles1, 4);
         memmove(nmsFile.fNam, wrkFiles1, 4);
         memmove(tx1File.fNam, wrkFiles1, 4);

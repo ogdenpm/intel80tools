@@ -18,17 +18,17 @@ byte InGetC()
 {
     byte c;
     do {
-		if (ocurch == olstch) {
-			ocurch = 0;
-			ReadF(&srcFil, inbuf, 512, &olstch);
-			if (olstch == 0) {
+		if (offCurCh == offLastCh) {
+			offCurCh = 0;
+			ReadF(&srcFil, inbuf, 512, &offLastCh);
+			if (offLastCh == 0) {
 				return *inChrP = ISISEOF;	// EOF
 			} else
-				olstch--;	// base from 0
+				offLastCh--;	// base from 0
 		} else
-			ocurch++;
+			offCurCh++;
     }
-    while ((c = inbuf[ocurch] & 0x7f) == '\r');
+    while ((c = inbuf[offCurCh] & 0x7f) == '\r');
     return *inChrP = c;
 }
 

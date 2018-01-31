@@ -6,6 +6,9 @@
 typedef	unsigned char byte;
 typedef unsigned short word;
 
+#ifdef _DEBUG
+void copyFile(char *src, char *dst);
+#endif
 
 const char ISISEOF = (char) 0x81;
 
@@ -620,13 +623,13 @@ extern word blkSize1;
 extern word blkSize2;
 extern byte srcStemLen;
 extern byte byte_3C3B;
-extern bool IXREFSet;
-extern bool PRINTSet;
-extern bool OBJECTSet;
-extern bool debugFlag;
-extern bool unexpectedEOF;
-extern bool haveModule;
-extern bool fatalErrorCode;
+extern byte IXREFSet;
+extern byte PRINTSet;
+extern byte OBJECTSet;
+extern byte debugFlag;
+extern byte unexpectedEOF;
+extern byte haveModule;
+extern byte fatalErrorCode;
 extern byte pad3C43;
 extern address word_3C44;
 extern byte CONTROLS[];

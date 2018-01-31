@@ -63,8 +63,8 @@ word stateIdx;
 offset_t stmtLabels[10];
 word stmtLabelCnt;
 word curProcInfoP;
-word ocurch = 0;
-word olstch = 0;
+word offCurCh = 0;
+word offLastCh = 0;
 word curStmtCnt = 0;
 word curBlkCnt = 0;
 offset_t curMacroInfoP = 0;
@@ -194,7 +194,7 @@ void FatalError_ov0(byte err)
     }
     TokenErrorAt(err);
     fatalErrorCode = err;
-    longjmp(resetPt, -1);
+    longjmp(exception, -1);
 }
 
 void PushBlock(word idAndLevel)

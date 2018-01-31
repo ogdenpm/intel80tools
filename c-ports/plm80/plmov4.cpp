@@ -928,6 +928,9 @@ void sub_423C()
 	linesRead = w812F;
 	sub_4208();
 	closeFile(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fullName, "tx1File.tmp_ov4");
+#endif
 	if (OBJECT) { //	loc_426B
 		ifwrite(&objFile, b3EBF, 4);
 //		flushFile(&objFile);

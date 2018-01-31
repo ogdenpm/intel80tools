@@ -39,7 +39,7 @@ static void Sub_6C73(byte arg1b)
 }
 
 
-static byte boC25D;
+static bool boC25D;
 
 static void Sub_6EAB(wpointer arg1wP)
 {

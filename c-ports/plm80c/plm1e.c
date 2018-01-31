@@ -836,10 +836,10 @@ static void ParseAT()
     WrAtFileByte(ATI_AHDR);
     WrAtFileWord(p - botInfo);
     WrAtFileWord(curStmtNum);
-    WrAtFileWord(varInfoOffset);
-    WrAtFileWord(varArrayIndex);
-    WrAtFileWord(varNestedArrayIndex);
-    WrAtFileWord(varVal);
+    WrAtFileWord(var.infoOffset);
+    WrAtFileWord(var.arrayIndex);
+    WrAtFileWord(var.nestedArrayIndex);
+    WrAtFileWord(var.val);
     ExpectRparen(ERR146);   /* MISSING ') ' AFTER 'at' RESTRICTED EXPRESSION */
 }
 

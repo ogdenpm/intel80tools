@@ -1,22 +1,23 @@
 #include "plm.h"
 
-byte helperModId, endHelperId;
+//byte helperModId; made into local var
+//byte endHelperId;
 bool listing;
 bool listOff;
 bool codeOn;
 byte locLabStr[32];		/* used to hold symbol name */
-word wa8125[3];
+err_t errData;
 bool bo812B = true;
-offset_t baseAddr;
+word baseAddr;
 byte cfCode;
 word w812F;
-word lineNo;
-word depth;
+word stmtCnt;
+word blkCnt;
 word stmtNo;
-//word olstch = 0;  already defined in plm0a.c
-//word ocurch = 0;  already defined in plm0a.c
-bool bo813B = true;
-bool bo813C = true;
+//word offLastCh = 0;  already defined in plm0a.c
+//word offCurCh = 0;  already defined in plm0a.c
+bool linePrefixChecked = true;
+bool linePrefixListed = true;
 byte lstLineLen;
 byte lstLine[130];
 byte rec6_4[1024] = {6, 0, 0, 1};
@@ -40,12 +41,11 @@ byte b96D6;
 word w96D7;
 byte curExtId;
 byte commentStr[41] = "\0; ";
-byte lineLen;
-byte line[80];
+byte line[81];  // pstr
 byte opByteCnt;
 byte opBytes[3];
 byte dstRec;
-// byte srcbuf[640]; use larger version in pdata6.c
-byte tx1buf[640];
-byte objbuf[640];
-byte lstbuf[640];
+//byte srcbuf[640]; use larger version in pdata6.c
+//byte tx1buf[640]; use larger version in plm0a.c
+//byte objbuf[640]; use larger buff in plm3a.c
+//byte lstbuf[640]; use larger version in main5.c
