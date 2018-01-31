@@ -268,7 +268,7 @@ void EmitLinePrefix()
         }
 
         NewLineLst();
-        linePrefixListed = true;
+        linePrefixEmitted = true;
     }
     linePrefixChecked = true;
     listing = ! listOff && PRINT;
@@ -323,7 +323,7 @@ void EmitError()
 
     programErrCnt++;
     if (PRINT) {
-        linePrefixChecked = linePrefixListed;
+        linePrefixChecked = linePrefixEmitted;
         listing = true;
         EmitLinePrefix();
         XwrnstrLst("*** ERROR #", 11);
@@ -431,12 +431,12 @@ void GetSourceLine()
         lstLine[lstLineLen] = GetSourceCh();
         if (lstLine[lstLineLen] == '\n') {
             linePrefixChecked = false;
-            linePrefixListed = false;
+            linePrefixEmitted = false;
             return;
         } else if (lstLine[lstLineLen] == '\r')
-            crCnt = crCnt + 1;
+            crCnt++;
         else if (lstLine[lstLineLen] != '\r' && lstLineLen < 128)
-            lstLineLen = lstLineLen +1;
+            lstLineLen++;
     }
 }
 

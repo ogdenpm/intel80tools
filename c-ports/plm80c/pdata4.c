@@ -17,7 +17,7 @@ word stmtNo;
 //word offLastCh = 0;  already defined in plm0a.c
 //word offCurCh = 0;  already defined in plm0a.c
 bool linePrefixChecked = true;
-bool linePrefixListed = true;
+bool linePrefixEmitted = true;
 byte lstLineLen;
 byte lstLine[130];
 byte rec6_4[1024] = {6, 0, 0, 1};

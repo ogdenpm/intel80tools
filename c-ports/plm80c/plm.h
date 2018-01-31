@@ -1053,7 +1053,7 @@ extern byte b96D6;
 extern word baseAddr;
 extern bool bo812B;
 extern bool linePrefixChecked;
-extern bool linePrefixListed;
+extern bool linePrefixEmitted;
 extern byte cfCode;
 extern byte commentStr[];
 extern byte curExtId;
