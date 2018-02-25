@@ -3,7 +3,7 @@
 void ExprParse0()
 {
 	PushOperator(0);
-	if (MatchTx2Item(L_VARIABLE)) {
+	if (MatchTx1Item(L_IDENTIFIER)) {
 		PushParseByte(1);
 		Sub_45E0();
 		PushParseByte(11);
@@ -15,7 +15,7 @@ void ExprParse0()
 
 void ExprParse1()
 {
-	if (MatchTx2Item(L_COLONEQUALS)) {
+	if (MatchTx1Item(L_COLONEQUALS)) {
 		if (Sub_512E(exSP)) {
 			WrTx2ExtError(ERR128);	/* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
 			ExprPop();
@@ -60,9 +60,9 @@ void ExprParse3()
 
 void ExprParse4()
 {
-	if (MatchTx2Item(L_MINUSSIGN))
+	if (MatchTx1Item(L_MINUSSIGN))
 		PushOperator(I_UNARYMINUS);
-	else if (MatchTx2Item(L_NOT))
+	else if (MatchTx1Item(L_NOT))
 		PushOperator(I_NOT);
 	PushParseByte(5);
 }
@@ -72,19 +72,19 @@ void ExprParse5()
 	word p;
     pointer q;
 
-	if (MatchTx2Item(L_VARIABLE)) {
+	if (MatchTx1Item(L_IDENTIFIER)) {
 		Sub_45E0();
 		if (GetType() == BUILTIN_T && GetBuiltinId() == 9) {	 /* 9 -> OUTPUT */
 			WrTx2ExtError(ERR130);	/* ILLEGAL REFERENCE to OUTPUT FUNCTION */
-			if (MatchTx2Item(L_LPAREN))
+			if (MatchTx1Item(L_LPAREN))
 				ResyncRparen();
 			ExprPush2(I_NUMBER, 0);
 		} else
 			PushParseByte(11);
 	}
-	else if (MatchTx2Item(L_NUMBER))
+	else if (MatchTx1Item(L_NUMBER))
 		ExprPush2(I_NUMBER, tx1Item.dataw[0]);
-	else if (MatchTx2Item(L_STRING)) {
+	else if (MatchTx1Item(L_STRING)) {
 		if (tx1Item.dataw[0] == 1)
 			p = Low(tx1Item.dataw[1]);
 		else if (tx1Item.dataw[0] == 2) {
@@ -97,15 +97,15 @@ void ExprParse5()
 		}
 		ExprPush2(I_NUMBER, p);
 	}
-	else if (MatchTx2Item(L_LPAREN)) {
+	else if (MatchTx1Item(L_LPAREN)) {
 		PushParseByte(6);
 		PushParseByte(0);
 	}
-	else if (MatchTx2Item(L_PERIOD)) {
-		if (MatchTx2Item(L_VARIABLE)) {
+	else if (MatchTx1Item(L_PERIOD)) {
+		if (MatchTx1Item(L_IDENTIFIER)) {
 			PushParseByte(7);
 			PushParseByte(8);
-		} else if (MatchTx2Item(L_LPAREN)) {
+		} else if (MatchTx1Item(L_LPAREN)) {
 			Sub_521B();
 			PushParseByte(7);
 		} else {
@@ -136,13 +136,13 @@ void ExprParse8()
 	if (GetType() == BUILTIN_T) {
 		PopParseStack();
 		WrTx2ExtError(ERR123);	/* INVALID DOT OPERAND, BUILT-IN procedure ILLEGAL */
-		if (MatchTx2Item(L_LPAREN))
+		if (MatchTx1Item(L_LPAREN))
 			ResyncRparen();
 		ExprPush2(I_NUMBER, 0);
 	} else {
-		ExprPush2(I_VARIABLE, curInfoP);
+		ExprPush2(I_IDENTIFIER, curInfoP);
 		if (GetType() == PROC_T) {
-			if (MatchTx2Item(L_LPAREN)) {
+			if (MatchTx1Item(L_LPAREN)) {
 				WrTx2ExtError(ERR104);	/* ILLEGAL procedure INVOCATION WITH DOT OPERATOR */
 				ResyncRparen();
 			}
@@ -158,7 +158,7 @@ void ExprParse9()
 {
 	PushParseWord(curInfoP);
 	PushParseByte(0xa);
-	if (MatchTx2Item(L_LPAREN)) {
+	if (MatchTx1Item(L_LPAREN)) {
 		if (!TestInfoFlag(F_ARRAY))
 			WrTx2ExtError(ERR127);	/* INVALID SUBSCRIPT ON NON-ARRAY */
 		PushParseByte(0x13);
@@ -170,18 +170,18 @@ void ExprParse10()
 	offset_t p;
 	p = parseStack[parseSP];
 	PopParseStack();
-	if (MatchTx2Item(L_PERIOD)) {
+	if (MatchTx1Item(L_PERIOD)) {
 		curInfoP = p;
 		if (GetType() != STRUCT_T)
 			WrTx2ExtError(ERR110);	/* INVALID LEFT OPERAND OF QUALIFICATION, not A structure */
-		else if (NotMatchTx2Item(L_VARIABLE))
+		else if (NotMatchTx1Item(L_IDENTIFIER))
 			WrTx2ExtError(ERR111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, not IDENTIFIER */
 		else {
 			Sub_4631();
-			ExprPush2(I_VARIABLE, curInfoP);
+			ExprPush2(I_IDENTIFIER, curInfoP);
 			PushParseWord(p);
 			PushParseByte(14);
-			if (MatchTx2Item(L_LPAREN))
+			if (MatchTx1Item(L_LPAREN))
 				PushParseByte(19);
 		}
 	} else
@@ -203,19 +203,19 @@ void ExprParse11()
 			PushOperator(0);
 			PushParseByte(17);
 			Sub_4D38();
-			if (MatchTx2Item(L_LPAREN)) {
+			if (MatchTx1Item(L_LPAREN)) {
 				PushParseByte(15);
 				PushParseByte(0);
 			}
 		}
 	} else if (GetType() == PROC_T) {
 		Sub_50D5();
-		ExprPush2(I_VARIABLE, curInfoP);
+		ExprPush2(I_IDENTIFIER, curInfoP);
 		Sub_4D38();
 		PushParseWord(GetParamCnt());
 		PushOperator(0);
 		PushParseByte(16);
-		if (MatchTx2Item(L_LPAREN)) {
+		if (MatchTx1Item(L_LPAREN)) {
 			PushParseByte(15);
 			PushParseByte(0);
 		}
@@ -225,17 +225,17 @@ void ExprParse11()
 
 void ExprParse12()
 {
-	ExprPush2(I_VARIABLE, curInfoP);
+	ExprPush2(I_IDENTIFIER, curInfoP);
 	PushParseWord(curInfoP);
 	if (GetType() == LABEL_T)
 		WrTx2ExtError(ERR132);	/* ILLEGAL USE OF label */
 	PushParseByte(13);
 	if (TestInfoFlag(F_ARRAY)) {
-		if (MatchTx2Item(L_LPAREN))
+		if (MatchTx1Item(L_LPAREN))
 			PushParseByte(19);
 		else
 			WrTx2ExtError(ERR133);	/* ILLEGAL REFERENCE to UNSUBSCRIPTED ARRAY */
-	} else if (MatchTx2Item(L_LPAREN)) {
+	} else if (MatchTx1Item(L_LPAREN)) {
 		WrTx2ExtError(ERR127);	 /* INVALID SUBSCRIPT ON NON-ARRAY */
 		PushParseByte(19);
 	}
@@ -247,22 +247,22 @@ void ExprParse13()
 
 	p = curInfoP = parseStack[parseSP];
 	PopParseStack();
-	if (MatchTx2Item(L_PERIOD)) {
+	if (MatchTx1Item(L_PERIOD)) {
 		if (GetType() != STRUCT_T)
 			WrTx2ExtError(ERR110);	/* INVALID LEFT OPERAND OF QUALIFICATION, not A structure */
-		else if (NotMatchTx2Item(L_VARIABLE))
+		else if (NotMatchTx1Item(L_IDENTIFIER))
 			WrTx2ExtError(ERR111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, not IDENTIFIER */
 		else {
 			Sub_4631();
-			ExprPush2(I_VARIABLE, curInfoP);
+			ExprPush2(I_IDENTIFIER, curInfoP);
 			PushParseWord(p);
 			PushParseByte(14);
 			if (TestInfoFlag(F_ARRAY)) {
-				if (MatchTx2Item(L_LPAREN))
+				if (MatchTx1Item(L_LPAREN))
 					PushParseByte(19);
 				else
 					WrTx2ExtError(ERR134);	/* ILLEGAL REFERENCE to UNSUBSCRIPTED MEMBER ARRAY */
-			} else if (MatchTx2Item(L_LPAREN))
+			} else if (MatchTx1Item(L_LPAREN))
 				WrTx2ExtError(ERR127);	/* INVALID SUBSCRIPT ON NON-ARRAY */
 		}
 	} else {
@@ -285,7 +285,7 @@ void ExprParse14()
 void ExprParse15()
 {
 	operatorStack[operatorSP] = operatorStack[operatorSP] + 1;
-	if (MatchTx2Item(L_COMMA)) {
+	if (MatchTx1Item(L_COMMA)) {
 		PushParseByte(0xf);
 		PushParseByte(0);
 	} else
@@ -325,9 +325,9 @@ void ExprParse19()
 
 void ExprParse20()
 {
-	if (MatchTx2Item(L_COMMA)) {
+	if (MatchTx1Item(L_COMMA)) {
 		WrTx2ExtError(ERR114);	/* INVALID SUBSCRIPT, MULTIPLE SUBSCRIPTS ILLEGAL */
-		Sub_4599();
+		RecoverRPOrEndExpr();
 	}
 	ExpectRparen(ERR115);	/* MISSING ') ' at end OF SUBSCRIPT */
 	MkIndexNode();

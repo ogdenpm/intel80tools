@@ -138,15 +138,15 @@ word Start6()
 
         EmitLinePrefix();
     }
-	Sub_41B6();
-	if (PRINT || IXREF)
-	{
-		if (XREF ||  SYMBOLS || IXREF)
-			return 5; // Chain(&overlay5);
-		else
-			LstModuleInfo();
-	}
-	EndCompile();
-	Exit();
+    Sub_41B6();
+    if (PRINT || IXREF)
+    {
+        if (XREF ||  SYMBOLS || IXREF)
+            return 5; // Chain(&overlay5);
+        else
+            LstModuleInfo();
+    }
+    EndCompile();
+    Exit();
 }
 /* split file */

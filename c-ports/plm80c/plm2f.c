@@ -101,7 +101,7 @@ static void Sub_8A9C()
 
     for (bC2A8 = 1; bC2A8 <= 3; bC2A8++) {
         if (boC069[bC2A8]) {
-            if (bC0B7[0] == bC0B7[1] && curOp != T2_STORE)
+            if (bC0B7[0] == bC0B7[1] && curOp != T2_COLONEQUALS)
                 if (bC0B5[bC2A5] > 3)
                     bC0B5[bC2A5] = bC2A8;
         }
@@ -270,7 +270,7 @@ static void Sub_90EB()
     p = w48DF[bC1D9] * 16;
     q = w493D[bC1D9];
     k = 0;
-    if (curOp == T2_STORE) {
+    if (curOp == T2_COLONEQUALS) {
         Sub_940D();
         if (tx2Auxw[bC0B7[1]] == 0)
             if (tx2Auxw[bC0B7[0]] > 0) {
@@ -343,44 +343,44 @@ static void Sub_90EB()
 
 void Sub_87CB()
 {
-	bC0B7[0] = (byte)tx2op1[tx2qp];
-	bC0B7[1] = (byte)tx2op2[tx2qp];
-	wC2AB = wAF54[curOp];
-	wC2AD = wC2AB + b499B[curOp] - 1;
-	Sub_8CF5();
+    bC0B7[0] = (byte)tx2op1[tx2qp];
+    bC0B7[1] = (byte)tx2op2[tx2qp];
+    wC2AB = wAF54[curOp];
+    wC2AD = wC2AB + b499B[curOp] - 1;
+    Sub_8CF5();
 
-	while (1) {
-		Sub_8DCD();	/*  OK */
-		if (bC0B9[0] == 0)
-			if (bC0B9[1] == 0)
-				break;
-		if (boC1D8)
-			Sub_7A85();
-		else
-			Sub_7DA9();
-	}
-	Sub_8F16();
-	Sub_611A();
-	Sub_5E66(w48DF[bC1D9] >> 12);
-	Sub_8F35();
-	Sub_84ED();
-	Sub_90EB();
+    while (1) {
+        Sub_8DCD();	/*  OK */
+        if (bC0B9[0] == 0)
+            if (bC0B9[1] == 0)
+                break;
+        if (boC1D8)
+            Sub_7A85();
+        else
+            Sub_7DA9();
+    }
+    Sub_8F16();
+    Sub_611A();
+    Sub_5E66(w48DF[bC1D9] >> 12);
+    Sub_8F35();
+    Sub_84ED();
+    Sub_90EB();
 } /* Sub_87CB() */
 
 
 void Sub_9457()
 {
-	if (EnterBlk()) {
-		wB488[procChainId] = pc;
-		wB4B0[procChainId] = wC1C3;
-		wB4D8[procChainId] = wC1C5;
-		extProcId[procChainId] = curExtProcId;
-		procChainNext[blkSP] = procChainId;
-		procChainId = blkSP;
-		curInfoP = blkCurInfo[blkSP] = tx2op1[tx2qp] + botInfo;
-		curExtProcId = GetProcId();
-		pc = 0;
-		EmitTopItem();
-		Sub_981C();
-	}
+    if (EnterBlk()) {
+        wB488[procChainId] = pc;
+        wB4B0[procChainId] = wC1C3;
+        wB4D8[procChainId] = wC1C5;
+        extProcId[procChainId] = curExtProcId;
+        procChainNext[blkSP] = procChainId;
+        procChainId = blkSP;
+        curInfoP = blkCurInfo[blkSP] = tx2op1[tx2qp] + botInfo;
+        curExtProcId = GetProcId();
+        pc = 0;
+        EmitTopItem();
+        Sub_981C();
+    }
 }

@@ -64,7 +64,7 @@ static void Sub_6F20(byte arg1b)
             boC25D = true;
         }
     }
-    else if (i == T2_VARIABLE) {
+    else if (i == T2_IDENTIFIER) {
         curInfoP = tx2op1[arg1b];
         if (TestInfoFlag(F_AT))
             boC25D = true;
@@ -134,7 +134,7 @@ static void Sub_6D52()
 {
     Sub_6EAB(&tx2op1[tx2qp]);
     Sub_6EAB(&tx2op2[tx2qp]);
-    if (curOp == T2_STORE)
+    if (curOp == T2_COLONEQUALS)
         Sub_7055();
     else if (procCallDepth > 0) {
         Sub_6C54((byte)tx2op1[tx2qp]);
@@ -173,7 +173,7 @@ static void Sub_7111()
     tx2op3[tx2qp] = 0xff00;
     else {
         tx2op3[tx2qp] = 0;
-        if (curOp == T2_VARIABLE) {
+        if (curOp == T2_IDENTIFIER) {
             curInfoP = tx2op1[tx2qp];
             if (TestInfoFlag(F_AT))
                 Sub_6C73(bC259);

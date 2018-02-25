@@ -1,34 +1,30 @@
 #include "plm.h"
 
-static byte ENDorSEMICOLON[2] = {T_END, T_SEMICOLON};
+static byte ENDorSEMICOLON[2] = { T_END, T_SEMICOLON };
 static byte tokenTypeTable[] = {
-	T_NUMBER, T_NUMBER, T_NUMBER, T_VARIABLE,
-	T_VARIABLE, T_PLUSSIGN, T_MINUSSIGN, T_STAR,
-	T_SLASH, T_LPAREN, T_RPAREN, T_COMMA,
-	T_COLON, T_SEMICOLON, T_STRING, T_PERIOD,
-	T_EQ, T_LT, T_GT, T_VARIABLE,
-	T_VARIABLE, T_VARIABLE, T_VARIABLE, T_VARIABLE};
+    T_NUMBER, T_NUMBER, T_NUMBER, T_IDENTIFIER,
+    T_IDENTIFIER, T_PLUSSIGN, T_MINUSSIGN, T_STAR,
+    T_SLASH, T_LPAREN, T_RPAREN, T_COMMA,
+    T_COLON, T_SEMICOLON, T_STRING, T_PERIOD,
+    T_EQ, T_LT, T_GT, 0,
+    0, 0, 0, 0 };
 
 byte typeProcIdx[] = {
-	1, 1, 1, 2, 2, 3, 3, 3,
-	4, 3, 3, 3, 5, 3, 6, 3,
-	3, 7, 8, 0, 9, 9, 10, 0};
+    1, 1, 1, 2, 2, 3, 3, 3,
+    4, 3, 3, 3, 5, 3, 6, 3,
+    3, 7, 8, 0, 9, 9, 10, 0 };
 
-byte binValidate[4]  = {0, 1, 1, 1};
-byte octValidate[4]  = {0, 0, 1, 1};
-byte decValidate[4]  = {0, 0, 0, 1};
-byte hexValidate[4]  = {0, 0, 0, 2};
+byte binValidate[4] = { 0, 1, 1, 1 };
+byte octValidate[4] = { 0, 0, 1, 1 };
+byte decValidate[4] = { 0, 0, 0, 1 };
+byte hexValidate[4] = { 0, 0, 0, 2 };
 
-bool endToggle = false;
 
-// lifted to file scope because of nested procedures
-byte saveClass;
-word curOff;
 
 static byte Toupper(byte c)
 {
     if ('a' <= c && c <= 'z')
-    c = c & 0x5F;
+        c = c & 0x5F;
     return c;
 }
 
@@ -44,7 +40,7 @@ static void Str2num(byte radix, pointer validateP)
     bool errored;
     byte curoff, ct;
 
-    tokenVal = trial = 0 ;
+    tokenVal = trial = 0;
     errored = false;
     for (curoff = 1; curoff <= tokenLen; curoff++) {
         if ((ct = cClass[ch = tokenStr[curoff]]) > CC_HEXCHAR)
@@ -53,17 +49,17 @@ static void Str2num(byte radix, pointer validateP)
             valId = validateP[ct];
         switch (valId) {
         case 0: ch = ch - '0'; break;
-        case 1: if (! errored) {
-                    TokenErrorAt(ERR5);	/* INVALID CHARACTER IN NUMERIC CONSTANT */
-                    errored = true;
-                }
-                ch = 0;
-                break;
-         case 2: ch = ch - 'A' + 10; break;
+        case 1:
+            if (!errored) {
+                TokenErrorAt(ERR5);	/* INVALID CHARACTER IN NUMERIC CONSTANT */
+                errored = true;
+            }
+            ch = 0;
+            break;
+        case 2: ch = ch - 'A' + 10; break;
         }
 
-        if ((trial = tokenVal * radix + ch) < tokenVal)
-        {
+        if ((trial = tokenVal * radix + ch) < tokenVal) {
             TokenErrorAt(ERR94);	/* ILLEGAL CONSTANT, VALUE > 65535 */
             return;
         }
@@ -76,8 +72,7 @@ static void Token2Num()
 {
     if (cClass[ch = tokenStr[tokenLen = tokenStr[0]]] <= CC_DECDIGIT)
         Str2num(10, decValidate);
-    else 
-    {
+    else {
         tokenLen = tokenLen - 1;
         if (ch == 'H')
             Str2num(16, hexValidate);
@@ -98,26 +93,26 @@ static void NestMacro()
 {
     pointer tmp;
 
-    tmp = off2Ptr(GetLitAddr() + 2);	
+    tmp = off2Ptr(GetLitAddr() + 2);
     WrXrefUse();
     if (macroDepth == 10)
         TokenErrorAt(ERR7);	/* LIMIT EXCEEDED: MACROS NESTED TOO DEEPLY */
     else {
-        SetType(7);
-        macroPtrs[macroDepth = macroDepth + 2] = inChrP;
-        macroPtrs[macroDepth + 1] = off2Ptr(curMacroInfoP);
-        inChrP = tmp - 1;
-        curMacroInfoP = curInfoP;
+        SetType(MACRO_T);   // mark the type as  MACRO_T to spot recursive expansion
+        macroPtrs[macroDepth = macroDepth + 2] = inChrP;    // push the current location
+        macroPtrs[macroDepth + 1] = off2Ptr(curMacroInfoP); // and infoP
+        inChrP = tmp - 1;               // adjust for initial increment in GNxtCh()
+        curMacroInfoP = curInfoP;       // set up the new infoP
     }
 } /* NestMacro() */
 
-static bool ChkMacro()
+static bool IsNotLit()
 {
     Lookup(tokenStr);
     markedSymbolP = curSymbolP;
     if (High(SymbolP(curSymbolP)->infoP) == 0xFF)	/* simple key word */
         tokenType = Low(SymbolP(curSymbolP)->infoP);
-    else { 
+    else {
         FindInfo();
         if (curInfoP != 0)
             if (GetType() == LIT_T) {
@@ -134,72 +129,58 @@ static bool ChkMacro()
 static void GetName(word maxlen)
 {
     byte ct;
+    word curOff = 1;
 
-    curOff = 1;
-   
-    ct = cClass[lastCh]; 
-    while (ct <= CC_ALPHA || lastCh == '$') {
-        if (lastCh == '$')
+    ct = cClass[nextCh];
+    while (ct <= CC_ALPHA || nextCh == '$') {
+        if (nextCh == '$')
             GNxtCh();
         else if (curOff > maxlen) {
             TokenErrorAt(ERR3);	/* IDENTIFIER, STRING, or NUMBER TOO LONG, TRUNCATED */
-            while (ct <= CC_ALPHA || lastCh == '$') {
+            while (ct <= CC_ALPHA || nextCh == '$') {   // junk rest of identifier
                 GNxtCh();
-                ct = cClass[lastCh];
+                ct = cClass[nextCh];
             }
-            curOff = maxlen + 1;
+            curOff = maxlen + 1;                        // lenght will exceed limit
         } else {
-            tokenStr[curOff] = Toupper(lastCh);
-            curOff = curOff + 1;
+            tokenStr[curOff++] = Toupper(nextCh);       // save name in upper case
             GNxtCh();
         }
-        ct = cClass[lastCh];
+        ct = cClass[nextCh];
     }
-    
-    tokenStr[0] = curOff - 1;
+
+    tokenStr[0] = curOff - 1;       // save pstr length
 }
 
 
 static void ParseString()
 {
-    bool tooLong;
+    bool tooLong = false;
+    word curOff = 1;
 
-    tooLong = false;
-    curOff = 1;
-    
+    // code simplified in port to C
     while (1) {
         GNxtCh();
-        while (lastCh != '\'') {
-            while (lastCh == '\r' || lastCh == '\n')
-                GNxtCh();
-            if (lastCh != QUOTE) {
-                if (curOff != 256) {
-                    tokenStr[curOff] = lastCh;
-                    curOff = curOff + 1;
-                } else {
-                    tooLong = true;
-                    if (lastCh == ';') {
-                        TokenErrorAt(ERR85);	/* LONG STRING ASSUMED CLOSED at NEXT SEMICOLON or QUOTE */
-                        goto l5F4E;
-                    }
-                }
-                GNxtCh();
+        if (nextCh == '\r' || nextCh == '\n')   // strings can go over more than one line but cr lf ignored
+            continue;
+        if (nextCh == QUOTE) {  // double quote passes through as single quote
+            GNxtCh();
+            if (nextCh != QUOTE)    // single quote finishes string
+                break;
+        }
+        if (curOff != 256)
+            tokenStr[curOff++] = nextCh;
+        else {
+            tooLong = true;
+            if (nextCh == ';') {
+                TokenErrorAt(ERR85);	/* LONG STRING ASSUMED CLOSED AT NEXT SEMICOLON OR QUOTE */
+                break;
             }
         }
-        GNxtCh();
-        if (lastCh == QUOTE)
-            if (curOff != 256) {
-                tokenStr[curOff] = lastCh;
-                curOff = curOff + 1;
-            } else
-                tooLong = true;
-        else
-           break;
     }
-l5F4E:
-    tokenStr[0] = curOff - 1;
+    tokenStr[0] = curOff - 1;   // record length of pstr
     if (tokenStr[0] == 0)
-        TokenErrorAt(ERR189);	/* LONG STRING ASSUMED CLOSED at NEXT SEMICOLON or QUOTE */
+        TokenErrorAt(ERR189);	/* NULL STRING NOT ALLOWED */
     if (tooLong)
         TokenErrorAt(ERR3);	/* IDENTIFIER, STRING, or NUMBER TOO LONG, TRUNCATED */
 }
@@ -209,18 +190,17 @@ static void LocYylex()
 {
     word tmp;
     bool inComment;
+    byte saveClass;
 
     while (1) {
-        saveClass = cClass[lastCh];
+        saveClass = cClass[nextCh];     // the lookahead char
         tokenType = tokenTypeTable[saveClass];
         switch (typeProcIdx[saveClass]) {
         case 0:	/* white space */
-            GNxtCh();
-            saveClass = cClass[lastCh];
-            while (saveClass == CC_WSPACE) {
+            do {
                 GNxtCh();
-                saveClass = cClass[lastCh];
-            }
+                saveClass = cClass[nextCh];
+            } while (saveClass == CC_WSPACE);
             break;
         case 1:	/* digits */
             GetName(31);
@@ -229,26 +209,26 @@ static void LocYylex()
         case 2:	/* letters */
             tmp = curInfoP;
             GetName(255);
-            if (ChkMacro())
+            if (IsNotLit())     // will cause lit to expand
                 return;
             curInfoP = tmp;
-            GNxtCh();
+            GNxtCh();           // carry on processing
             break;
         case 3:	/* -, +, *, (,), ,, ;, = */
             GNxtCh();
             return;
         case 4:	/* slash */
             GNxtCh();
-            inComment = true;
-            if (lastCh != '*')
+            inComment = true;       // assume we have a comment
+            if (nextCh != '*')      // no so return /
                 return;
             GNxtCh();
             while (inComment) {
-                while (lastCh != '*') {
+                while (nextCh != '*') {
                     GNxtCh();
                 }
                 GNxtCh();
-                if (lastCh == '/') {
+                if (nextCh == '/') {    // found end of comment
                     inComment = false;
                     GNxtCh();
                 }
@@ -256,7 +236,7 @@ static void LocYylex()
             break;
         case 5:	/* : */
             GNxtCh();
-            if (lastCh == '=') {
+            if (nextCh == '=') {
                 tokenType = T_COLON_EQUALS;
                 GNxtCh();
             }
@@ -266,17 +246,17 @@ static void LocYylex()
             return;
         case 7:	/* < */
             GNxtCh();
-            if (lastCh == '>') {
+            if (nextCh == '>') {
                 tokenType = T_NE;
                 GNxtCh();
-            } else if (lastCh == '=') {
+            } else if (nextCh == '=') {
                 tokenType = T_LE;
                 GNxtCh();
             }
             return;
         case 8:	/* > */
             GNxtCh();
-            if (lastCh == '=') {
+            if (nextCh == '=') {
                 tokenType = T_GE;
                 GNxtCh();
             }
@@ -295,138 +275,135 @@ static void LocYylex()
 
 void Yylex()
 {
-	if (yyAgain)
-		yyAgain = false;
-	else if (unexpectedEOF)
-		tokenType = ENDorSEMICOLON[endToggle = (endToggle + 1) & 1];
-	else {
-		LocYylex();
-		if (tokenType == T_EOF) {
-		    unexpectedEOF = true;
-		    tokenType = T_END;
-		}
-	}
+    static bool endToggle = false;  // relies on C's false = 0, true = 1
+
+    if (yyAgain)
+        yyAgain = false;
+    else if (afterEOF)  // return alternating END and ; to allow recovery
+        tokenType = ENDorSEMICOLON[endToggle = !endToggle];
+    else {
+        LocYylex();
+        if (tokenType == T_EOF) {
+            afterEOF = true;
+            tokenType = T_END;
+        }
+    }
 }
 
 void SetYyAgain()
 {
-	yyAgain = true;
+    yyAgain = true;
 }
 
 /*
-	look for matching token
+    look for matching token
 */
 bool YylexMatch(byte token)
 {
     Yylex();			/* get the token to check */
     if (tokenType == token)
-		return true;
+        return true;
     else {
-	    SetYyAgain();	/* not matching but push back */
-	    return false;
+        SetYyAgain();	/* not matching but push back */
+        return false;
     }
 }
 
 bool YylexNotMatch(byte token)
 {
-    return ! YylexMatch(token);
+    return !YylexMatch(token);
 }
 
-static void Sub_60F9()
+static void WrNestedExpression()
 {
-	word i;
+    word nesting;
 
-	i = 1;
-	WrOprAndValue();
-	Yylex();
-    
-	while (1) {
-		if (tokenType == T_LPAREN)
-		    i = i + 1;
-		else if (tokenType == T_RPAREN) {
-		    if ((i = i - 1) == 0) {
-                WrOprAndValue();
+    nesting = 1;
+    WrLexToken();
+    Yylex();
+
+    while (1) {
+        if (tokenType == T_LPAREN)
+            nesting++;
+        else if (tokenType == T_RPAREN) {
+            if ((--nesting) == 0) {
+                WrLexToken();
                 return;
-		    }
-		} else if (tokenType == T_SEMICOLON || (tokenType >= T_CALL && tokenType <= T_RETURN)) {
-			TokenErrorAt(ERR82);	/* INVALID SYNTAX, MISMATCHED '(' */
-			while (i != 0) {
-				WrByte(L_RPAREN);
-				i = i - 1;
-			}
-			SetYyAgain();
-			return;
-		}
-		WrOprAndValue();
-		Yylex();
-	}
+            }
+        } else if (tokenType == T_SEMICOLON || (tokenType >= T_CALL && tokenType <= T_RETURN)) {
+            TokenErrorAt(ERR82);	/* INVALID SYNTAX, MISMATCHED '(' */
+            while (nesting != 0) {
+                WrByte(L_RPAREN);
+                nesting--;
+            }
+            SetYyAgain();
+            return;
+        }
+        WrLexToken();
+        Yylex();
+    }
 }
 
 
+// convert and write expression into lex tokens
+// stop when endTok, semicolon or new start symbol for <declaration> or <unit> seen
 void ParseExpresion(byte endTok)
 {
-	Yylex();
-	while (tokenType != endTok && tokenType != T_SEMICOLON) {
-		if (T_CALL <= tokenType && tokenType <= T_RETURN)
-			break;
-		WrOprAndValue();
-		Yylex();
-	}
-	SetYyAgain();
+    Yylex();
+    while (tokenType != endTok && tokenType != T_SEMICOLON) {
+        if (T_CALL <= tokenType && tokenType <= T_RETURN)
+            break;
+        WrLexToken();
+        Yylex();
+    }
+    SetYyAgain();
 }
 
 
 /*
-	Error() recovery to) or end of statement
-	skip to ; or
-		) unless inside nested ()
+    Error() recovery to) or end of statement
+    skip to ; or
+        ) unless inside nested ()
 */
-static void Sub_61CF()
+static void RecoverToSemiOrRP()
 {
-	word i;
+    word nesting;
 
-	i = 0;
-	while (1) {
-		if (tokenType == T_SEMICOLON)
-			break;
-		if (tokenType == T_LPAREN)
-			i = i + 1;
-		else if (tokenType == T_RPAREN)
-			if (i == 0)
-				break;
-			else
-				i = i - 1;
-		Yylex();	/* get next token */
-	}
-	SetYyAgain();	/* push back token */
+    nesting = 0;
+    while (1) {
+        if (tokenType == T_SEMICOLON)
+            break;
+        if (tokenType == T_LPAREN)
+            nesting++;
+        else if (tokenType == T_RPAREN && nesting-- == 0)
+            break;
+        Yylex();	/* get next token */
+    }
+    SetYyAgain();	/* push back token */
 }
 
 
 /*
-	Error() recovery to next element in parameter list
-	skip to ; or
-		) or , unless inside nested ()
+    Error() recovery to next element in parameter list
+    skip to ; or
+        ) or , unless inside nested ()
 */
-static void Sub_621A()
+static void RecoverMissingParam()
 {
-	word i;
-	i = 0;
-	while (1) {
-		if (tokenType == T_SEMICOLON)
-			break;
-		if (i == 0)
-			if (tokenType == T_COMMA)
-				break;
-		if (tokenType == T_LPAREN)
-			i = i + 1;
-		else if (tokenType == T_RPAREN)
-			if (i == 0)
-				break;
-			else
-				i = i - 1;
-		Yylex();	/* get next token */
-	}
-	SetYyAgain();	/* push back token */
+    word nesting;
+    nesting = 0;
+    while (1) {
+        if (tokenType == T_SEMICOLON)
+            break;
+        if (nesting == 0 && tokenType == T_COMMA)
+            break;
+        if (tokenType == T_LPAREN)
+            nesting++;
+        else if (tokenType == T_RPAREN && nesting-- == 0)
+            break;
+        Yylex();	/* get next token */
+    }
+    SetYyAgain();	/* push back token */
 }
 
 
@@ -436,7 +413,7 @@ static word declBasedNames[33];
 static word declNameCnt;
 static offset_t declaringName;
 static word declaringBase;
-static word parentStructure;
+static word savedCurInfo;
 static word basedInfo;
 static byte dclFlags[3];
 static byte dclType;
@@ -446,13 +423,13 @@ static offset_t structMembers[33];
 static word structMemDim[33];
 static byte structMemType[33];
 static word structMCnt;
-static byte byte_9D7B;
-static byte flag;
+static byte factoredParamCnt;
+static bool isNewVar;
 
 
 
 
-static void Sub_62B0(word errcode)
+static void DeclarationError(word errcode)
 {
     TokenError((byte)errcode, declaringName);
 }
@@ -461,28 +438,26 @@ static void Sub_62B0(word errcode)
 
 static void ChkModuleLevel()
 {
-    if (*curProcData != 0x100)
-        TokenErrorAt(ERR73);	/* INVALID ATTRIBUTE or INITIALIZATION, not at MODULE LEVEL */
+    if (*curScopeP != 0x100)
+        TokenErrorAt(ERR73);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
 }
 
 static void ChkNotArray()
 {
-    if (TestFlag(dclFlags, F_ARRAY))
-    {
+    if (TestFlag(dclFlags, F_ARRAY)) {
         TokenErrorAt(ERR63);	/* INVALID DIMENSION WITH THIS ATTRIBUTE */
-        ClrFlag(dclFlags, F_ARRAY);
+        ClrFlag(dclFlags, F_ARRAY); // can't be any form of array
         ClrFlag(dclFlags, F_STARDIM);
-        arrayDim = 0;
+        arrayDim = 0;               // dim not applicable
     }
 }
 
 
 static void ChkNotStarDim()
 {
-    if (TestFlag(dclFlags, F_STARDIM))
-    {
-        TokenErrorAt(ERR62);	/* INVALID STAR DIMENSION WITH 'structure' or 'external' */
-        ClrFlag(dclFlags, F_STARDIM);
+    if (TestFlag(dclFlags, F_STARDIM)) {
+        TokenErrorAt(ERR62);	/* INVALID STAR DIMENSION WITH 'STRUCTURE' OR 'EXTERNAL' */
+        ClrFlag(dclFlags, F_STARDIM);   // reset to single instance
         arrayDim = 1;
     }
 }
@@ -499,7 +474,7 @@ static void CreateStructMemberInfo()
         curSymbolP = structMembers[i];
         memType = structMemType[i];
         memDim = structMemDim[i];
-        CreateInfo(*curProcData, memType);
+        CreateInfo(*curScopeP, memType);
         WrXrefDef();
         SetInfoFlag(F_MEMBER);
         SetInfoFlag(F_LABEL);
@@ -508,59 +483,59 @@ static void CreateStructMemberInfo()
             SetDimension(memDim);
         } else
             SetDimension(1);
-        SetParentOffset(parentStructure);
+        SetParentOffset(savedCurInfo);      // this is the infoP of the structure
     }
 }
 
-static void Sub_63B7(word v)
+static void ChkAndSetAttributes(word factoredIdx)
 {
     byte cFlags, i;
-    
+
     curSymbolP = declaringName;
-    FindScopedInfo(*curProcData);
-    if (curInfoP != 0) {
+    FindScopedInfo(*curScopeP);
+    if (curInfoP != 0) {        // identifier alredy in scope  - only valid for parameter
         WrXrefUse();
         if (TestInfoFlag(F_PARAMETER) && !TestInfoFlag(F_LABEL)) {
-            cFlags = 0;
+            cFlags = 0;                     /* check for existing flags */
             for (i = 0; i <= 2; i++)
-                cFlags = cFlags | dclFlags[i];
+                cFlags |= dclFlags[i];
             if (cFlags != 0)
-                Sub_62B0(ERR76);	/* CONFLICTING ATTRIBUTE WITH PARAMETER */
-            if (dclType != 2 && dclType != 3)
-                Sub_62B0(ERR79);	/* ILLEGAL PARAMETER TYPE, not byte or address */
+                DeclarationError(ERR76);	/* CONFLICTING ATTRIBUTE WITH PARAMETER */
+            if (dclType != BYTE_T && dclType != ADDRESS_T)
+                DeclarationError(ERR79);	/* ILLEGAL PARAMETER TYPE, not byte or address */
             else
                 SetType(dclType);
             if (declaringBase != 0) {
-                Sub_62B0(ERR77);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
+                DeclarationError(ERR77);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
                 declaringBase = 0;
             }
         } else {
-            Sub_62B0(ERR78);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
+            DeclarationError(ERR78);	/* DUPLICATE DECLARATION */
             return;
         }
     } else {
-        CreateInfo(*curProcData, dclType);
+        CreateInfo(*curScopeP, dclType);
         WrXrefDef();
         CpyFlags(dclFlags);
     }
-    parentStructure = curInfoP;
-    if (dclType == 0) {
-        if (declaringBase != 0)
-            Sub_62B0(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
+    savedCurInfo = curInfoP;
+    if (dclType == LIT_T) {
+        if (declaringBase != 0)         // lits cannot be based
+            DeclarationError(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
         SetLitAddr(lastLit);
         return;
-    } else if (dclType == 1) {
+    } else if (dclType == LABEL_T) {
         if (declaringBase != 0)
-            Sub_62B0(ERR80);	/* INVALID DECLARATION, label MAY not BE based */
+            DeclarationError(ERR80);	/* INVALID DECLARATION, LABEL MAY NOT BE BASED */
         if (TestInfoFlag(F_EXTERNAL))
             SetInfoFlag(F_LABEL);
         return;
     } else {
         if (declaringBase != 0) {
             if (TestInfoFlag(F_PUBLIC) || TestInfoFlag(F_EXTERNAL)
-              || TestInfoFlag(F_AT) || TestInfoFlag(F_INITIAL)
-              || TestInfoFlag(F_DATA)) {
-                Sub_62B0(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
+                || TestInfoFlag(F_AT) || TestInfoFlag(F_INITIAL)
+                || TestInfoFlag(F_DATA)) {
+                DeclarationError(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
                 declaringBase = 0;
             } else
                 SetInfoFlag(F_BASED);
@@ -569,50 +544,50 @@ static void Sub_63B7(word v)
         SetBaseOffset(declaringBase);
         curInfoP = curProcInfoP;
         if (TestInfoFlag(F_REENTRANT)) {
-            curInfoP = parentStructure;
-            if (!( TestInfoFlag(F_DATA) || TestInfoFlag(F_BASED) || TestInfoFlag(F_AT)))
+            curInfoP = savedCurInfo;
+            if (!(TestInfoFlag(F_DATA) || TestInfoFlag(F_BASED) || TestInfoFlag(F_AT)))
                 SetInfoFlag(F_AUTOMATIC);
         }
-        curInfoP = parentStructure;
+        curInfoP = savedCurInfo;
     }
     if (TestInfoFlag(F_PARAMETER))
-        byte_9D7B = byte_9D7B + 1;
-    else if (v - byte_9D7B != 1)
+        factoredParamCnt++;
+    else if (factoredIdx - factoredParamCnt != 1)   // isNewVar first non parameter var as packed
         SetInfoFlag(F_PACKED);
     SetInfoFlag(F_LABEL);
-    if (dclType == 4)
+    if (dclType == STRUCT_T)
         CreateStructMemberInfo();
 }
 
-static void Sub_65AF()
+static void SetFactoredAttributes()
 {
     word i;
 
-    byte_9D7B = 0;
+    factoredParamCnt = 0;
     for (i = 1; i <= declNameCnt; i++) {
         declaringName = declNames[i];
         declaringBase = declBasedNames[i];
-        Sub_63B7(i);
+        ChkAndSetAttributes(i);
     }
 }
 
 /*
     parse at, data or initial argument
 */
-static void Sub_65FA(byte lexItem, byte locflag)
+static void AttributeExpression(byte lexItem, byte locflag)
 {
     if (TestFlag(dclFlags, F_EXTERNAL))
         TokenErrorAt(ERR41);	/* CONFLICTING ATTRIBUTE */
     if (YylexMatch(T_LPAREN)) {
         WrByte(lexItem);
-        if (flag)
-            WrOffset(topInfo + 1);
+        if (isNewVar)
+            WrInfoOffset(topInfo + 1);
         else
-            WrOffset(botInfo);
+            WrInfoOffset(botInfo);
         SetFlag(dclFlags, locflag);
-        Sub_60F9();
+        WrNestedExpression();
     } else
-        TokenErrorAt(ERR75);	/* MISSING ARGUMENT OF 'at' , 'data' , or 'initial' */
+        TokenErrorAt(ERR75);	/* MISSING ARGUMENT OF 'AT' , 'DATA' , OR 'INITIAL' */
 }
 
 
@@ -620,9 +595,9 @@ static void ParseDclInitial()
 {
     if (YylexMatch(T_INITIAL)) {
         ChkModuleLevel();
-        Sub_65FA(L_INITIAL, F_INITIAL);
+        AttributeExpression(L_INITIAL, F_INITIAL);
     } else if (YylexMatch(T_DATA))
-        Sub_65FA(L_DATA, F_DATA);
+        AttributeExpression(L_DATA, F_DATA);
     else if (TestFlag(dclFlags, F_STARDIM)) {
         TokenErrorAt(ERR74);	/* INVALID STAR DIMENSION, not WITH 'data' or 'initial' */
         ClrFlag(dclFlags, F_STARDIM);
@@ -633,7 +608,7 @@ static void ParseDclInitial()
 static void ParseDclAt()
 {
     if (YylexMatch(T_AT))
-        Sub_65FA(L_AT, F_AT);
+        AttributeExpression(L_AT, F_AT);
 }
 
 static void ParseDclScope()
@@ -651,24 +626,23 @@ static void ParseDclScope()
 static void ParseStructMType()
 {
     word type;
-    
+
     if (YylexMatch(T_BYTE))
-        type = 2;
+        type = BYTE_T;
     else if (YylexMatch(T_ADDRESS))
-        type = 3;
+        type = ADDRESS_T;
     else {
-        type = 2;
+        type = BYTE_T;
         if (YylexMatch(T_STRUCTURE)) {
-            TokenErrorAt(ERR70);	/* INVALID MEMBER TYPE, 'structure' ILLEGAL */
+            TokenErrorAt(ERR70);	/* INVALID MEMBER TYPE, 'STRUCTURE' ILLEGAL */
             if (YylexMatch(T_LPAREN)) {
-                Sub_61CF();
+                RecoverToSemiOrRP();
                 Yylex();
             }
-        }
-        else if (YylexMatch(T_LABEL))
-            TokenErrorAt(ERR71);	/* INVALID MEMBER TYPE, 'label' ILLEGAL */
+        } else if (YylexMatch(T_LABEL))
+            TokenErrorAt(ERR71);	/* INVALID MEMBER TYPE, 'LABEL' ILLEGAL */
         else
-            TokenErrorAt(ERR72);	/* MISSING TYPE FOR structure MEMBER */
+            TokenErrorAt(ERR72);	/* MISSING TYPE FOR STRUCTURE MEMBER */
     }
     structMemType[structMCnt] = (byte)type;
 }
@@ -676,14 +650,13 @@ static void ParseStructMType()
 static void ParseStructMDim()
 {
     word dim;
-    
-    if (YylexMatch(T_LPAREN))
-    {
+
+    if (YylexMatch(T_LPAREN)) {
         if (YylexMatch(T_NUMBER))
             dim = tokenVal;
         else if (YylexMatch(T_STAR)) {
             dim = 1;
-            TokenErrorAt(ERR69);	/* INVALID STAR DIMENSION WITH structure MEMBER */
+            TokenErrorAt(ERR69);	/* INVALID STAR DIMENSION WITH STRUCTURE MEMBER */
         } else {
             dim = 1;
             TokenErrorAt(ERR59);	/* ILLEGAL DIMENSION ATTRIBUTE */
@@ -693,8 +666,8 @@ static void ParseStructMDim()
             TokenErrorAt(ERR57);	/* ILLEGAL DIMENSION ATTRIBUTE */
         }
         if (YylexNotMatch(T_RPAREN)) {
-            TokenErrorAt(ERR60);	/* MISSING ') ' at end OF DIMENSION */
-            Sub_61CF();
+            TokenErrorAt(ERR60);	/* MISSING ') ' AT END OF DIMENSION */
+            RecoverToSemiOrRP();
             Yylex();
         }
         structMemDim[structMCnt] = dim;
@@ -702,21 +675,21 @@ static void ParseStructMDim()
 }
 
 
-static void LocParseStructMem()
+static void ParseStructMemElement()
 {
     byte mcnt;
 
-    if (YylexNotMatch(T_VARIABLE))
-        TokenErrorAt(ERR66);	/* INVALID structure MEMBER, not AN IDENTIFIER */
+    if (YylexNotMatch(T_IDENTIFIER))
+        TokenErrorAt(ERR66);	/* INVALID STRUCTURE MEMBER, NOT AN IDENTIFIER */
     else {
         for (mcnt = 1; mcnt <= structMCnt; mcnt++) {
             if (curSymbolP == structMembers[mcnt])
-                TokenErrorAt(ERR67);	/* DUPLICATE structure MEMBER NAME */
+                TokenErrorAt(ERR67);	/* DUPLICATE STRUCTURE MEMBER NAME */
         }
         if (structMCnt == 32)
-            TokenErrorAt(ERR68);	/* LIMIT EXCEEDED: NUMBER OF structure MEMBERS */
+            TokenErrorAt(ERR68);	/* LIMIT EXCEEDED: NUMBER OF STRUCTURE MEMBERS */
         else
-            structMCnt = structMCnt + 1;
+            structMCnt++;
         structMembers[structMCnt] = curSymbolP;
         structMemType[structMCnt] = 0;
         structMemDim[structMCnt] = 0;
@@ -729,16 +702,16 @@ static void ParseStructMem()
 {
     structMCnt = 0;
     if (YylexNotMatch(T_LPAREN))
-        TokenErrorAt(ERR64);	/* MISSING structure MEMBERS */
+        TokenErrorAt(ERR64);	/* MISSING STRUCTURE MEMBERS */
     else {
         while (1) {
-            LocParseStructMem();
+            ParseStructMemElement();
             if (YylexNotMatch(T_COMMA))
                 break;
         }
         if (YylexNotMatch(T_RPAREN)) {
-            TokenErrorAt(ERR65);	/* MISSING ') ' at end OF structure MEMBER LIST */
-            Sub_61CF();
+            TokenErrorAt(ERR65);	/* MISSING ') ' AT END OF STRUCTURE MEMBER LIST */
+            RecoverToSemiOrRP();
             Yylex();
         }
     }
@@ -747,19 +720,19 @@ static void ParseStructMem()
 static void ParseDclDataType()
 {
     if (YylexMatch(T_BYTE))
-        dclType = 2;
+        dclType = BYTE_T;
     else if (YylexMatch(T_ADDRESS))
-        dclType = 3;
+        dclType = ADDRESS_T;
     else if (YylexMatch(T_STRUCTURE)) {
-        dclType = 4;
-        ChkNotStarDim();
+        dclType = STRUCT_T;
+        ChkNotStarDim();        // illegal for structure to have * dim
         ParseStructMem();
     } else if (YylexMatch(T_LABEL)) {
-        dclType = 1;
+        dclType = LABEL_T;
         ChkNotArray();
     } else {
         TokenErrorAt(ERR61);	/* MISSING TYPE */
-        dclType = 2;
+        dclType = BYTE_T;       // assume byte
     }
 }
 
@@ -769,10 +742,9 @@ static void ParseArraySize()
         SetFlag(dclFlags, F_ARRAY);
         if (YylexMatch(T_NUMBER)) {
             if (tokenVal == 0) {
-                TokenErrorAt(ERR57);	/* INVALID DIMENSION, Zero() ILLEGAL */
+                TokenErrorAt(ERR57);	/* INVALID DIMENSION, ZERO ILLEGAL */
                 arrayDim = 1;
-            }
-            else
+            } else
                 arrayDim = tokenVal;
         } else if (YylexMatch(T_STAR)) {
             if (declNameCnt > 1) {
@@ -785,8 +757,8 @@ static void ParseArraySize()
             arrayDim = 1;
         }
         if (YylexNotMatch(T_RPAREN)) {
-            TokenErrorAt(ERR60);	/* MISSING ') ' at end OF DIMENSION */
-            Sub_61CF();
+            TokenErrorAt(ERR60);	/* MISSING ') ' AT END OF DIMENSION */
+            RecoverToSemiOrRP();
             Yylex();
         }
     }
@@ -805,12 +777,12 @@ static void ParseDeclType()
 static void ParseLiterally()
 {
     if (YylexNotMatch(T_STRING)) {
-        TokenErrorAt(ERR56);	/* INVALID MACRO TEXT, not A STRING CONSTANT */
-        tokenStr[0] = 1;
+        TokenErrorAt(ERR56);	/* INVALID MACRO TEXT, NOT A STRING CONSTANT */
+        tokenStr[0] = 1;        // give default of a single space
         tokenStr[1] = ' ';
     }
     lastLit = CreateLit(tokenStr);
-    dclType = 0;
+    dclType = LIT_T;
 }
 
 
@@ -818,30 +790,30 @@ static void ParseLitOrType()
 {
     arrayDim = 1;
     ClrFlags(dclFlags);
-    dclType = 0;
+    dclType = LIT_T;
     if (YylexMatch(T_LITERALLY))
         ParseLiterally();
     else
         ParseDeclType();
 }
 
-static void GetBaseInfo()
+static void ParseBaseSpecifier()
 {
     offset_t base1Name, base2Name;
 
     basedInfo = 0;
-    if (YylexNotMatch(T_VARIABLE))
-        TokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF based structure or ARRAY OF STRUCTURES */
+    if (YylexNotMatch(T_IDENTIFIER))
+        TokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES */
     else {
         base1Name = curSymbolP;
-        if (YylexMatch(T_PERIOD))
-            if (YylexMatch(T_VARIABLE))
+        if (YylexMatch(T_PERIOD)) {
+            if (YylexMatch(T_IDENTIFIER))
                 base2Name = curSymbolP;
             else {
-                TokenErrorAt(ERR53);	/* INVALID structure MEMBER IN BASE */
+                TokenErrorAt(ERR53);	/* INVALID STRUCTURE MEMBER IN BASE */
                 return;
             }
-        else
+        } else
             base2Name = 0;
         curSymbolP = base1Name;
         FindInfo();
@@ -856,44 +828,45 @@ static void GetBaseInfo()
             curSymbolP = base2Name;
             FindMemberInfo();
             if (curInfoP == 0) {
-                TokenErrorAt(ERR55);	/* UNDECLARED structure MEMBER IN BASE */
+                TokenErrorAt(ERR55);	/* UNDECLARED STRUTURE MEMBER IN BASE */
                 return;
             }
             WrXrefUse();
             basedInfo = curInfoP;
         }
     }
-} /* GetBaseInfo() */
+} /* ParseBaseSpecifier() */
 
-
-static void Sub_6A68()
+// parse <variable name specifier>
+static void ParseVariableNameSpecifier()
 {
-    if (YylexNotMatch(T_VARIABLE))
+    if (YylexNotMatch(T_IDENTIFIER))
         TokenErrorAt(ERR48);	/* ILLEGAL DECLARATION STATEMENT SYNTAX */
     else {
         if (declNameCnt == 32)
-            TokenErrorAt(ERR49);	/* LIMIT EXCEEDED: NUMBER OF ITEMS IN FACTORED declare */
+            TokenErrorAt(ERR49);	/* LIMIT EXCEEDED: NUMBER OF ITEMS IN FACTORED DECLARE */
         else
-            declNameCnt = declNameCnt + 1;
+            declNameCnt++;
 
         declNames[declNameCnt] = curSymbolP;
         declBasedNames[declNameCnt] = 0;
-        if (! flag) {
-            FindScopedInfo(*curProcData);
-            if (curInfoP == 0)
-                flag = true;
+        if (!isNewVar) {
+            FindScopedInfo(*curScopeP);
+            if (curInfoP == 0)      // new var definition
+                isNewVar = true;
         }
-        if (YylexMatch(T_BASED)) {
-            GetBaseInfo();
+        if (YylexMatch(T_BASED)) {  // check for BASED variant
+            ParseBaseSpecifier();
             if (basedInfo != 0) {
                 curInfoP = basedInfo;
-                if (TestInfoFlag(F_BASED) || TestInfoFlag(F_ARRAY) || GetType() != ADDRESS_T) { 
+                // base var has to be basic address not a based var or array var
+                if (TestInfoFlag(F_BASED) || TestInfoFlag(F_ARRAY) || GetType() != ADDRESS_T) {
                     TokenErrorAt(ERR50);	/* INVALID ATTRIBUTES FOR BASE */
                     basedInfo = 0;
-                } else if (TestInfoFlag(F_MEMBER)) {
+                } else if (TestInfoFlag(F_MEMBER)) {    // for structure var base, structure cannot be array or based
                     curInfoP = GetParentOffset();
                     if (TestInfoFlag(F_ARRAY) || TestInfoFlag(F_BASED)) {
-                        TokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF based structure or ARRAY OF STRUCTURES */
+                        TokenErrorAt(ERR52);	/* INVALID BASE, MEMBER OF BASED STRUCTURE OR ARRAY OF STRUCTURES */
                         basedInfo = 0;
                     }
                 }
@@ -904,38 +877,38 @@ static void Sub_6A68()
 }
 
 
-void GetDclNames()
+void ParseDeclareNames()
 {
     declNameCnt = 0;
-    flag = false;
-    if (YylexMatch(T_LPAREN)) {
-        while (1) {
-            Sub_6A68();
+    isNewVar = false;
+    if (YylexMatch(T_LPAREN)) { // factored names list?
+        while (1) {     // collect the variable names
+            ParseVariableNameSpecifier();
             if (YylexNotMatch(T_COMMA))
                 break;
         }
         if (YylexNotMatch(T_RPAREN)) {
-            TokenErrorAt(ERR47);	/* MISSING ') ' at end OF FACTORED DECLARATION */
-            Sub_61CF();
+            TokenErrorAt(ERR47);	/* MISSING ') ' AT END OF FACTORED DECLARATION */
+            RecoverToSemiOrRP();
             Yylex();
         }
-    }
-    else
-        Sub_6A68();
+    } else
+        ParseVariableNameSpecifier();
 }
 
-void ParseDcl()
+// parse <declare element>
+void ParseDeclareElementList()
 {
-	if (stmtLabelCnt != 0)
-		SyntaxError(ERR46);	/* ILLEGAL USE OF label */
-	while (1) {
-		GetDclNames();
-		if (declNameCnt != 0) {
-			ParseLitOrType();
-			Sub_65AF();
-		}
-		if (YylexNotMatch(T_COMMA))
-			return;
+    if (stmtLabelCnt != 0)  // declare cannot have label prefix
+        SyntaxError(ERR46);	/* ILLEGAL USE OF LABEL */
+    while (1) {
+        ParseDeclareNames();
+        if (declNameCnt != 0) {
+            ParseLitOrType();
+            SetFactoredAttributes();
+        }
+        if (YylexNotMatch(T_COMMA))
+            return;
     }
 }
 
@@ -946,7 +919,7 @@ bool hasParams;
 static void SetPublic()
 {
     if (GetScope() != 0x100)
-        TokenErrorAt(ERR39);	/* INVALID ATTRIBUTE or INITIALIZATION, not at MODULE LEVEL */
+        TokenErrorAt(ERR39);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
     else if (TestInfoFlag(F_PUBLIC))
         TokenErrorAt(ERR40);	/* DUPLICATE ATTRIBUTE */
     else if (TestInfoFlag(F_EXTERNAL))
@@ -959,7 +932,7 @@ static void SetPublic()
 static void SetExternal()
 {
     if (GetScope() != 0x100)
-        TokenErrorAt(ERR39);	/* INVALID ATTRIBUTE or INITIALIZATION, not at MODULE LEVEL */
+        TokenErrorAt(ERR39);	/* INVALID ATTRIBUTE OR INITIALIZATION, NOT AT MODULE LEVEL */
     else if (TestInfoFlag(F_EXTERNAL))
         TokenErrorAt(ERR40);	/* DUPLICATE ATTRIBUTE */
     else if (TestInfoFlag(F_REENTRANT) || TestInfoFlag(F_PUBLIC))
@@ -1011,7 +984,7 @@ static void SetInterruptNo()
 static void ParseProcAttrib()
 {
     curInfoP = curProcInfoP;
-    
+
     while (1) {
         if (YylexMatch(T_PUBLIC))
             SetPublic();
@@ -1030,22 +1003,22 @@ static void ParseRetType()
 {
     curInfoP = curProcInfoP;
     if (YylexMatch(T_BYTE))
-        SetDataType(2);
+        SetDataType(BYTE_T);
     else if (YylexMatch(T_ADDRESS))
-        SetDataType(3);
+        SetDataType(ADDRESS_T);
 }
 
 word paramCnt;
 
-static void Sub_6E4B()
+static void AddParam()
 {
-    FindScopedInfo(*curProcData);
+    FindScopedInfo(*curScopeP);
     if (curInfoP != 0)
         TokenErrorAt(ERR38);	/* DUPLICATE PARAMETER NAME */
-    CreateInfo(*curProcData, BYTE_T);
+    CreateInfo(*curScopeP, BYTE_T); // for now assume byte
     WrXrefDef();
     SetInfoFlag(F_PARAMETER);
-    paramCnt = paramCnt + 1;
+    paramCnt++;
 }
 
 static void ParseParams()
@@ -1054,65 +1027,68 @@ static void ParseParams()
     if (YylexMatch(T_LPAREN)) {
         while (1) {
             hasParams = true;
-            if (YylexMatch(T_VARIABLE))
-                Sub_6E4B();
+            if (YylexMatch(T_IDENTIFIER))
+                AddParam();
             else {
                 TokenErrorAt(ERR36);	/* MISSING PARAMETER */
-                Sub_621A();
+                RecoverMissingParam();
             }
             if (YylexNotMatch(T_COMMA))
                 break;
         }
         if (YylexNotMatch(T_RPAREN)) {
-            TokenErrorAt(ERR37);	/* MISSING ') ' at end OF PARAMETER LIST */
-            Sub_61CF();
+            TokenErrorAt(ERR37);	/* MISSING ') ' AT END OF PARAMETER LIST */
+            RecoverToSemiOrRP();
             Yylex();
         }
-        curInfoP = curProcInfoP;
+        curInfoP = curProcInfoP;    // note number of params. info's follow procInfo
         SetParamCnt((byte)paramCnt);
-    }
-    else
+    } else
         hasParams = false;
 }
 
-void ParseProcDcl()
+
+// parse <procedure statement> (label already parsed)
+
+void ProcProcStmt()
 {
     word tmp;
 
-	tmp = curProcInfoP;
-	curSymbolP = stmtLabels[1];
-	FindScopedInfo(*curProcData);
-	if (curInfoP != 0)
-		SyntaxError(ERR34);	/* DUPLICATE procedure DECLARATION */
-	CreateInfo(*curProcData, PROC_T);
-	SetInfoFlag(F_LABEL);
-	WrXrefDef();
-	if (procCnt == 254)
-		FatalError(ERR35);	/* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
-	procInfo[procCnt = procCnt + 1] = curInfoP;
-	procData.hb = (byte)procCnt;
-	curProcInfoP = curInfoP;
-	procData.lb = 0;
-	doBlkCnt = 0;
-	PushBlock(*curProcData);
-	ParseParams();
-	ParseRetType();
-	ParseProcAttrib();
-	curInfoP = curProcInfoP;
-	if (! TestInfoFlag(F_EXTERNAL)) {
-		WrByte(L_PROCEDURE);
-		WrOffset(curInfoP);
-		WrByte(L_SCOPE);
-		WrWord(*curProcData);
-	} else {
-		WrByte(L_EXTERNAL);
-		WrOffset(curInfoP);
-	}
-	SetProcId(procData.hb);
-	if (tmp != 0) {
-		curInfoP = tmp;
-		if (TestInfoFlag(F_REENTRANT))
-			SyntaxError(ERR88);	/* INVALID procedure NESTING, ILLEGAL IN reentrant procedure */
-		curInfoP = curProcInfoP;
-	}
+    tmp = curProcInfoP;
+    curSymbolP = stmtLabels[1];
+    FindScopedInfo(*curScopeP);   // look up procedure
+    if (curInfoP != 0)              // error if already exists
+        SyntaxError(ERR34);	/* DUPLICATE procedure DECLARATION */
+    CreateInfo(*curScopeP, PROC_T);   // create a new procedure info block with current scope
+    SetInfoFlag(F_LABEL);
+    WrXrefDef();
+    if (procCnt == 254)     // oops too many procedures
+        FatalError(ERR35);	/* LIMIT EXCEEDED: NUMBER OF PROCEDURES */
+    procInfo[++procCnt] = curInfoP;     // save procedure info
+    curScope[PROCID] = (byte)procCnt;   // set scope procedure id
+    curProcInfoP = curInfoP;
+    curScope[DOBLKCNT] = 0;     // reset do block count for this procedure
+    doBlkCnt = 0;
+    PushBlock(*curScopeP);      // push current scope
+    ParseParams();
+    ParseRetType();
+    ParseProcAttrib();
+    /* write info to tx1 stream */
+    curInfoP = curProcInfoP;            // accessors use curInfoP
+    if (!TestInfoFlag(F_EXTERNAL)) {    // not external
+        WrByte(L_PROCEDURE);
+        WrInfoOffset(curInfoP);
+        WrByte(L_SCOPE);
+        WrWord(*curScopeP);
+    } else {
+        WrByte(L_EXTERNAL);
+        WrInfoOffset(curInfoP);
+    }
+    SetProcId(curScope[PROCID]);
+    if (tmp != 0) { // had valid entry curInfoP
+        curInfoP = tmp;
+        if (TestInfoFlag(F_REENTRANT))  // were we in re-entrant proc?
+            SyntaxError(ERR88);	/* INVALID procedure NESTING, ILLEGAL IN reentrant procedure */
+        curInfoP = curProcInfoP;    // set curInfoP to new proc's infoP
+    }
 }

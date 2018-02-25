@@ -622,7 +622,7 @@ word Sub_575E(offset_t arg1w)
     if (i == STRUCT_T)
         return GetParentOffset();
     /*  fall though appears suspect */
-	return 0;
+    return 0;
 }
 
 void Sub_5795(word arg1w)
@@ -937,13 +937,13 @@ void Sub_5F4B(word arg1w, word arg2w, byte arg3b, byte arg4b)
     if (arg4b == 8)
         tx2opc[tx2qp] = T2_NUMBER;
     else
-        tx2opc[tx2qp] = T2_VARIABLE;
+        tx2opc[tx2qp] = T2_IDENTIFIER;
 }
 
 void Sub_5FBF(byte arg1b, wpointer arg2wP, wpointer arg3wP)
 {
 
-    if (tx2opc[arg1b] == T2_VARIABLE || tx2opc[arg1b] == T2_NUMBER) {
+    if (tx2opc[arg1b] == T2_IDENTIFIER || tx2opc[arg1b] == T2_NUMBER) {
         *arg2wP = tx2op2[arg1b];
         if ((curInfoP = tx2op1[arg1b]) == 0)
             *arg3wP = 0;
@@ -1180,7 +1180,7 @@ static void  SkipBB(byte arg1b, byte arg2b)
 {
     bC1BF = arg1b + arg2b;
     while (tx2opc[bC1BF] != T2_STMTCNT && tx2opc[bC1BF] != T2_EOF && tx2opc[bC1BF] != T2_LOCALLABEL)
-        bC1BF = bC1BF + arg2b;
+        bC1BF += arg2b;
 }
 
 void Sub_67A9()

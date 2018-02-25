@@ -5,6 +5,8 @@ static byte vtext[] = "program_version_number=";
 byte verNo[] = "V4.0";
 
 // plmf.c
+// the builtins each entry is
+// name (pstr), id  (byte), paramCnt (byte), dataType (byte)
 static byte builtins[] = {
     "\x5" "CARRY\0\0\x2"
     "\x3" "DEC\x1\x1\x2"
@@ -29,6 +31,10 @@ static byte builtins[] = {
     "\x4TIME\x14\x1\0"
     "\x4ZERO\x15\0\x2" };
 
+
+// the plm reserved keywords - format
+// name (pstr), keywordId (byte) see intermediate tokens in plm.h
+// in the symbols area the infoP value is set to 0xff00 + the keywordId
 static byte keywords[] = {
     "\x7" "ADDRESS\x28"
     "\x3" "AND\xA"
@@ -84,7 +90,7 @@ static void InstallBuiltins()
         SetParamCnt(p[*p + 2]);
         SetDataType(p[*p + 3]);
         p += *p + 4;
-    }	
+    }
     Lookup("\x6MEMORY");
     CreateInfo(0, BYTE_T);
     SetInfoFlag(F_LABEL);
@@ -106,31 +112,36 @@ static void InstallKeywords()
 } /* InstallKeywords() */
 
 
-static void Sub_4845()
+static void InitInfoAndSym()
 {
     word i;
 
-    if (w3C44 > w3C34 )
-        botMem = w3C44;
+    if (ov0Boundary > ov1Boundary)  // plm check to make sure overlays don't overwrite
+        botMem = ov0Boundary;
     else
-        botMem = w3C34;
-    botMem = botMem + 256;
-    botSymbol = (topSymbol = (hashChainsP = (topMem + 1 - 64 * sizeof(offset_t))) - 1) + 1;
-    topInfo = (botInfo = botMem) + 1;
-    for (i = 0; i <= 63; i++)
+        botMem = ov1Boundary;
+    botMem = botMem + 256;          // reserve space
+    // heap memory is split
+    // info builds up, symbol builds down with hashChains table above
+    hashChainsP = (topMem + 1 - 64 * sizeof(offset_t)); // allocate hashChains table
+    topSymbol = hashChainsP - 1;
+    botSymbol = topSymbol + 1;
+    botInfo = botMem;
+    topInfo = botInfo + 1;
+    for (i = 0; i <= 63; i++)       // initialise the hashCHains
         WordP(hashChainsP)[i] = 0;
     SetPageNo(1);
     localLabelCnt = 0;
-    w382A++;
+    cmdLineCaptured++;
     procChains[0] = procChains[1] = blockDepth = 0;
-} /* Sub_4845() */
+} /* InitInfoAndSym() */
 
-void Sub_4767()
+void InitKeywordsAndBuiltins()
 {
-	Sub_4845();
-	InstallKeywords();
-	InstallBuiltins();
-} /* Sub_4767() */
+    InitInfoAndSym();
+    InstallKeywords();
+    InstallBuiltins();
+} /* InitKeywordsAndBuiltins() */
 
 void SetDate(pointer str, byte len)
 {

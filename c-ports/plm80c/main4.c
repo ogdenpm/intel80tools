@@ -32,9 +32,9 @@ static void Sub_3FC8()
             Xputstr2cLst("NO OBJECT MODULE REQUESTED", 0);
 
         NewLineLst();
-        if (w382A == 1)
+        if (cmdLineCaptured == 1)
         {
-            Xputstr2cLst("COMPILER INVOKED by:  ", 0);
+            Xputstr2cLst("COMPILER INVOKED BY:  ", 0);
             cmdLineP = startCmdLineP;
             while (cmdLineP != 0) {
                 TabLst(-23);
@@ -108,7 +108,7 @@ void Sub_4162()
 
 void Sub_4208()
 {
-    if (haveModule) { 
+    if (haveModuleLevelUnit) { 
         ((rec4_t *)rec4)->subType = 1;
         curInfoP = procInfo[1] + botInfo;
         ((rec4_t *)rec4)->addr = GetLinkVal();

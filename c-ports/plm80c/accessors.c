@@ -268,10 +268,10 @@ void ClrFlags(pointer base)
 	}
 }
 
-void ClrInfoFlag(byte flag)
-{
-	ClrFlag(InfoP(curInfoP)->flag, flag);
-}
+//void ClrInfoFlag(byte flag)
+//{
+//	ClrFlag(InfoP(curInfoP)->flag, flag);
+//}
 
 void CpyFlags(pointer base)
 {

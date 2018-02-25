@@ -5,10 +5,10 @@ bool use8bit;
 
 static void SimpleUExpr()
 {
-    if (MatchTx2Item(L_NUMBER))
+    if (MatchTx1Item(L_NUMBER))
         rValue = tx1Item.dataw[0];
     else {
-        if (MatchTx2Item(L_VARIABLE))
+        if (MatchTx1Item(L_IDENTIFIER))
             Sub_45E0();
         WrTx2ExtError(151); /* INVALID OPERAND IN RESTRICTED EXPRESSION */
         rValue = 0;
@@ -18,7 +18,7 @@ static void SimpleUExpr()
 
 static void SimpleNExpr()
 {
-    if (MatchTx2Item(L_MINUSSIGN)) {
+    if (MatchTx1Item(L_MINUSSIGN)) {
         SimpleUExpr();
         if (use8bit) 
             rValue = - Low(rValue);
@@ -35,13 +35,13 @@ static void EvalSimpleExpr()
     SimpleNExpr();
     p = rValue;
     while (1) {
-        if (MatchTx2Item(L_PLUSSIGN)) {
+        if (MatchTx1Item(L_PLUSSIGN)) {
             SimpleNExpr();
             if (use8bit)
                 p = (p = p + rValue) & 0xff;
             else 
                 p =  p + rValue;
-        } else if (MatchTx2Item(L_MINUSSIGN)) {
+        } else if (MatchTx1Item(L_MINUSSIGN)) {
             SimpleNExpr();
             if (use8bit)
                 p = (p = p - rValue) & 0xff;
@@ -65,38 +65,38 @@ static void GetRestrictedArrayIndex()
 
 static void GetRestrictedVar()
 {
-    if (NotMatchTx2Item(L_VARIABLE)) {
-        WrTx2Error(147);    /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
-        Sub_4599();
+    if (NotMatchTx1Item(L_IDENTIFIER)) {
+        WrTx2Error(ERR147);    /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
+        RecoverRPOrEndExpr();
         return;
     }
     Sub_45E0();
     var.infoOffset = curInfoP;
     if (GetType() == BUILTIN_T) {
-        WrTx2Error(123);    /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
-        Sub_4599();
+        WrTx2Error(ERR123);    /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
+        RecoverRPOrEndExpr();
         return;
     }
-    if (MatchTx2Item(L_LPAREN)) {
+    if (MatchTx1Item(L_LPAREN)) {
         GetRestrictedArrayIndex();
         var.arrayIndex = rValue;
     }
-    if (MatchTx2Item(L_PERIOD))
+    if (MatchTx1Item(L_PERIOD))
     {
         curInfoP = var.infoOffset;
         if (GetType() != STRUCT_T) {
-            WrTx2ExtError(148); /* INVALID QUALIFICATION IN RESTRICTED REFERENCE */
-            Sub_4599();
+            WrTx2ExtError(ERR148); /* INVALID QUALIFICATION IN RESTRICTED REFERENCE */
+            RecoverRPOrEndExpr();
             return;
         }
-        if (NotMatchTx2Item(L_VARIABLE)) {
-            WrTx2Error(147);    /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
+        if (NotMatchTx1Item(L_IDENTIFIER)) {
+            WrTx2Error(ERR147);    /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
             var.infoOffset = var.infoOffset - botInfo;
             return;
         }
         Sub_4631();
         var.infoOffset = curInfoP;
-        if (MatchTx2Item(L_LPAREN)) {
+        if (MatchTx1Item(L_LPAREN)) {
             GetRestrictedArrayIndex();
             var.nestedArrayIndex = rValue;
         }
@@ -107,11 +107,11 @@ static void GetRestrictedVar()
 void GetRestrictedExpr()
 {
     var.infoOffset = var.arrayIndex = var.nestedArrayIndex = var.val = 0;
-    if (MatchTx2Item(L_PERIOD)) {
+    if (MatchTx1Item(L_PERIOD)) {       // <restricted reference>
         GetRestrictedVar();
-        if (MatchTx2Item(L_PLUSSIGN))
+        if (MatchTx1Item(L_PLUSSIGN))
             ;
-        else if (MatchTx2Item(L_MINUSSIGN))
+        else if (MatchTx1Item(L_MINUSSIGN))
             SetRegetTx1Item();
         else
             return;
@@ -119,7 +119,7 @@ void GetRestrictedExpr()
         EvalSimpleExpr();
         var.val = rValue;
     }
-    else if (MatchTx2Item(L_RPAREN))
+    else if (MatchTx1Item(L_RPAREN))
         SetRegetTx1Item();
     else {
         use8bit = true;
@@ -137,7 +137,7 @@ word ParseDataItems(offset_t arg1w)
     WrAtFileWord(arg1w - botInfo);
     WrAtFileWord(curStmtNum);
     while (1) {
-        if (MatchTx2Item(L_STRING)) {
+        if (MatchTx1Item(L_STRING)) {
             WrAtFileByte(ATI_STRING);
             WrAtFileWord(tx1Item.dataw[0]);
             WrAtFile((pointer)&tx1Item.dataw[1], tx1Item.dataw[0]);
@@ -152,9 +152,9 @@ word ParseDataItems(offset_t arg1w)
             WrAtFile((pointer)&var, 8);
             p = p + 1;
         }
-        if (NotMatchTx2Item(L_COMMA))
+        if (NotMatchTx1Item(L_COMMA))
             break;
-        else if (MatchTx2Item(L_RPAREN)) {
+        else if (MatchTx1Item(L_RPAREN)) {
             WrTx2Error(151);    /* INVALID OPERAND IN RESTRICTED EXPRESSION */
             SetRegetTx1Item();
             break;
@@ -308,12 +308,12 @@ static void Sub_4CC2()
     if (TestInfoFlag(F_MEMBER)) {
         p = curInfoP;
         curInfoP = GetParentOffset();
-        ExprPush2(I_VARIABLE, curInfoP);
-        ExprPush2(I_VARIABLE, p);
+        ExprPush2(I_IDENTIFIER, curInfoP);
+        ExprPush2(I_IDENTIFIER, p);
         ExprMakeNode(I_MEMBER, 2);
     }
     else
-        ExprPush2(I_VARIABLE, curInfoP);
+        ExprPush2(I_IDENTIFIER, curInfoP);
 }
 
 void Sub_4CFD(offset_t arg1w)
@@ -371,19 +371,19 @@ byte GetCallArgCnt()
 
 void Sub_4DCF(byte arg1b)
 {
-    if (NotMatchTx2Item(L_LPAREN)) {
+    if (NotMatchTx1Item(L_LPAREN)) {
         WrTx2ExtError(124); /* MISSING ARGUMENTS FOR BUILT-IN procedure */
         ExprPush2(I_NUMBER, 0);
     } else {
-        if (NotMatchTx2Item(L_VARIABLE)) {
+        if (NotMatchTx1Item(L_IDENTIFIER)) {
             WrTx2Error(125);    /* ILLEGAL ARGUMENT FOR BUILT-IN procedure */
             ExprPush2(I_NUMBER, 0);
         } else {
             Sub_45E0();
-            if (MatchTx2Item(L_LPAREN)) {
+            if (MatchTx1Item(L_LPAREN)) {
                 if (TestInfoFlag(F_ARRAY)) {
                     ResyncRparen();
-                    if (MatchTx2Item(L_RPAREN))
+                    if (MatchTx1Item(L_RPAREN))
                     {
                         if (arg1b == I_LENGTH || arg1b == I_LAST)
                         {
@@ -397,15 +397,15 @@ void Sub_4DCF(byte arg1b)
                 } else 
                     WrTx2ExtError(127); /* INVALID SUBSCRIPT ON NON-ARRAY */
             } 
-            if (MatchTx2Item(L_PERIOD)) {
+            if (MatchTx1Item(L_PERIOD)) {
                 if (GetType() != STRUCT_T)
                     WrTx2ExtError(110); /* INVALID LEFT OPERAND OF QUALIFICATION, not A structure */
-                else if (NotMatchTx2Item(L_VARIABLE))
+                else if (NotMatchTx1Item(L_IDENTIFIER))
                     WrTx2ExtError(111); /* INVALID RIGHT OPERAND OF QUALIFICATION, not IDENTIFIER */
                 else
                     Sub_4631();
             }
-            if (MatchTx2Item(L_LPAREN)) {
+            if (MatchTx1Item(L_LPAREN)) {
                 if (TestInfoFlag(F_ARRAY)) {
                     ResyncRparen();
                     if (arg1b == I_LENGTH || arg1b == I_LAST)
@@ -480,8 +480,8 @@ void ParsePortNum(byte arg1b)
     word p;
 
     p = 0;
-    if (MatchTx2Item(L_LPAREN)) {
-        if (MatchTx2Item(L_NUMBER)) {
+    if (MatchTx1Item(L_LPAREN)) {
+        if (MatchTx1Item(L_NUMBER)) {
             if (tx1Item.dataw[0] <= 255)
                 p = tx1Item.dataw[0];
             else
@@ -522,12 +522,12 @@ byte Sub_512E(word arg1w)
 
     if ((c = ex1Stack[arg1w]) == I_OUTPUT || c == I_STACKPTR || c == I_BASED)
         return false;
-    if (c == I_VARIABLE) 
+    if (c == I_IDENTIFIER) 
         curInfoP = ex3Stack[arg1w];
     else if (c == I_BYTEINDEX || c == I_WORDINDEX)
         curInfoP = st3Stack[ex3Stack[arg1w]];
     else if (c == I_MEMBER) {
-        if (st1Stack[ex3Stack[arg1w]] == I_VARIABLE)
+        if (st1Stack[ex3Stack[arg1w]] == I_IDENTIFIER)
             curInfoP = st3Stack[ex3Stack[arg1w]];
         else
             curInfoP = st3Stack[st3Stack[ex3Stack[arg1w]]];
@@ -549,7 +549,7 @@ void Sub_521B()
     CreateInfo(256, BYTE_T);
     SetInfoFlag(F_DATA);
     curSymbolP = p;
-    ExprPush2(I_VARIABLE, curInfoP);
+    ExprPush2(I_IDENTIFIER, curInfoP);
     SetInfoFlag(F_ARRAY);
     SetInfoFlag(F_STARDIM);
     q = ParseDataItems(curInfoP);

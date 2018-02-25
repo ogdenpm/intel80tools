@@ -156,7 +156,7 @@ static void Sub_7754()
     while (tx2opc[i] == T2_OPTBACKREF && i < bC1BF) 
         i = i + 1;  
     j = tx2qp;
-    if (tx2opc[i] == T2_STORE) {
+    if (tx2opc[i] == T2_COLONEQUALS) {
         if (arg3b_765B == tx2op1[i]) {
             if (tx2op2[i] == j) {
                 if (tx2Auxw[j] == 1) {

@@ -122,8 +122,8 @@ static void ParseInvokeName()
     //}
 } /* ParseInvokeName() */
 
-
-static void ParseSrcFile()
+    
+static void ParseSrcFileName()
 {
     pointer fullName;
     pointer fileName;
@@ -164,12 +164,12 @@ static void ParseSrcFile()
     if (*cmdTextP == '$')
         Fatal(aIllegalCommand, Length(aIllegalCommand));
     if (*cmdTextP == '\r')
-        offNxtCmdChM1 = 0;
+        offFirstChM1 = 0;
     else
-        offNxtCmdChM1 = (word)(cmdTextP - ByteP(cmdLineP) - 1);
-} /* ParseSrcFile() */
+        offFirstChM1 = (word)(cmdTextP - ByteP(cmdLineP) - 1);
+} /* ParseSrcFileName() */
 
-static void Sub_45F6()
+static void InitFilesAndDefaults()
 {
     LEFTMARGIN = 1;
     memset(ixiFileName, ' ', 15);
@@ -208,24 +208,24 @@ static void Sub_45F6()
     SetMarginAndTabW(0xFF, 4);
     SetTitle(" ", 1);
     SetPageWidth(120);
-} /* Sub_45F6() */
+} /* InitFilesAndDefaults() */
 
-void Sub_40AC()
+void SignOnAndGetSourceName()
 {
     memmove(version, verNo, 4);
-	InitF(&conFile, "CONSOL", ":CI: ");
-	OpenF(&conFile, 1);
-	topMem = MemCk() - 12;
-	if (topMem < 0xC000)
-		Fatal(noMemMsg, Length(noMemMsg));
-	GetCmdLine();
-	PrintStr(signonMsg, Length(signonMsg));
-	PrintStr(version, 4);
-	PrintStr("\r\n", 2);
-	cmdTextP = &CmdP(cmdLineP)->pstr[1];
-	blkSize1 = topMem - blkSize1 - 256;
-	blkSize2 = topMem - blkSize2 - 256;
-	ParseInvokeName();
-	ParseSrcFile();
-	Sub_45F6();
-} /* Sub_40AC() */
+    InitF(&conFile, "CONSOL", ":CI: ");
+    OpenF(&conFile, 1);
+    topMem = MemCk() - 12;
+    if (topMem < 0xC000)
+        Fatal(noMemMsg, Length(noMemMsg));
+    GetCmdLine();
+    PrintStr(signonMsg, Length(signonMsg));
+    PrintStr(version, 4);
+    PrintStr("\r\n", 2);
+    cmdTextP = &CmdP(cmdLineP)->pstr[1];
+    blkSize1 = topMem - blkSize1 - 256;
+    blkSize2 = topMem - blkSize2 - 256;
+    ParseInvokeName();
+    ParseSrcFileName();
+    InitFilesAndDefaults();
+} /* SignOnAndGetSourceName() */

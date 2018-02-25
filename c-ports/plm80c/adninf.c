@@ -7,7 +7,7 @@ void AdvNxtInfo()
         if (curInfoP >= topInfo) {
             curInfoP = 0;
             return;
-        } else if (GetType() != TEMP_T)
+        } else if (GetType() != CONDVAR_T)
             return;
     }
 }

@@ -14,9 +14,9 @@ void FatalError_main(byte err)
 word Start()
 {
 	stateMain = 10;
-	Sub_40AC();
+	SignOnAndGetSourceName();
 	stateMain = 15;
-	Sub_4767();
+	InitKeywordsAndBuiltins();
     return 0;   // Chain(invokeName);
 }
 

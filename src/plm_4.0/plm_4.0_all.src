@@ -846,10 +846,10 @@ FatalError      P(B err)
 
 $file(plmA.plm)
 cmdText$p       A
-Sub$40AC        P
+SignOnAndGetSourceName        P
 
 $file(plmb.plm)
-Sub$4767        P
+InitKeywordsAndBuiltins        P
 
 $file(plmc.plm)
 verno           BS
@@ -912,9 +912,9 @@ tokenType       B
 tokenVal        A
 yyAgain         B
 CreateTxi1File  P
-PopDo           P
+PopBlock           P
 PushBlock       P(A idAndLevel)
-Sub$4119        P
+RewindTx1        P
 SyntaxError     P(B err)
 TokenError      P(B err,A sym$p)
 TokenErrorAt    P(B err)
@@ -922,7 +922,7 @@ WrBuf           P(A buf,A len)
 WrByte          P(B v)
 WriteLineInfo   P
 WriteTx1        P(A buf,A len)
-WrOffset        P(A addr)
+WrInfoOffset        P(A addr)
 WrOprAndValue   P
 WrWord          P(A v)
 WrXrefDef       P
@@ -3672,9 +3672,9 @@ DECLARE state$main BYTE;
 	end FatalError;
 
 	state$main = 10;
-	call Sub$40AC;
+	call SignOnAndGetSourceName;
 	state$main = 15;
-	call Sub$4767;
+	call InitKeywordsAndBuiltins;
 	call Chain(.invokeName);
 end;
 
@@ -3691,7 +3691,7 @@ Sub$3EDF: PROCEDURE local;
 		call SyntaxError(ERR87);	/* MISSING 'END' , END-OF-FILE ENCOUNTERED */
 	call WriteLineInfo;
 	call WrByte(L$EOF);
-	call Sub$4119;
+	call RewindTx1;
 	call TellF(.srcFil, .srcFileTable(srcFileIdx + 8));
 	call Backup(.srcFileTable(srcFileIdx + 8), offLastCh - offCurCh);
 	call CloseF(.srcFil);
@@ -5628,12 +5628,12 @@ WriteTx1: PROCEDURE(buf, len) PUBLIC;
 	call fwrite(.tx1File, buf, len);
 end WriteTx1;
 
-Sub$4119: PROCEDURE PUBLIC;
+RewindTx1: PROCEDURE PUBLIC;
 	if tx1File.aftn = 0 then
 		call CreateTxi1File;
 	call Fflush(.tx1File);
 	call Rewind(.tx1File);
-end Sub$4119;
+end RewindTx1;
 
 
 WriteLineInfo: PROCEDURE PUBLIC;
@@ -5667,11 +5667,11 @@ WrWord: PROCEDURE(v) PUBLIC;
 end WrWord;
 
 
-WrOffset: PROCEDURE(addr) PUBLIC;
+WrInfoOffset: PROCEDURE(addr) PUBLIC;
 	DECLARE addr ADDRESS;
 
 	call WrWord(addr - botInfo);
-end WrOffset; 
+end WrInfoOffset; 
 
 SyntaxError: PROCEDURE(err) PUBLIC;
 	DECLARE err BYTE;
@@ -5728,7 +5728,7 @@ PushBlock: PROCEDURE(idAndLevel) PUBLIC;
 	end;
 end PushBlock;
 
-PopDo:	PROCEDURE PUBLIC;
+PopBlock:	PROCEDURE PUBLIC;
 	DECLARE procDW BASED curProcData ADDRESS;
 	if blockDepth = 0 then
 		call FatalError(ERR96);	/* COMPILER Error: SCOPE STACK UNDERFLOW */
@@ -5737,7 +5737,7 @@ PopDo:	PROCEDURE PUBLIC;
 		curBlkCnt = curBlkCnt - 1;
 		procDW = procChains(blockDepth := blockDepth - 1);
 	end;
-end PopDo;
+end PopBlock;
 
 
 
@@ -5764,7 +5764,7 @@ WrXrefUse: PROCEDURE PUBLIC;
 	if XREF then
 	do;
 		call WrByte(L$XREFINFO);
-		call WrOffset(curInfo$p);
+		call WrInfoOffset(curInfo$p);
 	end;
 end;
 
@@ -5773,7 +5773,7 @@ WrXrefDef: PROCEDURE PUBLIC;
 	if XREF or IXREF or SYMBOLS then
 	do;
 		call WrByte(L$XREF);
-		call WrOffset(curInfo$p);
+		call WrInfoOffset(curInfo$p);
 	end;
 end;
 
@@ -5914,7 +5914,7 @@ AcceptRP: PROCEDURE PUBLIC;
 		call NxtCh;
 end;
 
-AccessOptStrVal: PROCEDURE local;
+AcceptOptStrVal: PROCEDURE local;
 	DECLARE nesting BYTE;
 	nesting = 0;
 	call SkipWhite;
@@ -5942,7 +5942,7 @@ AccessOptStrVal: PROCEDURE local;
 		call AcceptRP;
 	end;			
 
-end AccessOptStrVal;
+end AcceptOptStrVal;
 
 AcceptFileName:	PROCEDURE local;
 	call SkipWhite;
@@ -6283,7 +6283,7 @@ OptPageWidth: PROCEDURE local;
 end;
 
 OptDate: PROCEDURE local;
-	call AccessOptStrVal;
+	call AcceptOptStrVal;
 	call SetDate(optStrVal$p, tknLen);
 end;
 
@@ -7141,7 +7141,7 @@ Yylex: PROCEDURE public;
 	l5F4E:
 	    tokenStr(0) = curOff - 1;
 	    if tokenStr(0) = 0 then
-			call TokenErrorAt(ERR189);	/* LONG STRING ASSUMED CLOSED AT NEXT SEMICOLON OR QUOTE */
+			call TokenErrorAt(ERR189);	/* NULL STRING NOT ALLOWED */
 	    if toolong then
 			call TokenErrorAt(ERR3);	/* IDENTIFIER, STRING, OR NUMBER TOO LONG, TRUNCATED */
 	end;
@@ -7411,7 +7411,7 @@ DECLARE declNames(33) ADDRESS,
 
 ParseDcl: PROCEDURE public;
 
-	Sub$62B0: PROCEDURE(errcode);
+	DeclarationError: PROCEDURE(errcode);
 		DECLARE errcode ADDRESS;
 
 		call TokenError(errcode, declaringName);
@@ -7489,20 +7489,20 @@ ParseDcl: PROCEDURE public;
 					cFlags = cFlags or dclFlags(i);
 				end;
 				if cFlags <> 0 then
-					call Sub$62B0(ERR76);	/* CONFLICTING ATTRIBUTE WITH PARAMETER */
+					call DeclarationError(ERR76);	/* CONFLICTING ATTRIBUTE WITH PARAMETER */
 				if dclType <> 2 and dclType <> 3 then
-					call Sub$62B0(ERR79);	/* ILLEGAL PARAMETER TYPE, NOT BYTE OR ADDRESS */
+					call DeclarationError(ERR79);	/* ILLEGAL PARAMETER TYPE, NOT BYTE OR ADDRESS */
 				else
 					call SetType(dclType);
 				if declaringBase <> 0 then
 				do;
-					call Sub$62B0(ERR77);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
+					call DeclarationError(ERR77);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
 					declaringBase = 0;
 				end;
 			end;
 			else
 			do;
-			    call Sub$62B0(ERR78);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
+			    call DeclarationError(ERR78);	/* INVALID PARAMETER DECLARATION, BASE ILLEGAL */
 			    return;
 			end;
 		end;
@@ -7516,14 +7516,14 @@ ParseDcl: PROCEDURE public;
 		if dclType = 0 then
 		do;
 			if declaringBase <> 0 then
-			    call Sub$62B0(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
+			    call DeclarationError(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
 			call SetLitaddr(lastLit);
 			return;
 		end;
 		else if dclType = 1 then
 		do;
 			if declaringBase <> 0 then
-			    call Sub$62B0(ERR80);	/* INVALID DECLARATION, LABEL MAY NOT BE BASED */
+			    call DeclarationError(ERR80);	/* INVALID DECLARATION, LABEL MAY NOT BE BASED */
 			if TestInfoFlag(F$EXTERNAL) then
 			    call SetInfoFlag(F$LABEL);
 			return;
@@ -7536,7 +7536,7 @@ ParseDcl: PROCEDURE public;
 				    or TestInfoFlag(F$AT) or TestInfoFlag(F$INITIAL)
 				    or TestInfoFlag(F$DATA) then
 				do;
-				    call Sub$62B0(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
+				    call DeclarationError(ERR81);	/* CONFLICTING ATTRIBUTE WITH 'BASE' */
 				    declaringBase = 0;
 				end;
 				else
@@ -7586,9 +7586,9 @@ ParseDcl: PROCEDURE public;
 		do;
 			call WrByte(lexItem);
 			if flag then
-				call WrOffset(topInfo + 1);
+				call WrInfoOffset(topInfo + 1);
 			else
-				call WrOffset(botinfo);
+				call WrInfoOffset(botinfo);
 			call SetFlag(.dclFlags, locflag);
 			call Sub$60F9;
 		end;
@@ -8123,14 +8123,14 @@ ParseProcDcl: PROCEDURE public;
 	if not TestInfoFlag(F$EXTERNAL) then
 	do;
 		call WrByte(L$PROCEDURE);
-		call WrOffset(curInfo$p);
+		call WrInfoOffset(curInfo$p);
 		call WrByte(L$SCOPE);
 		call WrWord(curscope);
 	end;
 	else
 	do;
 		call WrByte(L$EXTERNAL);
-		call WrOffset(curInfo$p);
+		call WrInfoOffset(curInfo$p);
 	end;
 	call SetProcId(curProcId);
 	if tmp <> 0 then
@@ -8284,7 +8284,7 @@ Sub$6F00: PROCEDURE public;
 					else
 					do;
 						call WrByte(L$LABELDEF);
-						call WrOffset(curInfo$p);
+						call WrInfoOffset(curInfo$p);
 						call SetInfoFlag(F$LABEL);
 					end;
 					call WrXrefUse;
@@ -8294,7 +8294,7 @@ Sub$6F00: PROCEDURE public;
 					call CreateInfo(curscope, LABEL$T);
 					call WrXrefDef;
 					call WrByte(L$LABELDEF);
-					call WrOffset(curInfo$p);
+					call WrInfoOffset(curInfo$p);
 					call SetInfoFlag(F$LABEL);
 				end;
 			end;
@@ -8338,7 +8338,7 @@ Sub$6F00: PROCEDURE public;
 	Sub$7296: PROCEDURE;
 		DECLARE (i, v) BYTE;
 		
-		call PopDo;
+		call PopBlock;
 		if YylexMatch(T$VARIABLE) then
 		do;
 			curInfo$p = curProcInfo$p;
@@ -8705,7 +8705,7 @@ Sub$6F00: PROCEDURE public;
 		DECLARE labelPtr ADDRESS;
 
 		call WrLabelDefs;
-		call PopDo;
+		call PopBlock;
 		call PopStateWord(.labelPtr);
 		if YylexMatch(T$VARIABLE) then
 			if curSymbol$p <> labelPtr then
@@ -8736,7 +8736,7 @@ Sub$6F00: PROCEDURE public;
 				call WrByte(L$JMP);
 				call WrWord(stateWord);
 			end;
-			call PopDo;
+			call PopBlock;
 			call PopStateWord(.labelptr);
 			call WrByte(L$END);
 			call WrByte(L$LOCALLABEL);
@@ -17653,7 +17653,7 @@ DECLARE
 	cmdch BASED cmdText$p BYTE;
 
 
-Sub$40AC: PROCEDURE PUBLIC;
+SignOnAndGetSourceName: PROCEDURE PUBLIC;
 
 	LocalRescan: procedure (conn, status$p);
 	    declare (conn, status$p) address;
@@ -17773,7 +17773,7 @@ Sub$40AC: PROCEDURE PUBLIC;
 	end ParseInvokeName;
 
 
-	ParseSrcFile: PROCEDURE;
+	ParseSrcFileName: PROCEDURE;
 		DECLARE cmdText BASED cmdText$p(1) BYTE;
 		DECLARE fullName ADDRESS;
 		DECLARE fileName ADDRESS;
@@ -17820,9 +17820,9 @@ Sub$40AC: PROCEDURE PUBLIC;
 			offNxtCmdChM1 = 0;
 		else
 			offNxtCmdChM1 = cmdText$p - cmdLine$p - 1;
-	end ParseSrcFile;
+	end ParseSrcFileName;
 
-	Sub$45F6: PROCEDURE;
+	InitFilesAndDefaults: PROCEDURE;
 		LEFTMARGIN = 1;
 		call FILLX(15, .ixiFileName, double(' '));
 		call movmem(srcStemLen, .srcStemName, .ixiFileName);
@@ -17860,7 +17860,7 @@ Sub$40AC: PROCEDURE PUBLIC;
 		call SetMarginAndTabW(0FFH, 4);
 		call SetTitle(.(' '), 1);
 		call SetPageWidth(120);
-	end Sub$45F6;
+	end InitFilesAndDefaults;
 
 
 	call movmem(4, .verNo, .version);
@@ -17877,9 +17877,9 @@ Sub$40AC: PROCEDURE PUBLIC;
 	blkSize1 = topMem - blkSize1 - 256;
 	blkSize2 = topMem - blkSize2 - 256;
 	call ParseInvokeName;
-	call ParseSrcFile;
-	call Sub$45F6;
-end Sub$40AC;
+	call ParseSrcFileName;
+	call InitFilesAndDefaults;
+end SignOnAndGetSourceName;
 
 END;
 
@@ -17888,7 +17888,7 @@ PLMB: DO;
 $include(:f2:plmb.ipx)
 
 
-Sub$4767: PROCEDURE PUBLIC;
+InitKeywordsAndBuiltins: PROCEDURE PUBLIC;
 
 	InstallBuiltins: PROCEDURE;
 		DECLARE p ADDRESS;
@@ -17925,7 +17925,7 @@ Sub$4767: PROCEDURE PUBLIC;
 	end InstallKeywords;
 
 
-	Sub$4845: PROCEDURE;
+	InitInfoAndSym: PROCEDURE;
 		DECLARE i ADDRESS;
 		DECLARE hashChains BASED hashChains$p(1) ADDRESS;
 
@@ -17943,12 +17943,12 @@ Sub$4767: PROCEDURE PUBLIC;
 		locallabelCnt = 0;
 		w382A = w382A + 1;
 		procChains(0), procChains(1), blockDepth = 0;
-	end Sub$4845;
+	end InitInfoAndSym;
 
-	call Sub$4845;
+	call InitInfoAndSym;
 	call InstallKeywords;
 	call InstallBuiltins;
-end Sub$4767;
+end InitKeywordsAndBuiltins;
 
 
 END;

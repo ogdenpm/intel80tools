@@ -166,7 +166,7 @@ static void Sub_436C()
     while (curInfoP != 0) {
         curSymbolP = GetSymbol();
         if (LABEL_T <= GetType() && GetType() <= PROC_T && curSymbolP != 0) {
-            if (TestInfoFlag(F_EXTERNAL) & ~TestInfoFlag(F_AT)) {
+            if (TestInfoFlag(F_EXTERNAL) && !TestInfoFlag(F_AT)) {
                 if (((rec_t *)rec18)->len + SymbolP(curSymbolP)->name[0] + 2 >= 299)
                     WriteRec(rec18, 0);
                 s = s + 1;

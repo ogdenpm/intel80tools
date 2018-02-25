@@ -8,7 +8,7 @@ offset_t topSymbol;
 offset_t botSymbol;
 offset_t curSymbolP;
 offset_t curInfoP;
-word offNxtCmdChM1;
+word offFirstChM1;
 word LEFTMARGIN;
 word localLabelCnt;
 word srcFileIdx;
@@ -21,7 +21,7 @@ offset_t w3822;
 word linesRead;
 word programErrCnt;
 word procCnt;
-word w382A = 0;
+word cmdLineCaptured = 0;
 word dsegSize = 0;
 word csegSize = 0;
 word objBlk;
@@ -41,7 +41,7 @@ word procChains[35];
 word procInfo[255];
 word blk1Used = 400;
 word blk2Used = 400;
-offset_t w3C34 = 0x9F00;    // last address of ov1 rounded up to page boundary + 0x100
+offset_t ov1Boundary = 0x9F00;    // last address of ov1 rounded up to page boundary + 0x100
 word blkSize1 = 0xC400;     // last address of ov2 rounded up to page boundary
 word blkSize2 = 0xA400;     // last address of ov4 rounded up to page boundary
 byte srcStemLen;
@@ -49,12 +49,12 @@ bool standAlone = true;
 bool IXREFSet = true;
 bool PRINTSet = true;
 bool OBJECTSet = true;
-bool unexpectedEOF = false;
-bool haveModule = false;
+bool afterEOF = false;
+bool haveModuleLevelUnit = false;
 byte fatalErrorCode = 0;
 //byte pad3C43 = 1;
-offset_t w3C44 = 0xA000;        // last address of ov0 rounded up to page boundary
-byte CONTROLS[8];
+offset_t ov0Boundary = 0xA000;        // last address of ov0 rounded up to page boundary
+byte controls[8];
 //byte pad_3C4E[2];
 byte srcStemName[10];
 bool debugSwitches[26];

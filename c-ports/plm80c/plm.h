@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <setjmp.h>
@@ -38,7 +39,7 @@ enum {F_PUBLIC = 0, F_EXTERNAL = 1, F_BASED = 2, F_INITIAL = 3, F_REENTRANT = 4,
 
 /* token info types */
 enum {LIT_T = 0, LABEL_T = 1, BYTE_T = 2, ADDRESS_T = 3, STRUCT_T = 4,
-    PROC_T = 5, BUILTIN_T = 6, MACRO_T = 7, UNK_T = 8, TEMP_T = 9};
+    PROC_T = 5, BUILTIN_T = 6, MACRO_T = 7, UNK_T = 8, CONDVAR_T = 9};
 
 /* Lex tokens */
 enum {L_LINEINFO = 0, L_SYNTAXERROR = 1, L_TOKENERROR = 2, L_LIST = 3, L_NOLIST = 4,
@@ -48,13 +49,13 @@ enum {L_LINEINFO = 0, L_SYNTAXERROR = 1, L_TOKENERROR = 2, L_LIST = 3, L_NOLIST 
     L_CASE = 20, L_CASELABEL = 21, L_IF = 22, L_STATEMENT = 23, L_CALL = 24,
     L_RETURN = 25, L_GO = 26, L_GOTO = 27, L_SEMICOLON = 28, L_ENABLE = 29,
     L_DISABLE = 30, L_HALT = 31, L_EOF = 32, L_AT = 33, L_INITIAL = 34,
-    L_DATA = 35, L_VARIABLE = 36, L_NUMBER = 37, L_STRING = 38, L_PLUSSIGN = 39,
+    L_DATA = 35, L_IDENTIFIER = 36, L_NUMBER = 37, L_STRING = 38, L_PLUSSIGN = 39,
     L_MINUSSIGN = 40, L_PLUS = 41, L_MINUS = 42, L_STAR = 43, L_SLASH = 44,
     L_MOD = 45, L_COLONEQUALS = 46, L_AND = 47, L_OR = 48, L_XOR = 49,
     L_NOT = 50, L_LT = 51  , L_LE = 52, L_EQ = 53, L_NE = 54,
     L_GE = 55, L_GT = 56, L_COMMA = 57, L_LPAREN = 58, L_RPAREN = 59,
     L_PERIOD = 60, L_TO = 61, L_BY = 62, L_INVALID = 63, L_MODULE = 64,
-    L_XREFINFO = 65, L_XREF = 66, L_EXTERNAL = 67, L_ERROR = 68};
+    L_XREFUSE = 65, L_XREFDEF = 66, L_EXTERNAL = 67};
 
 /* character classes */
 enum {CC_BINDIGIT = 0, CC_OCTDIGIT = 1, CC_DECDIGIT = 2, CC_HEXCHAR = 3, CC_ALPHA = 4,
@@ -64,7 +65,7 @@ enum {CC_BINDIGIT = 0, CC_OCTDIGIT = 1, CC_DECDIGIT = 2, CC_HEXCHAR = 3, CC_ALPH
     CC_DOLLAR = 20, CC_INVALID = 21, CC_NONPRINT = 22, CC_NEWLINE = 23};
 
 /* intermediate tokens */
-enum {T_VARIABLE = 0, T_NUMBER = 1, T_STRING = 2, T_PLUSSIGN = 3, T_MINUSSIGN = 4,
+enum {T_IDENTIFIER = 0, T_NUMBER = 1, T_STRING = 2, T_PLUSSIGN = 3, T_MINUSSIGN = 4,
     T_STAR = 5, T_SLASH = 6, T_MOD = 7, T_PLUS = 8, T_MINUS = 9,
     T_AND = 10, T_OR = 11, T_XOR = 12, T_NOT = 13,
     T_LT = 15, T_LE = 16, T_EQ = 17, T_NE = 18, T_GE = 19,
@@ -77,11 +78,16 @@ enum {T_VARIABLE = 0, T_NUMBER = 1, T_STRING = 2, T_PLUSSIGN = 3, T_MINUSSIGN = 
     T_PUBLIC = 50, T_REENTRANT = 51, T_STRUCTURE = 52, T_BY = 53, T_CASE = 54,
     T_ELSE = 55, T_EOF = 56, T_THEN = 57, T_TO = 58, T_WHILE = 59};
 
+/* start statement codes */
+enum { S_IDENTIFIER = 0, S_SEMICOLON, S_CALL, S_DECLARE, S_DISABLE, S_DO,
+       S_ENABLE, S_END, S_GO, S_GOTO, S_HALT, S_IF, S_PROCEDURE, S_RETURN};
+
+
 /* T2 codes */
 enum {T2_LT = 0, T2_LE = 1, T2_NE = 2, T2_EQ = 3, T2_GE = 4,
     T2_GT = 5, T2_ROL = 6, T2_ROR = 7, T2_SCL = 8, T2_SCR = 9,
     T2_SHL = 10, T2_SHR = 11, T2_JMPFALSE = 12,
-    T2_DOUBLE = 18, T2_ADDB = 19,
+    T2_DOUBLE = 18, T2_PLUSSIGN = 19,
     T2_MINUSSIGN = 20, T2_STAR = 21, T2_SLASH = 22, T2_MOD = 23, T2_AND = 24,
     T2_OR = 25, T2_XOR = 26, T2_BASED = 27, T2_BYTEINDEX = 28, T2_WORDINDEX = 29,
     T2_MEMBER = 30, T2_UNARYMINUS = 31, T2_NOT = 32, T2_LOW = 33, T2_HIGH = 34,
@@ -89,7 +95,7 @@ enum {T2_LT = 0, T2_LE = 1, T2_NE = 2, T2_EQ = 3, T2_GE = 4,
     T2_44 = 44,
     T2_51 = 51,
     T2_56 = 56, T2_TIME = 57, T2_STKBARG = 58, T2_STKWARG = 59,
-    T2_DEC = 60, T2_STORE = 61, T2_OUTPUT = 62, T2_63 = 63, T2_STKARG = 64,
+    T2_DEC = 60, T2_COLONEQUALS = 61, T2_OUTPUT = 62, T2_63 = 63, T2_STKARG = 64,
     T2_65 = 65, T2_MOVE = 69,
     T2_RETURNBYTE = 71, T2_RETURNWORD = 72, T2_RETURN = 73,
     T2_ADDW = 130, T2_BEGMOVE = 131, T2_CALL = 132, T2_CALLVAR = 133,
@@ -99,14 +105,14 @@ enum {T2_LT = 0, T2_LE = 1, T2_NE = 2, T2_EQ = 3, T2_GE = 4,
     T2_HALT = 150, T2_STMTCNT = 151, T2_LINEINFO = 152, T2_MODULE = 153, T2_SYNTAXERROR = 154,
     T2_TOKENERROR = 155, T2_EOF = 156, T2_LIST = 157, T2_NOLIST = 158, T2_CODE = 159,
     T2_NOCODE = 160, T2_EJECT = 161, T2_INCLUDE = 162, T2_ERROR = 163,
-    T2_VARIABLE = 172, T2_NUMBER = 173, T2_BIGNUMBER = 174,
+    T2_IDENTIFIER = 172, T2_NUMBER = 173, T2_BIGNUMBER = 174,
     T2_STACKPTR = 181, T2_SEMICOLON = 182, T2_OPTBACKREF = 183, T2_CASE = 184,
     T2_ENDCASE = 185, T2_ENDPROC = 186, T2_LENGTH = 187, T2_LAST = 188, T2_SIZE = 189,
     T2_BEGCALL = 190,
     T2_254 = 254};
 
 /* ICodes */
-enum {I_STRING = 0, I_VARIABLE = 1, I_NUMBER = 2, I_PLUSSIGN = 3, I_MINUSSIGN = 4,
+enum {I_STRING = 0, I_IDENTIFIER = 1, I_NUMBER = 2, I_PLUSSIGN = 3, I_MINUSSIGN = 4,
     I_PLUS = 5, I_MINUS = 6, I_STAR = 7, I_SLASH = 8, I_MOD = 9,
     I_AND = 10, I_OR = 11, I_XOR = 12, I_NOT = 13, I_LT = 14,
     I_LE = 15, I_EQ = 16, I_NE = 17, I_GE = 18, I_GT = 19,
@@ -371,20 +377,20 @@ enum {CF_3 = 3, CF_POP = 4,
 /* standard structures */
 #pragma pack(push, 1)
 typedef union {
-	word w;
-	struct {
-		byte lb, hb;
-	};
+    word w;
+    struct {
+        byte lb, hb;
+    };
 } word_t;
 
 typedef union {
-	word w;
-	struct {
-		byte lb, hb;
-	};
-	byte b[2];
-	byte *bp;
-	word *wp;
+    word w;
+    struct {
+        byte lb, hb;
+    };
+    byte b[2];
+    byte *bp;
+    word *wp;
 } address;
 
 typedef struct {
@@ -472,26 +478,26 @@ typedef struct {
 } pstr_t;
 
 typedef struct {	// generic record header
-	byte type;
-	word len;
-	byte val[1];
+    byte type;
+    word len;
+    byte val[1];
 } rec_t;
 
 typedef struct {
-	byte type;
-	word len;
-	byte subType;
-	byte seg;
-	word addr;
-	byte crc;
+    byte type;
+    word len;
+    byte subType;
+    byte seg;
+    word addr;
+    byte crc;
 } rec4_t;
 
 typedef struct {
-	byte type;
-	word len;
-	byte seg;
-	word addr;
-	byte val[1];
+    byte type;
+    word len;
+    byte seg;
+    word addr;
+    byte val[1];
 } rec6_t;
 
 typedef struct { offset_t infoOffset; word arrayIndex, nestedArrayIndex, val; } var_t;
@@ -541,10 +547,10 @@ word Start6();
 
 /* plmA.plm */
 extern pointer cmdTextP;
-void Sub_40AC();
+void SignOnAndGetSourceName();
 
 /* plmb.plm */
-void Sub_4767();
+void InitKeywordsAndBuiltins();
 
 /* plmc.plm */
 extern byte verNo[];
@@ -566,19 +572,22 @@ void SetPageWidth(word width);
 /* plm0A.plm */
 extern byte cClass[];
 extern word curBlkCnt;
-extern word_t procData;
+extern byte curScope[2];        
+#define DOBLKCNT    0       // indexes
+#define PROCID      1
+
 extern offset_t curMacroInfoP;
-extern wpointer curProcData;
+extern wpointer curScopeP;
 extern word curStmtCnt;
 extern word doBlkCnt;
 extern word ifDepth;
 extern byte inbuf[];
 extern pointer inChrP;		// has to be pointer as it accesses data outside info/symbol space
 extern bool isNonCtrlLine;
-extern offset_t labelBrkSymbol;
-extern byte labelBrkToken;
-extern byte lastCh;
-extern byte lblBrkTxiCode;
+extern offset_t stmtStartSymbol;
+extern byte stmtStartToken;
+extern byte nextCh;
+extern byte startLexCode;
 extern byte lineBuf[];
 extern bool lineInfoToWrite;
 extern word macroDepth;
@@ -597,9 +606,9 @@ extern byte tokenType;
 extern word tokenVal;
 extern bool yyAgain;
 void CreateTxi1File();
-void PopDo();
+void PopBlock();
 void PushBlock(word idAndLevel);
-void Sub_4119();
+void RewindTx1();
 void SyntaxError(byte err);
 void TokenError(byte err, offset_t symP);
 void TokenErrorAt(byte err);
@@ -607,8 +616,8 @@ void WrBuf(pointer buf,word len);
 void WrByte(byte v);
 void WriteLineInfo();
 void WriteTx1(pointer buf, word len);
-void WrOffset(offset_t addr);
-void WrOprAndValue();
+void WrInfoOffset(offset_t addr);
+void WrLexToken();
 void WrWord(word v);
 void WrXrefDef();
 void WrXrefUse();
@@ -624,29 +633,16 @@ extern word offLastCh;
 /* plm0A.plm,plm3a.plm,pdata4.plm */
 extern byte tx1Buf[];
 
-/* plm0b.plm */
-void AcceptRP();
-void BadCmdTail(byte err);
-void DoCondCompile(pointer pch);
-void DoControl(pointer pch);
-void NxtCh();
-void SkipToRPARorEOL();
-void SkipWhite();
-void UnknownCtrl();
-
-/* plm0c.asm) */
+/* plm0b.plm, plm0c.asm*/
+void ParseControlLine(pointer pch);
 void GNxtCh();
-byte InGetC();
 extern bool trunc;
-void RSrcLn();
 
-/* plm0d.plm */
-void GetLin();
 
 /* plm0e.plm */
-void ParseDcl();
+void ParseDeclareElementList();
 void ParseExpresion(byte endTok);
-void ParseProcDcl();
+void ProcProcStmt();
 void SetYyAgain();
 void Yylex();
 bool YylexMatch(byte token);
@@ -655,7 +651,7 @@ bool YylexNotMatch(byte token);
 /* plm0f.plm */
 extern word curState;
 extern bool endSeen;
-void Sub_6F00();
+void ParseProgram();
 
 /* plm0g.plm */
 offset_t CreateLit(pointer pstr);
@@ -664,7 +660,7 @@ offset_t CreateLit(pointer pstr);
 
 /* plm overlay 1 */
 /* main1.plm */
-extern bool b88B3;
+extern bool tx2LinfoPending;
 extern byte b91C0;
 extern word curStmtNum;
 extern word markedStSP;
@@ -682,9 +678,9 @@ extern byte xrfBuf[];
 extern byte atBuf[];
 
 /* plm1a.plm */
-extern byte b402F[];
-extern byte b40B7[];
-extern byte b413F[];
+extern byte tx1ToTx2Map[];
+extern byte lexHandlerIdxTable[];
+extern byte icodeToTx2Map[];
 extern byte b4172[];
 extern byte builtinsMap[];
 extern byte ex1Stack[];
@@ -716,10 +712,10 @@ word WrTx2Item3Arg(byte arg1b,word arg2w,word arg3w,word arg4w);
 void ExpectRparen(byte arg1b);
 void GetTx1Item();
 bool MatchTx2AuxFlag(byte arg1b);
-bool MatchTx2Item(byte arg1b);
-bool NotMatchTx2Item(byte arg1b);
+bool MatchTx1Item(byte arg1b);
+bool NotMatchTx1Item(byte arg1b);
 void ResyncRparen();
-void Sub_4599();
+void RecoverRPOrEndExpr();
 void Sub_45E0();
 void Sub_4631();
 void Sub_467D();
@@ -781,7 +777,7 @@ word StmtParse(word arg1w);
 byte Sub_5945();
 byte Sub_59D4();
 void Sub_5AD8();
-void Sub_6523();
+void ParseLexItems();
 
 /* plm1f.plm */
 void Sub_6EE0();
@@ -826,7 +822,7 @@ extern byte buf_C1E7[];
 extern byte cfrag1;
 extern byte curExtProcId;
 extern byte curOp;
-extern byte eofSeen;
+extern bool eofSeen;
 extern byte extProcId[];
 extern byte padC1D3;
 extern word pc;
@@ -1186,30 +1182,31 @@ void EmitLinePrefix();
 
 /* files in common dir */
 /* friendly names for the controls */
-#define PRINT   CONTROLS[0]
-#define XREF    CONTROLS[1]
-#define SYMBOLS CONTROLS[2]
-#define DEBUG   CONTROLS[3]
-#define PAGING  CONTROLS[4]
-#define OBJECT  CONTROLS[5]
-#define OPTIMIZE    CONTROLS[6]
-#define IXREF   CONTROLS[7]
+#define PRINT    controls[0]
+#define XREF     controls[1]
+#define SYMBOLS  controls[2]
+#define DEBUG    controls[3]
+#define PAGING   controls[4]
+#define OBJECT   controls[5]
+#define OPTIMIZE controls[6]
+#define IXREF    controls[7]
 
 //cursym          "SYM_ST"..curSymbolP
 //info            "INFO_ST"..curInfoP
 //litinfo         "LIT_ST"..curInfoP
 //cmd             "CMD_ST"..cmdLineP
 //inChr           B..inChrP
-//*curProcData        A..curProcData
+//*curScopeP        A..curScopeP
 #ifdef _DEBUG
 extern int symMode;    // used to control debug of symbol space
 extern int infoMode;
 
-void showInfo(offset_t off);
+void showInfo(offset_t off, FILE *fp);
 void dumpAllInfo();
 void dumpBuf(file_t *fp);
 void copyFile(pointer src, pointer dst);
 char *tx2Name(byte op);
+void DumpLexStream();
 #endif
 
 /* adninf.plm */
@@ -1250,7 +1247,7 @@ void CreatF(file_t *fp, pointer buf, word bsize, byte mode);
 
 /* creati.plm */
 offset_t AllocInfo(word infosize);
-void CreateInfo(word val, byte type);
+void CreateInfo(word scope, byte type);
 
 /* data.plm */
 extern file_t atFile;
@@ -1270,7 +1267,7 @@ extern offset_t botSymbol;
 extern offset_t cmdLineP;
 extern byte col;
 extern file_t conFile;
-extern byte CONTROLS[];
+extern byte controls[];
 extern word csegSize;
 extern word curInfoP;	// individually cast
 extern offset_t curSymbolP;
@@ -1279,7 +1276,7 @@ extern word dsegSize;
 extern byte fatalErrorCode;
 extern bool hasErrors;
 extern offset_t hashChainsP;
-extern bool haveModule;
+extern bool haveModuleLevelUnit;
 extern offset_t helpersP;
 extern word intVecLoc;
 extern byte intVecNum;
@@ -1305,10 +1302,11 @@ extern word objByte;
 extern bool OBJECTSet;
 extern file_t objFile;
 extern byte objFileName[];
-extern word offNxtCmdChM1;
+extern word offFirstChM1;
 extern byte PAGELEN;
 extern word pageNo;
 extern byte plm80Compiler[];
+
 extern bool PRINTSet;
 extern word procChains[];
 extern word procCnt;
@@ -1331,13 +1329,13 @@ extern offset_t topSymbol;
 extern byte tWidth;
 extern file_t tx1File;
 extern file_t tx2File;
-extern bool unexpectedEOF;
+extern bool afterEOF;
 extern byte version[];
 extern offset_t w381E;
 extern offset_t w3822;
-extern word w382A;
-extern offset_t w3C34;
-extern offset_t w3C44;
+extern word cmdLineCaptured;
+extern offset_t ov1Boundary;
+extern offset_t ov0Boundary;
 extern file_t xrfFile;
 
 /* Delete.plm */
@@ -1537,7 +1535,7 @@ void SetIntrNo(byte intNo);
 void SetLen(byte len);
 
 /* silit.plm */
-void SetLitAddr(word litaddr);
+void SetLitAddr(offset_t litaddr);
 
 /* silnko.plm */
 void SetLinkOffset(offset_t link);

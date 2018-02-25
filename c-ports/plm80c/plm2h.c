@@ -110,7 +110,7 @@ void Sub_9DD7()
 
     if (procCallDepth <= 10) {
         i = (byte)tx2op3[tx2qp];
-        if (tx2opc[i] == T2_VARIABLE) {
+        if (tx2opc[i] == T2_IDENTIFIER) {
             curInfoP = tx2op1[i];
             if (TestInfoFlag(F_AUTOMATIC))
                 wAF54[133] = 3;

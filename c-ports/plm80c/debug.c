@@ -1,8 +1,12 @@
 #include "plm.h"
 #include <stdio.h>
 
+FILE *Fopen(char *isisPath, char *mode);
+
 int symMode = 1;
 int infoMode = 0;
+
+
 
  char *builtinStr[] = {
     "CARRY", "DEC", "DOUBLE", "HIGH", "INPUT", "LAST", "LENGTH",
@@ -13,11 +17,13 @@ int infoMode = 0;
  void dumpAllInfo()
  {
      offset_t p;
-     for (p = botInfo + (infoMode == 0  ? 2 : procInfo[1]); p < topInfo; p += InfoP(p)->len)
-         showInfo(p);
+     for (p = botInfo + (infoMode == 0 ? 2 : procInfo[1]); p < topInfo; p += InfoP(p)->len) {
+         showInfo(p, stdout);
+         putchar('\n');
+     }
 
 }
-void showInfo(offset_t off)
+void showInfo(offset_t off, FILE *fp)
 {
     info_t *info;
     sym_t *sym;
@@ -25,73 +31,71 @@ void showInfo(offset_t off)
     pstr_t *ps;
 
     info = InfoP(off);
-    printf("len = %d", info->len);
+    fprintf(fp,"len = %d", info->len);
     switch (info->type) {
-    case 0: printf(", LIT"); break;
-    case 1: printf(", LABEL"); break;
-    case 2: printf(", BYTE"); break;
-    case 3: printf(", ADDRESS"); break;
-    case 4: printf(", STRUCT"); break;
-    case 5: printf(", PROC"); break;
-    case 6: printf(", BUILTIN"); break;
-    case 7: printf(", MACRO"); break;
-    case 8: printf(", UNKNOWN"); break;
-    case 9: printf(", TEMP"); break;
-    default: printf(", OOPS type = %d\n", info->type);
+    case 0: fprintf(fp,", LIT"); break;
+    case 1: fprintf(fp,", LABEL"); break;
+    case 2: fprintf(fp,", BYTE"); break;
+    case 3: fprintf(fp,", ADDRESS"); break;
+    case 4: fprintf(fp,", STRUCT"); break;
+    case 5: fprintf(fp,", PROC"); break;
+    case 6: fprintf(fp,", BUILTIN"); break;
+    case 7: fprintf(fp,", MACRO"); break;
+    case 8: fprintf(fp,", UNKNOWN"); break;
+    case 9: fprintf(fp,", TEMP"); break;
+    default: fprintf(fp,", OOPS type = %d\n", info->type);
     }
     switch (symMode) {
-    case 0: printf(", sym = %04X", topInfo - info->sym); break;
+    case 0: fprintf(fp,", sym = %04X", topInfo - info->sym); break;
     case 1: sym = SymbolP(topSymbol - info->sym);
-            printf(", sym = %.*s", sym->name[0], &sym->name[1]);
+            fprintf(fp,", sym = %.*s", sym->name[0], &sym->name[1]);
             break;
     case 2: ps = PstrP(topSymbol - 1 - info->sym);
-            printf(", sym = %.*s", ps->len, ps->str);
+            fprintf(fp,", sym = %.*s", ps->len, ps->str);
             break;
     }
-    printf(", scope = %04X", info->scope);
-    printf(", ilink = %04X", info->ilink);
+    fprintf(fp,", scope = %04X", info->scope);
+    fprintf(fp,", ilink = %04X", info->ilink);
     switch (info->type) {
     case LIT_T:
         lit = LitP(off);
         if (symMode == 0)
-            printf(", lit = %04X", lit->litAddr);
+            fprintf(fp,", lit = %04X", lit->litAddr);
         else {
             ps = PstrP(lit->litAddr + 1);
-            printf(", lit = %.*s", ps->len, ps->str);
+            fprintf(fp,", lit = %.*s", ps->len, ps->str);
         }
         break;
     case LABEL_T: case BYTE_T: case ADDRESS_T: case STRUCT_T:
     case PROC_T:
-        printf(", flags =  %02X %02X %02X", info->flag[0], info->flag[1], info->flag[2]);
+        fprintf(fp,", flags =  %02X %02X %02X", info->flag[0], info->flag[1], info->flag[2]);
         break;
     case BUILTIN_T:
-        printf(", builtin = %s, paramCnt = %d, data type = %d", builtinStr[info->flag[0]], info->flag[1], info->flag[2]);
+        fprintf(fp,", builtin = %s, paramCnt = %d, data type = %d", builtinStr[info->flag[0]], info->flag[1], info->flag[2]);
         break;
     case MACRO_T:
-        printf(", flags =  %02X %02X", info->flag[0], info->flag[1]);
+        fprintf(fp,", flags =  %02X %02X", info->flag[0], info->flag[1]);
         break;
-    case TEMP_T:
-        printf(", flag =  %02X", info->flag[0]);
+    case CONDVAR_T:
+        fprintf(fp,", flag =  %02X", info->flag[0]);
         break;
     case UNK_T:
         break;
     }
     if (LABEL_T <= info->type && info->type <= PROC_T) {
-        printf(", extId = %d", info->extId);
+        fprintf(fp,", extId = %d", info->extId);
         if (info->type >= BYTE_T) {
-            printf(", dim = %d", info->dim);
-            printf(", baseoff = %04X", info->baseoff);
-            printf(", parent = %04X", info->parent);
+            fprintf(fp,", dim = %d", info->dim);
+            fprintf(fp,", baseoff = %04X", info->baseoff);
+            fprintf(fp,", parent = %04X", info->parent);
         }
     }
     if (info->type == PROC_T) {
-        printf(", dtype = %d", info->dtype);
-        printf(", intno = %d", info->intno);
-        printf(", pcnt = %d", info->pcnt);
-        printf(", procId = %d", info->procId);
+        fprintf(fp,", dtype = %d", info->dtype);
+        fprintf(fp,", intno = %d", info->intno);
+        fprintf(fp,", pcnt = %d", info->pcnt);
+        fprintf(fp,", procId = %d", info->procId);
     }
-    putchar('\n');
-
 }
 
 void dumpBuf(file_t *fp)
@@ -130,7 +134,7 @@ char *tx2NameTable[] = {
     "T2_LT", "T2_LE", "T2_NE", "T2_EQ", "T2_GE",
     "T2_GT", "T2_ROL", "T2_ROR", "T2_SCL", "T2_SCR",
     "T2_SHL", "T2_SHR", "T2_JMPFALSE", "T2_13", "T2_14",
-    "T2_15", "T2_16", "T2_17", "T2_DOUBLE", "T2_ADDB",
+    "T2_15", "T2_16", "T2_17", "T2_DOUBLE", "T2_PLUSSIGN",
     "T2_MINUSSIGN", "T2_STAR", "T2_SLASH", "T2_MOD", "T2_AND",
     "T2_OR", "T2_XOR", "T2_BASED", "T2_BYTEINDEX", "T2_WORDINDEX",
     "T2_MEMBER", "T2_UNARYMINUS", "T2_NOT", "T2_LOW", "T2_HIGH",
@@ -139,7 +143,7 @@ char *tx2NameTable[] = {
     "T2_45", "T2_46", "T2_47", "T2_48", "T2_49",
     "T2_50", "T2_51", "T2_52", "T2_53", "T2_54",
     "T2_55", "T2_56", "T2_TIME", "T2_STKBARG", "T2_STKWARG",
-    "T2_DEC", "T2_STORE", "T2_OUTPUT", "T2_63", "T2_STKARG",
+    "T2_DEC", "T2_COLONEQUALS", "T2_OUTPUT", "T2_63", "T2_STKARG",
     "T2_65", "T2_66", "T2_67", "T2_68", "T2_MOVE",
     "T2_70", "T2_RETURNBYTE", "T2_RETURNWORD", "T2_RETURN", "T2_74",
     "T2_75", "T2_76", "T2_77", "T2_78", "T2_79",
@@ -161,7 +165,7 @@ char *tx2NameTable[] = {
     "T2_TOKENERROR", "T2_EOF", "T2_LIST", "T2_NOLIST", "T2_CODE",
     "T2_NOCODE", "T2_EJECT", "T2_INCLUDE", "T2_ERROR", "T2_164",
     "T2_165", "T2_166", "T2_167", "T2_168", "T2_169",
-    "T2_170", "T2_171", "T2_VARIABLE", "T2_NUMBER", "T2_BIGNUMBER",
+    "T2_170", "T2_171", "T2_IDENTIFIER", "T2_NUMBER", "T2_BIGNUMBER",
     "T2_175", "T2_176", "T2_177", "T2_178", "T2_179",
     "T2_180", "T2_STACKPTR", "T2_SEMICOLON", "T2_OPTBACKREF", "T2_CASE",
     "T2_ENDCASE", "T2_ENDPROC", "T2_LENGTH", "T2_LAST", "T2_SIZE",
@@ -177,4 +181,125 @@ char *tx2Name(byte op)
     }
 
     return tx2NameTable[op];
+}
+
+
+char *lexItems[] = {
+    "L_LINEINFO", "L_SYNTAXERROR", "L_TOKENERROR", "L_LIST", "L_NOLIST",
+    "L_CODE", "L_NOCODE", "L_EJECT", "L_INCLUDE", "L_STMTCNT",
+    "L_LABELDEF", "L_LOCALLABEL", "L_JMP", "L_JMPFALSE", "L_PROCEDURE",
+    "L_SCOPE", "L_END", "L_DO", "L_DOLOOP", "L_WHILE",
+    "L_CASE", "L_CASELABEL", "L_IF", "L_STATEMENT", "L_CALL",
+    "L_RETURN", "L_GO", "L_GOTO", "L_SEMICOLON", "L_ENABLE",
+    "L_DISABLE", "L_HALT", "L_EOF", "L_AT", "L_INITIAL",
+    "L_DATA", "L_IDENTIFIER", "L_NUMBER", "L_STRING", "L_PLUSSIGN",
+    "L_MINUSSIGN", "L_PLUS", "L_MINUS", "L_STAR", "L_SLASH",
+    "L_MOD", "L_COLONEQUALS", "L_AND", "L_OR", "L_XOR",
+    "L_NOT", "L_LT", "L_LE", "L_EQ", "L_NE",
+    "L_GE", "L_GT", "L_COMMA", "L_LPAREN", "L_RPAREN",
+    "L_PERIOD", "L_TO", "L_BY", "L_INVALID", "L_MODULE",
+    "L_XREFUSE", "L_XREFDEF", "L_EXTERNAL"
+};
+
+
+static getWord(FILE *fp)
+{
+    int cl = getc(fp);
+    int ch = getc(fp);
+    if (cl == EOF || ch == EOF) {
+        fprintf(stderr, "premature EOF in getWord\n");
+        return EOF;
+    }
+    return ch * 256 + cl;
+}
+
+void DumpLexStream() // to be used after Start1
+{
+    FILE *fp;
+    FILE *fpout;
+    int c;
+    int w1, w2, w3;
+    sym_t *sym;
+    char inc[18];
+
+    if ((fp = Fopen(tx1File.fNam, "rb")) == NULL) {
+        fprintf(stderr, "can't open lex stream\n");
+        return;
+    }
+    if ((fpout = fopen("lex.dmp", "w")) == NULL) {
+        fprintf(stderr, "can't create lex.dmp\n");
+        fclose(fp);
+        return;
+    }
+    while ((c = getc(fp)) != EOF) {
+        if (c > L_EXTERNAL)
+            fprintf(fpout, "Invalid lex item %d\n", c);
+        else {
+            fprintf(fpout, "%s", lexItems[c]);
+            switch (c) {
+            case L_LINEINFO:
+                w1 = getWord(fp);
+                w2 = getWord(fp);
+                w3 = getWord(fp);
+                fprintf(fpout, " line %d, stmt %d, blk %d", w1, w2, w3);
+                break;
+            case L_SYNTAXERROR:
+                fprintf(fpout, " %d", getWord(fp));
+                break;
+            case L_TOKENERROR:
+                w1 = getWord(fp);
+                sym = SymbolP(getWord(fp));
+                if (sym == NULL)
+                    fprintf(fpout, " %d -NULL-", w1);
+                else
+                    fprintf(fpout, "%d %.*s", w1, sym->name[0], &sym->name[1]);
+                break;
+            case L_STRING:
+                w1 = getWord(fp);
+                fprintf(fpout, " %d '", w1);
+                while (w1-- > 0 && (c = getc(fp)) != EOF)
+                    putc(c, fpout);
+                putc('\'', fpout);
+                break;
+            case L_NUMBER: case L_STMTCNT: case L_LABELDEF: case L_LOCALLABEL: case L_JMP: case L_JMPFALSE:
+            case L_SCOPE: case L_CASELABEL:
+                w1 = getWord(fp);
+                if (c != L_SCOPE)
+                    fprintf(fpout, " %d", w1);
+                if (c == L_SCOPE || (c == L_NUMBER && w1 > 9))
+                    fprintf(fpout, " [%04X]", w1);
+                break;
+            case L_IDENTIFIER:
+                sym = SymbolP(getWord(fp));
+                if (sym == NULL)
+                    fprintf(fpout, " -NULL-");
+                else
+                    fprintf(fpout, " %.*s", sym->name[0], &sym->name[1]);
+                break;
+            case L_AT: case L_INITIAL: case L_DATA:
+                //w1 = getWord(fp);
+                //fprintf(fpout, " info [%04X]", w1);
+                //break;
+            case L_PROCEDURE:
+            case L_XREFUSE: case L_XREFDEF: case L_EXTERNAL:
+                w1 = getWord(fp);
+                if (w1 == 0)
+                    fprintf(fpout, " -NULL-");
+                else {
+                    putc(' ', fpout);
+                    showInfo(w1 + botInfo, fpout);
+                }
+                break;
+            case L_INCLUDE:
+                fread(inc + 12, 1, 6, fp);
+                fread(inc + 6, 1, 6, fp);
+                fread(inc, 1, 6, fp);
+                fprintf(fpout, " %.16s", inc);
+                break;
+            }
+            putc('\n', fpout);
+        }
+    }
+    fclose(fp);
+    fclose(fpout);
 }

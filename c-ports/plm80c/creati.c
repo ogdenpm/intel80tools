@@ -17,7 +17,7 @@ offset_t AllocInfo(word infosize)
 } /* AllocInfo() */
 
 
-void CreateInfo(word val, byte type)
+void CreateInfo(word scope, byte type)
 {
     byte len;
 
@@ -29,6 +29,6 @@ void CreateInfo(word val, byte type)
     }
     SetType(type);
     SetLen(len);
-    SetScope(val);
+    SetScope(scope);
     SetSymbol(curSymbolP);
 } /* CreateInfo() */
