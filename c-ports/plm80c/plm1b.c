@@ -80,64 +80,64 @@ void RecoverRPOrEndExpr()
     SetRegetTx1Item();
 }
 
-void ResyncRparen()
+void ResyncRParen()
 {
     RecoverRPOrEndExpr();
     if (MatchTx1Item(L_RPAREN))     // consume the RP if seen
         ;
 }
 
-void ExpectRparen(byte arg1b)
+void ExpectRParen(byte arg1b)
 {
     if (NotMatchTx1Item(L_RPAREN)) {
         WrTx2ExtError(arg1b);
-        ResyncRparen();
+        ResyncRParen();
     }
 }
 
-void Sub_45E0()
+void ChkIdentifier()
 {
     FindInfo();
-    if (curInfoP == 0 || GetType() == LIT_T)
-        CreateInfo(0x100, BYTE_T);
+    if (curInfoP == 0 || GetType() == LIT_T)        // doesn't exist or appeared in recursive LIT!!
+        CreateInfo(0x100, BYTE_T);                  // assume a var was declared
     OptWrXrf();
-    if (GetType() != BUILTIN_T)
-        if (! TestInfoFlag(F_LABEL))
+    if (GetType() != BUILTIN_T)                     // check if declaraed
+        if (! TestInfoFlag(F_LABEL))                // labels ok as they may be forward ref
             if (! TestInfoFlag(F_DECLARED)) {
                 WrTx2ExtError(105);	/* UNDECLARED IDENTIFIER */
-                SetInfoFlag(F_DECLARED);
+                SetInfoFlag(F_DECLARED);            // flag as now declared
             }
 }
 
-void Sub_4631()
+void ChkStructureMember()
 {
     word tmp;
 
-    tmp = curInfoP;
-    FindMemberInfo();
-    if (curInfoP == 0) {
-        CreateInfo(0, BYTE_T);
+    tmp = curInfoP;     // save parent info
+    FindMemberInfo();   // get the member info
+    if (curInfoP == 0) {    // oops not there
+        CreateInfo(0, BYTE_T);  // create a member to allow compiler to continue
         SetParentOffset(tmp);
         SetInfoFlag(F_MEMBER);
     }
-    if (! TestInfoFlag(F_LABEL))
-        if (! TestInfoFlag(F_DECLARED)) {
+    if (! TestInfoFlag(F_LABEL))    // not a genuine member
+        if (! TestInfoFlag(F_DECLARED)) {   // warn once if not declared
             WrTx2ExtError(112);	/* UNDECLARED STRUCTURE MEMBER */
             SetInfoFlag(F_DECLARED);
         }
     OptWrXrf();
 }
 
-void Sub_467D()
+void GetVariable()
 {
-    Sub_45E0();
+    ChkIdentifier();
     if (MatchTx1Item(L_PERIOD))
         if (GetType() != STRUCT_T)
             WrTx2ExtError(110);	/* INVALID LEFT OPERAND OF QUALIFICATION, NOT A STRUCTURE */
         else if (NotMatchTx1Item(L_IDENTIFIER))
             WrTx2ExtError(111);	/* INVALID RIGHT OPERAND OF QUALIFICATION, NOT IDENTIFIER */
         else
-            Sub_4631();
+            ChkStructureMember();
 }
 
 void WrAtFile(pointer buf, word cnt)

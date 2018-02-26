@@ -280,9 +280,9 @@ void Sub_994D()
 						/*  ACTIVE CASES */
 		}
 	}
-	else if (curOp == T2_JMP || curOp == T2_JNC || curOp == T2_JNZ || curOp == T2_GO_TO) {
+	else if (curOp == T2_JMP || curOp == T2_JNC || curOp == T2_JNZ || curOp == T2_GOTO) {
 		i = tx2opc[tx2qp - 1];
-		if (i == T2_RETURN || i == T2_RETURNBYTE || i == T2_RETURNWORD || i == T2_GO_TO)
+		if (i == T2_RETURN || i == T2_RETURNBYTE || i == T2_RETURNWORD || i == T2_GOTO)
 			return;
 		Sub_5795(0);
 	}

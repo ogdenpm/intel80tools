@@ -365,7 +365,7 @@ static byte GetLogical()
         else if (Strncmp(optStrValP, "XOR", 3) == 0)
             return 3;
 
-    BadCmdTail(ERR185); /* MISSING OPERATOR IN CONDITIONAL COMPILATION EXPRESSION */
+    BadCmdTail(ERR185); /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
     SkipToRPARorEOL();
     return 4;
 }

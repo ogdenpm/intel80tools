@@ -100,7 +100,7 @@ enum {T2_LT = 0, T2_LE = 1, T2_NE = 2, T2_EQ = 3, T2_GE = 4,
     T2_RETURNBYTE = 71, T2_RETURNWORD = 72, T2_RETURN = 73,
     T2_ADDW = 130, T2_BEGMOVE = 131, T2_CALL = 132, T2_CALLVAR = 133,
     T2_PROCEDURE = 135, T2_LOCALLABEL = 136, T2_CASELABEL = 137, T2_LABELDEF = 138, T2_INPUT = 139,
-    T2_GO_TO = 140, T2_JMP = 141, T2_JNC = 142, T2_JNZ = 143, T2_SIGN = 144,
+    T2_GOTO = 140, T2_JMP = 141, T2_JNC = 142, T2_JNZ = 143, T2_SIGN = 144,
     T2_ZERO = 145, T2_PARITY = 146, T2_CARRY = 147, T2_DISABLE = 148, T2_ENABLE = 149,
     T2_HALT = 150, T2_STMTCNT = 151, T2_LINEINFO = 152, T2_MODULE = 153, T2_SYNTAXERROR = 154,
     T2_TOKENERROR = 155, T2_EOF = 156, T2_LIST = 157, T2_NOLIST = 158, T2_CODE = 159,
@@ -146,7 +146,7 @@ enum {CF_3 = 3, CF_POP = 4,
     CF_EI = 149,
     CF_171 = 171, CF_174 = 174};
 
-
+enum { DO_PROC = 0, DO_LOOP = 1, DO_WHILE = 2, DO_CASE = 3 };
 
 /* Error codes */
 #define ERR1    1 /* INVALID PL/M-80 CHARACTER */
@@ -248,7 +248,7 @@ enum {CF_3 = 3, CF_POP = 4,
 #define ERR97   97 /* COMPILER ERROR: PARSE STACK UNDERFLOW */
 #define ERR98   98 /* INCLUDE FILE IS NOT A DISKETTE FILE */
 #define ERR99   99 /* ?? unused */
-#define ERR100  100 /* INVALID STRING CONSTANT IN EXPRESSION */
+#define ERR100  100 /* INVALID STRING CONSTANT IN Expression */
 #define ERR101  101 /* INVALID ITEM FOLLOWS DOT OPERATOR */
 #define ERR102  102 /* MISSING PRIMARY OPERAND */
 #define ERR103  103 /* MISSING ') ' AT END OF SUBEXPRESSION */
@@ -268,8 +268,8 @@ enum {CF_3 = 3, CF_POP = 4,
 #define ERR117  117 /* MISSING PROCEDURE NAME IN CALL STATEMENT */
 #define ERR118  118 /* INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR */
 #define ERR119  119 /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
-#define ERR120  120 /* LIMIT EXCEEDED: EXPRESSION TOO COMPLEX */
-#define ERR121  121 /* LIMIT EXCEEDED: EXPRESSION TOO COMPLEX */
+#define ERR120  120 /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+#define ERR121  121 /* LIMIT EXCEEDED: Expression TOO COMPLEX */
 #define ERR122  122 /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
 #define ERR123  123 /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
 #define ERR124  124 /* MISSING ARGUMENTS FOR BUILT-IN PROCEDURE */
@@ -294,12 +294,12 @@ enum {CF_3 = 3, CF_POP = 4,
 #define ERR143  143 /* INVALID REFERENCE FOLLOWING GOTO, NOT A LABEL */
 #define ERR144  144 /* INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL */
 #define ERR145  145 /* MISSING 'TO' FOLLOWING 'GO' */
-#define ERR146  146 /* MISSING ') ' AFTER 'AT' RESTRICTED EXPRESSION */
+#define ERR146  146 /* MISSING ') ' AFTER 'AT' RESTRICTED Expression */
 #define ERR147  147 /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
 #define ERR148  148 /* INVALID QUALIFICATION IN RESTRICTED REFERENCE */
 #define ERR149  149 /* INVALID SUBSCRIPTING IN RESTRICTED REFERENCE */
 #define ERR150  150 /* MISSING ') ' AT END OF RESTRICTED SUBSCRIPT */
-#define ERR151  151 /* INVALID OPERAND IN RESTRICTED EXPRESSION */
+#define ERR151  151 /* INVALID OPERAND IN RESTRICTED Expression */
 #define ERR152  152 /* MISSING ') ' AFTER CONSTANT LIST */
 #define ERR153  153 /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY */
 #define ERR154  154 /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW */
@@ -319,7 +319,7 @@ enum {CF_3 = 3, CF_POP = 4,
 #define ERR168  168 /* COMPILER ERROR: BRANCH MISSING IN 'IF' STATEMENT */
 #define ERR169  169 /* ILLEGAL FORWARD CALL */
 #define ERR170  170 /* ILLEGAL RECURSIVE CALL */
-#define ERR171  171 /* INVALID USE OF DELIMITER OR RESERVED WORD IN EXPRESSION */
+#define ERR171  171 /* INVALID USE OF DELIMITER OR RESERVED WORD IN Expression */
 #define ERR172  172 /* INVALID LABEL: UNDEFINED */
 #define ERR173  173 /* INVALID LEFT SIDE OF ASSIGNMENT: VARIABLE DECLARED WITH DATA ATTRIBUTE */
 #define ERR174  174 /* INVALID NULL PROCEDURE */
@@ -333,7 +333,7 @@ enum {CF_3 = 3, CF_POP = 4,
 #define ERR182  182 /* MISPLACED ELSE OR ELSEIF OPTION */
 #define ERR183  183 /* MISPLACED ENDIF OPTION */
 #define ERR184  184 /* CONDITIONAL COMPILATION PARAMETER NAME TOO LONG */
-#define ERR185  185 /* MISSING OPERATOR IN CONDITIONAL COMPILATION EXPRESSION */
+#define ERR185  185 /* MISSING OPERATOR IN CONDITIONAL COMPILATION Expression */
 #define ERR186  186 /* INVALID CONDITIONAL COMPILATION CONSTANT, TOO LARGE */
 #define ERR187  187 /* LIMIT EXCEEDED: NUMBER OF SAVE LEVELS > 5 */
 #define ERR188  188 /* MISPLACED RESTORE OPTION */
@@ -517,6 +517,11 @@ offset_t ptr2Off(pointer addr);
 #define SymbolP(off) ((sym_t *)off2Ptr(off))
 #define CmdP(off)    ((cmd_t *)off2Ptr(off))
 #define PstrP(off)   ((pstr_t *)off2Ptr(off))
+
+
+// array sizes
+#define EXPRSTACKSIZE   100
+
 
 
 extern offset_t MEMORY;
@@ -709,16 +714,16 @@ word WrTx2Item2Arg(byte arg1b,word arg2w,word arg3w);
 word WrTx2Item3Arg(byte arg1b,word arg2w,word arg3w,word arg4w);
 
 /* plm1b.pl3 */
-void ExpectRparen(byte arg1b);
+void ExpectRParen(byte arg1b);
 void GetTx1Item();
 bool MatchTx2AuxFlag(byte arg1b);
 bool MatchTx1Item(byte arg1b);
 bool NotMatchTx1Item(byte arg1b);
-void ResyncRparen();
+void ResyncRParen();
 void RecoverRPOrEndExpr();
-void Sub_45E0();
-void Sub_4631();
-void Sub_467D();
+void ChkIdentifier();
+void ChkStructureMember();
+void GetVariable();
 void WrAtFile(pointer buf, word cnt);
 void WrAtFileByte(byte arg1b);
 void WrAtFileWord(word arg1w);
@@ -729,10 +734,10 @@ void ExprMakeNode(byte arg1b,byte arg2b);
 void ExprPop();
 void ExprPush2(byte arg1b,word arg2w);
 byte GetCallArgCnt();
-void GetRestrictedExpr();
+void RestrictedExpression();
 void MkIndexNode();
 void MoveExpr2Stmt();
-word ParseDataItems(offset_t arg1w);
+word InitialValueList(offset_t arg1w);
 void ParsePortNum(byte arg1b);
 void PopOperatorStack();
 void PopParseStack();
@@ -740,16 +745,16 @@ void PushOperator(byte arg1b);
 void PushParseByte(byte arg1b);
 void PushParseWord(word arg1w);
 void ResetStacks();
-void Sub_4CFD(offset_t arg1w);
+void FixupBased(offset_t arg1w);
 void Sub_4D2C();
-void Sub_4D38();
+void ChkTypedProcedure();
 void Sub_4DCF(byte arg1b);
 void Sub_50D5();
 byte Sub_512E(word arg1w);
-void Sub_521B();
+void ConstantList();
 
 /* plm1d.plm */
-void ExprParse();
+void ExpressionStateMachine();
 void ExprParse0();
 void ExprParse1();
 void ExprParse10();
@@ -773,10 +778,10 @@ void ExprParse8();
 void ExprParse9();
 
 /* plm1e.plm */
-word StmtParse(word arg1w);
+word StmtParseMachine(word arg1w);
 byte Sub_5945();
 byte Sub_59D4();
-void Sub_5AD8();
+void Expression();
 void ParseLexItems();
 
 /* plm1f.plm */

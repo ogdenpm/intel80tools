@@ -11,9 +11,9 @@ byte Sub_5945()
             WrTx2ExtError(ERR128);  /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
             return 0;
         }
-        Sub_45E0();
+        ChkIdentifier();
         PushParseByte(11);
-        ExprParse();
+        ExpressionStateMachine();
         if (Sub_512E(exSP)) {
             WrTx2ExtError(ERR128);  /* INVALID LEFT-HAND OPERAND OF ASSIGNMENT */
             ExprPop();
@@ -24,8 +24,8 @@ byte Sub_5945()
     }
 
     if (MatchTx1Item(L_EQ)) {
-        PushParseByte(0);
-        ExprParse();
+        PushParseByte(0);               // <expression>
+        ExpressionStateMachine();
         if (i != 0) {
             ExprMakeNode(I_COLONEQUALS, i + 1);
             MoveExpr2Stmt();
@@ -47,7 +47,7 @@ byte Sub_59D4()
         WrTx2ExtError(ERR117);  /* MISSING procedure NAME IN call STATEMENT */
         return false;
     }
-    Sub_467D();
+    GetVariable();
     i = GetType();
     if (i == PROC_T) {
         Sub_50D5();
@@ -59,7 +59,7 @@ byte Sub_59D4()
         PushParseByte(16);
         if (MatchTx1Item(L_LPAREN)) {
             PushParseByte(15);
-            PushParseByte(0);
+            PushParseByte(0);       // <expression>
         }
     } else if (i == BUILTIN_T) {
         if (GetDataType() != 0) {
@@ -72,11 +72,11 @@ byte Sub_59D4()
         PushParseByte(17);
         if (MatchTx1Item(L_LPAREN)) {
             PushParseByte(15);
-            PushParseByte(0);
+            PushParseByte(0);       // <expression>
         }
     } else {
         if (i != ADDRESS_T || TestInfoFlag(F_ARRAY)) {
-            WrTx2ExtError(ERR118);  /* INVALID INDIRECT call, IDENTIFIER not AN address SCALAR */
+            WrTx2ExtError(ERR118);  /* INVALID INDIRECT CALL, IDENTIFIER NOT AN ADDRESS SCALAR */
             return false;
         }
         Sub_4D2C();
@@ -87,17 +87,17 @@ byte Sub_59D4()
             PushParseByte(0);
         }
     }
-    ExprParse();
+    ExpressionStateMachine();
     MoveExpr2Stmt();
     markedStSP = stSP;
     return true;
 }
 
-void Sub_5AD8()
+void Expression()
 {
     ResetStacks();
-    PushParseByte(0);
-    ExprParse();
+    PushParseByte(0);           // <expression>
+    ExpressionStateMachine();
     MoveExpr2Stmt();
     markedStSP = stSP;
 }
@@ -150,17 +150,17 @@ static void StmtParse0()
         if (i == I_CALL)
             PushParseByte(3);
         else if (i == I_CALLVAR) {
-            PushParseByte(6);
+            PushParseByte(6);           // closing ')' of <subexpression>
             PushParseWord(st3Stack[w99BF]);
-            PushParseByte(0);
+            PushParseByte(0);           // <expression>
         } else if (i == I_COLONEQUALS)
-            PushParseByte(9);
+            PushParseByte(9);           // <data reference>
         else if (i == I_MOVE) {
-            PushParseByte(14);
+            PushParseByte(14);          // make member node
             PushParseWord(st3Stack[w99BF]);
-            PushParseByte(0);
+            PushParseByte(0);           // <expression>
         } else if (i == I_BYTEINDEX || i == I_WORDINDEX) {
-            PushParseByte(8);
+            PushParseByte(8);           // <variable reference>
             PushParseWord(2);       /* serialise 2 leaves */
             PushParseWord(st3Stack[w99BF]);
             PushParseByte(1);
@@ -179,7 +179,7 @@ static void StmtParse1()
     w99BF = parseStack[parseSP];
     PushParseByte(2);   /* flag to check for more leaves */
     PushParseWord(w99BF);   /* serialise this leaf */
-    PushParseByte(0);
+    PushParseByte(0);       // <expression>
 }
 
 static void StmtParse2()
@@ -209,7 +209,7 @@ static void StmtParse3()
         PushParseWord(curInfoP);
         PushParseByte(4);
         PushParseWord(st3Stack[w99BF] + 1); /* index of arg info */
-        PushParseByte(0);                       /* serialise the arg */
+        PushParseByte(0);                   // <expression>
     }
     w99C1 = WrTx2Item(T2_BEGCALL);
 }
@@ -248,7 +248,7 @@ static void StmtParse4()
         parseStack[p] = w99BF;
         PushParseByte(4);
         PushParseWord(w99BF);   /* serialise the arg */
-        PushParseByte(0);
+        PushParseByte(0);       // <expression>
     }
 }
 
@@ -278,7 +278,7 @@ static void StmtParse6()
     word p;
     w99C1 = WrTx2Item(T2_BEGCALL);
     w99BF = parseStack[parseSP];
-    PushParseByte(7);
+    PushParseByte(7);       // <location reference> make addressof node
     if ((i = st2Stack[w99BF] - 1) != 0) {
         PushParseWord(i);
         p = st3Stack[w99BF] + 1;
@@ -286,7 +286,7 @@ static void StmtParse6()
         PushParseWord(0);   /* no arg info */
         PushParseByte(4);
         PushParseWord(p);
-        PushParseByte(0);
+        PushParseByte(0);   // <expression>
     }
 }
 
@@ -328,7 +328,7 @@ static void StmtParse9()
     w99BF = parseStack[parseSP];
     PushParseByte(10);  /* post serialise LHS */
     PushParseWord(st3Stack[w99BF] + st2Stack[w99BF] - 1);
-    PushParseByte(0);
+    PushParseByte(0);       // <expression>
 }
 
 
@@ -346,7 +346,7 @@ static void StmtParse10()
     PushParseWord(p + i);           /* LHS */
     PushParseByte(11);              /* after serialised leaf */
     PushParseWord(p);               /* do the leaf */
-    PushParseByte(0);
+    PushParseByte(0);               // <expression>
 }
 
 
@@ -374,7 +374,7 @@ static void StmtParse11()
         parseStack[p] = r;
         PushParseByte(11);  /* state 11 after serialise */
         PushParseWord(r);   /* serialise leaf */
-        PushParseByte(0);
+        PushParseByte(0);   // <expression>
     }
 }
 
@@ -428,7 +428,7 @@ static void StmtParse15()
     FlgVisited(w99BF, w99C1);
 }
 
-word StmtParse(word arg1w)
+word StmtParseMachine(word arg1w)
 {
     byte i;
     word p;
@@ -436,10 +436,9 @@ word StmtParse(word arg1w)
     p = curInfoP;
     parseSP = 0;
     PushParseWord(arg1w);
-    PushParseByte(0);
+    PushParseByte(0);       // <expression>
     while (parseSP != 0) {
-        i = (byte)parseStack[parseSP];
-        parseSP = parseSP - 1;
+        i = (byte)parseStack[parseSP--];
         switch (i) {
         case 0: StmtParse0(); break;
         case 1: StmtParse1(); break;
@@ -551,7 +550,7 @@ static void  ChkEndOfStmt()
 {
     if (MatchTx2AuxFlag(128)) {
         WrTx2ExtError(ERR32);   /* INVALID SYNTAX, TEXT IGNORED UNTIL ';' */
-        while ((tx1Aux2 & 0x80) != 0) {
+        while ((tx1Aux2 & 0x80) != 0) { // skip Expression items
             GetTx1Item();
         }
         SetRegetTx1Item();
@@ -590,8 +589,8 @@ static void Sub_67E3()
 
 static word Sub_6917()
 {
-    Sub_5AD8();
-    return StmtParse(markedStSP);
+    Expression();
+    return StmtParseMachine(markedStSP);
 }
 
 
@@ -623,7 +622,7 @@ static void ParseProcedure()
 {
     tx1Item.dataw[0] = tx1Item.dataw[0] - botInfo;
     MapLToT2();
-    PushControl(0);
+    PushControl(DO_PROC);
     procInfoStack[controlSP] = curProcInfoP;
     curProcInfoP = curInfoP = tx1Item.dataw[0] + botInfo;
     SetInfoFlag(F_DECLARED);
@@ -632,7 +631,7 @@ static void ParseProcedure()
 static void ParseWhile()
 {
     word p, q, r;
-    PushControl(2);
+    PushControl(DO_WHILE);
     p = NewLocalLabel();
     q = NewLocalLabel();
     hNodes[controlSP] = p;
@@ -646,7 +645,7 @@ static void ParseWhile()
 static void ParseCASE()
 {
     word p, q;
-    PushControl(3);
+    PushControl(DO_CASE);
     MapLToT2();
     q = Sub_6917();
     p = NewLocalLabel();
@@ -655,20 +654,20 @@ static void ParseCASE()
     ChkEndOfStmt();
 }
 
-static void ParseDOLOOP()
+static void IterativeDoStatement()
 {
     word p, q, r, s, t, u, v, w;
 
-    PushControl(1);
+    PushControl(DO_LOOP);
     if (NotMatchTx1Item(L_IDENTIFIER)) {
         WrTx2Error(ERR138); /* MISSING INDEX VARIABLE */
         return;
     }
-    Sub_467D();
+    GetVariable();
     w = curInfoP;
     procInfoStack[controlSP] = w;
     if ((GetType() != BYTE_T && GetType() != ADDRESS_T) || TestInfoFlag(F_ARRAY)) {
-        WrTx2ExtError(ERR139);  /* INVALID INDEX VARIABLE TYPE, not byte or address */
+        WrTx2ExtError(ERR139);  /* INVALID INDEX VARIABLE TYPE, NOT BYTE OR ADDRESS */
         return;
     }
     if (NotMatchTx1Item(L_EQ)) {
@@ -708,10 +707,10 @@ static void ParseDOLOOP()
     q = Sub_677C(w);
     r = Sub_6917();
     q = WrTx2Item2Arg(T2_ADDW, Sub_42EF(q), Sub_42EF(r));
-    p = WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(p), Sub_42EF(q));
-    p = WrTx2Item1Arg(T2_JNC, s);
-    p = WrTx2Item1Arg(T2_JMP, t);
-    p = WrTx2Item1Arg(T2_LOCALLABEL, v);
+    WrTx2Item2Arg(T2_COLONEQUALS, Sub_42EF(p), Sub_42EF(q));
+    WrTx2Item1Arg(T2_JNC, s);
+    WrTx2Item1Arg(T2_JMP, t);
+    WrTx2Item1Arg(T2_LOCALLABEL, v);
 }
 
 static void ParseEND()
@@ -722,7 +721,7 @@ static void ParseEND()
         curInfoP = curProcInfoP;
         SetInfoFlag(F_DEFINED);
         if (GetDataType() != 0 && !b9A13[controlSP])
-            WrTx2Error(ERR156); /* MISSING return STATEMENT IN TYPED procedure */
+            WrTx2Error(ERR156); /* MISSING RETURN STATEMENT IN TYPED PROCEDURE */
         p = WrTx2Item(T2_ENDPROC);
         curProcInfoP = procInfoStack[controlSP];
         break;
@@ -746,7 +745,7 @@ static void ParseStatement()
 {
     word p;
     if (Sub_5945())
-        p = StmtParse(markedStSP);
+        p = StmtParseMachine(markedStSP);
     ChkEndOfStmt();
 }
 
@@ -755,100 +754,103 @@ static void ParseCALL()
 {
     word p;
     if (Sub_59D4())
-        p = StmtParse(markedStSP);
+        p = StmtParseMachine(markedStSP);
     ChkEndOfStmt();
 }
 
-static void ParseReturn()
+static void ReturnStatement()   // return already seen
 {
     word p;
     byte i;
 
     if (curProcInfoP == 0) {
-        WrTx2Error(ERR155); /* INVALID return IN MAIN PROGRAM */
+        WrTx2Error(ERR155); /* INVALID RETURN IN MAIN PROGRAM */
         return;
     }
     curInfoP = curProcInfoP;
     i = GetDataType();
-    if (MatchTx2AuxFlag(128)) { /* there is an expression */
-        SetRegetTx1Item();
-        if (i == 0)
-            WrTx2Error(ERR136); /* INVALID return FOR UNTYPED procedure, VALUE ILLEGAL */
+    if (MatchTx2AuxFlag(0x80)) { /* there is an Expression item */
+        SetRegetTx1Item();      
+        if (i == 0)             // untyped procedure
+            WrTx2Error(ERR136); /* INVALID RETURN FOR UNTYPED PROCEDURE, VALUE ILLEGAL */
         p = Sub_6917();
-        if (i == 2)
+        if (i == BYTE_T)
             p = WrTx2Item1Arg(T2_RETURNBYTE, Sub_42EF(p));
         else
             p = WrTx2Item1Arg(T2_RETURNWORD, Sub_42EF(p));
     } else {
-        if (i != 0)
-            WrTx2Error(ERR137); /* MISSING VALUE IN return FOR TYPED procedure */
+        if (i != 0)             // typed procedure
+            WrTx2Error(ERR137); /* MISSING VALUE IN RETURN FOR TYPED PROCEDURE */
         p = WrTx2Item(T2_RETURN);
     }
     b9A13[controlSP] = true;
     ChkEndOfStmt();
 }
 
-static  void ParseEIDIHLT()
+// <8080 dependent statement>
+static  void I8080DependentStatement()
 {
     MapLToT2();
     ChkEndOfStmt();
 }
 
-static void ParseGoto()
+// <goto statement>
+static void GotoStatement()
 {
-    word p;
-    if (NotMatchTx1Item(L_IDENTIFIER))
-        WrTx2Error(ERR142); /* MISSING IDENTIFIER FOLLOWING goto */
+    if (NotMatchTx1Item(L_IDENTIFIER))      // no goto identifier
+        WrTx2Error(ERR142); /* MISSING IDENTIFIER FOLLOWING GOTO */
     else {
-        Sub_45E0();
+        ChkIdentifier();                    // can only goto label
         if (GetType() != LABEL_T)
-            WrTx2ExtError(ERR143);  /* INVALID REFERENCE FOLLOWING goto, not A label */
+            WrTx2ExtError(ERR143);  /* INVALID REFERENCE FOLLOWING GOTO, NOT A LABEL */
         else {
-            if (High(GetScope()) == 1 && High(procChains[blockDepth]) != 1)
-                SetInfoFlag(F_MODGOTO);
-            if (High(GetScope()) == 1 || High(GetScope()) == High(procChains[blockDepth])) {
-                p = WrTx2Item1Arg(T2_GO_TO, curInfoP - botInfo);
+            if (High(GetScope()) == 1 && High(procChains[blockDepth]) != 1)     // goto is from local to a module level target
+                SetInfoFlag(F_MODGOTO);                                         // flag target as module level label
+            if (High(GetScope()) == 1 || High(GetScope()) == High(procChains[blockDepth])) {    // its module level to module level or local to local
+                WrTx2Item1Arg(T2_GOTO, curInfoP - botInfo);                     // write lex token with normalised infoOffset
                 ChkEndOfStmt();
             } else
-                WrTx2ExtError(ERR144); /* INVALID goto label, not at LOCAL or MODULE LEVEL */
+                WrTx2ExtError(ERR144); /* INVALID GOTO LABEL, NOT AT LOCAL OR MODULE LEVEL */
         }
     }
 }
 
 
-static void ParseGo()
+// <goto statement>
+static void GoStatement()
 {
     if (NotMatchTx1Item(L_TO))
-        WrTx2Error(ERR145);     /* MISSING 'to' FOLLOWING 'go' */
-    ParseGoto();
+        WrTx2Error(ERR145);     /* MISSING 'TO' FOLLOWING 'GO' */
+    GotoStatement();                // handle as normal GOTO
 }
 
-static void ParseAT()
+// <locator> (AT already parsed)
+static void Locator()
 {
     offset_t p;
-    p = tx1Item.dataw[0];
+    p = tx1Item.dataw[0];       // info for variable
 
-    GetTx1Item();
-    GetRestrictedExpr();
+    GetTx1Item();               // junk the (
+    RestrictedExpression();     // get the AT Expression
     WrAtFileByte(ATI_AHDR);
-    WrAtFileWord(p - botInfo);
-    WrAtFileWord(curStmtNum);
-    WrAtFileWord(var.infoOffset);
-    WrAtFileWord(var.arrayIndex);
-    WrAtFileWord(var.nestedArrayIndex);
-    WrAtFileWord(var.val);
-    ExpectRparen(ERR146);   /* MISSING ') ' AFTER 'AT' RESTRICTED EXPRESSION */
+    WrAtFileWord(p - botInfo);  // normalise the info offset
+    WrAtFileWord(curStmtNum);   // statement number
+    WrAtFileWord(var.infoOffset);   // info offset for identifier in Expression
+    WrAtFileWord(var.arrayIndex);   // any array index
+    WrAtFileWord(var.nestedArrayIndex); // ditto for any structure element
+    WrAtFileWord(var.val);          // the +/- delta
+    ExpectRParen(ERR146);   /* MISSING ') ' AFTER 'AT' RESTRICTED Expression */
 }
 
-void ParseDATA_INITIAL()
+void Initialization()
 {
-    word p, q;
-    p = tx1Item.dataw[0];
-    GetTx1Item();
-    q = ParseDataItems(p);
-    if ((curInfoP = p) != botInfo)
+    word p, cnt;
+    p = tx1Item.dataw[0];       // info of variable being initialised
+    GetTx1Item();               // get next item
+    cnt = InitialValueList(p);      // parse the initialisation list
+    if ((curInfoP = p) != botInfo)  // set the dimension if variable and (*) was specified
         if (TestInfoFlag(F_STARDIM))
-            SetDimension(q);
+            SetDimension(cnt);
 }
 
 void ParseLexItems()
@@ -860,33 +862,33 @@ void ParseLexItems()
     while (tx1Item.type != L_EOF) {
         curInfoP = 0;
         switch (lexHandlerIdxTable[tx1Item.type]) {
-        case 0: ParseStmtcnt(); break;     /* L_STMTCNT */
+        case 0: ParseStmtcnt(); break;  /* L_STMTCNT */
         case 1: PushScope(tx1Item.dataw[0]); break;  /* L_SCOPE */
-        case 2: ParseEND(); break; /* L_END */
-        case 3: ParseIf(); break;  /* L_IF */
+        case 2: ParseEND(); break;      /* L_END */
+        case 3: ParseIf(); break;       /* L_IF */
         case 4:
-            ParseDOLOOP();      /* L_DOLOOP */
+            IterativeDoStatement();              /* L_DOLOOP */
             ChkEndOfStmt();
             break;
-        case 5: ParseWhile(); break;   /* L_WHILE */
-        case 6: PushControl(1); break; /* L_DO */
-        case 7: ParseProcedure(); break;   /* L_PROCEDURE */
-        case 8: ParseCASE(); break;    /* L_CASE */
-        case 9: ParseStatement(); break;   /* L_STATEMENT */
+        case 5: ParseWhile(); break;    /* L_WHILE */
+        case 6: PushControl(1); break;  /* L_DO */
+        case 7: ParseProcedure(); break;/* L_PROCEDURE */
+        case 8: ParseCASE(); break;     /* L_CASE */
+        case 9: ParseStatement(); break;/* L_STATEMENT */
         case 10: ParseCALL(); break;    /* L_CALL */
-        case 11: ParseReturn(); break;  /* L_RETURN */
-        case 12: ParseGoto(); break;    /* L_GOTO */
-        case 13: ParseGo(); break;  /* L_GO */
-        case 14: break;           /* L_SEMICOLON */
-        case 15: ParseEIDIHLT(); break; /* L_ENABLE, L_DISABLE, L_HALT */
-        case 16: ParseAT(); break;  /* L_AT */
-        case 17: ParseDATA_INITIAL(); break;    /* L_DATA, L_INITIAL */
-        case 18: break;       /* simple items */
-        case 19: MapLToT2(); break; /* L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_CASELABEL */
+        case 11: ReturnStatement(); break;  /* L_RETURN */
+        case 12: GotoStatement(); break;    /* L_GOTO <goto statement> */
+        case 13: GoStatement(); break;      /* L_GO <goto statement> */
+        case 14: break;                 /* L_SEMICOLON */
+        case 15: I8080DependentStatement(); break; /* L_ENABLE, L_DISABLE, L_HALT <8080 dependent statement> */
+        case 16: Locator(); break;      /* L_AT */
+        case 17: Initialization(); break;    /* L_DATA, L_INITIAL */
+        case 18: break;                 /* simple items */
+        case 19: MapLToT2(); break;     /* L_LABELDEF, L_LOCALLABEL, L_JMP, L_JMPFALSE, L_CASELABEL */
         case 20:
-            curInfoP = tx1Item.dataw[0];    /* L_EXTERNAL */
-            SetInfoFlag(F_DECLARED);
-            SetInfoFlag(F_DEFINED);
+            curInfoP = tx1Item.dataw[0];  /* L_EXTERNAL */
+            SetInfoFlag(F_DECLARED);      // flag proc as declared & defined
+            SetInfoFlag(F_DEFINED);       // PMO - possible improvement to only flag if used
             break;
         }
         GetTx1Item();

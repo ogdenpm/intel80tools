@@ -345,7 +345,7 @@ static void WrNestedExpression()
 }
 
 
-// convert and write expression into lex tokens
+// convert and write Expression into lex tokens
 // stop when endTok, semicolon or new start symbol for <declaration> or <unit> seen
 void ParseExpresion(byte endTok)
 {

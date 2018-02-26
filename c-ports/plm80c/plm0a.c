@@ -220,7 +220,7 @@ void PopBlock()
 void WrLexToken()
 {
     if (tok2oprMap[tokenType] == L_INVALID) {
-        TokenErrorAt(ERR171);	/* INVALID USE OF DELIMITER OR RESERVED WORD IN EXPRESSION */
+        TokenErrorAt(ERR171);	/* INVALID USE OF DELIMITER OR RESERVED WORD IN Expression */
         return;
     }
     WrByte(tok2oprMap[tokenType]);

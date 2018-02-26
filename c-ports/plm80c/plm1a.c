@@ -16,7 +16,7 @@ byte tx1ToTx2Map[] = {
     T2_LINEINFO, T2_SYNTAXERROR, T2_TOKENERROR, T2_LIST, T2_NOLIST, T2_CODE, T2_NOCODE, T2_EJECT,
     T2_INCLUDE, T2_STMTCNT, T2_LABELDEF, T2_LOCALLABEL, T2_JMP, T2_JMPFALSE, T2_PROCEDURE, 0 /* L_SCOPE */,
     0 /* END */, 0 /* DO */, 0 /* DOLOOP */, 0 /* WHILE */, T2_CASE, T2_CASELABEL, 0 /* IF */, 0 /* STATEMENT */,
-    0 /* CALL */, T2_RETURN, T2_GO_TO /* GO */, T2_GO_TO, T2_SEMICOLON, T2_ENABLE, T2_DISABLE, T2_HALT,
+    0 /* CALL */, T2_RETURN, T2_GOTO /* GO */, T2_GOTO, T2_SEMICOLON, T2_ENABLE, T2_DISABLE, T2_HALT,
     0 /* EOF */, 0 /* AT */, 0 /* INITIAL */, 0 /* DATA */, T2_IDENTIFIER, 0 /* NUMBER */, 0 /* L_STRING */, T2_PLUSSIGN,
     T2_MINUSSIGN, T2_PLUS, T2_MINUS, T2_STAR, T2_SLASH, T2_MOD, T2_COLONEQUALS, T2_AND,
     T2_OR, T2_XOR, T2_NOT, T2_LT, T2_LE, T2_EQ, T2_NE, T2_GE,
@@ -27,7 +27,7 @@ byte tx1ToTx2Map[] = {
 
 
 
-/* 0x80	- expression item */
+/* 0x80	- Expression item */
 /* 0x40 - binary operator */
 /* 0x20 - pass through */
 /* 0x10 - procedure, at, data, initial or external */
@@ -103,9 +103,9 @@ word parseStack[100];
 word operatorSP;
 word operatorStack[50];
 word exSP;
-byte ex1Stack[100];
-byte ex2Stack[100];
-word ex3Stack[100];
+byte ex1Stack[EXPRSTACKSIZE];
+byte ex2Stack[EXPRSTACKSIZE];
+word ex3Stack[EXPRSTACKSIZE];
 word stSP;
 byte st1Stack[300];
 byte st2Stack[300];

@@ -3,50 +3,53 @@
 word rValue;
 bool use8bit;
 
-static void SimpleUExpr()
+// <restricted primary>
+static void RestrictedPrimary()
 {
     if (MatchTx1Item(L_NUMBER))
         rValue = tx1Item.dataw[0];
     else {
         if (MatchTx1Item(L_IDENTIFIER))
-            Sub_45E0();
-        WrTx2ExtError(151); /* INVALID OPERAND IN RESTRICTED EXPRESSION */
+            ChkIdentifier();
+        WrTx2ExtError(151); /* INVALID OPERAND IN RESTRICTED Expression */
         rValue = 0;
     }
-    use8bit = use8bit && (High(rValue) == 0);
+    use8bit = use8bit && (High(rValue) == 0);   // if > 255 then switch off any 8 bit mode
 }
 
-static void SimpleNExpr()
+// <restricted secondary>
+static void RestrictedSecondary()
 {
     if (MatchTx1Item(L_MINUSSIGN)) {
-        SimpleUExpr();
+        RestrictedPrimary();
         if (use8bit) 
             rValue = - Low(rValue);
         else
             rValue = - rValue;
     } else
-        SimpleUExpr();
+        RestrictedPrimary();
 }
 
-static void EvalSimpleExpr()
+//  <restricted sum>
+static void RestrictedSum()
 {
     word p;
 
-    SimpleNExpr();
+    RestrictedSecondary();  // get number
     p = rValue;
     while (1) {
-        if (MatchTx1Item(L_PLUSSIGN)) {
-            SimpleNExpr();
+        if (MatchTx1Item(L_PLUSSIGN)) {     // + number
+            RestrictedSecondary();
             if (use8bit)
-                p = (p = p + rValue) & 0xff;
+                p = (p + rValue) & 0xff;
             else 
-                p =  p + rValue;
-        } else if (MatchTx1Item(L_MINUSSIGN)) {
-            SimpleNExpr();
+                p += rValue;
+        } else if (MatchTx1Item(L_MINUSSIGN)) { // - number
+            RestrictedSecondary();
             if (use8bit)
-                p = (p = p - rValue) & 0xff;
+                p = (p - rValue) & 0xff;
             else
-                p =  p - rValue;
+                p -= rValue;
         } else
             break;
     }
@@ -59,8 +62,8 @@ static void GetRestrictedArrayIndex()
     use8bit = true;
     if (!(TestInfoFlag(F_ARRAY)))
         WrTx2ExtError(149); /* INVALID SUBSCRIPTING IN RESTRICTED REFERENCE */
-    EvalSimpleExpr();
-    ExpectRparen(150);  /* MISSING ') ' at end OF RESTRICTED SUBSCRIPT */
+    RestrictedSum();
+    ExpectRParen(150);  /* MISSING ') ' AT END OF RESTRICTED SUBSCRIPT */
 }
 
 static void GetRestrictedVar()
@@ -70,100 +73,100 @@ static void GetRestrictedVar()
         RecoverRPOrEndExpr();
         return;
     }
-    Sub_45E0();
-    var.infoOffset = curInfoP;
-    if (GetType() == BUILTIN_T) {
+    ChkIdentifier();
+    var.infoOffset = curInfoP;   // record the var info
+    if (GetType() == BUILTIN_T) {   // can't take the address of a builtin!!
         WrTx2Error(ERR123);    /* INVALID DOT OPERAND, BUILT-IN PROCEDURE ILLEGAL */
         RecoverRPOrEndExpr();
         return;
     }
-    if (MatchTx1Item(L_LPAREN)) {
+    if (MatchTx1Item(L_LPAREN)) {   // is indexed
         GetRestrictedArrayIndex();
         var.arrayIndex = rValue;
     }
-    if (MatchTx1Item(L_PERIOD))
+    if (MatchTx1Item(L_PERIOD))     // a struct ref
     {
-        curInfoP = var.infoOffset;
-        if (GetType() != STRUCT_T) {
+        curInfoP = var.infoOffset;  // recover the base  info
+        if (GetType() != STRUCT_T) {    // not on a stuct
             WrTx2ExtError(ERR148); /* INVALID QUALIFICATION IN RESTRICTED REFERENCE */
             RecoverRPOrEndExpr();
             return;
         }
-        if (NotMatchTx1Item(L_IDENTIFIER)) {
+        if (NotMatchTx1Item(L_IDENTIFIER)) {       // no identifier after the .
             WrTx2Error(ERR147);    /* MISSING IDENTIFIER FOLLOWING DOT OPERATOR */
-            var.infoOffset = var.infoOffset - botInfo;
+            var.infoOffset = var.infoOffset - botInfo;  // normalise to offset
             return;
         }
-        Sub_4631();
+        ChkStructureMember();
         var.infoOffset = curInfoP;
-        if (MatchTx1Item(L_LPAREN)) {
+        if (MatchTx1Item(L_LPAREN)) {   // its a member array element reference
             GetRestrictedArrayIndex();
-            var.nestedArrayIndex = rValue;
+            var.nestedArrayIndex = rValue;  // value of member array index 
         }
     }
-    var.infoOffset = var.infoOffset - botInfo;
+    var.infoOffset = var.infoOffset - botInfo;  // normalise to offset
 }
 
-void GetRestrictedExpr()
+void RestrictedExpression()
 {
     var.infoOffset = var.arrayIndex = var.nestedArrayIndex = var.val = 0;
-    if (MatchTx1Item(L_PERIOD)) {       // <restricted reference>
+    if (MatchTx1Item(L_PERIOD)) {       // <restricted reference> := .<identifier> [<restricted subscript>] [.<identifier> [<restricted subscript>]]
         GetRestrictedVar();
-        if (MatchTx1Item(L_PLUSSIGN))
+        if (MatchTx1Item(L_PLUSSIGN))   // [<restricted adding operator>]
             ;
-        else if (MatchTx1Item(L_MINUSSIGN))
+        else if (MatchTx1Item(L_MINUSSIGN)) // let RestrictedSum handle -
             SetRegetTx1Item();
         else
-            return;
-        use8bit = false;
-        EvalSimpleExpr();
+            return;                     // no so all done
+        use8bit = false;                // operations will be 16 bit
+        RestrictedSum();                // get sum
         var.val = rValue;
     }
-    else if (MatchTx1Item(L_RPAREN))
+    else if (MatchTx1Item(L_RPAREN))    // <restricted reference> := <restricted sum>
         SetRegetTx1Item();
     else {
-        use8bit = true;
-        EvalSimpleExpr();
+        use8bit = true;                 // assume 8 bit
+        RestrictedSum();                // get sum
         var.val = rValue;
     }
 }
 
-word ParseDataItems(offset_t arg1w)
+word InitialValueList(offset_t infoOffset)
 {
     word p;
 
     p = 0;
     WrAtFileByte(ATI_DHDR);
-    WrAtFileWord(arg1w - botInfo);
+    WrAtFileWord(infoOffset - botInfo);     // normalise
     WrAtFileWord(curStmtNum);
     while (1) {
-        if (MatchTx1Item(L_STRING)) {
+        if (MatchTx1Item(L_STRING)) {       // string initialisation
             WrAtFileByte(ATI_STRING);
-            WrAtFileWord(tx1Item.dataw[0]);
-            WrAtFile((pointer)&tx1Item.dataw[1], tx1Item.dataw[0]);
-            curInfoP = arg1w;
-            if (GetType() == ADDRESS_T) 
-                p = p + (tx1Item.dataw[0] + 1) / 2;
+            WrAtFileWord(tx1Item.dataw[0]); // write length
+            WrAtFile((pointer)&tx1Item.dataw[1], tx1Item.dataw[0]); // and the string
+            curInfoP = infoOffset;
+            if (GetType() == ADDRESS_T)     // count items written (scaled by 2 if address)
+                p += (tx1Item.dataw[0] + 1) / 2;
             else 
-                p = p + tx1Item.dataw[0];
-        } else {
-            GetRestrictedExpr();
+                p += tx1Item.dataw[0];
+        } else {                            
+            RestrictedExpression();         // get the restricted Expression
             WrAtFileByte(ATI_DATA);
-            WrAtFile((pointer)&var, 8);
-            p = p + 1;
+            WrAtFile((pointer)&var, sizeof(var));   // and write the info
+            p++;
         }
-        if (NotMatchTx1Item(L_COMMA))
+        if (NotMatchTx1Item(L_COMMA))       // keep going if comma
             break;
-        else if (MatchTx1Item(L_RPAREN)) {
-            WrTx2Error(151);    /* INVALID OPERAND IN RESTRICTED EXPRESSION */
+        else if (MatchTx1Item(L_RPAREN)) {  // ) with no preceeding data
+            WrTx2Error(151);    /* INVALID OPERAND IN RESTRICTED Expression */
             SetRegetTx1Item();
             break;
         }
     }
     WrAtFileByte(ATI_END);
-    ExpectRparen(152);  /* MISSING ') ' AFTER CONSTANT LIST */
-    curInfoP = arg1w;;
-    return p;
+    ExpectRParen(152);  /* MISSING ') ' AFTER CONSTANT LIST */
+    curInfoP = infoOffset;;
+    return p;                               // items read i.e. dimension
 }
 
 void ResetStacks()
@@ -173,16 +176,16 @@ void ResetStacks()
 
 void PushParseWord(word arg1w)
 {
-    if (parseSP == 0x63)
-        FatalError(119);    /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
-    parseStack[parseSP = parseSP + 1] = arg1w;
+    if (parseSP == 99)
+        FatalError(ERR119);    /* LIMIT EXCEEDED: PROGRAM TOO COMPLEX */
+    parseStack[++parseSP] = arg1w;
 }
 
 
 void PopParseStack()
 {
     if (parseSP == 0)
-        FatalError(159);    /* COMPILER Error: PARSE STACK UNDERFLOW */
+        FatalError(159);    /* COMPILER ERROR: PARSE STACK UNDERFLOW */
     parseSP = parseSP - 1;
 }
 
@@ -194,9 +197,9 @@ void PushParseByte(byte arg1b)
 
 static void ExprPush3(byte arg1b, byte arg2b, word arg3w)
 {
-    if (exSP == 0x63)
-        FatalError(121);    /* LIMIT EXCEEDED: EXPRESSION TOO COMPLEX */
-    ex1Stack[exSP = exSP + 1] = arg1b;
+    if (exSP == EXPRSTACKSIZE - 1)
+        FatalError(121);    /* LIMIT EXCEEDED: Expression TOO COMPLEX */
+    ex1Stack[++exSP] = arg1b;
     ex2Stack[exSP] = arg2b;
     ex3Stack[exSP] = arg3w;
 }
@@ -216,7 +219,7 @@ static void SwapOperandStack()
     word op3;
 
     if (exSP < 2)
-        FatalError(161);    /* COMPILER Error: ILLEGAL OPERAND STACK EXCHANGE */
+        FatalError(161);    /* COMPILER ERROR: ILLEGAL OPERAND STACK EXCHANGE */
     i = exSP - 1;
     op1 = ex1Stack[exSP];
     op2 = ex2Stack[exSP];
@@ -229,9 +232,9 @@ static void SwapOperandStack()
     ex3Stack[i] = op3;
 }
 
-void ExprPush2(byte arg1b, word arg2w)
+void ExprPush2(byte icode, word val)
 {
-    ExprPush3(arg1b, 0, arg2w);
+    ExprPush3(icode, 0, val);
 }
 
 static void StmtPush3(byte arg1b, byte arg2b, word arg3w)
@@ -252,7 +255,7 @@ void MoveExpr2Stmt()
 void PushOperator(byte arg1b)
 {
     if (operatorSP == 0x31)
-        FatalError(120);    /* LIMIT EXCEEDED: EXPRESSION TOO COMPLEX */
+        FatalError(120);    /* LIMIT EXCEEDED: Expression TOO COMPLEX */
     operatorStack[operatorSP = operatorSP + 1] = arg1b;
 }
 
@@ -265,27 +268,27 @@ void PopOperatorStack()
 }
 
 
-void ExprMakeNode(byte arg1b, byte arg2b)
+void ExprMakeNode(byte icode, byte argCnt)
 {
     word w;
     byte i, j;
 
-    w = stSP + 1;
+    w = stSP + 1;               // note base of where args will be on stmt stack
 
-    if (exSP < arg2b)
-        FatalError(163);    /* COMPILER Error: GENERATION FAILURE  */
-    j = exSP - arg2b + 1;
-    i = arg2b;
-    while (i != 0) {
+    if (exSP < argCnt)
+        FatalError(ERR163);    /* COMPILER ERROR: GENERATION FAILURE  */
+    j = exSP - argCnt + 1;
+    i = argCnt;
+    while (i != 0) {            // push the arg information to the stmt statck
         StmtPush3(ex1Stack[j], ex2Stack[j], ex3Stack[j]);
         i = i - 1;
         j = j + 1;
     }
 
-    exSP = exSP - arg2b;
-    if (arg2b == 0)
+    exSP -= argCnt;             // remove from expr stack
+    if (argCnt == 0)            // no args so reset base
         w = 0;
-    ExprPush3(arg1b, arg2b, w);
+    ExprPush3(icode, argCnt, w);    // replace with new expr item
 }
 
 void AcceptOpAndArgs()
@@ -301,44 +304,44 @@ void AcceptOpAndArgs()
 }
 
 
-static void Sub_4CC2()
+static void PushIdentifier()
 {
     word p;
 
-    if (TestInfoFlag(F_MEMBER)) {
+    if (TestInfoFlag(F_MEMBER)) {           // if member create I_MEMBER node
         p = curInfoP;
         curInfoP = GetParentOffset();
-        ExprPush2(I_IDENTIFIER, curInfoP);
-        ExprPush2(I_IDENTIFIER, p);
-        ExprMakeNode(I_MEMBER, 2);
+        ExprPush2(I_IDENTIFIER, curInfoP);  // struct info
+        ExprPush2(I_IDENTIFIER, p);         // member info
+        ExprMakeNode(I_MEMBER, 2);          // new node
     }
     else
-        ExprPush2(I_IDENTIFIER, curInfoP);
+        ExprPush2(I_IDENTIFIER, curInfoP);  // simple identifier node
 }
 
-void Sub_4CFD(offset_t arg1w)
+void FixupBased(offset_t arg1w)
 {
-    curInfoP = arg1w;
-    if (TestInfoFlag(F_BASED)) {
-        curInfoP = GetBaseOffset();
-        Sub_4CC2();
+    curInfoP = arg1w;                       // var info
+    if (TestInfoFlag(F_BASED)) {            // is it based?
+        curInfoP = GetBaseOffset();         // get the info of the base
+        PushIdentifier();                   // save it
         curInfoP = arg1w;
-        SwapOperandStack();
-        ExprMakeNode(I_BASED, 2);
+        SwapOperandStack();                 // swap var and base on stack
+        ExprMakeNode(I_BASED, 2);           // create a based node
     }
 }
 
 void Sub_4D2C()
 {
-    Sub_4CC2();
-    Sub_4CFD(curInfoP);
+    PushIdentifier();
+    FixupBased(curInfoP);
 }
 
 
-void Sub_4D38()
+void ChkTypedProcedure()
 {
     if (GetDataType() == 0)
-        WrTx2ExtError(131); /* ILLEGAL REFERENCE to UNTYPED procedure */
+        WrTx2ExtError(131); /* ILLEGAL REFERENCE to UNTYPED PROCEDURE */
 }
 
 
@@ -352,14 +355,14 @@ byte GetCallArgCnt()
     if (i == j)
         return i;
     if (i < j) {
-        WrTx2ExtError(153); /* INVALID NUMBER OF ARGUMENTS IN call, TOO MANY */
+        WrTx2ExtError(153); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO MANY */
         k = j - i;
         while (k != 0) {
             ExprPop();
             k = k - 1;
         }
     } else {
-        WrTx2ExtError(154); /* INVALID NUMBER OF ARGUMENTS IN call, TOO FEW */
+        WrTx2ExtError(154); /* INVALID NUMBER OF ARGUMENTS IN CALL, TOO FEW */
         k = i - j;
         while (k != 0) {
             ExprPush2(I_NUMBER, 0);
@@ -372,22 +375,22 @@ byte GetCallArgCnt()
 void Sub_4DCF(byte arg1b)
 {
     if (NotMatchTx1Item(L_LPAREN)) {
-        WrTx2ExtError(124); /* MISSING ARGUMENTS FOR BUILT-IN procedure */
+        WrTx2ExtError(ERR124); /* MISSING ARGUMENTS FOR BUILT-IN PROCEDURE */
         ExprPush2(I_NUMBER, 0);
     } else {
         if (NotMatchTx1Item(L_IDENTIFIER)) {
-            WrTx2Error(125);    /* ILLEGAL ARGUMENT FOR BUILT-IN procedure */
+            WrTx2Error(ERR125);    /* ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE */
             ExprPush2(I_NUMBER, 0);
         } else {
-            Sub_45E0();
+            ChkIdentifier();
             if (MatchTx1Item(L_LPAREN)) {
                 if (TestInfoFlag(F_ARRAY)) {
-                    ResyncRparen();
+                    ResyncRParen();
                     if (MatchTx1Item(L_RPAREN))
                     {
                         if (arg1b == I_LENGTH || arg1b == I_LAST)
                         {
-                            WrTx2ExtError(125); /*  ILLEGAL ARGUMENT FOR BUILT-IN procedure */
+                            WrTx2ExtError(ERR125); /*  ILLEGAL ARGUMENT FOR BUILT-IN PROCEDURE */
                             ExprPush2(I_NUMBER, 0);
                         }
                         else 
@@ -403,11 +406,11 @@ void Sub_4DCF(byte arg1b)
                 else if (NotMatchTx1Item(L_IDENTIFIER))
                     WrTx2ExtError(111); /* INVALID RIGHT OPERAND OF QUALIFICATION, not IDENTIFIER */
                 else
-                    Sub_4631();
+                    ChkStructureMember();
             }
             if (MatchTx1Item(L_LPAREN)) {
                 if (TestInfoFlag(F_ARRAY)) {
-                    ResyncRparen();
+                    ResyncRParen();
                     if (arg1b == I_LENGTH || arg1b == I_LAST)
                     {
                         WrTx2ExtError(125); /* ILLEGAL ARGUMENT FOR BUILT-IN procedure */
@@ -433,7 +436,7 @@ void Sub_4DCF(byte arg1b)
                 ExprMakeNode(I_STAR, 2);
             }
         }
-        ExpectRparen(126);  /* MISSING ') ' AFTER BUILT-IN procedure ARGUMENT LIST */
+        ExpectRParen(126);  /* MISSING ') ' AFTER BUILT-IN PROCEDURE ARGUMENT LIST */
     }
 }
 
@@ -447,7 +450,7 @@ void MkIndexNode()
     if (ex1Stack[exSP] == I_PLUSSIGN) {   /* see if (index is of form expr + ?? */
         p = ex3Stack[exSP] + 1;
         if (st1Stack[p] == I_NUMBER) {   /* expr + number */
-            ex1Stack[exSP] = st1Stack[q = p - 1];  /* pull up expression */
+            ex1Stack[exSP] = st1Stack[q = p - 1];  /* pull up Expression */
             ex2Stack[exSP] = st2Stack[q];
             ex3Stack[exSP] = st3Stack[q];
             ExprPush2(I_NUMBER, st3Stack[p]);   /* and get the number as an offset */
@@ -488,7 +491,7 @@ void ParsePortNum(byte arg1b)
                 WrTx2ExtError(106); /* INVALID Input/OUTPUT PORT NUMBER */
         } else
             WrTx2ExtError(107);/* ILLEGAL Input/OUTPUT PORT NUMBER, not NUMERIC CONSTANT */
-        ExpectRparen(108);  /* MISSING ') ' AFTER Input/OUTPUT PORT NUMBER */
+        ExpectRParen(108);  /* MISSING ') ' AFTER Input/OUTPUT PORT NUMBER */
     } else
         WrTx2ExtError(109); /* MISSING Input/OUTPUT PORT NUMBER */
 
@@ -539,19 +542,19 @@ byte Sub_512E(word arg1w)
     return false;
 }
 
-void Sub_521B()
+void ConstantList()
 {
     offset_t p;
     word q;
 
-    p = curSymbolP;
-    curSymbolP = 0;
-    CreateInfo(256, BYTE_T);
-    SetInfoFlag(F_DATA);
-    curSymbolP = p;
-    ExprPush2(I_IDENTIFIER, curInfoP);
-    SetInfoFlag(F_ARRAY);
+    p = curSymbolP;                 // save current symbol
+    curSymbolP = 0;                 // no symbol
+    CreateInfo(256, BYTE_T);        // create an info block to hold the list
+    SetInfoFlag(F_DATA);            // mark as data
+    curSymbolP = p;                 // restore symbol
+    ExprPush2(I_IDENTIFIER, curInfoP);  // push the identifier
+    SetInfoFlag(F_ARRAY);               // set as a byte array with * dim
     SetInfoFlag(F_STARDIM);
-    q = ParseDataItems(curInfoP);
-    SetDimension(q);
+    q = InitialValueList(curInfoP); // get the list
+    SetDimension(q);                // and record number of bytes
 }
