@@ -1,14 +1,14 @@
 ROOT:= ../..
 TARGETS = isis.bin
-PEXFILE := isis43.pex
+PEXFILE := isis43w.pex
 COMPARE := $(ROOT)/tools/isisc
 KEEP=T
 
 include $(ROOT)/tools/isis.mk
 
-REF = $(call ipath,isis,4.3)
+REF = $(call ipath,isis,4.3w)
 LOCATEFLAGS := SYMBOLS PUBLICS
-PLMFLAGS  := DEBUG OPTIMIZE CODE
+PLMFLAGS	:= DEBUG OPTIMIZE CODE
 ASMFLAGS	:= DEBUG
 COMPARE := $(ROOT)/tools/isisc
 
