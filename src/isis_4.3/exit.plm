@@ -1,0 +1,30 @@
+exit:
+do;
+$include(exit.ipx)
+
+DECLARE cli(*) BYTE PUBLIC INITIAL(':F0:ISIS.CLI ');
+
+close$all: PROCEDURE(aft$start) PUBLIC;
+	DECLARE aft$start BYTE;
+	DECLARE i BYTE;
+
+	do i = aft$start to AFT$LAST;
+		call close(i);
+	end;
+end;
+
+exit: PROCEDURE PUBLIC;
+	DECLARE retvec BYTE AT (0BH);	/* location of trap0B */
+
+	ISIS$E = 0;
+	retvec = 0c9H;	/* return instruction */
+	call close$all(12);	/* aft$prot? */
+	call map$write(current$bitmap);
+	current$bitmap = 0ffh;
+	global$severity = ABORT;
+	call load(.cli, 0, 1, 0);
+end exit;
+end;
+eof
+
+

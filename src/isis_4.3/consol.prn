@@ -1,0 +1,274 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE CONSOL
+OBJECT MODULE PLACED IN CONSOL.OBJ
+COMPILER INVOKED BY:  :F1:plm80 consol.plm PRINT(CONSOL.LST) OBJECT(CONSOL.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          consol:
+              DO;
+              $include(consol.ipx)
+   2   1  =   declare Console literally 'consol';
+   3   1  =   declare global$severity literally 'gblSev';
+   4   1  =   declare ABORT literally '2';
+   5   1  =   declare AFTN$CONSOL$IN literally '11';
+   6   1  =   declare AFTN$CONSOL$OUT literally '10';
+   7   1  =   declare AFT$T literally 'structure(AFT$T1, AFT$T2, AFT$T3, AFT$T4)';
+   8   1  =   declare AFT$T1 literally 'empty BYTE, device BYTE, access BYTE, edit BYTE, lbuf ADDRESS';
+   9   1  =   declare AFT$T2 literally 'dbuf ADDRESS, pbuf ADDRESS, data$ptr BYTE, i$no ADDRESS, ptr$ptr BYTE';
+  10   1  =   declare AFT$T3 literally 'eofcnt BYTE, ptr$change BYTE, data$change BYTE, blk ADDRESS, blk$seq ADDRESS';
+  11   1  =   declare AFT$T4 literally 'ptr$blk ADDRESS, hdr$blk ADDRESS, data$blk$count ADDRESS, dbuf$read BYTE';
+  12   1  =   declare BOOLEAN literally 'BYTE';
+  13   1  =   declare CIDEV literally '27';
+  14   1  =   declare CODEV literally '28';
+  15   1  =   declare FALSE literally '0';
+  16   1  =   declare READ$MODE literally '1';
+  17   1  =   declare TRUE literally '0ffh';
+  18   1  =   declare WRITE$MODE literally '2';
+  19   1  =   declare aft(18) AFT$T external;
+  20   1  =   declare global$severity byte external;
+  21   1  =   declare pn(1) byte external;
+  22   1  =   close: procedure(aftn) external; declare aftn byte; end;
+  25   1  =   open: procedure(pathname, access$mode, lined$aft) byte external;
+  26   2  =           declare pathname address, access$mode address, lined$aft address; end;
+  28   1  =   unpath: procedure(pathname$p, pn$p) external; declare pathname$p address, pn$p address; end;
+  31   1  =   xpath: procedure(p1, p2) external; declare p1 address, p2 address; end;
+        
+  34   1      DECLARE cur$consol$in  (12) BYTE PUBLIC,
+                  cur$consol$out (12) BYTE PUBLIC;
+        
+  35   1      DECLARE cold$consol$in(5)  BYTE INITIAL(':XI: '),
+                  cold$consol$out(5) BYTE INITIAL(':XO: ');
+        
+  36   1      DECLARE cold$start$flag BOOLEAN INITIAL (TRUE);
+        
+  37   1      DECLARE (cold$cidev, alt$cidev) BYTE PUBLIC;
+        
+  38   1      console: PROCEDURE(infile, outfile) PUBLIC;
+                                                 ; STATEMENT # 38
+                         ; PROC  CONSOL
+           0567  21212D          LXI     H,OUTFILE+1H
+           056A  72              MOV     M,D
+           056B  2B              DCX     H
+           056C  73              MOV     M,E
+           056D  2B              DCX     H
+           056E  70              MOV     M,B
+           056F  2B              DCX     H
+           0570  71              MOV     M,C
+  39   2          DECLARE (infile, outfile) ADDRESS;
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+  40   2          DECLARE instring based infile BYTE,
+                      outstring based outfile BYTE;
+  41   2          DECLARE temp BYTE;
+  42   2          DECLARE tdrv(2) BYTE DATA ('TV');   /* T or V is 1st letter of device name */
+  43   2          DECLARE initio BYTE AT (6);
+        
+  44   2          if cold$start$flag then
+                                                 ; STATEMENT # 44
+           0571  3A1B2D          LDA     COLDSTARTFLAG
+           0574  1F              RAR
+           0575  D29705          JNC     @1
+  45   2          do;
+  46   3            cold$consol$in(1), cold$consol$out(1) = tdrv(initio and 1);
+                                                 ; STATEMENT # 46
+           0578  3A0600          LDA     INITIO
+           057B  E601            ANI     1H
+           057D  4F              MOV     C,A
+           057E  0600            MVI     B,0
+           0580  216505          LXI     H,TDRV
+           0583  09              DAD     B
+           0584  7E              MOV     A,M
+           0585  32122D          STA     COLDCONSOLIN+1H
+           0588  32172D          STA     COLDCONSOLOUT+1H
+  47   3            infile = .cold$consol$in;
+                                                 ; STATEMENT # 47
+           058B  21112D          LXI     H,COLDCONSOLIN
+           058E  221E2D          SHLD    INFILE
+  48   3            outfile = .cold$consol$out;
+                                                 ; STATEMENT # 48
+           0591  21162D          LXI     H,COLDCONSOLOUT
+           0594  22202D          SHLD    OUTFILE
+  49   3          end;
+                                                 ; STATEMENT # 49
+                         @1:
+                  
+  50   2          global$severity = ABORT;
+                                                 ; STATEMENT # 50
+           0597  21312D          LXI     H,GBLSEV
+           059A  3602            MVI     M,2H
+  51   2          call xpath(outfile, .pn);
+                                                 ; STATEMENT # 51
+           059C  2A202D          LHLD    OUTFILE
+           059F  44              MOV     B,H
+           05A0  4D              MOV     C,L
+           05A1  119E2D          LXI     D,PN
+           05A4  CD2214          CALL    XPATH
+  52   2          if pn(0) <> CODEV then
+                                                 ; STATEMENT # 52
+           05A7  3A9E2D          LDA     PN
+           05AA  FE1C            CPI     1CH
+           05AC  CACF05          JZ      @2
+  53   2          do;
+  54   3            call close(AFTN$CONSOL$OUT);
+                                                 ; STATEMENT # 54
+           05AF  0E0A            MVI     C,0AH
+           05B1  CDF903          CALL    CLOSE
+  55   3            temp = open(outfile, WRITE$MODE, FALSE);
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+                                                 ; STATEMENT # 55
+           05B4  2A202D          LHLD    OUTFILE
+           05B7  E5              PUSH    H       ; 1
+           05B8  110000          LXI     D,0H
+           05BB  010200          LXI     B,2H
+           05BE  CD7D0E          CALL    OPEN
+           05C1  32222D          STA     TEMP
+  56   3            call xpath(outfile, .cur$consol$out);
+                                                 ; STATEMENT # 56
+           05C4  2A202D          LHLD    OUTFILE
+           05C7  44              MOV     B,H
+           05C8  4D              MOV     C,L
+           05C9  11052D          LXI     D,CURCONSOLOUT
+           05CC  CD2214          CALL    XPATH
+  57   3          end;
+                                                 ; STATEMENT # 57
+                         @2:
+  58   2          call xpath(infile, .pn);
+                                                 ; STATEMENT # 58
+           05CF  2A1E2D          LHLD    INFILE
+           05D2  44              MOV     B,H
+           05D3  4D              MOV     C,L
+           05D4  119E2D          LXI     D,PN
+           05D7  CD2214          CALL    XPATH
+  59   2          if pn(0) <> CIDEV then 
+                                                 ; STATEMENT # 59
+           05DA  3A9E2D          LDA     PN
+           05DD  FE1B            CPI     1BH
+           05DF  CA1506          JZ      @3
+  60   2          do;
+  61   3            call close(AFTN$CONSOL$IN);
+                                                 ; STATEMENT # 61
+           05E2  0E0B            MVI     C,0BH
+           05E4  CDF903          CALL    CLOSE
+  62   3            temp = open(infile, READ$MODE, 100h);
+                                                 ; STATEMENT # 62
+           05E7  2A1E2D          LHLD    INFILE
+           05EA  E5              PUSH    H       ; 1
+           05EB  110001          LXI     D,100H
+           05EE  010100          LXI     B,1H
+           05F1  CD7D0E          CALL    OPEN
+           05F4  32222D          STA     TEMP
+  63   3            if cold$start$flag then
+                                                 ; STATEMENT # 63
+           05F7  3A1B2D          LDA     COLDSTARTFLAG
+           05FA  1F              RAR
+           05FB  D20406          JNC     @4
+  64   3              cold$cidev = aft(AFTN$CONSOL$IN).device;
+                                                 ; STATEMENT # 64
+           05FE  3A252C          LDA     AFT+135H
+           0601  321C2D          STA     COLDCIDEV
+                         @4:
+  65   3            alt$cidev = cold$cidev;
+                                                 ; STATEMENT # 65
+           0604  3A1C2D          LDA     COLDCIDEV
+           0607  321D2D          STA     ALTCIDEV
+  66   3            call xpath(infile, .cur$consol$in);
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+                                                 ; STATEMENT # 66
+           060A  2A1E2D          LHLD    INFILE
+           060D  44              MOV     B,H
+           060E  4D              MOV     C,L
+           060F  11F92C          LXI     D,CURCONSOLIN
+           0612  CD2214          CALL    XPATH
+  67   3          end;
+                                                 ; STATEMENT # 67
+                         @3:
+  68   2          cold$start$flag = FALSE;
+                                                 ; STATEMENT # 68
+           0615  211B2D          LXI     H,COLDSTARTFLAG
+           0618  3600            MVI     M,0H
+  69   2      end;
+                                                 ; STATEMENT # 69
+           061A  C9              RET
+        
+        
+  70   1      whocon: PROCEDURE(aftn, bufferloc) PUBLIC;
+                                                 ; STATEMENT # 70
+                         ; PROC  WHOCON
+           061B  21252D          LXI     H,BUFFERLOC+1H
+           061E  72              MOV     M,D
+           061F  2B              DCX     H
+           0620  73              MOV     M,E
+           0621  2B              DCX     H
+           0622  71              MOV     M,C
+  71   2          DECLARE aftn BYTE;
+  72   2          DECLARE bufferloc ADDRESS;
+  73   2          DECLARE nameloc ADDRESS;
+        
+  74   2          nameloc = .cur$consol$out;
+                                                 ; STATEMENT # 74
+           0623  21052D          LXI     H,CURCONSOLOUT
+           0626  22262D          SHLD    NAMELOC
+  75   2          if aftn then
+                                                 ; STATEMENT # 75
+           0629  3A232D          LDA     AFTN
+           062C  1F              RAR
+           062D  D24C06          JNC     @5
+  76   2          do;
+  77   3            if (aftn := aft(AFTN$CONSOL$IN).device) <> cur$consol$in(0) then
+                                                 ; STATEMENT # 77
+           0630  3A252C          LDA     AFT+135H
+           0633  32232D          STA     AFTN
+           0636  21F92C          LXI     H,CURCONSOLIN
+           0639  BE              CMP     M
+           063A  CA4606          JZ      @6
+  78   3              nameloc = .aftn;
+                                                 ; STATEMENT # 78
+           063D  21232D          LXI     H,AFTN
+           0640  22262D          SHLD    NAMELOC
+           0643  C34C06          JMP     @7
+                         @6:
+                    else
+  79   3              nameloc = .cur$consol$in;
+                                                 ; STATEMENT # 79
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+           0646  21F92C          LXI     H,CURCONSOLIN
+           0649  22262D          SHLD    NAMELOC
+                         @7:
+  80   3          end;
+                                                 ; STATEMENT # 80
+                         @5:
+  81   2          call unpath(nameloc, bufferloc);
+                                                 ; STATEMENT # 81
+           064C  2A262D          LHLD    NAMELOC
+           064F  44              MOV     B,H
+           0650  4D              MOV     C,L
+           0651  2A242D          LHLD    BUFFERLOC
+           0654  EB              XCHG
+           0655  CD4B14          CALL    UNPATH
+  82   2      end;
+                                                 ; STATEMENT # 82
+           0658  C9              RET
+  83   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 00F4H    244D
+     VARIABLE AREA SIZE = 002FH     47D
+     MAXIMUM STACK SIZE = 0004H      4D
+     93 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

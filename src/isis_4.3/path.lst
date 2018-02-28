@@ -1,0 +1,896 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE PATH
+OBJECT MODULE PLACED IN PATH.OBJ
+COMPILER INVOKED BY:  :F1:plm80 path.plm PRINT(PATH.LST) OBJECT(PATH.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          path:
+              do;
+              $include(path.ipx)
+   2   1  =   declare Aft$Window literally 'AWindo';
+   3   1  =   declare Chk$pn$disk$file literally 'ckpndf';
+   4   1  =   declare Chk$Write$Protect literally 'CkWriP';
+   5   1  =   declare Write$Dir$Entry literally 'WDirEn';
+   6   1  =   declare BAD$DEVICE literally '5';
+   7   1  =   declare BAD$PATH literally '4';
+   8   1  =   declare BOOLEAN literally 'BYTE';
+   9   1  =   declare DIRECT$T literally 'structure(DIRECT$T1, DIRECT$T2)';
+  10   1  =   declare DIRECT$T1 literally 'empty BOOLEAN, file(6) BYTE, ext(3) BYTE, attrib BYTE';
+  11   1  =   declare DIRECT$T2 literally 'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS';
+  12   1  =   declare F9DEV literally '9';
+  13   1  =   declare FALSE literally '0';
+  14   1  =   declare FORMAT$ATTRIBUTE literally '80h';
+  15   1  =   declare NON$DISK$FILE literally '17';
+  16   1  =   declare NULL$EXTENSION literally '28';
+  17   1  =   declare NULL$FILENAME literally '23';
+  18   1  =   declare OK literally '0';
+  19   1  =   declare TRUE literally '0ffh';
+  20   1  =   declare WRITEP$ATTRIBUTE literally '4';
+  21   1  =   declare WRITE$PROTECT literally '14';
+  22   1  =   declare a$dev$p address external;
+  23   1  =   declare direct DIRECT$T external;
+  24   1  =   declare dk$cf$tb(10) byte external;
+  25   1  =   Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+  28   1  =   attrib: procedure(file$ptr, swid, value) external;
+  29   2  =             declare file$ptr address, swid address, value BOOLEAN; end;
+  31   1  =   dir$close: procedure(aftn) external; declare aftn byte; end;
+  34   1  =   warn: procedure(errcode) external; declare errcode byte; end;
+  37   1  =   declare a$device based a$dev$p  byte;
+        
+              /*
+                  Abstract
+        
+                  This is the module that understands the syntax of
+                  pathnames, and parses them
+        
+                  Module Organisation
+        
+                  The module contains the following components:
+        
+                  1. 2 Global arrays, 'pn' and 'pn2', either of which is
+                     sufficient to contain the 'internal form' of a pathname.
+                     These are provided here for the convenient transitory
+                     use by such subroutines as open, rename, delete etc.
+                     The are not directly used by 'path'
+                  2. The byte procedure 'path', which converts a legal pathname
+                     into internal form, returning an error number for the
+                     type of pathname found. (0 means legal pathname, other
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+                     numbers indicates syntax errors in pathname.)
+                  3. The procedure 'xpath', whose only reason for existence is
+                     to reduce the space used for calls to 'path' throughout
+                     the program; it reduces code to test the result from
+                     path and optionally call err, to a single point in the
+                     program.
+              */ 
+        
+              /*
+                  Although accessed as a byte array the path structur has the format
+                  STRUCTURE(devNo BYTE, name(6) BYTE, ext(3) BYTE, devType BYTE, drvType BYTE)
+              */
+        
+  38   1      DECLARE deviceNames(29) STRUCTURE(name ADDRESS, type BYTE) DATA(
+                      'F0', 3, 'F1', 3, 'F2', 3, 'F3', 3,
+                      'F4', 3, 'F5', 3, 'F6', 3, 'F7', 3,
+                      'F8', 3, 'F9', 3, 'TI', 0, 'TO', 1,
+                      'VI', 0, 'VO', 1, 'I1', 0, 'O1', 1,
+                      'TR', 0, 'HR', 0, 'R1', 0, 'R2', 0,
+                      'TP', 1, 'HP', 1, 'P1', 1, 'P2', 1,
+                      'LP', 1, 'L1', 1, 'BB', 2, 'CI', 0,
+                      'CO', 1);
+        
+  39   1      DECLARE pn(12) BYTE PUBLIC, pn2(12) BYTE PUBLIC;
+                  
+  40   1      path: PROCEDURE(pathname, pn$p) BYTE PUBLIC;
+                                                 ; STATEMENT # 40
+                         ; PROC  PATH
+           0057  211B00          LXI     H,PNP+1H
+           005A  72              MOV     M,D
+           005B  2B              DCX     H
+           005C  73              MOV     M,E
+           005D  2B              DCX     H
+           005E  70              MOV     M,B
+           005F  2B              DCX     H
+           0060  71              MOV     M,C
+  41   2          DECLARE (pathname, pn$p) ADDRESS;
+  42   2          DECLARE pn BASED pn$p (12) BYTE;    /* byte version of path structure */
+  43   2          DECLARE pathCh BASED pathname BYTE; /* char of pathname points to */
+  44   2          DECLARE pathArray BASED pathname (1) BYTE;
+  45   2          DECLARE devname ADDRESS, (second, first) BYTE AT (.devname);
+  46   2          DECLARE null$name BYTE;
+  47   2          DECLARE i BYTE, imax BYTE;
+        
+        
+  48   2          toupper: PROCEDURE(ch) BYTE;
+                                                 ; STATEMENT # 48
+                         ; PROC  TOUPPER
+           01CD  212100          LXI     H,CH
+           01D0  71              MOV     M,C
+  49   3              DECLARE ch BYTE;
+  50   3              if ch < 'a' then
+                                                 ; STATEMENT # 50
+           01D1  3A2100          LDA     CH
+           01D4  FE61            CPI     61H
+           01D6  D2DD01          JNC     @1
+  51   3                  return ch;
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+                                                 ; STATEMENT # 51
+           01D9  3A2100          LDA     CH
+           01DC  C9              RET
+                         @1:
+  52   3              if ch > 'z' then
+                                                 ; STATEMENT # 52
+           01DD  3E7A            MVI     A,7AH
+           01DF  212100          LXI     H,CH
+           01E2  BE              CMP     M
+           01E3  D2EA01          JNC     @2
+  53   3                  return ch;
+                                                 ; STATEMENT # 53
+           01E6  3A2100          LDA     CH
+           01E9  C9              RET
+                         @2:
+  54   3              return ch AND 0DFh;
+                                                 ; STATEMENT # 54
+           01EA  3A2100          LDA     CH
+           01ED  E6DF            ANI     0DFH
+           01EF  C9              RET
+  55   3          end;
+                                                 ; STATEMENT # 55
+        
+  56   2          non$terminate: PROCEDURE BOOLEAN;
+                                                 ; STATEMENT # 56
+                         ; PROC  NONTERMINATE
+  57   3              return (pathCh >= 'A' AND pathCh <= 'Z')
+                                                 ; STATEMENT # 57
+                          OR (pathCh >= '0' AND pathCh <= '9')
+                          OR (pathCh >= 'a' AND pathCh <= 'z');
+           01F0  2A1800          LHLD    PATHNAME
+           01F3  7E              MOV     A,M
+           01F4  D641            SUI     41H
+           01F6  9F              SBB     A
+           01F7  2F              CMA
+           01F8  F5              PUSH    PSW     ; 1
+           01F9  3E5A            MVI     A,5AH
+           01FB  96              SUB     M
+           01FC  9F              SBB     A
+           01FD  2F              CMA
+           01FE  C1              POP     B       ; 1
+           01FF  48              MOV     C,B
+           0200  A1              ANA     C
+           0201  F5              PUSH    PSW     ; 1
+           0202  7E              MOV     A,M
+           0203  D630            SUI     30H
+           0205  9F              SBB     A
+           0206  2F              CMA
+           0207  F5              PUSH    PSW     ; 2
+           0208  3E39            MVI     A,39H
+           020A  96              SUB     M
+           020B  9F              SBB     A
+           020C  2F              CMA
+           020D  C1              POP     B       ; 2
+           020E  48              MOV     C,B
+           020F  A1              ANA     C
+           0210  C1              POP     B       ; 1
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+           0211  48              MOV     C,B
+           0212  B1              ORA     C
+           0213  F5              PUSH    PSW     ; 1
+           0214  7E              MOV     A,M
+           0215  D661            SUI     61H
+           0217  9F              SBB     A
+           0218  2F              CMA
+           0219  F5              PUSH    PSW     ; 2
+           021A  3E7A            MVI     A,7AH
+           021C  96              SUB     M
+           021D  9F              SBB     A
+           021E  2F              CMA
+           021F  C1              POP     B       ; 2
+           0220  48              MOV     C,B
+           0221  A1              ANA     C
+           0222  C1              POP     B       ; 1
+           0223  48              MOV     C,B
+           0224  B1              ORA     C
+           0225  C9              RET
+  58   3          end;
+                                                 ; STATEMENT # 58
+        
+  59   2          parse: PROCEDURE;
+                                                 ; STATEMENT # 59
+                         ; PROC  PARSE
+  60   3              do while i < imax;
+                                                 ; STATEMENT # 60
+                         @20:
+           0226  212000          LXI     H,IMAX
+           0229  3A1F00          LDA     I
+           022C  BE              CMP     M
+           022D  D26402          JNC     @21
+  61   4                  if non$terminate then
+                                                 ; STATEMENT # 61
+           0230  CDF001          CALL    NONTERMINATE
+           0233  1F              RAR
+           0234  D25D02          JNC     @3
+  62   4                  do;
+  63   5                      pn(i) = toupper(pathCh);
+                                                 ; STATEMENT # 63
+           0237  2A1800          LHLD    PATHNAME
+           023A  4E              MOV     C,M
+           023B  CDCD01          CALL    TOUPPER
+           023E  2A1F00          LHLD    I
+           0241  2600            MVI     H,0
+           0243  EB              XCHG
+           0244  2A1A00          LHLD    PNP
+           0247  19              DAD     D
+           0248  77              MOV     M,A
+  64   5                      pathname = pathname + 1;
+                                                 ; STATEMENT # 64
+           0249  2A1800          LHLD    PATHNAME
+           024C  23              INX     H
+           024D  221800          SHLD    PATHNAME
+  65   5                      if i < 2 then
+                                                 ; STATEMENT # 65
+           0250  3A1F00          LDA     I
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+           0253  FE02            CPI     2H
+           0255  D25D02          JNC     @4
+  66   5                          null$name = FALSE;
+                                                 ; STATEMENT # 66
+           0258  211E00          LXI     H,NULLNAME
+           025B  3600            MVI     M,0H
+                         @4:
+  67   5                  end;
+                                                 ; STATEMENT # 67
+                         @3:
+  68   4                  i = i + 1;
+                                                 ; STATEMENT # 68
+           025D  211F00          LXI     H,I
+           0260  34              INR     M
+  69   4              end;
+                                                 ; STATEMENT # 69
+           0261  C32602          JMP     @20
+                         @21:
+  70   3          end;
+                                                 ; STATEMENT # 70
+           0264  C9              RET
+        
+        
+  71   2          do i = 0 to last(pn);   /* clear pn */
+                                                 ; STATEMENT # 71
+           0061  211F00          LXI     H,I
+           0064  3600            MVI     M,0H
+                         @22:
+           0066  3E0B            MVI     A,0BH
+           0068  211F00          LXI     H,I
+           006B  BE              CMP     M
+           006C  DA8200          JC      @23
+  72   3              pn(i) = 0;
+                                                 ; STATEMENT # 72
+           006F  2A1F00          LHLD    I
+           0072  2600            MVI     H,0
+           0074  EB              XCHG
+           0075  2A1A00          LHLD    PNP
+           0078  19              DAD     D
+           0079  3600            MVI     M,0H
+  73   3          end;
+                                                 ; STATEMENT # 73
+                         @24:
+           007B  211F00          LXI     H,I
+           007E  34              INR     M
+           007F  C26600          JNZ     @22
+                         @23:
+  74   2          do while pathCh = ' ';  /* skip leading space */
+                                                 ; STATEMENT # 74
+                         @25:
+           0082  2A1800          LHLD    PATHNAME
+           0085  7E              MOV     A,M
+           0086  FE20            CPI     20H
+           0088  C29500          JNZ     @26
+  75   3              pathname = pathname + 1;
+                                                 ; STATEMENT # 75
+           008B  2A1800          LHLD    PATHNAME
+PL/M-80 COMPILER                                                                                                PAGE   6
+
+
+           008E  23              INX     H
+           008F  221800          SHLD    PATHNAME
+  76   3          end;
+                                                 ; STATEMENT # 76
+           0092  C38200          JMP     @25
+                         @26:
+  77   2          if pathCh = ':' then
+                                                 ; STATEMENT # 77
+           0095  2A1800          LHLD    PATHNAME
+           0098  7E              MOV     A,M
+           0099  FE3A            CPI     3AH
+           009B  C21E01          JNZ     @5
+  78   2          do;
+  79   3              pn(0) = 0FFH;
+                                                 ; STATEMENT # 79
+           009E  2A1A00          LHLD    PNP
+           00A1  36FF            MVI     M,0FFH
+  80   3              if pathArray(3) <> ':' then
+                                                 ; STATEMENT # 80
+           00A3  010300          LXI     B,3H
+           00A6  2A1800          LHLD    PATHNAME
+           00A9  09              DAD     B
+           00AA  7E              MOV     A,M
+           00AB  FE3A            CPI     3AH
+           00AD  CAB300          JZ      @6
+  81   3                  return BAD$PATH;
+                                                 ; STATEMENT # 81
+           00B0  3E04            MVI     A,4H
+           00B2  C9              RET
+                         @6:
+  82   3              pathname = pathname + 1;    /* past ':' */
+                                                 ; STATEMENT # 82
+           00B3  2A1800          LHLD    PATHNAME
+           00B6  23              INX     H
+           00B7  221800          SHLD    PATHNAME
+  83   3              first = toupper(pathCh);
+                                                 ; STATEMENT # 83
+           00BA  2A1800          LHLD    PATHNAME
+           00BD  4E              MOV     C,M
+           00BE  CDCD01          CALL    TOUPPER
+           00C1  321D00          STA     FIRST
+  84   3              pathname = pathname + 1;
+                                                 ; STATEMENT # 84
+           00C4  2A1800          LHLD    PATHNAME
+           00C7  23              INX     H
+           00C8  221800          SHLD    PATHNAME
+  85   3              second = toupper(pathCh);
+                                                 ; STATEMENT # 85
+           00CB  2A1800          LHLD    PATHNAME
+           00CE  4E              MOV     C,M
+           00CF  CDCD01          CALL    TOUPPER
+           00D2  321C00          STA     SECOND
+  86   3              pathname = pathname + 2;
+                                                 ; STATEMENT # 86
+        
+           00D5  2A1800          LHLD    PATHNAME
+           00D8  23              INX     H
+PL/M-80 COMPILER                                                                                                PAGE   7
+
+
+           00D9  23              INX     H
+           00DA  221800          SHLD    PATHNAME
+  87   3              do i = 0 to last(deviceNames);
+                                                 ; STATEMENT # 87
+           00DD  211F00          LXI     H,I
+           00E0  3600            MVI     M,0H
+                         @27:
+           00E2  3E1C            MVI     A,1CH
+           00E4  211F00          LXI     H,I
+           00E7  BE              CMP     M
+           00E8  DA1201          JC      @28
+  88   4                  if deviceNames(i).name = devname then
+                                                 ; STATEMENT # 88
+           00EB  110300          LXI     D,3H
+           00EE  2A1F00          LHLD    I
+           00F1  2600            MVI     H,0
+           00F3  CD0000          CALL    @P0034 
+           00F6  010000          LXI     B,DEVICENAMES
+           00F9  09              DAD     B
+           00FA  111C00          LXI     D,DEVNAME
+           00FD  CD0000          CALL    @P0099 
+           0100  B5              ORA     L
+           0101  C20B01          JNZ     @7
+  89   4                      pn(0) = i;  /* save device number */
+                                                 ; STATEMENT # 89
+           0104  2A1A00          LHLD    PNP
+           0107  3A1F00          LDA     I
+           010A  77              MOV     M,A
+                         @7:
+  90   4              end;
+                                                 ; STATEMENT # 90
+                         @29:
+           010B  211F00          LXI     H,I
+           010E  34              INR     M
+           010F  C2E200          JNZ     @27
+                         @28:
+  91   3              if pn(0) = 0ffh then
+                                                 ; STATEMENT # 91
+           0112  2A1A00          LHLD    PNP
+           0115  7E              MOV     A,M
+           0116  FEFF            CPI     0FFH
+           0118  C21E01          JNZ     @8
+  92   3                  return BAD$DEVICE;
+                                                 ; STATEMENT # 92
+           011B  3E05            MVI     A,5H
+           011D  C9              RET
+                         @8:
+  93   3          end;
+                                                 ; STATEMENT # 93
+                         @5:
+  94   2          pn(11) = 0FFh;
+                                                 ; STATEMENT # 94
+           011E  010B00          LXI     B,0BH
+           0121  2A1A00          LHLD    PNP
+           0124  09              DAD     B
+           0125  36FF            MVI     M,0FFH
+  95   2          if (pn(10) := deviceNames(pn(0)).type) = 3 then /* random access device */
+PL/M-80 COMPILER                                                                                                PAGE   8
+
+
+                                                 ; STATEMENT # 95
+           0127  2A1A00          LHLD    PNP
+           012A  6E              MOV     L,M
+           012B  2600            MVI     H,0
+           012D  110300          LXI     D,3H
+           0130  CD0000          CALL    @P0034 
+           0133  010000          LXI     B,DEVICENAMES
+           0136  09              DAD     B
+           0137  010200          LXI     B,TYPE
+           013A  09              DAD     B
+           013B  010A00          LXI     B,0AH
+           013E  E5              PUSH    H       ; 1
+           013F  2A1A00          LHLD    PNP
+           0142  09              DAD     B
+           0143  C1              POP     B       ; 1
+           0144  0A              LDAX    B
+           0145  77              MOV     M,A
+           0146  FE03            CPI     3H
+           0148  C26001          JNZ     @9
+  96   2              pn(11) = dk$cf$tb(pn(0));
+                                                 ; STATEMENT # 96
+           014B  2A1A00          LHLD    PNP
+           014E  4E              MOV     C,M
+           014F  0600            MVI     B,0
+           0151  210000          LXI     H,DKCFTB
+           0154  09              DAD     B
+           0155  010B00          LXI     B,0BH
+           0158  E5              PUSH    H       ; 1
+           0159  2A1A00          LHLD    PNP
+           015C  09              DAD     B
+           015D  D1              POP     D       ; 1
+           015E  1A              LDAX    D
+           015F  77              MOV     M,A
+                         @9:
+        
+  97   2          null$name = TRUE;
+                                                 ; STATEMENT # 97
+           0160  211E00          LXI     H,NULLNAME
+           0163  36FF            MVI     M,0FFH
+  98   2          i = 1;
+                                                 ; STATEMENT # 98
+           0165  23              INX     H
+           0166  3601            MVI     M,1H
+  99   2          imax = 7;
+                                                 ; STATEMENT # 99
+           0168  23              INX     H
+           0169  3607            MVI     M,7H
+ 100   2          call parse;
+                                                 ; STATEMENT # 100
+           016B  CD2602          CALL    PARSE
+ 101   2          if pathCh = '.' then
+                                                 ; STATEMENT # 101
+           016E  2A1800          LHLD    PATHNAME
+           0171  7E              MOV     A,M
+           0172  FE2E            CPI     2EH
+           0174  C29601          JNZ     @10
+ 102   2          do;
+PL/M-80 COMPILER                                                                                                PAGE   9
+
+
+ 103   3              pathname = pathname + 1;
+                                                 ; STATEMENT # 103
+           0177  2A1800          LHLD    PATHNAME
+           017A  23              INX     H
+           017B  221800          SHLD    PATHNAME
+ 104   3              imax = 10;
+                                                 ; STATEMENT # 104
+           017E  212000          LXI     H,IMAX
+           0181  360A            MVI     M,0AH
+ 105   3              call parse;
+                                                 ; STATEMENT # 105
+           0183  CD2602          CALL    PARSE
+ 106   3              if pn(7) = 0 then
+                                                 ; STATEMENT # 106
+           0186  010700          LXI     B,7H
+           0189  2A1A00          LHLD    PNP
+           018C  09              DAD     B
+           018D  7E              MOV     A,M
+           018E  FE00            CPI     0H
+           0190  C29601          JNZ     @11
+ 107   3                  return NULL$EXTENSION;
+                                                 ; STATEMENT # 107
+           0193  3E1C            MVI     A,1CH
+           0195  C9              RET
+                         @11:
+ 108   3          end;
+                                                 ; STATEMENT # 108
+                         @10:
+ 109   2          if pn(0) <= F9DEV and null$name then
+                                                 ; STATEMENT # 109
+           0196  2A1A00          LHLD    PNP
+           0199  3E09            MVI     A,9H
+           019B  96              SUB     M
+           019C  9F              SBB     A
+           019D  2F              CMA
+           019E  211E00          LXI     H,NULLNAME
+           01A1  A6              ANA     M
+           01A2  1F              RAR
+           01A3  D2A901          JNC     @12
+ 110   2              return NULL$FILENAME;
+                                                 ; STATEMENT # 110
+           01A6  3E17            MVI     A,17H
+           01A8  C9              RET
+                         @12:
+ 111   2          if non$terminate  OR pathCh = '.' OR pathCh = ':' then
+                                                 ; STATEMENT # 111
+           01A9  CDF001          CALL    NONTERMINATE
+           01AC  2A1800          LHLD    PATHNAME
+           01AF  F5              PUSH    PSW     ; 1
+           01B0  7E              MOV     A,M
+           01B1  D62E            SUI     2EH
+           01B3  D601            SUI     1
+           01B5  9F              SBB     A
+           01B6  C1              POP     B       ; 1
+           01B7  48              MOV     C,B
+           01B8  B1              ORA     C
+           01B9  F5              PUSH    PSW     ; 1
+PL/M-80 COMPILER                                                                                                PAGE  10
+
+
+           01BA  7E              MOV     A,M
+           01BB  D63A            SUI     3AH
+           01BD  D601            SUI     1
+           01BF  9F              SBB     A
+           01C0  C1              POP     B       ; 1
+           01C1  48              MOV     C,B
+           01C2  B1              ORA     C
+           01C3  1F              RAR
+           01C4  D2CA01          JNC     @13
+ 112   2              return BAD$PATH;
+                                                 ; STATEMENT # 112
+           01C7  3E04            MVI     A,4H
+           01C9  C9              RET
+                         @13:
+ 113   2          return OK;
+                                                 ; STATEMENT # 113
+           01CA  3E00            MVI     A,0H
+           01CC  C9              RET
+ 114   2      end;
+                                                 ; STATEMENT # 114
+        
+        
+        
+ 115   1      xpath: PROCEDURE(p1, p2) PUBLIC;
+                                                 ; STATEMENT # 115
+                         ; PROC  XPATH
+           0265  212500          LXI     H,P2+1H
+           0268  72              MOV     M,D
+           0269  2B              DCX     H
+           026A  73              MOV     M,E
+           026B  2B              DCX     H
+           026C  70              MOV     M,B
+           026D  2B              DCX     H
+           026E  71              MOV     M,C
+ 116   2          DECLARE (p1, p2) ADDRESS;
+ 117   2          DECLARE status ADDRESS;
+        
+ 118   2          if (status := path(p1, p2)) <> 0 then
+                                                 ; STATEMENT # 118
+           026F  2A2200          LHLD    P1
+           0272  44              MOV     B,H
+           0273  4D              MOV     C,L
+           0274  2A2400          LHLD    P2
+           0277  EB              XCHG
+           0278  CD5700          CALL    PATH
+           027B  6F              MOV     L,A
+           027C  2600            MVI     H,0
+           027E  222600          SHLD    STATUS
+           0281  FE00            CPI     0H
+           0283  CA8D02          JZ      @14
+ 119   2              call warn(status);
+                                                 ; STATEMENT # 119
+           0286  2A2600          LHLD    STATUS
+           0289  4D              MOV     C,L
+           028A  CD0000          CALL    WARN
+                         @14:
+ 120   2      end;
+PL/M-80 COMPILER                                                                                                PAGE  11
+
+
+                                                 ; STATEMENT # 120
+           028D  C9              RET
+        
+        
+ 121   1      unpath: PROCEDURE(pathname$p, pn$p) PUBLIC;
+                                                 ; STATEMENT # 121
+                         ; PROC  UNPATH
+           028E  212B00          LXI     H,PNP+1H
+           0291  72              MOV     M,D
+           0292  2B              DCX     H
+           0293  73              MOV     M,E
+           0294  2B              DCX     H
+           0295  70              MOV     M,B
+           0296  2B              DCX     H
+           0297  71              MOV     M,C
+ 122   2          DECLARE (pathname$p, pn$p) ADDRESS;
+ 123   2          DECLARE pathname BASED pathname$p (12) BYTE;
+ 124   2          DECLARE pn BASED pn$p (12) BYTE;
+ 125   2          DECLARE i BYTE, devname ADDRESS;
+        
+ 126   2          pn(0) = ':';
+                                                 ; STATEMENT # 126
+           0298  2A2A00          LHLD    PNP
+           029B  363A            MVI     M,3AH
+ 127   2          devname = deviceNames(pathname(0)).name;
+                                                 ; STATEMENT # 127
+           029D  2A2800          LHLD    PATHNAMEP
+           02A0  6E              MOV     L,M
+           02A1  2600            MVI     H,0
+           02A3  110300          LXI     D,3H
+           02A6  CD0000          CALL    @P0034 
+           02A9  010000          LXI     B,DEVICENAMES
+           02AC  09              DAD     B
+           02AD  5E              MOV     E,M
+           02AE  23              INX     H
+           02AF  56              MOV     D,M
+           02B0  EB              XCHG
+           02B1  222D00          SHLD    DEVNAME
+ 128   2          pn(1) = high(devname);
+                                                 ; STATEMENT # 128
+           02B4  7C              MOV     A,H
+           02B5  2A2A00          LHLD    PNP
+           02B8  23              INX     H
+           02B9  77              MOV     M,A
+ 129   2          pn(2) = low(devname);
+                                                 ; STATEMENT # 129
+           02BA  2A2D00          LHLD    DEVNAME
+           02BD  7D              MOV     A,L
+           02BE  2A2A00          LHLD    PNP
+           02C1  23              INX     H
+           02C2  23              INX     H
+           02C3  77              MOV     M,A
+ 130   2          pn(3) = ':';
+                                                 ; STATEMENT # 130
+           02C4  010300          LXI     B,3H
+           02C7  2A2A00          LHLD    PNP
+           02CA  09              DAD     B
+PL/M-80 COMPILER                                                                                                PAGE  12
+
+
+           02CB  363A            MVI     M,3AH
+ 131   2          pn$p = pn$p + 4;
+                                                 ; STATEMENT # 131
+           02CD  110400          LXI     D,4H
+           02D0  2A2A00          LHLD    PNP
+           02D3  19              DAD     D
+           02D4  222A00          SHLD    PNP
+ 132   2          do i = 0 to 5;  /* copy file name */
+                                                 ; STATEMENT # 132
+           02D7  212C00          LXI     H,I
+           02DA  3600            MVI     M,0H
+                         @30:
+           02DC  3E05            MVI     A,5H
+           02DE  212C00          LXI     H,I
+           02E1  BE              CMP     M
+           02E2  DA0D03          JC      @31
+ 133   3              if (pn(0) := pathname(i + 1)) <> 0 then
+                                                 ; STATEMENT # 133
+           02E5  2A2C00          LHLD    I
+           02E8  2600            MVI     H,0
+           02EA  010100          LXI     B,PATHNAME+1H
+           02ED  09              DAD     B
+           02EE  EB              XCHG
+           02EF  2A2800          LHLD    PATHNAMEP
+           02F2  19              DAD     D
+           02F3  E5              PUSH    H       ; 1
+           02F4  2A2A00          LHLD    PNP
+           02F7  D1              POP     D       ; 1
+           02F8  1A              LDAX    D
+           02F9  77              MOV     M,A
+           02FA  FE00            CPI     0H
+           02FC  CA0603          JZ      @15
+ 134   3                  pn$p = pn$p + 1;
+                                                 ; STATEMENT # 134
+           02FF  2A2A00          LHLD    PNP
+           0302  23              INX     H
+           0303  222A00          SHLD    PNP
+                         @15:
+ 135   3          end;
+                                                 ; STATEMENT # 135
+                         @32:
+           0306  212C00          LXI     H,I
+           0309  34              INR     M
+           030A  C2DC02          JNZ     @30
+                         @31:
+ 136   2          if pathname(7) <> 0 then
+                                                 ; STATEMENT # 136
+           030D  010700          LXI     B,7H
+           0310  2A2800          LHLD    PATHNAMEP
+           0313  09              DAD     B
+           0314  7E              MOV     A,M
+           0315  FE00            CPI     0H
+           0317  CA2603          JZ      @16
+ 137   2          do;
+ 138   3              pn(0) = '.';
+                                                 ; STATEMENT # 138
+           031A  2A2A00          LHLD    PNP
+PL/M-80 COMPILER                                                                                                PAGE  13
+
+
+           031D  362E            MVI     M,2EH
+ 139   3              pn$p = pn$p + 1;
+                                                 ; STATEMENT # 139
+           031F  2A2A00          LHLD    PNP
+           0322  23              INX     H
+           0323  222A00          SHLD    PNP
+ 140   3          end;
+                                                 ; STATEMENT # 140
+                         @16:
+ 141   2          do i = 0 to 2;
+                                                 ; STATEMENT # 141
+           0326  212C00          LXI     H,I
+           0329  3600            MVI     M,0H
+                         @33:
+           032B  3E02            MVI     A,2H
+           032D  212C00          LXI     H,I
+           0330  BE              CMP     M
+           0331  DA5C03          JC      @34
+ 142   3              if (pn(0) := pathname(i + 7)) <> 0 then
+                                                 ; STATEMENT # 142
+           0334  2A2C00          LHLD    I
+           0337  2600            MVI     H,0
+           0339  010700          LXI     B,PATHNAME+7H
+           033C  09              DAD     B
+           033D  EB              XCHG
+           033E  2A2800          LHLD    PATHNAMEP
+           0341  19              DAD     D
+           0342  E5              PUSH    H       ; 1
+           0343  2A2A00          LHLD    PNP
+           0346  D1              POP     D       ; 1
+           0347  1A              LDAX    D
+           0348  77              MOV     M,A
+           0349  FE00            CPI     0H
+           034B  CA5503          JZ      @17
+ 143   3                  pn$p = pn$p + 1;
+                                                 ; STATEMENT # 143
+           034E  2A2A00          LHLD    PNP
+           0351  23              INX     H
+           0352  222A00          SHLD    PNP
+                         @17:
+ 144   3          end;
+                                                 ; STATEMENT # 144
+                         @35:
+           0355  212C00          LXI     H,I
+           0358  34              INR     M
+           0359  C22B03          JNZ     @33
+                         @34:
+ 145   2          pn(0) = ' ';
+                                                 ; STATEMENT # 145
+           035C  2A2A00          LHLD    PNP
+           035F  3620            MVI     M,20H
+ 146   2      end;
+                                                 ; STATEMENT # 146
+           0361  C9              RET
+        
+ 147   1      chk$write$protect: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 147
+PL/M-80 COMPILER                                                                                                PAGE  14
+
+
+                         ; PROC  CKWRIP
+ 148   2          if (direct.attrib and (WRITEP$ATTRIBUTE or FORMAT$ATTRIBUTE)) <> 0 then
+                                                 ; STATEMENT # 148
+           0362  3A0A00          LDA     DIRECT+0AH
+           0365  E684            ANI     84H
+           0367  FE00            CPI     0H
+           0369  CA7103          JZ      @18
+ 149   2              call warn(WRITE$PROTECT);
+                                                 ; STATEMENT # 149
+           036C  0E0E            MVI     C,0EH
+           036E  CD0000          CALL    WARN
+                         @18:
+ 150   2      end;
+                                                 ; STATEMENT # 150
+           0371  C9              RET
+        
+ 151   1      write$dir$entry: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 151
+                         ; PROC  WDIREN
+ 152   2          DECLARE i BYTE;
+ 153   2          do i = 0 to 8;
+                                                 ; STATEMENT # 153
+           0372  212F00          LXI     H,I
+           0375  3600            MVI     M,0H
+                         @36:
+           0377  3E08            MVI     A,8H
+           0379  212F00          LXI     H,I
+           037C  BE              CMP     M
+           037D  DAA103          JC      @37
+ 154   3              direct.file(i) = pn(i+1);
+                                                 ; STATEMENT # 154
+           0380  2A2F00          LHLD    I
+           0383  2600            MVI     H,0
+           0385  010100          LXI     B,PN+1H
+           0388  09              DAD     B
+           0389  E5              PUSH    H       ; 1
+           038A  2A2F00          LHLD    I
+           038D  2600            MVI     H,0
+           038F  010100          LXI     B,FILE
+           0392  09              DAD     B
+           0393  010000          LXI     B,DIRECT
+           0396  09              DAD     B
+           0397  D1              POP     D       ; 1
+           0398  1A              LDAX    D
+           0399  77              MOV     M,A
+ 155   3          end;
+                                                 ; STATEMENT # 155
+                         @38:
+           039A  212F00          LXI     H,I
+           039D  34              INR     M
+           039E  C27703          JNZ     @36
+                         @37:
+ 156   2          call dir$close(a$device);
+                                                 ; STATEMENT # 156
+           03A1  2A0000          LHLD    ADEVP
+           03A4  4E              MOV     C,M
+           03A5  CD0000          CALL    DIRCLOSE
+PL/M-80 COMPILER                                                                                                PAGE  15
+
+
+ 157   2      end;    
+                                                 ; STATEMENT # 157
+           03A8  C9              RET
+        
+ 158   1      chk$pn$disk$file: PROCEDURE(filename) PUBLIC;
+                                                 ; STATEMENT # 158
+                         ; PROC  CKPNDF
+           03A9  213100          LXI     H,FILENAME+1H
+           03AC  70              MOV     M,B
+           03AD  2B              DCX     H
+           03AE  71              MOV     M,C
+ 159   2          DECLARE filename ADDRESS;
+        
+ 160   2          call xpath(filename, .pn);
+                                                 ; STATEMENT # 160
+           03AF  2A3000          LHLD    FILENAME
+           03B2  44              MOV     B,H
+           03B3  4D              MOV     C,L
+           03B4  110000          LXI     D,PN
+           03B7  CD6502          CALL    XPATH
+ 161   2          if pn(0) > F9DEV then
+                                                 ; STATEMENT # 161
+           03BA  3E09            MVI     A,9H
+           03BC  210000          LXI     H,PN
+           03BF  BE              CMP     M
+           03C0  D2C803          JNC     @19
+ 162   2              call warn(NON$DISK$FILE);
+                                                 ; STATEMENT # 162
+           03C3  0E11            MVI     C,11H
+           03C5  CD0000          CALL    WARN
+                         @19:
+ 163   2          call aft$window(pn(0));
+                                                 ; STATEMENT # 163
+           03C8  2A0000          LHLD    PN
+           03CB  4D              MOV     C,L
+           03CC  CD0000          CALL    AWINDO
+ 164   2      end;
+                                                 ; STATEMENT # 164
+           03CF  C9              RET
+ 165   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 03D0H    976D
+     VARIABLE AREA SIZE = 0032H     50D
+     MAXIMUM STACK SIZE = 000CH     12D
+     224 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

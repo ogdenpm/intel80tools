@@ -1,0 +1,363 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE DIRECT
+OBJECT MODULE PLACED IN DIRECT.OBJ
+COMPILER INVOKED BY:  :F1:plm80 direct.plm PRINT(DIRECT.LST) OBJECT(DIRECT.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          direct:
+              do;
+        
+              /*
+                  ABSTRACT
+                      All knowledge about the format and location of a diskette
+                      directory is contained by this module
+        
+                  Module organisation
+                      The module contains a data adara, which normally contains
+                      the information from a single entry in a diskette directory
+                      and the procedures dir$close and dlook
+        
+                  Invariants
+                      On every diskette, the directory file is partitioned into
+                      'entries' containing 16 bytes of data each.
+                      The various byte- and address-variables within an entry are
+                      given descriptive names (see the structure 'direct' below).
+                      at all times, teh following must be true:
+        
+                      1.  direct.empty = false => the entry contains meaningful data
+                      2.  (direct.empty = true(0ffh)) => the directory slot is empty.
+                      3.  (direct.empty = true(07fh)) => the directory slot and all
+                      further directory slots are empty;
+              */
+        
+              $include(direct.ipx)
+   2   1  =   declare Aft$Window literally 'AWindo';
+   3   1  =   declare direct$i$no literally 'dirINo';
+   4   1  =   declare abswrite literally 'abs$wr';
+   5   1  =   declare BOOLEAN literally 'BYTE';
+   6   1  =   declare FALSE literally '0';
+   7   1  =   declare SEEK$ABS literally '2';
+   8   1  =   declare TRUE literally '0ffh';
+   9   1  =   declare a$data$blk$p address external;
+  10   1  =   declare a$dbuf$p address external;
+  11   1  =   declare a$dev$p address external;
+  12   1  =   declare a$pbuf$p address external;
+  13   1  =   declare datum$base address external;
+  14   1  =   declare pointer$base address external;
+  15   1  =   abs$wr: procedure(block, buffer$ptr) external; declare block address, buffer$ptr address; end;
+  18   1  =   Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+  21   1  =   get$buf: procedure address external; end;
+  23   1  =   read: procedure(aftn, buffer, count, actual$p) external;
+  24   2  =           declare aftn byte, buffer address, count address, actual$p address; end;
+  26   1  =   return$buf: procedure(buf$address) external; declare buf$address address; end;
+  29   1  =   rewind: procedure external; end;
+  31   1  =   seek: procedure(aftn, mode, blockptr, byteptr) external;
+  32   2  =           declare aftn byte, mode address, blockptr address, byteptr address; end;
+  34   1  =   write: procedure(aftn, buffer, count) external; declare aftn byte, buffer address, count address; end;
+  37   1  =   declare a$data$blk based a$data$blk$p  address;
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+  38   1  =   declare a$dbuf based a$dbuf$p  address;
+  39   1  =   declare a$device based a$dev$p  byte;
+  40   1  =   declare a$pbuf based a$pbuf$p  address;
+        
+              /* interface to assembler support code */
+  41   1      DECLARE fndFre  BYTE PUBLIC;    /* logical flag used to indicate if a
+                                 free dir slot has been allocated */
+  42   1      DECLARE inoPtr  ADDRESS PUBLIC; /* is setup to point to direct$i$no */
+  43   1      DECLARE dirPtr ADDRESS PUBLIC;  /* is setup to point to the direct */
+        
+  44   1      DECLARE dnum ADDRESS EXTERNAL;
+  45   1      fndDir: PROCEDURE(fname, datum) BYTE EXTERNAL;
+  46   2          DECLARE fname ADDRESS, datum ADDRESS;
+  47   2      END;
+        
+              /* end of asm interface */
+        
+        
+        
+        
+  48   1      DECLARE direct structure (
+                  empty       BOOLEAN,    /* flag to indicate whether directory entry is used */
+                  file(6)     BYTE,   /* file name */
+                  ext(3)      BYTE,   /* extension */
+                  attrib      BYTE,   /* file attributes */
+                  eof$count   BYTE,   /* character count, last data block */
+                  blk   ADDRESS,  /* number of block in file */
+                  hdr$blk     ADDRESS)    /* address of first pointer block */
+                  PUBLIC;
+        
+  49   1      DECLARE direct$i$no ADDRESS PUBLIC; /* directory entry pointer */
+        
+        
+        
+  50   1      dir$close: PROCEDURE(aftn) PUBLIC;
+                                                 ; STATEMENT # 50
+                         ; PROC  DIRCLOSE
+           26BB  210D2F          LXI     H,AFTN
+           26BE  71              MOV     M,C
+  51   2          DECLARE aftn BYTE;
+        
+                  /*
+                      This procedure assumes that aftwindow has been called
+                      correctly setting up the appropriate directory slot
+                      and that teh dbuffer and pbuffer have correct data
+                      but need not be returned to the pool
+                  */
+        
+  52   2          call write(aftn, .direct, size(direct));
+                                                 ; STATEMENT # 52
+           26BF  2A0D2F          LHLD    AFTN
+           26C2  E5              PUSH    H       ; 1
+           26C3  111000          LXI     D,10H
+           26C6  01FB2E          LXI     B,DIRECT
+           26C9  CDF01A          CALL    WRITE
+  53   2          call abswrite(a$data$blk, a$dbuf);  /* both based vars */
+                                                 ; STATEMENT # 53
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+           26CC  2AEC2A          LHLD    ADATABLKP
+           26CF  E5              PUSH    H       ; 1
+           26D0  2AD42A          LHLD    ADBUFP
+           26D3  5E              MOV     E,M
+           26D4  23              INX     H
+           26D5  56              MOV     D,M
+           26D6  E1              POP     H       ; 1
+           26D7  4E              MOV     C,M
+           26D8  23              INX     H
+           26D9  46              MOV     B,M
+           26DA  CDBD09          CALL    ABSWR
+  54   2      end;
+                                                 ; STATEMENT # 54
+           26DD  C9              RET
+        
+        
+  55   1      dlook: PROCEDURE(fn) BOOLEAN PUBLIC;
+                                                 ; STATEMENT # 55
+                         ; PROC  DLOOK
+           26DE  210F2F          LXI     H,FN+1H
+           26E1  70              MOV     M,B
+           26E2  2B              DCX     H
+           26E3  71              MOV     M,C
+  56   2          DECLARE fn ADDRESS;
+  57   2          DECLARE blockno ADDRESS DATA(0);
+  58   2          DECLARE rcount BYTE;
+                  /* The location at (rcount + 1) is modified by the procedure read,
+                     hence byteno must always follow the declaration of rcount
+                  */
+  59   2          DECLARE byteno ADDRESS;
+  60   2          DECLARE array based fn(12) BYTE;
+  61   2          DECLARE (i, aftn) BYTE;
+  62   2          DECLARE return$value BOOLEAN;
+        
+                  /*
+                    This procedure is used to lookup a file name in a
+                    disk directory. The device number of the disk
+                    is contained in fn(0), the six characters of the
+                    file name are in fn(1) through fn(6), and the
+                    three characters of the file extension are in
+                    fn(7) through fn(9)
+        
+                    The procedure returns 'TRUE' if the file is found,
+                    with direct$i$no pointing to the entry of the file in the
+                    directory
+        
+                    otherwise, the procedure returns 'FALSE', and direct$i$no points
+                    at a blank slot in the directory. The directory marker is
+                    adjusted so taht it points at the beginning of the entry
+                    pointed to by direct$i$no.
+        
+                    If the directory is full, direct$i$no = 0ffffh
+                  */
+  63   2          call aft$window(aftn := a$device);
+                                                 ; STATEMENT # 63
+           26E4  2ACC2A          LHLD    ADEVP
+           26E7  7E              MOV     A,M
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+           26E8  32142F          STA     AFTN
+           26EB  4F              MOV     C,A
+           26EC  CDA702          CALL    AWINDO
+  64   2          pointer$base, a$pbuf = get$buf;
+                                                 ; STATEMENT # 64
+           26EF  CD2C25          CALL    GETBUF
+           26F2  22C62A          SHLD    POINTERBASE
+           26F5  E5              PUSH    H       ; 1
+           26F6  2ADA2A          LHLD    APBUFP
+           26F9  C1              POP     B       ; 1
+           26FA  71              MOV     M,C
+           26FB  23              INX     H
+           26FC  70              MOV     M,B
+  65   2          datum$base, a$dbuf = get$buf;
+                                                 ; STATEMENT # 65
+           26FD  CD2C25          CALL    GETBUF
+           2700  22C82A          SHLD    DATUMBASE
+           2703  E5              PUSH    H       ; 1
+           2704  2AD42A          LHLD    ADBUFP
+           2707  C1              POP     B       ; 1
+           2708  71              MOV     M,C
+           2709  23              INX     H
+           270A  70              MOV     M,B
+  66   2          call rewind;
+                                                 ; STATEMENT # 66
+           270B  CD211F          CALL    REWIND
+  67   2          direct$i$no = 0ffffh;
+                                                 ; STATEMENT # 67
+           270E  21FFFF          LXI     H,0FFFFH
+           2711  220B2F          SHLD    DIRINO
+  68   2          dirPtr = .direct;
+                                                 ; STATEMENT # 68
+           2714  21FB2E          LXI     H,DIRECT
+           2717  22F92E          SHLD    DIRPTR
+  69   2          inoPtr = .direct$i$no;
+                                                 ; STATEMENT # 69
+           271A  210B2F          LXI     H,DIRINO
+           271D  22F72E          SHLD    INOPTR
+  70   2          rcount = 1;
+                                                 ; STATEMENT # 70
+           2720  21102F          LXI     H,RCOUNT
+           2723  3601            MVI     M,1H
+  71   2          fndFre = FALSE;
+                                                 ; STATEMENT # 71
+           2725  21F62E          LXI     H,FNDFRE
+           2728  3600            MVI     M,0H
+  72   2          dnum, return$value = 0;
+                                                 ; STATEMENT # 72
+        
+           272A  210000          LXI     H,0H
+           272D  220329          SHLD    DNUM
+           2730  7D              MOV     A,L
+           2731  32152F          STA     RETURNVALUE
+  73   2          do while rcount <> 0;
+                                                 ; STATEMENT # 73
+                         @4:
+           2734  3A102F          LDA     RCOUNT
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+           2737  FE00            CPI     0H
+           2739  CA7D27          JZ      @5
+  74   3              call read(aftn, a$dbuf, 128, .rcount);
+                                                 ; STATEMENT # 74
+           273C  2A142F          LHLD    AFTN
+           273F  E5              PUSH    H       ; 1
+           2740  2AD42A          LHLD    ADBUFP
+           2743  4E              MOV     C,M
+           2744  23              INX     H
+           2745  46              MOV     B,M
+           2746  C5              PUSH    B       ; 2
+           2747  11102F          LXI     D,RCOUNT
+           274A  018000          LXI     B,80H
+           274D  CD3C1A          CALL    READ
+  75   3              if (i := fndDir(fn + 1, datum$base)) = 07fh then /* no more entries */
+                                                 ; STATEMENT # 75
+           2750  2A0E2F          LHLD    FN
+           2753  23              INX     H
+           2754  44              MOV     B,H
+           2755  4D              MOV     C,L
+           2756  2AC82A          LHLD    DATUMBASE
+           2759  EB              XCHG
+           275A  CD0529          CALL    FNDDIR
+           275D  32132F          STA     I
+           2760  FE7F            CPI     7FH
+           2762  C26827          JNZ     @1
+  76   3                  goto done;  /* break */
+                                                 ; STATEMENT # 76
+           2765  C37D27          JMP     DONE
+                         @1:
+  77   3              if i = 0ffh then    /* found */
+                                                 ; STATEMENT # 77
+           2768  3A132F          LDA     I
+           276B  FEFF            CPI     0FFH
+           276D  C27A27          JNZ     @2
+  78   3              do;
+  79   4                  return$value = TRUE;
+                                                 ; STATEMENT # 79
+           2770  21152F          LXI     H,RETURNVALUE
+           2773  36FF            MVI     M,0FFH
+  80   4                  rcount = 0;
+                                                 ; STATEMENT # 80
+           2775  21102F          LXI     H,RCOUNT
+           2778  3600            MVI     M,0H
+  81   4              end;
+                                                 ; STATEMENT # 81
+                         @2:
+  82   3          end;
+                                                 ; STATEMENT # 82
+           277A  C33427          JMP     @4
+                         @5:
+  83   2      done:
+                                                 ; STATEMENT # 83
+                         DONE:
+           277D  01FFFF          LXI     B,0FFFFH
+           2780  110B2F          LXI     D,DIRINO
+           2783  CD2D2A          CALL    @P0100 
+PL/M-80 COMPILER                                                                                                PAGE   6
+
+
+           2786  B5              ORA     L
+           2787  CAA527          JZ      @3
+                  if direct$i$No <> 0ffffh then
+  84   2          do;
+  85   3              byteno = direct$i$no * size(direct);
+                                                 ; STATEMENT # 85
+           278A  2A0B2F          LHLD    DIRINO
+           278D  29              DAD     H
+           278E  29              DAD     H
+           278F  29              DAD     H
+           2790  29              DAD     H
+           2791  22112F          SHLD    BYTENO
+  86   3              call seek(aftn, SEEK$ABS, .blockno, .byteno);
+                                                 ; STATEMENT # 86
+           2794  2A142F          LHLD    AFTN
+           2797  E5              PUSH    H       ; 1
+           2798  010200          LXI     B,2H
+           279B  C5              PUSH    B       ; 2
+           279C  11112F          LXI     D,BYTENO
+           279F  01B926          LXI     B,BLOCKNO
+           27A2  CD641F          CALL    SEEK
+  87   3          end;
+                                                 ; STATEMENT # 87
+                         @3:
+  88   2          call return$buf(a$dbuf);
+                                                 ; STATEMENT # 88
+           27A5  2AD42A          LHLD    ADBUFP
+           27A8  4E              MOV     C,M
+           27A9  23              INX     H
+           27AA  46              MOV     B,M
+           27AB  CD1125          CALL    RETURNBUF
+  89   2          call return$buf(a$pbuf);
+                                                 ; STATEMENT # 89
+           27AE  2ADA2A          LHLD    APBUFP
+           27B1  4E              MOV     C,M
+           27B2  23              INX     H
+           27B3  46              MOV     B,M
+           27B4  CD1125          CALL    RETURNBUF
+  90   2          return return$value;
+                                                 ; STATEMENT # 90
+           27B7  3A152F          LDA     RETURNVALUE
+           27BA  C9              RET
+  91   2      end;
+                                                 ; STATEMENT # 91
+  92   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 0102H    258D
+     VARIABLE AREA SIZE = 0020H     32D
+     MAXIMUM STACK SIZE = 0006H      6D
+     164 LINES READ
+     0 PROGRAM ERRORS
+PL/M-80 COMPILER                                                                                                PAGE   7
+
+
+END OF PL/M-80 COMPILATION

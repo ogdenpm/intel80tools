@@ -1,0 +1,138 @@
+direct:
+do;
+
+/*
+	ABSTRACT
+		All knowledge about the format and location of a diskette
+		directory is contained by this module
+
+	Module organisation
+		The module contains a data adara, which normally contains
+		the information from a single entry in a diskette directory
+		and the procedures dir$close and dlook
+
+	Invariants
+		On every diskette, the directory file is partitioned into
+		'entries' containing 16 bytes of data each.
+		The various byte- and address-variables within an entry are
+		given descriptive names (see the structure 'direct' below).
+		at all times, teh following must be true:
+
+		1.  direct.empty = false => the entry contains meaningful data
+		2.  (direct.empty = true(0ffh)) => the directory slot is empty.
+		3.  (direct.empty = true(07fh)) => the directory slot and all
+		further directory slots are empty;
+*/
+
+$include(direct.ipx)
+
+/* interface to assembler support code */
+DECLARE	fndFre	BYTE PUBLIC;	/* logical flag used to indicate if a
+				   free dir slot has been allocated */
+DECLARE	inoPtr	ADDRESS PUBLIC;	/* is setup to point to direct$i$no */
+DECLARE dirPtr ADDRESS PUBLIC;	/* is setup to point to the direct */
+
+DECLARE dnum ADDRESS EXTERNAL;
+fndDir: PROCEDURE(fname, datum) BYTE EXTERNAL;
+	DECLARE fname ADDRESS, datum ADDRESS;
+END;
+
+/* end of asm interface */
+
+
+
+
+DECLARE	direct structure (
+	empty	    BOOLEAN,	/* flag to indicate whether directory entry is used */
+	file(6)	    BYTE,	/* file name */
+	ext(3)	    BYTE,	/* extension */
+	attrib	    BYTE,	/* file attributes */
+	eof$count   BYTE,	/* character count, last data block */
+	blk   ADDRESS,	/* number of block in file */
+	hdr$blk	    ADDRESS)	/* address of first pointer block */
+	PUBLIC;
+
+DECLARE	direct$i$no ADDRESS PUBLIC;	/* directory entry pointer */
+
+
+
+dir$close: PROCEDURE(aftn) PUBLIC;
+	DECLARE aftn BYTE;
+
+	/*
+	    This procedure assumes that aftwindow has been called
+	    correctly setting up the appropriate directory slot
+	    and that teh dbuffer and pbuffer have correct data
+	    but need not be returned to the pool
+	*/
+
+	call write(aftn, .direct, size(direct));
+	call abswrite(a$data$blk, a$dbuf);	/* both based vars */
+end;
+
+
+dlook: PROCEDURE(fn) BOOLEAN PUBLIC;
+	DECLARE fn ADDRESS;
+	DECLARE blockno ADDRESS DATA(0);
+	DECLARE rcount BYTE;
+	/* The location at (rcount + 1) is modified by the procedure read,
+	   hence byteno must always follow the declaration of rcount
+	*/
+	DECLARE byteno ADDRESS;
+	DECLARE array based fn(12) BYTE;
+	DECLARE (i, aftn) BYTE;
+	DECLARE return$value BOOLEAN;
+
+	/*
+	  This procedure is used to lookup a file name in a
+	  disk directory. The device number of the disk
+	  is contained in fn(0), the six characters of the
+	  file name are in fn(1) through fn(6), and the
+	  three characters of the file extension are in
+	  fn(7) through fn(9)
+
+	  The procedure returns 'TRUE' if the file is found,
+	  with direct$i$no pointing to the entry of the file in the
+	  directory
+
+	  otherwise, the procedure returns 'FALSE', and direct$i$no points
+	  at a blank slot in the directory. The directory marker is
+	  adjusted so taht it points at the beginning of the entry
+	  pointed to by direct$i$no.
+
+	  If the directory is full, direct$i$no = 0ffffh
+	*/
+	call aft$window(aftn := a$device);
+	pointer$base, a$pbuf = get$buf;
+	datum$base, a$dbuf = get$buf;
+	call rewind;
+	direct$i$no = 0ffffh;
+	dirPtr = .direct;
+	inoPtr = .direct$i$no;
+	rcount = 1;
+	fndFre = FALSE;
+	dnum, return$value = 0;
+
+	do while rcount <> 0;
+		call read(aftn, a$dbuf, 128, .rcount);
+		if (i := fndDir(fn + 1, datum$base)) = 07fh then /* no more entries */
+			goto done;	/* break */
+		if i = 0ffh then	/* found */
+		do;
+			return$value = TRUE;
+			rcount = 0;
+		end;
+	end;
+done:
+	if direct$i$No <> 0ffffh then
+	do;
+		byteno = direct$i$no * size(direct);
+		call seek(aftn, SEEK$ABS, .blockno, .byteno);
+	end;
+	call return$buf(a$dbuf);
+	call return$buf(a$pbuf);
+	return return$value;
+end;
+end;
+eof
+

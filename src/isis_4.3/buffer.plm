@@ -1,0 +1,121 @@
+buffer:
+DO;
+
+/*
+	ABSTRACT
+		This module contains routines for obtaining, clearing
+		releasing and packing buffers of 128 bytes each.
+
+	MODULE ORGANISATION
+		This module contains an llocation table ('buffer$table') and
+		4 subroutines
+		Buffers are allocted in RAM, starting at ".MEMORY" and
+		working upwards (to the user's program origin point).
+		'buffer$table' contains 19 entries, allowing maximum buffer
+		usage for 6 open files (all lined input files, 3 buffers each),
+		plus 1 buffer for the console.
+
+	INVARIANTS
+		Each entry in 'buffer$table' is initialised to '0'; legal
+		values are 0, 1 and 2 with the following meanings
+		0 - corresponding buffer is available, but not allocated.
+		1 - corresponding buffer is not available, because it is
+		    in the current user RAM area
+		2 - corresponding buffer is in use.
+
+		Entries change when buffes are obtained or released (via
+		get$buf and return$buf), or when then user's program origin
+		point is changed (by making a call to the 'load' subroutine).
+*/
+
+$include(buffer.ipx)
+
+DECLARE buffer$table(19) BYTE PUBLIC INITIAL(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+DECLARE i BYTE;
+
+clear$buf: PROCEDURE(buf$address) PUBLIC;
+	DECLARE buf$address ADDRESS;
+	DECLARE buffer BASED buf$address (128) BYTE;
+
+	do i = 0 to 127;
+		buffer(i) = 0;
+	end;
+end;
+
+return$buf: PROCEDURE(buf$address) PUBLIC;
+	DECLARE buf$address ADDRESS;
+
+	buffer$table(shr(buf$address - .MEMORY, 7)) = 0;
+end;
+
+
+
+
+get$buf: PROCEDURE ADDRESS PUBLIC;
+	do i = 0 to last(buffer$table);
+		if buffer$table(i) = 0 then
+		do;
+			buffer$table(i) = 2;
+			return .MEMORY + shl(DOUBLE(i), 7);
+		end;
+	end;
+	call abortx(NO$FREE$BUFFER);	/* 1 */
+end;
+
+/*
+	ABSTRACT
+		This routine reassigns buffer space and moves buffer
+		contents as necessary, to ensure that there is no unused
+		buffer space below the area occupied by the highest buffer
+		in use.
+
+
+	RETURNS
+		The address of the first (lowest) byte in the first
+		(lowest) unallocated buffer. THis information is the "top of
+		buffer area" described in the mds-dos operator's manual.
+
+	DESCRIPTION
+		For every AFT entry which is a currently assigned
+		buffer address, the buffer is returned (using 'return$buf')
+		and is replace by a new buffer (using 'get$buf'). If the new
+		buffer is a different one than the one returned, then the
+		data from the old is moved into the new.
+*/
+
+
+
+pack$aft$buf: PROCEDURE ADDRESS PUBLIC;
+	DECLARE (i, j, index) BYTE;
+	DECLARE buffer$top ADDRESS;
+	DECLARE bptr ADDRESS, bufadr BASED bptr ADDRESS;
+	DECLARE new$badr ADDRESS, new$datum BASED new$badr(128) BYTE,
+		old$badr ADDRESS, old$datum BASED old$badr(128) BYTE;
+
+	buffer$top = .MEMORY;
+	do i = AFT$BOTTOM to AFT$LAST;
+		if not aft(i).empty then
+		do index = 0 to 4 BY 2;
+			bptr = .aft(i).pbuf - index;
+			j = shr(bufadr - .MEMORY, 7);
+			if j <= last(buffer$table) and buffer$table(j) = 2 then
+			do;
+				old$badr = bufadr;
+				call return$buf(old$badr);
+				if buffer$top < (new$badr := getbuf) then
+					buffer$top = new$badr;
+				if new$badr <> old$badr then
+				do;
+					do j = 0 to 127;
+						new$datum(j) = old$datum(j);
+					end;
+					bufadr = new$badr;
+				end;
+			end;
+		end;	/* of loop to handle each buffer p, d, l */
+	end;	/* of look to traverse aft */
+	return buffer$top + 128;
+end;
+end;
+eof
+

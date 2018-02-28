@@ -1,0 +1,196 @@
+path:
+do;
+$include(path.ipx)
+
+/*
+	Abstract
+
+	This is the module that understands the syntax of
+	pathnames, and parses them
+
+	Module Organisation
+
+	The module contains the following components:
+
+	1. 2 Global arrays, 'pn' and 'pn2', either of which is
+	   sufficient to contain the 'internal form' of a pathname.
+	   These are provided here for the convenient transitory
+	   use by such subroutines as open, rename, delete etc.
+	   The are not directly used by 'path'
+	2. The byte procedure 'path', which converts a legal pathname
+	   into internal form, returning an error number for the
+	   type of pathname found. (0 means legal pathname, other
+	   numbers indicates syntax errors in pathname.)
+	3. The procedure 'xpath', whose only reason for existence is
+	   to reduce the space used for calls to 'path' throughout
+	   the program; it reduces code to test the result from
+	   path and optionally call err, to a single point in the
+	   program.
+*/ 
+
+/*
+	Although accessed as a byte array the path structur has the format
+	STRUCTURE(devNo BYTE, name(6) BYTE, ext(3) BYTE, devType BYTE, drvType BYTE)
+*/
+
+DECLARE deviceNames(29) STRUCTURE(name ADDRESS, type BYTE) DATA(
+		'F0', 3, 'F1', 3, 'F2', 3, 'F3', 3,
+		'F4', 3, 'F5', 3, 'F6', 3, 'F7', 3,
+		'F8', 3, 'F9', 3, 'TI', 0, 'TO', 1,
+		'VI', 0, 'VO', 1, 'I1', 0, 'O1', 1,
+		'TR', 0, 'HR', 0, 'R1', 0, 'R2', 0,
+		'TP', 1, 'HP', 1, 'P1', 1, 'P2', 1,
+		'LP', 1, 'L1', 1, 'BB', 2, 'CI', 0,
+		'CO', 1);
+
+DECLARE pn(12) BYTE PUBLIC, pn2(12) BYTE PUBLIC;
+	
+path: PROCEDURE(pathname, pn$p) BYTE PUBLIC;
+	DECLARE (pathname, pn$p) ADDRESS;
+	DECLARE pn BASED pn$p (12) BYTE;	/* byte version of path structure */
+	DECLARE pathCh BASED pathname BYTE;	/* char of pathname points to */
+	DECLARE pathArray BASED pathname (1) BYTE;
+	DECLARE devname ADDRESS, (second, first) BYTE AT (.devname);
+	DECLARE null$name BYTE;
+	DECLARE i BYTE, imax BYTE;
+
+
+	toupper: PROCEDURE(ch) BYTE;
+		DECLARE ch BYTE;
+		if ch < 'a' then
+			return ch;
+		if ch > 'z' then
+			return ch;
+		return ch AND 0DFh;
+	end;
+
+	non$terminate: PROCEDURE BOOLEAN;
+		return (pathCh >= 'A' AND pathCh <= 'Z')
+		    OR (pathCh >= '0' AND pathCh <= '9')
+		    OR (pathCh >= 'a' AND pathCh <= 'z');
+	end;
+
+	parse: PROCEDURE;
+		do while i < imax;
+			if non$terminate then
+			do;
+				pn(i) = toupper(pathCh);
+				pathname = pathname + 1;
+				if i < 2 then
+					null$name = FALSE;
+			end;
+			i = i + 1;
+		end;
+	end;
+
+
+	do i = 0 to last(pn);	/* clear pn */
+		pn(i) = 0;
+	end;
+	do while pathCh = ' ';	/* skip leading space */
+		pathname = pathname + 1;
+	end;
+	if pathCh = ':' then
+	do;
+		pn(0) = 0FFH;
+		if pathArray(3) <> ':' then
+			return BAD$PATH;
+		pathname = pathname + 1;	/* past ':' */
+		first = toupper(pathCh);
+		pathname = pathname + 1;
+		second = toupper(pathCh);
+		pathname = pathname + 2;
+
+		do i = 0 to last(deviceNames);
+			if deviceNames(i).name = devname then
+				pn(0) = i;	/* save device number */
+		end;
+		if pn(0) = 0ffh then
+			return BAD$DEVICE;
+	end;
+	pn(11) = 0FFh;
+	if (pn(10) := deviceNames(pn(0)).type) = 3 then /* random access device */
+		pn(11) = dk$cf$tb(pn(0));
+
+	null$name = TRUE;
+	i = 1;
+	imax = 7;
+	call parse;
+	if pathCh = '.' then
+	do;
+		pathname = pathname + 1;
+		imax = 10;
+		call parse;
+		if pn(7) = 0 then
+			return NULL$EXTENSION;
+	end;
+	if pn(0) <= F9DEV and null$name then
+		return NULL$FILENAME;
+	if non$terminate  OR pathCh = '.' OR pathCh = ':' then
+		return BAD$PATH;
+	return OK;
+end;
+
+
+
+xpath: PROCEDURE(p1, p2) PUBLIC;
+	DECLARE (p1, p2) ADDRESS;
+	DECLARE status ADDRESS;
+
+	if (status := path(p1, p2)) <> 0 then
+		call warn(status);
+end;
+
+
+unpath: PROCEDURE(pathname$p, pn$p) PUBLIC;
+	DECLARE (pathname$p, pn$p) ADDRESS;
+	DECLARE pathname BASED pathname$p (12) BYTE;
+	DECLARE pn BASED pn$p (12) BYTE;
+	DECLARE i BYTE, devname ADDRESS;
+
+	pn(0) = ':';
+	devname = deviceNames(pathname(0)).name;
+	pn(1) = high(devname);
+	pn(2) = low(devname);
+	pn(3) = ':';
+	pn$p = pn$p + 4;
+	do i = 0 to 5;	/* copy file name */
+		if (pn(0) := pathname(i + 1)) <> 0 then
+			pn$p = pn$p + 1;
+	end;
+	if pathname(7) <> 0 then
+	do;
+		pn(0) = '.';
+		pn$p = pn$p + 1;
+	end;
+	do i = 0 to 2;
+		if (pn(0) := pathname(i + 7)) <> 0 then
+			pn$p = pn$p + 1;
+	end;
+	pn(0) = ' ';
+end;
+
+chk$write$protect: PROCEDURE PUBLIC;
+	if (direct.attrib and (WRITEP$ATTRIBUTE or FORMAT$ATTRIBUTE)) <> 0 then
+		call warn(WRITE$PROTECT);
+end;
+
+write$dir$entry: PROCEDURE PUBLIC;
+	DECLARE i BYTE;
+	do i = 0 to 8;
+		direct.file(i) = pn(i+1);
+	end;
+	call dir$close(a$device);
+end;	
+
+chk$pn$disk$file: PROCEDURE(filename) PUBLIC;
+	DECLARE filename ADDRESS;
+
+	call xpath(filename, .pn);
+	if pn(0) > F9DEV then
+		call warn(NON$DISK$FILE);
+	call aft$window(pn(0));
+end;
+end;
+eof
+

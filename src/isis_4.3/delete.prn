@@ -1,0 +1,345 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE DELETE
+OBJECT MODULE PLACED IN DELETE.OBJ
+COMPILER INVOKED BY:  :F1:plm80 delete.plm PRINT(DELETE.LST) OBJECT(DELETE.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          delete:
+              DO;
+              $include(delete.ipx)
+   2   1  =   declare a$empty$p literally 'aEmtyP';
+   3   1  =   declare Aft$Window literally 'AWindo';
+   4   1  =   declare Chk$pn$disk$file literally 'ckpndf';
+   5   1  =   declare Chk$Write$Protect literally 'CkWriP';
+   6   1  =   declare direct$i$no literally 'dirINo';
+   7   1  =   declare Dlook$pn literally 'dlokpn';
+   8   1  =   declare Map$Write literally 'MapWri';
+   9   1  =   declare AFT$BOTTOM literally '10';
+  10   1  =   declare AFT$LAST literally '17';
+  11   1  =   declare BOOLEAN literally 'BYTE';
+  12   1  =   declare CANT$DELETE literally '32';
+  13   1  =   declare CMD$READ literally '4';
+  14   1  =   declare DIRECT$T literally 'structure(DIRECT$T1, DIRECT$T2)';
+  15   1  =   declare DIRECT$T1 literally 'empty BOOLEAN, file(6) BYTE, ext(3) BYTE, attrib BYTE';
+  16   1  =   declare DIRECT$T2 literally 'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS';
+  17   1  =   declare FLINK literally '1';
+  18   1  =   declare NO$SUCH$FILE literally '13';
+  19   1  =   declare TRUE literally '0ffh';
+  20   1  =   declare a$data$blk$p address external;
+  21   1  =   declare a$dbuf$p address external;
+  22   1  =   declare a$dev$p address external;
+  23   1  =   declare a$empty$p address external;
+  24   1  =   declare a$i$no$p address external;
+  25   1  =   declare direct DIRECT$T external;
+  26   1  =   declare direct$i$no address external;
+  27   1  =   declare pn(1) byte external;
+  28   1  =   absio: procedure(command, disk, block, buffer$ptr) external;
+  29   2  =            declare command byte, disk byte, block address, buffer$ptr address; end;
+  31   1  =   Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+  34   1  =   attrib: procedure(file$ptr, swid, value) external;
+  35   2  =             declare file$ptr address, swid address, value BOOLEAN; end;
+  37   1  =   chk$pn$disk$file: procedure(filename) external; declare filename address; end;
+  40   1  =   ChkWriteProtect: procedure external; end;
+  42   1  =   dir$close: procedure(aftn) external; declare aftn byte; end;
+  45   1  =   dlook: procedure(fn) BOOLEAN external; declare fn address; end;
+  48   1  =   free$block: procedure(diskNum, trackSector) external; declare diskNum byte, trackSector address; end;
+  51   1  =   MapWrite: procedure(diskNum) external; declare diskNum byte; end;
+  54   1  =   seek: procedure(aftn, mode, blockptr, byteptr) external;
+  55   2  =           declare aftn byte, mode address, blockptr address, byteptr address; end;
+  57   1  =   warn: procedure(errcode) external; declare errcode byte; end;
+  60   1  =   declare a$data$blk based a$data$blk$p  address;
+  61   1  =   declare a$dbuf based a$dbuf$p  address;
+  62   1  =   declare a$device based a$dev$p  byte;
+  63   1  =   declare a$empty based a$empty$p  byte;
+  64   1  =   declare a$i$no based a$i$no$p  address;
+        
+  65   1      dlook$pn: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 65
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+                         ; PROC  DLOKPN
+  66   2          if not dlook(.pn) then
+                                                 ; STATEMENT # 66
+           065D  019E2D          LXI     B,PN
+           0660  CDDE26          CALL    DLOOK
+           0663  1F              RAR
+           0664  DA6C06          JC      @1
+  67   2          call warn(NO$SUCH$FILE);
+                                                 ; STATEMENT # 67
+           0667  0E0D            MVI     C,0DH
+           0669  CD510B          CALL    WARN
+                         @1:
+  68   2      end;
+                                                 ; STATEMENT # 68
+           066C  C9              RET
+        
+  69   1      DECLARE i BYTE;     /* shared temp counter */
+        
+  70   1      del: PROCEDURE(disknum) PUBLIC;
+                                                 ; STATEMENT # 70
+                         ; PROC  DEL
+           066D  21292D          LXI     H,DISKNUM
+           0670  71              MOV     M,C
+  71   2          DECLARE disknum BYTE;
+  72   2          DECLARE blockno ADDRESS DATA (0);
+  73   2          DECLARE byteno ADDRESS DATA(16 /* size(DIRECT) */);
+  74   2          DECLARE temp ADDRESS;
+  75   2          DECLARE buf based TEMP (64) ADDRESS;
+        
+                  /* internal delete routing
+                  disknum = F0DEV .. F9DEV
+                  direct must contain the directory entry for an existing file or disk.
+                  aft slot for the appropriate directory must have buffers;
+                  and these buffers must be setup for directory reading and
+                  writing. These buffers will be clobbered
+                  */
+        
+        
+  76   2           direct.empty = TRUE;
+                                                 ; STATEMENT # 76
+           0671  21FB2E          LXI     H,DIRECT
+           0674  36FF            MVI     M,0FFH
+  77   2           call dir$close(disknum);
+                                                 ; STATEMENT # 77
+           0676  2A292D          LHLD    DISKNUM
+           0679  4D              MOV     C,L
+           067A  CDBB26          CALL    DIRCLOSE
+  78   2           call seek(disknum, 1, .blockno, .byteno);  /* save location of directory entry */
+                                                 ; STATEMENT # 78
+           067D  2A292D          LHLD    DISKNUM
+           0680  E5              PUSH    H       ; 1
+           0681  010100          LXI     B,1H
+           0684  C5              PUSH    B       ; 2
+           0685  115B06          LXI     D,BYTENO
+           0688  015906          LXI     B,BLOCKNO
+           068B  CD641F          CALL    SEEK
+  79   2           temp = a$dbuf; /* temp -> a buffer we not exists based a$dbuf$p */
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+                                                 ; STATEMENT # 79
+           068E  2AD42A          LHLD    ADBUFP
+           0691  5E              MOV     E,M
+           0692  23              INX     H
+           0693  56              MOV     D,M
+           0694  EB              XCHG
+           0695  222A2D          SHLD    TEMP
+  80   2           do while direct.hdr$blk <> 0;
+                                                 ; STATEMENT # 80
+                         @4:
+           0698  3E00            MVI     A,0H
+           069A  11092F          LXI     D,DIRECT+0EH
+           069D  CD352A          CALL    @P0101 
+           06A0  B5              ORA     L
+           06A1  CA0F07          JZ      @5
+  81   3          call free$block(disknum, direct.hdr$blk);
+                                                 ; STATEMENT # 81
+           06A4  2A292D          LHLD    DISKNUM
+           06A7  4D              MOV     C,L
+           06A8  2A092F          LHLD    DIRECT+0EH
+           06AB  EB              XCHG
+           06AC  CD4F24          CALL    FREEBLOCK
+  82   3          call absio(CMD$READ, disknum, direct.hdr$blk, temp);
+                                                 ; STATEMENT # 82
+           06AF  0E04            MVI     C,4H
+           06B1  C5              PUSH    B       ; 1
+           06B2  2A292D          LHLD    DISKNUM
+           06B5  E5              PUSH    H       ; 2
+           06B6  2A092F          LHLD    DIRECT+0EH
+           06B9  44              MOV     B,H
+           06BA  4D              MOV     C,L
+           06BB  2A2A2D          LHLD    TEMP
+           06BE  EB              XCHG
+           06BF  CD7109          CALL    ABSIO
+  83   3          direct.hdr$blk = buf(FLINK);
+                                                 ; STATEMENT # 83
+           06C2  2A2A2D          LHLD    TEMP
+           06C5  23              INX     H
+           06C6  23              INX     H
+           06C7  5E              MOV     E,M
+           06C8  23              INX     H
+           06C9  56              MOV     D,M
+           06CA  EB              XCHG
+           06CB  22092F          SHLD    DIRECT+0EH
+  84   3          do i = 2 to 63;
+                                                 ; STATEMENT # 84
+           06CE  21282D          LXI     H,I
+           06D1  3602            MVI     M,2H
+                         @6:
+           06D3  3E3F            MVI     A,3FH
+           06D5  21282D          LXI     H,I
+           06D8  BE              CMP     M
+           06D9  DA0C07          JC      @7
+  85   4              if buf(i) <> 0 then
+                                                 ; STATEMENT # 85
+           06DC  2A282D          LHLD    I
+           06DF  2600            MVI     H,0
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+           06E1  29              DAD     H
+           06E2  EB              XCHG
+           06E3  2A2A2D          LHLD    TEMP
+           06E6  19              DAD     D
+           06E7  3E00            MVI     A,0H
+           06E9  CD402A          CALL    @P0103 
+           06EC  B5              ORA     L
+           06ED  CA0507          JZ      @2
+  86   4              call free$block(disknum, buf(i));
+                                                 ; STATEMENT # 86
+           06F0  2A282D          LHLD    I
+           06F3  2600            MVI     H,0
+           06F5  29              DAD     H
+           06F6  EB              XCHG
+           06F7  2A2A2D          LHLD    TEMP
+           06FA  19              DAD     D
+           06FB  5E              MOV     E,M
+           06FC  23              INX     H
+           06FD  56              MOV     D,M
+           06FE  2A292D          LHLD    DISKNUM
+           0701  4D              MOV     C,L
+           0702  CD4F24          CALL    FREEBLOCK
+                         @2:
+  87   4          end;
+                                                 ; STATEMENT # 87
+                         @8:
+           0705  21282D          LXI     H,I
+           0708  34              INR     M
+           0709  C2D306          JNZ     @6
+                         @7:
+  88   3           end;
+                                                 ; STATEMENT # 88
+           070C  C39806          JMP     @4
+                         @5:
+  89   2           call absio(CMD$READ, disknum, a$data$blk, a$dbuf); /* last 2 based vars */
+                                                 ; STATEMENT # 89
+           070F  0E04            MVI     C,4H
+           0711  C5              PUSH    B       ; 1
+           0712  2A292D          LHLD    DISKNUM
+           0715  E5              PUSH    H       ; 2
+           0716  2AEC2A          LHLD    ADATABLKP
+           0719  E5              PUSH    H       ; 3
+           071A  2AD42A          LHLD    ADBUFP
+           071D  5E              MOV     E,M
+           071E  23              INX     H
+           071F  56              MOV     D,M
+           0720  E1              POP     H       ; 3
+           0721  4E              MOV     C,M
+           0722  23              INX     H
+           0723  46              MOV     B,M
+           0724  CD7109          CALL    ABSIO
+  90   2           call map$write(disknum);
+                                                 ; STATEMENT # 90
+           0727  2A292D          LHLD    DISKNUM
+           072A  4D              MOV     C,L
+           072B  CDA922          CALL    MAPWRI
+  91   2      end;
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+                                                 ; STATEMENT # 91
+           072E  C9              RET
+        
+        
+  92   1      delete: PROCEDURE(pathname) PUBLIC;
+                                                 ; STATEMENT # 92
+                         ; PROC  DELETE
+           072F  212D2D          LXI     H,PATHNAME+1H
+           0732  70              MOV     M,B
+           0733  2B              DCX     H
+           0734  71              MOV     M,C
+  93   2          DECLARE pathname ADDRESS;
+        
+  94   2          call chk$pn$disk$file(pathname);
+                                                 ; STATEMENT # 94
+           0735  2A2C2D          LHLD    PATHNAME
+           0738  44              MOV     B,H
+           0739  4D              MOV     C,L
+           073A  CD6615          CALL    CKPNDF
+  95   2          call dlook$pn;
+                                                 ; STATEMENT # 95
+           073D  CD5D06          CALL    DLOKPN
+  96   2          call chk$write$protect;
+                                                 ; STATEMENT # 96
+           0740  CD1F15          CALL    CKWRIP
+  97   2          do i = AFT$BOTTOM to AFT$LAST;
+                                                 ; STATEMENT # 97
+           0743  21282D          LXI     H,I
+           0746  360A            MVI     M,0AH
+                         @9:
+           0748  3E11            MVI     A,11H
+           074A  21282D          LXI     H,I
+           074D  BE              CMP     M
+           074E  DA8C07          JC      @10
+  98   3              call aft$window(i);
+                                                 ; STATEMENT # 98
+           0751  2A282D          LHLD    I
+           0754  4D              MOV     C,L
+           0755  CDA702          CALL    AWINDO
+  99   3              if (not a$empty) and (a$device = pn(0)) and (a$i$no = direct$i$no) then
+                                                 ; STATEMENT # 99
+           0758  2ACA2A          LHLD    AEMTYP
+           075B  7E              MOV     A,M
+           075C  2F              CMA
+           075D  2ACC2A          LHLD    ADEVP
+           0760  F5              PUSH    PSW     ; 1
+           0761  3A9E2D          LDA     PN
+           0764  96              SUB     M
+           0765  D601            SUI     1
+           0767  9F              SBB     A
+           0768  C1              POP     B       ; 1
+           0769  48              MOV     C,B
+           076A  A1              ANA     C
+           076B  2AD82A          LHLD    AINOP
+           076E  110B2F          LXI     D,DIRINO
+           0771  F5              PUSH    PSW     ; 1
+           0772  CD2A2A          CALL    @P0099 
+PL/M-80 COMPILER                                                                                                PAGE   6
+
+
+           0775  B5              ORA     L
+           0776  D601            SUI     1
+           0778  9F              SBB     A
+           0779  C1              POP     B       ; 1
+           077A  48              MOV     C,B
+           077B  A1              ANA     C
+           077C  1F              RAR
+           077D  D28507          JNC     @3
+ 100   3              call warn(CANT$DELETE); 
+                                                 ; STATEMENT # 100
+           0780  0E20            MVI     C,20H
+           0782  CD510B          CALL    WARN
+                         @3:
+ 101   3          end;
+                                                 ; STATEMENT # 101
+                         @11:
+           0785  21282D          LXI     H,I
+           0788  34              INR     M
+           0789  C24807          JNZ     @9
+                         @10:
+ 102   2          call del(pn(0));
+                                                 ; STATEMENT # 102
+           078C  2A9E2D          LHLD    PN
+           078F  4D              MOV     C,L
+           0790  CD6D06          CALL    DEL
+ 103   2      end;
+                                                 ; STATEMENT # 103
+           0793  C9              RET
+ 104   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 013BH    315D
+     VARIABLE AREA SIZE = 0006H      6D
+     MAXIMUM STACK SIZE = 0008H      8D
+     105 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

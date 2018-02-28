@@ -1,0 +1,429 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE BUFFER
+OBJECT MODULE PLACED IN BUFFER.OBJ
+COMPILER INVOKED BY:  :F1:plm80 buffer.plm PRINT(BUFFER.LST) OBJECT(BUFFER.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          buffer:
+              DO;
+        
+              /*
+                  ABSTRACT
+                      This module contains routines for obtaining, clearing
+                      releasing and packing buffers of 128 bytes each.
+        
+                  MODULE ORGANISATION
+                      This module contains an llocation table ('buffer$table') and
+                      4 subroutines
+                      Buffers are allocted in RAM, starting at ".MEMORY" and
+                      working upwards (to the user's program origin point).
+                      'buffer$table' contains 19 entries, allowing maximum buffer
+                      usage for 6 open files (all lined input files, 3 buffers each),
+                      plus 1 buffer for the console.
+        
+                  INVARIANTS
+                      Each entry in 'buffer$table' is initialised to '0'; legal
+                      values are 0, 1 and 2 with the following meanings
+                      0 - corresponding buffer is available, but not allocated.
+                      1 - corresponding buffer is not available, because it is
+                          in the current user RAM area
+                      2 - corresponding buffer is in use.
+        
+                      Entries change when buffes are obtained or released (via
+                      get$buf and return$buf), or when then user's program origin
+                      point is changed (by making a call to the 'load' subroutine).
+              */
+        
+              $include(buffer.ipx)
+   2   1  =   declare Clear$Buf literally 'ClrBuf';
+   3   1  =   declare AFT$BOTTOM literally '10';
+   4   1  =   declare AFT$LAST literally '17';
+   5   1  =   declare AFT$T literally 'structure(AFT$T1, AFT$T2, AFT$T3, AFT$T4)';
+   6   1  =   declare AFT$T1 literally 'empty BYTE, device BYTE, access BYTE, edit BYTE, lbuf ADDRESS';
+   7   1  =   declare AFT$T2 literally 'dbuf ADDRESS, pbuf ADDRESS, data$ptr BYTE, i$no ADDRESS, ptr$ptr BYTE';
+   8   1  =   declare AFT$T3 literally 'eofcnt BYTE, ptr$change BYTE, data$change BYTE, blk ADDRESS, blk$seq ADDRESS';
+   9   1  =   declare AFT$T4 literally 'ptr$blk ADDRESS, hdr$blk ADDRESS, data$blk$count ADDRESS, dbuf$read BYTE';
+  10   1  =   declare NO$FREE$BUFFER literally '1';
+  11   1  =   declare aft(18) AFT$T external;
+  12   1  =   abortx: procedure(errcode) external; declare errcode byte; end;
+        
+  15   1      DECLARE buffer$table(19) BYTE PUBLIC INITIAL(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+  16   1      DECLARE i BYTE;
+        
+  17   1      clear$buf: PROCEDURE(buf$address) PUBLIC;
+                                                 ; STATEMENT # 17
+                         ; PROC  CLRBUF
+           24E9  21E82E          LXI     H,BUFADDRESS+1H
+           24EC  70              MOV     M,B
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+           24ED  2B              DCX     H
+           24EE  71              MOV     M,C
+  18   2          DECLARE buf$address ADDRESS;
+  19   2          DECLARE buffer BASED buf$address (128) BYTE;
+        
+  20   2          do i = 0 to 127;
+                                                 ; STATEMENT # 20
+           24EF  21E62E          LXI     H,I
+           24F2  3600            MVI     M,0H
+                         @6:
+           24F4  3E7F            MVI     A,7FH
+           24F6  21E62E          LXI     H,I
+           24F9  BE              CMP     M
+           24FA  DA1025          JC      @7
+  21   3              buffer(i) = 0;
+                                                 ; STATEMENT # 21
+           24FD  2AE62E          LHLD    I
+           2500  2600            MVI     H,0
+           2502  EB              XCHG
+           2503  2AE72E          LHLD    BUFADDRESS
+           2506  19              DAD     D
+           2507  3600            MVI     M,0H
+  22   3          end;
+                                                 ; STATEMENT # 22
+                         @8:
+           2509  21E62E          LXI     H,I
+           250C  34              INR     M
+           250D  C2F424          JNZ     @6
+                         @7:
+  23   2      end;
+                                                 ; STATEMENT # 23
+           2510  C9              RET
+        
+  24   1      return$buf: PROCEDURE(buf$address) PUBLIC;
+                                                 ; STATEMENT # 24
+                         ; PROC  RETURNBUF
+           2511  21EA2E          LXI     H,BUFADDRESS+1H
+           2514  70              MOV     M,B
+           2515  2B              DCX     H
+           2516  71              MOV     M,C
+  25   2          DECLARE buf$address ADDRESS;
+        
+  26   2          buffer$table(shr(buf$address - .MEMORY, 7)) = 0;
+                                                 ; STATEMENT # 26
+           2517  010030          LXI     B,MEMORY
+           251A  11E92E          LXI     D,BUFADDRESS
+           251D  CD2D2A          CALL    @P0100 
+           2520  0E07            MVI     C,7H
+           2522  CD082A          CALL    @P0093 
+           2525  01D32E          LXI     B,BUFFERTABLE
+           2528  09              DAD     B
+           2529  3600            MVI     M,0H
+  27   2      end;
+                                                 ; STATEMENT # 27
+           252B  C9              RET
+        
+        
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+        
+        
+  28   1      get$buf: PROCEDURE ADDRESS PUBLIC;
+                                                 ; STATEMENT # 28
+                         ; PROC  GETBUF
+  29   2          do i = 0 to last(buffer$table);
+                                                 ; STATEMENT # 29
+           252C  21E62E          LXI     H,I
+           252F  3600            MVI     M,0H
+                         @9:
+           2531  3E12            MVI     A,12H
+           2533  21E62E          LXI     H,I
+           2536  BE              CMP     M
+           2537  DA6A25          JC      @10
+  30   3              if buffer$table(i) = 0 then
+                                                 ; STATEMENT # 30
+           253A  2AE62E          LHLD    I
+           253D  2600            MVI     H,0
+           253F  01D32E          LXI     B,BUFFERTABLE
+           2542  09              DAD     B
+           2543  7E              MOV     A,M
+           2544  FE00            CPI     0H
+           2546  C26325          JNZ     @1
+  31   3              do;
+  32   4                  buffer$table(i) = 2;
+                                                 ; STATEMENT # 32
+           2549  2AE62E          LHLD    I
+           254C  2600            MVI     H,0
+           254E  01D32E          LXI     B,BUFFERTABLE
+           2551  09              DAD     B
+           2552  3602            MVI     M,2H
+  33   4                  return .MEMORY + shl(DOUBLE(i), 7);
+                                                 ; STATEMENT # 33
+           2554  2AE62E          LHLD    I
+           2557  2600            MVI     H,0
+           2559  0E07            MVI     C,7H
+           255B  CDFE29          CALL    @P0088 
+           255E  010030          LXI     B,MEMORY
+           2561  09              DAD     B
+           2562  C9              RET
+  34   4              end;
+                                                 ; STATEMENT # 34
+                         @1:
+  35   3          end;
+                                                 ; STATEMENT # 35
+                         @11:
+           2563  21E62E          LXI     H,I
+           2566  34              INR     M
+           2567  C23125          JNZ     @9
+                         @10:
+  36   2          call abortx(NO$FREE$BUFFER);    /* 1 */
+                                                 ; STATEMENT # 36
+           256A  0E01            MVI     C,1H
+           256C  CD4B0B          CALL    ABORTX
+  37   2      end;
+                                                 ; STATEMENT # 37
+           256F  C9              RET
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+        
+              /*
+                  ABSTRACT
+                      This routine reassigns buffer space and moves buffer
+                      contents as necessary, to ensure that there is no unused
+                      buffer space below the area occupied by the highest buffer
+                      in use.
+        
+        
+                  RETURNS
+                      The address of the first (lowest) byte in the first
+                      (lowest) unallocated buffer. THis information is the "top of
+                      buffer area" described in the mds-dos operator's manual.
+        
+                  DESCRIPTION
+                      For every AFT entry which is a currently assigned
+                      buffer address, the buffer is returned (using 'return$buf')
+                      and is replace by a new buffer (using 'get$buf'). If the new
+                      buffer is a different one than the one returned, then the
+                      data from the old is moved into the new.
+              */
+        
+        
+        
+  38   1      pack$aft$buf: PROCEDURE ADDRESS PUBLIC;
+                                                 ; STATEMENT # 38
+                         ; PROC  PACKAFTBUF
+  39   2          DECLARE (i, j, index) BYTE;
+  40   2          DECLARE buffer$top ADDRESS;
+  41   2          DECLARE bptr ADDRESS, bufadr BASED bptr ADDRESS;
+  42   2          DECLARE new$badr ADDRESS, new$datum BASED new$badr(128) BYTE,
+                      old$badr ADDRESS, old$datum BASED old$badr(128) BYTE;
+        
+  43   2          buffer$top = .MEMORY;
+                                                 ; STATEMENT # 43
+           2570  210030          LXI     H,MEMORY
+           2573  22EE2E          SHLD    BUFFERTOP
+  44   2          do i = AFT$BOTTOM to AFT$LAST;
+                                                 ; STATEMENT # 44
+           2576  21EB2E          LXI     H,I
+           2579  360A            MVI     M,0AH
+                         @12:
+           257B  3E11            MVI     A,11H
+           257D  21EB2E          LXI     H,I
+           2580  BE              CMP     M
+           2581  DA7526          JC      @13
+  45   3              if not aft(i).empty then
+                                                 ; STATEMENT # 45
+           2584  111C00          LXI     D,1CH
+           2587  2AEB2E          LHLD    I
+           258A  2600            MVI     H,0
+           258C  CDC829          CALL    @P0034 
+           258F  01F02A          LXI     B,AFT
+           2592  09              DAD     B
+           2593  7E              MOV     A,M
+           2594  1F              RAR
+           2595  DA6E26          JC      @2
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+  46   3              do index = 0 to 4 BY 2;
+                                                 ; STATEMENT # 46
+           2598  21ED2E          LXI     H,INDEX
+           259B  3600            MVI     M,0H
+                         @14:
+           259D  3E04            MVI     A,4H
+           259F  21ED2E          LXI     H,INDEX
+           25A2  BE              CMP     M
+           25A3  DA6E26          JC      @15
+           25A6  C3B725          JMP     @16
+                         @17:
+           25A9  3AED2E          LDA     INDEX
+           25AC  C602            ADI     2H
+           25AE  32ED2E          STA     INDEX
+           25B1  D29D25          JNC     @14
+           25B4  C36E26          JMP     @15
+                         @16:
+  47   4                  bptr = .aft(i).pbuf - index;
+                                                 ; STATEMENT # 47
+           25B7  111C00          LXI     D,1CH
+           25BA  2AEB2E          LHLD    I
+           25BD  2600            MVI     H,0
+           25BF  CDC829          CALL    @P0034 
+           25C2  01F02A          LXI     B,AFT
+           25C5  09              DAD     B
+           25C6  010800          LXI     B,PBUF
+           25C9  09              DAD     B
+           25CA  EB              XCHG
+           25CB  3AED2E          LDA     INDEX
+           25CE  CD1E2A          CALL    @P0096 
+           25D1  22F02E          SHLD    BPTR
+  48   4                  j = shr(bufadr - .MEMORY, 7);
+                                                 ; STATEMENT # 48
+           25D4  EB              XCHG
+           25D5  010030          LXI     B,MEMORY
+           25D8  CD2D2A          CALL    @P0100 
+           25DB  0E07            MVI     C,7H
+           25DD  CD082A          CALL    @P0093 
+           25E0  EB              XCHG
+           25E1  21EC2E          LXI     H,J
+           25E4  73              MOV     M,E
+  49   4                  if j <= last(buffer$table) and buffer$table(j) = 2 then
+                                                 ; STATEMENT # 49
+           25E5  3E12            MVI     A,12H
+           25E7  93              SUB     E
+           25E8  9F              SBB     A
+           25E9  2F              CMA
+           25EA  1600            MVI     D,0
+           25EC  21D32E          LXI     H,BUFFERTABLE
+           25EF  19              DAD     D
+           25F0  F5              PUSH    PSW     ; 1
+           25F1  7E              MOV     A,M
+           25F2  D602            SUI     2H
+           25F4  D601            SUI     1
+           25F6  9F              SBB     A
+           25F7  C1              POP     B       ; 1
+           25F8  48              MOV     C,B
+PL/M-80 COMPILER                                                                                                PAGE   6
+
+
+           25F9  A1              ANA     C
+           25FA  1F              RAR
+           25FB  D26B26          JNC     @3
+  50   4                  do;
+  51   5                      old$badr = bufadr;
+                                                 ; STATEMENT # 51
+           25FE  2AF02E          LHLD    BPTR
+           2601  5E              MOV     E,M
+           2602  23              INX     H
+           2603  56              MOV     D,M
+           2604  EB              XCHG
+           2605  22F42E          SHLD    OLDBADR
+  52   5                      call return$buf(old$badr);
+                                                 ; STATEMENT # 52
+           2608  2AF42E          LHLD    OLDBADR
+           260B  44              MOV     B,H
+           260C  4D              MOV     C,L
+           260D  CD1125          CALL    RETURNBUF
+  53   5                      if buffer$top < (new$badr := getbuf) then
+                                                 ; STATEMENT # 53
+           2610  CD2C25          CALL    GETBUF
+           2613  22F22E          SHLD    NEWBADR
+           2616  11EE2E          LXI     D,BUFFERTOP
+           2619  CD382A          CALL    @P0102 
+           261C  D22526          JNC     @4
+  54   5                          buffer$top = new$badr;
+                                                 ; STATEMENT # 54
+           261F  2AF22E          LHLD    NEWBADR
+           2622  22EE2E          SHLD    BUFFERTOP
+                         @4:
+  55   5                      if new$badr <> old$badr then
+                                                 ; STATEMENT # 55
+           2625  01F42E          LXI     B,OLDBADR
+           2628  11F22E          LXI     D,NEWBADR
+           262B  CD282A          CALL    @P0098 
+           262E  B5              ORA     L
+           262F  CA6B26          JZ      @5
+  56   5                      do;
+  57   6                          do j = 0 to 127;
+                                                 ; STATEMENT # 57
+           2632  21EC2E          LXI     H,J
+           2635  3600            MVI     M,0H
+                         @18:
+           2637  3E7F            MVI     A,7FH
+           2639  21EC2E          LXI     H,J
+           263C  BE              CMP     M
+           263D  DA5F26          JC      @19
+  58   7                              new$datum(j) = old$datum(j);
+                                                 ; STATEMENT # 58
+           2640  2AEC2E          LHLD    J
+           2643  2600            MVI     H,0
+           2645  EB              XCHG
+           2646  2AF42E          LHLD    OLDBADR
+           2649  19              DAD     D
+           264A  E5              PUSH    H       ; 1
+           264B  2AEC2E          LHLD    J
+           264E  2600            MVI     H,0
+PL/M-80 COMPILER                                                                                                PAGE   7
+
+
+           2650  EB              XCHG
+           2651  2AF22E          LHLD    NEWBADR
+           2654  19              DAD     D
+           2655  C1              POP     B       ; 1
+           2656  0A              LDAX    B
+           2657  77              MOV     M,A
+  59   7                          end;
+                                                 ; STATEMENT # 59
+                         @20:
+           2658  21EC2E          LXI     H,J
+           265B  34              INR     M
+           265C  C23726          JNZ     @18
+                         @19:
+  60   6                          bufadr = new$badr;
+                                                 ; STATEMENT # 60
+           265F  2AF02E          LHLD    BPTR
+           2662  E5              PUSH    H       ; 1
+           2663  2AF22E          LHLD    NEWBADR
+           2666  EB              XCHG
+           2667  E1              POP     H       ; 1
+           2668  73              MOV     M,E
+           2669  23              INX     H
+           266A  72              MOV     M,D
+  61   6                      end;
+                                                 ; STATEMENT # 61
+                         @5:
+  62   5                  end;
+                                                 ; STATEMENT # 62
+                         @3:
+  63   4              end;    /* of loop to handle each buffer p, d, l */
+                                                 ; STATEMENT # 63
+           266B  C3A925          JMP     @17
+                         @15:
+                         @2:
+  64   3          end;    /* of look to traverse aft */
+                                                 ; STATEMENT # 64
+                         @21:
+           266E  21EB2E          LXI     H,I
+           2671  34              INR     M
+           2672  C27B25          JNZ     @12
+                         @13:
+  65   2          return buffer$top + 128;
+                                                 ; STATEMENT # 65
+           2675  118000          LXI     D,80H
+           2678  2AEE2E          LHLD    BUFFERTOP
+           267B  19              DAD     D
+           267C  C9              RET
+  66   2      end;
+                                                 ; STATEMENT # 66
+  67   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 0194H    404D
+PL/M-80 COMPILER                                                                                                PAGE   8
+
+
+     VARIABLE AREA SIZE = 0023H     35D
+     MAXIMUM STACK SIZE = 0004H      4D
+     131 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

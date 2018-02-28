@@ -1,0 +1,99 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE RESCAN
+OBJECT MODULE PLACED IN RESCAN.OBJ
+COMPILER INVOKED BY:  :F1:plm80 rescan.plm PRINT(RESCAN.LST) OBJECT(RESCAN.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          rescan:
+              DO;
+        
+              $include(rescan.ipx)
+   2   1  =   declare Aft$Window literally 'AWindo';
+   3   1  =   declare CANT$RESCAN literally '21';
+   4   1  =   declare a$edit$p address external;
+   5   1  =   declare a$lbuf$p address external;
+   6   1  =   Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+   9   1  =   warn: procedure(errcode) external; declare errcode byte; end;
+  12   1  =   declare a$edit based a$edit$p  byte;
+  13   1  =   declare a$lbuf based a$lbuf$p  address;
+        
+  14   1      rescan: PROCEDURE(aftn) PUBLIC;
+                                                 ; STATEMENT # 14
+                         ; PROC  RESCAN
+           0000  210000          LXI     H,AFTN
+           0003  71              MOV     M,C
+  15   2          DECLARE aftn BYTE;
+  16   2          DECLARE temp ADDRESS, bytes BASED temp(128) BYTE,
+                                addr BASED temp(64) ADDRESS;
+        
+  17   2          call aft$window(aftn);
+                                                 ; STATEMENT # 17
+           0004  2A0000          LHLD    AFTN
+           0007  4D              MOV     C,L
+           0008  CD0000          CALL    AWINDO
+  18   2          temp = a$lbuf;
+                                                 ; STATEMENT # 18
+           000B  2A0000          LHLD    ALBUFP
+           000E  5E              MOV     E,M
+           000F  23              INX     H
+           0010  56              MOV     D,M
+           0011  EB              XCHG
+           0012  220100          SHLD    TEMP
+  19   2          if a$edit <> 0 AND NOT bytes(125) then
+                                                 ; STATEMENT # 19
+           0015  2A0000          LHLD    AEDITP
+           0018  7E              MOV     A,M
+           0019  D600            SUI     0H
+           001B  C6FF            ADI     255
+           001D  9F              SBB     A
+           001E  017D00          LXI     B,7DH
+           0021  2A0100          LHLD    TEMP
+           0024  09              DAD     B
+           0025  F5              PUSH    PSW     ; 1
+           0026  7E              MOV     A,M
+           0027  2F              CMA
+           0028  C1              POP     B       ; 1
+           0029  48              MOV     C,B
+           002A  A1              ANA     C
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+           002B  1F              RAR
+           002C  D23F00          JNC     @1
+  20   2              addr(63) = 0;   /* lptr = 0, lptr = false */
+                                                 ; STATEMENT # 20
+           002F  017E00          LXI     B,7EH
+           0032  2A0100          LHLD    TEMP
+           0035  09              DAD     B
+           0036  3E00            MVI     A,0H
+           0038  77              MOV     M,A
+           0039  23              INX     H
+           003A  3600            MVI     M,0
+           003C  C34400          JMP     @2
+                         @1:
+                  else
+  21   2              call warn(CANT$RESCAN);
+                                                 ; STATEMENT # 21
+           003F  0E15            MVI     C,15H
+           0041  CD0000          CALL    WARN
+                         @2:
+  22   2      end;
+                                                 ; STATEMENT # 22
+           0044  C9              RET
+  23   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 0045H     69D
+     VARIABLE AREA SIZE = 0003H      3D
+     MAXIMUM STACK SIZE = 0002H      2D
+     27 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

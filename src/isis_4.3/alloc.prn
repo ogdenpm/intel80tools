@@ -1,0 +1,595 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE ALLOC
+OBJECT MODULE PLACED IN ALLOC.OBJ
+COMPILER INVOKED BY:  :F1:plm80 alloc.plm PRINT(ALLOC.LST) OBJECT(ALLOC.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          alloc:
+              do;
+              $include(alloc.ipx)
+   2   1  =   declare Get$Block literally 'GetBlk';
+   3   1  =   declare Map$Write literally 'MapWri';
+   4   1  =   declare CMD$READ literally '4';
+   5   1  =   declare CMD$WRITE literally '6';
+   6   1  =   declare DCB$T literally 'structure(iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE, buf ADDRESS)';
+   7   1  =   declare DISK$FULL literally '7';
+   8   1  =   declare FALSE literally '0';
+   9   1  =   declare TRUE literally '0ffh';
+  10   1  =   abortx: procedure(errcode) external; declare errcode byte; end;
+  13   1  =   diskio: procedure(drive, iopb) external; declare drive byte, iopb address; end;
+        
+  16   1      DECLARE tracksTable(10) BYTE PUBLIC,    /* initialised by boot routines */
+                  sectorsTable(10) BYTE PUBLIC,
+                  bitmapBuffer(128) BYTE,
+                  current$bitmap BYTE PUBLIC INITIAL(0ffh),
+                  map$change BYTE INITIAL(FALSE),
+                  baseTrackSector ADDRESS,
+                  baseSector BYTE AT (.baseTrackSector),
+                  baseTrack BYTE AT (.baseTrackSector + 1),
+                  bitmapIndex ADDRESS,
+                  lowBitMapIndex BYTE AT (.bitmapIndex),
+                  map$dcb DCB$T INITIAL(80h, 4, 1, 2, 2, .bitmapBuffer),
+                  current$part BYTE INITIAL(0ffh),
+                  base$part BYTE INITIAL(0),
+                  next$part BYTE INITIAL(0),
+                  bitmapByte$p ADDRESS INITIAL(0),
+                  (lowBitmapByte$p, highBitmapByte$p) BYTE AT (.bitmapByte$p),
+                  bitmapByte BASED bitmapByte$p BYTE,
+                  bitmapBit BYTE,
+                  command BYTE,
+                  disk BYTE,
+                  tracksPerDisk BYTE,
+                  sectorsPerTrack BYTE;
+        
+        
+  17   1      mapio:  PROCEDURE;
+                                                 ; STATEMENT # 17
+                         ; PROC  MAPIO
+  18   2          map$change = FALSE;
+                                                 ; STATEMENT # 18
+           2287  21B42E          LXI     H,MAPCHANGE
+           228A  3600            MVI     M,0H
+  19   2          map$dcb.ioins = command;    /* set up command */
+                                                 ; STATEMENT # 19
+           228C  3AC62E          LDA     COMMAND
+           228F  32BA2E          STA     MAPDCB+1H
+  20   2          map$dcb.tadr = 2;       /* set up partition */
+                                                 ; STATEMENT # 20
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+           2292  21BC2E          LXI     H,MAPDCB+3H
+           2295  3602            MVI     M,2H
+  21   2          map$dcb.sadr = current$part + 2;
+                                                 ; STATEMENT # 21
+           2297  3AC02E          LDA     CURRENTPART
+           229A  3C              INR     A
+           229B  3C              INR     A
+           229C  23              INX     H
+           229D  77              MOV     M,A
+  22   2          call diskio(disk, .map$dcb);
+                                                 ; STATEMENT # 22
+           229E  2AC72E          LHLD    DISK
+           22A1  4D              MOV     C,L
+           22A2  11B92E          LXI     D,MAPDCB
+           22A5  CDDC07          CALL    DISKIO
+  23   2      end;
+                                                 ; STATEMENT # 23
+           22A8  C9              RET
+        
+        
+  24   1      map$write: PROCEDURE(diskNum) PUBLIC;
+                                                 ; STATEMENT # 24
+                         ; PROC  MAPWRI
+           22A9  21CA2E          LXI     H,DISKNUM
+           22AC  71              MOV     M,C
+  25   2          DECLARE diskNum BYTE;
+        
+  26   2          disk = diskNum;
+                                                 ; STATEMENT # 26
+           22AD  3ACA2E          LDA     DISKNUM
+           22B0  32C72E          STA     DISK
+  27   2          if  disk = current$bitmap AND map$change then
+                                                 ; STATEMENT # 27
+           22B3  21B32E          LXI     H,CURRENTBITMAP
+           22B6  96              SUB     M
+           22B7  D601            SUI     1
+           22B9  9F              SBB     A
+           22BA  23              INX     H
+           22BB  A6              ANA     M
+           22BC  1F              RAR
+           22BD  D2C822          JNC     @1
+  28   2          do;
+  29   3              command = CMD$WRITE;    
+                                                 ; STATEMENT # 29
+           22C0  21C62E          LXI     H,COMMAND
+           22C3  3606            MVI     M,6H
+  30   3              call mapio;
+                                                 ; STATEMENT # 30
+           22C5  CD8722          CALL    MAPIO
+  31   3          end;
+                                                 ; STATEMENT # 31
+                         @1:
+  32   2      end;
+                                                 ; STATEMENT # 32
+           22C8  C9              RET
+        
+                      
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+        
+  33   1      map$read: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 33
+                         ; PROC  MAPREAD
+  34   2          DECLARE temp BYTE;
+        
+  35   2          temp = disk <> current$bitmap;
+                                                 ; STATEMENT # 35
+           22C9  21B32E          LXI     H,CURRENTBITMAP
+           22CC  3AC72E          LDA     DISK
+           22CF  96              SUB     M
+           22D0  C6FF            ADI     255
+           22D2  9F              SBB     A
+           22D3  32CB2E          STA     TEMP
+  36   2          if current$part <> next$part or temp then
+                                                 ; STATEMENT # 36
+           22D6  21C22E          LXI     H,NEXTPART
+           22D9  3AC02E          LDA     CURRENTPART
+           22DC  96              SUB     M
+           22DD  C6FF            ADI     255
+           22DF  9F              SBB     A
+           22E0  21CB2E          LXI     H,TEMP
+           22E3  B6              ORA     M
+           22E4  1F              RAR
+           22E5  D22623          JNC     @2
+  37   2          do;
+  38   3              if temp then
+                                                 ; STATEMENT # 38
+           22E8  3ACB2E          LDA     TEMP
+           22EB  1F              RAR
+           22EC  D20023          JNC     @3
+  39   3              do;
+  40   4                  base$part = 0;
+                                                 ; STATEMENT # 40
+           22EF  21C12E          LXI     H,BASEPART
+           22F2  3600            MVI     M,0H
+  41   4                  bitmapIndex = 0;
+                                                 ; STATEMENT # 41
+           22F4  210000          LXI     H,0H
+           22F7  22B72E          SHLD    BITMAPINDEX
+  42   4                  baseTrackSector = 1;
+                                                 ; STATEMENT # 42
+           22FA  210100          LXI     H,1H
+           22FD  22B52E          SHLD    BASETRACKSECTOR
+  43   4              end;
+                                                 ; STATEMENT # 43
+                         @3:
+  44   3              temp = disk;
+                                                 ; STATEMENT # 44
+           2300  3AC72E          LDA     DISK
+           2303  32CB2E          STA     TEMP
+  45   3              call map$write(current$bitmap);
+                                                 ; STATEMENT # 45
+           2306  2AB32E          LHLD    CURRENTBITMAP
+           2309  4D              MOV     C,L
+           230A  CDA922          CALL    MAPWRI
+  46   3              disk = temp;
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+                                                 ; STATEMENT # 46
+           230D  3ACB2E          LDA     TEMP
+           2310  32C72E          STA     DISK
+  47   3              command = CMD$READ;
+                                                 ; STATEMENT # 47
+           2313  21C62E          LXI     H,COMMAND
+           2316  3604            MVI     M,4H
+  48   3              current$part = next$part;
+                                                 ; STATEMENT # 48
+           2318  3AC22E          LDA     NEXTPART
+           231B  32C02E          STA     CURRENTPART
+  49   3              current$bitmap = disk;
+                                                 ; STATEMENT # 49
+           231E  23              INX     H
+           231F  7E              MOV     A,M
+           2320  32B32E          STA     CURRENTBITMAP
+  50   3              call mapio;
+                                                 ; STATEMENT # 50
+           2323  CD8722          CALL    MAPIO
+  51   3          end;
+                                                 ; STATEMENT # 51
+                         @2:
+  52   2      end;
+                                                 ; STATEMENT # 52
+           2326  C9              RET
+        
+        
+  53   1      set$num$sect$trk: PROCEDURE;
+                                                 ; STATEMENT # 53
+                         ; PROC  SETNUMSECTTRK
+  54   2          sectorsPerTrack = sectorsTable(disk);
+                                                 ; STATEMENT # 54
+           2327  2AC72E          LHLD    DISK
+           232A  2600            MVI     H,0
+           232C  01292E          LXI     B,SECTORSTABLE
+           232F  09              DAD     B
+           2330  7E              MOV     A,M
+           2331  32C92E          STA     SECTORSPERTRACK
+  55   2          tracksPerDisk = tracksTable(disk);
+                                                 ; STATEMENT # 55
+           2334  2AC72E          LHLD    DISK
+           2337  2600            MVI     H,0
+           2339  011F2E          LXI     B,TRACKSTABLE
+           233C  09              DAD     B
+           233D  7E              MOV     A,M
+           233E  32C82E          STA     TRACKSPERDISK
+  56   2      end;
+                                                 ; STATEMENT # 56
+           2341  C9              RET
+        
+        
+        
+  57   1      get$block: PROCEDURE(diskNum) ADDRESS PUBLIC;
+                                                 ; STATEMENT # 57
+                         ; PROC  GETBLK
+           2342  21CC2E          LXI     H,DISKNUM
+           2345  71              MOV     M,C
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+  58   2          DECLARE diskNum BYTE;
+  59   2          DECLARE trackSector ADDRESS,
+                      sector BYTE AT (.trackSector),
+                      track BYTE AT (.trackSector + 1);
+        
+  60   2          disk = diskNum;
+                                                 ; STATEMENT # 60
+           2346  3ACC2E          LDA     DISKNUM
+           2349  32C72E          STA     DISK
+  61   2          call set$num$sect$trk;
+                                                 ; STATEMENT # 61
+           234C  CD2723          CALL    SETNUMSECTTRK
+  62   2          next$part = base$part;
+                                                 ; STATEMENT # 62
+           234F  3AC12E          LDA     BASEPART
+           2352  32C22E          STA     NEXTPART
+  63   2          if disk <> current$bitmap then
+                                                 ; STATEMENT # 63
+           2355  21B32E          LXI     H,CURRENTBITMAP
+           2358  3AC72E          LDA     DISK
+           235B  BE              CMP     M
+           235C  CA6423          JZ      @4
+  64   2              next$part = 0;
+                                                 ; STATEMENT # 64
+           235F  21C22E          LXI     H,NEXTPART
+           2362  3600            MVI     M,0H
+                         @4:
+  65   2          call map$read;
+                                                 ; STATEMENT # 65
+           2364  CDC922          CALL    MAPREAD
+  66   2          bitmapBit = ror(1, lowBitmapIndex and 7);
+                                                 ; STATEMENT # 66
+           2367  3AB72E          LDA     LOWBITMAPINDEX
+           236A  E607            ANI     7H
+           236C  4F              MOV     C,A
+           236D  3E01            MVI     A,1H
+           236F  CDF429          CALL    @P0072 
+           2372  32C52E          STA     BITMAPBIT
+  67   2          do track = baseTrack TO tracksPerDisk;
+                                                 ; STATEMENT # 67
+           2375  3AB62E          LDA     BASETRACK
+           2378  32CE2E          STA     TRACK
+                         @12:
+           237B  3AC82E          LDA     TRACKSPERDISK
+           237E  21CE2E          LXI     H,TRACK
+           2381  BE              CMP     M
+           2382  DA4924          JC      @13
+  68   3              do sector = baseSector TO sectorsPerTrack;
+                                                 ; STATEMENT # 68
+           2385  3AB52E          LDA     BASESECTOR
+           2388  32CD2E          STA     SECTOR
+                         @14:
+           238B  3AC92E          LDA     SECTORSPERTRACK
+           238E  21CD2E          LXI     H,SECTOR
+           2391  BE              CMP     M
+           2392  DA3D24          JC      @15
+  69   4                  bitmapByte$p = .bitmapBuffer(SHR(bitmapIndex, 3));
+PL/M-80 COMPILER                                                                                                PAGE   6
+
+
+                                                 ; STATEMENT # 69
+           2395  0E03            MVI     C,3H
+           2397  21B72E          LXI     H,BITMAPINDEX
+           239A  CD042A          CALL    @P0091 
+           239D  01332E          LXI     B,BITMAPBUFFER
+           23A0  09              DAD     B
+           23A1  22C32E          SHLD    BITMAPBYTEP
+  70   4                  if bitmapByte = 0ffh  AND bitmapBit then    /* no free entry */
+                                                 ; STATEMENT # 70
+           23A4  7E              MOV     A,M
+           23A5  D6FF            SUI     0FFH
+           23A7  D601            SUI     1
+           23A9  9F              SBB     A
+           23AA  21C52E          LXI     H,BITMAPBIT
+           23AD  A6              ANA     M
+           23AE  1F              RAR
+           23AF  D2E923          JNC     @5
+  71   4                  do;
+  72   5                      bitmapIndex = bitmapIndex + 8;
+                                                 ; STATEMENT # 72
+           23B2  110800          LXI     D,8H
+           23B5  2AB72E          LHLD    BITMAPINDEX
+           23B8  19              DAD     D
+           23B9  22B72E          SHLD    BITMAPINDEX
+  73   5                      sector = sector + 7;            /* the do loop adds 1 */
+                                                 ; STATEMENT # 73
+           23BC  3ACD2E          LDA     SECTOR
+           23BF  C607            ADI     7H
+           23C1  32CD2E          STA     SECTOR
+  74   5                      if sector > sectorsPerTrack then
+                                                 ; STATEMENT # 74
+           23C4  3AC92E          LDA     SECTORSPERTRACK
+           23C7  21CD2E          LXI     H,SECTOR
+           23CA  BE              CMP     M
+           23CB  D2E623          JNC     @6
+  75   5                      do;
+  76   6                          sector = sector - sectorsPerTrack;
+                                                 ; STATEMENT # 76
+           23CE  21C92E          LXI     H,SECTORSPERTRACK
+           23D1  3ACD2E          LDA     SECTOR
+           23D4  96              SUB     M
+           23D5  32CD2E          STA     SECTOR
+  77   6                          track = track + 1;
+                                                 ; STATEMENT # 77
+           23D8  21CE2E          LXI     H,TRACK
+           23DB  34              INR     M
+  78   6                          if track > tracksPerDisk then   
+                                                 ; STATEMENT # 78
+           23DC  3AC82E          LDA     TRACKSPERDISK
+           23DF  BE              CMP     M
+           23E0  D2E623          JNC     @7
+  79   6                              goto full;
+                                                 ; STATEMENT # 79
+           23E3  C34924          JMP     FULL
+                         @7:
+  80   6                      end;
+                                                 ; STATEMENT # 80
+PL/M-80 COMPILER                                                                                                PAGE   7
+
+
+                         @6:
+  81   5                  end;
+                                                 ; STATEMENT # 81
+           23E6  C31A24          JMP     @8
+                         @5:
+                          else
+  82   4                  do;
+  83   5                      if ((bitmapBit := ROR(bitmapBit, 1)) AND bitmapByte) = 0 then   /* found a slot */
+                                                 ; STATEMENT # 83
+           23E9  3AC52E          LDA     BITMAPBIT
+           23EC  0F              RRC
+           23ED  32C52E          STA     BITMAPBIT
+           23F0  2AC32E          LHLD    BITMAPBYTEP
+           23F3  A6              ANA     M
+           23F4  FE00            CPI     0H
+           23F6  C21324          JNZ     @9
+  84   5                      do;
+  85   6                          map$change = TRUE;
+                                                 ; STATEMENT # 85
+           23F9  21B42E          LXI     H,MAPCHANGE
+           23FC  36FF            MVI     M,0FFH
+  86   6                          bitmapByte = bitmapByte OR bitmapBit;
+                                                 ; STATEMENT # 86
+           23FE  2AC32E          LHLD    BITMAPBYTEP
+           2401  3AC52E          LDA     BITMAPBIT
+           2404  B6              ORA     M
+           2405  77              MOV     M,A
+  87   6                          base$part = current$part;
+                                                 ; STATEMENT # 87
+           2406  3AC02E          LDA     CURRENTPART
+           2409  32C12E          STA     BASEPART
+  88   6                          return (baseTrackSector := trackSector);
+                                                 ; STATEMENT # 88
+           240C  2ACD2E          LHLD    TRACKSECTOR
+           240F  22B52E          SHLD    BASETRACKSECTOR
+           2412  C9              RET
+  89   6                      end;
+                                                 ; STATEMENT # 89
+                         @9:
+  90   5                      bitmapIndex = bitmapIndex + 1;
+                                                 ; STATEMENT # 90
+           2413  2AB72E          LHLD    BITMAPINDEX
+           2416  23              INX     H
+           2417  22B72E          SHLD    BITMAPINDEX
+  91   5                  end;
+                                                 ; STATEMENT # 91
+                         @8:
+  92   4                  if bitmapIndex > 03ffh then
+                                                 ; STATEMENT # 92
+           241A  11FF03          LXI     D,3FFH
+           241D  21B72E          LXI     H,BITMAPINDEX
+           2420  CD432A          CALL    @P0104 
+           2423  D23624          JNC     @10
+  93   4                  do;
+  94   5                      next$part = current$part + 1;
+                                                 ; STATEMENT # 94
+           2426  3AC02E          LDA     CURRENTPART
+PL/M-80 COMPILER                                                                                                PAGE   8
+
+
+           2429  3C              INR     A
+           242A  32C22E          STA     NEXTPART
+  95   5                      call map$read;
+                                                 ; STATEMENT # 95
+           242D  CDC922          CALL    MAPREAD
+  96   5                      bitmapIndex = 0;
+                                                 ; STATEMENT # 96
+           2430  210000          LXI     H,0H
+           2433  22B72E          SHLD    BITMAPINDEX
+  97   5                  end;
+                                                 ; STATEMENT # 97
+                         @10:
+  98   4              end;
+                                                 ; STATEMENT # 98
+                         @16:
+           2436  21CD2E          LXI     H,SECTOR
+           2439  34              INR     M
+           243A  C28B23          JNZ     @14
+                         @15:
+  99   3              baseSector = 1; 
+                                                 ; STATEMENT # 99
+           243D  21B52E          LXI     H,BASESECTOR
+           2440  3601            MVI     M,1H
+ 100   3          end;
+                                                 ; STATEMENT # 100
+                         @17:
+           2442  21CE2E          LXI     H,TRACK
+           2445  34              INR     M
+           2446  C27B23          JNZ     @12
+                         @13:
+ 101   2      full:
+                                                 ; STATEMENT # 101
+                         FULL:
+           2449  0E07            MVI     C,7H
+           244B  CD4B0B          CALL    ABORTX
+                  call abortx(DISK$FULL);
+ 102   2      end;
+                                                 ; STATEMENT # 102
+           244E  C9              RET
+        
+        
+ 103   1      free$block: PROCEDURE(diskNum, trackSector) PUBLIC;
+                                                 ; STATEMENT # 103
+                         ; PROC  FREEBLOCK
+           244F  21D12E          LXI     H,TRACKSECTOR+1H
+           2452  72              MOV     M,D
+           2453  2B              DCX     H
+           2454  73              MOV     M,E
+           2455  2B              DCX     H
+           2456  71              MOV     M,C
+ 104   2          DECLARE disknum BYTE, trackSector ADDRESS;
+ 105   2          DECLARE (sector, track) BYTE AT (.trackSector);
+ 106   2          DECLARE temp BYTE;
+        
+ 107   2          disk = disknum;
+                                                 ; STATEMENT # 107
+           2457  3ACF2E          LDA     DISKNUM
+PL/M-80 COMPILER                                                                                                PAGE   9
+
+
+           245A  32C72E          STA     DISK
+ 108   2          call set$num$sect$trk;
+                                                 ; STATEMENT # 108
+           245D  CD2723          CALL    SETNUMSECTTRK
+ 109   2          bitmapByte$p = track * sectorsPerTrack + sector - 1;
+                                                 ; STATEMENT # 109
+           2460  2AC92E          LHLD    SECTORSPERTRACK
+           2463  2600            MVI     H,0
+           2465  EB              XCHG
+           2466  2AD12E          LHLD    TRACK
+           2469  2600            MVI     H,0
+           246B  CDC829          CALL    @P0034 
+           246E  E5              PUSH    H       ; 1
+           246F  2AD02E          LHLD    SECTOR
+           2472  2600            MVI     H,0
+           2474  C1              POP     B       ; 1
+           2475  09              DAD     B
+           2476  2B              DCX     H
+           2477  22C32E          SHLD    BITMAPBYTEP
+ 110   2          next$part = shr(highBitmapByte$p, 2);
+                                                 ; STATEMENT # 110
+           247A  3AC42E          LDA     HIGHBITMAPBYTEP
+           247D  E6FE            ANI     254
+           247F  1F              RAR
+           2480  1F              RAR
+           2481  32C22E          STA     NEXTPART
+ 111   2          if bitmapByte$p < bitmapIndex + shl(double(base$part),10) then
+                                                 ; STATEMENT # 111
+           2484  2AC12E          LHLD    BASEPART
+           2487  2600            MVI     H,0
+           2489  0E0A            MVI     C,0AH
+           248B  CDFE29          CALL    @P0088 
+           248E  EB              XCHG
+           248F  2AB72E          LHLD    BITMAPINDEX
+           2492  19              DAD     D
+           2493  11C32E          LXI     D,BITMAPBYTEP
+           2496  CD382A          CALL    @P0102 
+           2499  D2B424          JNC     @11
+ 112   2          do;
+ 113   3              base$part = next$part;
+                                                 ; STATEMENT # 113
+           249C  3AC22E          LDA     NEXTPART
+           249F  32C12E          STA     BASEPART
+ 114   3              bitmapIndex = bitmapByte$p AND 03ffh;
+                                                 ; STATEMENT # 114
+           24A2  11FF03          LXI     D,3FFH
+           24A5  21C32E          LXI     H,BITMAPBYTEP
+           24A8  CDA029          CALL    @P0027 
+           24AB  22B72E          SHLD    BITMAPINDEX
+ 115   3              baseTrackSector = trackSector;
+                                                 ; STATEMENT # 115
+           24AE  2AD02E          LHLD    TRACKSECTOR
+           24B1  22B52E          SHLD    BASETRACKSECTOR
+ 116   3          end;
+                                                 ; STATEMENT # 116
+                         @11:
+ 117   2          call map$read;
+PL/M-80 COMPILER                                                                                                PAGE  10
+
+
+                                                 ; STATEMENT # 117
+           24B4  CDC922          CALL    MAPREAD
+ 118   2          temp = lowBitmapByte$p;
+                                                 ; STATEMENT # 118
+           24B7  3AC32E          LDA     LOWBITMAPBYTEP
+           24BA  32D22E          STA     TEMP
+ 119   2          bitmapByte$p = .bitmapBuffer(shr(bitmapByte$p and 03ffh, 3));
+                                                 ; STATEMENT # 119
+           24BD  11FF03          LXI     D,3FFH
+           24C0  21C32E          LXI     H,BITMAPBYTEP
+           24C3  CDA029          CALL    @P0027 
+           24C6  0E03            MVI     C,3H
+           24C8  CD082A          CALL    @P0093 
+           24CB  01332E          LXI     B,BITMAPBUFFER
+           24CE  09              DAD     B
+           24CF  EB              XCHG
+           24D0  2B              DCX     H
+           24D1  73              MOV     M,E
+           24D2  23              INX     H
+           24D3  72              MOV     M,D
+ 120   2          bitmapByte = bitmapByte AND not ROR(80h, temp and 7);
+                                                 ; STATEMENT # 120
+           24D4  3AD22E          LDA     TEMP
+           24D7  E607            ANI     7H
+           24D9  4F              MOV     C,A
+           24DA  3E80            MVI     A,80H
+           24DC  CDF429          CALL    @P0072 
+           24DF  2F              CMA
+           24E0  EB              XCHG
+           24E1  A6              ANA     M
+           24E2  77              MOV     M,A
+ 121   2          map$change = TRUE;
+                                                 ; STATEMENT # 121
+           24E3  21B42E          LXI     H,MAPCHANGE
+           24E6  36FF            MVI     M,0FFH
+ 122   2      end;
+                                                 ; STATEMENT # 122
+           24E8  C9              RET
+ 123   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 0262H    610D
+     VARIABLE AREA SIZE = 00B4H    180D
+     MAXIMUM STACK SIZE = 0008H      8D
+     166 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

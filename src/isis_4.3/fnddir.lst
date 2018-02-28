@@ -1,0 +1,139 @@
+:F1:asm80 fnddir.asm print(fnddir.lst) object(fnddir.obj) DEBUG
+
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         MODULE   PAGE    1
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                      1 
+                      2         CSEG
+                      3         public  fndDir
+                      4         public  dnum
+                      5         extrn   dirPtr
+                      6         extrn   fndFre
+                      7         extrn   inoPtr
+                      8 
+                      9 
+                     10 ; fndDir: PROCEDURE(fname, datum) PUBLIC BYTE; DECLARE fname ADDRESS, datum ADDRESS; END;
+                     11 
+                     12 ; direct.empty flag values
+  0000               13 OPEN    equ     0
+  00FF               14 FREE    equ     0ffh
+  007F               15 UNUSED  equ     07fh;
+                     16 
+  0000 0000          17 datum:  dw      0
+  0002 0000          18 dnum:   dw      0       
+                     19 
+                     20 fndDir:
+  0004 EB            21         xchg            ; hl = datum
+  0005 1E08          22         mvi     e, 8    ; 8 directory entries to match
+                     23 
+                     24 dloop:
+  0007 220000   C    25         shld    datum   ; save passed in fn
+  000A 7E            26         mov     a, m    ; empty
+  000B FE7F          27         cpi     UNUSED  ; never used
+  000D CA3B00   C    28         jz      skip
+  0010 B7            29         ora     a
+  0011 C23B00   C    30         jnz     skip    ; 0 if open
+  0014 1609          31         mvi     d, 9    ; compare file names
+  0016 C5            32         push    b       ; save start of filename to match
+                     33 
+                     34 cmpnam:
+  0017 23            35         inx     h
+  0018 0A            36         ldax    b
+  0019 BE            37         cmp     m
+  001A C24200   C    38         jnz     nomat
+  001D 03            39         inx     b
+  001E 15            40         dcr     d
+  001F C21700   C    41         jnz     cmpnam
+  0022 C1            42         pop     b       ; passed in filename
+  0023 1610          43         mvi     d, 10h  ; size of directory entry
+  0025 2A0000   E    44         lhld    dirPtr  ; copy the matched directory entry
+  0028 E5            45         push    h
+  0029 C1            46         pop     b
+  002A 2A0000   C    47         lhld    datum
+                     48 
+                     49 cpydir: 
+  002D 7E            50         mov     a, m
+  002E 02            51         stax    b
+  002F 23            52         inx     h
+  0030 03            53         inx     b
+  0031 15            54         dcr     d
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         MODULE   PAGE    2
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0032 C22D00   C    55         jnz     cpydir
+  0035 CD6200   C    56         call    setino
+  0038 3EFF          57         mvi     a, FREE
+  003A C9            58         ret
+                     59 
+                     60 skip:
+  003B F5            61         push    psw
+  003C CD5900   C    62         call    chk1st
+  003F F1            63         pop     psw
+  0040 C8            64         rz                      ; return if never used, shouldn't be any more after this
+  0041 C5            65         push    b               ; re-push filename to use common code
+                     66 
+                     67 nomat:                          ; didn't match  
+  0042 C1            68         pop     b               ; restore filename
+  0043 2A0200   C    69         lhld    dnum            ; next dnum
+  0046 23            70         inx     h
+  0047 220200   C    71         shld    dnum
+  004A D5            72         push    d               ; save iteration count
+  004B 111000        73         lxi     d, 10h          ; next dir entry
+  004E 2A0000   C    74         lhld    datum
+  0051 19            75         dad     d
+  0052 D1            76         pop     d               ; restore iteration count
+  0053 1D            77         dcr     e               ; we only have 8 directory entries in a buffer
+  0054 C20700   C    78         jnz     dloop
+  0057 AF            79         xra     a               ; not found in this dir block
+  0058 C9            80         ret
+                     81 
+                     82 ; end of fndDir
+                     83 
+                     84 chk1st:
+  0059 3A0000   E    85         lda     fndFre          ; see if first free slot found
+  005C B7            86         ora     a
+  005D C0            87         rnz                     ; no then don't update
+  005E 2F            88         cma                     ; mark as 1st now found
+  005F 320000   E    89         sta     fndFre
+                     90 
+                     91 setino:                         ; copy dnum of this slot either match or 1st free
+  0062 E5            92         push    h
+  0063 D5            93         push    d
+  0064 2A0200   C    94         lhld    dnum
+  0067 EB            95         xchg
+  0068 2A0000   E    96         lhld    inoPtr
+  006B 73            97         mov     m, e
+  006C 23            98         inx     h
+  006D 72            99         mov     m, d
+  006E D1           100         pop     d
+  006F E1           101         pop     h
+  0070 C9           102         ret
+                    103 
+                    104         end
+
+
+PUBLIC SYMBOLS
+DNUM   C 0002    FNDDIR C 0004    
+
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         MODULE   PAGE    3
+
+
+EXTERNAL SYMBOLS
+DIRPTR E 0000    FNDFRE E 0000    INOPTR E 0000    
+
+USER SYMBOLS
+CHK1ST C 0059    CMPNAM C 0017    CPYDIR C 002D    DATUM  C 0000    DIRPTR E 0000    DLOOP  C 0007    DNUM   C 0002    
+FNDDIR C 0004    FNDFRE E 0000    FREE   A 00FF    INOPTR E 0000    NOMAT  C 0042    OPEN   A 0000    SETINO C 0062    
+SKIP   C 003B    UNUSED A 007F    
+
+ASSEMBLY COMPLETE,   NO ERRORS

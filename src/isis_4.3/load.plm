@@ -1,0 +1,112 @@
+load:
+do;
+$include(load.ipx)
+
+DECLARE	R$MODHDR	LITERALLY	'2',
+	R$MODEND	LITERALLY	'4',
+	R$CONTENT	LITERALLY	'6',
+	R$LINENO	LITERALLY	'8',
+	R$EOF		LITERALLY	'0EH',
+	R$ANCESTOR	LITERALLY	'10H',
+	R$LOCALS	LITERALLY	'12H',
+	R$PUBLICS	LITERALLY	'16H',
+	R$EXTNAMES	LITERALLY	'18H',
+	R$EXTREF	LITERALLY	'20H',
+	R$RELOC		LITERALLY	'22H',
+	R$INTERSEG	LITERALLY	'24H',
+	R$LIBLOCS	LITERALLY	'26H',
+	R$LIBNAMES	LITERALLY	'28H',
+	R$LIBDICT	LITERALLY	'2AH',
+	R$LIBHDR	LITERALLY	'2CH',
+	R$COMDEF	LITERALLY	'2EH';
+
+load: PROCEDURE(pathname, bias, retsw, entry$p) PUBLIC;
+	DECLARE (pathname, bias, retsw, entry$p) ADDRESS;
+	DECLARE entry BASED entry$p ADDRESS;
+	DECLARE (aftn, i, retsw$b) BYTE;
+	DECLARE record STRUCTURE(type BYTE, length ADDRESS);
+	DECLARE modend STRUCTURE(modtype BYTE, segid BYTE, load$addr ADDRESS);
+	DECLARE content STRUCTURE(segid BYTE, load$addr ADDRESS) AT (.modend);
+	DECLARE checksum BYTE AT (.modend); 
+	DECLARE actual ADDRESS, pad ADDRESS;
+	DECLARE blockno ADDRESS, user$bottom ADDRESS, buffer$top ADDRESS;
+
+	bounds$test: PROCEDURE(addr, len);
+		DECLARE (addr, len) ADDRESS;
+		if addr >= 18h AND addr <= 3fh AND addr + len <= 40h then
+			return;
+		if user$bottom > addr then
+			user$bottom = addr;	/* first address will update this if applicable */
+		if buffer$top > addr OR addr + len  < addr then
+			call abortx(ISIS$OVERWRITE);
+	end;
+
+	blockno = 0;
+	user$bottom = 0ffffh;
+	if retsw > 2 then
+		call warn(BAD$RETSW);
+
+	aftn = AFT$BOTTOM +  open(pathname, 1, 0);	/* open$read */
+	if (retsw$b := retsw) <> 0 then
+		user$bottom = memck;
+	buffer$top = pack$aft$buf;
+	do while TRUE;
+		call read(aftn, .record, 3, .actual);	/* read record type and length */
+		if actual < 3 OR record.type >= R$RELOC OR record.type then	/* short, relocate or odd type */
+			call abortx(BAD$LOAD$FORMAT);
+		if record.type > R$CONTENT then
+			call seek(aftn, SEEK$FORWARD, .blockno, .record.length);	/* skip record */
+		else
+		do;
+			do case shr(record.type,1);
+			call abortx(BAD$LOAD$FORMAT);	/* case 0 */
+			call seek(aftn, SEEK$FORWARD, .blockno, .record.length);	/* case 1 - R$MODHDR skip */
+			do;	/* case 2 - R$MODEND */
+				call read(aftn, .modend, size(modend), .actual);
+				modend.load$addr = modend.load$addr + bias;
+				if modend.modtype = 1 then		/* system */
+					call bounds$test(modend.load$addr, 0);
+				else
+					modend.load$addr = 0;
+				call close(aftn);
+				user$bottom = user$bottom AND 0ff80h;
+				do i = 0 to 18;
+					buffer$table(i) = buffer$table(i) AND 0FEh; /* assume available or in use */
+					if user$bottom <= .MEMORY(shl(DOUBLE(i), 7)) then
+						buffer$table(i) = 1;	/* not available */
+				end;
+				if retsw$b = 0 then
+				do;
+					entry = modend.load$addr;
+					return;
+				end;
+				if retsw$b = 1 then
+				do;
+					debug$toggle = FALSE;
+					call jmpto(modend.load$addr, usrSP + 2);	/* wastes the return address */
+				end;
+				STACKPTR = memck;	
+				entry$p = STACKPTR;
+				entry = modend.load$addr;
+				debug$toggle = TRUE;
+				call trap;
+			end;
+			do;	/* case 3 - R$CONTENT */
+				call read(aftn, .content, 3, .actual);
+				if content.segId <> 0 then
+					call abortx(BAD$LOAD$FORMAT);
+				record.length = record.length - 4;		/* don't include header and crc */
+				content.load$addr = content.load$addr + bias;
+				call bounds$test(content.load$addr, record.length);
+				call read(aftn, content.load$addr, record.length, .actual);
+				if actual < record.length then
+					call abortx(BAD$LOAD$FORMAT);
+				call read(aftn, .checksum, 1, .actual);
+			end;
+			end;	/* of case */
+		end;	/* of else */
+	end;
+end;
+end;
+eof
+

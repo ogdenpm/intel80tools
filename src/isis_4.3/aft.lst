@@ -1,0 +1,299 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE AFT
+OBJECT MODULE PLACED IN AFT.OBJ
+COMPILER INVOKED BY:  :F1:plm80 aft.plm PRINT(AFT.LST) OBJECT(AFT.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          aft:
+              do;
+        
+              $include(:f0:aft.ipx)
+   2   1  =   declare a$access$p literally 'aAcesP';
+   3   1  =   declare a$blk$count$p literally 'aBCntP';
+   4   1  =   declare a$empty$p literally 'aEmtyP';
+   5   1  =   declare a$eof$data$ptr$p literally 'aEoPP';
+   6   1  =   declare Aft$Window literally 'AWindo';
+   7   1  =   declare a$hdr$blk$p literally 'aHBlkP';
+   8   1  =   declare Get$Aft$Slot literally 'GASlot';
+   9   1  =   declare AFT$BOTTOM literally '10';
+  10   1  =   declare AFT$FULL literally '3';
+  11   1  =   declare AFT$LAST literally '17';
+  12   1  =   abortx: procedure(errcode) external; declare errcode byte; end;
+        
+  15   1      DECLARE aft$current BYTE INITIAL(0ffh);
+  16   1      DECLARE pointer$base ADDRESS PUBLIC,
+                  datum$base ADDRESS PUBLIC,
+                  a$empty$p ADDRESS PUBLIC,
+                  a$dev$p ADDRESS PUBLIC,
+                  a$access$p ADDRESS PUBLIC,
+                  a$edit$p ADDRESS PUBLIC,
+                  a$lbuf$p ADDRESS PUBLIC,
+                  a$dbuf$p ADDRESS PUBLIC,
+                  a$data$ptr$p ADDRESS PUBLIC,
+                  a$i$no$p ADDRESS PUBLIC,
+                  a$pbuf$p ADDRESS PUBLIC,
+                  a$ptr$ptr$p ADDRESS PUBLIC,
+                  a$eof$data$ptr$p ADDRESS PUBLIC,
+                  a$ptr$change$p ADDRESS PUBLIC,
+                  a$data$change$p ADDRESS PUBLIC,
+                  a$blk$count$p ADDRESS PUBLIC,
+                  a$blk$seqno$p ADDRESS PUBLIC,
+                  a$ptr$blk$p ADDRESS PUBLIC,
+                  a$hdr$blk$p ADDRESS PUBLIC,
+                  a$data$blk$p ADDRESS PUBLIC,
+                  a$dbuf$read$p ADDRESS PUBLIC;
+        
+  17   1      DECLARE aft(18) STRUCTURE (
+                      empty   BYTE,
+                      device  BYTE,
+                      access  BYTE,
+                      edit    BYTE,
+                      lbuf    ADDRESS,
+                      dbuf    ADDRESS,
+                      pbuf    ADDRESS,
+                      data$ptr BYTE,
+                      i$no    ADDRESS,
+                      ptr$ptr BYTE,
+                      eofcnt  BYTE,
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+                      ptr$change BYTE,
+                      data$change BYTE,
+                      blk ADDRESS,
+                      blk$seq ADDRESS,
+                      ptr$blk ADDRESS,
+                      hdr$blk ADDRESS,
+                      data$blk$count ADDRESS,
+                      dbuf$read BYTE) PUBLIC INITIAL(
+                          0, 0, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 1, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 2, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 3, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 4, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 5, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 6, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 7, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 8, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0, 9, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                          0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);            
+        
+  18   1      DECLARE a$dbuf BASED a$dbuf$p ADDRESS,
+                  a$pbuf BASED a$pbuf$p ADDRESS;
+        
+        
+  19   1      aft$window: PROCEDURE(slot$number) PUBLIC;
+                                                 ; STATEMENT # 19
+                         ; PROC  AWINDO
+           0000  212302          LXI     H,SLOTNUMBER
+           0003  71              MOV     M,C
+  20   2          DECLARE slot$number BYTE;
+        
+  21   2          if aft$current <> slot$number then
+                                                 ; STATEMENT # 21
+           0004  212302          LXI     H,SLOTNUMBER
+           0007  3A0000          LDA     AFTCURRENT
+           000A  BE              CMP     M
+           000B  CA7300          JZ      @1
+  22   2          do; 
+  23   3              a$empty$p = .aft(aft$current := slot$number).empty;
+                                                 ; STATEMENT # 23
+           000E  3A2302          LDA     SLOTNUMBER
+           0011  320000          STA     AFTCURRENT
+           0014  6F              MOV     L,A
+           0015  2600            MVI     H,0
+           0017  111C00          LXI     D,1CH
+           001A  CD0000          CALL    @P0034 
+           001D  012B00          LXI     B,AFT
+           0020  09              DAD     B
+           0021  220500          SHLD    AEMTYP
+  24   3              a$dev$p = a$empty$p + 1;
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+                                                 ; STATEMENT # 24
+           0024  23              INX     H
+           0025  220700          SHLD    ADEVP
+  25   3              a$access$p = a$dev$p + 1;
+                                                 ; STATEMENT # 25
+           0028  23              INX     H
+           0029  220900          SHLD    AACESP
+  26   3              a$edit$p = a$access$p + 1;
+                                                 ; STATEMENT # 26
+           002C  23              INX     H
+           002D  220B00          SHLD    AEDITP
+  27   3              a$lbuf$p = a$edit$p + 1;
+                                                 ; STATEMENT # 27
+           0030  23              INX     H
+           0031  220D00          SHLD    ALBUFP
+  28   3              a$data$ptr$p = a$lbuf$p + 6;
+                                                 ; STATEMENT # 28
+           0034  110600          LXI     D,6H
+           0037  19              DAD     D
+           0038  221100          SHLD    ADATAPTRP
+  29   3              a$i$no$p = a$data$ptr$p + 1;
+                                                 ; STATEMENT # 29
+           003B  23              INX     H
+           003C  221300          SHLD    AINOP
+  30   3              a$ptr$ptr$p = a$i$no$p + 2;
+                                                 ; STATEMENT # 30
+           003F  23              INX     H
+           0040  23              INX     H
+           0041  221700          SHLD    APTRPTRP
+  31   3              a$eof$data$ptr$p = a$empty$p + 14;
+                                                 ; STATEMENT # 31
+           0044  110E00          LXI     D,0EH
+           0047  2A0500          LHLD    AEMTYP
+           004A  19              DAD     D
+           004B  221900          SHLD    AEOPP
+  32   3              a$ptr$change$p = a$eof$data$ptr$p + 1;
+                                                 ; STATEMENT # 32
+           004E  23              INX     H
+           004F  221B00          SHLD    APTRCHANGEP
+  33   3              a$data$change$p = a$ptr$change$p + 1;
+                                                 ; STATEMENT # 33
+           0052  23              INX     H
+           0053  221D00          SHLD    ADATACHANGEP
+  34   3              a$blk$count$p = a$data$change$p + 1;
+                                                 ; STATEMENT # 34
+           0056  23              INX     H
+           0057  221F00          SHLD    ABCNTP
+  35   3              a$blk$seqno$p = a$blk$count$p + 2;
+                                                 ; STATEMENT # 35
+           005A  23              INX     H
+           005B  23              INX     H
+           005C  222100          SHLD    ABLKSEQNOP
+  36   3              a$ptr$blk$p = a$blk$seqno$p + 2;
+                                                 ; STATEMENT # 36
+           005F  23              INX     H
+           0060  23              INX     H
+           0061  222300          SHLD    APTRBLKP
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+  37   3              a$hdr$blk$p = a$ptr$blk$p + 2;
+                                                 ; STATEMENT # 37
+           0064  23              INX     H
+           0065  23              INX     H
+           0066  222500          SHLD    AHBLKP
+  38   3              a$data$blk$p = a$hdr$blk$p + 2;
+                                                 ; STATEMENT # 38
+           0069  23              INX     H
+           006A  23              INX     H
+           006B  222700          SHLD    ADATABLKP
+  39   3              a$dbuf$read$p = a$data$blk$p + 2;
+                                                 ; STATEMENT # 39
+           006E  23              INX     H
+           006F  23              INX     H
+           0070  222900          SHLD    ADBUFREADP
+  40   3          end;
+                                                 ; STATEMENT # 40
+                         @1:
+  41   2          a$dbuf$p = .aft(slot$number).dbuf;
+                                                 ; STATEMENT # 41
+           0073  111C00          LXI     D,1CH
+           0076  2A2302          LHLD    SLOTNUMBER
+           0079  2600            MVI     H,0
+           007B  CD0000          CALL    @P0034 
+           007E  012B00          LXI     B,AFT
+           0081  09              DAD     B
+           0082  010600          LXI     B,DBUF
+           0085  09              DAD     B
+           0086  220F00          SHLD    ADBUFP
+  42   2          a$pbuf$p = a$dbuf$p + 2;
+                                                 ; STATEMENT # 42
+           0089  23              INX     H
+           008A  23              INX     H
+           008B  221500          SHLD    APBUFP
+  43   2          pointer$base = a$pbuf;
+                                                 ; STATEMENT # 43
+           008E  5E              MOV     E,M
+           008F  23              INX     H
+           0090  56              MOV     D,M
+           0091  EB              XCHG
+           0092  220100          SHLD    POINTERBASE
+  44   2          datum$base = a$dbuf;
+                                                 ; STATEMENT # 44
+        
+           0095  2A0F00          LHLD    ADBUFP
+           0098  5E              MOV     E,M
+           0099  23              INX     H
+           009A  56              MOV     D,M
+           009B  EB              XCHG
+           009C  220300          SHLD    DATUMBASE
+  45   2      end;
+                                                 ; STATEMENT # 45
+           009F  C9              RET
+        
+        
+  46   1      get$aft$slot: PROCEDURE BYTE PUBLIC;
+                                                 ; STATEMENT # 46
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+                         ; PROC  GASLOT
+  47   2          DECLARE i BYTE;
+        
+  48   2          do i = AFT$BOTTOM to AFT$LAST;
+                                                 ; STATEMENT # 48
+           00A0  212402          LXI     H,I
+           00A3  360A            MVI     M,0AH
+                         @3:
+           00A5  3E11            MVI     A,11H
+           00A7  212402          LXI     H,I
+           00AA  BE              CMP     M
+           00AB  DACD00          JC      @4
+  49   3              if aft(i).empty then
+                                                 ; STATEMENT # 49
+           00AE  111C00          LXI     D,1CH
+           00B1  2A2402          LHLD    I
+           00B4  2600            MVI     H,0
+           00B6  CD0000          CALL    @P0034 
+           00B9  012B00          LXI     B,AFT
+           00BC  09              DAD     B
+           00BD  7E              MOV     A,M
+           00BE  1F              RAR
+           00BF  D2C600          JNC     @2
+  50   3                  return i;
+                                                 ; STATEMENT # 50
+           00C2  3A2402          LDA     I
+           00C5  C9              RET
+                         @2:
+  51   3          end;
+                                                 ; STATEMENT # 51
+                         @5:
+           00C6  212402          LXI     H,I
+           00C9  34              INR     M
+           00CA  C2A500          JNZ     @3
+                         @4:
+  52   2          call abortx(AFT$FULL);
+                                                 ; STATEMENT # 52
+           00CD  0E03            MVI     C,3H
+           00CF  CD0000          CALL    ABORTX
+  53   2      end;
+                                                 ; STATEMENT # 53
+           00D2  C9              RET
+  54   1      end;
+              eof;
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 00D3H    211D
+     VARIABLE AREA SIZE = 0225H    549D
+     MAXIMUM STACK SIZE = 0002H      2D
+     124 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

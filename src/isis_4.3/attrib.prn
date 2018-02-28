@@ -1,0 +1,129 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE ATTRIB
+OBJECT MODULE PLACED IN ATTRIB.OBJ
+COMPILER INVOKED BY:  :F1:plm80 attrib.plm PRINT(ATTRIB.LST) OBJECT(ATTRIB.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          attrib:
+              do;
+                  
+              $include(:f0:attrib.ipx)
+   2   1  =   declare Chk$pn$disk$file literally 'ckpndf';
+   3   1  =   declare Dlook$pn literally 'dlokpn';
+   4   1  =   declare BAD$ATTRIB literally '26';
+   5   1  =   declare BOOLEAN literally 'BYTE';
+   6   1  =   declare DIRECT$T literally 'structure(DIRECT$T1, DIRECT$T2)';
+   7   1  =   declare DIRECT$T1 literally 'empty BOOLEAN, file(6) BYTE, ext(3) BYTE, attrib BYTE';
+   8   1  =   declare DIRECT$T2 literally 'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS';
+   9   1  =   declare FORMAT$ATTRIBUTE literally '80h';
+  10   1  =   declare INVISIBLE$ATTRIBUTE literally '1';
+  11   1  =   declare SYSTEM$ATTRIBUTE literally '2';
+  12   1  =   declare WRITEP$ATTRIBUTE literally '4';
+  13   1  =   declare direct DIRECT$T external;
+  14   1  =   declare pn(1) byte external;
+  15   1  =   chk$pn$disk$file: procedure(filename) external; declare filename address; end;
+  18   1  =   dir$close: procedure(aftn) external; declare aftn byte; end;
+  21   1  =   dlook$pn: procedure external; end;
+  23   1  =   warn: procedure(errcode) external; declare errcode byte; end;
+        
+  26   1      attrib: PROCEDURE(file$ptr, swid, value) PUBLIC;
+                                                 ; STATEMENT # 26
+                         ; PROC  ATTRIB
+           03D1  210400          LXI     H,VALUE
+           03D4  73              MOV     M,E
+           03D5  2B              DCX     H
+           03D6  70              MOV     M,B
+           03D7  2B              DCX     H
+           03D8  71              MOV     M,C
+           03D9  2B              DCX     H
+           03DA  D1              POP     D       
+           03DB  C1              POP     B       
+           03DC  70              MOV     M,B
+           03DD  2B              DCX     H
+           03DE  71              MOV     M,C
+           03DF  D5              PUSH    D       
+  27   2          DECLARE (file$ptr, swid) ADDRESS;
+  28   2          DECLARE value BOOLEAN;
+  29   2          DECLARE mask(*) BYTE DATA (INVISIBLE$ATTRIBUTE,
+                                                 SYSTEM$ATTRIBUTE,
+                                                 WRITEP$ATTRIBUTE,
+                                                 FORMAT$ATTRIBUTE);
+        
+  30   2          if swid > 3 then
+                                                 ; STATEMENT # 30
+           03E0  3E03            MVI     A,3H
+           03E2  210200          LXI     H,SWID
+           03E5  CD0000          CALL    @P0103 
+           03E8  D22300          JNC     @1
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+  31   2              call warn(BAD$ATTRIB);
+                                                 ; STATEMENT # 31
+           03EB  0E1A            MVI     C,1AH
+           03ED  CD0000          CALL    WARN
+                         @1:
+  32   2          call chk$pn$disk$file(file$ptr);
+                                                 ; STATEMENT # 32
+           03F0  2A0000          LHLD    FILEPTR
+           03F3  44              MOV     B,H
+           03F4  4D              MOV     C,L
+           03F5  CD0000          CALL    CKPNDF
+  33   2          call dlook$pn;
+                                                 ; STATEMENT # 33
+           03F8  CD0000          CALL    DLOKPN
+  34   2          direct.attrib = direct.attrib and (not mask(low(swid)));
+                                                 ; STATEMENT # 34
+           03FB  2A0200          LHLD    SWID
+           03FE  7D              MOV     A,L
+           03FF  4F              MOV     C,A
+           0400  0600            MVI     B,0
+           0402  210000          LXI     H,MASK
+           0405  09              DAD     B
+           0406  7E              MOV     A,M
+           0407  2F              CMA
+           0408  210A00          LXI     H,DIRECT+0AH
+           040B  A6              ANA     M
+           040C  77              MOV     M,A
+  35   2          if value then
+                                                 ; STATEMENT # 35
+           040D  3A0400          LDA     VALUE
+           0410  1F              RAR
+           0411  D25900          JNC     @2
+  36   2              direct.attrib = direct.attrib or mask(low(swid));
+                                                 ; STATEMENT # 36
+           0414  2A0200          LHLD    SWID
+           0417  7D              MOV     A,L
+           0418  4F              MOV     C,A
+           0419  0600            MVI     B,0
+           041B  210000          LXI     H,MASK
+           041E  09              DAD     B
+           041F  3A0A00          LDA     DIRECT+0AH
+           0422  B6              ORA     M
+           0423  320A00          STA     DIRECT+0AH
+                         @2:
+  37   2          call dir$close(pn(0));
+                                                 ; STATEMENT # 37
+           0426  2A0000          LHLD    PN
+           0429  4D              MOV     C,L
+           042A  CD0000          CALL    DIRCLOSE
+  38   2      end;
+                                                 ; STATEMENT # 38
+           042D  C9              RET
+  39   1      end;
+              eof;
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 0061H     97D
+     VARIABLE AREA SIZE = 0005H      5D
+     MAXIMUM STACK SIZE = 0002H      2D
+     41 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

@@ -1,0 +1,618 @@
+:F1:asm80 loc62.asm print(loc62.lst) object(loc62.obj) DEBUG
+
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    1
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                      1         name reboot
+                      2         public  trap0B
+                      3         public  vec0E
+                      4         public  reboot
+                      5         public  jmpto
+                      6         public  isisE           ; isis$E
+                      7         public  usrSP
+                      8         public  uStatP          ; userStatus$p
+                      9 
+                     10         public  IOCHK           ; bios entry points
+                     11         public  IOSET
+                     12         public  CI
+                     13         public  RI
+                     14         public  CO
+                     15         public  PO
+                     16         public  LO
+                     17         public  CSTS
+                     18 
+                     19         extrn   abortx
+                     20         extrn   open, close, delete, read, lined, write
+                     21         extrn   seek, load, rename, consol, exit, attrib
+                     22         extrn   rescan, err, whocon, path, getatt
+                     23         extrn   @P0101,@P0034
+                     24         extrn   @P0018          ; not used but need to force load to align binaries
+                     25         extrn   clsAll
+                     26         extrn   diskio, warn
+                     27 
+                     28         extrn   cli
+                     29         extrn   gblSev          ; global$severity
+                     30         extrn   aft, dkCfTb
+                     31 
+  F803               32 CI      equ     0F803H
+  F806               33 RI      equ     0F806H
+  F809               34 CO      equ     0F809H
+  F80C               35 PO      equ     0F80CH
+  F80F               36 LO      equ     0F80FH
+  F812               37 CSTS    equ     0F812H
+  F815               38 IOCHK   equ     0F815H
+  F818               39 IOSET   equ     0F818H
+                     40 
+                     41         DSEG
+  0000 00000000      42         db      '(C)1982INTELCORP'
+  0004 00000000  
+  0008 C35000C9  
+  000C 00000000  
+  0010               43         ds      40              ; system stack  
+                     44 sysstk:
+  0038               45         ds      16              ; user stack
+                     46 usrstk:
+  0048 0080          47         dw      0
+  004A 041A          48 param:  dw      0,0,0,0,0       ; up to 5 parameters
+  004C 0001            
+  004E 0030            
+  0050 3E20            
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    2
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0052 D3FD            
+  0054 3E            49 pTypes: db      10011b, 10b, 11b, 11010b
+  0055 FE              
+  0056 D3              
+  0057 FC              
+  0058 FB            50         db      1010b, 11100b, 10001b, 111b
+  0059 21              
+  005A 48              
+  005B 00              
+  005C 36            51         db      111b, 1, 1001b, 10b, 10b
+  005D 00              
+  005E 21              
+  005F 0B              
+  0060 00              
+  0061 36            52         db      110b, 111b, 101b, 111b
+  0062 C9              
+  0063 21              
+  0064 84              
+  0065 2A            53 b2AB1:  db      0ffh, 0, 0, 0
+  0066 F9              
+  0067 0E              
+  0068 0A              
+  0069 CD            54         db      0, 0, 0, 0
+  006A 57              
+  006B 0B              
+  006C 3A              
+  006D 71            55         db      0, 0, 0, 0
+  006E 2D              
+  006F E6              
+  0070 0F              
+  0071 4F            56         db      0, 0, 0, 0
+  0072 11              
+  0073 49              
+  0074 00              
+  0075 CD            57         db      0, 0, 0, 0
+  0076 DC              
+  0077 07              
+  0078 21              
+                     58 
+                     59         CSEG                    ; locate sets code base to 0
+  0008               60         org 8h
+  0008 C35000   C    61 rst1:   jmp     restrt          ; restart 1
+  000B C9            62 trap0B: ret                     ; trap routine ?
+  000C 00            63         db      0
+  000D               64         ds      1
+  000E 0000          65 vec0E:  dw      0
+                     66 
+  003E               67         org     3Eh
+  003E 04            68         db      4,2             ; isis version?
+  003F 02              
+  0040 C38500   C    69 isis40: jmp     isis
+                     70 
+  0043 C1            71         pop     b               ; ?
+  0044 0000          72 usrSP:  dw      0
+  0046 0000          73 uStatP: dw 0            ; userStatus$p
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    3
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0048 00            74 isisE:  db      0
+                     75 
+  0049 80            76 bootld: db      80h             ; iocw
+  004A 04            77         db      4               ; ioins - READ
+  004B 1A            78         db      26              ; nsec - size of t0boot.bin
+  004C 00            79         db      0               ; tadr - track of t0boot.bin
+  004D 01            80         db      1               ; sadr - start sector of t0boot.bin
+  004E 0030     M    81         dw      MEMORY          ; buf - 3000, where t0boot.bin loads
+                     82 
+  0050 3E20          83 restrt: mvi     a,20h
+  0052 D3FD          84         out     0FDh
+                     85 
+                     86 
+                     87 ;       reboot: PROCEDURE PUBLIC;
+                     88 ;               output(0FCh) = 0FEh;
+                     89 ;               ENABLE;
+                     90 ;               ISIS$E = 0;
+                     91 ;               trap0B = 0c9h;  /* make sure trap is a null sub routine */
+                     92 ;               STACKPTR = sysstk;
+                     93 ;               call close$all(AFT$BOTTOM);     /* aliased to clsall */
+                     94 ;               call diskio(cli(2) and 0fh, .bootLd);   /* cli(2) = boot drive */
+                     95 ;               call jmpto(.MEMORY, STACKPTR);
+                     96 ;       end;
+                     97 ;       
+                     98 ;       jmpto: PROCEDURE(entry, sysstk) PROCEDURE PUBLIC;
+                     99 ;               STACKPTR = sysstk;
+                    100 ;               goto entry;
+                    101 ;       end;
+                    102 
+  000A              103 AFTBTM  equ     10
+                    104 
+                    105 reboot:
+  0054 3EFE         106         mvi     a, 0FEh
+  0056 D3FC         107         out     0FCh
+  0058 FB           108         ei
+  0059 214800   C   109         lxi     h, isisE
+  005C 3600         110         mvi     m, 0
+  005E 210B00   C   111         lxi     h, trap0B
+  0061 36C9         112         mvi     m, 0C9h         ; a return instuction
+  0063 21842A   D   113         lxi     h, sysstk
+  0066 F9           114         sphl
+  0067 0E0A         115         mvi     c, AFTBTM
+  0069 CD570B   E   116         call    clsAll
+  006C 3A712D   E   117         lda     cli+2           ; pick up boot device
+  006F E60F         118         ani     0Fh
+  0071 4F           119         mov     c, a
+  0072 114900   C   120         lxi     d, bootLd
+  0075 CDDC07   E   121         call    diskio
+  0078 210000       122         lxi     h, 0
+  007B 39           123         dad     sp
+  007C EB           124         xchg                    ; de = current stack
+  007D 010030   M   125         lxi     b, MEMORY       ; goto to isis.t0
+                    126 
+                    127 jmpto:                          ; bc = entry point, de = stack
+  0080 EB           128         xchg
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    4
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0081 F9           129         sphl                    ; set stack
+  0082 60           130         mov     h, b            ; goto entry point
+  0083 69           131         mov     l, c
+  0084 E9           132         pchl
+                    133 
+                    134 
+                    135 ; in plm this is isis(command, param$ptr)
+                    136 
+  0085 79           137 isis:   mov     a, c            ; check for 'E' command
+  0086 FE45         138         cpi     'E'
+  0088 C29000   C   139         jnz     isis1
+  008B 1A           140         ldax    d               ; stuff low byte of 1st parameter into isis$E
+  008C 324800   C   141         sta     isisE
+  008F C9           142         ret
+                    143 
+  0090 210000       144 isis1:  lxi     h, 0            ; save user's own stack and use internal stack
+  0093 39           145         dad     sp
+  0094 224400   C   146         shld    usrSP
+  0097 21942A   D   147         lxi     h, usrstk
+  009A F9           148         sphl
+  009B FE44         149         cpi     'D'             ; 'D' command?
+  009D C2AD00   C   150         jnz     isis2
+  00A0 EB           151         xchg
+  00A1 4E           152         mov     c, m            ; call diskio(param(0), param(1)
+  00A2 23           153         inx     h
+  00A3 23           154         inx     h
+  00A4 5E           155         mov     e, m
+  00A5 23           156         inx     h
+  00A6 56           157         mov     d, m
+  00A7 CDDC07   E   158         call    diskio
+  00AA C37D02   C   159         jmp     retusr
+                    160 
+  00AD FE11         161 isis2:  cpi     17              ; map op 17 to op 15    getatt
+  00AF C2B400   C   162         jnz     isis3
+  00B2 3E0F         163         mvi     a, 15
+                    164 
+  00B4 FE1C         165 isis3:  cpi     28              ; map op 28 to op 16
+  00B6 C2BB00   C   166         jnz     isis4
+  00B9 3E10         167         mvi     a, 16
+                    168 
+  00BB 4F           169 isis4:  mov     c, a            ; c is the command
+  00BC 0600         170         mvi     b, 0
+  00BE 21A02A   D   171         lxi     h, pTypes       ; get the parameter type info
+  00C1 09           172         dad     b
+  00C2 7E           173         mov     a, m
+  00C3 EB           174         xchg                    ; hl is param$ptr
+  00C4 11962A   D   175         lxi     d, param        ; de is address local param copy
+  00C7 C3E200   C   176         jmp     isis5
+                    177 
+  00CA 1F           178 pcheck: rar                     ; carry indicates this is an address param
+  00CB F5           179         push    psw
+  00CC 7E           180         mov     a, m            ; copy the next parameter to local copy
+  00CD 12           181         stax    d
+  00CE 23           182         inx     h
+  00CF 13           183         inx     d
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    5
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  00D0 7E           184         mov     a, m
+  00D1 12           185         stax    d
+  00D2 23           186         inx     h
+  00D3 13           187         inx     d
+  00D4 D2E100   C   188         jnc     pok             ; not address param
+  00D7 D630         189         sui     30h             ; check if address < 3000h
+  00D9 D2E100   C   190         jnc     pok             ; call abortx(33)
+  00DC 0E21         191         mvi     c, 21h
+  00DE CD4B0B   E   192         call    abortx
+                    193 
+  00E1 F1           194 pok:    pop     psw             ; restore type info
+                    195 
+  00E2 A7           196 isis5:  ana     a       ; check for any more params - note last will be status return address
+  00E3 C2CA00   C   197         jnz     pcheck
+  00E6 2B           198         dcx     h       ; get the status return address
+  00E7 56           199         mov     d, m
+  00E8 2B           200         dcx     h
+  00E9 5E           201         mov     e, m
+  00EA EB           202         xchg
+  00EB 224600   C   203         shld    uStatP          ; userStatus$p
+  00EE 77           204         mov     m, a            ; userStatus = 0
+  00EF 23           205         inx     h
+  00F0 77           206         mov     m, a
+  00F1 21312D   E   207         lxi     h, gblSev       ; global$severity = 0
+  00F4 77           208         mov     m, a
+  00F5 2A962A   D   209         lhld    param           ; push parameters 0, 1, 2 onto the stack read for call in handle
+                        r
+  00F8 E5           210         push    h
+  00F9 2A982A   D   211         lhld    param+2
+  00FC E5           212         push    h
+  00FD 2A9A2A   D   213         lhld    param+4
+  0100 E5           214         push    h
+  0101 215B02   C   215         lxi     h, cmdJmp       ; get the command handler
+  0104 09           216         dad     b
+  0105 09           217         dad     b
+  0106 5E           218         mov     e, m
+  0107 23           219         inx     h
+  0108 56           220         mov     d, m
+  0109 EB           221         xchg
+  010A 79           222         mov     a, c
+  010B FE11         223         cpi     17              ; if command >= 17 then call abortx(18)
+  010D 0E12         224         mvi     c, 12h
+  010F D44B0B   E   225         cnc     abortx
+  0112 E9           226         pchl                    ; else goto command handler
+                    227 
+                    228 ; the command handlers
+                    229 ;###############################
+  0113 2A962A   D   230 cOpen:  lhld    param           ; users conn = 255
+  0116 36FF         231         mvi     m, 0FFh
+  0118 23           232         inx     h
+  0119 3600         233         mvi     m, 0
+  011B C1           234         pop     b               ; access parameter
+  011C D1           235         pop     d               ; path$p parameter
+  011D E1           236         pop     h               ; conn$p parameter
+  011E D5           237         push    d               ; the file parameter
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    6
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  011F 2A9C2A   D   238         lhld    param+6         ; echo parameter
+  0122 EB           239         xchg
+  0123 CD7D0E   E   240         call    open            ; call open(path$p, access, echo)
+  0126 2A962A   D   241         lhld    param           ; update the users conn
+  0129 77           242         mov     m, a
+  012A 23           243         inx     h
+  012B 3600         244         mvi     m, 0
+  012D C37D02   C   245         jmp     retusr
+                    246 
+                    247 ;###############################
+  0130 CD8202   C   248 cClose: call    aftChk          ; check conn is valid
+  0133 3E0C         249         mvi     a, 12
+  0135 11962A   D   250         lxi     d, param
+  0138 CD352A   E   251         call    @P0101          ; conn - 12
+  013B DA4901   C   252         jc      close1          ; jmp if conn < 12
+  013E E1           253         pop     h               ; non existant parameter
+  013F E1           254         pop     h               ; status$p
+  0140 E1           255         pop     h               ; conn pre aftChk adjustment
+  0141 2A962A   D   256         lhld    param           ; conn
+  0144 44           257         mov     b, h
+  0145 4D           258         mov     c, l
+  0146 CDF903   E   259         call    close           ; call close(conn)
+                    260 
+  0149 C37D02   C   261 close1: jmp     retusr
+                    262 
+                    263 ;###############################
+  014C E1           264 cDelet: pop     h               ; non existant parameter
+  014D E1           265         pop     h               ; status$p
+  014E C1           266         pop     b               ; path$p
+  014F CD2F07   E   267         call    delete          ; call delete(path$p)
+  0152 C37D02   C   268         jmp     retusr
+                    269 
+                    270 ;###############################
+  0155 CD8202   C   271 cRead:  call    aftChk
+  0158 111C00       272         lxi     d, 28           ; size of aft entry
+  015B 2A962A   D   273         lhld    param
+  015E CDC829   E   274         call    @P0034
+  0161 01F32A   E   275         lxi     b, aft + 3      ; hl = .aft(conn).edit
+  0164 09           276         dad     b
+  0165 7E           277         mov     a, m
+  0166 FE00         278         cpi     0               ; edit = 0 ?
+  0168 C1           279         pop     b               ; count
+  0169 D1           280         pop     d               ; buff$p
+  016A E1           281         pop     h               ; conn pre aftChk adjustment
+  016B 2A962A   D   282         lhld    param           ; conn
+  016E E5           283         push    h
+  016F D5           284         push    d
+  0170 2A9C2A   D   285         lhld    param+6         ; actual$p
+  0173 EB           286         xchg
+  0174 C27D01   C   287         jnz     read1           ; edit set so do line edit
+  0177 CD3C1A   E   288         call    read            ; call read(conn, buff$p, count, actual$p)
+  017A C38001   C   289         jmp     read2
+                    290 
+  017D CDDD1B   E   291 read1:  call    lined           ; do line editing
+                    292 
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    7
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0180 C37D02   C   293 read2:  jmp     retusr          ; all done
+                    294 
+                    295 ;###############################
+  0183 CD8202   C   296 cWrite: call    aftChk
+  0186 D1           297         pop     d               ; count
+  0187 C1           298         pop     b               ; buff$p
+  0188 E1           299         pop     h               ; conn pre aftChk adjustment
+  0189 2A962A   D   300         lhld    param           ; conn
+  018C E5           301         push    h
+  018D CDF01A   E   302         call    write           ; call write(conn, buff$p, count)
+  0190 C37D02   C   303         jmp     retusr
+                    304 
+                    305 ;###############################
+  0193 CD8202   C   306 cSeek:  call    aftChk
+  0196 C1           307         pop     b               ; block$p
+  0197 D1           308         pop     d               ; mode
+  0198 E1           309         pop     h               ; conn  pre aftChk adjustment
+  0199 2A962A   D   310         lhld    param           ; conn
+  019C E5           311         push    h
+  019D D5           312         push    d
+  019E 2A9C2A   D   313         lhld    param+6         ; byte$p
+  01A1 EB           314         xchg
+  01A2 CD641F   E   315         call    seek            ; call seek(conn, mode, block$p, byte$p)
+  01A5 C37D02   C   316         jmp     retusr
+                    317 
+                    318 ;###############################
+  01A8 C1           319 cLoad:  pop     b               ; switch
+  01A9 2A9C2A   D   320         lhld    param+6         ; entry$p
+  01AC EB           321         xchg
+  01AD CDB80B   E   322         call    load            ; call load(path$p, load$offset, switch, entry$p)
+  01B0 C37D02   C   323         jmp     retusr
+                    324 
+                    325 ;###############################
+  01B3 E1           326 cRenam: pop     h               ; status$p
+  01B4 D1           327         pop     d               ; new$p
+  01B5 C1           328         pop     b               ; old$p
+  01B6 CD8D15   E   329         call    rename          ; call rename(old$p, new$p)
+  01B9 C37D02   C   330         jmp     retusr
+                    331 
+                    332 ;###############################
+  01BC E1           333 cConso: pop     h               ; status$p
+  01BD D1           334         pop     d               ; co$p
+  01BE C1           335         pop     b               ; ci$p
+  01BF CD6705   E   336         call    consol          ; call console(ci$p, co$p)
+  01C2 C37D02   C   337         jmp     retusr
+                    338 
+                    339 ;###############################
+  01C5 E1           340 cExit:  pop     h               ; non existant parameter
+  01C6 E1           341         pop     h               ; non existant parameter
+  01C7 E1           342         pop     h               ; non existant parameter
+  01C8 CD790B   E   343         call    exit            ; call exit
+  01CB C37D02   C   344         jmp     retusr
+                    345 
+                    346 ;###############################
+  01CE D1           347 cAttri: pop     d               ; on$off
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    8
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  01CF C1           348         pop     b               ; attrib
+  01D0 CD7E03   E   349         call    attrib          ; call attrib(path$p, attrib, on$off)
+  01D3 C37D02   C   350         jmp     retusr
+                    351 
+                    352 ;###############################
+  01D6 CD8202   C   353 cResca: call    aftChk
+  01D9 E1           354         pop     h               ; non exisitant parameter
+  01DA E1           355         pop     h               ; status$p
+  01DB E1           356         pop     h               ; conn pre aftChk adjustment
+  01DC 2A962A   D   357         lhld    param           ; conn
+  01DF 44           358         mov     b, h
+  01E0 4D           359         mov     c, l
+  01E1 CDE415   E   360         call    rescan          ; call rescan(conn)
+  01E4 C37D02   C   361         jmp     retusr
+                    362 
+                    363 ;###############################
+  01E7 E1           364 cError: pop     h               ; non existant parameter
+  01E8 E1           365         pop     h               ; non existant parameter
+  01E9 D1           366         pop     d               ; error$num
+  01EA 0E01         367         mvi     c, 1
+  01EC CD600A   E   368         call    err             ; call err(1, error$num)
+  01EF C37D02   C   369         jmp     retusr
+                    370 
+                    371 ;###############################
+  01F2 E1           372 cWhoco: pop     h               ; non existant parameter
+  01F3 D1           373         pop     d               ; buff$p
+  01F4 C1           374         pop     b               ; conn
+  01F5 CD1B06   E   375         call    whocon          ; call whocon(conn, buff$p)
+  01F8 C37D02   C   376         jmp     retusr
+                    377 
+                    378 ;###############################
+  01FB E1           379 cSpath: pop     h               ; status$p
+  01FC D1           380         pop     d               ; info$p
+  01FD C1           381         pop     b               ; path$p
+  01FE CD1412   E   382         call    path            ; userStatus = path(path$p, info$p)
+  0201 2A4600   C   383         lhld    uStatP
+  0204 77           384         mov     m, a
+  0205 23           385         inx     h
+  0206 3600         386         mvi     m, 0
+  0208 2A982A   D   387         lhld    param+2         ; info.deviceNo
+  020B 7E           388         mov     a, m            ; if deviceNo >= 10 then 
+  020C FE0A         389         cpi     0Ah
+  020E DA1702   C   390         jc      spath1
+  0211 D604         391         sui     4               ;       info.deviceNo = info.deviceNo - 4
+  0213 77           392         mov     m, a
+  0214 C33902   C   393         jmp     spath3
+                    394 
+  0217 FE06         395 spath1: cpi     6               ; else if 6 <= deviceNo and deviceNo <= 9 then
+  0219 DA3902   C   396         jc      spath3
+  021C 3E09         397         mvi     a, 9
+  021E BE           398         cmp     m
+  021F DA3902   C   399         jc      spath3
+  0222 3AA007   E   400         lda     dkCfTb  ; if dk$cf$tb(0) = 4 then /* hard disk */
+  0225 FE04         401         cpi     4
+  0227 C23402   C   402         jnz     spath2
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE    9
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  022A 2A982A   D   403         lhld    param+2         ;       info.deviceNo = info.deviceNo + 19
+  022D 3E13         404         mvi     a, 19
+  022F 86           405         add     m
+  0230 77           406         mov     m, a
+  0231 C33902   C   407         jmp     spath3
+                    408 
+  0234 2A4600   C   409 spath2: lhld    uStatP          ; else
+  0237 3604         410         mvi     m, 4            ;       userStatus = 4
+                    411 
+  0239 C37D02   C   412 spath3: jmp     retusr
+                    413 
+                    414 ;###############################
+  023C E1           415 cGetat: pop     h               ; status$p
+  023D D1           416         pop     d               ; attrib$p
+  023E C1           417         pop     b               ; file$p
+  023F CDAB0B   E   418         call    getatt          ; call getatt(file$p, attrib$p)
+  0242 C37D02   C   419         jmp     retusr
+                    420 
+                    421 ;###############################
+  0245 2A282C   E   422 cUnkwn: lhld    aft + 4 + (28 * 11)     ; console line in buffer aft(11).lbuf
+  0248 EB           423         xchg
+  0249 2A962A   D   424         lhld    param           ; return using ptr in param0
+  024C 73           425         mov     m, e
+  024D 23           426         inx     h
+  024E 72           427         mov     m, d
+  024F 11B12A   D   428         lxi     d, b2AB1        ; local buffer unknown use
+  0252 2A982A   D   429         lhld    param+2         ; return using ptr in param1
+  0255 73           430         mov     m, e
+  0256 23           431         inx     h
+  0257 72           432         mov     m, d
+  0258 C37D02   C   433         jmp     retusr
+                    434 
+                    435 
+  025B 1301     C   436 cmdJmp: dw cOpen                ; command dispatch table
+  025D 3001     C   437         dw cClose
+  025F 4C01     C   438         dw cDelet
+  0261 5501     C   439         dw cRead
+  0263 8301     C   440         dw cWrite
+  0265 9301     C   441         dw cSeek
+  0267 A801     C   442         dw cLoad
+  0269 B301     C   443         dw cRenam
+  026B BC01     C   444         dw cConso
+  026D C501     C   445         dw cExit
+  026F CE01     C   446         dw cAttri
+  0271 D601     C   447         dw cResca
+  0273 E701     C   448         dw cError
+  0275 F201     C   449         dw cWhoco
+  0277 FB01     C   450         dw cSpath
+  0279 3C02     C   451         dw cGetat
+  027B 4502     C   452         dw cUnkwn
+                    453 
+                    454 
+  027D 2A4400   C   455 retusr: lhld    usrSP           ; restore user's own stack
+  0280 F9           456         sphl
+  0281 C9           457         ret                     ; all done
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         REBOOT   PAGE   10
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                    458 
+                    459 
+  0282 2A962A   D   460 aftChk: lhld    param           ; pick up conn parameter
+  0285 110A00       461         lxi     d, 10
+  0288 7D           462         mov     a, l
+  0289 D608         463         sui     8
+  028B 7C           464         mov     a, h
+  028C 9A           465         sbb     d
+  028D 0E02         466         mvi     c, 2
+  028F D4510B   E   467         cnc     warn            ; if conn >= 8 then call warn(BAD$AFT$NO)
+  0292 19           468         dad     d
+  0293 22962A   D   469         shld    param           ; conn = conn + 10
+  0296 1E1C         470         mvi     e, 1Ch
+  0298 CDC829   E   471         call    @P0034
+  029B 01F02A   E   472         lxi     b, aft
+  029E 09           473         dad     b
+  029F 7E           474         mov     a, m            ; if aft(conn).empty then call warn(BAD$AFT$NO)
+  02A0 1F           475         rar
+  02A1 0E02         476         mvi     c, 2
+  02A3 DC510B   E   477         cc      warn
+  02A6 C9           478         ret
+                    479 
+                    480         end
+
+
+PUBLIC SYMBOLS
+CI     A F803    CO     A F809    CSTS   A F812    IOCHK  A F815    IOSET  A F818    ISISE  C 0048    JMPTO  C 0080    
+LO     A F80F    PO     A F80C    REBOOT C 0054    RI     A F806    TRAP0B C 000B    USRSP  C 0044    USTATP C 0046    
+VEC0E  C 000E    
+
+EXTERNAL SYMBOLS
+@P0018 E 0000    @P0034 E 0000    @P0101 E 0000    ABORTX E 0000    AFT    E 0000    ATTRIB E 0000    CLI    E 0000    
+CLOSE  E 0000    CLSALL E 0000    CONSOL E 0000    DELETE E 0000    DISKIO E 0000    DKCFTB E 0000    ERR    E 0000    
+EXIT   E 0000    GBLSEV E 0000    GETATT E 0000    LINED  E 0000    LOAD   E 0000    OPEN   E 0000    PATH   E 0000    
+READ   E 0000    RENAME E 0000    RESCAN E 0000    SEEK   E 0000    WARN   E 0000    WHOCON E 0000    WRITE  E 0000    
+
+USER SYMBOLS
+@P0018 E 0000    @P0034 E 0000    @P0101 E 0000    ABORTX E 0000    AFT    E 0000    AFTBTM A 000A    AFTCHK C 0282    
+ATTRIB E 0000    B2AB1  D 0065    BOOTLD C 0049    CATTRI C 01CE    CCLOSE C 0130    CCONSO C 01BC    CDELET C 014C    
+CERROR C 01E7    CEXIT  C 01C5    CGETAT C 023C    CI     A F803    CLI    E 0000    CLOAD  C 01A8    CLOSE  E 0000    
+CLOSE1 C 0149    CLSALL E 0000    CMDJMP C 025B    CO     A F809    CONSOL E 0000    COPEN  C 0113    CREAD  C 0155    
+CRENAM C 01B3    CRESCA C 01D6    CSEEK  C 0193    CSPATH C 01FB    CSTS   A F812    CUNKWN C 0245    CWHOCO C 01F2    
+CWRITE C 0183    DELETE E 0000    DISKIO E 0000    DKCFTB E 0000    ERR    E 0000    EXIT   E 0000    GBLSEV E 0000    
+GETATT E 0000    IOCHK  A F815    IOSET  A F818    ISIS   C 0085    ISIS1  C 0090    ISIS2  C 00AD    ISIS3  C 00B4    
+ISIS4  C 00BB    ISIS40 C 0040    ISIS5  C 00E2    ISISE  C 0048    JMPTO  C 0080    LINED  E 0000    LO     A F80F    
+LOAD   E 0000    OPEN   E 0000    PARAM  D 004A    PATH   E 0000    PCHECK C 00CA    PO     A F80C    POK    C 00E1    
+PTYPES D 0054    READ   E 0000    READ1  C 017D    READ2  C 0180    REBOOT C 0054    RENAME E 0000    RESCAN E 0000    
+RESTRT C 0050    RETUSR C 027D    RI     A F806    RST1   C 0008    SEEK   E 0000    SPATH1 C 0217    SPATH2 C 0234    
+SPATH3 C 0239    SYSSTK D 0038    TRAP0B C 000B    USRSP  C 0044    USRSTK D 0048    USTATP C 0046    VEC0E  C 000E    
+WARN   E 0000    WHOCON E 0000    WRITE  E 0000    
+
+ASSEMBLY COMPLETE,   NO ERRORS

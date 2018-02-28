@@ -1,0 +1,89 @@
+:F1:asm80 rw1.asm print(rw1.lst) object(rw1.obj) DEBUG
+
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         MODULE   PAGE    1
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                      1         CSEG
+                      2         public  usrSys
+                      3         public  sysUsr
+                      4         extrn   datapp
+                      5         extrn   adpdif
+                      6 
+                      7 ; usrSys: PROCEDURE(buffer$p, buffer, datum$base)
+                      8 usrSys:         
+  0000 D5             9         push    d               ; datum$base
+  0001 2A0000   E    10         lhld    datapp
+  0004 5E            11         mov     e, m            ; e = a$data$ptr
+  0005 3A0000   E    12         lda     adpdif
+  0008 77            13         mov     m, a            ; a$data$ptr = adp$dif  - save final a$data$ptr value
+  0009 1600          14         mvi     d, 0
+  000B E1            15         pop     h               ; datum$base + e - stort of data to copy
+  000C 19            16         dad     d
+  000D 57            17         mov     d, a            ; d = adp$dif
+                     18 
+                     19 usloop:
+  000E 7A            20         mov     a, d            ; copy until we reach new end
+  000F BB            21         cmp     e
+  0010 CA3600   C    22         jz      updbuf
+  0013 0A            23         ldax    b               ; buffer
+  0014 77            24         mov     m, a            ; datum buffer
+  0015 23            25         inx     h
+  0016 03            26         inx     b
+  0017 1C            27         inr     e               ; advance data$ptr
+  0018 C30E00   C    28         jmp     usloop
+                     29 
+                     30 
+                     31 sysUsr:
+  001B D5            32         push    d               ; as per usrSys
+  001C 2A0000   E    33         lhld    datapp
+  001F 5E            34         mov     e, m
+  0020 3A0000   E    35         lda     adpdif
+  0023 77            36         mov     m, a
+  0024 1600          37         mvi     d, 0
+  0026 E1            38         pop     h
+  0027 19            39         dad     d
+  0028 57            40         mov     d, a
+                     41 
+                     42 suloop:
+  0029 7A            43         mov     a, d
+  002A BB            44         cmp     e
+  002B CA3600   C    45         jz      updbuf
+  002E 7E            46         mov     a, m            ; datum buffer
+  002F 02            47         stax    b               ; buffer
+  0030 23            48         inx     h
+  0031 03            49         inx     b
+  0032 1C            50         inr     e
+  0033 C32900   C    51         jmp     suloop
+                     52 
+                     53 updbuf:
+  0036 E1            54         pop     h       ; return address
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         MODULE   PAGE    2
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0037 E3            55         xthl            ; buffer$p
+  0038 71            56         mov     m, c    ; save the updated buffer
+  0039 23            57         inx     h
+  003A 70            58         mov     m, b
+  003B C9            59         ret
+                     60 
+                     61         end;
+
+
+PUBLIC SYMBOLS
+SYSUSR C 001B    USRSYS C 0000    
+
+EXTERNAL SYMBOLS
+ADPDIF E 0000    DATAPP E 0000    
+
+USER SYMBOLS
+ADPDIF E 0000    DATAPP E 0000    SULOOP C 0029    SYSUSR C 001B    UPDBUF C 0036    USLOOP C 000E    USRSYS C 0000    
+
+ASSEMBLY COMPLETE,   NO ERRORS

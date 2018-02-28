@@ -1,0 +1,485 @@
+:F1:asm80 error.asm print(error.lst) object(error.obj) DEBUG
+
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    1
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                      1 ; the original code in error.plm appears to have been hand optimised.
+                      2 ; the code below contains the plm code and the optimised asm
+                      3 
+                      4 ; declare ABORT literally '2';
+                      5 ; declare CMSK literally '0fch';
+                      6 ; declare CR literally '0dh';
+                      7 ; declare DISK$IO$ERROR literally '24';
+                      8 ; declare debug$Toggle literally 'dTogle';
+                      9 ; declare global$severity literally 'gblSev';
+                     10 ; declare LF literally '0ah';
+                     11 ; declare userStatus$p literally 'uStatP';
+                     12 ; declare WARNING literally '0';
+                     13 ; declare isis$E byte external;
+                     14 ; declare sector byte external;
+                     15 ; declare track byte external;
+                     16 ; declare usrSP address external;
+                     17 ; declare uStatP address external;
+                     18 ; CO: procedure(val) external; declare val byte; end;
+                     19 ; IOCHK: procedure byte external; end;
+                     20 ; IOSET: procedure(val) external; declare val byte; end;
+                     21 ; reboot: procedure external; end;
+                     22 ; trap: procedure external; end;
+                     23 ; declare userStatus based userStatus$p  address;
+                     24 
+                     25         name error
+                     26         public dTogle, gblSev, cdksat, err, warn, abortx, errDrv
+                     27         extrn isisE, sector, track, usrSP, uStatP
+                     28         extrn CO, IOCHK, IOSET, reboot, trap
+                     29 
+  0002               30 ABORT   equ     2
+  0000               31 WARNIN  equ     0
+  000D               32 CR      equ     0dh
+  000A               33 LF      equ     0ah        
+                     34         
+                     35 ; DECLARE pad ADDRESS,    /* padding to align to isis.bin */
+                     36 ;         debug$Toggle BYTE PUBLIC,
+                     37 ;         global$severity BYTE PUBLIC,
+                     38 ;         c$dk$sat ADDRESS PUBLIC;
+                     39         
+                     40 ; DECLARE msg1(7) BYTE INITIAL(CR, LF, 'ERROR'),
+                     41 ;         msg2(4) BYTE, /* error number goes here */
+                     42 ;         msg3(9) BYTE INITIAL(' USER PC '),
+                     43 ;         msg4(4) BYTE, /* user pc in hex goes here */
+                     44 ;         msg5(9) BYTE INITIAL(CR, LF, 'STATUS='),
+                     45 ;         msg6(4) BYTE, /* drive status goes here */
+                     46 ;         msg7(5) BYTE INITIAL(CR, LF, 'D= '),
+                     47 ;         errdrv  BYTE PUBLIC, /* drive goes here */
+                     48 ;         msg9(3) BYTE INITIAL(' T='),
+                     49 ;         msg10(1) BYTE,  /* track goes here */
+                     50 ;         msg11(3) BYTE INITIAL('   '),
+                     51 ;         msg12(3) BYTE INITIAL(' S='),
+                     52 ;         msg13(1) BYTE,  /* sector goes here */
+                     53 ;         msg14(5) BYTE INITIAL('   ', CR, LF);
+                     54 ; DECLARE initio BYTE AT (6);
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    2
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0006               55 initio  equ     6
+                     56 
+                     57         DSEG
+  0000               58 pad:    ds 2
+  0002               59 dTogle: ds 1
+  0003               60 gblSev: ds 1
+  0004               61 cdksat: ds 2
+                     62 
+  09C8 00            63 msg1:   db CR, LF, 'ERROR'
+  09C9 00              
+  09CA 00000000        
+  09CE 00        
+  000D               64 msg2:   ds 4
+  09D3 722B732B      65 msg3:   db ' USER PC '
+  09D7 712BD1C1  
+  09DB 70        
+  001A               66 msg4:   ds 4
+  09E0 CE            67 msg5:   db CR, LF, 'STATUS='
+  09E1 09              
+  09E2 36013E04        
+  09E6 BEDA3C    
+  0027               68 msg6:   ds 4
+  09ED 36            69 msg7:   db CR, LF, 'D= '
+  09EE 30              
+  09EF 2AC509          
+  0030               70 errdrv: ds 1
+  09F3 2AC709        71 msg9:   db ' T='
+  0034               72 msg10:  ds 1
+  09F7 00CDA9        73 msg11:  db '   '
+  09FA 29EB22        74 msg12:  db ' S='
+  003B               75 msg13:  ds 1
+  09FE 09EBCD        76 msg14:  db '   ', CR, LF
+  0A01 CA              
+  0A02 29              
+                     77         
+                     78 
+                     79 
+                     80         extrn   @P0014, @P0029, @P0035, @P0094, @P0102
+                     81 
+                     82         CSEG
+  0000               83 severe: ds      1       ; err arguments
+  0001               84 errtyp: ds      1
+  0002               85 imax:   ds      1       ; err var
+                     86 
+  09C5 0000          87 value:  dw      0       ; num arguments
+  0005               88 base:   ds      1
+  09C8 0000          89 bufp:   dw      0
+  09CA 0000          90 div:    dw      0       ; num vars
+  09CC 0000          91 digit:  dw      0
+                     92 j:                      ; shared var
+  000C               93 i:      ds      1
+  000D               94 offset: ds      1               
+                     95 
+                     96 ; num: PROCEDURE(value, base, bufp);
+  09D0 21C909   C    97 num:    LXI     H,BUFP+1H
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    3
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  09D3 72            98         MOV     M,D
+  09D4 2B            99         DCX     H
+  09D5 73           100         MOV     M,E
+  09D6 2B           101         DCX     H
+  09D7 71           102         MOV     M,C
+  09D8 2B           103         DCX     H
+  09D9 D1           104         POP     D       
+  09DA C1           105         POP     B       
+  09DB 70           106         MOV     M,B
+  09DC 2B           107         DCX     H
+  09DD 71           108         MOV     M,C
+  09DE D5           109         PUSH    D       
+                    110 ; DECLARE value ADDRESS, base BYTE, bufp ADDRESS;
+                    111 ; DECLARE buf based bufp (4) BYTE;
+                    112 ; DECLARE (div, digit) ADDRESS, (i, offset) BYTE;
+                    113 ; do i = 1 to 4;
+  09DF 21CE09   C   114         LXI     H,I
+  09E2 3601         115         MVI     M,1H
+                    116 @11:
+  09E4 3E04         117         MVI     A,4H
+                    118 ;       LXI     H,I     ; optimised
+  09E6 BE           119         CMP     M
+  09E7 DA3C0A   C   120         JC      @12
+                    121 ;   offset = '0';
+  09EA 21CF09   C   122         LXI     H,OFFSET
+  09ED 3630         123         MVI     M,30H
+                    124 ; div = value / base;
+  09EF 2AC509   C   125         LHLD    VALUE
+  09F2 EB           126         XCHG
+  09F3 2AC709   C   127         LHLD    BASE
+  09F6 2600         128         MVI     H,0
+  09F8 CDA929   E   129         CALL    @P0029 
+  09FB EB           130         XCHG
+  09FC 22CA09   C   131         SHLD    DIV
+                    132 ; digit = value - div * base;
+  09FF EB           133         XCHG
+  0A00 CDCA29   E   134         CALL    @P0035 
+  0A03 11C509   C   135         LXI     D,VALUE
+  0A06 CD382A   E   136         CALL    @P0102 
+  0A09 22CC09   C   137         SHLD    DIGIT
+                    138 ;   if digit > 9 then
+  0A0C 3E09         139         MVI     A,9H
+  0A0E CD142A   E   140         CALL    @P0094 
+  0A11 D2190A   C   141         JNC     @1
+                    142 ;     offset = '7';
+  0A14 21CF09   C   143         LXI     H,OFFSET
+  0A17 3637         144         MVI     M,37H
+                    145 @1:
+                    146 ;   buf(4 - i) = digit + offset;
+  0A19 3ACF09   C   147         LDA     OFFSET
+  0A1C 11CC09   C   148         LXI     D,DIGIT
+  0A1F CD8529   E   149         CALL    @P0014 
+  0A22 EB           150         XCHG
+  0A23 3E04         151         MVI     A,4H
+  0A25 23           152         INX     H
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    4
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0A26 96           153         SUB     M
+  0A27 4F           154         MOV     C,A
+  0A28 0600         155         MVI     B,0
+  0A2A 2AC809   C   156         LHLD    BUFP
+  0A2D 09           157         DAD     B
+  0A2E 73           158         MOV     M,E
+                    159 ;   value = div;
+  0A2F 2ACA09   C   160         LHLD    DIV
+  0A32 22C509   C   161         SHLD    VALUE
+                    162 ; end;
+                    163 @13:
+  0A35 21CE09   C   164         LXI     H,I
+  0A38 34           165         INR     M
+  0A39 C2E409   C   166         JNZ     @11
+                    167 @12:
+                    168 ; do i = 0 to 2;
+                    169 ;       LXI     H,I     optimised
+  0A3C 3600         170         MVI     M,0H
+                    171 @14:
+  0A3E 3E02         172         MVI     A,2H
+                    173 ;       LXI     H,I     optimised
+  0A40 BE           174         CMP     M
+  0A41 DA5F0A   C   175         JC      @15
+                    176 ;   if buf(i) = '0' then
+                    177 ;       LHLD    I       optimised
+  0A44 6E           178         mov     l,m
+  0A45 2600         179         MVI     H,0
+  0A47 EB           180         XCHG
+  0A48 2AC809   C   181         LHLD    BUFP
+  0A4B 19           182         DAD     D
+  0A4C 7E           183         MOV     A,M
+  0A4D FE30         184         CPI     30H
+  0A4F C2570A   C   185         JNZ     @2
+                    186 ;     buf(i) = ' ';
+                    187 ;       LHLD    I       optimised
+                    188 ;       MVI     H,0
+                    189 ;       XCHG
+                    190 ;       LHLD    BUFP
+                    191 ;       DAD     D
+  0A52 3620         192         MVI     M,20H
+  0A54 C3580A   C   193         JMP     @3
+                    194 @2:
+                    195 ;   else
+                    196 ;     return;
+  0A57 C9           197         RET
+                    198 @3:
+                    199 ; end;
+                    200 @16:
+  0A58 21CE09   C   201         LXI     H,I
+  0A5B 34           202         INR     M
+  0A5C C23E0A   C   203         JNZ     @14
+                    204 @15:
+                    205 ; end;
+  0A5F C9           206         RET
+                    207         
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    5
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                    208         
+                    209 ; err: PROCEDURE(severity, error$type) PUBLIC;
+  0A60 21C309   C   210 err:    LXI     H,ERRTYP
+  0A63 73           211         MOV     M,E
+  0A64 2B           212         DCX     H
+  0A65 71           213         MOV     M,C
+                    214 ; DECLARE (severity, error$type, j, imax) BYTE;
+                    215 ; DECLARE pc BASED usrSP ADDRESS;
+                    216         
+                    217 ; if (severity := severity or global$severity) <> WARNING then 
+  0A66 3A312D   D   218         LDA     GBLSEV
+  0A69 21C209   C   219         LXI     H,SEVERE
+  0A6C B6           220         ORA     M
+  0A6D 77           221         MOV     M,A
+  0A6E FE00         222         CPI     0H
+  0A70 CA110B   C   223         JZ      @4
+                    224 ; do;
+                    225 ;   call num(error$type, 10, .msg2);
+  0A73 2AC309   C   226         LHLD    ERRTYP
+  0A76 2600         227         MVI     H,0
+  0A78 E5           228         PUSH    H 
+  0A79 113B2D   D   229         LXI     D,MSG2
+  0A7C 0E0A         230         MVI     C,0AH
+  0A7E CDD009   C   231         CALL    NUM
+                    232 ;   call num(pc, 16, .msg4);    
+  0A81 2A4400   E   233         LHLD    USRSP
+  0A84 4E           234         MOV     C,M
+  0A85 23           235         INX     H
+  0A86 46           236         MOV     B,M
+  0A87 C5           237         PUSH    B 
+  0A88 11482D   D   238         LXI     D,MSG4
+  0A8B 0E10         239         MVI     C,10H
+  0A8D CDD009   C   240         CALL    NUM
+                    241 ;   call ioset((iochk AND CMSK) OR (initio AND 3));
+  0A90 CD15F8   E   242         CALL    IOCHK
+  0A93 E6FC         243         ANI     0FCH
+  0A95 F5           244         PUSH    PSW 
+  0A96 3A0600       245         LDA     INITIO
+  0A99 E603         246         ANI     3H
+  0A9B C1           247         POP     B 
+  0A9C 48           248         MOV     C,B
+  0A9D B1           249         ORA     C
+  0A9E 4F           250         MOV     C,A
+  0A9F CD18F8   E   251         CALL    IOSET
+                    252 ;   imax = 25;  /* number of characters in normal error message */
+  0AA2 21C409   C   253         LXI     H,IMAX
+  0AA5 3619         254         MVI     M,19H
+                    255 ;   if error$type = DISK$IO$ERROR then
+  0AA7 3AC309   C   256         LDA     ERRTYP
+  0AAA FE18         257         CPI     18H
+  0AAC C2F00A   C   258         JNZ     @5
+                    259 ;   do;
+                    260 ;     if high(c$dk$sat) <> 0 then
+  0AAF 2A322D   D   261         LHLD    CDKSAT
+  0AB2 7C           262         MOV     A,H
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    6
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0AB3 FE00         263         CPI     0H
+  0AB5 CABE0A   C   264         JZ      @6
+                    265 ;     c$dk$sat = 128;
+  0AB8 218000       266         LXI     H,80H
+  0ABB 22322D   D   267         SHLD    CDKSAT
+                    268 @6:
+  0ABE E5           269         push    h       ; optimised LHLD CDKSAT below
+                    270 ;     imax = 58;
+  0ABF 21C409   C   271         LXI     H,IMAX
+  0AC2 363A         272         MVI     M,3AH
+                    273 ;     call num(c$dk$sat, 16, .msg6);
+                    274 ;       LHLD    CDKSAT  ; optimised see above
+                    275 ;       PUSH    H
+  0AC4 11552D   D   276         LXI     D,MSG6
+  0AC7 0E10         277         MVI     C,10H
+  0AC9 CDD009   C   278         CALL    NUM
+                    279 ;     errdrv = errdrv or '0'; /* convert drive to ascii number */
+  0ACC 3A5E2D   D   280         LDA     ERRDRV
+  0ACF F630         281         ORI     30H
+  0AD1 325E2D   D   282         STA     ERRDRV
+                    283 ;     call num(track, 10, .msg10);
+  0AD4 2AC907   E   284         LHLD    TRACK
+  0AD7 2600         285         MVI     H,0
+  0AD9 E5           286         PUSH    H       ; 1
+  0ADA 11622D   D   287         LXI     D,MSG10
+  0ADD 0E0A         288         MVI     C,0AH
+  0ADF CDD009   C   289         CALL    NUM
+                    290 ;     call num(sector, 10, .msg13);
+  0AE2 2ACA07   E   291         LHLD    SECTOR
+  0AE5 2600         292         MVI     H,0
+  0AE7 E5           293         PUSH    H       ; 1
+  0AE8 11692D   D   294         LXI     D,MSG13
+  0AEB 0E0A         295         MVI     C,0AH
+  0AED CDD009   C   296         CALL    NUM
+                    297 ; end;
+                    298 @5:
+                    299 ;   do j = 0 to imax;
+  0AF0 21CE09   C   300         LXI     H,J
+  0AF3 3600         301         MVI     M,0H
+                    302 @17:
+  0AF5 3AC409   C   303         LDA     IMAX
+                    304 ;       LXI     H,J     optimised
+  0AF8 BE           305         CMP     M
+  0AF9 DA0E0B   C   306         JC      @18
+                    307 ;     call co(msg1(j));
+                    308 ;       LHLD    J       optimised
+  0AFC 6E           309         mov     l,m
+  0AFD 2600         310         MVI     H,0
+  0AFF 01342D   D   311         LXI     B,MSG1
+  0B02 09           312         DAD     B
+  0B03 4E           313         MOV     C,M
+  0B04 CD09F8   E   314         CALL    CO
+                    315 ;   end;
+                    316 @19:
+  0B07 21CE09   C   317         LXI     H,J
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    7
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+  0B0A 34           318         INR     M
+  0B0B C2F50A   C   319         JNZ     @17
+                    320 @18:
+                    321 ; end;
+  0B0E C31F0B   C   322         JMP     @7
+                    323 @4:
+                    324 ; else
+                    325 ; do;
+                    326 ;   userStatus = error$type;
+  0B11 2A4600   E   327         LHLD    USTATP
+  0B14 3AC309   C   328         LDA     ERRTYP
+  0B17 77           329         MOV     M,A
+  0B18 23           330         INX     H
+  0B19 3600         331         MVI     M,0
+                    332 ;   STACKPTR = usrSP;
+  0B1B 2A4400   E   333         LHLD    USRSP
+  0B1E F9           334         SPHL
+                    335 ; end;
+                    336 @7:
+                    337 ; if severity >= ABORT then
+  0B1F 3AC209   C   338         LDA     SEVERE
+  0B22 FE02         339         CPI     2H
+  0B24 DA4A0B   C   340         JC      @8
+                    341 ; do;
+                    342 ;   if debug$toggle then
+  0B27 3A302D   D   343         LDA     DTOGLE
+  0B2A 1F           344         RAR
+  0B2B D2310B   C   345         JNC     @9
+                    346 ;     call trap;  /* trap to monitor */
+  0B2E CDFD28   E   347         CALL    TRAP
+                    348 @9:
+                    349 ;   if ISIS$E then      /* Parameter 1 of the ISIS 'E' command */
+  0B31 3A4800   E   350         LDA     ISISE
+  0B34 1F           351         RAR
+  0B35 D2470B   C   352         JNC     @10
+                    353 ;   do;
+                    354 ;     userStatus = error$type;
+  0B38 2A4600   E   355         LHLD    USTATP
+  0B3B 3AC309   C   356         LDA     ERRTYP
+  0B3E 77           357         MOV     M,A
+  0B3F 23           358         INX     H
+  0B40 3600         359         MVI     M,0
+                    360 ;     STACKPTR = usrSP;
+  0B42 2A4400   E   361         LHLD    USRSP
+  0B45 F9           362         SPHL
+                    363 ;     return;
+  0B46 C9           364         RET
+                    365 ; end;
+                    366 @10:
+                    367 ; call reboot;
+  0B47 CD5400   E   368         CALL    REBOOT
+                    369 ; end;
+                    370 @8:
+                    371 ; end;
+  0B4A C9           372         RET
+
+
+ISIS-II 8080/8085 MACRO ASSEMBLER, V4.1         ERROR    PAGE    8
+
+
+  LOC  OBJ         LINE        SOURCE STATEMENT
+
+                    373         
+                    374         
+                    375 ; abortx: PROCEDURE(errcode) PUBLIC;
+                    376 ;       DECLARE errcode BYTE;
+                    377 ;       call err(ABORT, errcode);
+                    378 ; end;
+  0B4B 59           379 abortx: mov     e,c
+  0B4C 0E02         380         mvi     c,ABORT
+  0B4E C3600A   C   381         jmp     err
+                    382         
+                    383 ; warn: PROCEDURE(errcode) PUBLIC;
+                    384 ;       DECLARE errcode BYTE;
+                    385 ;       call err(WARNING, errcode);
+                    386 ; end;
+  0B51 59           387 warn:   mov     e,c
+  0B52 0E00         388         mvi     c,WARNIN
+  0B54 C3600A   C   389         jmp     err
+                    390         
+                    391         end
+
+
+PUBLIC SYMBOLS
+ABORTX C 0189    CDKSAT D 0004    DTOGLE D 0002    ERR    C 009E    ERRDRV D 0030    GBLSEV D 0003    WARN   C 018F    
+
+EXTERNAL SYMBOLS
+@P0014 E 0000    @P0029 E 0000    @P0035 E 0000    @P0094 E 0000    @P0102 E 0000    CO     E 0000    IOCHK  E 0000    
+IOSET  E 0000    ISISE  E 0000    REBOOT E 0000    SECTOR E 0000    TRACK  E 0000    TRAP   E 0000    USRSP  E 0000    
+USTATP E 0000    
+
+USER SYMBOLS
+@1     C 0057    @10    C 0185    @11    C 0022    @12    C 007A    @13    C 0073    @14    C 007C    @15    C 009D    
+@16    C 0096    @17    C 0133    @18    C 014C    @19    C 0145    @2     C 0095    @3     C 0096    @4     C 014F    
+@5     C 012E    @6     C 00FC    @7     C 015D    @8     C 0188    @9     C 016F    @P0014 E 0000    @P0029 E 0000    
+@P0035 E 0000    @P0094 E 0000    @P0102 E 0000    ABORT  A 0002    ABORTX C 0189    BASE   C 0005    BUFP   C 0006    
+CDKSAT D 0004    CO     E 0000    CR     A 000D    DIGIT  C 000A    DIV    C 0008    DTOGLE D 0002    ERR    C 009E    
+ERRDRV D 0030    ERRTYP C 0001    GBLSEV D 0003    I      C 000C    IMAX   C 0002    INITIO A 0006    IOCHK  E 0000    
+IOSET  E 0000    ISISE  E 0000    J      C 000C    LF     A 000A    MSG1   D 0006    MSG10  D 0034    MSG11  D 0035    
+MSG12  D 0038    MSG13  D 003B    MSG14  D 003C    MSG2   D 000D    MSG3   D 0011    MSG4   D 001A    MSG5   D 001E    
+MSG6   D 0027    MSG7   D 002B    MSG9   D 0031    NUM    C 000E    OFFSET C 000D    PAD    D 0000    REBOOT E 0000    
+SECTOR E 0000    SEVERE C 0000    TRACK  E 0000    TRAP   E 0000    USRSP  E 0000    USTATP E 0000    VALUE  C 0003    
+WARN   C 018F    WARNIN A 0000    
+
+ASSEMBLY COMPLETE,   NO ERRORS

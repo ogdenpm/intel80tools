@@ -1,0 +1,940 @@
+PL/M-80 COMPILER                                                                                                PAGE   1
+
+
+ISIS-II PL/M-80 V4.0 COMPILATION OF MODULE SEEK
+OBJECT MODULE PLACED IN SEEK.OBJ
+COMPILER INVOKED BY:  :F1:plm80 seek.plm PRINT(SEEK.LST) OBJECT(SEEK.OBJ) DEBUG OPTIMIZE CODE
+
+
+
+   1          seek:
+              do;
+              $include(seek.ipx)
+   2   1  =   declare a$access$p literally 'aAcesP';
+   3   1  =   declare a$blk$count$p literally 'aBCntP';
+   4   1  =   declare a$eof$data$ptr$p literally 'aEoPP';
+   5   1  =   declare Aft$Window literally 'AWindo';
+   6   1  =   declare a$hdr$blk$p literally 'aHBlkP';
+   7   1  =   declare Clear$Buf literally 'ClrBuf';
+   8   1  =   declare Get$Block literally 'GetBlk';
+   9   1  =   declare Map$Write literally 'MapWri';
+  10   1  =   declare absread literally 'abs$rd';
+  11   1  =   declare abswrite literally 'abs$wr';
+  12   1  =   declare BAD$SEEK$ARG literally '27';
+  13   1  =   declare BBDEV literally '26';
+  14   1  =   declare BLINK literally '0';
+  15   1  =   declare F9DEV literally '9';
+  16   1  =   declare FALSE literally '0';
+  17   1  =   declare FLINK literally '1';
+  18   1  =   declare LONG$BACK$SEEK literally '20';
+  19   1  =   declare NON$DISK$SEEK literally '19';
+  20   1  =   declare SEEK$ABS literally '2';
+  21   1  =   declare SEEK$BACKWARD literally '1';
+  22   1  =   declare SEEK$EOF literally '4';
+  23   1  =   declare SEEK$FORWARD literally '3';
+  24   1  =   declare SEEK$ON$WRITE literally '31';
+  25   1  =   declare SEEK$RETURN literally '0';
+  26   1  =   declare TRUE literally '0ffh';
+  27   1  =   declare WRITE$MODE literally '2';
+  28   1  =   declare a$access$p address external;
+  29   1  =   declare a$blk$count$p address external;
+  30   1  =   declare a$blk$seqno$p address external;
+  31   1  =   declare a$data$blk$p address external;
+  32   1  =   declare a$data$change$p address external;
+  33   1  =   declare a$data$ptr$p address external;
+  34   1  =   declare a$dbuf$p address external;
+  35   1  =   declare a$dbuf$read$p address external;
+  36   1  =   declare a$dev$p address external;
+  37   1  =   declare a$eof$data$ptr$p address external;
+  38   1  =   declare a$hdr$blk$p address external;
+  39   1  =   declare a$pbuf$p address external;
+  40   1  =   declare a$ptr$blk$p address external;
+  41   1  =   declare a$ptr$change$p address external;
+  42   1  =   declare a$ptr$ptr$p address external;
+  43   1  =   declare pointer$base address external;
+  44   1  =   abs$rd: procedure(block, buffer$ptr) external; declare block address, buffer$ptr address; end;
+  47   1  =   abs$wr: procedure(block, buffer$ptr) external; declare block address, buffer$ptr address; end;
+  50   1  =   adjust$eof: procedure external; end;
+  52   1  =   Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+  55   1  =   chk$eof: procedure external; end;
+  57   1  =   ClearBuf: procedure(buf$address) external; declare buf$address address; end;
+PL/M-80 COMPILER                                                                                                PAGE   2
+
+
+  60   1  =   get$block: procedure(diskNum) address external; declare diskNum byte; end;
+  63   1  =   MapWrite: procedure(diskNum) external; declare diskNum byte; end;
+  66   1  =   warn: procedure(errcode) external; declare errcode byte; end;
+  69   1  =   declare a$access based a$access$p  byte;
+  70   1  =   declare a$blk$count based a$blk$count$p  address;
+  71   1  =   declare a$blk$seqno based a$blk$seqno$p  address;
+  72   1  =   declare a$data$blk based a$data$blk$p  address;
+  73   1  =   declare a$data$change based a$data$change$p  byte;
+  74   1  =   declare a$data$ptr based a$data$ptr$p  byte;
+  75   1  =   declare a$dbuf based a$dbuf$p  address;
+  76   1  =   declare a$dbuf$read based a$dbuf$read$p  byte;
+  77   1  =   declare a$device based a$dev$p  byte;
+  78   1  =   declare a$eof$data$ptr based a$eof$data$ptr$p  byte;
+  79   1  =   declare a$hdr$blk based a$hdr$blk$p  address;
+  80   1  =   declare a$pbuf based a$pbuf$p  address;
+  81   1  =   declare a$ptr$blk based a$ptr$blk$p  address;
+  82   1  =   declare a$ptr$change based a$ptr$change$p  byte;
+  83   1  =   declare a$ptr$ptr based a$ptr$ptr$p  byte;
+  84   1  =   declare links based pointer$base (64) address;
+        
+  85   1      save$data$blk: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 85
+                         ; PROC  SAVEDATABLK
+  86   2          if a$data$change then
+                                                 ; STATEMENT # 86
+           0000  2A0000          LHLD    ADATACHANGEP
+           0003  7E              MOV     A,M
+           0004  1F              RAR
+           0005  D21E00          JNC     @1
+  87   2          do;
+  88   3              call abswrite(a$data$blk, a$dbuf);
+                                                 ; STATEMENT # 88
+           0008  2A0000          LHLD    ADATABLKP
+           000B  E5              PUSH    H       ; 1
+           000C  2A0000          LHLD    ADBUFP
+           000F  5E              MOV     E,M
+           0010  23              INX     H
+           0011  56              MOV     D,M
+           0012  E1              POP     H       ; 1
+           0013  4E              MOV     C,M
+           0014  23              INX     H
+           0015  46              MOV     B,M
+           0016  CD0000          CALL    ABSWR
+  89   3              a$data$change = FALSE;
+                                                 ; STATEMENT # 89
+           0019  2A0000          LHLD    ADATACHANGEP
+           001C  3600            MVI     M,0H
+  90   3          end;
+                                                 ; STATEMENT # 90
+                         @1:
+  91   2      end;
+                                                 ; STATEMENT # 91
+           001E  C9              RET
+        
+  92   1      save$pointer$block: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 92
+                         ; PROC  SAVEPOINTERBLOCK
+PL/M-80 COMPILER                                                                                                PAGE   3
+
+
+  93   2          if a$ptr$change then
+                                                 ; STATEMENT # 93
+           001F  2A0000          LHLD    APTRCHANGEP
+           0022  7E              MOV     A,M
+           0023  1F              RAR
+           0024  D24400          JNC     @2
+  94   2          do;
+  95   3              call map$write(a$device);
+                                                 ; STATEMENT # 95
+           0027  2A0000          LHLD    ADEVP
+           002A  4E              MOV     C,M
+           002B  CD0000          CALL    MAPWRI
+  96   3              call abswrite(a$ptr$blk, a$pbuf);
+                                                 ; STATEMENT # 96
+           002E  2A0000          LHLD    APTRBLKP
+           0031  E5              PUSH    H       ; 1
+           0032  2A0000          LHLD    APBUFP
+           0035  5E              MOV     E,M
+           0036  23              INX     H
+           0037  56              MOV     D,M
+           0038  E1              POP     H       ; 1
+           0039  4E              MOV     C,M
+           003A  23              INX     H
+           003B  46              MOV     B,M
+           003C  CD0000          CALL    ABSWR
+  97   3              a$ptr$change = FALSE;
+                                                 ; STATEMENT # 97
+           003F  2A0000          LHLD    APTRCHANGEP
+           0042  3600            MVI     M,0H
+  98   3          end;
+                                                 ; STATEMENT # 98
+                         @2:
+  99   2      end;
+                                                 ; STATEMENT # 99
+           0044  C9              RET
+        
+ 100   1      rewind: PROCEDURE PUBLIC;
+                                                 ; STATEMENT # 100
+                         ; PROC  REWIND
+ 101   2          a$data$ptr = 128;
+                                                 ; STATEMENT # 101
+           0045  2A0000          LHLD    ADATAPTRP
+           0048  3680            MVI     M,80H
+ 102   2          a$ptr$ptr = 1;
+                                                 ; STATEMENT # 102
+           004A  2A0000          LHLD    APTRPTRP
+           004D  3601            MVI     M,1H
+ 103   2          a$data$change = FALSE;
+                                                 ; STATEMENT # 103
+           004F  2A0000          LHLD    ADATACHANGEP
+           0052  3600            MVI     M,0H
+ 104   2          a$dbuf$read = FALSE;
+                                                 ; STATEMENT # 104
+           0054  2A0000          LHLD    ADBUFREADP
+           0057  3600            MVI     M,0H
+ 105   2          a$ptr$change = FALSE;
+                                                 ; STATEMENT # 105
+PL/M-80 COMPILER                                                                                                PAGE   4
+
+
+           0059  2A0000          LHLD    APTRCHANGEP
+           005C  3600            MVI     M,0H
+ 106   2          a$blk$seqno, a$data$blk = 0;
+                                                 ; STATEMENT # 106
+           005E  2A0000          LHLD    ABLKSEQNOP
+           0061  3E00            MVI     A,0H
+           0063  77              MOV     M,A
+           0064  23              INX     H
+           0065  3600            MVI     M,0
+           0067  2A0000          LHLD    ADATABLKP
+           006A  77              MOV     M,A
+           006B  23              INX     H
+           006C  3600            MVI     M,0
+ 107   2          call absread(a$ptr$blk := a$hdr$blk, a$pbuf);
+                                                 ; STATEMENT # 107
+           006E  2A0000          LHLD    AHBLKP
+           0071  E5              PUSH    H       ; 1
+           0072  2A0000          LHLD    APTRBLKP
+           0075  E3              XTHL            ; 1
+           0076  4E              MOV     C,M
+           0077  23              INX     H
+           0078  46              MOV     B,M
+           0079  D1              POP     D       ; 1
+           007A  EB              XCHG
+           007B  71              MOV     M,C
+           007C  23              INX     H
+           007D  70              MOV     M,B
+           007E  2A0000          LHLD    APBUFP
+           0081  5E              MOV     E,M
+           0082  23              INX     H
+           0083  56              MOV     D,M
+           0084  CD0000          CALL    ABSRD
+ 108   2      end;
+                                                 ; STATEMENT # 108
+           0087  C9              RET
+        
+ 109   1      seek: PROCEDURE(aftn, mode, blockptr, byteptr) PUBLIC;
+                                                 ; STATEMENT # 109
+                         ; PROC  SEEK
+           0088  210600          LXI     H,BYTEPTR+1H
+           008B  72              MOV     M,D
+           008C  2B              DCX     H
+           008D  73              MOV     M,E
+           008E  2B              DCX     H
+           008F  70              MOV     M,B
+           0090  2B              DCX     H
+           0091  71              MOV     M,C
+           0092  2B              DCX     H
+           0093  D1              POP     D       
+           0094  C1              POP     B       
+           0095  70              MOV     M,B
+           0096  2B              DCX     H
+           0097  71              MOV     M,C
+           0098  2B              DCX     H
+           0099  C1              POP     B       
+           009A  71              MOV     M,C
+           009B  D5              PUSH    D       
+PL/M-80 COMPILER                                                                                                PAGE   5
+
+
+ 110   2          DECLARE aftn BYTE, (mode, blockptr, byteptr) ADDRESS;
+ 111   2          DECLARE lowMode BYTE AT (.mode);
+ 112   2          DECLARE blk BASED blockptr ADDRESS, byt BASED byteptr ADDRESS;
+ 113   2          DECLARE plusMinus ADDRESS,
+                      orig$byte ADDRESS, lo$byte BYTE AT (.orig$byte),
+                      blockno ADDRESS, temp ADDRESS, forward BYTE;
+        
+ 114   2          if mode > SEEK$EOF then
+                                                 ; STATEMENT # 114
+           009C  3E04            MVI     A,4H
+           009E  210100          LXI     H,MODE
+           00A1  CD0000          CALL    @P0103 
+           00A4  D2AC00          JNC     @3
+ 115   2              call warn(BAD$SEEK$ARG);
+                                                 ; STATEMENT # 115
+           00A7  0E1B            MVI     C,1BH
+           00A9  CD0000          CALL    WARN
+                         @3:
+ 116   2          call aft$window(aftn);
+                                                 ; STATEMENT # 116
+           00AC  2A0000          LHLD    AFTN
+           00AF  4D              MOV     C,L
+           00B0  CD0000          CALL    AWINDO
+ 117   2          if a$device = BBDEV then
+                                                 ; STATEMENT # 117
+           00B3  2A0000          LHLD    ADEVP
+           00B6  7E              MOV     A,M
+           00B7  FE1A            CPI     1AH
+           00B9  C2BD00          JNZ     @4
+ 118   2              return;
+                                                 ; STATEMENT # 118
+           00BC  C9              RET
+                         @4:
+        
+ 119   2          if a$device > F9DEV then
+                                                 ; STATEMENT # 119
+           00BD  2A0000          LHLD    ADEVP
+           00C0  3E09            MVI     A,9H
+           00C2  BE              CMP     M
+           00C3  D2CB00          JNC     @5
+ 120   2              call warn(NON$DISK$SEEK);
+                                                 ; STATEMENT # 120
+           00C6  0E13            MVI     C,13H
+           00C8  CD0000          CALL    WARN
+                         @5:
+        
+ 121   2          if a$access = WRITE$MODE then   /* 2 */
+                                                 ; STATEMENT # 121
+           00CB  2A0000          LHLD    AACESP
+           00CE  7E              MOV     A,M
+           00CF  FE02            CPI     2H
+           00D1  C2D900          JNZ     @6
+ 122   2              call warn(SEEK$ON$WRITE);
+                                                 ; STATEMENT # 122
+           00D4  0E1F            MVI     C,1FH
+           00D6  CD0000          CALL    WARN
+                         @6:
+PL/M-80 COMPILER                                                                                                PAGE   6
+
+
+ 123   2          if lowMode = SEEK$RETURN then   /* 0 - SEEK$RETURN */
+                                                 ; STATEMENT # 123
+           00D9  3A0100          LDA     LOWMODE
+           00DC  FE00            CPI     0H
+           00DE  C21601          JNZ     @7
+ 124   2          do;
+ 125   3              byt = a$data$ptr;   
+                                                 ; STATEMENT # 125
+           00E1  2A0000          LHLD    ADATAPTRP
+           00E4  E5              PUSH    H       ; 1
+           00E5  2A0500          LHLD    BYTEPTR
+           00E8  C1              POP     B       ; 1
+           00E9  0A              LDAX    B
+           00EA  77              MOV     M,A
+           00EB  23              INX     H
+           00EC  3600            MVI     M,0
+ 126   3              if (blk := a$blk$seqno - 1) = 0FFFFh then
+                                                 ; STATEMENT # 126
+           00EE  2A0000          LHLD    ABLKSEQNOP
+           00F1  4E              MOV     C,M
+           00F2  23              INX     H
+           00F3  46              MOV     B,M
+           00F4  0B              DCX     B
+           00F5  2A0300          LHLD    BLOCKPTR
+           00F8  71              MOV     M,C
+           00F9  23              INX     H
+           00FA  70              MOV     M,B
+           00FB  11FFFF          LXI     D,0FFFFH
+           00FE  CD0000          CALL    @P0097 
+           0101  B5              ORA     L
+           0102  C21501          JNZ     @8
+ 127   3              do;
+ 128   4                  blk, byt = 0;
+                                                 ; STATEMENT # 128
+           0105  2A0300          LHLD    BLOCKPTR
+           0108  3E00            MVI     A,0H
+           010A  77              MOV     M,A
+           010B  23              INX     H
+           010C  3600            MVI     M,0
+           010E  2A0500          LHLD    BYTEPTR
+           0111  77              MOV     M,A
+           0112  23              INX     H
+           0113  3600            MVI     M,0
+ 129   4              end;
+                                                 ; STATEMENT # 129
+                         @8:
+ 130   3              return;
+                                                 ; STATEMENT # 130
+           0115  C9              RET
+ 131   3          end;
+                                                 ; STATEMENT # 131
+                         @7:
+                  
+ 132   2          blockno = (blk AND 07fffh) + shr((orig$byte := byt), 7);
+                                                 ; STATEMENT # 132
+           0116  2A0300          LHLD    BLOCKPTR
+           0119  11FF7F          LXI     D,7FFFH
+PL/M-80 COMPILER                                                                                                PAGE   7
+
+
+           011C  CD0000          CALL    @P0027 
+           011F  E5              PUSH    H       ; 1
+           0120  2A0500          LHLD    BYTEPTR
+           0123  5E              MOV     E,M
+           0124  23              INX     H
+           0125  56              MOV     D,M
+           0126  EB              XCHG
+           0127  220900          SHLD    ORIGBYTE
+           012A  0E07            MVI     C,7H
+           012C  CD0000          CALL    @P0093 
+           012F  C1              POP     B       ; 1
+           0130  09              DAD     B
+           0131  220B00          SHLD    BLOCKNO
+ 133   2          lo$byte = lo$byte and 7fh;
+                                                 ; STATEMENT # 133
+           0134  3A0900          LDA     LOBYTE
+           0137  E67F            ANI     7FH
+           0139  320900          STA     LOBYTE
+ 134   2          if lowMode = SEEK$EOF then
+                                                 ; STATEMENT # 134
+           013C  3A0100          LDA     LOWMODE
+           013F  FE04            CPI     4H
+           0141  C27001          JNZ     @9
+ 135   2          do;
+ 136   3              lowMode = SEEK$ABS;
+                                                 ; STATEMENT # 136
+           0144  210100          LXI     H,LOWMODE
+           0147  3602            MVI     M,2H
+ 137   3              lo$byte = a$eof$data$ptr;
+                                                 ; STATEMENT # 137
+           0149  2A0000          LHLD    AEOPP
+           014C  7E              MOV     A,M
+           014D  320900          STA     LOBYTE
+ 138   3              if (blockno := a$blk$count - 1) = 0FFFFh then
+                                                 ; STATEMENT # 138
+           0150  2A0000          LHLD    ABCNTP
+           0153  4E              MOV     C,M
+           0154  23              INX     H
+           0155  46              MOV     B,M
+           0156  0B              DCX     B
+           0157  60              MOV     H,B
+           0158  69              MOV     L,C
+           0159  220B00          SHLD    BLOCKNO
+           015C  11FFFF          LXI     D,0FFFFH
+           015F  CD0000          CALL    @P0097 
+           0162  B5              ORA     L
+           0163  C27001          JNZ     @10
+ 139   3              do;
+ 140   4                  blockno, lo$byte = 0;
+                                                 ; STATEMENT # 140
+           0166  210000          LXI     H,0H
+           0169  220B00          SHLD    BLOCKNO
+           016C  7D              MOV     A,L
+           016D  320900          STA     LOBYTE
+ 141   4              end;
+                                                 ; STATEMENT # 141
+                         @10:
+PL/M-80 COMPILER                                                                                                PAGE   8
+
+
+ 142   3          end;
+                                                 ; STATEMENT # 142
+                         @9:
+ 143   2          if lowMode = SEEK$ABS then
+                                                 ; STATEMENT # 143
+           0170  3A0100          LDA     LOWMODE
+           0173  FE02            CPI     2H
+           0175  C2FC01          JNZ     @11
+ 144   2          do;
+ 145   3              if (blockno OR a$blk$seqno OR lo$byte) <> 0 then
+                                                 ; STATEMENT # 145
+           0178  2A0000          LHLD    ABLKSEQNOP
+           017B  110B00          LXI     D,BLOCKNO
+           017E  CD0000          CALL    @P0053 
+           0181  3A0900          LDA     LOBYTE
+           0184  CD0000          CALL    @P0048 
+           0187  3E00            MVI     A,0H
+           0189  CD0000          CALL    @P0094 
+           018C  B5              ORA     L
+           018D  CA9A01          JZ      @12
+ 146   3              do;
+ 147   4                  blockno = blockno + 1;
+                                                 ; STATEMENT # 147
+           0190  2A0B00          LHLD    BLOCKNO
+           0193  23              INX     H
+           0194  220B00          SHLD    BLOCKNO
+ 148   4              end;
+                                                 ; STATEMENT # 148
+           0197  C39F01          JMP     @13
+                         @12:
+                      else
+ 149   3                  lo$byte = 128;
+                                                 ; STATEMENT # 149
+           019A  210900          LXI     H,LOBYTE
+           019D  3680            MVI     M,80H
+                         @13:
+ 150   3              lowMode = SEEK$BACKWARD;
+                                                 ; STATEMENT # 150
+           019F  210100          LXI     H,LOWMODE
+           01A2  3601            MVI     M,1H
+ 151   3              if blockno > a$blk$seqno then
+                                                 ; STATEMENT # 151
+           01A4  2A0000          LHLD    ABLKSEQNOP
+           01A7  EB              XCHG
+           01A8  010B00          LXI     B,BLOCKNO
+           01AB  CD0000          CALL    @P0098 
+           01AE  D2C701          JNC     @14
+ 152   3              do;
+ 153   4                  lowMode = SEEK$FORWARD;
+                                                 ; STATEMENT # 153
+           01B1  210100          LXI     H,LOWMODE
+           01B4  3603            MVI     M,3H
+ 154   4                  blockno = blockno - a$blk$seqno;
+                                                 ; STATEMENT # 154
+           01B6  2A0000          LHLD    ABLKSEQNOP
+           01B9  110B00          LXI     D,BLOCKNO
+           01BC  CD0000          CALL    @P0099 
+PL/M-80 COMPILER                                                                                                PAGE   9
+
+
+           01BF  EB              XCHG
+           01C0  2B              DCX     H
+           01C1  73              MOV     M,E
+           01C2  23              INX     H
+           01C3  72              MOV     M,D
+ 155   4              end;
+                                                 ; STATEMENT # 155
+           01C4  C3F901          JMP     @15
+                         @14:
+ 156   3              else if blockno < a$blk$seqno then
+                                                 ; STATEMENT # 156
+           01C7  2A0000          LHLD    ABLKSEQNOP
+           01CA  110B00          LXI     D,BLOCKNO
+           01CD  CD0000          CALL    @P0099 
+           01D0  D2E301          JNC     @16
+ 157   3                  blockno = a$blk$seqno - blockno;
+                                                 ; STATEMENT # 157
+           01D3  2A0000          LHLD    ABLKSEQNOP
+           01D6  EB              XCHG
+           01D7  010B00          LXI     B,BLOCKNO
+           01DA  CD0000          CALL    @P0098 
+           01DD  220B00          SHLD    BLOCKNO
+           01E0  C3F901          JMP     @17
+                         @16:
+                      else
+ 158   3              do;
+ 159   4                  blockno = 0;
+                                                 ; STATEMENT # 159
+           01E3  210000          LXI     H,0H
+           01E6  220B00          SHLD    BLOCKNO
+ 160   4                  if lo$byte > a$data$ptr then
+                                                 ; STATEMENT # 160
+           01E9  2A0000          LHLD    ADATAPTRP
+           01EC  7E              MOV     A,M
+           01ED  210900          LXI     H,LOBYTE
+           01F0  BE              CMP     M
+           01F1  D2F901          JNC     @18
+ 161   4                      lowMode = SEEK$FORWARD; /* seek within block */
+                                                 ; STATEMENT # 161
+           01F4  210100          LXI     H,LOWMODE
+           01F7  3603            MVI     M,3H
+                         @18:
+ 162   4              end;
+                                                 ; STATEMENT # 162
+                         @17:
+                         @15:
+ 163   3          end;
+                                                 ; STATEMENT # 163
+           01F9  C32E02          JMP     @19
+                         @11:
+                  else
+ 164   2          do;
+ 165   3              if lowMode = SEEK$BACKWARD then
+                                                 ; STATEMENT # 165
+           01FC  3A0100          LDA     LOWMODE
+           01FF  FE01            CPI     1H
+           0201  C20C02          JNZ     @20
+PL/M-80 COMPILER                                                                                                PAGE  10
+
+
+ 166   3                  lo$byte = -lo$byte;
+                                                 ; STATEMENT # 166
+           0204  3A0900          LDA     LOBYTE
+           0207  2F              CMA
+           0208  3C              INR     A
+           0209  320900          STA     LOBYTE
+                         @20:
+                      
+ 167   3              lo$byte = a$data$ptr + lo$byte;
+                                                 ; STATEMENT # 167
+           020C  2A0000          LHLD    ADATAPTRP
+           020F  3A0900          LDA     LOBYTE
+           0212  86              ADD     M
+           0213  320900          STA     LOBYTE
+ 168   3              if lo$byte > 128 then
+                                                 ; STATEMENT # 168
+           0216  3E80            MVI     A,80H
+           0218  210900          LXI     H,LOBYTE
+           021B  BE              CMP     M
+           021C  D22E02          JNC     @21
+ 169   3              do;
+ 170   4                  blockno = blockno + 1;
+                                                 ; STATEMENT # 170
+           021F  2A0B00          LHLD    BLOCKNO
+           0222  23              INX     H
+           0223  220B00          SHLD    BLOCKNO
+ 171   4                  lo$byte = lo$byte - 128;
+                                                 ; STATEMENT # 171
+           0226  3A0900          LDA     LOBYTE
+           0229  D680            SUI     80H
+           022B  320900          STA     LOBYTE
+ 172   4              end;
+                                                 ; STATEMENT # 172
+                         @21:
+ 173   3          end;
+                                                 ; STATEMENT # 173
+                         @19:
+ 174   2          a$data$ptr = lo$byte;
+                                                 ; STATEMENT # 174
+           022E  2A0000          LHLD    ADATAPTRP
+           0231  3A0900          LDA     LOBYTE
+           0234  77              MOV     M,A
+ 175   2          if (forward := lowMode = SEEK$FORWARD) then
+                                                 ; STATEMENT # 175
+           0235  3A0100          LDA     LOWMODE
+           0238  D603            SUI     3H
+           023A  D601            SUI     1
+           023C  9F              SBB     A
+           023D  320F00          STA     FORWARD
+           0240  1F              RAR
+           0241  D24702          JNC     @22
+ 176   2              call adjust$eof;
+                                                 ; STATEMENT # 176
+           0244  CD0000          CALL    ADJUSTEOF
+                         @22:
+        
+ 177   2          do while blockno > 0;
+PL/M-80 COMPILER                                                                                                PAGE  11
+
+
+                                                 ; STATEMENT # 177
+                         @34:
+           0247  3E00            MVI     A,0H
+           0249  210B00          LXI     H,BLOCKNO
+           024C  CD0000          CALL    @P0103 
+           024F  D28303          JNC     @35
+ 178   3              call save$data$blk;
+                                                 ; STATEMENT # 178
+           0252  CD0000          CALL    SAVEDATABLK
+ 179   3              a$dbuf$read = FALSE;
+                                                 ; STATEMENT # 179
+           0255  2A0000          LHLD    ADBUFREADP
+           0258  3600            MVI     M,0H
+ 180   3              blockno = blockno - 1;
+                                                 ; STATEMENT # 180
+           025A  2A0B00          LHLD    BLOCKNO
+           025D  2B              DCX     H
+           025E  220B00          SHLD    BLOCKNO
+ 181   3              if forward then
+                                                 ; STATEMENT # 181
+           0261  3A0F00          LDA     FORWARD
+           0264  1F              RAR
+           0265  D2FB02          JNC     @23
+ 182   3              do;
+ 183   4                  plusMinus = 1;
+                                                 ; STATEMENT # 183
+           0268  210100          LXI     H,1H
+           026B  220700          SHLD    PLUSMINUS
+ 184   4                  if a$ptr$ptr = 63 then
+                                                 ; STATEMENT # 184
+           026E  2A0000          LHLD    APTRPTRP
+           0271  7E              MOV     A,M
+           0272  FE3F            CPI     3FH
+           0274  C2F802          JNZ     @24
+ 185   4                  do;
+ 186   5                      if (temp := links(FLINK)) = 0 then
+                                                 ; STATEMENT # 186
+           0277  2A0000          LHLD    POINTERBASE
+           027A  23              INX     H
+           027B  23              INX     H
+           027C  5E              MOV     E,M
+           027D  23              INX     H
+           027E  56              MOV     D,M
+           027F  EB              XCHG
+           0280  220D00          SHLD    TEMP
+           0283  3E00            MVI     A,0H
+           0285  CD0000          CALL    @P0094 
+           0288  B5              ORA     L
+           0289  C2D602          JNZ     @25
+ 187   5                      do;
+ 188   6                          call chk$eof;
+                                                 ; STATEMENT # 188
+           028C  CD0000          CALL    CHKEOF
+ 189   6                          links(FLINK), temp = get$block(a$device);
+                                                 ; STATEMENT # 189
+           028F  2A0000          LHLD    ADEVP
+           0292  4E              MOV     C,M
+PL/M-80 COMPILER                                                                                                PAGE  12
+
+
+           0293  CD0000          CALL    GETBLK
+           0296  E5              PUSH    H       ; 1
+           0297  2A0000          LHLD    POINTERBASE
+           029A  23              INX     H
+           029B  23              INX     H
+           029C  C1              POP     B       ; 1
+           029D  71              MOV     M,C
+           029E  23              INX     H
+           029F  70              MOV     M,B
+           02A0  60              MOV     H,B
+           02A1  69              MOV     L,C
+           02A2  220D00          SHLD    TEMP
+ 190   6                          a$ptr$change = TRUE;
+                                                 ; STATEMENT # 190
+           02A5  2A0000          LHLD    APTRCHANGEP
+           02A8  36FF            MVI     M,0FFH
+ 191   6                          call save$pointer$block;
+                                                 ; STATEMENT # 191
+           02AA  CD1F00          CALL    SAVEPOINTERBLOCK
+ 192   6                          call clear$buf(a$pbuf);
+                                                 ; STATEMENT # 192
+           02AD  2A0000          LHLD    APBUFP
+           02B0  4E              MOV     C,M
+           02B1  23              INX     H
+           02B2  46              MOV     B,M
+           02B3  CD0000          CALL    CLRBUF
+ 193   6                          links(BLINK) = a$ptr$blk;
+                                                 ; STATEMENT # 193
+           02B6  2A0000          LHLD    APTRBLKP
+           02B9  E5              PUSH    H       ; 1
+           02BA  2A0000          LHLD    POINTERBASE
+           02BD  E3              XTHL            ; 1
+           02BE  4E              MOV     C,M
+           02BF  23              INX     H
+           02C0  46              MOV     B,M
+           02C1  E1              POP     H       ; 1
+           02C2  71              MOV     M,C
+           02C3  23              INX     H
+           02C4  70              MOV     M,B
+ 194   6                          call abswrite(temp, a$pbuf);
+                                                 ; STATEMENT # 194
+           02C5  2A0000          LHLD    APBUFP
+           02C8  5E              MOV     E,M
+           02C9  23              INX     H
+           02CA  56              MOV     D,M
+           02CB  2A0D00          LHLD    TEMP
+           02CE  44              MOV     B,H
+           02CF  4D              MOV     C,L
+           02D0  CD0000          CALL    ABSWR
+ 195   6                      end;
+                                                 ; STATEMENT # 195
+           02D3  C3E702          JMP     @26
+                         @25:
+                              else
+ 196   5                      do;
+ 197   6                          call save$pointer$block;
+                                                 ; STATEMENT # 197
+PL/M-80 COMPILER                                                                                                PAGE  13
+
+
+           02D6  CD1F00          CALL    SAVEPOINTERBLOCK
+ 198   6                          call absread(temp, a$pbuf);
+                                                 ; STATEMENT # 198
+           02D9  2A0000          LHLD    APBUFP
+           02DC  5E              MOV     E,M
+           02DD  23              INX     H
+           02DE  56              MOV     D,M
+           02DF  2A0D00          LHLD    TEMP
+           02E2  44              MOV     B,H
+           02E3  4D              MOV     C,L
+           02E4  CD0000          CALL    ABSRD
+ 199   6                      end;
+                                                 ; STATEMENT # 199
+                         @26:
+ 200   5                      a$ptr$ptr = 1;
+                                                 ; STATEMENT # 200
+           02E7  2A0000          LHLD    APTRPTRP
+           02EA  3601            MVI     M,1H
+ 201   5                      a$ptr$blk = temp;
+                                                 ; STATEMENT # 201
+           02EC  2A0000          LHLD    APTRBLKP
+           02EF  E5              PUSH    H       ; 1
+           02F0  2A0D00          LHLD    TEMP
+           02F3  EB              XCHG
+           02F4  E1              POP     H       ; 1
+           02F5  73              MOV     M,E
+           02F6  23              INX     H
+           02F7  72              MOV     M,D
+ 202   5                  end;
+                                                 ; STATEMENT # 202
+                         @24:
+ 203   4              end;
+                                                 ; STATEMENT # 203
+           02F8  C36303          JMP     @27
+                         @23:
+ 204   3              else if a$data$ptr = 128 then
+                                                 ; STATEMENT # 204
+           02FB  2A0000          LHLD    ADATAPTRP
+           02FE  7E              MOV     A,M
+           02FF  FE80            CPI     80H
+           0301  C21203          JNZ     @28
+ 205   3              do;
+ 206   4                  plusMinus = 0;
+                                                 ; STATEMENT # 206
+           0304  210000          LXI     H,0H
+           0307  220700          SHLD    PLUSMINUS
+ 207   4                  a$data$ptr = 0;
+                                                 ; STATEMENT # 207
+           030A  2A0000          LHLD    ADATAPTRP
+           030D  3600            MVI     M,0H
+ 208   4              end;
+                                                 ; STATEMENT # 208
+           030F  C36303          JMP     @29
+                         @28:
+                      else
+ 209   3              do;
+ 210   4                  plusMinus = 0FFFFH; /* -1 */
+PL/M-80 COMPILER                                                                                                PAGE  14
+
+
+                                                 ; STATEMENT # 210
+           0312  21FFFF          LXI     H,0FFFFH
+           0315  220700          SHLD    PLUSMINUS
+ 211   4                  if a$ptr$ptr - 1 < 2 then 
+                                                 ; STATEMENT # 211
+           0318  2A0000          LHLD    APTRPTRP
+           031B  7E              MOV     A,M
+           031C  3D              DCR     A
+           031D  FE02            CPI     2H
+           031F  D26303          JNC     @30
+ 212   4                      if links(BLINK) <> 0 then
+                                                 ; STATEMENT # 212
+           0322  2A0000          LHLD    POINTERBASE
+           0325  3E00            MVI     A,0H
+           0327  CD0000          CALL    @P0103 
+           032A  B5              ORA     L
+           032B  CA5203          JZ      @31
+ 213   4                      do;
+ 214   5                          call save$pointer$block;
+                                                 ; STATEMENT # 214
+           032E  CD1F00          CALL    SAVEPOINTERBLOCK
+ 215   5                          a$ptr$ptr = 64;
+                                                 ; STATEMENT # 215
+           0331  2A0000          LHLD    APTRPTRP
+           0334  3640            MVI     M,40H
+ 216   5                          call absread((a$ptr$blk := links(BLINK)), a$pbuf);
+                                                 ; STATEMENT # 216
+           0336  2A0000          LHLD    POINTERBASE
+           0339  E5              PUSH    H       ; 1
+           033A  2A0000          LHLD    APTRBLKP
+           033D  E3              XTHL            ; 1
+           033E  4E              MOV     C,M
+           033F  23              INX     H
+           0340  46              MOV     B,M
+           0341  D1              POP     D       ; 1
+           0342  EB              XCHG
+           0343  71              MOV     M,C
+           0344  23              INX     H
+           0345  70              MOV     M,B
+           0346  2A0000          LHLD    APBUFP
+           0349  5E              MOV     E,M
+           034A  23              INX     H
+           034B  56              MOV     D,M
+           034C  CD0000          CALL    ABSRD
+ 217   5                      end;
+                                                 ; STATEMENT # 217
+           034F  C36303          JMP     @32
+                         @31:
+                              else
+ 218   4                      do;
+ 219   5                          a$ptr$ptr = 1;
+                                                 ; STATEMENT # 219
+           0352  2A0000          LHLD    APTRPTRP
+           0355  3601            MVI     M,1H
+ 220   5                          a$blk$seqno = 0;
+                                                 ; STATEMENT # 220
+           0357  2A0000          LHLD    ABLKSEQNOP
+PL/M-80 COMPILER                                                                                                PAGE  15
+
+
+           035A  3E00            MVI     A,0H
+           035C  77              MOV     M,A
+           035D  23              INX     H
+           035E  3600            MVI     M,0
+ 221   5                          goto error;
+                                                 ; STATEMENT # 221
+           0360  C38303          JMP     ERROR
+                          
+ 222   5                      end;
+                                                 ; STATEMENT # 222
+                         @32:
+                         @30:
+ 223   4              end;
+                                                 ; STATEMENT # 223
+                         @29:
+                         @27:
+ 224   3              a$blk$seqno = a$blk$seqno + plusMinus;
+                                                 ; STATEMENT # 224
+           0363  2A0000          LHLD    ABLKSEQNOP
+           0366  110700          LXI     D,PLUSMINUS
+           0369  E5              PUSH    H       ; 1
+           036A  CD0000          CALL    @P0012 
+           036D  EB              XCHG
+           036E  E1              POP     H       ; 1
+           036F  73              MOV     M,E
+           0370  23              INX     H
+           0371  72              MOV     M,D
+ 225   3              a$ptr$ptr = a$ptr$ptr + low(plusMinus);
+                                                 ; STATEMENT # 225
+           0372  2A0000          LHLD    APTRPTRP
+           0375  E5              PUSH    H       ; 1
+           0376  2A0700          LHLD    PLUSMINUS
+           0379  7D              MOV     A,L
+           037A  E1              POP     H       ; 1
+           037B  86              ADD     M
+           037C  77              MOV     M,A
+ 226   3              call adjust$eof;
+                                                 ; STATEMENT # 226
+           037D  CD0000          CALL    ADJUSTEOF
+ 227   3          end;
+                                                 ; STATEMENT # 227
+           0380  C34702          JMP     @34
+                         @35:
+        
+ 228   2      error:
+                                                 ; STATEMENT # 228
+                         ERROR:
+           0383  2A0000          LHLD    ABLKSEQNOP
+           0386  3E00            MVI     A,0H
+           0388  CD0000          CALL    @P0103 
+           038B  B5              ORA     L
+           038C  D601            SUI     1
+           038E  9F              SBB     A
+           038F  2A0000          LHLD    ADATAPTRP
+           0392  F5              PUSH    PSW     ; 1
+           0393  7E              MOV     A,M
+           0394  D680            SUI     80H
+PL/M-80 COMPILER                                                                                                PAGE  16
+
+
+           0396  C6FF            ADI     255
+           0398  9F              SBB     A
+           0399  C1              POP     B       ; 1
+           039A  48              MOV     C,B
+           039B  A1              ANA     C
+           039C  1F              RAR
+           039D  D2AA03          JNC     @33
+                  if a$blk$seqno = 0 AND a$data$ptr <> 128 then
+ 229   2          do;
+ 230   3              a$data$ptr = 128;
+                                                 ; STATEMENT # 230
+           03A0  2A0000          LHLD    ADATAPTRP
+           03A3  3680            MVI     M,80H
+ 231   3              call warn(LONG$BACK$SEEK);
+                                                 ; STATEMENT # 231
+           03A5  0E14            MVI     C,14H
+           03A7  CD0000          CALL    WARN
+ 232   3          end;
+                                                 ; STATEMENT # 232
+                         @33:
+ 233   2      end;
+                                                 ; STATEMENT # 233
+           03AA  C9              RET
+ 234   1      end;
+              eof
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 03ABH    939D
+     VARIABLE AREA SIZE = 0010H     16D
+     MAXIMUM STACK SIZE = 0004H      4D
+     242 LINES READ
+     0 PROGRAM ERRORS
+
+END OF PL/M-80 COMPILATION

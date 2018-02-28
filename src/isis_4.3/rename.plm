@@ -1,0 +1,25 @@
+rename:
+do;
+$include(rename.ipx)
+
+rename: PROCEDURE(old$file, new$file) PUBLIC;
+	DECLARE (old$file, new$file) ADDRESS;
+	DECLARE i BYTE;			/* no longer used but needed to align with isis.bin */
+	DECLARE already$exists BOOLEAN;
+	
+
+	call xpath(old$file, .pn2);
+	call chk$pn$disk$file(new$file);
+	if pn(0) <> pn2(0) then
+		call warn(DIFFERENT$DISK);
+	already$exists = dlook(.pn);
+	if NOT dlook(.pn2) then
+		call warn(NO$SUCH$FILE);
+	call chk$write$protect;
+	if already$exists then
+		call warn(MULTIDEFINED);
+	call write$dir$entry;
+end;
+end;
+eof
+
