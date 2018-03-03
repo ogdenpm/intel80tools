@@ -56,8 +56,8 @@ sub loadImage {
 $ANY = 0;
 $PUB = 1;
 $SYM = 2;
+$PLM = 0;
 $inCseg = 0;
-
 sub getOffset {
     my $file = $_[0];
     my $label;
@@ -90,6 +90,7 @@ sub getOffset {
             }
         } while (<$in>);
     } elsif (/^ISIS-II PL\/M-80/) {
+        $PLM = 1;
         my $method = $ANY;
         my $mod;
         while (<$in>) {
@@ -143,7 +144,7 @@ while (my $lstwild = shift @ARGV) {
             $all = <$in>;
             print $out $all;
         } else {
-            $inCseg = 0;
+            $inCseg = $PLM;
             while (<$in>) {
                 if (/^[^;]+\b([cad])seg/i) {
                     $inCseg = lc($1) eq 'c';
