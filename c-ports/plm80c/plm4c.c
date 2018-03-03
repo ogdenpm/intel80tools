@@ -1,4 +1,5 @@
 #include "plm.h"
+#include <stdio.h>
 
 static byte ccBits[] = {0x10, 0x18, 8, 0, 0x18, 0x10};
 static byte ccCodes[] =  "\x2" "NC" "\x1" "C " "\x1" "Z " "\x2" "NZ" "\x1" "C " "\x2" "NC";
@@ -11,8 +12,8 @@ static byte bA18F, bA190;
 static void PstrCat2Line(pointer strP)
 {
     if (strP != 0) {
-        memmove(&line[lineLen], strP + 1, strP[0]);
-        lineLen = lineLen + strP[0];
+        memmove(&line[line[0] + 1], strP + 1, strP[0]);
+        line[0] = line[0] + strP[0];
     }
 }
 
@@ -21,7 +22,7 @@ static void Sub_6175()
     byte i, j;
     pointer p;
 
-    j= Ror(bA18F, 4) & 3;	
+    j= (bA18F >> 4) & 3;	
     bA190 = bA18F & 0xf;
     if (bA190 < 4) {
         i= (byte)wValAry[bA190];
@@ -35,11 +36,11 @@ static void Sub_6175()
     }
 
     switch (j) {
-    case 0: i = Rol(i, 4); break;
-    case 1: i = Rol(i, 3); break;
+    case 0: i = (i << 4) | (i >> 4); break;
+    case 1: i = (i << 3) | (i >> 5); break;
     case 2: break;
     }
-    opBytes[0] = opBytes[0] | i;
+    opBytes[0] |= i;
     PstrCat2Line(p);
 }
 
@@ -52,7 +53,7 @@ static void AddWord()
     dstRec = b96D6;
     pw = (wpointer)&opBytes[opByteCnt];
     *pw = wValAry[bA190];
-    opByteCnt = opByteCnt + 2;
+    opByteCnt += 2;
     PstrCat2Line(sValAry[bA190]);
 }
 
@@ -68,9 +69,9 @@ static void AddHelper()
     if (bA190 == 1)
         q = 0x69;
     else {
-        i = b4566[b969D];
-        j = b4495[b9692 + 11 * i];
-        q = b42D6[Shr(j, 2)] + (j & 3);
+        i = b425D[b969D];
+        j = b418C[b9692 + 11 * i];
+        q = b42D6[(j >> 2)] + (j & 3);
     }
     helperStr[0] = Num2Asc(q, -4, 10, &helperStr[3]) + 2;
     PstrCat2Line(helperStr);
@@ -82,7 +83,7 @@ static void AddHelper()
         dstRec = 5;
         curExtId = (byte)WordP(helpersP)[q];
     }
-    opByteCnt = opByteCnt + 2;
+    opByteCnt += 2;
 }
 
 
@@ -90,16 +91,13 @@ static void AddSmallNum()
 {
     byte i;
     
-    wA18D = wA18D + 1;
-    i = b4A78[wA18D];
-    opBytes[opByteCnt] = i;
-    opByteCnt = opByteCnt + 1;
+    i = b4A78[++wA18D];
+    opBytes[opByteCnt++] = i;
     /* extend to word on opBytes if not 0x84 */
     if (bA190 != 0) {
-        opBytes[opByteCnt] = 0;
-        opByteCnt = opByteCnt + 1;
+        opBytes[opByteCnt++] = 0;
     }
-    lineLen = lineLen + Num2Asc(i, 0, 10, &line[lineLen]);
+    line[0] += Num2Asc(i, 0, 10, &line[line[0] + 1]);
 }
 
 
@@ -109,7 +107,7 @@ static void AddStackOrigin()
     dstRec = 3;
     opBytes[opByteCnt] = 0;
     opBytes[opByteCnt + 1] = 0;
-    opByteCnt = opByteCnt + 2;
+    opByteCnt += 2;
     PstrCat2Line(stackOrigin);
 }
 
@@ -120,7 +118,7 @@ static void AddByte()
     pointer str;
 
     opBytes[opByteCnt] = (byte)wValAry[bA190];
-    opByteCnt = opByteCnt + 1;
+    opByteCnt++;
     if (wValAry[bA190] > 255) {		/* reformat number to byte Size() */
         str = sValAry[bA190];
         str[0] = Num2Asc(Low(wValAry[bA190]), 0, -16, &str[1]);
@@ -140,10 +138,10 @@ static void AddPCRel()
     if (q > 127)	/* Sign() extend */
         q = q | 0xff00;
     *pw = baseAddr + q;
-    opByteCnt = opByteCnt + 2;
-    line[lineLen] = '_';
-    lineLen = lineLen + 1;
-    AddWrdDisp(&lineLen, q);
+    opByteCnt += 2;
+    line[line[0] + 1] = '$';
+    line[0]++;
+    AddWrdDisp(line, q);
 }
 
 
@@ -151,7 +149,7 @@ static void AddPCRel()
 
 static void AddCcCode()
 {
-    opBytes[0] = opBytes[0] | ccBits[b969C];
+    opBytes[0] |= ccBits[b969C];
     PstrCat2Line(&ccCodes[3 * b969C]);
 }
 
@@ -168,10 +166,12 @@ static void Sub_64CF()
 {
     byte i;
     switch (bA190) {
-    case 0: i = b4566[b969D]; break;
+    case 0: i = b425D[b969D]; break;
     case 1: i = b475E[b969D]; break;
     case 2: i = b4774[b969D]; break;
     case 3: i = b478A[b969D]; break;
+    default: fprintf(stderr, "out of bounds in Sub_64CF() bA190 = %d\n", bA190);
+        Exit();
     }
     opBytes[0] = b473D[i];
     opByteCnt = 1;
@@ -189,18 +189,17 @@ static void Sub_603C()
     }
 
     dstRec = 0;
-    lineLen = 0;
+    line[0] = 0;
 
     while (1) {
         wA18D = wA18D + 1;
         bA18F = b4A78[wA18D];
         if (bA18F < 0x80) {
-            line[lineLen] = bA18F;
-            lineLen = lineLen + 1;
+            line[line[0]++ + 1] = bA18F;
         } else if (bA18F >= 0xc0) 
             Sub_6175();
         else {
-            bA190 = Shr(bA18F,4) & 3;
+            bA190 = (bA18F >> 4) & 3;
             switch (bA18F & 0xf) {
             case 0: return;
             case 1: PstrCat2Line(sValAry[bA190]); break;
@@ -224,7 +223,7 @@ static void Sub_603C()
 
 static void Sub_654F()
 {
-    offset_t p;
+    word p;
     byte i;
 
     if (opByteCnt == 0 || ! OBJECT)
@@ -268,20 +267,20 @@ static void Sub_654F()
 
 void Sub_5FE7(word arg1w, byte arg2b)
 {
-    offset_t p;
+    word p;
 
     l_arg1w = arg1w;    // local copy to support nested proceedures
 
 	while (arg2b > 0) {
 		Sub_603C();
 		Sub_654F();
-		Sub_5E3E();
-		l_arg1w = l_arg1w + 1;
-		arg2b = arg2b - 1;
+		ListCodeBytes();
+		l_arg1w++;
+		arg2b--;
 		p = baseAddr + opByteCnt;
 		if (baseAddr > p) {
-			wa8125[2] = wa8125[1] = 0;
-			wa8125[0] = 0xCE;
+			errData.stmt = errData.info = 0;
+			errData.num = 0xCE;
 			EmitError();
 		} 
 		baseAddr = p;
@@ -299,8 +298,8 @@ Sub_66F1()
     if (cfCode >= 0xAE) { 
         i = cfCode - 0xAE;
         cfCode = b4602[i];
-        i = b4444[i];
-        b9692 = b4431[i];
+        i = b413B[i];
+        b9692 = b4128[i];
     }
 }
 
@@ -320,7 +319,7 @@ static void Sub_685C(byte arg1b, byte arg2b, byte arg3b)
 static void RdBVal()
 {
     Fread(&tx1File, (pointer)&wValAry[arg2b_67AD], 1);
-    wValAry[arg2b_67AD] = wValAry[arg2b_67AD] & 0xff;
+    wValAry[arg2b_67AD] &= 0xff;
     b96B0[0] = Num2Asc(wValAry[arg2b_67AD], 0, -16, &b96B0[1]);
     sValAry[arg2b_67AD] = b96B0;
 }
@@ -341,7 +340,7 @@ static void RdLocLab()
     wValAry[arg2b_67AD] = WordP(localLabelsP)[w96D7];
     locLabStr[1] = '@';
     locLabStr[0] = Num2Asc(w96D7, 0, 10, &locLabStr[2]) + 1;
-    sValAry[arg2b_67AD] = &locLabStr[0];
+    sValAry[arg2b_67AD] = locLabStr;
     b96D6 = 1;
 }
 
@@ -442,10 +441,10 @@ static void Sub_67AD(byte arg1b, byte arg2b)
     switch (bA1AB) {
     case 0:  return;
     case 1:
-            Sub_685C(arg2b, regNo[arg1b], regIdx[arg1b]);
-            Sub_685C(arg2b + 2, regNo[4 + arg1b], regIdx[4 + arg1b]);
+            Sub_685C(arg2b_67AD, regNo[arg1b_67AD], regIdx[arg1b_67AD]);
+            Sub_685C(arg2b_67AD + 2, regNo[4 + arg1b_67AD], regIdx[4 + arg1b_67AD]);
             break;
-    case 2: Sub_685C(arg2b, stkRegNo[arg1b], stkRegIdx[arg1b]); break;
+    case 2: Sub_685C(arg2b_67AD, stkRegNo[arg1b_67AD], stkRegIdx[arg1b_67AD]); break;
     case 3: Sub_6B9B(); break;
     case 4: RdBVal(); break;
     case 5: RdWVal(); break;
@@ -459,17 +458,17 @@ Sub_6720()
     static byte i;
 
     b96D6 = 0;
-    if (Rol(b4332[cfCode], 1) & 1) {
+    if (b4029[cfCode] & 0x80) {
         Fread(&tx1File, &b969C, 1);
-        b969D = b457C[b969C];
+        b969D = b4273[b969C];
     }
     w969E = 0;
-    bA1AB = Ror(b4332[cfCode], 4) & 7;
+    bA1AB = (b4029[cfCode] >> 4) & 7;
     if (bA1AB != 0) {
         if (bA1AB <= 3)
             Fread(&tx1File, &i, 1);
-        Sub_67AD(Ror(i, 4) & 0xf, 0);
-        bA1AB = Ror(b4332[cfCode], 1) & 7;
+        Sub_67AD((i >> 4) & 0xf, 0);
+        bA1AB = (b4029[cfCode] >> 1) & 7;
         Sub_67AD(i & 0xf, 1);
     }
 } /* Sub_6720() */
@@ -488,8 +487,8 @@ void Sub_668B()
 		}
 		FlushRecs();
 	}
-	Sub_5BD3();
-	Sub_5FE7(w47C1[cfCode] & 0xfff, Shr(w47C1[cfCode], 12));
+	EmitLinePrefix();
+	Sub_5FE7(w47C1[cfCode] & 0xfff, w47C1[cfCode] >> 12);
 }
 
 
