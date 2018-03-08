@@ -6,20 +6,20 @@ void PutLst(byte ch)
     if (col == 0) {
         if (linLft == 0)
             NewPgl();
-        else if (linLft <= b3CFF)
+        else if (linLft <= skipCnt)
             NewPgl();
         else
-            while (b3CFF != 0) {
+            while (skipCnt != 0) {
                 WrcLst('\n');
                 linLft--;
-                b3CFF--;
+                skipCnt--;
             }
     } else if (col >= PWIDTH)
         NlLead();
 
 
     if (ch == '\t') {
-        if (col >= margin)
+        if (col < margin)
             return;
         i = tWidth - (col - margin) % tWidth;
         if (col + i >= PWIDTH) {

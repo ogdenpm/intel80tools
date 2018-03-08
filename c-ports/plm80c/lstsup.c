@@ -19,23 +19,22 @@ void NewLineLst()
 		if (linLft == 0)
 			NewPgl();
 	Wr2cLst(0x0d0a);
-	linLft = linLft - 1;
+	linLft--;
 	col = 0;
 }
 
 
-void TabLst(byte arg1b)
+void TabLst(byte tabTo)
 {
-	if (arg1b > 0x7f) {
-		arg1b = -arg1b;
-		if (col >= arg1b)
+	if (tabTo > 127) {
+		tabTo = -tabTo;
+		if (col >= tabTo)
 			NewLineLst();
-		arg1b = arg1b - col - 1;
+		tabTo -= col + 1;
 	}
-	while (arg1b != 0) {
+	while (tabTo-- != 0)
 		PutLst(' ');
-		arg1b = arg1b - 1;
-	}
+
 }
 
 
@@ -44,24 +43,24 @@ void NewPageNextChLst()
 	linLft = 0;
 }
 
-void SetMarkerInfo(byte arg1b, byte arg2b, byte arg3b)
+void SetMarkerInfo(byte markerCol, byte marker, byte textCol)
 {
-	b3CFB = arg1b;
-	b3CFC = arg2b;
-	b3CFD = arg3b;
+	wrapMarkerCol = markerCol;
+	wrapMarker = marker;
+	wrapTextCol = textCol;
 }
 
 
-void SetStartAndTabW(byte arg1b, byte arg2b)
+void SetStartAndTabW(byte startCol, byte width)
 {
-	margin = arg1b - 1;
-	tWidth = arg2b;
+	margin = startCol - 1;
+	tWidth = width;
 }
 
 
-void SetSkipLst(byte arg1b)
+void SetSkipLst(byte cnt)
 {
-	b3CFF = arg1b;
+	skipCnt = cnt;
 }
 
 
@@ -73,10 +72,8 @@ void Xputstr2cLst(pointer str, byte endch)
 
 void XwrnstrLst(pointer str, byte cnt)
 {
-	while (cnt != 0) {
+	while (cnt-- != 0)
 		PutLst(*str++);
-		cnt = cnt - 1;
-	}
 }
 
 

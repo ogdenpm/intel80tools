@@ -150,6 +150,9 @@ int overlay3()
 	if (b7199)
 		return 4;
 	closeFile(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fullName, "tx1File.tmp_ov3");
+#endif
 	deleteFile(&tx1File);
 	if (IXREF)
 		return 5;
@@ -170,6 +173,9 @@ void sub_3F3C()
 		PRINTSet = 0;
 	}
 	closeFile(&tx2File);
+#ifdef _DEBUG
+    copyFile(tx2File.fullName, "tx2File.tmp_ov3");
+#endif
 	deleteFile(&tx2File);
 //	assignFileBuffer(&tx1File, tx1Buf, 1280, 2);
 //	if (IXREF || b7199)
@@ -446,10 +452,16 @@ void sub_4746()
 //		flushFile(&tx1File);
 		rewindFile(&tx1File);
 		closeFile(&nmsFile);
+#ifdef _DEBUG
+        copyFile(nmsFile.fullName, "nmsFile.tmp_ov3");
+#endif
 		deleteFile(&nmsFile);
 //		flushFile(&objFile);
 	}
 	closeFile(&atFile);
+#ifdef _DEBUG
+    copyFile(atFile.fullName, "atFile.tmp_ov3");
+#endif
 	deleteFile(&atFile);
 }
 
