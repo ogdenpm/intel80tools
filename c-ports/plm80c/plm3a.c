@@ -1,24 +1,7 @@
 #include "plm.h"
 
-byte b4789[] = {
-    2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 3,
-    3, 2, 2, 3, 4, 2, 3, 2, 3, 2, 2, 2, 2, 3, 2, 2,
-    2, 3, 2, 3, 2, 2, 3, 2, 2, 1, 2, 2, 3, 4 };
 
-byte b47B7[] = {
-    0, 2, 4, 7, 0xB, 0xE, 0x12, 0x14,
-    0x16, 0x19, 0x1D, 0x1F, 0x22, 0x24, 0x27, 0x2A,
-    0x2D, 0x30, 0x32, 0x34, 0x37, 0x3B, 0x3D, 0x40,
-    0x42, 0x45, 0x47, 0x49, 0x4B, 0x4D, 0x50, 0x52,
-    0x54, 0x56, 0x59, 0x5B, 0x5E, 0x60, 0x62, 0x65,
-    0x67, 0x69, 0x6A, 0x6C, 0x6E, 0x71, 0x24, 0x24,
-    0x24, 0x24, 0x13, 0x13, 0x18, 0x18, 0x18, 0x18,
-    0x16, 0x2C, 0x15, 0x1F, 0x1F, 0x20, 0x20, 0x19,
-    0x19, 0x19, 0x19, 8, 8, 9, 9, 6,
-    7, 0x25, 0x25, 0x25, 0x25, 0x25, 0xA, 0xA,
-    0xB, 0xB, 0x14, 0x14, 0x14, 0x14, 0x14, 0x39,
-    0x1A, 0x1A, 0x1A, 0x1A };
-
+    
 byte b4813[] = {
     3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 3, 8, 1, 3,
     1, 8, 3, 7, 3, 7, 2, 3, 8, 1, 3, 1, 8, 2, 0x1D, 3,
@@ -30,7 +13,7 @@ byte b4813[] = {
     8, 1, 3, 1, 8 };
 
 
-byte /* tx1Buf[1280], */ nmsBuf[1280], atBuf[1280], objBuf[1280];   // use buffer in plm0a.c
+byte /* tx1Buf[1280], use plm0a.c nmsBuf[1280], use main6.c */ atBuf[1280], objBuf[1280];   // use buffer in plm0a.c
 word w7197;
 byte b7199;
 byte rec2[54] = { 2, 0, 0 };
@@ -134,17 +117,14 @@ void Sub_49BC(word arg1w, word arg2w, word arg3w)
 static struct {
     byte type;
     offset_t infoP;
-    word stmtNum;
-    offset_t atVarInfoOffset;
-    word atVarArrayIndex;
-    word atNestedArrayIndex;
-    word atVal;
+    word stmt;
+    var_t var;
 } atFData;
 #pragma pack(pop)
 static byte dat[255];
 
 static word w8115, w8117, w8119, w811B;
-static byte b811D;
+static bool b811D;
 static word w811E;
 
 
@@ -155,11 +135,11 @@ static void Sub_4B6C()
             w8119 = w8119 - 1;
             curInfoP = atFData.infoP;
         } else if (curInfoP == 0) {
-            b811D = 0;
+            b811D = false;
             return;
         } else {
             if (!TestInfoFlag(F_PACKED))
-                b811D = 0;
+                b811D = false;
             if (GetType() == STRUCT_T) {
                 if (TestInfoFlag(F_ARRAY))
                     w8119 = GetDimension();
@@ -177,13 +157,13 @@ static void Sub_4BF4()
     if (!b811D || w8117 >= w8115) {
         Fread(&atFile, &atFData.type, 1);
         switch (atFData.type - 2) {
-        case 0: Fread(&atFile, (pointer)&atFData.atVal, 2); break; /* ATI_2 */
+        case 0: Fread(&atFile, (pointer)&atFData.var.val, 2); break; /* ATI_2 */
         case 1:     /* ATI_STRING */
             Fread(&atFile, (pointer)&w8115, 2);
             Fread(&atFile, dat, w8115);
             w8117 = 0;
             break;
-        case 2: Fread(&atFile, (pointer)&atFData.atVarInfoOffset, 8); break; /* ATI_DATA */
+        case 2: Fread(&atFile, (pointer)&atFData.var.infoOffset, 8); break; /* ATI_DATA */
         case 3: break;    /* ATI_END */
         }
     }
@@ -195,18 +175,18 @@ static void Sub_4CAC()
 {
     if (GetType() == BYTE_T) {
         Sub_4908(rec6, 0x12c, 1);
-        RecAddByte(rec6, 3, (byte)atFData.atVal);
+        RecAddByte(rec6, 3, (byte)atFData.var.val);
         w7197 = w7197 + 1;
     } else {
         Sub_4908(rec6, 0x12C, 2);
-        RecAddWord(rec6, 3, atFData.atVal);
+        RecAddWord(rec6, 3, atFData.var.val);
         w7197 = w7197 + 2;
     }
 }
 
 static void Sub_4CF9()
 {
-    Sub_49BC(0xd2, curInfoP - botInfo, atFData.stmtNum);
+    Sub_49BC(0xd2, curInfoP - botInfo, atFData.stmt);
     Sub_4CAC();
 }
 
@@ -215,10 +195,10 @@ static void Sub_4D13()
     pointer w8120;
 
     if (GetType() == BYTE_T) {
-        atFData.atVal = dat[w8117];
+        atFData.var.val = dat[w8117];
         w8117 = w8117 + 1;
     } else {
-        w8120 = (pointer)&atFData.atVal;
+        w8120 = (pointer)&atFData.var.val;
         w8120[1] = dat[w8117];
         w8117 = w8117 + 1;
         if (w8117 < w8115) {
@@ -236,7 +216,7 @@ static void Sub_4D13()
 
 static void Sub_4D85()
 {
-    if (atFData.atVal > 255 && GetType() == BYTE_T)
+    if (atFData.var.val > 255 && GetType() == BYTE_T)
         Sub_4CF9();
     else
         Sub_4CAC();
@@ -248,19 +228,19 @@ static void Sub_4DA8()
     offset_t p;
     pointer q;
 
-    if (atFData.atVarInfoOffset == 0)
+    if (atFData.var.infoOffset == 0)
         Sub_4D85();
     else if (GetType() == BYTE_T)
         Sub_4CF9();
     else {
         p = curInfoP;
-        curInfoP = botInfo + atFData.atVarInfoOffset;
+        curInfoP = botInfo + atFData.var.infoOffset;
         if (TestInfoFlag(F_MEMBER)) {
-            atFData.atVal = atFData.atVal + Sub_4984() * atFData.atNestedArrayIndex + GetLinkVal();
+            atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.nestedArrayIndex + GetLinkVal();
             curInfoP = GetParentOffset();
         }
 
-        atFData.atVal = atFData.atVal + Sub_4984() * atFData.atVarArrayIndex + GetLinkVal();
+        atFData.var.val = atFData.var.val + Sub_4984() * atFData.var.arrayIndex + GetLinkVal();
         if (TestInfoFlag(F_EXTERNAL)) {
             i = GetExternId();
             curInfoP = p;
@@ -325,13 +305,13 @@ static void Sub_4A31()
     ((rec6_t *)rec6)->addr = GetLinkVal();
     w7197 = ((rec6_t *)rec6)->addr;
     if (curInfoP == botInfo)
-        b811D = 0;
+        b811D = false;
     else if (TestInfoFlag(F_EXTERNAL)) {
-        Sub_49BC(0xd9, w811E, atFData.stmtNum);
-        b811D = 0;
+        Sub_49BC(0xd9, w811E, atFData.stmt);
+        b811D = false;
     } else {
         Sub_4B6C();
-        b811D = 0xff;
+        b811D = true;
     }
 
     Sub_4BF4();
@@ -358,7 +338,7 @@ static void Sub_4A31()
                 }
                 Sub_4B6C();
                 if (!b811D)
-                    Sub_49BC(0xd1, w811E, atFData.stmtNum);
+                    Sub_49BC(0xd1, w811E, atFData.stmt);
             }
         }
     }

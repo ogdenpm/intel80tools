@@ -348,7 +348,7 @@ pointer AddrInCache(word addr)
 }
 
 
-void Alloc(word cnt)
+static void Alloc(word cnt)
 {
 	/* Allocate() but check whether we have crossed a page boundary */
 	if (High(botHeap - baseMemImage) != High((botHeap -= cnt) - baseMemImage))

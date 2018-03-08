@@ -3,7 +3,14 @@
 static byte copyright[] = "(C) 1976, 1977, 1982 INTEL CORP";
 static byte objEOF[] = {0xe, 1, 0, 0xf1};
 
-jmp_buf errCont;
+static byte b4304[] = {
+    0x24,0x24,0x24,0x24,0x13,0x13,0x18,0x18,
+    0x18,0x18,0x16,0x2C,0x15,0x1F,0x1F,0x20,
+    0x20,0x19,0x19,0x19,0x19,   8,   8,   9,
+    9,   6,   7,0x25,0x25,0x25,0x25,0x25,
+    0xA, 0xA, 0xB, 0xB,0x14,0x14,0x14,0x14,
+    0x14,0x39,0x1A,0x1A,0x1A,0x1A };
+
 
 static void Sub_3FC8()
 {
@@ -25,9 +32,9 @@ static void Sub_3FC8()
             Xputstr2cLst("NO OBJECT MODULE REQUESTED", 0);
 
         NewLineLst();
-        if (w382A == 1)
+        if (cmdLineCaptured == 1)
         {
-            Xputstr2cLst("COMPILER INVOKED by:  ", 0);
+            Xputstr2cLst("COMPILER INVOKED BY:  ", 0);
             cmdLineP = startCmdLineP;
             while (cmdLineP != 0) {
                 TabLst(-23);
@@ -64,8 +71,8 @@ void Sub_408B()
     SetSkipLst(3);
     SetMarkerInfo(11, '-', 15);
     if (fatalErrorCode > 0) {
-        wa8125[2] = wa8125[1] = 0;
-        wa8125[0] = fatalErrorCode;
+        errData.stmt = errData.info = 0;
+        errData.num = fatalErrorCode;
         EmitError();
         SetSkipLst(2);
     }
@@ -79,6 +86,8 @@ void Sub_408B()
 
 void Sub_4162()
 {
+    byte helperModId, endHelperId;
+
     if (! standAlone)
         return;
     for (helperModId = 0; helperModId <= 45; helperModId++) {
@@ -88,7 +97,7 @@ void Sub_4162()
             if (WordP(helpersP)[helperId] != 0) {
                 baseAddr = WordP(helpersP)[helperId];
                 b969C = b4304[helperModId];
-                b969D = b457C[b969C];
+                b969D = b4273[b969C];
                 Sub_5FE7(w4919[helperId], b4A03[helperId]);
                 break;
             }
@@ -99,7 +108,7 @@ void Sub_4162()
 
 void Sub_4208()
 {
-    if (haveModule) { 
+    if (haveModuleLevelUnit) { 
         ((rec4_t *)rec4)->subType = 1;
         curInfoP = procInfo[1] + botInfo;
         ((rec4_t *)rec4)->addr = GetLinkVal();
@@ -116,6 +125,9 @@ void Sub_423C()
     linesRead = w812F;
     Sub_4208();
     CloseF(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fNam, "plmtx1.tmp_main4");
+#endif
     if (OBJECT) {
         Fwrite(&objFile, objEOF, 4);
         Fflush(&objFile);
@@ -124,7 +136,7 @@ void Sub_423C()
 
     if (PRINT) {
         TellF(&srcFil, (loc_t *)&srcFileTable[srcFileIdx + 8]);
-        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], olstch - ocurch);
+        Backup((loc_t *)&srcFileTable[srcFileIdx + 8], offLastCh - offCurCh);
         CloseF(&srcFil);
         FlushLstBuf();
     }
@@ -135,26 +147,11 @@ void Sub_423C()
 
 word Start4()
 {
-// reinitialise some variables that are now shared. Just in case
-    olstch = ocurch = 0;
-    ((rec_t *)rec20)->len = 0;
-    ((rec_t *)rec20)->val[0] = 3;   // hilo
-    ((rec_t *)rec22)->len = 0;
-    ((rec_t *)rec22)->val[0] = 3;   // hilo
-    ((rec_t *)rec24_1)->len = 0;
+// rec24_2 is has different seg c.f. plm3a.c
     ((rec_t *)rec24_1)->val[0] = 2; // data seg
-    ((rec_t *)rec24_1)->val[1] = 3; // hilo
-    ((rec_t *)rec24_2)->len = 0;
     ((rec_t *)rec24_2)->val[0] = 3; // stack seg
-    ((rec_t *)rec24_2)->val[1] = 3; // hilo
-    ((rec_t *)rec24_3)->len = 0;
-    ((rec_t *)rec24_3)->val[0] = 4; // memory seg
-    ((rec_t *)rec24_3)->val[1] = 3; // hilo
-    ((rec_t *)rec22)->len = 3;
-    ((rec_t *)rec22)->len = 0;
-    ((rec_t *)rec22)->len = 3;
 
-    if (setjmp(errCont) == 0) {
+    if (setjmp(exception) == 0) {
         Sub_408B();
 
         while (bo812B) {
@@ -162,7 +159,7 @@ word Start4()
         }
         Sub_4162();
         FlushRecs();
-        Sub_5BD3();
+        EmitLinePrefix();
     }
 	Sub_423C();
     if (IXREF)
