@@ -119,6 +119,9 @@ void sub_404A() {
 		PRINTSet = 0;
 	}
 	closeFile(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fullName, "tx1File.tmp_ov6");
+#endif
 	deleteFile(&tx1File);
 	//assignFileBuffer(&tx2File, tx2buf, 0x800, 1);
 	if (IXREF || hasPrintOrObjectFile)
@@ -163,11 +166,20 @@ void loadNames() {
 
 void sub_41B6() {
 	closeFile(&atFile);
+#ifdef _DEBUG
+    copyFile(atFile.fullName, "atFile.tmp_ov6");
+#endif
 	deleteFile(&atFile);
 	closeFile(&tx2File);
+#ifdef _DEBUG
+    copyFile(tx2File.fullName, "tx2File.tmp_ov6");
+#endif
 	deleteFile(&tx2File);
 	if (IXREF || hasPrintOrObjectFile) {
 		closeFile(&nmsFile);
+#ifdef _DEBUG
+        copyFile(nmsFile.fullName, "nmsFile.tmp_ov6");
+#endif
 		deleteFile(&nmsFile);
 	}
 	linesRead = curLineCount;

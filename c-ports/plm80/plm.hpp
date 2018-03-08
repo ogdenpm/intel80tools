@@ -6,6 +6,9 @@
 typedef	unsigned char byte;
 typedef unsigned short word;
 
+#ifdef _DEBUG
+void copyFile(char *src, char *dst);
+#endif
 
 const char ISISEOF = (char) 0x81;
 
