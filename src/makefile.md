@@ -168,14 +168,14 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
   [**ASMFLAGS**](#asmflags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
 
 
-     ``Usage: $(call asm80,objfile,asmfile[,target specific options])``
+     Usage: $(call asm80,objfile,asmfile[,target specific options])
 
 * **fort80** - compile the specified ftnfile, to produce the specified object file and a listing file, (ftnfile with ext .lst), in the $(LST) directory.
 
   [**FTNFLAGS**](#ftnflags) are used and optional target specific options can be given except for **print**, **object** and **workfiles** which are used internally.
 
 
-     ``Usage: $(call fort80,objfile,ftnfile[,target specific options])``
+     Usage: $(call fort80,objfile,ftnfile[,target specific options])
 
 * **plm80** - compile a _file_.plm file, producing the specified object file and a listing file _file_.lst in the $(LST) directory.
 
@@ -184,21 +184,21 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
      Pre running plm80 additional processing is done as follows
 
      ```
-     if $(PEXFILE) is defined
-       ngenpex will be run to generate any .ipx file
-     else
-       makedepend is run to generate a dependency file in .deps
+  if $(PEXFILE) is defined
+    ngenpex will be run to generate any .ipx file
+  else
+    makedepend is run to generate a dependency file in .deps
      ```
 
 
-  `Usage: $(call plm80,objfile,asmfile[,target specific options])`
+   `Usage: $(call plm80,objfile,asmfile[,target specific options])`
 
 * **link** - link a set of files producing the specified relocatable file and a listing file in the $(LST) directory. The listing file has the same name as the relocatable file but with the extension .lin (was lnk, but windows treated as shortcut)
 
   [**LINKFLAGS**](#linkflags) are used and optional target specific options can be given except for **print** and **map** which are used internally.  
 
-     *Note. Unlike other macros the listing file does not use the input filename as the basis of its name.*
-     ``Usage:	$(call link,relocfile,object files[,target specific options])``
+  *Note. Unlike other macros the listing file does not use the input filename as the basis of its name.*
+   `Usage: $(call link,relocfile,object files[,target specific options])`
 
 * **link-nocheck** - this is the same as link with the exception that unresolved names are not treated as an error. It is designed to support building overlay files.
 
