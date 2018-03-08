@@ -7,7 +7,7 @@ byte Hash(pointer pstr)
     byte hash = 0;
 
     while (len != 0) {
-        hash = Rol(hash, 1) + *p++;
+        hash = (hash << 1) + (hash & 0x80 ? 1 : 0) + *p++;
         len = len - 1;
     }
     return hash & 0x3F;

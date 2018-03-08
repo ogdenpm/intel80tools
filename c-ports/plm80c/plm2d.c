@@ -108,10 +108,10 @@ void Sub_717B()
     bC266 = curOp - 0x12;
     bC26F = (byte)tx2op1[tx2qp];
     Sub_5FBF(bC26F, &wC267, &wC269);
-    if (Sub_7254(Shr(b5112[bC266], 6), wC269)) {
+    if (Sub_7254(b5112[bC266] >> 6, wC269)) {
         bC26F = (byte)tx2op2[tx2qp];
         Sub_5FBF(bC26F, &wC26B, &wC26D);
-        if (Sub_7254(Shr(b5112[bC266], 3) & 7, wC26D)) {
+        if (Sub_7254((b5112[bC266] >> 3) & 7, wC26D)) {
             Sub_611A();
             p = Sub_72F2();
             Sub_73C5();
@@ -156,7 +156,7 @@ static void Sub_7754()
     while (tx2opc[i] == T2_OPTBACKREF && i < bC1BF) 
         i = i + 1;  
     j = tx2qp;
-    if (tx2opc[i] == T2_STORE) {
+    if (tx2opc[i] == T2_COLONEQUALS) {
         if (arg3b_765B == tx2op1[i]) {
             if (tx2op2[i] == j) {
                 if (tx2Auxw[j] == 1) {
@@ -186,7 +186,7 @@ static bool Sub_7801()
                 return true;
             else
                 return false;
-        p = w502A[Shr(b5048[arg1b_765B], 3)];
+        p = w502A[b5048[arg1b_765B] >> 3];
         if (p != wC27B)
             return false;
         if ((bC27F & 0x80) != 0)
@@ -194,7 +194,7 @@ static bool Sub_7801()
         return true;
     }
     if ((bC27F & 0x40) == 0) {
-        p = w502A[Shr(b5048[arg1b_765B], 3)];
+        p = w502A[b5048[arg1b_765B] >> 3];
         bC27A = wC27B % p;
         return true;
     } else if (wC27B <= 4) {
@@ -238,7 +238,7 @@ static void Sub_7925()
                 tx2op1[tx2qp] = tx2op2[1];
                 if (boC20F) {
                     i = 0x43 - i;
-                    boC20F = 0;
+                    boC20F = false;
                 }
             }
         }
@@ -284,7 +284,7 @@ void Sub_7550()
             tx2op1[tx2qp + 1] = tx2op2[1];
             if (boC20F) {
                 tx2op2[tx2qp + 1] = bC209[curOp];
-                boC20F = 0;
+                boC20F = false;
             } else
                 tx2op2[tx2qp + 1] = curOp;
             tx2Auxw[tx2qp] = 0;

@@ -1,22 +1,15 @@
 #include "plm.h"
-byte b7AD9;
+bool b7AD9;
 byte b7ADA;
-byte listing;
-byte listOff;
-byte codeOn;
-word errNum;
-word w7AE0;
-word STMTNum;
+// bool listing; in pdata4.c
+// bool listOff;
+// bool codeOn;
 bool b7AE4 = true;
-word w7AE5;
-word lineNo;
-word w7AE9;
-word w7AEB;
-word offLastCh = 0;
-word offCurCh = 0;
-byte b7AF1 = true;
-byte b7AF2 = true;
+word lineCnt;
+word stmtCnt;
+word blkCnt;
+word stmtNo;
 byte lstLineLen;
-byte lstbuf[130];
+// byte lstbuf[130]; use larger version in main5.c
 byte srcbuf[2048];
 

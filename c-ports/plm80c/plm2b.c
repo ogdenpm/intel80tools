@@ -54,7 +54,7 @@ static void Sub_68E8()
 
 static void Sub_6AA4()
 {
-    if (curOp == T2_VARIABLE) {
+    if (curOp == T2_IDENTIFIER) {
         tx2op1[tx2qp] = curInfoP = tx2op1[tx2qp] + botInfo;
         if (TestInfoFlag(F_MEMBER)) {
             curInfoP = GetParentOffset();

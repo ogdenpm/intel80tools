@@ -9,7 +9,7 @@ offset_t CreateLit(pointer pstr)
 	litSymbol = AllocSymbol(litLen + 3);
     memmove(ByteP(litSymbol + 1), pstr, litLen);
     memmove(ByteP(litSymbol + litLen + 1), " \n", 2);
-	ByteP(litSymbol)[0] = 255;		/* put max Size() \n will terminate */
+	ByteP(litSymbol)[0] = 255;		/* put max size \n will terminate */
 	return litSymbol;
 }
 
