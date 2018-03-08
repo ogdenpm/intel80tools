@@ -8,8 +8,8 @@ void EndCompile()
 {
 	byte junk;
 	junk = Num2Asc(programErrCnt, 5, 10, errMsg);
-	PrintStr(endMsg, sizeof(endMsg) - 1);
-	PrintStr(errMsg, sizeof(errMsg) - 1);
+	PrintStr(endMsg, Length(endMsg));
+	PrintStr(errMsg, Length(errMsg));
 	if (programErrCnt != 1 )
 		PrintStr("S", 1);
 	PrintStr("\r\n\r\n", 4);
