@@ -54,7 +54,7 @@ void CloseSrc()	/* close current source file. Revert to any parent file */
         IoError(files[0].name);
         return;
     }
-	fileIdx--;
+    fileIdx--;
     /* Open() the previous file */
     if (fileIdx == 0)		/* original source is kept open across include files */
         srcfd = rootfd;
@@ -72,27 +72,27 @@ void CloseSrc()	/* close current source file. Revert to any parent file */
 byte GetSrcCh()	/* get next source character */
 {
     pointer insertPt;
-	while (1) {
-		inChP++;
+    while (1) {
+        inChP++;
 
-		if (inChP == endInBufP) {   /* buffer all used */
-			savInBufP = startLineP;
-			savEndInBufP = endInBufP;
-			/* copy the current line down to start of buffer */
-			if (savEndInBufP - savInBufP > 0)
-				memcpy(inBuf, startLineP, savEndInBufP - savInBufP);
-			startLineP = inBuf;
-			/* Read() in  characters to rest of inBuf */
-			ReadSrc(insertPt = startLineP + (savEndInBufP - savInBufP));
-			inChP = insertPt;
-		}
+        if (inChP == endInBufP) {   /* buffer all used */
+            savInBufP = startLineP;
+            savEndInBufP = endInBufP;
+            /* copy the current line down to start of buffer */
+            if (savEndInBufP - savInBufP > 0)
+                memcpy(inBuf, startLineP, savEndInBufP - savInBufP);
+            startLineP = inBuf;
+            /* Read() in  characters to rest of inBuf */
+            ReadSrc(insertPt = startLineP + (savEndInBufP - savInBufP));
+            inChP = insertPt;
+        }
 
-		if (readFActual == 0) {		/* end of file so close this one*/
-			CloseSrc();
-			continue;
-		}
-		break;
-	}
+        if (readFActual == 0) {		/* end of file so close this one*/
+            CloseSrc();
+            continue;
+        }
+        break;
+    }
 
     lineChCnt++;			// track chars on this line
     return *inChP & 0x7F;	// remove parity
@@ -101,8 +101,8 @@ byte GetSrcCh()	/* get next source character */
 
 void OpenSrc()
 {
-	byte curByteLoc;
-	word curBlkLoc;
+    byte curByteLoc;
+    word curBlkLoc;
 
     pendingInclude = false;
     SeekI(SEEKTELL);
@@ -115,7 +115,7 @@ void OpenSrc()
 //x:                        /* forces code alignment */
     if ((curByteLoc = curBlkLoc % 128) > seekIByte) {
         seekIByte += 128;	    /* adjust to allow for un-used chars */
-		seekIBlk--;
+        seekIBlk--;
     }
     /* save the current file location */
     files[fileIdx - 1].byt = seekIByte - curByteLoc;
