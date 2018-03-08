@@ -1,0 +1,5222 @@
+        public  copyfn
+isis43w.pex
+# plm aliases for asm functions and data
+@global$severity    'gblSev' 
+@Console        'consol'
+@userStatus$p   'uStatP'
+@Chk$pn$disk$file 'ckpndf'
+@Dlook$pn   'dlokpn'
+@debug$Toggle   'dTogle'
+@a$access$p 'aAcesP'
+@a$blk$count$p  'aBCntP'
+@a$empty$p  'aEmtyP'
+@a$eof$data$ptr$p   'aEoPP'
+@a$hdr$blk$p    'aHBlkP'
+@Aft$Window 'AWindo'
+@Chk$Write$Protect  'CkWriP'
+@Clear$Buf  'ClrBuf'
+@Get$Aft$Slot   'GASlot'
+@Map$Write  'MapWri'
+@Write$Dir$Entry    'WDirEn'
+@direct$i$no    'dirINo'
+@Get$Block  'GetBlk'
+@dir$Close  'DirCls'
+@datum$base  'datbas'
+@pointer$base 'ptrbas'
+@a$data$blk$p   'adblkp'
+@Return$buf 'retbuf'
+@tracksTable  'trktab'
+@sectorsTable 'sectab'
+# common control characters
+CONTROL$E   '5'
+BELL        '7'
+BS      '8'
+CR      '0dh'
+LF      '0ah'
+CONTROL$P   '10h'
+CONTROL$Q   '11h'
+CONTROL$R   '12h'
+CONTROL$S   '13h'
+CONTROL$X   '18h'
+CONTROL$Z   '1ah'
+ESC     '1bh'
+DELKEY      '7fh'
+
+# boolean literals
+BOOLEAN     'BYTE'
+TRUE        '0ffh'
+FALSE       '0'
+
+# console literals
+AFTN$CONSOL$IN  '11'
+AFTN$CONSOL$OUT '10'
+READ$MODE   '1'
+WRITE$MODE  '2'
+
+# seek options
+SEEK$RETURN '0'
+SEEK$BACKWARD   '1'
+SEEK$ABS    '2'
+SEEK$FORWARD    '3'
+SEEK$EOF    '4'
+
+# common types
+DCB$T       'structure(iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE, buf ADDRESS)'
+
+# error codes
+OK  '0' /* No error detected. */
+NO$FREE$BUFFER  '1' /* Insufficient space in buffer area for a required buffer. */
+BAD$AFT$NO  '2' /* AFTN does not specify an open file. */
+AFT$FULL    '3' /* Attempt to open more than 6 files simultaneously. */
+BAD$PATH    '4' /* Illegal pathname specification. */
+BAD$DEVICE  '5' /* Illegal or unrecognized device specification */
+CANT$WRITE  '6' /* Attempt to write to a file open for input. */
+DISK$FULL   '7' /* Operation aborted: insufficient disk space. */
+CANT$READ   '8' /* Attempt to read from a file open for output. */
+DIRECTORY$FULL  '9' /* No more room in disk directory. */
+DIFFERENT$DISK  '10'    /* Pathnames do not specify the same disk. */
+MULTIDEFINED    '11'    /* Cannot rename file; name already in use. */
+ALREADY$OPEN    '12'    /* Attempt to open a file already open. */
+NO$SUCH$FILE    '13'    /* No such file. */
+WRITE$PROTECT   '14'    /* Attempt to open for writing or to delete or rename a write-protected file. */
+ISIS$OVERWRITE  '15'    /* Attempt to load into ISIS-II area or buffer area. */ 
+BAD$LOAD$FORMAT '16'    /* Illegal format record. */    
+NON$DISK$FILE   '17'    /* Attempt to rename/delete a non-disk file. */ 
+BAD$COMMAND '18'    /* Unrecognized system call. */ 
+NON$DISK$SEEK   '19'    /* Attempt to seek on a non-disk file. */   
+LONG$BACK$SEEK  '20'    /* Attempt to seek backward past beginning of a file */ 
+CANT$RESCAN '21'    /* Attempt to rescan a non-lined file. */   
+BAD$ACCESS  '22'    /* Illegal ACCESS parameter to OPEN or access mode impossible for file specified. */    
+NULL$FILENAME   '23'    /* No filename specified for a disk file. */        
+DISK$IO$ERROR   '24'    /* Disk error (see below). */       
+BAD$ECHO    '25'    /* Incorrect specification of echo file to OPEN */  
+BAD$ATTRIB  '26'    /* Incorrect SWID argument in ATTRIB system call */     
+BAD$SEEK$ARG    '27'    /* Incorrect MODE argument in SEEK system call. */      
+NULL$EXTENSION  '28'    /* Null file extension. */
+CONSOLE$EOF '29'    /* End of file on console input. */
+DRIVE$NOT$READY '30'    /* Drive not ready. */
+SEEK$ON$WRITE   '31'    /* Attempted seek on write-only (output) file. */
+CANT$DELETE '32'    /* Can't delete an open file. */
+BAD$PARAMETER   '33'    /* Illegal system call parameter. */
+BAD$RETSW   '34'    /* Bad RETSW argument to LOAD. */
+SEEK$PAST$EOF   '35'    /* Attempt to extend a file opened for input by seeking past end-of-file */
+
+WARNING     '0'
+MESSAGE     '1'
+ABORT       '2'
+CMSK        '0fch'
+
+# attributes
+INVISIBLE$ATTRIBUTE '1'
+SYSTEM$ATTRIBUTE    '2'
+WRITEP$ATTRIBUTE    '4'
+D$ATTRIBUTE         '10h'
+A$ATTRIBUTE         '20h'
+FORMAT$ATTRIBUTE    '80h'
+
+$file(aft.plm)
+AFT$BOTTOM  '10'
+AFT$CONSOLE '11'
+AFT$PROTECT '12'
+AFT$LAST    '17'
+CI$AFT      '1'
+CO$AFT      '0'
+F0DEV       '0'
+F1DEV       '1'
+F2DEV       '2'
+F3DEV       '3'
+F4DEV       '4'
+F5DEV       '5'
+F6DEV       '6'
+F7DEV       '7'
+F8DEV       '8'
+F9DEV       '9'
+CIDEV       '27'
+CODEV       '28'
+BBDEV       '26'
+AFT$T1      'empty BYTE, device BYTE, access BYTE, edit BYTE, lbuf ADDRESS'
+AFT$T2      'dbuf ADDRESS, pbuf ADDRESS, data$ptr BYTE, i$no ADDRESS, ptr$ptr BYTE'
+AFT$T3      'eofcnt BYTE, ptr$change BYTE, data$change BYTE, blk ADDRESS, blk$seq ADDRESS'
+AFT$T4      'ptr$blk ADDRESS, hdr$blk ADDRESS, data$blk$count ADDRESS, dbuf$read BYTE'
+AFT$T       'structure(AFT$T1, AFT$T2, AFT$T3, AFT$T4)'
+a$access$p      A
+a$blk$count$p   A
+a$blk$seqno$p   A
+a$data$blk$p    A
+a$data$change$p A
+a$data$ptr$p    A
+a$dbuf$p        A
+a$dbuf$read$p   A
+a$dev$p         A
+a$edit$p        A
+a$empty$p       A
+a$eof$data$ptr$p A
+aft             "AFT$T"(18)
+a$hdr$blk$p A
+a$i$no$p        A
+a$lbuf$p        A
+a$pbuf$p        A
+a$ptr$blk$p     A
+a$ptr$change$p  A
+a$ptr$ptr$p     A
+datum$base      A
+pointer$base    A
+Aft$Window      P(B slot$number)
+Get$Aft$Slot    PB
+a$empty     B..a$empty$p
+a$device    B..a$dev$p
+a$access    B..a$access$p
+a$edit      B..a$edit$p
+a$dbuf          A..a$dbuf$p
+a$lbuf      A..a$lbuf$p
+a$pbuf          A..a$pbuf$p
+a$data$ptr  B..a$data$ptr$p
+a$i$no      A..a$i$no$p
+a$ptr$ptr   B..a$ptr$ptr$p
+a$eof$data$ptr  B..a$eof$data$ptr$p
+a$ptr$change    B..a$ptr$change$p
+a$data$change   B..a$data$change$p
+a$blk$count A..a$blk$count$p
+a$blk$seqno A..a$blk$seqno$p
+a$ptr$blk   A..a$ptr$blk$p
+a$hdr$blk   A..a$hdr$blk$p
+a$data$blk  A..a$data$blk$p
+a$dbuf$read B..a$dbuf$read$p
+
+BLINK       '0'
+FLINK       '1'
+links       A(64)..pointer$base
+
+$file(alloc.plm)
+current$bitmap  B
+sectorsTable    BS
+tracksTable     BS
+free$block      P(B diskNum,A trackSector)
+get$block       P(B diskNum)A
+map$read        P
+MapWrite        P(B diskNum)
+bitmapByte      B..bitmapByte$p
+
+$file(attrib.plm)
+attrib          P(A file$ptr,A swid,"BOOLEAN" value)
+
+$file(buffer.plm)
+buffer$table    BS
+ClearBuf       P(A buf$address)
+get$buf         PA
+pack$aft$buf    PA
+return$buf      P(A buf$address)
+
+$file(close.plm)
+close           P(B aftn)
+
+$file(consol.plm)
+alt$cidev       B
+cold$cidev      B
+cur$consol$in   BS
+cur$consol$out  BS
+Console         P(A infile,A outfile)
+Whocon          P(B aftn,A bufferloc)
+
+$file(delete.plm)
+del             P(B disknum)
+delete          P(A pathname)
+dlook$pn        P
+
+$file(direct.plm)
+DIRECT$T1   'empty BOOLEAN, file(6) BYTE, ext(3) BYTE, attrib BYTE'
+DIRECT$T2   'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS'
+DIRECT$T    'structure(DIRECT$T1, DIRECT$T2)'
+direct          "DIRECT$T"
+direct$i$no     A
+dirPtr          A
+#dnum            A
+fndFre          B
+inoPtr          A
+dir$close        P(B aftn)
+dlook           P(A fn)"BOOLEAN"
+#fndDir          P(A fname,A datum)B
+
+$file(disk2.asm)
+dk$stat     PB
+r$type      PB
+r$byte      PB
+strt$io     P(A iopb)
+
+$file(diskio.asm)
+absread     'abs$rd'
+abswrite    'abs$wr'
+CMD$RECAL   '3'
+CMD$READ    '4'
+CMD$WRITE   '6'
+absio       P(B command,B disk,A block,A buffer$ptr)
+abs$rd      P(A block, A buffer$ptr)
+abs$wr      P(A block, A buffer$ptr)
+dk$cf$tb    B(10)
+rdy$msk     B(10)
+unit$mp     B(10)
+dk$ct$tb    B(10)
+dkcont      B
+track       B
+sector      B
+diskio      P(B drive, A iopb)
+
+
+$file(error.asm)
+c$dk$sat        A
+debugToggle     B
+errdrv          B
+global$severity B
+abortx          P(B errcode)
+err             P(B severity,B error$type)
+warn            P(B errcode)
+
+$file(exit.plm)
+# rename of plm to asm 6 char name
+close$all   'clsall'
+cli             BS
+clsall          P(B aft$start)
+exit            P
+
+$file(fndrir.asm)
+fnDir       P(A fname,A datum)B
+dnum        A
+
+$file(loc62.asm)
+userStatus$p    A
+isis            P(B command,A parameter$block)
+userStatus      A..userStatus$p
+
+$file(load.plm)
+R$CONTENT       '6'
+R$RELOC         '22H'
+load            P(A pathname,A bias,A retsw,A entry$p)
+
+$file(loc62.asm)
+isis$E      B
+usrSP       A
+usrStk      B
+vec0E       A
+CI      PB
+CO      P(B val)
+CSTS        PB
+IOCHK       PB
+IOSET       P(B val)
+isis40      P(B command,A parameter$block)
+jmpto       P(A entry,A stack)
+LO      P(B val)
+PO      P(B val)
+reboot      P
+RI      PB
+trap0B      P
+
+$file(memck.asm)
+memck       PA
+
+$file(open.plm)
+open            P(A pathname,A access$mode,A lined$aft)B
+
+$file(path.plm)
+pn              BS
+pn2             BS
+chk$pn$disk$file P(A filename)
+ChkWriteProtect P
+path            P(A pathname,A pn$p)B
+unpath          P(A pathname$p,A pn$p)
+WriteDirEntry   P
+xpath           P(A p1,A p2)
+
+$file(rename.plm)
+rename          P(A old$file,A new$file)
+
+$file(rescan.plm)
+rescan          P(B aftn)
+
+$file(rw1.asm)
+usrSys      P(A buffer$p,A buffer,A datum$base)
+sysUsr      P(A buffer$p,A buffer,A datum$base)
+
+$file(rw.plm)
+ACCESS$READ     '1'
+MAXLL           '122'
+adp$dif         B
+datapp          A
+adjust$eof      P
+chk$eof         P
+lined           P(B aftn,A buffer,A count,A actual$p)
+read            P(B aftn,A buffer,A count,A actual$p)
+write           P(B aftn,A buffer,A count)
+
+$file(seek.plm)
+rewind          P
+save$data$blk   P
+save$pointer$block P
+seek            P(B aftn,A mode,A blockptr,A byteptr)
+
+$file(trap.asm)
+trap        P
+loc62.asm
+    name reboot
+    public  trap0B
+    public  vec0E
+    public  reboot
+    public  jmpto
+    public  isisE       ; isis$E
+    public  usrSP
+    public  uStatP      ; userStatus$p
+
+    public  IOCHK       ; bios entry points
+    public  IOSET
+    public  CI
+    public  RI
+    public  CO
+    public  PO
+    public  LO
+    public  CSTS
+
+    extrn   abortx
+    extrn   open, close, delete, read, lined, write
+    extrn   seek, load, rename, consol, exit, attrib
+    extrn   rescan, err, whocon, path, getatt
+    extrn   @P0101,@P0034
+    extrn   @P0018      ; not used but need to force load to align binaries
+    extrn   clsAll
+    extrn   diskio, warn
+
+    extrn   cli
+    extrn   gblSev      ; global$severity
+    extrn   aft, dkCfTb
+
+CI  equ 0F803H
+RI  equ 0F806H
+CO  equ 0F809H
+PO  equ 0F80CH
+LO  equ 0F80FH
+CSTS    equ 0F812H
+IOCHK   equ 0F815H
+IOSET   equ 0F818H
+
+    DSEG
+    db  '(C)1982INTELCORP'
+    ds  40      ; system stack  
+sysstk:
+    ds  16      ; user stack
+usrstk:
+    dw  0
+param:  dw  0,0,0,0,0   ; up to 5 parameters
+pTypes: db  10011b, 10b, 11b, 11010b
+    db  1010b, 11100b, 10001b, 111b
+    db  111b, 1, 1001b, 10b, 10b
+    db  110b, 111b, 101b, 111b
+cliInf:  db  0ffh, 0, 0, 0
+    db  0, 0, 0, 0
+    db  0, 0, 0, 0
+    db  0, 0, 1, 0
+    db  0, 0, 0, 0
+
+    CSEG            ; locate sets code base to 0
+    org 8h
+rst1:   jmp restrt      ; restart 1
+trap0B: ret         ; trap routine ?
+    db  0
+    ds  1
+vec0E:  dw  0
+
+    org 3Eh
+    db  4,2     ; isis version?
+isis40: jmp isis
+
+    db  0c2h
+    public  wiSbuf
+wiSbuf:             ; winchester status buffer
+    ds  3           ; 3 status bytes
+    ds  2           ; cylinder
+    ds  1           ; head
+    ds  1           ; sector
+    ds  2           ; actual cylinder
+    ds  1           ; actual head
+    ds  1           ; actual sector
+    ds  1           ; retries
+
+    public  wiWake
+wiWake:             ; winchster wake block
+    ds  1           ; wake (50)
+    ds  1           ; reserved (51)
+    ds  4           ; ccb (52)
+
+    public  wiCcb
+wiCcb:              ; winchester chanel control block
+    ds  1           ; ccw1 (56)
+    ds  1           ; busy1 (57)
+    ds  4           ; cib address (58)
+    ds  2           ; reserved (5C)
+    ds  1           ; ccw2 (5E)
+    ds  1           ; busy2 (5F)
+    ds  4           ; cp address (60)
+    ds  2           ; control pointer (64)
+    public  wiCtlb
+wiCtlb:             ; wincheter controller invocation block
+    ds  1           ; reserved (66)
+    ds  1           ; op status (67)
+    ds  1           ; command semaphore (68)
+    ds  1           ; status semaphore (69)
+    ds  4           ; CSA (6A)
+    ds  4           ; iopb address (6E)
+    ds  4           ; reserved (72)
+
+    public wiIopb
+wiIopb:             ; wincheter io parameter block
+    ds  4           ; reserved (76)
+    ds  4           ; actual (7A)
+    ds  2           ; device (7E)
+    ds  1           ; unit (80)
+    ds  1           ; function (81)
+    ds  2           ; modifier (82)
+    ds  2           ; cylinder (84)
+    ds  1           ; head (86)
+    ds  1           ; sector (87)
+    ds  4           ; buffer address (88)
+    ds  4           ; count (8C)
+    ds  4           ; general address pointer (90)
+
+
+
+usrSP:  dw  0
+uStatP: dw 0        ; userStatus$p
+isisE:  db  0
+
+bootld: db  80h     ; iocw
+    db  4       ; ioins - READ
+    db  26      ; nsec - size of t0boot.bin
+    db  0       ; tadr - track of t0boot.bin
+    db  1       ; sadr - start sector of t0boot.bin
+    dw  MEMORY      ; buf - 3000, where t0boot.bin loads
+
+restrt: mvi a,20h
+    out 0FDh
+
+
+;   reboot: PROCEDURE PUBLIC;
+;       output(0FCh) = 0FEh;
+;       ENABLE;
+;       ISIS$E = 0;
+;       trap0B = 0c9h;  /* make sure trap is a null sub routine */
+;       STACKPTR = sysstk;
+;       call close$all(AFT$BOTTOM); /* aliased to clsall */
+;       call diskio(cli(2) and 0fh, .bootLd);   /* cli(2) = boot drive */
+;       call jmpto(.MEMORY, STACKPTR);
+;   end;
+;   
+;   jmpto: PROCEDURE(entry, sysstk) PROCEDURE PUBLIC;
+;       STACKPTR = sysstk;
+;       goto entry;
+;   end;
+
+AFTBTM  equ 10
+
+reboot:
+    mvi a, 0FEh
+    out 0FCh
+    ei
+    lxi h, isisE
+    mvi m, 0
+    lxi h, trap0B
+    mvi m, 0C9h     ; a return instuction
+    lxi h, sysstk
+    sphl
+    mvi c, AFTBTM
+    call    clsAll
+    lda cli+2       ; pick up boot device
+    ani 0Fh
+    mov c, a
+    lxi d, bootLd
+    call    diskio
+    lxi h, 0
+    dad sp
+    xchg            ; de = current stack
+    lxi b, MEMORY   ; goto to isis.t0
+
+jmpto:              ; bc = entry point, de = stack
+    xchg
+    sphl            ; set stack
+    mov h, b        ; goto entry point
+    mov l, c
+    pchl
+
+
+; in plm this is isis(command, param$ptr)
+
+isis:   mov a, c        ; check for 'E' command
+    cpi 'E'
+    jnz isis1
+    ldax    d       ; stuff low byte of 1st parameter into isis$E
+    sta isisE
+    ret
+
+isis1:  lxi h, 0        ; save user's own stack and use internal stack
+    dad sp
+    shld    usrSP
+    lxi h, usrstk
+    sphl
+    cpi 'D'     ; 'D' command?
+    jnz isis2
+    xchg
+    mov c, m        ; call diskio(param(0), param(1)
+    inx h
+    inx h
+    mov e, m
+    inx h
+    mov d, m
+    call    diskio
+    jmp retusr
+
+isis2:  cpi 17      ; map op 17 to op 15    getatt
+    jnz isis3
+    mvi a, 15
+
+isis3:  cpi 28      ; map op 28 to op 16
+    jnz isis4
+    mvi a, 16
+
+isis4:  mov c, a        ; c is the command
+    mvi b, 0
+    lxi h, pTypes   ; get the parameter type info
+    dad b
+    mov a, m
+    xchg            ; hl is param$ptr
+    lxi d, param    ; de is address local param copy
+    jmp isis5
+
+pcheck: rar         ; carry indicates this is an address param
+    push    psw
+    mov a, m        ; copy the next parameter to local copy
+    stax    d
+    inx h
+    inx d
+    mov a, m
+    stax    d
+    inx h
+    inx d
+    jnc pok     ; not address param
+    sui 30h     ; check if address < 3000h
+    jnc pok     ; call abortx(33)
+    mvi c, 21h
+    call    abortx
+
+pok:    pop psw     ; restore type info
+
+isis5:  ana a   ; check for any more params - note last will be status return address
+    jnz pcheck
+    dcx h   ; get the status return address
+    mov d, m
+    dcx h
+    mov e, m
+    xchg
+    shld    uStatP      ; userStatus$p
+    mov m, a        ; userStatus = 0
+    inx h
+    mov m, a
+    lxi h, gblSev   ; global$severity = 0
+    mov m, a
+    lhld    param       ; push parameters 0, 1, 2 onto the stack read for call in handler
+    push    h
+    lhld    param+2
+    push    h
+    lhld    param+4
+    push    h
+    lxi h, cmdJmp   ; get the command handler
+    dad b
+    dad b
+    mov e, m
+    inx h
+    mov d, m
+    xchg
+    mov a, c
+    cpi 17      ; if command >= 17 then call abortx(18)
+    mvi c, 12h
+    cnc abortx
+    pchl            ; else goto command handler
+
+; the command handlers
+;###############################
+cOpen:  lhld    param       ; users conn = 255
+    mvi m, 0FFh
+    inx h
+    mvi m, 0
+    pop b       ; access parameter
+    pop d       ; path$p parameter
+    pop h       ; conn$p parameter
+    push    d       ; the file parameter
+    lhld    param+6     ; echo parameter
+    xchg
+    call    open        ; call open(path$p, access, echo)
+    lhld    param       ; update the users conn
+    mov m, a
+    inx h
+    mvi m, 0
+    jmp retusr
+
+;###############################
+cClose: call    aftChk      ; check conn is valid
+    mvi a, 12
+    lxi d, param
+    call    @P0101      ; conn - 12
+    jc  close1      ; jmp if conn < 12
+    pop h       ; non existant parameter
+    pop h       ; status$p
+    pop h       ; conn pre aftChk adjustment
+    lhld    param       ; conn
+    mov b, h
+    mov c, l
+    call    close       ; call close(conn)
+
+close1: jmp retusr
+
+;###############################
+cDelet: pop h       ; non existant parameter
+    pop h       ; status$p
+    pop b       ; path$p
+    call    delete      ; call delete(path$p)
+    jmp retusr
+
+;###############################
+cRead:  call    aftChk
+    lxi d, 28       ; size of aft entry
+    lhld    param
+    call    @P0034
+    lxi b, aft + 3  ; hl = .aft(conn).edit
+    dad b
+    mov a, m
+    cpi 0       ; edit = 0 ?
+    pop b       ; count
+    pop d       ; buff$p
+    pop h       ; conn pre aftChk adjustment
+    lhld    param       ; conn
+    push    h
+    push    d
+    lhld    param+6     ; actual$p
+    xchg
+    jnz read1       ; edit set so do line edit
+    call    read        ; call read(conn, buff$p, count, actual$p)
+    jmp read2
+
+read1:  call    lined       ; do line editing
+
+read2:  jmp retusr      ; all done
+
+;###############################
+cWrite: call    aftChk
+    pop d       ; count
+    pop b       ; buff$p
+    pop h       ; conn pre aftChk adjustment
+    lhld    param       ; conn
+    push    h
+    call    write       ; call write(conn, buff$p, count)
+    jmp retusr
+
+;###############################
+cSeek:  call    aftChk
+    pop b       ; block$p
+    pop d       ; mode
+    pop h       ; conn  pre aftChk adjustment
+    lhld    param       ; conn
+    push    h
+    push    d
+    lhld    param+6     ; byte$p
+    xchg
+    call    seek        ; call seek(conn, mode, block$p, byte$p)
+    jmp retusr
+
+;###############################
+cLoad:  pop b       ; switch
+    lhld    param+6     ; entry$p
+    xchg
+    call    load        ; call load(path$p, load$offset, switch, entry$p)
+    jmp retusr
+
+;###############################
+cRenam: pop h       ; status$p
+    pop d       ; new$p
+    pop b       ; old$p
+    call    rename      ; call rename(old$p, new$p)
+    jmp retusr
+
+;###############################
+cConso: pop h       ; status$p
+    pop d       ; co$p
+    pop b       ; ci$p
+    call    consol      ; call console(ci$p, co$p)
+    jmp retusr
+
+;###############################
+cExit:  pop h       ; non existant parameter
+    pop h       ; non existant parameter
+    pop h       ; non existant parameter
+    call    exit        ; call exit
+    jmp retusr
+
+;###############################
+cAttri: pop d       ; on$off
+    pop b       ; attrib
+    call    attrib      ; call attrib(path$p, attrib, on$off)
+    jmp retusr
+
+;###############################
+cResca: call    aftChk
+    pop h       ; non exisitant parameter
+    pop h       ; status$p
+    pop h       ; conn pre aftChk adjustment
+    lhld    param       ; conn
+    mov b, h
+    mov c, l
+    call    rescan      ; call rescan(conn)
+    jmp retusr
+
+;###############################
+cError: pop h       ; non existant parameter
+    pop h       ; non existant parameter
+    pop d       ; error$num
+    mvi c, 1
+    call    err     ; call err(1, error$num)
+    jmp retusr
+
+;###############################
+cWhoco: pop h       ; non existant parameter
+    pop d       ; buff$p
+    pop b       ; conn
+    call    whocon      ; call whocon(conn, buff$p)
+    jmp retusr
+
+;###############################
+cSpath: pop h       ; status$p
+    pop d       ; info$p
+    pop b       ; path$p
+    call    path        ; userStatus = path(path$p, info$p)
+    lhld    uStatP
+    mov m, a
+    inx h
+    mvi m, 0
+    lhld    param+2     ; info.deviceNo
+    mov a, m        ; if deviceNo >= 10 then 
+    cpi 0Ah
+    jc  spath1
+    sui 4       ;   info.deviceNo = info.deviceNo - 4
+    mov m, a
+    jmp spath3
+
+spath1: cpi 6       ; else if 6 <= deviceNo and deviceNo <= 9 then
+    jc  spath3
+    mvi a, 9
+    cmp m
+    jc  spath3
+    lda dkCfTb  ; if dk$cf$tb(0) = 9 then /* hard disk */
+    cpi 9
+    jnz spath2
+    lhld    param+2     ;   info.deviceNo = info.deviceNo + 19
+    mvi a, 19
+    add m
+    mov m, a
+    jmp spath3
+
+spath2: lhld    uStatP      ; else
+    mvi m, 4        ;   userStatus = 4
+
+spath3: jmp retusr
+
+;###############################
+cGetat: pop h       ; status$p
+    pop d       ; attrib$p
+    pop b       ; file$p
+    call    getatt      ; call getatt(file$p, attrib$p)
+    jmp retusr
+
+;###############################
+cUnkwn: lhld    aft + 4 + (28 * 11) ; console line in buffer aft(11).lbuf
+    xchg
+    lhld    param       ; return using ptr in param0
+    mov m, e
+    inx h
+    mov m, d
+    lxi d, cliInf       ; enhanced cli info
+    lhld    param+2     ; return using ptr in param1
+    mov m, e
+    inx h
+    mov m, d
+    jmp retusr
+
+
+cmdJmp: dw cOpen        ; command dispatch table
+    dw cClose
+    dw cDelet
+    dw cRead
+    dw cWrite
+    dw cSeek
+    dw cLoad
+    dw cRenam
+    dw cConso
+    dw cExit
+    dw cAttri
+    dw cResca
+    dw cError
+    dw cWhoco
+    dw cSpath
+    dw cGetat
+    dw cUnkwn
+
+
+retusr: lhld    usrSP       ; restore user's own stack
+    sphl
+    ret         ; all done
+
+
+aftChk: lhld    param       ; pick up conn parameter
+    lxi d, 10
+    mov a, l
+    sui 8
+    mov a, h
+    sbb d
+    mvi c, 2
+    cnc warn        ; if conn >= 8 then call warn(BAD$AFT$NO)
+    dad d
+    shld    param       ; conn = conn + 10
+    mvi e, 1Ch
+    call    @P0034
+    lxi b, aft
+    dad b
+    mov a, m        ; if aft(conn).empty then call warn(BAD$AFT$NO)
+    rar
+    mvi c, 2
+    cc  warn
+    ret
+
+    end
+
+aft.plm
+aft:
+do;
+
+$include(:f0:aft.ipx)
+
+DECLARE aft$current BYTE INITIAL(0ffh);
+DECLARE pointer$base ADDRESS PUBLIC,
+    datum$base ADDRESS PUBLIC,
+    a$empty$p ADDRESS PUBLIC,
+    a$dev$p ADDRESS PUBLIC,
+    a$access$p ADDRESS PUBLIC,
+    a$edit$p ADDRESS PUBLIC,
+    a$lbuf$p ADDRESS PUBLIC,
+    a$dbuf$p ADDRESS PUBLIC,
+    a$data$ptr$p ADDRESS PUBLIC,
+    a$i$no$p ADDRESS PUBLIC,
+    a$pbuf$p ADDRESS PUBLIC,
+    a$ptr$ptr$p ADDRESS PUBLIC,
+    a$eof$data$ptr$p ADDRESS PUBLIC,
+    a$ptr$change$p ADDRESS PUBLIC,
+    a$data$change$p ADDRESS PUBLIC,
+    a$blk$count$p ADDRESS PUBLIC,
+    a$blk$seqno$p ADDRESS PUBLIC,
+    a$ptr$blk$p ADDRESS PUBLIC,
+    a$hdr$blk$p ADDRESS PUBLIC,
+    a$data$blk$p ADDRESS PUBLIC,
+    a$dbuf$read$p ADDRESS PUBLIC;
+
+DECLARE aft(18) STRUCTURE (
+        empty   BYTE,
+        device  BYTE,
+        access  BYTE,
+        edit    BYTE,
+        lbuf    ADDRESS,
+        dbuf    ADDRESS,
+        pbuf    ADDRESS,
+        data$ptr BYTE,
+        i$no    ADDRESS,
+        ptr$ptr BYTE,
+        eofcnt  BYTE,
+        ptr$change BYTE,
+        data$change BYTE,
+        blk ADDRESS,
+        blk$seq ADDRESS,
+        ptr$blk ADDRESS,
+        hdr$blk ADDRESS,
+        data$blk$count ADDRESS,
+        dbuf$read BYTE) PUBLIC INITIAL(
+            0, 0, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 1, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 2, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 3, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 4, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 5, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 6, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 7, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 8, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0, 9, 3, 0, 0, 0, 0, 80h, 0, 0, 80h, 0, 0, 19h, 0, 101h, 101h, 102h, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0FFh, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);            
+
+DECLARE a$dbuf BASED a$dbuf$p ADDRESS,
+    a$pbuf BASED a$pbuf$p ADDRESS;
+
+
+aft$window: PROCEDURE(slot$number) PUBLIC;
+    DECLARE slot$number BYTE;
+
+    if aft$current <> slot$number then
+    do; 
+        a$empty$p = .aft(aft$current := slot$number).empty;
+        a$dev$p = a$empty$p + 1;
+        a$access$p = a$dev$p + 1;
+        a$edit$p = a$access$p + 1;
+        a$lbuf$p = a$edit$p + 1;
+        a$data$ptr$p = a$lbuf$p + 6;
+        a$i$no$p = a$data$ptr$p + 1;
+        a$ptr$ptr$p = a$i$no$p + 2;
+        a$eof$data$ptr$p = a$empty$p + 14;
+        a$ptr$change$p = a$eof$data$ptr$p + 1;
+        a$data$change$p = a$ptr$change$p + 1;
+        a$blk$count$p = a$data$change$p + 1;
+        a$blk$seqno$p = a$blk$count$p + 2;
+        a$ptr$blk$p = a$blk$seqno$p + 2;
+        a$hdr$blk$p = a$ptr$blk$p + 2;
+        a$data$blk$p = a$hdr$blk$p + 2;
+        a$dbuf$read$p = a$data$blk$p + 2;
+    end;
+    a$dbuf$p = .aft(slot$number).dbuf;
+    a$pbuf$p = a$dbuf$p + 2;
+    pointer$base = a$pbuf;
+    datum$base = a$dbuf;
+
+end;
+
+
+get$aft$slot: PROCEDURE BYTE PUBLIC;
+    DECLARE i BYTE;
+
+    do i = AFT$BOTTOM to AFT$LAST;
+        if aft(i).empty then
+            return i;
+    end;
+    call abortx(AFT$FULL);
+end;
+end;
+eof;
+
+attrib.plm
+attrib:
+do;
+    
+$include(:f0:attrib.ipx)
+
+attrib: PROCEDURE(file$ptr, swid, value) PUBLIC;
+    DECLARE (file$ptr, swid) ADDRESS;
+    DECLARE value BOOLEAN;
+    DECLARE mask(*) BYTE DATA (INVISIBLE$ATTRIBUTE,
+                                   SYSTEM$ATTRIBUTE,
+                                   WRITEP$ATTRIBUTE,
+                                   FORMAT$ATTRIBUTE,
+                                   0, D$ATTRIBUTE, A$ATTRIBUTE);    /* additional attributes */
+
+    if swid > 6 or swid = 4 then
+        call warn(BAD$ATTRIB);
+    call chk$pn$disk$file(file$ptr);
+    call dlook$pn;
+    direct.attrib = direct.attrib and (not mask(low(swid)));
+    if value then
+        direct.attrib = direct.attrib or mask(low(swid));
+    call dir$close(pn(0));
+end;
+end;
+eof;
+
+close.plm
+close:
+do;
+$include(close.ipx)
+
+
+
+DECLARE caseMap(*) BYTE DATA (0,0,0,0,0,0,0,0,0,0,  /* F0-F9 */
+                  1,2,1,2,1,2,1,1,1,1,  /* TI, TO, VI, VO, I1, O1, TR, HR, T1, T2 */
+                  3,3,3,3,4,4,1,1,1);   /* TP, HP, P1, P2, LP, L1, BB, CI, CO */
+
+DECLARE t$blk   ADDRESS,
+    t$eof   BYTE,
+    zero    ADDRESS INITIAL(0),
+    bytes   ADDRESS INITIAL(0);
+
+close: PROCEDURE(aftn) PUBLIC;
+    DECLARE aftn BYTE;
+    DECLARE i ADDRESS;
+
+    call aft$window(aftn);
+    if a$empty then
+        return;
+    if a$edit <> 0 then
+        call return$buf(a$lbuf);
+    do case caseMap(a$device);
+        do; /* 0 - disk */
+            call save$data$blk;
+            call save$pointer$block;
+            call return$buf(a$pbuf);
+            call return$buf(a$dbuf);
+            if a$access >= 2 then
+            do;
+                call adjust$eof;
+                t$eof = a$eof$data$ptr;
+                t$blk = a$blk$count;
+                bytes = a$i$no * 16;
+                call map$write(a$device);
+                aft(a$device).dbuf = a$dbuf;        /* let device use returned buffers */
+                aft(a$device).pbuf = a$pbuf;
+                call aft$window(a$device);
+                call rewind;        /* get to dir header */
+                call seek(a$device, SEEK$ABS, .zero, .bytes);   /* seek to file entry */
+                call read(a$device, .direct, 16, .i);       /* read the dir entry */
+                direct.eof$count = t$eof;
+                direct.blk = t$blk;
+                a$data$ptr = a$data$ptr - DOUBLE(16);
+                call dir$close(a$device);
+            end;
+        end;
+        ;   /* 1 */
+        ;   /* 2 */
+        do i = 0 to 119;    /* 3 output 120 nulls */
+            call write(aftn, .(0), 1);
+        end;
+        ;   /* 4 */
+    end;
+    aft(aftn).empty = TRUE;
+end;    
+end;
+eof
+consol.plm
+consol:
+DO;
+$include(consol.ipx)
+
+DECLARE cur$consol$in  (12) BYTE PUBLIC,
+    cur$consol$out (12) BYTE PUBLIC;
+
+DECLARE cold$consol$in(5)  BYTE INITIAL(':XI: '),
+    cold$consol$out(5) BYTE INITIAL(':XO: ');
+
+DECLARE cold$start$flag BOOLEAN INITIAL (TRUE);
+
+DECLARE (cold$cidev, alt$cidev) BYTE PUBLIC;
+
+console: PROCEDURE(infile, outfile) PUBLIC;
+    DECLARE (infile, outfile) ADDRESS;
+    DECLARE instring based infile BYTE,
+        outstring based outfile BYTE;
+    DECLARE temp BYTE;
+    DECLARE tdrv(2) BYTE DATA ('TV');   /* T or V is 1st letter of device name */
+    DECLARE initio BYTE AT (6);
+
+    if cold$start$flag then
+    do;
+      cold$consol$in(1), cold$consol$out(1) = tdrv(initio and 1);
+      infile = .cold$consol$in;
+      outfile = .cold$consol$out;
+    end;
+    
+    global$severity = ABORT;
+    call xpath(outfile, .pn);
+    if pn(0) <> CODEV then
+    do;
+      call close(AFTN$CONSOL$OUT);
+      temp = open(outfile, WRITE$MODE, FALSE);
+      call xpath(outfile, .cur$consol$out);
+    end;
+    call xpath(infile, .pn);
+    if pn(0) <> CIDEV then 
+    do;
+      call close(AFTN$CONSOL$IN);
+      temp = open(infile, READ$MODE, 100h);
+      if cold$start$flag then
+        cold$cidev = aft(AFTN$CONSOL$IN).device;
+      alt$cidev = cold$cidev;
+      call xpath(infile, .cur$consol$in);
+    end;
+    cold$start$flag = FALSE;
+end;
+
+
+whocon: PROCEDURE(aftn, bufferloc) PUBLIC;
+    DECLARE aftn BYTE;
+    DECLARE bufferloc ADDRESS;
+    DECLARE nameloc ADDRESS;
+
+    nameloc = .cur$consol$out;
+    if aftn then
+    do;
+      if (aftn := aft(AFTN$CONSOL$IN).device) <> cur$consol$in(0) then
+        nameloc = .aftn;
+      else
+        nameloc = .cur$consol$in;
+    end;
+    call unpath(nameloc, bufferloc);
+end;
+end;
+eof
+delete.plm
+delete:
+DO;
+$include(delete.ipx)
+
+dlook$pn: PROCEDURE PUBLIC;
+    if not dlook(.pn) then
+    call warn(NO$SUCH$FILE);
+end;
+
+DECLARE i BYTE;     /* shared temp counter */
+
+del: PROCEDURE(disknum) PUBLIC;
+    DECLARE disknum BYTE;
+    DECLARE blockno ADDRESS DATA (0);
+    DECLARE byteno ADDRESS DATA(16 /* size(DIRECT) */);
+    DECLARE temp ADDRESS;
+    DECLARE buf based TEMP (64) ADDRESS;
+
+    /* internal delete routing
+    disknum = F0DEV .. F9DEV
+    direct must contain the directory entry for an existing file or disk.
+    aft slot for the appropriate directory must have buffers;
+    and these buffers must be setup for directory reading and
+    writing. These buffers will be clobbered
+    */
+
+
+     direct.empty = TRUE;
+     call dir$close(disknum);
+     call seek(disknum, 1, .blockno, .byteno);  /* save location of directory entry */
+     temp = a$dbuf; /* temp -> a buffer we not exists based a$dbuf$p */
+     do while direct.hdr$blk <> 0;
+        call free$block(disknum, direct.hdr$blk);
+        call absio(CMD$READ, disknum, direct.hdr$blk, temp);
+        direct.hdr$blk = buf(FLINK);
+        do i = 2 to 63;
+            if buf(i) <> 0 then
+            call free$block(disknum, buf(i));
+        end;
+     end;
+     call absio(CMD$READ, disknum, a$data$blk, a$dbuf); /* last 2 based vars */
+     call map$write(disknum);
+end;
+
+
+delete: PROCEDURE(pathname) PUBLIC;
+    DECLARE pathname ADDRESS;
+
+    call chk$pn$disk$file(pathname);
+    call dlook$pn;
+    call chk$write$protect;
+    do i = AFT$BOTTOM to AFT$LAST;
+        call aft$window(i);
+        if (not a$empty) and (a$device = pn(0)) and (a$i$no = direct$i$no) then
+            call warn(CANT$DELETE); 
+    end;
+    call del(pn(0));
+end;
+end;
+eof
+diskio.asm
+; /*
+; ****************** some notes about this code ********************
+; most of the function diskio seems to have been originally been in PLM based on
+; the code sequences generated. However two of the ADDRESS variables have been
+; initialised to 0 in the final isis.bin file which indicates that this they
+; have been set as dw 0, statements in assembler as neither the parameter iopb
+; nor the realTK variable could legally be initialisd in PLM
+; There also appear to be a few of minor hand crafted code changes
+; those to ignoring r$byte and r$type could have been overcome by defining
+; different name entry points in the disk2.asm code
+; others like noting that the do loop variable is in the hl register at both
+; the initialisation and the increment so doesnot need to be loaded for the
+; loop test are not detected in plm80 4.0
+; In this file I have left in the PLM code and the assembly generated from it
+; the PLM code is commented out and the original code is left in upper case
+; code that has been optimised out or changed has been deleted and replacement
+; code has been entered in lower case
+; Note the include statements and unrequired declarations have been deleted
+; to keep the file reasonably clean
+; Although isis 4.3w was probably modified from isis 4.3 at an asm level
+; I have recreated an equivalent plm source
+; */
+        
+; diskio: do;
+    name diskio
+    cseg
+    extrn   @P0029, @P0016
+; DECLARE /* common literals */
+;     TRUE  LITERALLY   '0ffh',
+;     FALSE  LITERALLY   '0';
+        
+; DECLARE /* structure typedefs */
+;     DCB$T LITERALLY 'STRUCTURE (iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE, buf ADDRESS)',
+;     WDCB$T1 LITERALLY
+;         'reserved(2) address, actual(2) address, device address, unit byte, function byte, modifier address',
+;     WDCB$T2 LITERALLY
+;         'cyl address, head byte, sector byte, buf(2) address, count(2) address, gaptr(2) address',
+;     WDCB$T LITERALLY 'STRUCTURE(WDCB$T1, WDCB$T2)',
+;     WSTATUS$T LITERALLY
+;      'structure(status(3) byte, cyl address, head byte, sector byte, aCyl address, ahead byte, aSec byte, retries byte)',
+;     WCONTROL$T LITERALLY
+;         'structure(res1 byte, opStatus byte, cmdSem byte, stSem byte, csa(2) address, iopb(2) address, res2(2) address)';
+        
+; DECLARE /* disk commands */
+;     CMD$RECAL   LITERALLY   '3',
+;     CMD$READ    LITERALLY   '4',
+;     CMD$WRITE   LITERALLY   '6',
+;     CMD$DIAGNOSTIC LITERALLY '15',
+;     MOD$DIAGNOSTIC LITERALLY '201h';    /* seek to 0 and test read, no interrupt */
+        
+; DECLARE MAX$RETRIES LITERALLY   '10';
+        
+; DECLARE /* disk types */
+
+
+;     DD$TYPE     LITERALLY   '1',
+;     SD$TYPE     LITERALLY   '2',
+;     ISD$TYPE    LITERALLY   '3',
+;     HD$TYPE     LITERALLY   '4',    /* not supported in 4.3w */
+;     WD$TYPE     LITERALLY   '9';
+        
+; DECLARE /* disk errors */
+;     DISK$IO$ERROR   LITERALLY   '24',   /* Disk error */       
+;     DRIVE$NOT$READY LITERALLY   '30';   /* Drive not ready. */
+        
+; /* external procedures */
+; abortx: PROCEDURE(errcode) EXTERNAL; DECLARE errcode BYTE; END;
+; trap0B: PROCEDURE EXTERNAL; END;
+; dk$stat: PROCEDURE BYTE EXTERNAL; END;
+; r$type: PROCEDURE BYTE EXTERNAL; END;
+; r$byte: PROCEDURE BYTE EXTERNAL; END;
+; strt$io: PROCEDURE(iopb) EXTERNAL; DECLARE iopb ADDRESS; END;
+
+    extrn abortx,  trap0B, dkstat, rtype, rbyte, strtio
+ 
+; DECLARE /* external variables */
+;     c$dk$sat ADDRESS EXTERNAL,
+;     errdrv BYTE EXTERNAL,
+;     vec$0E ADDRESS EXTERNAL,
+;     a$dev$p ADDRESS EXTERNAL, a$device BASED a$dev$p BYTE,
+;     wiStatusBuf WSTATUS$T external,
+;     wiControlBlk WCONTROL$T external,
+;     wiIopb WDCB$T external;
+
+    extrn cdksat, errdrv, vec0E, adevp, wiSbuf, wiCtlb, wiIopb
+        
+; DECLARE wiRcal$pb WDCB$T data(0, 0, 0, 0, 0, 0, CMD$DIAGNOSTIC, MOD$DIAGNOSTIC, 0,0,0,0,0,0,0,0,0); 
+wrcalb:
+    dw 0, 0, 0, 0, 0
+    db 0, 15            ; cmd$diagnostic
+    dw 201h, 0          ; mod$diagnostic
+    db 0, 0
+    dw 0, 0, 0, 0, 0, 0
+
+; DECLARE rcal$pb STRUCTURE(iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE)
+;                     INITIAL(80h, CMD$RECAL, 1, 0, 0);
+rcalpb: db 80h, 3, 1, 0, 0
+; DECLARE absdcb DCB$T INITIAL(80h, 0, 1, 0, 0, 0);
+absdcb: db 80h, 0, 1, 0, 0
+        dw 0
+; DECLARE dk$cf$tb(10) BYTE PUBLIC,
+    public dkcftb
+dkcftb: ds  10
+;          dk$ct$tb(10) BYTE PUBLIC,  /* disk controller table */
+    public dkcttb
+dkcttb: ds  10
+;          unit$mp(10) BYTE PUBLIC,
+    public unitmp
+unitmp: ds  10
+;          rdy$msk(10) BYTE PUBLIC,
+    public rdymsk
+rdymsk: ds  10
+;          tracksTable(10) byte public,
+    public trktab
+trktab:  ds  10
+;          sectorsTable(10) byte public,
+    public secTab
+secTab:  ds  10
+;          dkcont BYTE PUBLIC,
+    public dkcont
+dkcont: ds  1
+;          track BYTE PUBLIC,
+    public  track
+track:  ds  1
+;          sector BYTE PUBLIC,
+    public  sector
+sector: ds  1
+;          temp ADDRESS, (temp2, temp1) BYTE at(.temp);
+temp:
+temp2:  ds  1
+temp1:  ds  1 
+; diskio: PROCEDURE(drive, iopb) PUBLIC;
+;                                    ; STATEMENT # 27
+drive:  ds  1
+iopb:   dw  0
+i:      ds  1
+diskHW: ds  1
+realTK: dw  0
+ival:   ds  1
+sddrv:  ds  1
+iopb2:  dw  0
+offset: dw  0, 128, 256, 384
+
+;            ; PROC  DISKIO
+    public  diskio
+diskio:
+        LXI     H,IOPB+1H
+        MOV     M,D
+        DCX     H
+        MOV     M,E
+        DCX     H
+        MOV     M,C
+;     DECLARE drive BYTE, iopb ADDRESS;  /* iopb init to 0 */
+;     DECLARE dcb BASED iopb DCB$T;
+;     DECLARE i BYTE,
+;              diskHW BYTE,
+;              realTk ADDRESS,            /* init to 0 */
+;              ival BYTE,
+
+
+;              sd$drv BYTE,
+;              iopb2 ADDRESS;             /* winchester iopb */
+;     DECLARE offsets(4) address data(0, 128, 256, 384);
+        
+        xchg                ;     iopb2 = iopb;
+        SHLD    IOPB2
+        LXI     B,3H        ;     track = dcb.tadr;
+        lhld    iopb
+        DAD     B
+        MOV     A,M
+        STA     TRACK
+        inx     h           ;     sector = dcb.sadr;
+        MOV     A,M
+        STA     SECTOR
+        DCR     A           ;     wiIopb.sector = sector - 1;
+        STA     WIIOPB+11H
+        IN      0FCH        ;     ival = input(0fch);
+        STA     IVAL
+        ORI     2H          ;     output(0fch) = ival or 2;
+        OUT     0FCH
+        LHLD    DRIVE       ;     dkcont = dk$ct$tb(drive);
+        MVI     H,0
+        LXI     B,DKCTTB
+        DAD     B
+        MOV     A,M
+        STA     DKCONT
+        LXI     H,SDDRV     ;     sd$drv = FALSE;
+        MVI     M,0H
+        LHLD    DRIVE       ;     diskHW = dk$cf$tb(drive);
+        MVI     H,0
+        LXI     B,DKCFTB
+        DAD     B
+        MOV     A,M
+        STA     DISKHW
+        CPI     2H          ;     if diskHW = SD$TYPE then    /* SD disk (Not ISD) */
+        JNZ     @1
+        LDA     DRIVE       ;         if drive then
+        RAR
+        JNC     @1
+                            ;         do;
+        LXI     H,SDDRV     ;             sd$drv = TRUE;
+        MVI     M,0FFH
+        LXI     B,4H        ;             dcb.sadr = dcb.sadr OR 20h;     /* set selector flag */
+        LHLD    IOPB
+        DAD     B
+        MVI     A,20H
+        ORA     M
+        MOV     M,A
+@1:                         ;         end;
+        LDA     DISKHW      ;     if diskHW = WD$TYPE then  /* hard disk */
+        CPI     9H
+        JNZ     @2
+                            ;     do;
+        LXI     B,3H        ;         realTk = DOUBLE(dcb.tadr) * 3;
+        LHLD    IOPB
+        DAD     B
+        mov     l,m
+        mov     c,l
+        mvi     h,0
+        dad     h
+        dad     b
+        SHLD    REALTK
+        lxi     h,wiiopb+11h ;        if wiIopb.sector >= 140 then
+        mov     a,m
+        CPI     8CH
+        JC     @3
+                            ;         do;
+        SUI     8CH         ;             wiIopb.sector = wiIopb.sector - 140;
+        mov     m,a
+        LHLD    REALTK      ;             realtk = realtk + 2;
+        INX     H
+        INX     H
+        SHLD    REALTK
+        JMP     @4          ;         end;
+@3:
+        CPI     46H         ;         else if wiIopb.sector >= 70 then
+        JC     @5
+                            ;         do;
+        SUI     46H         ;             wiIopb.sector = wiIopb.sector - 70;
+        mov     m,a
+        LHLD    REALTK      ;             realtk = realtk + 1;
+        INX     H
+        SHLD    REALTK
+@5:                         ;         end;
+@4:
+        LHLD    REALTK      ;         wiIopb.head = realTk mod 5;
+        XCHG
+        LXI     H,5H
+        CALL    @P0029 
+        mov     a,l
+        sta     wiiopb+10h
+        LHLD    DRIVE       ;         wiIopb.cyl = realtk / 5 + offsets(drive);
+        MVI     H,0
+        LXI     B,OFFSET
+        DAD     H
+        DAD     B
+        CALL    @P0016 
+        SHLD    WIIOPB+0EH
+        LHLD    IOPB        ;         if (dcb.ioins and 0fh) <> CMD$READ then
+        INX     H
+        mov     a,m
+        ani     0fh
+        CPI     4H
+        JZ      @6
+        CPI     6H          ;             if (dcb.ioins and 0fh) <> CMD$WRITE then
+        rnz                 ;                 return;
+@7:
+@6:
+        STA     WIIOPB+0BH  ;         wiIopb.function = dcb.ioins and 0fh;
+        inx     h           ;         wiIopb.count(0) = dcb.nsec * 128;          
+        mov     a,m
+        stc
+        cmc
+        rar
+        sta     wiiopb+17h
+        mvi     a,0
+        rar
+        sta     wiiopb+16h
+        inx     h           ;         wiIopb.buf(0) = dcb.buf;
+        inx     h
+        inx     h
+        MOV     E,M
+        INX     H
+        MOV     D,M
+        XCHG
+        SHLD    WIIOPB+12H
+        LXI     H,WIIOPB    ;         iopb2 = .wiIopb;
+        SHLD    IOPB2
+        JMP     @8          ;     end;
+@2:
+                            ;     else       
+        LHLD    DRIVE       ;         dcb.ioins = unit$mp(drive) or dcb.ioins;
+        MVI     H,0
+        LXI     B,UNITMP
+        DAD     B
+        mov     a,m
+        LHLD    IOPB
+        INX     H
+        ORA     M
+        MOV     M,A
+@8:
+                            ; /* converted from do i = ... to while loop */
+        LXI     H,I         ;     i = 0; 
+        MVI     M,0H
+@17:                        ;     do while i <= MAX$RETRIES;
+        MVI     A,0AH
+        CMP     M
+        JC      @18
+        LDA     DISKHW      ;         if diskHW <> WD$TYPE then
+        CPI     9H
+        JZ      @9
+@19:                        ;             do while (dk$stat AND 4) <> 0;
+        CALL    DKSTAT
+        ANI     4H
+        CPI     0H
+        JZ      @20
+        CALL    RTYPE       ;                 temp1 = r$type; /* assignments removed in asm */
+        CALL    RBYTE       ;                 temp1 = r$byte;
+        JMP     @19         ;             end;
+@20:
+@9:
+        CALL    DKSTAT      ;         if (dk$stat AND rdy$msk(drive)) = 0 then
+        LHLD    DRIVE
+        MVI     H,0
+        LXI     B,RDYMSK
+        DAD     B
+        ANA     M
+        CPI     0H
+        JNZ     @10
+        MVI     C,1EH       ;             call abortx(DRIVE$NOT$READY);
+        CALL    ABORTX
+@10:
+        LHLD    IOPB2       ;         call strt$io(iopb2);
+        MOV     B,H
+        MOV     C,L
+        CALL    STRTIO
+        CALL    RTYPE       ;         temp1 = r$type;
+        STA     TEMP1
+        CALL    RBYTE       ;         if (temp2 := r$byte) = 0 then
+        STA     TEMP2
+        CPI     0H
+        JNZ     @11
+                            ;         do;
+        LDA     IVAL        ;             output(0fch) = ival;
+        OUT     0FCH
+        RET                 ;             return;
+@11:                        ;         end;
+        LDA     DISKHW      ;         if diskHW = WD$TYPE then
+        CPI     9H
+        JNZ     @12
+                            ;         do;
+        lxi     h,i         ;             if (i := i + 1) = 5 then
+        inr     m
+        mov     a,m
+        CPI     5H
+        jnz     @17
+        LXI     B,WRCALB    ;                 call strt$io(.wRcal$pb);
+        CALL    STRTIO
+@13:
+        lxi     h,i         ;         end;
+        jmp     @17
+@12:
+                            ;         else
+                            ;         do;
+        LDA     SDDRV       ;             if sd$drv then
+        RAR
+        JNC     @15
+        LDA     RCALPB+4H   ;                  rcal$pb.sadr = rcal$pb.sadr OR 20h;
+        ORI     20H
+        STA     RCALPB+4H
+@15:
+        LHLD    DRIVE       ;              rcal$pb.ioins = rcal$pb.ioins OR unit$mp(drive);
+        MVI     H,0
+        LXI     B,UNITMP
+        DAD     B
+        LDA     RCALPB+1H
+        ORA     M
+        STA     RCALPB+1H
+        LXI     B,RCALPB    ;              call strt$io(.rcal$pb);
+        CALL    STRTIO
+        lxi     h,i         ;             if (i := i + 1) = 0 then
+        inr     m
+        jnz     @17
+@16:                        ;                 goto done;
+@14:                        ;         end;
+@18:                        ;     end;
+DONE:                       ; done:
+        LDA     DRIVE       ;     errDrv = drive;
+        STA     ERRDRV
+        LHLD    TEMP        ;     vec$0E, c$dk$sat = temp;
+        SHLD    VEC0E
+        SHLD    CDKSAT
+        LDA     IVAL        ;     output(0fch) = ival;
+        OUT     0FCH
+        CALL    TRAP0B      ;     call trap0B;
+        LDA     IVAL        ;     output(0fch) = ival OR 2;
+        ORI     2H
+        OUT     0FCH
+        MVI     C,18H       ;     call abortx(DISK$IO$ERROR);
+        CALL    ABORTX
+        RET                 ; end;
+
+; absio: PROCEDURE(cmd, disk, block, buffer)  PUBLIC;
+    public  absio
+absio:
+;     DECLARE (cmd, disk) BYTE, (block, buffer) ADDRESS;
+;     DECLARE tsadr ADDRESS AT (.absdcb.tadr); /* to allow tadr & sadr write together */
+
+        xchg                ;     absdcb.buf = buffer;    /* buffer in de */
+        SHLD    ABSDCB+5H
+        lxi     h,absdcb+4  ;     tsadr = block;          /* block in bc */
+        mov     m,c
+        dcx     h
+        mov     m,b
+        pop     d           ; return address
+        pop     b           ; c = disk
+        mov     a,c         ; a = disk
+        pop     b           ; c = command
+        push    d           ; restore return address
+;     absdcb.ioins = cmd;
+        dcx     h           ; insert cmd in absdcb
+        dcx     h
+        mov     m,c
+        mov     c,a        ;     call diskio(disk, .absdcb);
+        LXI     D,ABSDCB
+        CALL    DISKIO
+                           ; end;
+        RET
+; abs$rd: PROCEDURE(block, buffer) PUBLIC;
+    public  absrd
+absrd:
+;            ; PROC  ABSRD
+;     DECLARE (block, buffer) ADDRESS;
+
+;     call absio(CMD$READ, a$device, block, buffer);
+        mvi     l,4
+absrw:                  ; shared code
+        push    h
+        LHLD    ADEVP
+        mov     l,m      ; device
+        push    h      
+        CALL    ABSIO
+; end;
+        RET
+; abs$wr: PROCEDURE(block, buffer) PUBLIC;
+        public abswr
+abswr:
+;            ; PROC  ABSWR
+;     DECLARE (block, buffer) ADDRESS;
+;     call absio(CMD$WRITE, a$device, block, buffer);
+        mvi     l,6
+        jmp     absrw
+; end;
+; end;
+        end
+error.asm
+; the original code in error.plm appears to have been hand optimised.
+; the code below contains the plm code and the optimised asm
+
+; declare ABORT literally '2';
+; declare CMSK literally '0fch';
+; declare CR literally '0dh';
+; declare DISK$IO$ERROR literally '24';
+; declare debug$Toggle literally 'dTogle';
+; declare global$severity literally 'gblSev';
+; declare LF literally '0ah';
+; declare userStatus$p literally 'uStatP';
+; declare WARNING literally '0';
+; declare isis$E byte external;
+; declare sector byte external;
+; declare track byte external;
+; declare usrSP address external;
+; declare uStatP address external;
+; CO: procedure(val) external; declare val byte; end;
+; IOCHK: procedure byte external; end;
+; IOSET: procedure(val) external; declare val byte; end;
+; reboot: procedure external; end;
+; trap: procedure external; end;
+; declare userStatus based userStatus$p  address;
+
+    name error
+    public dTogle, gblSev, cdksat, err, warn, abortx, errDrv
+    extrn isisE, sector, track, usrSP, uStatP
+    extrn CO, IOCHK, IOSET, reboot, trap
+
+ABORT   equ 2
+WARNIN  equ 0
+CR  equ 0dh
+LF  equ 0ah        
+        
+; DECLARE pad ADDRESS,    /* padding to align to isis.bin */
+;         debug$Toggle BYTE PUBLIC,
+;         global$severity BYTE PUBLIC,
+;         c$dk$sat ADDRESS PUBLIC;
+        
+; DECLARE msg1(7) BYTE INITIAL(CR, LF, 'ERROR'),
+;         msg2(4) BYTE, /* error number goes here */
+;         msg3(9) BYTE INITIAL(' USER PC '),
+;         msg4(4) BYTE, /* user pc in hex goes here */
+;         msg5(9) BYTE INITIAL(CR, LF, 'STATUS='),
+;         msg6(4) BYTE, /* drive status goes here */
+;         msg7(5) BYTE INITIAL(CR, LF, 'D= '),
+;         errdrv  BYTE PUBLIC, /* drive goes here */
+;         msg9(3) BYTE INITIAL(' T='),
+;         msg10(1) BYTE,  /* track goes here */
+;         msg11(3) BYTE INITIAL('   '),
+;         msg12(3) BYTE INITIAL(' S='),
+;         msg13(1) BYTE,  /* sector goes here */
+;         msg14(5) BYTE INITIAL('   ', CR, LF);
+; DECLARE initio BYTE AT (6);
+initio  equ 6
+
+    DSEG
+pad:    ds 2
+dTogle: ds 1
+gblSev: ds 1
+cdksat: ds 2
+
+msg1:   db CR, LF, 'ERROR'
+msg2:   ds 4
+msg3:   db ' USER PC '
+msg4:   ds 4
+msg5:   db CR, LF, 'STATUS='
+msg6:   ds 4
+msg7:   db CR, LF, 'D= '
+errdrv: ds 1
+msg9:   db ' T='
+msg10:  ds 1
+msg11:  db '   '
+msg12:  db ' S='
+msg13:  ds 1
+msg14:  db '   ', CR, LF
+        
+
+
+    extrn   @P0014, @P0029, @P0035, @P0094, @P0102
+
+    CSEG
+severe: ds  1   ; err arguments
+errtyp: ds  1
+imax:   ds  1   ; err var
+
+value:  dw  0   ; num arguments
+base:   ds  1
+bufp:   dw  0
+div:    dw  0   ; num vars
+digit:  dw  0
+i:  ds  1
+offset: ds  1       
+
+; num: PROCEDURE(value, base, bufp);
+num:    LXI     H,BUFP+1H
+    MOV     M,D
+    DCX     H
+    MOV     M,E
+    DCX     H
+    MOV     M,C
+    DCX     H
+    POP     D       
+    POP     B       
+    MOV     M,B
+    DCX     H
+    MOV     M,C
+    PUSH    D       
+; DECLARE value ADDRESS, base BYTE, bufp ADDRESS;
+; DECLARE buf based bufp (4) BYTE;
+; DECLARE (div, digit) ADDRESS, (i, offset) BYTE;
+
+    LXI     H,I         ;     do i = 1 to 4;
+    MVI     M,1H
+@11:
+    MVI     A,4H
+    CMP     M
+    JC      @12
+    LXI     H,OFFSET    ;       offset = '0';
+    MVI     M,30H
+    LHLD    VALUE       ;       div = value / base;
+    XCHG
+    LHLD    BASE
+    MVI     H,0
+    CALL    @P0029 
+    XCHG
+    SHLD    DIV
+    XCHG                ;       digit = value - div * base;
+    CALL    @P0035 
+    LXI     D,VALUE
+    CALL    @P0102 
+    SHLD    DIGIT
+    MVI     A,9H        ;       if digit > 9 then
+    CALL    @P0094 
+    JNC     @1
+    LXI     H,OFFSET    ;         offset = '7';
+    MVI     M,37H
+@1:
+    LDA     OFFSET      ;       buf(4 - i) = digit + offset;
+    LXI     D,DIGIT
+    CALL    @P0014 
+    XCHG
+    MVI     A,4H
+    INX     H
+    SUB     M
+    MOV     C,A
+    MVI     B,0
+    LHLD    BUFP
+    DAD     B
+    MOV     M,E
+
+    LHLD    DIV         ;       value = div;
+    SHLD    VALUE
+@13:
+    LXI     H,I         ;     end;
+    INR     M
+    JNZ     @11
+@12:
+    MVI     M,0H        ;     do i = 0 to 2;
+@14:
+    MVI     A,2H
+    CMP     M
+    JC      @15
+    mov l,m             ;       if buf(i) = '0' then
+    MVI     H,0
+    XCHG
+    LHLD    BUFP
+    DAD     D
+    MOV     A,M
+    CPI     30H
+    rnz
+    MVI     M,20H       ;         buf(i) = ' ';
+    LXI     H,I         ;     end;
+    INR     M
+    JNZ     @14
+@15:
+                        ; end;
+    RET
+    
+    
+; err: PROCEDURE(severity, error$type) PUBLIC;
+err:    LXI     H,ERRTYP
+        MOV     M,E
+        DCX     H
+; DECLARE (severity, error$type, j, imax) BYTE;
+; DECLARE pc BASED usrSP ADDRESS;
+        LDA     GBLSEV      ;    if (severity := severity or global$severity) <> WARNING then
+        ora     c 
+        MOV     M,A
+        JZ      @4
+                            ;    do;
+        LHLD    ERRTYP      ;        call num(error$type, 10, .msg2);
+        MVI     H,0
+        PUSH    H 
+        LXI     D,MSG2
+        MVI     C,0AH
+        CALL    NUM
+        LHLD    USRSP       ;        call num(pc, 16, .msg4);  
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        PUSH    B 
+        LXI     D,MSG4
+        MVI     C,10H
+        CALL    NUM
+        CALL    IOCHK       ;        call ioset((iochk AND CMSK) OR (initio AND 3));
+        ANI     0FCH
+        mov     c,a
+        LDA     INITIO
+        ANI     3H
+        ORA     C
+        MOV     C,A
+        CALL    IOSET
+
+        LXI     H,IMAX      ;        imax = 26;  /* number of characters in normal error message */
+        MVI     M,1AH
+        LDA     ERRTYP      ;        if error$type = DISK$IO$ERROR then
+        CPI     18H
+        JNZ     @5
+                            ;        do;
+        LHLD    CDKSAT      ;            if high(c$dk$sat) <> 0 then
+        MOV     A,H
+        CPI     0H
+        JZ      @6
+        LXI     H,80H       ;                c$dk$sat = 128;
+        SHLD    CDKSAT
+@6:
+        push    h 
+        LXI     H,IMAX      ;            imax = 59;
+        MVI     M,3BH
+        LXI     D,MSG6      ;            call num(c$dk$sat, 16, .msg6);
+        MVI     C,10H
+        CALL    NUM
+        LDA     ERRDRV      ;            errdrv = errdrv or '0'; /* convert drive to ascii number */
+        ORI     30H
+        STA     ERRDRV
+        LHLD    TRACK       ;            call num(track, 10, .msg10);
+        MVI     H,0
+        PUSH    H 
+        LXI     D,MSG10
+        MVI     C,0AH
+        CALL    NUM
+        LHLD    SECTOR      ;            call num(sector, 10, .msg13);
+        MVI     H,0
+        PUSH    H
+        LXI     D,MSG13
+        MVI     C,0AH
+        CALL    NUM
+                            ;        end;
+@5:
+        lda     imax        ;        do j = 0 to imax;
+        lxi     h,msg1
+@17:
+        mov     c,m         ;            call co(msg1(j));
+        push    psw
+        push    h
+        call    CO
+        pop     h
+        pop     psw
+        inx     h           ;        end;
+        dcr     a
+        JNZ     @17
+@18:
+        JMP     @7          ;    end;
+@4:                         ;    else
+                            ;    do;
+        LHLD    USTATP      ;        userStatus = error$type;
+        LDA     ERRTYP
+        MOV     M,A
+        INX     H
+        MVI     M,0
+        LHLD    USRSP       ;        STACKPTR = usrSP;
+        SPHL
+@7:                         ;    end;
+        LDA     SEVERE      ;    if severity >= ABORT then
+        CPI     2H
+        JC      @8
+                            ;    do;
+        LDA     DTOGLE      ;        if debug$toggle then
+        RAR
+        cc      trap        ;            call trap;  /* trap to monitor */
+@9:
+        LDA     ISISE       ;        if ISIS$E then      /* Parameter 1 of the ISIS 'E' command */
+        RAR
+        JNC     @10
+                            ;        do;
+        LHLD    USTATP      ;            userStatus = error$type;
+        LDA     ERRTYP
+        MOV     M,A
+        INX     H
+        MVI     M,0
+        LHLD    USRSP       ;            STACKPTR = usrSP;
+        SPHL
+        RET                 ;            return;
+@10:                        ;       end;
+        CALL    REBOOT      ;      call reboot;
+@8:                         ;    end;
+        RET                 ; end;
+        
+        
+; abortx: PROCEDURE(errcode) PUBLIC;
+;   DECLARE errcode BYTE;
+;   call err(ABORT, errcode);
+; end;
+abortx: mov e,c
+    mvi c,ABORT
+    jmp err
+        
+; warn: PROCEDURE(errcode) PUBLIC;
+;   DECLARE errcode BYTE;
+;   call err(WARNING, errcode);
+; end;
+warn:   mov e,c
+    mvi c,WARNIN
+    jmp err
+        
+    end
+exit.plm
+exit:
+do;
+$include(exit.ipx)
+
+DECLARE cli(*) BYTE PUBLIC INITIAL(':F0:ISIS.CLI ');
+
+close$all: PROCEDURE(aft$start) PUBLIC;
+    DECLARE aft$start BYTE;
+    DECLARE i BYTE;
+
+    do i = aft$start to AFT$LAST;
+        call close(i);
+    end;
+end;
+
+exit: PROCEDURE PUBLIC;
+    DECLARE retvec BYTE AT (0BH);   /* location of trap0B */
+
+    ISIS$E = 0;
+    retvec = 0c9H;  /* return instruction */
+    call close$all(12); /* aft$prot? */
+    call map$write(current$bitmap);
+    current$bitmap = 0ffh;
+    global$severity = ABORT;
+    call load(.cli, 0, 1, 0);
+end exit;
+end;
+eof
+
+
+getatt.asm
+    name getatt
+    public  getatt
+    extrn   ckpndf  ; chk$pn$disk$file
+    extrn   dlokpn  ; dlook$pn
+    extrn   direct
+
+    CSEG
+getatt: push    d
+    call    ckpndf  ; chk$pn$disk$file
+    call    dlokpn  ; dlook$pn
+    pop h
+    lda direct + 10 ; direct.attrib
+    mov m,a
+    ret
+    end;
+
+load.plm
+load:
+do;
+$include(load.ipx)
+
+DECLARE R$MODHDR    LITERALLY   '2',
+    R$MODEND    LITERALLY   '4',
+    R$CONTENT   LITERALLY   '6',
+    R$LINENO    LITERALLY   '8',
+    R$EOF       LITERALLY   '0EH',
+    R$ANCESTOR  LITERALLY   '10H',
+    R$LOCALS    LITERALLY   '12H',
+    R$PUBLICS   LITERALLY   '16H',
+    R$EXTNAMES  LITERALLY   '18H',
+    R$EXTREF    LITERALLY   '20H',
+    R$RELOC     LITERALLY   '22H',
+    R$INTERSEG  LITERALLY   '24H',
+    R$LIBLOCS   LITERALLY   '26H',
+    R$LIBNAMES  LITERALLY   '28H',
+    R$LIBDICT   LITERALLY   '2AH',
+    R$LIBHDR    LITERALLY   '2CH',
+    R$COMDEF    LITERALLY   '2EH';
+
+load: PROCEDURE(pathname, bias, retsw, entry$p) PUBLIC;
+    DECLARE (pathname, bias, retsw, entry$p) ADDRESS;
+    DECLARE entry BASED entry$p ADDRESS;
+    DECLARE (aftn, i, retsw$b) BYTE;
+    DECLARE record STRUCTURE(type BYTE, length ADDRESS);
+    DECLARE modend STRUCTURE(modtype BYTE, segid BYTE, load$addr ADDRESS);
+    DECLARE content STRUCTURE(segid BYTE, load$addr ADDRESS) AT (.modend);
+    DECLARE checksum BYTE AT (.modend); 
+    DECLARE actual ADDRESS, pad ADDRESS;
+    DECLARE blockno ADDRESS, user$bottom ADDRESS, buffer$top ADDRESS;
+
+    bounds$test: PROCEDURE(addr, len);
+        DECLARE (addr, len) ADDRESS;
+        if addr >= 18h AND addr <= 3fh AND addr + len <= 40h then
+            return;
+        if user$bottom > addr then
+            user$bottom = addr; /* first address will update this if applicable */
+        if buffer$top > addr OR addr + len  < addr then
+            call abortx(ISIS$OVERWRITE);
+    end;
+
+    blockno = 0;
+    user$bottom = 0ffffh;
+    if retsw > 2 then
+        call warn(BAD$RETSW);
+
+    aftn = AFT$BOTTOM +  open(pathname, 1, 0);  /* open$read */
+    if (retsw$b := retsw) <> 0 then
+        user$bottom = memck;
+    buffer$top = pack$aft$buf;
+    do while TRUE;
+        call read(aftn, .record, 3, .actual);   /* read record type and length */
+        if actual < 3 OR record.type >= R$RELOC OR record.type then /* short, relocate or odd type */
+            call abortx(BAD$LOAD$FORMAT);
+        if record.type > R$CONTENT then
+            call seek(aftn, SEEK$FORWARD, .blockno, .record.length);    /* skip record */
+        else
+        do;
+            do case shr(record.type,1);
+            call abortx(BAD$LOAD$FORMAT);   /* case 0 */
+            call seek(aftn, SEEK$FORWARD, .blockno, .record.length);    /* case 1 - R$MODHDR skip */
+            do; /* case 2 - R$MODEND */
+                call read(aftn, .modend, size(modend), .actual);
+                modend.load$addr = modend.load$addr + bias;
+                if modend.modtype = 1 then      /* system */
+                    call bounds$test(modend.load$addr, 0);
+                else
+                    modend.load$addr = 0;
+                call close(aftn);
+                user$bottom = user$bottom AND 0ff80h;
+                do i = 0 to 18;
+                    buffer$table(i) = buffer$table(i) AND 0FEh; /* assume available or in use */
+                    if user$bottom <= .MEMORY(shl(DOUBLE(i), 7)) then
+                        buffer$table(i) = 1;    /* not available */
+                end;
+                if retsw$b = 0 then
+                do;
+                    entry = modend.load$addr;
+                    return;
+                end;
+                if retsw$b = 1 then
+                do;
+                    debug$toggle = FALSE;
+                    call jmpto(modend.load$addr, usrSP + 2);    /* wastes the return address */
+                end;
+                STACKPTR = memck;   
+                entry$p = STACKPTR;
+                entry = modend.load$addr;
+                debug$toggle = TRUE;
+                call trap;
+            end;
+            do; /* case 3 - R$CONTENT */
+                call read(aftn, .content, 3, .actual);
+                if content.segId <> 0 then
+                    call abortx(BAD$LOAD$FORMAT);
+                record.length = record.length - 4;      /* don't include header and crc */
+                content.load$addr = content.load$addr + bias;
+                call bounds$test(content.load$addr, record.length);
+                call read(aftn, content.load$addr, record.length, .actual);
+                if actual < record.length then
+                    call abortx(BAD$LOAD$FORMAT);
+                call read(aftn, .checksum, 1, .actual);
+            end;
+            end;    /* of case */
+        end;    /* of else */
+    end;
+end;
+end;
+eof
+
+open.asm
+; open:
+; do;
+; $include(open.ipx)
+; declare a$access$p literally 'aAcesP';
+; declare a$blk$count$p literally 'aBCntP';
+; declare a$empty$p literally 'aEmtyP';
+; declare a$eof$data$ptr$p literally 'aEoPP';
+; declare Aft$Window literally 'AWindo';
+; declare a$hdr$blk$p literally 'aHBlkP';
+; declare Chk$Write$Protect literally 'CkWriP';
+; declare Clear$Buf literally 'ClrBuf';
+; declare direct$i$no literally 'dirINo';
+; declare Get$Aft$Slot literally 'GASlot';
+; declare Get$Block literally 'GetBlk';
+; declare Map$Write literally 'MapWri';
+; declare Write$Dir$Entry literally 'WDirEn';
+; declare abswrite literally 'abs$wr';
+; declare AFT$BOTTOM literally '10';
+; declare AFT$LAST literally '17';
+; declare AFT$T literally 'structure(AFT$T1, AFT$T2, AFT$T3, AFT$T4)';
+; declare AFT$T1 literally 'empty BYTE, device BYTE, access BYTE, edit BYTE, lbuf ADDRESS';
+; declare AFT$T2 literally 'dbuf ADDRESS, pbuf ADDRESS, data$ptr BYTE, i$no ADDRESS, ptr$ptr BYTE';
+; declare AFT$T3 literally 'eofcnt BYTE, ptr$change BYTE, data$change BYTE, blk ADDRESS, blk$seq ADDRESS';
+; declare AFT$T4 literally 'ptr$blk ADDRESS, hdr$blk ADDRESS, data$blk$count ADDRESS, dbuf$read BYTE';
+; declare ALREADY$OPEN literally '12';
+; declare BAD$ACCESS literally '22';
+; declare BAD$ECHO literally '25';
+; declare BBDEV literally '26';
+; declare BOOLEAN literally 'BYTE';
+; declare CI$AFT literally '1';
+; declare CIDEV literally '27';
+; declare CO$AFT literally '0';
+; declare CODEV literally '28';
+; declare DIRECTORY$FULL literally '9';
+; declare DIRECT$T literally 'structure(DIRECT$T1, DIRECT$T2)';
+; declare DIRECT$T1 literally 'empty BOOLEAN, file(6) BYTE, ext(3) BYTE, attrib BYTE';
+; declare DIRECT$T2 literally 'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS';
+; declare F9DEV literally '9';
+; declare FALSE literally '0';
+; declare LF literally '0ah';
+; declare NO$SUCH$FILE literally '13';
+; declare TRUE literally '0ffh';
+; declare a$access$p address external;
+; declare a$blk$count$p address external;
+; declare a$dbuf$p address external;
+; declare a$dev$p address external;
+; declare a$edit$p address external;
+; declare a$empty$p address external;
+; declare a$eof$data$ptr$p address external;
+; declare aft(18) AFT$T external;
+; declare a$hdr$blk$p address external;
+; declare a$i$no$p address external;
+; declare a$lbuf$p address external;
+; declare a$pbuf$p address external;
+; declare direct DIRECT$T external;
+; declare direct$i$no address external;
+; declare pn(1) byte external;
+; abs$wr: procedure(block, buffer$ptr) external; declare block address, buffer$ptr address; end;
+; procedure(slot$number) external; declare slot$number byte; end;
+; attrib: procedure(file$ptr, swid, value) external;
+;           declare file$ptr address, swid address, value BOOLEAN; end;
+; ChkWriteProtect: procedure external; end;
+; ClearBuf: procedure(buf$address) external; declare buf$address address; end;
+; del: procedure(disknum) external; declare disknum byte; end;
+; dlook: procedure(fn) BOOLEAN external; declare fn address; end;
+; Get$Aft$Slot: procedure byte external; end;
+; get$block: procedure(diskNum) address external; declare diskNum byte; end;
+; get$buf: procedure address external; end;
+; MapWrite: procedure(diskNum) external; declare diskNum byte; end;
+; rewind: procedure external; end;
+; warn: procedure(errcode) external; declare errcode byte; end;
+; write: procedure(aftn, buffer, count) external; declare aftn byte, buffer address, count address; end;
+; WriteDirEntry: procedure external; end;
+; xpath: procedure(p1, p2) external; declare p1 address, p2 address; end;
+; declare a$access based a$access$p  byte;
+; declare a$blk$count based a$blk$count$p  address;
+; declare a$dbuf based a$dbuf$p  address;
+; declare a$device based a$dev$p  byte;
+; declare a$edit based a$edit$p  byte;
+; declare a$empty based a$empty$p  byte;
+; declare a$eof$data$ptr based a$eof$data$ptr$p  byte;
+; declare a$hdr$blk based a$hdr$blk$p  address;
+; declare a$i$no based a$i$no$p  address;
+; declare a$lbuf based a$lbuf$p  address;
+; declare a$pbuf based a$pbuf$p  address;
+        
+; supportedAccess(*) BYTE DATA(3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+;                      1, 2, 1, 2, 1, 2, 1, 1, 1, 1,
+;                      2, 2, 2, 2, 2, 2, 3, 1, 2);
+; NB. data follows code         
+
+
+    name    OPEN
+    public  open
+; externals with aliased names
+    extrn   aAcesP, aBCntP, aEmtyP, aEoPP, AWindo
+    extrn   aHBlkP, CkWriP, ClrBuf, dirINo, GASlot
+    extrn   GetBlk, MapWri, WDirEn, absWr
+; externals with non aliased names
+    extrn   attrib, del, dlook, getBuf, rewind
+    extrn   warn, write, xpath
+    extrn   aDbufP, aDevP, aEditP, aft, aINoP
+    extrn   aLbufP, aPbufP, direct, pn
+; plm80lib
+    extrn @P0034, @P0094, @P0099
+    extrn @P0100
+
+ACCESS  equ 2   ; offset of aft.access
+DEVICE  equ 1   ; offset of aft.device
+
+    CSEG
+                            ; transfer$dir$aft: PROCEDURE;    /* copy data from directory to aft entry */
+dr2aft: LHLD    AEOPP       ;     a$eof$data$ptr = direct.eof$count;
+        LDA     DIRECT+0BH
+        MOV     M,A
+        LHLD    DIRECT+0CH  ;     a$blk$count = direct.blk;
+        xchg
+        LHLD    ABCNTP
+        MOV     M,E
+        INX     H
+        MOV     M,D
+        RET                 ; end;
+        
+; open: PROCEDURE(pathname, access$mode, lined$aft) BYTE PUBLIC;
+open:   LXI     H,LINEDA+1H
+        MOV     M,D
+        DCX     H
+        MOV     M,E
+        DCX     H
+        MOV     M,B
+        DCX     H
+        MOV     M,C
+        DCX     H
+        POP     D       
+        POP     B       
+        MOV     M,B
+        DCX     H
+        MOV     M,C
+        PUSH    D       
+;     DECLARE (pathname, access$mode, lined$aft) ADDRESS;
+;     DECLARE (aftn, reqAccess, found, temp, i, ival) BYTE;
+;     DECLARE temp$buf ADDRESS;
+;     DECLARE bytes BASED temp$buf (128) BYTE;
+;     DECLARE addr BASED temp$buf (64) ADDRESS;
+
+        LHLD    mode    ;     if (reqAcc := access$mode) = 0 or access$mode > 3 then 
+        mov     a,l
+        sta     reqacc
+        cpi     0
+        jz      L0F30
+        MVI     A,3H
+        CALL    @P0094
+        JNC     @1
+L0F30:
+        MVI     C,16H   ;         call warn(BAD$ACCESS);`
+        CALL    WARN
+@1:
+        LHLD    PATHNM  ;     call xpath(pathname, .pn);
+        MOV     B,H
+        MOV     C,L
+        LXI     D,PN
+        CALL    XPATH
+        LHLD    PN      ;     if (i := supportedAccess(pn(0))) <> 3 then
+        MVI     H,0
+        LXI     B,SUPACC
+        DAD     B
+        MOV     A,M
+        STA     I
+        CPI     3H
+        JZ      @2
+        LXI     H,REQACC ;         if i <> reqAccess then
+        CMP     M
+        MVI     C,16H   ;             call warn(BAD$ACCESS);
+        cnz     warn
+@3:
+@2:
+
+        LDA     PN      ;     if pn(0) = CIDEV then
+        mov     c,a
+        cpi     1BH     
+        MVI     A,1H    ;         return CI$AFT;
+        rz
+@4:
+        mov     a,c     ;     if pn(0) = CODEV then
+        CPI     1CH
+        MVI     A,0H    ;         return CO$AFT;
+        rz
+@5:
+        CALL    GASLOT  ;     call aft$window(aftn := get$aft$slot);
+        STA     AFTN
+        MOV     C,A
+        CALL    AWINDO
+        LHLD    AACESP  ;     a$access = reqAccess;
+        LDA     REQACC
+        MOV     M,A
+        LHLD    AEDITP  ;     a$edit = 0;
+        MVI     M,0H
+        lhld    lineda  ;     if lined$aft <> 0 then
+        mov     a,h
+        ORA     L
+        JZ      @6
+                        ;     do;
+        MOV     A,L     ;         a$edit = AFT$BOTTOM + low(lined$aft);
+        ADI     0AH
+        LHLD    AEDITP
+        MOV     M,A
+        mov     l,a     ;         if aft(a$edit).access <> 2 OR (reqAccess AND 1) = 0 then
+        MVI     H,0
+        LXI     D,1CH
+        CALL    @P0034 
+        LXI     B,AFT+2
+        DAD     B
+        MOV     A,M
+        cpi     2
+        jnz     L0FAA
+        LDA     REQACC
+        ANI     1H
+        jnz     @7
+
+L0FAA:
+        MVI     C,19H   ;             call warn(BAD$ECHO);
+        CALL    WARN
+@7:
+
+@6:                     ;     end;
+
+        LHLD    ADEVP   ;     if (a$device := pn(0)) <= F9DEV then
+        LDA     PN
+        MOV     M,A
+        MVI     A,9H
+        cmp     m
+        JC      @8
+                        ;     do;
+        LXI     B,PN    ;         found = dlook(.PN);
+        CALL    DLOOK
+        STA     FOUND
+        RAR             ;         if found then
+        JNC     @9
+        LXI     H,I     ;             do i = AFT$BOTTOM TO AFT$LAST;
+        MVI     M,0AH
+@27:
+        MVI     A,11H
+        CMP     M
+        JC      @28
+        mov c,m         ;                 call aft$window(i);
+        CALL    AWINDO
+        LHLD    AEMTYP  ;                 if not a$empty then
+        MOV     A,M
+        RAR
+        JC      @10
+        LHLD    AINOP   ;                     if a$i$no = direct$i$no and a$device = pn(0) then
+        LXI     D,DIRINO
+        CALL    @P0099 
+        ORA     L
+        jnz     @29
+        LHLD    ADEVP
+        LDA     PN
+        cmp     m
+        MVI     C,0CH   ;                         call warn(ALREADY$OPEN);
+        cz      warn
+@11:
+@10:
+                        ;             end;
+@29:
+        LXI     H,I
+        INR     M
+        JNZ     @27
+@28:
+@9:
+        LHLD    AFTN    ;         call aft$window(aftn);
+        MOV     C,L
+        CALL    AWINDO
+        LXI     H,TEMP  ;         temp = 0;
+        MVI     M,0H
+        LHLD    DIRINO  ;         a$i$no = direct$i$no;
+        XCHG
+        lhld    AINOP
+        MOV     M,E
+        INX     H
+        MOV     M,D
+        LDA     REQACC  ;         if reqAccess = 1 then
+        CPI     1H
+        LDA     FOUND   ;             if not found then
+           jnz    @12
+        RAR
+        MVI     C,0DH   ;                 call warn(NO$SUCH$FILE);
+        cnc     warn
+@13:
+        JMP     @14
+@12:
+                        ;         else
+                        ;         do;
+        RAR             ;             if not found then
+        JC      @15     ;             do;
+        LXI     B,0FFFFH ;                 if direct$i$no = 0ffffh then`
+        LXI     D,DIRINO
+        CALL    @P0100 
+        ora     l
+        MVI     C,9H    ;                     call warn(directory$full);
+        cz      warn
+@16:
+        LXI     H,0H    ;                  direct.blk = 0;
+        SHLD    DIRECT+0CH
+        LXI     H,DIRECT+0BH ;             direct.eof$count = 128;
+        MVI     M,80H
+        DCX     H       ;                 direct.attrib = 0;
+        MVI     M,0H
+                        ;             end;
+@15:
+        CALL    CKWRIP  ;             call chk$write$protect;`
+
+        LXI     H,DIRECT+0AH ;        direct.attrib = direct.attrib or (A$ATTRIBUTE or D$ATTRIBUTE);
+        MOV     A,M
+        ORI     30H
+        MOV     M,A
+        CALL    DR2AFT  ;             call transfer$dir$aft;
+                        ;         end;
+@14:
+        LHLD    DIRECT+0EH  ;     a$hdr$blk = direct.hdr$blk;
+        XCHG
+        lhld    ahblkp
+        MOV     M,E
+        INX     H
+        MOV     M,D
+        CALL    GETBUF  ;         a$dbuf = get$buf;
+        xchg
+        LHLD    ADBUFP
+        mov     m,e
+        INX     H
+        mov     m,d
+        CALL    GETBUF  ;         a$pbuf = get$buf;
+        xchg
+        LHLD    APBUFP
+        mov     m,e
+        INX     H
+        mov     m,d
+        LDA     REQACC  ;         if reqAccess = 2 and found then
+        cpi     2
+        jnz     @17
+        lda     FOUND
+        RAR
+        JNC     @17
+                        ;         do;
+        LHLD    ADEVP   ;             call del(a$device);
+        MOV     C,M
+        CALL    DEL
+        LHLD    AFTN    ;             call aft$window(aftn);
+        MOV     C,L
+        CALL    AWINDO
+        LXI     H,0H    ;             direct.blk = 0;
+        SHLD    DIRECT+0CH
+        LXI     H,DIRECT+0BH ;        direct.eof$count = 128;
+        MVI     M,80H
+@17:                    ;         end;
+        CALL    DR2AFT  ;         call transfer$dir$aft;
+        IN      0FCH    ;         ival = input(0fch);
+        STA     IVAL
+        ORI     2H      ;         output(0fch) = ival OR 2;
+        OUT     0FCH
+        LDA     REQACC  ;         if reqAccess <> 1 then  /* not read only */
+        CPI     1H
+        JZ      @18
+                        ;         do;
+        LDA     REQACC  ;             if (temp := not (reqAccess = 3 and found)) then
+        SUI     3H
+        SUI     1
+        SBB     A
+        LXI     H,FOUND
+        ANA     M
+        CMA
+        INX     H
+        MOV     M,A
+        RAR
+        JNC     @19
+                        ;             do;
+        LHLD    ADEVP   ;                 direct.hdr$blk = get$block(a$device);
+        MOV     C,M
+        CALL    GETBLK
+        SHLD    DIRECT+0EH
+        xchg            ;                 a$hdr$blk = direct.hdr$blk;
+        LHLD    AHBLKP
+        MOV     M,E
+        INX     H
+        MOV     M,D
+@19:                    ;             end;
+        LXI     H,DIRECT ;            direct.empty = 0;
+        MVI     M,0H
+        CALL    WDIREN  ;             call write$dir$entry;
+@18:                    ;         end;
+        LHLD    AFTN    ;         call aft$window(aftn);
+        MOV     C,L
+        CALL    AWINDO
+        CALL    REWIND  ;         call rewind;
+        LDA     TEMP    ;         if temp then    /* not update + new file */
+        RAR
+        JNC     @20
+                        ;         do;
+        LHLD    APBUFP  ;             call clear$buf(a$pbuf);
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        CALL    CLRBUF
+        LHLD    ADEVP   ;             call map$write(a$device);
+        MOV     C,M
+        CALL    MAPWRI
+        LHLD    APBUFP  ;             call abswrite(a$hdr$blk, a$pbuf);
+        MOV     E,M
+        INX     H
+        MOV     D,M
+        lhld    ahblkp
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        CALL    ABSWR
+@20:                    ;         end;
+        LDA     IVAL    ;         output(0FCh) = ival;
+        OUT     0FCH
+        JMP     @21     ;     end;
+@8:
+        LHLD    ADEVP   ;     else if a$device <> BBDEV then
+        MOV     A,M
+        CPI     1AH
+        JZ      @22
+                        ;     do;
+        LXI     H,I     ;         do i = AFT$BOTTOM to AFT$LAST;
+        MVI     M,0AH
+@30:
+        MVI     A,11H
+        CMP     M
+        JC      @31
+
+        mov     l,m     ;             if not aft(i).empty then
+        mvi     h,0 
+        LXI     D,1CH
+        CALL    @P0034 
+        LXI     B,AFT
+        DAD     B
+        MOV     A,M
+        RAR
+        JC      @23
+        inx     h       ;                 if a$device = aft(i).device then
+        mov     a,m
+        LHLD    ADEVP
+        CMP     M
+        MVI     C,0CH   ;                     call warn(ALREADY$OPEN);
+        cz      warn
+@24:
+@23:
+@32:
+        LXI     H,I
+        INR     M
+        JNZ     @30
+@31:                    ;         end;
+        LHLD    ADEVP   ;         if a$device >= 14h and a$device <= 17h then
+        MOV     A,M
+        cpi     14h
+        jc      @25
+        MVI     A,17H
+        cmp     m
+        jc      @25
+        LXI     H,I     ;             do i = 1 to 120;
+        MVI     M,1H
+@33:
+        MVI     A,78H
+        CMP     M
+        JC      @34
+        LHLD    AEMTYP  ;                 a$empty = FALSE;
+        MVI     M,0H
+        LHLD    AFTN    ;                 call write(aftn, .(0), 1);
+        PUSH    H
+        LXI     D,1H
+        LXI     B,zero
+        CALL    WRITE
+@35:                    ;             end;
+        LXI     H,I
+        INR     M
+        JNZ     @33
+@34:
+@25:
+@22:                    ;     end;
+@21:
+        lhld    lineda  ;     if lined$aft <> 0 then
+        mov     a,h
+        ORA     L
+        JZ      @26
+                        ;     do;
+        CALL    GETBUF  ;         temp$buf, a$lbuf = get$buf;
+        SHLD    TMPBUF
+        xchg
+        LHLD    ALBUFP
+        mov     m,e
+        INX     H
+        mov     m,d
+        LHLD    TMPBUF  ;         bytes(0) = LF;
+        MVI     M,0AH
+        LXI     B,7EH   ;         addr(63) = 0ff00h;
+        LHLD    TMPBUF
+        DAD     B
+        LXI     B,0FF00H
+        MOV     M,C
+        INX     H
+        MOV     M,B
+        LXI     B,7DH   ;         bytes(125) = TRUE;
+        LHLD    TMPBUF
+        DAD     B
+        MVI     M,0FFH
+@26:                    ;     end;
+        LHLD    AEMTYP  ;     a$empty = FALSE;
+        MVI     M,0H
+        LDA     AFTN    ;     return aftn - AFT$BOTTOM;
+        SUI     0AH
+        RET
+; end;
+; end;
+supAcc: db 3, 3, 3, 3, 3, 3, 3, 3   ; supportedAccess
+    db 3, 3, 1, 2, 1, 2, 1, 2
+    db 1, 1, 1, 1, 2, 2, 2, 2
+    db 2, 2, 3, 1, 2
+pathNm: dw 0            ; open arguments pathname
+mode:   dw 0            ; access$mode
+linedA: dw 0            ; lined$aft
+aftn:   ds 1            ; open local vars
+reqAcc: ds 1
+found:  ds 1
+temp:   ds 1
+i:  ds 1
+ival:   ds 1
+tmpBuf: dw 0
+zero:   dw 0            ; 0 used in call to write
+
+    end;
+path.asm
+        name    path
+        cseg
+; path: do;
+; declare Aft$Window literally 'AWindo';
+; declare Chk$pn$disk$file literally 'ckpndf';
+; declare Chk$Write$Protect literally 'CkWriP';
+; declare Write$Dir$Entry literally 'WDirEn';
+; declare BAD$DEVICE literally '5';
+; declare BAD$PATH literally '4';
+; declare BOOLEAN literally 'BYTE';
+; declare DIRECT$T literally 'structure(DIRECT$T1, DIRECT$T2)';
+; declare DIRECT$T1 literally 'empty BOOLEAN, file(6) BYTE, ext(3) BYTE, attrib BYTE';
+; declare DIRECT$T2 literally 'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS';
+; declare F9DEV literally '9';
+; declare FALSE literally '0';
+; declare FORMAT$ATTRIBUTE literally '80h';
+; declare NON$DISK$FILE literally '17';
+; declare NULL$EXTENSION literally '28';
+; declare NULL$FILENAME literally '23';
+; declare OK literally '0';
+; declare TRUE literally '0ffh';
+; declare WRITEP$ATTRIBUTE literally '4';
+; declare WRITE$PROTECT literally '14';
+; declare a$dev$p address external;
+; declare direct DIRECT$T external;
+; declare dk$cf$tb(10) byte external;
+    extrn   adevp, direct, dkcftb
+; Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+; attrib: procedure(file$ptr, swid, value) external;
+;           declare file$ptr address, swid address, value BOOLEAN; end;
+; dir$close: procedure(aftn) external; declare aftn byte; end;
+; warn: procedure(errcode) external; declare errcode byte; end;
+    extrn   awindo, dircls, warn
+; declare a$device based a$dev$p  byte;
+    extrn   @P0034, @P0099      ; plm80.lib routines
+; /*
+;     Abstract
+        
+;     This is the module that understands the syntax of
+;     pathnames, and parses them
+        
+;     Module Organisation
+        
+;     The module contains the following components:
+        
+;     1. 2 Global arrays, 'pn' and 'pn2', either of which is
+;        sufficient to contain the 'internal form' of a pathname.
+;        These are provided here for the convenient transitory
+;        use by such subroutines as open, rename, delete etc.
+;        The are not directly used by 'path'
+;     2. The byte procedure 'path', which converts a legal pathname
+;        into internal form, returning an error number for the
+;        type of pathname found. (0 means legal pathname, other
+
+
+;        numbers indicates syntax errors in pathname.)
+;     3. The procedure 'xpath', whose only reason for existence is
+;        to reduce the space used for calls to 'path' throughout
+;        the program; it reduces code to test the result from
+;        path and optionally call err, to a single point in the
+;        program.
+; */ 
+        
+; /*
+;     Although accessed as a byte array the path structur has the format
+;     STRUCTURE(devNo BYTE, name(6) BYTE, ext(3) BYTE, devType BYTE, drvType BYTE)
+; */
+        
+; DECLARE deviceNames(29) STRUCTURE(name ADDRESS, type BYTE) DATA(
+;         'F0', 3, 'F1', 3, 'F2', 3, 'F3', 3,
+;         'F4', 3, 'F5', 3, 'F6', 3, 'F7', 3,
+;         'F8', 3, 'F9', 3, 'TI', 0, 'TO', 1,
+;         'VI', 0, 'VO', 1, 'I1', 0, 'O1', 1,
+;         'TR', 0, 'HR', 0, 'R1', 0, 'R2', 0,
+;         'TP', 1, 'HP', 1, 'P1', 1, 'P2', 1,
+;         'LP', 1, 'L1', 1, 'BB', 2, 'CI', 0,
+;         'CO', 1);
+
+devs:   db '0F', 3, '1F', 3, '2F', 3, '3F', 3
+        db '4F', 3, '5F', 3, '6F', 3, '7F', 3
+        db '8F', 3, '9F', 3, 'IT', 0, 'OT', 1
+        db 'IV', 0, 'OV', 1, '1I', 0, '1O', 1
+        db 'RT', 0, 'RH', 0, '1R', 0, '2R', 0
+        db 'PT', 1, 'PH', 1, '1P', 1, '2P', 1
+        db 'PL', 1, '1L', 1, 'BB', 2, 'IC', 0
+        db 'OC', 1
+
+        dseg
+        public  pn, pn2
+pn:     ds  12
+pn2:    ds  12
+uptnam: ds  2
+upnp:   ds  2
+pthnam: ds  2
+pnp:    ds  2
+devnam: ds  2
+nulnam: ds  1
+i:      ds  1
+imax:   ds  1
+
+        cseg
+        
+; DECLARE pn(12) BYTE PUBLIC, pn2(12) BYTE PUBLIC;
+     
+; toupper: PROCEDURE(ch) BYTE;  lifted to outside path
+;		DECLARE ch BYTE;
+;		if ch < 'a' then
+;			return ch;
+;		if ch > 'z' then
+;			return ch;
+;		return ch AND 0DFh;
+;	end;
+touppr:
+        mov     a,c
+        cpi     'a'
+        rc
+        cpi     'z' + 1
+        rnc
+        ani     0dfh
+        ret
+
+;     non$terminate: PROCEDURE BOOLEAN; lifted to outside path
+;         return (pathCh >= 'A' AND pathCh <= 'Z')
+;             OR (pathCh >= '0' AND pathCh <= '9')
+;             OR (pathCh >= 'a' AND pathCh <= 'z');
+;     end;
+; NOTE hl is assumed = $pathch i.e. nonstandard calling convention
+nontrm:
+        mov     a,m
+        cpi     'A'
+        jc      L1253
+        cpi     'Z' + 1
+        rc
+
+L1253:  cpi     '0'
+        jc      L125B
+        cpi     '9' + 1
+        rc
+
+L125B:  cpi     'a'
+        jc      L1263
+        cpi     'z' + 1
+        rc
+
+L1263:  stc
+        cmc
+        ret
+
+;     parse: PROCEDURE;
+                            ;         do while i < imax;
+parse:
+@20:
+        LXI     H,IMAX
+        LDA     I
+        CMP     M
+        rnc
+
+        lhld    pthnam      ;             if non$terminate then /* non standard calling convention */
+        call    nontrm
+        JNC     @3
+                            ;             do;
+        MOV     C,M         ;                 pn(i) = toupper(pathCh);
+        call    touppr
+        LHLD    I
+        MVI     H,0
+        mov     c,l
+        XCHG
+        LHLD    PNP
+        DAD     D
+        MOV     M,A
+        LHLD    pthnam      ;                 pathname = pathname + 1;
+        INX     H
+        SHLD    pthnam
+
+        mov     a,c         ;                 if i < 2 then
+        CPI     2H
+        JNC     @4
+        xra     a           ;                     null$name = FALSE;
+        sta     nulnam
+@4:
+@3:                         ;             end;
+        LXI     H,I         ;             i = i + 1; 
+        INR     M
+
+        JMP     @20         ;         end;
+@21:
+                            ;     end;
+
+
+; path: PROCEDURE(pathname, pn$p) BYTE PUBLIC;
+        public  path
+path:
+        LXI     H,PNP+1H
+        MOV     M,D
+        DCX     H
+        MOV     M,E
+        DCX     H
+        MOV     M,B
+        DCX     H
+        MOV     M,C
+;     DECLARE (pathname, pn$p) ADDRESS;
+;     DECLARE pn BASED pn$p (12) BYTE;    /* byte version of path structure */
+;     DECLARE pathCh BASED pathname BYTE; /* char of pathname points to */
+;     DECLARE pathArray BASED pathname (1) BYTE;
+;     DECLARE devname ADDRESS, (second, first) BYTE AT (.devname);
+;     DECLARE null$name BYTE;
+;     DECLARE i BYTE, imax BYTE;
+        mvi     c,12        ;     do i = 0 to last(pn);  pn(i) = 0; end;  /* clear pn */
+        lhld    pnp
+@22:    mvi     m,0
+        inx     h
+        dcr     c
+        jnz     @22
+@25:
+        LHLD    pthnam      ;     do while pathCh = ' ';  /* skip leading space */
+        MOV     A,M
+        CPI     20H
+        JNZ     @26
+        INX     H           ;         pathname = pathname + 1;
+        SHLD    pthnam
+        JMP     @25         ;     end;
+@26:
+
+        CPI     ':'         ;     if pathCh = ':' then
+        JNZ     @5
+                            ;     do;
+        xchg                ;         pn(0) = 0FFH;
+        LHLD    PNP
+        MVI     M,0FFH
+        xchg                ;         if pathArray(3) <> ':' then
+        inx     h
+        inx     h
+        inx     h
+        MOV     A,M
+        CPI     3AH
+        JZ      @6
+        MVI     A,4H        ;             return BAD$PATH;
+        RET
+@6:
+        dcx     h           ;         pathname = pathname + 1;    /* past ':' */
+        dcx     h
+        SHLD    pthnam
+        MOV     C,M         ;         first = toupper(pathCh);
+        CALL    touppr
+        STA     devnam + 1
+        INX     H           ;         pathname = pathname + 1;
+        SHLD    pthnam
+        MOV     C,M         ;         second = toupper(pathCh);
+        CALL    touppr
+        STA     devnam
+        INX     H           ;         pathname = pathname + 2;
+        INX     H
+        SHLD    pthnam
+
+                            ;         end;
+        mvi    c,29         ;         do i = last(deviceNames) to 0 by -1;  /* not legal plm code */
+        lxi     h,devs + 3 * 28
+L12FE:
+        lxi     d,devnam    ;             if deviceNames(i).name = devname then
+        push    b
+        push    h
+        call    @P0099  ; hl = [de] - [hl]
+        ora     l
+        pop     h
+        pop     b
+        jz      @8          ;             goto fnd;
+        dcx     h
+        dcx     h
+        dcx     h
+        dcr     c
+        jnz     L12FE       ;         end;
+        mvi     a,5         ;         return BAD$DEVICE;
+        ret
+@8:
+        lhld    pnp         ; fnd:    pn(0) = i;  /* save device number */
+        dcr     c
+        mov     m,c
+@5:                         ;     end;
+
+        LXI     B,0BH       ;     pn(11) = 0FFh;
+        LHLD    PNP
+        DAD     B
+        MVI     M,0FFH
+
+        dcx     h           ;     if (pn(10) := deviceNames(pn(0)).type) = 3 then /* random access device */
+        push    h
+        LHLD    PNP
+        MOV     L,M
+        MVI     H,0
+        LXI     D,3H
+        CALL    @P0034 
+        LXI     B,devs + 2
+        DAD     B
+        pop     d
+        mov     a,m
+        stax    d
+        CPI     3H
+        JNZ     @9
+        inx     d           ;         pn(11) = dk$cf$tb(pn(0));
+        LHLD    PNP
+        MOV     C,M
+        MVI     B,0
+        LXI     H,DKCFTB
+        DAD     B
+        mov     a,m
+        stax    d
+@9:
+        LXI     H,nulnam    ;     null$name = TRUE;
+        MVI     M,0FFH
+        INX     H           ;     i = 1;
+        MVI     M,1H
+        INX     H           ;     imax = 7;
+        MVI     M,7H
+        CALL    PARSE       ;     call parse;
+        LHLD    pthnam      ;     if pathCh = '.' then
+        MOV     A,M
+        CPI     '.'
+        JNZ     @10
+                            ;     do;
+        INX     H           ;         pathname = pathname + 1;
+        SHLD    pthnam
+        LXI     H,IMAX      ;         imax = 10;
+        MVI     M,0AH
+        CALL    PARSE       ;         call parse;
+        LXI     B,7H        ;         if pn(7) = 0 then
+        LHLD    PNP
+        DAD     B
+        MOV     A,M
+        ora     a
+        JNZ     @11
+        MVI     A,1CH       ;             return NULL$EXTENSION;
+        RET
+@11:
+@10:                        ;     end;
+        LHLD    PNP         ;     if pn(0) <= F9DEV and null$name then
+        mov     a,m
+        cpi     9 + 1
+        jnc     @12
+        lda     nulnam
+        ora     a
+        MVI     A,17H       ;         return NULL$FILENAME;
+        rnz
+@12:
+        lhld    pthnam      ;     if not non$terminate and pathCh <> '.' and pathCh <> ':' then
+        CALL    nontrm
+        jc      L13A1
+        mov     a,m
+        cpi     '.'
+        jz      L13A1
+        cpi     ':'
+        mvi     a,0         ;         return OK;
+        rnz
+L13A1:
+        MVI     A,4H        ;     return BAD$PATH;
+        RET
+; end;
+        
+        
+        
+; xpath: PROCEDURE(p1, p2) PUBLIC;
+;     DECLARE (p1, p2) ADDRESS;
+;     DECLARE status BYTE;
+
+
+
+        public  xpath
+xpath:
+        call    path        ;     if (status := path(p1, p2)) <> 0 then
+        ora     a
+        rz
+        mov     c,a         ;         call warn(status);
+        call    warn
+        ret                 ; end;
+        
+; unpath: PROCEDURE(pathname$p, pn$p) PUBLIC;
+;     DECLARE (pathname$p, pn$p) ADDRESS;
+;     DECLARE pathname BASED pathname$p (12) BYTE;
+;     DECLARE pn BASED pn$p (12) BYTE;
+;     DECLARE i BYTE, devname ADDRESS;
+
+        public  unpath
+unpath:
+        LXI     H,UPNP+1H
+        MOV     M,D
+        DCX     H
+        MOV     M,E
+        DCX     H
+        MOV     M,B
+        DCX     H
+        MOV     M,C
+        xchg                ;     pn(0) = ':';
+        MVI     M,3AH
+        mov     h,b         ;     devname = deviceNames(pathname(0)).name;
+        mov     l,c
+        MOV     L,M
+        MVI     H,0
+        LXI     D,3H
+        CALL    @P0034 
+        LXI     B,devs
+        DAD     B
+        MOV     E,M
+        INX     H
+        MOV     D,M
+        lhld    upnp        ;     pn(1) = high(devname);
+        inx     h
+        mov     m,d
+        inx     h           ;     pn(2) = low(devname);
+        mov     m,e
+        inx     h           ;     pn(3) = ':';
+        MVI     M,3AH
+        inx     h           ;     pn$p = pn$p + 4;
+        SHLD    upnp
+;     do i = 0 to 5;  /* copy file name */
+;         if (pn(0) := pathname(i + 1)) <> 0 then
+;             pn$p = pn$p + 1;
+;     end;
+;     if pathname(7) <> 0 then
+;     do;
+;         pn(0) = '.';
+;         pn$p = pn$p + 1;
+;     end;
+;     do i = 0 to 2;
+;         if (pn(0) := pathname(i + 7)) <> 0 then
+;             pn$p = pn$p + 1;
+;     end;
+;     pn(0) = ' ';
+; end;
+        mvi     c,6
+        lhld    uptnam
+        inx     h
+        call    copynm
+        lxi     b,7
+        lhld    uptnam
+        dad     b
+        mov     a,m
+        ora     a
+        jz      L13F9
+        lhld    upnp
+        mvi     m,'.'
+        inx     h
+        shld    upnp
+
+L13F9:
+        mvi     c,3
+        lhld    uptnam
+        lxi     d,7
+        dad     d
+        call    copynm
+        mvi     m,' '
+        ret
+
+copynm:                     ; c = count, hl = src
+        xchg
+        lhld    upnp
+L140C:
+        ldax    d
+        mov     m,a
+        ora     a
+        jz      L1413
+        inx     h
+L1413:
+        inx     d
+        dcr     c
+        jnz     L140C
+        shld    upnp
+        ret
+
+
+; chk$write$protect: PROCEDURE PUBLIC;
+        public  ckwrip
+ckwrip:
+        LDA     DIRECT+0AH  ;     if (direct.attrib and (WRITEP$ATTRIBUTE or FORMAT$ATTRIBUTE)) <> 0 then
+        ANI     84H
+        rz
+        MVI     C,0EH       ;         call warn(WRITE$PROTECT);
+        CALL    WARN
+        RET                 ; end;
+        
+; write$dir$entry: PROCEDURE PUBLIC;
+;            ; PROC  WDIREN
+;     DECLARE i BYTE;
+;     do i = 0 to 8;
+;         direct.file(i) = pn(i+1);
+;     end;
+;     call dir$close(a$device);
+; end;    
+        public wdiren
+wdiren:
+        lxi     d,direct + 9        ; end of ext
+        lxi     h,pn+9
+        mvi     c,9
+        call    copyfn
+        LHLD    ADEVP
+        MOV     C,M
+        CALL    DIRCLS
+        RET
+
+        public  copyfn
+copyfn: mov     a,m
+        stax    d
+        dcx     d
+        dcx     h
+        dcr     c
+        jnz     copyfn
+        ret
+        
+; chk$pn$disk$file: PROCEDURE(filename) PUBLIC;
+;     DECLARE filename ADDRESS;
+        public  ckpndf
+ckpndf:
+        lxi     d,pn
+        call    xpath       ;     call xpath(filename, .pn);
+        MVI     A,9H        ;     if pn(0) > F9DEV then
+        LXI     H,PN
+        CMP     M
+        JNC     @19
+        MVI     C,11H       ;         call warn(NON$DISK$FILE);
+        CALL    WARN
+@19:
+        lda     PN          ;     call aft$window(pn(0));
+        MOV     c,a
+        CALL    AWINDO
+        RET                 ; end;
+; end;
+        end
+
+rename.asm
+; rename:
+    name    rename
+    cseg
+; do;
+; declare Chk$pn$disk$file literally 'ckpndf';
+; declare Chk$Write$Protect literally 'CkWriP';
+; declare Dir$Close literally 'DirCls';
+; declare Write$Dir$Entry literally 'WDirEn';
+; declare BOOLEAN literally 'BYTE';
+; declare DIFFERENT$DISK literally '10';
+; declare MULTIDEFINED literally '11';
+; declare NO$SUCH$FILE literally '13';
+; declare a$dev$p address external, a$dev based a$dev$p byte;
+; declare dk$cf$tb(10) byte external;
+; declare pn(1) byte external;
+; declare pn2(1) byte external;
+; declare direct DIRECT$T external;
+        extrn adevp, pn, pn2, direct, dkcftb
+; chk$pn$disk$file: procedure(filename) external; declare filename address; end;
+; ChkWriteProtect: procedure external; end;
+; Dir$Close: procedure(aftn) external; declare aftn byte; end;
+; dlook: procedure(fn) BOOLEAN external; declare fn address; end;
+; warn: procedure(errcode) external; declare errcode byte; end;
+; WriteDirEntry: procedure external; end;
+; xpath: procedure(p1, p2) external; declare p1 address, p2 address; end;
+        extrn ckpndf, CkWriP, dircls, dlook, warn, WdirEn, xpath
+        extrn copyfn    ; asm routine        
+
+; rename: PROCEDURE(old$file, new$file) PUBLIC;
+        public rename
+rename:
+        LXI     H,newfil+1H
+        MOV     M,D
+        DCX     H
+        MOV     M,E
+        DCX     H
+        MOV     M,B
+        DCX     H
+        MOV     M,C
+;     DECLARE (old$file, new$file) ADDRESS;
+;     DECLARE already$exists BOOLEAN;
+;     DECLARE tmpdir(16) byte;
+;     
+        dseg
+oldfil: ds      2
+newfil: ds      2
+exists: ds      1
+tmpdir: ds      16
+
+        cseg
+        LXI     D,PN2       ;     call xpath(old$file, .pn2);
+        CALL    XPATH
+        LHLD    newfil      ;     call chk$pn$disk$file(new$file);
+        MOV     B,H
+        MOV     C,L
+        CALL    CKPNDF
+        LXI     H,PN2       ;     if pn(0) <> pn2(0) then
+        LDA     PN
+        CMP     M
+        JZ      @1
+        MVI     C,0AH       ;         call warn(DIFFERENT$DISK);
+        CALL    WARN
+@1:
+        lhld    pn          ;     if dk$cf$tb(pn(0)) = 9 then /* winchester */
+        mvi     h,0
+        lxi     b,dkCfTb
+        dad     b
+        mov     a,m
+        cpi     9
+        jnz     @6
+                            ;     do;
+        LXI     B,PN2       ;         if NOT dlook(.pn2) then
+        CALL    DLOOK
+        RAR
+        JC      @4
+
+        MVI     C,0DH       ;             call warn(NO$SUCH$FILE);
+        CALL    WARN
+@4:
+        CALL    CKWRIP      ;         call chk$write$protect;
+        mvi     c,16        ;         call copyfn(.direct+15, 16, .tmpdir + 15); /* save dir entry. non std calling convention */
+        lxi     d,tmpdir+15
+        lxi     h,direct+15
+        call    copyfn
+        lxi     b,pn        ;         if dlook(.pn) then
+        call    dlook
+        rar
+        jnc     @5
+        mvi     c,0bh       ;             call warn(MULTIDEFINED);
+        call    warn
+@5:
+
+        lxi     b,pn2       ;         junk = dlook(.pn2);   /* reload old file dir entry. junk optimised away */
+        call    dlook
+        lxi     h,direct    ;         direct.empty = TRUE; 
+        mvi     m,0ffh
+        di                  ;         disable;
+        lhld    aDevP       ;         call dir$close(a$dev);
+        mov     c,m
+        call    dircls
+        lxi     b,pn        ;         junk = dlook(pn);   /* load the new file dir entry. junk optimised away */
+        call    dlook
+        mvi     c,16        ;        call copyfn(.tmpdir+15, 16, .direct + 15); /* restore dir entry. non std calling convention */
+        lxi     d,direct + 15
+        lxi     h,tmpdir + 15
+        call    copyfn
+        jmp     @3          ;     end;
+@6:                         ;     else
+                            ;     do;
+        LXI     B,PN        ;         already$exists = dlook(.pn);
+        CALL    DLOOK
+        STA     exists
+        LXI     B,PN2       ;         if NOT dlook(.pn2) then
+        CALL    DLOOK
+        RAR
+        JC      @2
+        MVI     C,0DH       ;             call warn(NO$SUCH$FILE);
+        CALL    WARN
+@2:
+        CALL    CKWRIP      ;         call chk$write$protect;
+        LDA     exists      ;         if already$exists then
+        RAR
+        JNC     @3
+        MVI     C,0BH       ;             call warn(MULTIDEFINED);
+        CALL    WARN
+@3:                         ;     end;
+        CALL    WDIREN      ;     call write$dir$entry;
+        EI                  ;     enable;
+        RET                 ; end;
+        end
+
+rescan.plm
+rescan:
+DO;
+
+$include(rescan.ipx)
+
+rescan: PROCEDURE(aftn) PUBLIC;
+    DECLARE aftn BYTE;
+    DECLARE temp ADDRESS, bytes BASED temp(128) BYTE,
+                  addr BASED temp(64) ADDRESS;
+
+    call aft$window(aftn);
+    temp = a$lbuf;
+    if a$edit <> 0 AND NOT bytes(125) then
+        addr(63) = 0;   /* lptr = 0, lptr = false */
+    else
+        call warn(CANT$RESCAN);
+end;
+end;
+eof
+
+rw.plm
+rw:
+do;
+
+$include(rw.ipx)
+
+DECLARE ACCESS$READ LITERALLY   '1',
+    ACCESS$WRITE    LITERALLY   '2';
+
+DECLARE MAXLL       LITERALLY   '122';  /* maximum line length */
+
+DECLARE iobyteMasks(*) BYTE DATA(0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh, 0FFh,
+                 0FCh, 0FCh, 0FCh, 0FCh, 0FCh, 0FCh, 0F3h, 0F3h, 0F3h, 0F3h,
+                 0CFh, 0CFh, 0CFh, 0CFh, 3Fh, 3Fh, 0FFh, 0FFh, 0FFh);
+DECLARE iobyteFlags(*) BYTE DATA(0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 1, 1, 3, 3, 0, 4, 8, 0Ch,
+                 0, 10h, 20h, 30h, 80h, 0C0h, 0, 0, 0);
+DECLARE devClass(*) BYTE DATA(0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                  0FFh, 1, 0FFh, 1, 0FFh, 1, 0EFh, 0EFh, 0EFh, 0EFh,
+                  2, 2, 2, 2, 3, 3, 4, 0FFh, 0FFh);
+DECLARE specialChars(*) byte DATA(0, DELKEY, CONTROL$Z, CONTROL$R, CONTROL$X, CR, LF, ESC, CONTROL$E, CONTROL$P);
+
+
+DECLARE count$diff ADDRESS,
+    eof$dif BYTE,
+    adp$dif BYTE PUBLIC,
+    datapp  ADDRESS PUBLIC, /* interface to usrSys & sysUsr asm routines */
+    create BYTE INITIAL(0),
+    newptrblk ADDRESS,
+    iostat BYTE;
+    
+
+chk$eof: PROCEDURE PUBLIC;
+    if a$access = ACCESS$READ then  /* 1 */
+    do;
+        a$blk$seqno = a$blk$count;
+        a$data$ptr = a$eof$data$ptr;
+        call WARN(SEEK$PAST$EOF);
+
+    end;
+end;
+
+adjust$eof: PROCEDURE PUBLIC;
+    if a$blk$seqno <> 0 AND a$data$ptr = 0 then
+    do;
+        if not ((a$eof$data$ptr < 128 AND a$blk$seqno - 1 = a$blk$count) OR a$blk$count < a$blk$seqno - 1) then
+            return;
+    end;
+    else
+    do;
+        if not ((a$eof$data$ptr < a$data$ptr AND a$blk$seqno = a$blk$count) OR a$blk$seqno > a$blk$count) then
+            return;
+    end;
+    call chk$eof;
+    a$blk$count = a$blk$seqno;
+    a$eof$data$ptr = a$data$ptr;
+end;
+
+
+
+rw: PROCEDURE(aftn, buffer, count, actual$p, reading);
+    DECLARE aftn BYTE, (buffer, count, actual$p) ADDRESS, reading BYTE;
+    DECLARE actual BASED actual$p ADDRESS;
+    DECLARE temp ADDRESS, non$sector$request BYTE, work$buf ADDRESS;
+    DECLARE newlinks BASED temp (64) ADDRESS;
+
+    do while count > actual;
+        if a$blk$count <= a$blk$seqno AND reading AND a$data$ptr = a$eof$data$ptr then
+            return;
+        if a$data$ptr = 128 then
+        do;
+            call save$data$blk;
+            a$data$ptr = 0;
+            a$dbuf$read = FALSE;
+            a$blk$seqno = a$blk$seqno + 1;
+            a$ptr$ptr = a$ptr$ptr + 1;
+            if a$ptr$ptr = 64 then
+            do;
+                if links(FLINK) = 0 then
+                do;
+                    newptrblk = get$block(a$device);
+                    links(FLINK) = newptrblk;   
+                    create = TRUE;
+                    a$ptr$change = TRUE;
+                    call clear$buf(temp := a$dbuf);
+                    newlinks(0) = a$ptr$blk;    /* save forward link */
+                    call map$write(a$device);
+                    call abswrite(newptrblk, a$dbuf);
+                end;
+
+                call save$pointer$block;
+                if create then
+                do;
+                    create = FALSE;
+                    call clear$buf(temp := a$pbuf);
+                    newlinks(0) = a$ptr$blk;
+                end;
+                else
+                do;
+                    call absread(newptrblk := links(FLINK), a$pbuf);
+                end;
+                a$ptr$blk = newptrblk;
+                a$ptr$ptr = 2;
+            end;
+        end;
+
+        adp$dif = 128 - a$data$ptr;
+        if a$blk$count <= a$blk$seqno AND READING then
+        do;
+            eof$dif = a$eof$data$ptr - a$data$ptr;
+            if adp$dif > eof$dif then
+                adp$dif = eof$dif;
+        end;
+        countdiff = count - actual;
+        if adp$dif > count$diff then    /* check if more in buffer than needed */
+            adp$dif = count$diff;
+
+
+        actual = actual + adp$dif;
+        non$sector$request = adp$dif <> 128;
+        adp$dif = adp$dif + a$data$ptr;
+        work$buf = buffer;
+        if non$sector$request then
+            work$buf = a$dbuf;
+        a$data$blk = links(a$ptr$ptr);
+        if a$data$blk = 0 then
+        do;
+            if reading then
+                call clear$buf(work$buf);
+            else
+            do;
+                if non$sector$request then
+                    call clear$buf(work$buf);
+                a$ptr$change = TRUE;
+                links(a$ptr$ptr), a$data$blk =  get$block(a$device);
+            end;
+        end;
+        else if a$dbuf$read then
+            non$sector$request = TRUE;
+        else if non$sector$request OR reading then
+            call abs$read(a$data$blk, work$buf);
+
+        if non$sector$request then
+        do;
+            a$dbuf$read = TRUE;
+            datapp = a$data$ptr$p;
+            if reading then
+                call sysUsr(.buffer, buffer, datum$base);
+            else
+            do;
+                a$data$change = TRUE;
+                call usrSys(.buffer, buffer, datum$base);
+            end;
+            a$data$ptr = adp$dif;
+        end;
+        else
+        do;
+            if not reading then
+                call abswrite(a$data$blk, work$buf);
+            a$data$ptr = 128;
+            buffer = buffer + 128;
+        end;
+    end; /* of do while */
+    call adjust$eof;
+end;
+
+
+
+non$disk$select: PROCEDURE;
+    /*
+       set logical file assignments to use monitor routines
+       for doing byte at a time I/O devices
+    */
+    call ioset(((iostat := iochk) AND iobyteMasks(a$device)) or iobyteFlags(a$device));
+end;
+
+
+read: PROCEDURE(aftn, buffer, count, actual$p) PUBLIC;
+    DECLARE aftn BYTE, (buffer, count, actual$p) ADDRESS;
+    DECLARE actual BASED actual$p ADDRESS;
+    DECLARE bytes BASED buffer BYTE;
+
+    actual = 0;
+    call aft$window(aftn);
+    if (a$access AND 1) = 0 then    /* not read */
+        call warn(CANT$READ);
+    if a$device = 26 then       /* BB */
+        return;
+    call non$disk$select;
+    if a$device <= F9DEV then
+    do;
+        call rw(aftn, buffer, count, actual$p, TRUE);
+        return;
+    end;
+
+    do while actual <> count;
+        if devClass(a$device) <> 0efh then
+            bytes = ci;
+        else
+        do;
+            bytes = ri;
+            if CARRY then
+                goto done;
+        end;
+        buffer = buffer + 1;
+        actual = actual + 1;
+    end;
+done:
+    call ioset(iostat);
+end;
+
+
+
+write: PROCEDURE(aftn, buffer, count) PUBLIC;
+    DECLARE aftn byte, (buffer, count) ADDRESS;
+    DECLARE bytes BASED buffer BYTE;
+    DECLARE actual ADDRESS, i BYTE;
+
+    call aft$window(aftn);
+    if (a$access and 2) = 0 then
+        call warn(CANT$WRITE);
+    if a$device = 26 then   /* BB */
+        return;
+    call non$disk$select;
+
+    do while count <> 0;
+        do case devClass(a$device);
+        do;     /* case 0 */
+            actual = 0;
+            call rw(aftn, buffer, count, .actual, FALSE);
+            return;
+        end;
+        do;     /* case 1 */
+            call CO(bytes);
+            if csts then
+            do;
+                do i = 0 to 255;    /* delay a little */
+                end;
+                if csts then
+                    if (ci AND 7fh) = CONTROL$S then
+                        do while (ci AND 7fh) <> CONTROL$Q;
+                        end;
+
+            end;
+        end;
+        call po(bytes);     /* case 2 */
+        call lo(bytes);     /* case 3 */
+        end;
+
+        count = count - 1;
+        buffer = buffer + 1;
+    end;
+    call ioset(iostat);
+end;
+
+
+
+lined: PROCEDURE(aftn, buffer, count, actual$p) PUBLIC;
+    DECLARE aftn BYTE, (buffer, count, actual$p) ADDRESS;
+    DECLARE actual BASED actual$p ADDRESS;
+    DECLARE lbuf ADDRESS,
+        in$mode BYTE,
+        lit$mode BYTE,
+        lptr BYTE,
+        char BYTE,
+        i BYTE,     /* note read clobbers selector as well */
+        selector BYTE;
+    DECLARE obuf BASED buffer (1) BYTE;
+    DECLARE bytes BASED lbuf (128) BYTE;
+    DECLARE addr BASED lbuf (64) ADDRESS;
+
+
+    echo: PROCEDURE(char);      /* nested sub of lined */
+        DECLARE char BYTE;
+        call write(a$edit, .char, 1);
+        call aft$window(aftn);
+    end;
+
+    echoCRLF: PROCEDURE;
+        call echo(CR);
+        call echo(LF);
+    end;
+
+    lineReset: PROCEDURE;       /* nested in lined */
+        in$mode = FALSE;
+        lptr = 0;
+    end;
+
+
+    lit$mode = FALSE;
+    lbuf = aft(aftn).lbuf;
+    lptr = bytes(126);
+    in$mode = bytes(127);
+
+    do while in$mode;
+        call read(aftn, .char, 1, .i);
+        if i = 0 then
+        do;
+            if aftn = AFT$CONSOLE then  /* 11 */
+                call abortx(CONSOLE$EOF);
+            char = CONTROL$Z;
+        end;
+        bytes(125) = FALSE;
+        char = char AND 7fh;
+        if char <> LF then
+            call echo(bytes(lptr) := char);
+
+        selector = 0;
+        do i = 0 to 9;
+            if char = specialChars(i) then
+                selector = i;
+        end;    
+        selector = selector and not lit$mode;
+        lit$mode = FALSE;
+        do case selector;
+            lptr = lptr + 1;    /* case 0 - normal */
+            do;         /* case 1, rubout */
+                if lptr <> 0 then
+                do;
+                    lptr = lptr - 1;
+                    if aft(a$edit).device = 13 then
+                    do;
+                        call echo(BS);
+                        bytes(lptr) = ' ';
+                        call echo(' ');
+                        call echo(BS);
+                    end;
+                    else
+                        call echo(bytes(lptr));
+                end;
+                else
+                    call echo(BELL);
+            end;
+            do;         /* case 2 - control-Z */
+                actual = 0;
+                bytes(125) = TRUE;
+                addr(63) = 0ff00h;
+                call echoCRLF;
+                return;
+            end;
+            do;         /* case 3 - control-R */
+                call echoCRLF;
+                call write(a$edit, .bytes, lptr);
+            end;
+            do;         /* case 4 - control-X */
+                lptr = 0;
+                call echo('#');
+                call echoCRLF;
+            end;
+            do;         /* case 5 - CR */
+                bytes(lptr := lptr + 1) = LF;
+                call echo(LF);
+                call lineReset;
+            end;
+            do;         /* case 6 - LF */
+                if lptr <> 0 then
+                do;
+                    call echo(bytes(lptr) := char);
+                    call lineReset;
+                end;
+            end;
+            do;         /* case 7 -  ESC */
+                call echo(0);
+                call echo('$');
+                call lineReset;
+            end;
+            do;         /* case 8 - Control-E */
+                if aftn = AFT$CONSOLE then
+                do;
+                    i = aft(AFT$CONSOLE).device;
+                    aft(AFT$CONSOLE).device = alt$cidev;
+                    alt$cidev = i;
+                    call echo('^');
+                    call echo('E');
+                end;
+            end;
+            lit$mode = TRUE;    /* case 8 - control-P */
+        end; /* of case */
+        if lptr = 122 then
+            call lineReset;
+    end;
+
+    actual = 0;
+    do while actual < count and not in$mode;
+        if lptr < MAXLL then    /* 122 */
+        do;
+            if (obuf(actual) := bytes(lptr)) = LF OR bytes(lptr) = ESC then
+            do;
+                in$mode = TRUE;
+                lptr = -1;
+            end;
+
+            actual = actual + 1;
+            lptr = lptr + 1;
+        end;
+        else
+        do;
+            in$mode = TRUE;
+            lptr = 0;
+        end;
+    end;
+    bytes(126) = lptr;
+    bytes(127) = in$mode;
+end;
+
+
+
+end;
+eof
+seek.plm
+seek:
+do;
+$include(seek.ipx)
+
+save$data$blk: PROCEDURE PUBLIC;
+    if a$data$change then
+    do;
+        call abswrite(a$data$blk, a$dbuf);
+        a$data$change = FALSE;
+    end;
+end;
+
+save$pointer$block: PROCEDURE PUBLIC;
+    if a$ptr$change then
+    do;
+        call map$write(a$device);
+        call abswrite(a$ptr$blk, a$pbuf);
+        a$ptr$change = FALSE;
+    end;
+end;
+
+rewind: PROCEDURE PUBLIC;
+    a$data$ptr = 128;
+    a$ptr$ptr = 1;
+    a$data$change = FALSE;
+    a$dbuf$read = FALSE;
+    a$ptr$change = FALSE;
+    a$blk$seqno, a$data$blk = 0;
+    call absread(a$ptr$blk := a$hdr$blk, a$pbuf);
+end;
+
+seek: PROCEDURE(aftn, mode, blockptr, byteptr) PUBLIC;
+    DECLARE aftn BYTE, (mode, blockptr, byteptr) ADDRESS;
+    DECLARE lowMode BYTE AT (.mode);
+    DECLARE blk BASED blockptr ADDRESS, byt BASED byteptr ADDRESS;
+    DECLARE plusMinus ADDRESS,
+        orig$byte ADDRESS, lo$byte BYTE AT (.orig$byte),
+        blockno ADDRESS, temp ADDRESS, forward BYTE;
+
+    if mode > SEEK$EOF then
+        call warn(BAD$SEEK$ARG);
+    call aft$window(aftn);
+    if a$device = BBDEV then
+        return;
+
+    if a$device > F9DEV then
+        call warn(NON$DISK$SEEK);
+
+    if a$access = WRITE$MODE then   /* 2 */
+        call warn(SEEK$ON$WRITE);
+    if lowMode = SEEK$RETURN then   /* 0 - SEEK$RETURN */
+    do;
+        byt = a$data$ptr;   
+        if (blk := a$blk$seqno - 1) = 0FFFFh then
+        do;
+            blk, byt = 0;
+        end;
+        return;
+    end;
+    
+    blockno = (blk AND 07fffh) + shr((orig$byte := byt), 7);
+    lo$byte = lo$byte and 7fh;
+    if lowMode = SEEK$EOF then
+    do;
+        lowMode = SEEK$ABS;
+        lo$byte = a$eof$data$ptr;
+        if (blockno := a$blk$count - 1) = 0FFFFh then
+        do;
+            blockno, lo$byte = 0;
+        end;
+    end;
+    if lowMode = SEEK$ABS then
+    do;
+        if (blockno OR a$blk$seqno OR lo$byte) <> 0 then
+        do;
+            blockno = blockno + 1;
+        end;
+        else
+            lo$byte = 128;
+        lowMode = SEEK$BACKWARD;
+        if blockno > a$blk$seqno then
+        do;
+            lowMode = SEEK$FORWARD;
+            blockno = blockno - a$blk$seqno;
+        end;
+        else if blockno < a$blk$seqno then
+            blockno = a$blk$seqno - blockno;
+        else
+        do;
+            blockno = 0;
+            if lo$byte > a$data$ptr then
+                lowMode = SEEK$FORWARD; /* seek within block */
+        end;
+    end;
+    else
+    do;
+        if lowMode = SEEK$BACKWARD then
+            lo$byte = -lo$byte;
+        
+        lo$byte = a$data$ptr + lo$byte;
+        if lo$byte > 128 then
+        do;
+            blockno = blockno + 1;
+            lo$byte = lo$byte - 128;
+        end;
+    end;
+    a$data$ptr = lo$byte;
+    if (forward := lowMode = SEEK$FORWARD) then
+        call adjust$eof;
+
+    do while blockno > 0;
+        call save$data$blk;
+        a$dbuf$read = FALSE;
+        blockno = blockno - 1;
+        if forward then
+        do;
+            plusMinus = 1;
+            if a$ptr$ptr = 63 then
+            do;
+                if (temp := links(FLINK)) = 0 then
+                do;
+                    call chk$eof;
+                    links(FLINK), temp = get$block(a$device);
+                    a$ptr$change = TRUE;
+                    call save$pointer$block;
+                    call clear$buf(a$pbuf);
+                    links(BLINK) = a$ptr$blk;
+                    call abswrite(temp, a$pbuf);
+                end;
+                else
+                do;
+                    call save$pointer$block;
+                    call absread(temp, a$pbuf);
+                end;
+                a$ptr$ptr = 1;
+                a$ptr$blk = temp;
+            end;
+        end;
+        else if a$data$ptr = 128 then
+        do;
+            plusMinus = 0;
+            a$data$ptr = 0;
+        end;
+        else
+        do;
+            plusMinus = 0FFFFH; /* -1 */
+            if a$ptr$ptr - 1 < 2 then 
+                if links(BLINK) <> 0 then
+                do;
+                    call save$pointer$block;
+                    a$ptr$ptr = 64;
+                    call absread((a$ptr$blk := links(BLINK)), a$pbuf);
+                end;
+                else
+                do;
+                    a$ptr$ptr = 1;
+                    a$blk$seqno = 0;
+                    goto error;
+            
+                end;
+        end;
+        a$blk$seqno = a$blk$seqno + plusMinus;
+        a$ptr$ptr = a$ptr$ptr + low(plusMinus);
+        call adjust$eof;
+    end;
+
+error:
+    if a$blk$seqno = 0 AND a$data$ptr <> 128 then
+    do;
+        a$data$ptr = 128;
+        call warn(LONG$BACK$SEEK);
+    end;
+end;
+end;
+eof
+alloc.plm
+alloc:
+do;
+$include(alloc.ipx)
+
+DECLARE bitmapBuffer(128) BYTE,
+    current$bitmap BYTE PUBLIC INITIAL(0ffh),
+    map$change BYTE INITIAL(FALSE),
+    baseTrackSector ADDRESS,
+    baseSector BYTE AT (.baseTrackSector),
+    baseTrack BYTE AT (.baseTrackSector + 1),
+    bitmapIndex ADDRESS,
+    lowBitMapIndex BYTE AT (.bitmapIndex),
+    map$dcb DCB$T INITIAL(80h, 4, 1, 2, 2, .bitmapBuffer),
+    current$part BYTE INITIAL(0ffh),
+    base$part BYTE INITIAL(0),
+    next$part BYTE INITIAL(0),
+    bitmapByte$p ADDRESS INITIAL(0),
+    (lowBitmapByte$p, highBitmapByte$p) BYTE AT (.bitmapByte$p),
+    bitmapByte BASED bitmapByte$p BYTE,
+    bitmapBit BYTE,
+    command BYTE,
+    disk BYTE,
+    tracksPerDisk BYTE,
+    sectorsPerTrack BYTE;
+
+
+mapio:  PROCEDURE;
+    map$change = FALSE;
+    map$dcb.ioins = command;    /* set up command */
+    map$dcb.tadr = 2;       /* set up partition */
+    map$dcb.sadr = current$part + 2;
+    call diskio(disk, .map$dcb);
+end;
+
+
+map$write: PROCEDURE(diskNum) PUBLIC;
+    DECLARE diskNum BYTE;
+
+    disk = diskNum;
+    if  disk = current$bitmap AND map$change then
+    do;
+        command = CMD$WRITE;    
+        call mapio;
+    end;
+end;
+
+        
+
+map$read: PROCEDURE PUBLIC;
+    DECLARE temp BYTE;
+
+    temp = disk <> current$bitmap;
+    if current$part <> next$part or temp then
+    do;
+        if temp then
+        do;
+            base$part = 0;
+            bitmapIndex = 0;
+            baseTrackSector = 1;
+        end;
+        temp = disk;
+        call map$write(current$bitmap);
+        disk = temp;
+        command = CMD$READ;
+        current$part = next$part;
+        current$bitmap = disk;
+        call mapio;
+    end;
+end;
+
+
+set$num$sect$trk: PROCEDURE;
+    sectorsPerTrack = sectorsTable(disk);
+    tracksPerDisk = tracksTable(disk);
+end;
+
+
+
+get$block: PROCEDURE(diskNum) ADDRESS PUBLIC;
+    DECLARE diskNum BYTE;
+    DECLARE trackSector ADDRESS,
+        sector BYTE AT (.trackSector),
+        track BYTE AT (.trackSector + 1);
+
+    disk = diskNum;
+    call set$num$sect$trk;
+    next$part = base$part;
+    if disk <> current$bitmap then
+        next$part = 0;
+    call map$read;
+    bitmapBit = ror(1, lowBitmapIndex and 7);
+    do track = baseTrack TO tracksPerDisk;
+        do sector = baseSector TO sectorsPerTrack;
+            bitmapByte$p = .bitmapBuffer(SHR(bitmapIndex, 3));
+            if bitmapByte = 0ffh  AND bitmapBit then    /* no free entry */
+            do;
+                bitmapIndex = bitmapIndex + 8;
+                sector = sector + 7;            /* the do loop adds 1 */
+                if sector > sectorsPerTrack then
+                do;
+                    sector = sector - sectorsPerTrack;
+                    track = track + 1;
+                    if track > tracksPerDisk then   
+                        goto full;
+                end;
+            end;
+            else
+            do;
+                if ((bitmapBit := ROR(bitmapBit, 1)) AND bitmapByte) = 0 then   /* found a slot */
+                do;
+                    map$change = TRUE;
+                    bitmapByte = bitmapByte OR bitmapBit;
+                    base$part = current$part;
+                    return (baseTrackSector := trackSector);
+                end;
+                bitmapIndex = bitmapIndex + 1;
+            end;
+            if bitmapIndex > 03ffh then
+            do;
+                next$part = current$part + 1;
+                call map$read;
+                bitmapIndex = 0;
+            end;
+        end;
+        baseSector = 1; 
+    end;
+full:
+    call abortx(DISK$FULL);
+end;
+
+
+free$block: PROCEDURE(diskNum, trackSector) PUBLIC;
+    DECLARE disknum BYTE, trackSector ADDRESS;
+    DECLARE (sector, track) BYTE AT (.trackSector);
+    DECLARE temp BYTE;
+
+    disk = disknum;
+    call set$num$sect$trk;
+    bitmapByte$p = track * sectorsPerTrack + sector - 1;
+    next$part = shr(highBitmapByte$p, 2);
+    if bitmapByte$p < bitmapIndex + shl(double(base$part),10) then
+    do;
+        base$part = next$part;
+        bitmapIndex = bitmapByte$p AND 03ffh;
+        baseTrackSector = trackSector;
+    end;
+    call map$read;
+    temp = lowBitmapByte$p;
+    bitmapByte$p = .bitmapBuffer(shr(bitmapByte$p and 03ffh, 3));
+    bitmapByte = bitmapByte AND not ROR(80h, temp and 7);
+    map$change = TRUE;
+end;
+end;
+eof
+
+buffer.plm
+buffer:
+DO;
+
+/*
+    ABSTRACT
+        This module contains routines for obtaining, clearing
+        releasing and packing buffers of 128 bytes each.
+
+    MODULE ORGANISATION
+        This module contains an llocation table ('buffer$table') and
+        4 subroutines
+        Buffers are allocted in RAM, starting at ".MEMORY" and
+        working upwards (to the user's program origin point).
+        'buffer$table' contains 19 entries, allowing maximum buffer
+        usage for 6 open files (all lined input files, 3 buffers each),
+        plus 1 buffer for the console.
+
+    INVARIANTS
+        Each entry in 'buffer$table' is initialised to '0'; legal
+        values are 0, 1 and 2 with the following meanings
+        0 - corresponding buffer is available, but not allocated.
+        1 - corresponding buffer is not available, because it is
+            in the current user RAM area
+        2 - corresponding buffer is in use.
+
+        Entries change when buffes are obtained or released (via
+        get$buf and return$buf), or when then user's program origin
+        point is changed (by making a call to the 'load' subroutine).
+*/
+
+$include(buffer.ipx)
+
+DECLARE buffer$table(19) BYTE PUBLIC INITIAL(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0);
+DECLARE i BYTE;
+
+clear$buf: PROCEDURE(buf$address) PUBLIC;
+    DECLARE buf$address ADDRESS;
+    DECLARE buffer BASED buf$address (128) BYTE;
+
+    do i = 0 to 127;
+        buffer(i) = 0;
+    end;
+end;
+
+return$buf: PROCEDURE(buf$address) PUBLIC;
+    DECLARE buf$address ADDRESS;
+
+    buffer$table(shr(buf$address - .MEMORY, 7)) = 0;
+end;
+
+
+
+
+get$buf: PROCEDURE ADDRESS PUBLIC;
+    do i = 0 to last(buffer$table);
+        if buffer$table(i) = 0 then
+        do;
+            buffer$table(i) = 2;
+            return .MEMORY + shl(DOUBLE(i), 7);
+        end;
+    end;
+    call abortx(NO$FREE$BUFFER);    /* 1 */
+end;
+
+/*
+    ABSTRACT
+        This routine reassigns buffer space and moves buffer
+        contents as necessary, to ensure that there is no unused
+        buffer space below the area occupied by the highest buffer
+        in use.
+
+
+    RETURNS
+        The address of the first (lowest) byte in the first
+        (lowest) unallocated buffer. THis information is the "top of
+        buffer area" described in the mds-dos operator's manual.
+
+    DESCRIPTION
+        For every AFT entry which is a currently assigned
+        buffer address, the buffer is returned (using 'return$buf')
+        and is replace by a new buffer (using 'get$buf'). If the new
+        buffer is a different one than the one returned, then the
+        data from the old is moved into the new.
+*/
+
+
+
+pack$aft$buf: PROCEDURE ADDRESS PUBLIC;
+    DECLARE (i, j, index) BYTE;
+    DECLARE buffer$top ADDRESS;
+    DECLARE bptr ADDRESS, bufadr BASED bptr ADDRESS;
+    DECLARE new$badr ADDRESS, new$datum BASED new$badr(128) BYTE,
+        old$badr ADDRESS, old$datum BASED old$badr(128) BYTE;
+
+    buffer$top = .MEMORY;
+    do i = AFT$BOTTOM to AFT$LAST;
+        if not aft(i).empty then
+        do index = 0 to 4 BY 2;
+            bptr = .aft(i).pbuf - index;
+            j = shr(bufadr - .MEMORY, 7);
+            if j <= last(buffer$table) and buffer$table(j) = 2 then
+            do;
+                old$badr = bufadr;
+                call return$buf(old$badr);
+                if buffer$top < (new$badr := getbuf) then
+                    buffer$top = new$badr;
+                if new$badr <> old$badr then
+                do;
+                    do j = 0 to 127;
+                        new$datum(j) = old$datum(j);
+                    end;
+                    bufadr = new$badr;
+                end;
+            end;
+        end;    /* of loop to handle each buffer p, d, l */
+    end;    /* of look to traverse aft */
+    return buffer$top + 128;
+end;
+end;
+eof
+
+rw1.asm
+    CSEG
+    public  usrSys
+    public  sysUsr
+    extrn   datapp
+    extrn   adpdif
+
+; usrSys: PROCEDURE(buffer$p, buffer, datum$base)
+usrSys:     
+    push    d       ; datum$base
+    lhld    datapp
+    mov e, m        ; e = a$data$ptr
+    lda adpdif
+    mov m, a        ; a$data$ptr = adp$dif  - save final a$data$ptr value
+    mvi d, 0
+    pop h       ; datum$base + e - stort of data to copy
+    dad d
+    mov d, a        ; d = adp$dif
+
+usloop:
+    mov a, d        ; copy until we reach new end
+    cmp e
+    jz  updbuf
+    ldax    b       ; buffer
+    mov m, a        ; datum buffer
+    inx h
+    inx b
+    inr e       ; advance data$ptr
+    jmp usloop
+
+
+sysUsr:
+    push    d       ; as per usrSys
+    lhld    datapp
+    mov e, m
+    lda adpdif
+    mov m, a
+    mvi d, 0
+    pop h
+    dad d
+    mov d, a
+
+suloop:
+    mov a, d
+    cmp e
+    jz  updbuf
+    mov a, m        ; datum buffer
+    stax    b       ; buffer
+    inx h
+    inx b
+    inr e
+    jmp suloop
+
+updbuf:
+    pop h   ; return address
+    xthl        ; buffer$p
+    mov m, c    ; save the updated buffer
+    inx h
+    mov m, b
+    ret
+
+    end;
+
+direct.asm
+; direct:
+; do;
+        
+; /*
+;     ABSTRACT
+;         All knowledge about the format and location of a diskette
+;         directory is contained by this module
+        
+;     Module organisation
+;         The module contains a data adara, which normally contains
+;         the information from a single entry in a diskette directory
+;         and the procedures dir$close and dlook
+        
+;     Invariants
+;         On every diskette, the directory file is partitioned into
+;         'entries' containing 16 bytes of data each.
+;         The various byte- and address-variables within an entry are
+;         given descriptive names (see the structure 'direct' below).
+;         at all times, teh following must be true:
+        
+;         1.  direct.empty = false => the entry contains meaningful data
+;         2.  (direct.empty = true(0ffh)) => the directory slot is empty.
+;         3.  (direct.empty = true(07fh)) => the directory slot and all
+;         further directory slots are empty;
+; */
+        
+; $include(direct.ipx)
+; declare Aft$Window literally 'AWindo';
+; declare dir$Close literally 'DirCls';
+; declare direct$i$no literally 'dirINo';
+; declare abswrite literally 'abs$wr';
+; declare BOOLEAN literally 'BYTE';
+; declare FALSE literally '0';
+; declare SEEK$ABS literally '2';
+; declare TRUE literally '0ffh';
+; declare a$data$blk$p address external;
+; declare a$dbuf$p address external;
+; declare a$dev$p address external;
+; declare a$pbuf$p address external;
+; declare datum$base address external;
+; declare dk$cf$tb(10) byte external;
+; declare pointer$base address external;
+        extrn   adblkp, adbufp, adevp, apbufp, datbas, dkcftb, ptrbas
+; abs$wr: procedure(block, buffer$ptr) external; declare block address, buffer$ptr address; end;
+; Aft$Window: procedure(slot$number) external; declare slot$number byte; end;
+; get$buf: procedure address external; end;
+; read: procedure(aftn, buffer, count, actual$p) external;
+;         declare aftn byte, buffer address, count address, actual$p address; end;
+; return$buf: procedure(buf$address) external; declare buf$address address; end;
+; rewind: procedure external; end;
+; seek: procedure(aftn, mode, blockptr, byteptr) external;
+;         declare aftn byte, mode address, blockptr address, byteptr address; end;
+; write: procedure(aftn, buffer, count) external; declare aftn byte, buffer address, count address; end;
+        extrn   abswr, awindo, getbuf, read, retbuf, rewind, seek, write
+
+; declare a$data$blk based a$data$blk$p  address;
+; declare a$dbuf based a$dbuf$p  address;
+; declare a$device based a$dev$p  byte;
+; declare a$pbuf based a$pbuf$p  address;
+
+
+        
+; /* interface to assembler support code */
+; DECLARE fndFre  BYTE PUBLIC;    /* logical flag used to indicate if a
+;                   free dir slot has been allocated */
+; DECLARE inoPtr  ADDRESS PUBLIC; /* is setup to point to direct$i$no */
+; DECLARE dirPtr ADDRESS PUBLIC;  /* is setup to point to the direct */
+        dseg
+        public fndfre, inoptr, dirptr
+fndFre: ds  1
+inoptr: ds  2
+dirptr: ds  2
+
+; DECLARE dnum ADDRESS EXTERNAL;
+        extrn   dnum
+; fndDir: PROCEDURE(fname, datum) BYTE EXTERNAL;
+;     DECLARE fname ADDRESS, datum ADDRESS;
+; END;
+        extrn   fndDir        
+; /* end of asm interface */
+        
+        extrn   @P0029, @P0100        
+        
+; DECLARE direct structure (
+;     empty       BOOLEAN,    /* flag to indicate whether directory entry is used */
+;     file(6)     BYTE,   /* file name */
+;     ext(3)      BYTE,   /* extension */
+;     attrib      BYTE,   /* file attributes */
+;     eof$count   BYTE,   /* character count, last data block */
+;     blk   ADDRESS,  /* number of block in file */
+;     hdr$blk     ADDRESS)    /* address of first pointer block */
+;     PUBLIC;
+; DECLARE direct$i$no ADDRESS PUBLIC; /* directory entry pointer */
+        public direct, dirino
+direct: ds  16
+dirino: ds  2
+        
+isisnm: db      'ISIS'        
+
+        cseg
+hash:
+        lhld    fn              ; check for ISIS name prefix
+        lxi     b, 4            ; offset to infofname(3)
+        dad     b
+        lxi     d, isisnm + 3   ; offset to isisnm last char
+        mvi     c, 4
+@100:
+        ldax    d
+        cmp     m
+        jnz     @101            ; not a prefix
+        dcx     d
+        dcx     h
+        dcr     c
+        jnz     @100            ; check rest of name
+        lxi     h, 0            ; return 0
+        ret
+
+@101:
+        lhld    fn              ; e = shl(info.fname(1) and 0fh, 4)
+        inx     h
+        inx     h
+        mvi     a, 0Fh
+        ana     m
+        add     a
+        add     a
+        add     a
+        add     a
+        mov     e, a
+        lxi     b, 6
+        dad     b
+        mvi     a, 0Fh
+        ana     m
+        ora     e
+        mov     e, a            ; e = shl(info.fname(1) and 0fh, 4) or (info.ext(0) and 0fh)
+        dcx     h
+        dcx     h
+        dcx     h
+        dcx     h
+        mvi     a, 0Fh          ; d = shl(info.fname(3) and 0fh, 4)
+        ana     m
+        add     a
+        add     a
+        add     a
+        add     a
+        mov     d, a            ; d = shl(info.fname(3) and 0fh, 4) or (info.fname(2) and 0fh)
+        dcx     h
+        mvi     a, 0Fh
+        ana     m
+        ora     d
+        mov     d, a
+        lxi     h, 122
+        call    @P0029          ; hl = de % hl
+        inx     h               ; return 1-123
+        ret                        
+
+        
+; dir$close: PROCEDURE(aftn) PUBLIC;
+;            ; PROC  DIRCLS
+;     DECLARE aftn BYTE;
+        
+;     /*
+;         This procedure assumes that aftwindow has been called
+;         correctly setting up the appropriate directory slot
+;         and that teh dbuffer and pbuffer have correct data
+;         but need not be returned to the pool
+;     */
+        public  dircls
+dircls:        
+        push    b           ; call write(aftn, .direct, size(direct));
+        LXI     D,10H
+        LXI     B,DIRECT
+        CALL    WRITE
+        LHLD    ADBUFP      ; call abswrite(a$data$blk, a$dbuf);  /* both based vars */
+        MOV     E,M
+        INX     H
+        MOV     D,M
+        LHLD    adblkp   
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        CALL    ABSWR
+        RET                  ; end;
+        
+        
+; dlook: PROCEDURE(fn) BOOLEAN PUBLIC;
+        public  dlook
+dlook:
+        LXI     H,FN+1H
+        MOV     M,B
+        DCX     H
+        MOV     M,C
+;     DECLARE fn ADDRESS;
+;     DECLARE (aftn, dirCnt) byte;
+;     DECLARE rcount BYTE;
+;     /* WARNING: the location at (rcount + 1) will be set to 0 by the procedure read */
+;     DECLARE byteno ADDRESS;
+;     DECLARE blockno ADDRESS initial(0);
+;     */
+;     DECLARE return$value BOOLEAN;
+;     DECLARE i BYTE;
+        dseg
+fn:     ds  2
+aftn:   ds  1
+dirCnt:  ds  1
+rcount: ds  1
+byteno: ds  2
+blkno:  dw  0
+retval: ds  1
+i:      ds  1
+
+        cseg
+;     /*
+;       This procedure is used to lookup a file name in a
+;       disk directory. The device number of the disk
+;       is contained in fn(0), the six characters of the
+;       file name are in fn(1) through fn(6), and the
+;       three characters of the file extension are in
+;       fn(7) through fn(9)
+        
+;       The procedure returns 'TRUE' if the file is found,
+;       with direct$i$no pointing to the entry of the file in the
+;       directory
+        
+;       otherwise, the procedure returns 'FALSE', and direct$i$no points
+;       at a blank slot in the directory. The directory marker is
+;       adjusted so taht it points at the beginning of the entry
+;       pointed to by direct$i$no.
+        
+;       If the directory is full, direct$i$no = 0ffffh
+;     */
+
+        LHLD    ADEVP           ; call aft$window(aftn := a$device);
+        MOV     A,M
+        STA     AFTN
+        MOV     C,A
+        CALL    AWINDO
+        CALL    GETBUF          ; pointer$base, a$pbuf = get$buf;
+        SHLD    ptrbas
+        xchg
+        LHLD    APBUFP
+        MOV     M,e
+        INX     H
+        MOV     M,d
+        CALL    GETBUF          ; datum$base, a$dbuf = get$buf; 
+        SHLD    datbas
+        xchg
+        LHLD    ADBUFP
+        MOV     M,e
+        INX     H
+        MOV     M,d
+        CALL    REWIND          ; call rewind;
+        LXI     H,0FFFFH        ; direct$i$no = 0ffffh;
+        SHLD    DIRINO
+        LXI     H,DIRECT        ; dirPtr = .direct;
+        SHLD    DIRPTR
+
+        LXI     H,DIRINO        ; inoPtr = .direct$i$no;
+        SHLD    INOPTR
+        lxi     h,dirCnt        ; dirCnt = 124
+        mvi     m,7ch
+        LXI     H,0H            ; dnum, return$value, fndFre = 0;
+        SHLD    DNUM
+        MOV     A,L
+        STA     retval
+        sta     fndFre
+
+        lhld    fn              ; if dk$cf$tb(fn(0)) = 9 then      /* winchester */
+        mov     c,m
+        mvi     b,0
+        lxi     h,dkcftb
+        dad     b
+        mov     a,m
+        cpi     9
+        jnz     L26D2
+                                ; do;
+        call    hash           ;    byteno = (dnum := hash * 8) * 16;
+        dad     h              ;    /* start dir search based on hash. 8 dir entries per hash value */
+        dad     h
+        dad     h
+        shld    dnum
+        dad     h
+        dad     h
+        dad     h
+        dad     h
+        shld    byteno
+        lhld    aftn            ;    call seek(aftn, 2, .blockno, .byteno);
+        push    h
+        lxi     b,2
+        push    b
+        lxi     d,byteno
+        lxi     b,blkno
+        call    seek
+                                ; end;
+L26D2:
+
+        lda     dirCnt           ; do while dirCnt <> 0;
+        ora     a
+        jz      L273C
+L26D9:  LHLD    AFTN            ; more: call read(aftn, a$dbuf, 128, .rcount);
+        PUSH    H
+        LHLD    ADBUFP
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        PUSH    B
+        LXI     D,RCOUNT
+        LXI     B,80H
+        CALL    READ
+        lda     rcount          ;    if rcount = 0 then                     /* reached end of isis.dir */
+        ora     a               ;    do;
+        jnz     L2710
+        lhld    fn              ;        if dk$cf$tb(fn(0)) <> 9 then      /* not winchester */
+        mov     c,m
+        mvi     b,0
+        lxi     h,dkcftb
+        dad     b
+        mov     a,m
+        cpi     9
+        jnz     L273C           ;            goto done;
+        call    rewind          ;        call rewind;                     /* rewind to start of isis.dir */
+        lxi     h,0             ;        dnum = 0;
+        shld    dnum
+        jmp     L26D9           ;        goto more:
+                                ;     end;
+L2710:  LHLD    FN              ;     else if (i := fndDir(fn + 1, datum$base)) <> 07fh then /* no more entries */ 
+        INX     H
+        MOV     B,H
+        MOV     C,L
+        LHLD    datbas
+        XCHG
+        CALL    FNDDIR
+        STA     I
+        CPI     7FH          
+        jz      L273C
+        lda     i                ;        if i = 0ffh then 
+        cpi     0ffh
+        jnz     L2735
+                                 ;        do;
+        lxi     h,retval         ;            returnvalue = TRUE;
+        mvi     m,0ffh
+        jmp L273C                ;            goto done;
+                                 ;        end;
+L2735:  lxi     h,dirCnt          ;        else
+        dcr     m                ;            dirCnt = dirCnt - 1;
+        jmp     L26D2            ; end
+
+L273C:                           ; done:
+        LXI     B, 0FFFFH        ; if dirno <> 0ffffh then
+        LXI     D, DIRINO
+        CALL    @P0100 ; hl = [de] - bc
+        ORA     L
+        jz      L2764
+                                 ; do;
+        LHLD    DIRINO           ;     byteno = direct$i$no * size(direct);V
+        DAD     H
+        DAD     H
+        DAD     H
+        DAD     H
+        SHLD    BYTENO
+
+        LHLD    AFTN              ;    call seek(aftn, SEEK$ABS, .blockno, .byteno);
+        PUSH    H       ; 1
+        LXI     B,2H
+        PUSH    B       ; 2
+        LXI     D,BYTENO
+        LXI     B,blkno
+        CALL    SEEK
+                                  ; end;
+L2764:
+
+        LHLD    ADBUFP            ; call return$buf(a$dbuf);
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        CALL    retbuf
+
+        LHLD    APBUFP            ; call return$buf(a$pbuf);
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        CALL    retbuf
+
+        LDA     retval            ; return return$value;
+        RET
+; end
+
+        end
+
+disk2.asm
+    CSEG
+    public  dkstat  ; dk$stat
+    public  rtype   ; r$type
+    public  rbyte   ; r$byte
+    public  strtio  ; strt$io
+    extrn   dkcont  ; disk controller
+    extrn   wiCtlb  ; winchester controller invocation block
+    extrn   wiSbuf  ; winchester status buffer
+    extrn  wiIopb  ; winchester io parameter block
+
+IOCDR1  equ 0F821h
+IOCCOM  equ 0F841h
+IOCDR2  equ 0F844h
+
+; controller
+NOCONT  equ 0
+CONT1   equ 1
+CONT2   equ 2
+CONTIN  equ 3   ; integrated single density
+CONTHD  equ 4
+CONTWD  equ 9
+
+; and their IO port bases (ISD handled separately)
+BASE1   equ 78h
+BASE2   equ 88h
+BASEHD  equ 68h
+
+
+; IOC INTERFACE COMMANDS
+IOCS    equ 0c1h        ; IOC INPUT DBB STATUS PORT
+IOCC    equ 0c1h        ; IOC OUTPUTY CONTROL COMMAND PORT
+IOCI    equ 0c0h        ; IOC INPUT DATA (FROM DBB) PORT
+IOCO    equ 0c0h        ; IOC OUTPUT DATA (TO DBB) PORT
+F0  equ 00000100B   ; FLAG 0 - SLAVE IS BUSY, MASTER IS LOCKED OUT
+IBF equ 00000010B   ; SLAVE INPUT BUFFER IS FULL
+OBF equ 00000001B   ; SLAVE OUTPUT BUFFER IS FULL
+WPBC    equ 15h     ; write parameter block command
+WPCC    equ 16h     ; write parameter block command continuation
+WDBC    equ 17h     ; write data block command
+WDCC    equ 18h     ; reserved
+RDBC    equ 19h     ; read data block command
+RDCC    equ 1ah     ; reserved
+RRSTS   equ 1bh     ; read result status command
+RDSTS   equ 1ch     ; read device status command
+
+; PSEUDO INTERRUPT INSTRUCTIONS
+DISABL  equ 0dh     ; disable interrupts
+ENABL   equ 05h     ; enable interrupts
+CPUC    equ 0ffh        ; port for these instructions
+
+; DISK INSTRUCTIONS
+SEEK    equ 1       ; seek instruction
+FORMAT  equ 2       ; format instruction
+RECAL   equ 3       ; recalibrate instruction
+READ    equ 4       ; read data instruction
+VERIFY  equ 5       ; verify crc instruction
+WRITE   equ 6       ; write data instruction
+WRITED  equ 7       ; write deleted data instruction
+
+; Layout of the I/O parameter block (IOPB)
+;   Only the first five bytes of the IOPB are transmitted to the ISD
+;   IOCW    BYTE    channel word
+;   IOINS   BYTE    diskette instruction
+;   NSEC    BYTE    number of sectors
+;   TADR    BYTE    track address
+;   SADR    BYTE    sector address
+;   BUF ADDRESS buffer address
+
+; layout of the winchester controller invocation block
+;   res1        byte
+;   opStatus    byte
+;   cmdSem      byte    ; command semaphore
+;   stSem       byte    ; status semaphore
+;   csa(2)      address
+;   iopb(2)     address ; address of winchester iopb
+;   res2(2)     address
+
+; layout of the winchester iopb
+;   reserved(2) address
+;   actual(2)   address
+;   device      address
+;   unit        byte
+;   function    byte
+;   modifier    address
+;   cyl         address
+;   head        byte
+;   sector      byte
+;   buf(2)      address
+;   count(2)    address
+;   gaptr(2)    address
+
+; layout of the winchester status buffer
+;   status(3)   byte
+;   cyl         address
+;   head        byte
+;   sector      byte
+;   aCyl        address
+;   ahead       byte
+;   aSec        byte
+;   retries     byte
+
+
+dkstat: lda dkcont
+    ora a
+    rz          ; not present
+    cpi CONTWD
+    jz  statWD      ; winchester
+    cpi CONTIN
+    jnz dkst1       ; jump if not isd
+    mvi b, RDSTS    ; use bios to get ISD status
+    call    IOCDR1
+    ret
+
+dkst1:  cpi CONT2
+    jnz dkst2
+    in  BASE2       ; controller 2
+    ret
+
+dkst2:  in  BASE1       ; controller 1
+    ret
+
+statWD:             ; winchester
+    lda wiCtlb+3    ; read the status semaphore
+    ana a
+    jz dkst3
+    mvi a,4
+
+dkst3:
+    ori 1
+    ret
+
+
+rtype:  lda dkcont
+    cpi CONTWD
+    jz  typeWD      ; winchester
+    cpi CONTIN
+    jnz type1       ; jump if not isd
+typeWD:
+    xra a   ; no result type for ISD or winchester
+    ret
+
+type1:  cpi CONT2
+    jnz type2
+    in  BASE2 + 1   ; controller 2
+    ret
+
+type2:  in  BASE1 + 1   ; controller 1
+    ret
+
+
+
+rbyte:
+    lda dkcont
+    cpi CONTWD
+    jz  byteWD      ; winchester
+    cpi CONTIN
+    jnz rbyte1      ; jump if not isd
+    mvi b, RRSTS    ; isd use bios
+    call    IOCDR1
+    ret
+
+rbyte1: cpi CONT2
+    jnz rbyte2
+    in  BASE2 + 3   ; controller 2
+    ret
+
+rbyte2: in  BASE1 + 3   ; controller 1
+    ret
+
+byteWD:
+    lda wiCtlb+1     ; op status
+    ani 40h
+    rz
+    lxi     h,wiSbuf     ; read in the status buffer
+    shld    wiIopb+18   ; buffer (low address)
+    mvi     a,1
+    sta     wiIopb+11   ; function
+    lxi     b,wiIopb
+    call    strtio
+    lda     wiSbuf+2    ; read status byte 2
+    ani     38h         ; drive fault, id field ecc error, data field ecc error
+    rlc                 ; * 4
+    rlc
+    mov     b,a
+    lhld    wiSbuf      ; status bytes 0 & 1
+    mov     a,l         ; status byte 0
+    ani     0f8h
+    mov     l,a
+    lda     wiSbuf+2    ; status byte 2
+    ani     0c0h        ; merge top 2 bits as low 2 bits of status byte 0
+    rlc
+    rlc
+    ora     l
+    mov     l,a
+; at this point
+; hl has from high to low bit
+; write protect, unit not ready, invalid address, sector not found,
+; invalid  function, no index, diagnostic fault, illegal sector size
+; end of medium, illegal format type, seek in progress, isbc rom error
+; isbc ram error, 0, seek error, cylinder address miscompare
+; and b has from high to low bit
+; drive fault, id field ecc error, data field ecc error
+
+    mvi     c,10h
+rbyte3:
+    mvi     a,80h       ; find first set bit
+    ana     h
+    jnz     rbyte4
+    dad     h
+    dcr     c
+    jnz     rbyte3
+rbyte4:
+    mov     a,c
+    ora     b
+    ret
+
+
+
+strtio: lda dkcont
+    cpi CONTWD
+    jz  strtWD      ; winchester
+    cpi CONTIN
+    jnz strt1       ; not isd
+    call    isddr       ; use standard code
+    ret
+
+strt1:  cpi CONT2
+    jnz strt2
+    mov a, c        ; controller 2
+    out BASE2 + 1
+    mov a, b
+    out BASE2 + 2
+    jmp wait
+
+strt2:  mov a, c        ; controller 1
+    out BASE1 + 1
+    mov a, b
+    out BASE1 + 2
+    jmp wait
+
+strtWD: mov a, c        ; winchester disk
+    sta wiCtlb+8        ; save iopb
+    mov a,b
+    sta wiCtlb+9
+    xra a
+    sta wiCtlb+3        ; reset the status semaphore
+    mvi a,1
+    out 5               ; wake up the controller
+
+wait:   call    dkstat      ; wait till i/o done
+    ani 4
+    jz  wait
+    ret
+
+; code is a direct lift from the Intellec series II interface document
+
+;***************************************************************
+;* PROCEDURE NAME = ISDDR (IHTEGRATED SINGLE DENSITY DISK DRIVER)
+;* PROCESS: TRANSMIT THE IOPB; ONE BYTE AT A TIME, TO THE ISD
+;*      IF THE INSTRUCTION TO THE OISK IS A OATA TRAHSFER
+;*      (I E READ DATA, FORMAT, WRITE DATA, WRITE DELETED
+;*      DATA) THEN TRAHSFER THE DATA. ONE BYTE AT A TIME
+;*      TO/FROH THE ISD
+;* IHPUT:   B-REG COHTAIHS MSB OF IOPB
+;*      C-REG COHTAIHS LSB OF IOPB
+;* OUTPUT:  THE IOPB IS TRANSMITTED TO THE ISD DATA IS TRANSFERED
+;*      TO/FROM THE ISD AS REQUIRED
+;***************************************************************
+
+isddr:
+    push    b       ; save the iopb
+    inx b
+    ldax    b       ; test ioins
+    cpi READ
+    jnz isd1        ; jump if not read
+    pop h       ; get the iobp
+    push    h       ; save again
+    inx h
+    inx h
+    mov d, m        ; d = number of sectors
+    pop h
+    push    d       ; save the number of sectors
+    call    triopb      ; issue the command
+    inx h       ; get the buffer address into hl
+    mov e, m
+    inx h
+    mov d, m
+    xchg
+    mvi b, RDBC     ; issue the read data block command
+    call    IOCCOM
+    pop d       ; recover the number of sectors 
+
+rdlp1:
+    mvi e, 128      ; read a sector (128 bytes)
+
+rdlp2:
+    in  IOCS        ; wait for byte available
+    ani F0 or IBF or OBF
+    cpi OBF     ; test for slave done; somethign for the master
+    jnz rdlp2       ; loop until slave is ready
+    in  IOCI        ; get the byte from the DBB
+    mov m, a        ; save to buffer
+    inx h
+    dcr e       ; loop for one sector
+    jnz rdlp2
+    dcr d       ; loop for number of sectors
+    jnz rdlp1
+    mvi a, ENABL        ; enable interrupts
+    out CPUC
+    ret
+    ;----------------------------------------------------------------------
+isd1:               ; here if not a read so test for
+    cpi FORMAT      ; FORMAT, WRITE pr WRITED 
+    jz  isd2
+    cpi WRITE
+    jz  isd2
+    cpi WRITED
+    jnz isd3        ; must be a SEEK, RECALB or VERIFY
+
+isd2:
+    pop h       ; recover iopb
+    push    h       ; save again
+    inx h
+    mov a, m
+    cpi FORMAT
+    inx h
+    jz  isd2a       ; don't use sector count for format
+    mov c, m        ; pick up sector count
+    jmp isd2b
+
+isd2a:
+    mvi c, 1        ; format has only single sector
+
+isd2b:
+    inx h
+    inx h
+    inx h
+    mov e, m
+    inx h
+    mov d, m
+    xchg            ; hl = buffer
+    mvi b, WDBC     ; load wite data block command
+    call    IOCCOM      ; output the command
+    call    iocrdy      ; wait till slave is idle
+    mov a, c        ; number of sectors to be written
+    out IOCO
+
+wrlp1:
+    push    psw
+    mvi d, 128      ; sector length
+
+wrlp2:
+    call    iocrdy      ; wait will slave is idle
+    mov a, m        ; write the data byte
+    out IOCO
+    inx h       ; advance buffer
+    dcr d
+    jnz wrlp2
+    pop psw     ; number of sectors
+    dcr a
+    jnz wrlp1       ; loop till all written
+    mvi a, ENABL    ; enable interrupts
+    out CPUC
+
+isd3:
+    pop h       ; hl = iopb
+    call    triopb      ; send the iopb
+    ret
+
+;------
+iocrdy: in  IOCS        ; get the status
+    ani F0 or OBF or IBF; look till ready
+    jnz iocrdy
+    ret
+
+;***************************************************************
+;* Procedure name: TRIOPB (transmit IOPB to ISD)
+;* Process: Transmit the IOPB to the 8271 integrated single density
+;*      controller this procedure is called only bu procedure ISDDR
+;* Input: HL contains address of the IOPB
+;* Output: Transmit the IOPB
+;*     HL points to SADR of IOPB
+;* Modified: A, FLAGS, B, C, D, HL
+; *
+;***************************************************************
+triopb:             ; transfer$iopb$to$isd
+    mov c, m        ; the iocw 
+    mvi b, WPBC     ; issue first byte
+    call    IOCDR2
+    mvi d, 4        ; send the remaining 4 bytes
+
+trloop:
+    inx h       
+    mov c, m
+    mvi b, WPCC
+    call    IOCDR2
+    dcr d
+    jnz trloop
+
+trwait: call    dkstat      ; see if the bit indicating operation
+    ani 4       ; compete is set
+    jz  trwait      ; loop until done
+    ret
+
+    end;
+
+trap.asm
+
+    CSEG
+    public  trap
+trap:           ; exit via mds monitor
+    pop h   ; waste the return address
+    jmp 0
+    end
+
+fnddir.asm
+
+    CSEG
+    public  fndDir
+    public  dnum
+    extrn   dirPtr
+    extrn   fndFre
+    extrn   inoPtr
+
+
+; fndDir: PROCEDURE(fname, datum) PUBLIC BYTE; DECLARE fname ADDRESS, datum ADDRESS; END;
+
+; direct.empty flag values
+OPEN    equ 0
+FREE    equ 0ffh
+UNUSED  equ 07fh;
+
+datum:  dw  0
+dnum:   dw  0   
+
+fndDir:
+    xchg        ; hl = datum
+    mvi e, 8    ; 8 directory entries to match
+
+dloop:
+    shld    datum   ; save passed in fn
+    mov a, m    ; empty
+    cpi UNUSED  ; never used
+    jz  skip
+    ora a
+    jnz skip    ; 0 if open
+    mvi d, 9    ; compare file names
+    push    b   ; save start of filename to match
+
+cmpnam:
+    inx h
+    ldax    b
+    cmp m
+    jnz nomat
+    inx b
+    dcr d
+    jnz cmpnam
+    pop b   ; passed in filename
+    mvi d, 10h  ; size of directory entry
+    lhld    dirPtr  ; copy the matched directory entry
+    push    h
+    pop b
+    lhld    datum
+
+cpydir: 
+    mov a, m
+    stax    b
+    inx h
+    inx b
+    dcr d
+    jnz cpydir
+    call    setino
+    mvi a, FREE
+    ret
+
+skip:
+    push    psw
+    call    chk1st
+    pop psw
+    rz          ; return if never used, shouldn't be any more after this
+    push    b       ; re-push filename to use common code
+
+nomat:              ; didn't match  
+    pop b       ; restore filename
+    lhld    dnum        ; next dnum
+    inx h
+    shld    dnum
+    push    d       ; save iteration count
+    lxi d, 10h      ; next dir entry
+    lhld    datum
+    dad d
+    pop d       ; restore iteration count
+    dcr e       ; we only have 8 directory entries in a buffer
+    jnz dloop
+    xra a       ; not found in this dir block
+    ret
+
+; end of fndDir
+
+chk1st:
+    lda fndFre      ; see if first free slot found
+    ora a
+    rnz         ; no then don't update
+    cma         ; mark as 1st now found
+    sta fndFre
+
+setino:             ; copy dnum of this slot either match or 1st free
+    push    h
+    push    d
+    lhld    dnum
+    xchg
+    lhld    inoPtr
+    mov m, e
+    inx h
+    mov m, d
+    pop d
+    pop h
+    ret
+
+    end
+
+memck.asm
+    CSEG
+    public  memck
+memck:      
+    call    0F81BH
+    mov h, b
+    mov l, a
+    ret
+
+    end
+
+
