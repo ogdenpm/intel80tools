@@ -11,12 +11,11 @@ void WriteRec(pointer recP, byte arg2b)
 	if (*lenP > 0 && OBJECT ) {
         crc = 0;
         p = 0;
-        *lenP = *lenP + arg2b + 1;
+        *lenP += arg2b + 1;
         cnt = *lenP + 2;
-        while (p < cnt) {
-            crc = crc - recP[p];
-            p = p + 1;
-        }
+        while (p < cnt)
+            crc -= recP[p++];
+
         recP[cnt] = crc;	/* insert checksum */
         Fwrite(&objFile, recP, cnt + 1);
 	}
