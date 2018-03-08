@@ -110,6 +110,8 @@ CMSK        '0fch'
 INVISIBLE$ATTRIBUTE '1'
 SYSTEM$ATTRIBUTE    '2'
 WRITEP$ATTRIBUTE    '4'
+D$ATTRIBUTE         '10h'
+A$ATTRIBUTE         '20h'
 FORMAT$ATTRIBUTE    '80h'
 
 $file(aft.plm)
@@ -1017,7 +1019,7 @@ attrib: PROCEDURE(file$ptr, swid, value) PUBLIC;
                                    SYSTEM$ATTRIBUTE,
                                    WRITEP$ATTRIBUTE,
                                    FORMAT$ATTRIBUTE,
-                                   0, 10h, 20h);    /* additional attributes */
+                                   0, D$ATTRIBUTE, A$ATTRIBUTE);    /* additional attributes */
 
     if swid > 6 or swid = 4 then
         call warn(BAD$ATTRIB);
@@ -1387,72 +1389,56 @@ diskio:
 ;              iopb2 ADDRESS;             /* winchester iopb */
 ;     DECLARE offsets(4) address data(0, 128, 256, 384);
         
-;     iopb2 = iopb;
-        xchg
+        xchg                ;     iopb2 = iopb;
         SHLD    IOPB2
-;     track = dcb.tadr;
-        LXI     B,3H
+        LXI     B,3H        ;     track = dcb.tadr;
         lhld    iopb
         DAD     B
         MOV     A,M
         STA     TRACK
-;     sector = dcb.sadr;
-        inx     h
+        inx     h           ;     sector = dcb.sadr;
         MOV     A,M
         STA     SECTOR
-;     wiIopb.sector = sector - 1;
-        DCR     A
+        DCR     A           ;     wiIopb.sector = sector - 1;
         STA     WIIOPB+11H
-;     ival = input(0fch);
-        IN      0FCH
+        IN      0FCH        ;     ival = input(0fch);
         STA     IVAL
-;     output(0fch) = ival or 2;
-        ORI     2H
+        ORI     2H          ;     output(0fch) = ival or 2;
         OUT     0FCH
-;     dkcont = dk$ct$tb(drive);
-        LHLD    DRIVE
+        LHLD    DRIVE       ;     dkcont = dk$ct$tb(drive);
         MVI     H,0
         LXI     B,DKCTTB
         DAD     B
         MOV     A,M
         STA     DKCONT
-;     sd$drv = FALSE;
-        LXI     H,SDDRV
+        LXI     H,SDDRV     ;     sd$drv = FALSE;
         MVI     M,0H
-;     diskHW = dk$cf$tb(drive);
-        LHLD    DRIVE
+        LHLD    DRIVE       ;     diskHW = dk$cf$tb(drive);
         MVI     H,0
         LXI     B,DKCFTB
         DAD     B
         MOV     A,M
         STA     DISKHW
-;     if diskHW = SD$TYPE then    /* SD disk (Not ISD) */
-        CPI     2H
+        CPI     2H          ;     if diskHW = SD$TYPE then    /* SD disk (Not ISD) */
         JNZ     @1
-;         if drive then
-        LDA     DRIVE
+        LDA     DRIVE       ;         if drive then
         RAR
         JNC     @1
-;         do;
-;             sd$drv = TRUE;
-        LXI     H,SDDRV
+                            ;         do;
+        LXI     H,SDDRV     ;             sd$drv = TRUE;
         MVI     M,0FFH
-;             dcb.sadr = dcb.sadr OR 20h;     /* set selector flag */
-        LXI     B,4H
+        LXI     B,4H        ;             dcb.sadr = dcb.sadr OR 20h;     /* set selector flag */
         LHLD    IOPB
         DAD     B
         MVI     A,20H
         ORA     M
         MOV     M,A
-;         end;
-@1:
-;     if diskHW = WD$TYPE then  /* hard disk */
-        LDA     DISKHW
+@1:                         ;         end;
+        LDA     DISKHW      ;     if diskHW = WD$TYPE then  /* hard disk */
         CPI     9H
         JNZ     @2
-;     do;
-;         realTk = DOUBLE(dcb.tadr) * 3;
-        LXI     B,3H
+                            ;     do;
+        LXI     B,3H        ;         realTk = DOUBLE(dcb.tadr) * 3;
         LHLD    IOPB
         DAD     B
         mov     l,m
@@ -1461,71 +1447,54 @@ diskio:
         dad     h
         dad     b
         SHLD    REALTK
-;         if wiIopb.sector >= 140 then
-        lxi     h,wiiopb+11h
+        lxi     h,wiiopb+11h ;        if wiIopb.sector >= 140 then
         mov     a,m
         CPI     8CH
         JC     @3
-;         do;
-;             wiIopb.sector = wiIopb.sector - 140;
-        SUI     8CH
+                            ;         do;
+        SUI     8CH         ;             wiIopb.sector = wiIopb.sector - 140;
         mov     m,a
-;             realtk = realtk + 2;
-        LHLD    REALTK
+        LHLD    REALTK      ;             realtk = realtk + 2;
         INX     H
         INX     H
         SHLD    REALTK
-;         end;
-        JMP     @4
+        JMP     @4          ;         end;
 @3:
-;         else if wiIopb.sector >= 70 then
-        CPI     46H
+        CPI     46H         ;         else if wiIopb.sector >= 70 then
         JC     @5
-;         do;
-;             wiIopb.sector = wiIopb.sector - 70;
-        SUI     46H
+                            ;         do;
+        SUI     46H         ;             wiIopb.sector = wiIopb.sector - 70;
         mov     m,a
-;             realtk = realtk + 1;
-        LHLD    REALTK
+        LHLD    REALTK      ;             realtk = realtk + 1;
         INX     H
         SHLD    REALTK
-;         end;
-@5:
+@5:                         ;         end;
 @4:
-;         wiIopb.head = realTk mod 5;
-        LHLD    REALTK
+        LHLD    REALTK      ;         wiIopb.head = realTk mod 5;
         XCHG
         LXI     H,5H
         CALL    @P0029 
         mov     a,l
         sta     wiiopb+10h
-;         wiIopb.cyl = realtk / 5 + offsets(drive);
-        LHLD    DRIVE
+        LHLD    DRIVE       ;         wiIopb.cyl = realtk / 5 + offsets(drive);
         MVI     H,0
-        LXI     B,OFFSET        ; name truncated for asm
+        LXI     B,OFFSET
         DAD     H
         DAD     B
         CALL    @P0016 
         SHLD    WIIOPB+0EH
-;         if (dcb.ioins and 0fh) <> CMD$READ then
-        LHLD    IOPB
+        LHLD    IOPB        ;         if (dcb.ioins and 0fh) <> CMD$READ then
         INX     H
         mov     a,m
         ani     0fh
         CPI     4H
         JZ      @6
-;             if (dcb.ioins and 0fh) <> CMD$WRITE then
-        CPI     6H
-;                 return;
-
-
-        rnz
+        CPI     6H          ;             if (dcb.ioins and 0fh) <> CMD$WRITE then
+        rnz                 ;                 return;
 @7:
 @6:
-;         wiIopb.function = dcb.ioins and 0fh;
-        STA     WIIOPB+0BH
-;         wiIopb.count(0) = dcb.nsec * 128;          
-        inx     h
+        STA     WIIOPB+0BH  ;         wiIopb.function = dcb.ioins and 0fh;
+        inx     h           ;         wiIopb.count(0) = dcb.nsec * 128;          
         mov     a,m
         stc
         cmc
@@ -1534,8 +1503,7 @@ diskio:
         mvi     a,0
         rar
         sta     wiiopb+16h
-;         wiIopb.buf(0) = dcb.buf;
-        inx     h
+        inx     h           ;         wiIopb.buf(0) = dcb.buf;
         inx     h
         inx     h
         MOV     E,M
@@ -1543,15 +1511,12 @@ diskio:
         MOV     D,M
         XCHG
         SHLD    WIIOPB+12H
-;         iopb2 = .wiIopb;
-        LXI     H,WIIOPB
+        LXI     H,WIIOPB    ;         iopb2 = .wiIopb;
         SHLD    IOPB2
-;     end;
-        JMP     @8
+        JMP     @8          ;     end;
 @2:
-;     else       
-;         dcb.ioins = unit$mp(drive) or dcb.ioins;
-        LHLD    DRIVE
+                            ;     else       
+        LHLD    DRIVE       ;         dcb.ioins = unit$mp(drive) or dcb.ioins;
         MVI     H,0
         LXI     B,UNITMP
         DAD     B
@@ -1561,38 +1526,27 @@ diskio:
         ORA     M
         MOV     M,A
 @8:
-        
-; /* converted from do i = ... to while loop */
-;     i = 0; 
-
-
-        LXI     H,I
+                            ; /* converted from do i = ... to while loop */
+        LXI     H,I         ;     i = 0; 
         MVI     M,0H
-;     do while i <= MAX$RETRIES;
-@17:
+@17:                        ;     do while i <= MAX$RETRIES;
         MVI     A,0AH
         CMP     M
         JC      @18
-;         if diskHW <> WD$TYPE then
-        LDA     DISKHW
+        LDA     DISKHW      ;         if diskHW <> WD$TYPE then
         CPI     9H
         JZ      @9
-;             do while (dk$stat AND 4) <> 0;
-@19:
+@19:                        ;             do while (dk$stat AND 4) <> 0;
         CALL    DKSTAT
         ANI     4H
         CPI     0H
         JZ      @20
-;                 temp1 = r$type; /* assignments removed in asm */
-        CALL    RTYPE
-;                 temp1 = r$byte;
-        CALL    RBYTE
-;             end;
-        JMP     @19
+        CALL    RTYPE       ;                 temp1 = r$type; /* assignments removed in asm */
+        CALL    RBYTE       ;                 temp1 = r$byte;
+        JMP     @19         ;             end;
 @20:
 @9:
-;         if (dk$stat AND rdy$msk(drive)) = 0 then
-        CALL    DKSTAT
+        CALL    DKSTAT      ;         if (dk$stat AND rdy$msk(drive)) = 0 then
         LHLD    DRIVE
         MVI     H,0
         LXI     B,RDYMSK
@@ -1600,137 +1554,104 @@ diskio:
         ANA     M
         CPI     0H
         JNZ     @10
-;             call abortx(DRIVE$NOT$READY);
-        MVI     C,1EH
+        MVI     C,1EH       ;             call abortx(DRIVE$NOT$READY);
         CALL    ABORTX
 @10:
-;         call strt$io(iopb2);
-        LHLD    IOPB2
+        LHLD    IOPB2       ;         call strt$io(iopb2);
         MOV     B,H
         MOV     C,L
         CALL    STRTIO
-;         temp1 = r$type;
-
-
-        CALL    RTYPE
+        CALL    RTYPE       ;         temp1 = r$type;
         STA     TEMP1
-;         if (temp2 := r$byte) = 0 then
-        CALL    RBYTE
+        CALL    RBYTE       ;         if (temp2 := r$byte) = 0 then
         STA     TEMP2
         CPI     0H
         JNZ     @11
-;         do;
-;             output(0fch) = ival;
-        LDA     IVAL
+                            ;         do;
+        LDA     IVAL        ;             output(0fch) = ival;
         OUT     0FCH
-;             return;
-        RET
-;         end;
-@11:
-;         if diskHW = WD$TYPE then
-        LDA     DISKHW
+        RET                 ;             return;
+@11:                        ;         end;
+        LDA     DISKHW      ;         if diskHW = WD$TYPE then
         CPI     9H
         JNZ     @12
-;         do;
-;             if (i := i + 1) = 5 then
-        lxi     h,i
+                            ;         do;
+        lxi     h,i         ;             if (i := i + 1) = 5 then
         inr     m
         mov     a,m
         CPI     5H
         jnz     @17
-;                 call strt$io(.wRcal$pb);
-        LXI     B,WRCALB            ; name reduced to 6 chars
+        LXI     B,WRCALB    ;                 call strt$io(.wRcal$pb);
         CALL    STRTIO
 @13:
-;         end;
-        lxi     h,i
+        lxi     h,i         ;         end;
         jmp     @17
 @12:
-;         else
-;         do;
-;             if sd$drv then
-        LDA     SDDRV
+                            ;         else
+                            ;         do;
+        LDA     SDDRV       ;             if sd$drv then
         RAR
         JNC     @15
-;                  rcal$pb.sadr = rcal$pb.sadr OR 20h;
-        LDA     RCALPB+4H
+        LDA     RCALPB+4H   ;                  rcal$pb.sadr = rcal$pb.sadr OR 20h;
         ORI     20H
         STA     RCALPB+4H
 @15:
-;              rcal$pb.ioins = rcal$pb.ioins OR unit$mp(drive);
-        LHLD    DRIVE
-
-
+        LHLD    DRIVE       ;              rcal$pb.ioins = rcal$pb.ioins OR unit$mp(drive);
         MVI     H,0
         LXI     B,UNITMP
         DAD     B
         LDA     RCALPB+1H
         ORA     M
         STA     RCALPB+1H
-;              call strt$io(.rcal$pb);
-        LXI     B,RCALPB
+        LXI     B,RCALPB    ;              call strt$io(.rcal$pb);
         CALL    STRTIO
-;             if (i := i + 1) = 0 then
-        lxi     h,i
+        lxi     h,i         ;             if (i := i + 1) = 0 then
         inr     m
         jnz     @17
-;                 goto done;
-@16:
-;         end;
-@14:
-;     end;
-@18:
-; done:
-DONE:
-;     errDrv = drive;
-        LDA     DRIVE
+@16:                        ;                 goto done;
+@14:                        ;         end;
+@18:                        ;     end;
+DONE:                       ; done:
+        LDA     DRIVE       ;     errDrv = drive;
         STA     ERRDRV
-;     vec$0E, c$dk$sat = temp;
-        LHLD    TEMP
+        LHLD    TEMP        ;     vec$0E, c$dk$sat = temp;
         SHLD    VEC0E
         SHLD    CDKSAT
-;     output(0fch) = ival;
-        LDA     IVAL
+        LDA     IVAL        ;     output(0fch) = ival;
         OUT     0FCH
-;     call trap0B;
-        CALL    TRAP0B
-;     output(0fch) = ival OR 2;
-        LDA     IVAL
+        CALL    TRAP0B      ;     call trap0B;
+        LDA     IVAL        ;     output(0fch) = ival OR 2;
         ORI     2H
         OUT     0FCH
-;     call abortx(DISK$IO$ERROR);
-        MVI     C,18H
+        MVI     C,18H       ;     call abortx(DISK$IO$ERROR);
         CALL    ABORTX
-; end;
-        RET
+        RET                 ; end;
+
 ; absio: PROCEDURE(cmd, disk, block, buffer)  PUBLIC;
     public  absio
 absio:
-;            ; PROC  ABSIO
 ;     DECLARE (cmd, disk) BYTE, (block, buffer) ADDRESS;
 ;     DECLARE tsadr ADDRESS AT (.absdcb.tadr); /* to allow tadr & sadr write together */
-;     absdcb.buf = buffer;
-        xchg                    ; load buffer from de
+
+        xchg                ;     absdcb.buf = buffer;    /* buffer in de */
         SHLD    ABSDCB+5H
-;     tsadr = block;
-        lxi     h,absdcb+4      ; load block from bc
+        lxi     h,absdcb+4  ;     tsadr = block;          /* block in bc */
         mov     m,c
         dcx     h
         mov     m,b
-        pop     d               ; return address
-        pop     b               ; c = disk
-        mov     a,c             ; a = disk
-        pop     b               ; c = command
-        push    d               ; restore return address
+        pop     d           ; return address
+        pop     b           ; c = disk
+        mov     a,c         ; a = disk
+        pop     b           ; c = command
+        push    d           ; restore return address
 ;     absdcb.ioins = cmd;
-        dcx     h               ; insert cmd in absdcb
+        dcx     h           ; insert cmd in absdcb
         dcx     h
         mov     m,c
-;     call diskio(disk, .absdcb);
-        mov     c,a             ; disk
+        mov     c,a        ;     call diskio(disk, .absdcb);
         LXI     D,ABSDCB
         CALL    DISKIO
-; end;
+                           ; end;
         RET
 ; abs$rd: PROCEDURE(block, buffer) PUBLIC;
     public  absrd
@@ -1871,41 +1792,34 @@ num:    LXI     H,BUFP+1H
 ; DECLARE value ADDRESS, base BYTE, bufp ADDRESS;
 ; DECLARE buf based bufp (4) BYTE;
 ; DECLARE (div, digit) ADDRESS, (i, offset) BYTE;
-; do i = 1 to 4;
-    LXI     H,I
+
+    LXI     H,I         ;     do i = 1 to 4;
     MVI     M,1H
 @11:
     MVI     A,4H
-;   LXI     H,I ; optimised
     CMP     M
     JC      @12
-;   offset = '0';
-    LXI     H,OFFSET
+    LXI     H,OFFSET    ;       offset = '0';
     MVI     M,30H
-; div = value / base;
-    LHLD    VALUE
+    LHLD    VALUE       ;       div = value / base;
     XCHG
     LHLD    BASE
     MVI     H,0
     CALL    @P0029 
     XCHG
     SHLD    DIV
-; digit = value - div * base;
-    XCHG
+    XCHG                ;       digit = value - div * base;
     CALL    @P0035 
     LXI     D,VALUE
     CALL    @P0102 
     SHLD    DIGIT
-;   if digit > 9 then
-    MVI     A,9H
+    MVI     A,9H        ;       if digit > 9 then
     CALL    @P0094 
     JNC     @1
-;     offset = '7';
-    LXI     H,OFFSET
+    LXI     H,OFFSET    ;         offset = '7';
     MVI     M,37H
 @1:
-;   buf(4 - i) = digit + offset;
-    LDA     OFFSET
+    LDA     OFFSET      ;       buf(4 - i) = digit + offset;
     LXI     D,DIGIT
     CALL    @P0014 
     XCHG
@@ -1917,209 +1831,154 @@ num:    LXI     H,BUFP+1H
     LHLD    BUFP
     DAD     B
     MOV     M,E
-;   value = div;
-    LHLD    DIV
+
+    LHLD    DIV         ;       value = div;
     SHLD    VALUE
-; end;
 @13:
-    LXI     H,I
+    LXI     H,I         ;     end;
     INR     M
     JNZ     @11
 @12:
-; do i = 0 to 2;
-;   LXI     H,I optimised
-    MVI     M,0H
+    MVI     M,0H        ;     do i = 0 to 2;
 @14:
     MVI     A,2H
-;   LXI     H,I optimised
     CMP     M
     JC      @15
-;   if buf(i) = '0' then
-;   LHLD    I   optimised
-    mov l,m
+    mov l,m             ;       if buf(i) = '0' then
     MVI     H,0
     XCHG
     LHLD    BUFP
     DAD     D
     MOV     A,M
     CPI     30H
-    rnz         ; optimised
-;     buf(i) = ' ';
-;   LHLD    I   optimised
-;   MVI     H,0
-;   XCHG
-;   LHLD    BUFP
-;   DAD     D
-    MVI     M,20H
-@2:
-;   else
-;     return;
-@3:
-; end;
-@16:
-    LXI     H,I
+    rnz
+    MVI     M,20H       ;         buf(i) = ' ';
+    LXI     H,I         ;     end;
     INR     M
     JNZ     @14
 @15:
-; end;
+                        ; end;
     RET
     
     
 ; err: PROCEDURE(severity, error$type) PUBLIC;
 err:    LXI     H,ERRTYP
-    MOV     M,E
-    DCX     H
+        MOV     M,E
+        DCX     H
 ; DECLARE (severity, error$type, j, imax) BYTE;
 ; DECLARE pc BASED usrSP ADDRESS;
-    
-; if (severity := severity or global$severity) <> WARNING then 
-    LDA     GBLSEV
-    ora     c       ; passed in severity
-    MOV     M,A
-    JZ      @4
-; do;
-;   call num(error$type, 10, .msg2);
-    LHLD    ERRTYP
-    MVI     H,0
-    PUSH    H 
-    LXI     D,MSG2
-    MVI     C,0AH
-    CALL    NUM
-;   call num(pc, 16, .msg4);    
-    LHLD    USRSP
-    MOV     C,M
-    INX     H
-    MOV     B,M
-    PUSH    B 
-    LXI     D,MSG4
-    MVI     C,10H
-    CALL    NUM
-;   call ioset((iochk AND CMSK) OR (initio AND 3));
-    CALL    IOCHK
-    ANI     0FCH
-    mov     c,a
-    LDA     INITIO
-    ANI     3H
-    ORA     C
-    MOV     C,A
-    CALL    IOSET
-;   imax = 26;  /* number of characters in normal error message */
-    LXI     H,IMAX
-    MVI     M,1AH
-;   if error$type = DISK$IO$ERROR then
-    LDA     ERRTYP
-    CPI     18H
-    JNZ     @5
-;   do;
-;     if high(c$dk$sat) <> 0 then
-    LHLD    CDKSAT
-    MOV     A,H
-    CPI     0H
-    JZ      @6
-;     c$dk$sat = 128;
-    LXI     H,80H
-    SHLD    CDKSAT
+        LDA     GBLSEV      ;    if (severity := severity or global$severity) <> WARNING then
+        ora     c 
+        MOV     M,A
+        JZ      @4
+                            ;    do;
+        LHLD    ERRTYP      ;        call num(error$type, 10, .msg2);
+        MVI     H,0
+        PUSH    H 
+        LXI     D,MSG2
+        MVI     C,0AH
+        CALL    NUM
+        LHLD    USRSP       ;        call num(pc, 16, .msg4);  
+        MOV     C,M
+        INX     H
+        MOV     B,M
+        PUSH    B 
+        LXI     D,MSG4
+        MVI     C,10H
+        CALL    NUM
+        CALL    IOCHK       ;        call ioset((iochk AND CMSK) OR (initio AND 3));
+        ANI     0FCH
+        mov     c,a
+        LDA     INITIO
+        ANI     3H
+        ORA     C
+        MOV     C,A
+        CALL    IOSET
+
+        LXI     H,IMAX      ;        imax = 26;  /* number of characters in normal error message */
+        MVI     M,1AH
+        LDA     ERRTYP      ;        if error$type = DISK$IO$ERROR then
+        CPI     18H
+        JNZ     @5
+                            ;        do;
+        LHLD    CDKSAT      ;            if high(c$dk$sat) <> 0 then
+        MOV     A,H
+        CPI     0H
+        JZ      @6
+        LXI     H,80H       ;                c$dk$sat = 128;
+        SHLD    CDKSAT
 @6:
-    push    h   ; optimised LHLD CDKSAT below
-;     imax = 59;
-    LXI     H,IMAX
-    MVI     M,3BH
-;     call num(c$dk$sat, 16, .msg6);
-;   LHLD    CDKSAT  ; optimised see above
-;   PUSH    H
-    LXI     D,MSG6
-    MVI     C,10H
-    CALL    NUM
-;     errdrv = errdrv or '0'; /* convert drive to ascii number */
-    LDA     ERRDRV
-    ORI     30H
-    STA     ERRDRV
-;     call num(track, 10, .msg10);
-    LHLD    TRACK
-    MVI     H,0
-    PUSH    H       ; 1
-    LXI     D,MSG10
-    MVI     C,0AH
-    CALL    NUM
-;     call num(sector, 10, .msg13);
-    LHLD    SECTOR
-    MVI     H,0
-    PUSH    H       ; 1
-    LXI     D,MSG13
-    MVI     C,0AH
-    CALL    NUM
-; end;
+        push    h 
+        LXI     H,IMAX      ;            imax = 59;
+        MVI     M,3BH
+        LXI     D,MSG6      ;            call num(c$dk$sat, 16, .msg6);
+        MVI     C,10H
+        CALL    NUM
+        LDA     ERRDRV      ;            errdrv = errdrv or '0'; /* convert drive to ascii number */
+        ORI     30H
+        STA     ERRDRV
+        LHLD    TRACK       ;            call num(track, 10, .msg10);
+        MVI     H,0
+        PUSH    H 
+        LXI     D,MSG10
+        MVI     C,0AH
+        CALL    NUM
+        LHLD    SECTOR      ;            call num(sector, 10, .msg13);
+        MVI     H,0
+        PUSH    H
+        LXI     D,MSG13
+        MVI     C,0AH
+        CALL    NUM
+                            ;        end;
 @5:
-;   do j = 0 to imax;
-    lda     imax
-    lxi     h,msg1
+        lda     imax        ;        do j = 0 to imax;
+        lxi     h,msg1
 @17:
-;   LXI     H,J optimised
-;     call co(msg1(j));
-;   LHLD    J   optimised
-;   end;
-@19:
-    mov     c,m
-    push    psw
-    push    h
-    call    CO
-    pop     h
-    pop     psw
-    inx     h
-    dcr     a
-    JNZ     @17
+        mov     c,m         ;            call co(msg1(j));
+        push    psw
+        push    h
+        call    CO
+        pop     h
+        pop     psw
+        inx     h           ;        end;
+        dcr     a
+        JNZ     @17
 @18:
-; end;
-    JMP     @7
-@4:
-; else
-; do;
-;   userStatus = error$type;
-    LHLD    USTATP
-    LDA     ERRTYP
-    MOV     M,A
-    INX     H
-    MVI     M,0
-;   STACKPTR = usrSP;
-    LHLD    USRSP
-    SPHL
-; end;
-@7:
-; if severity >= ABORT then
-    LDA     SEVERE
-    CPI     2H
-    JC      @8
-; do;
-;   if debug$toggle then
-    LDA     DTOGLE
-    RAR
-;     call trap;  /* trap to monitor */
-    cc      trap    
+        JMP     @7          ;    end;
+@4:                         ;    else
+                            ;    do;
+        LHLD    USTATP      ;        userStatus = error$type;
+        LDA     ERRTYP
+        MOV     M,A
+        INX     H
+        MVI     M,0
+        LHLD    USRSP       ;        STACKPTR = usrSP;
+        SPHL
+@7:                         ;    end;
+        LDA     SEVERE      ;    if severity >= ABORT then
+        CPI     2H
+        JC      @8
+                            ;    do;
+        LDA     DTOGLE      ;        if debug$toggle then
+        RAR
+        cc      trap        ;            call trap;  /* trap to monitor */
 @9:
-;   if ISIS$E then      /* Parameter 1 of the ISIS 'E' command */
-    LDA     ISISE
-    RAR
-    JNC     @10
-;   do;
-;     userStatus = error$type;
-    LHLD    USTATP
-    LDA     ERRTYP
-    MOV     M,A
-    INX     H
-    MVI     M,0
-;     STACKPTR = usrSP;
-    LHLD    USRSP
-    SPHL
-;     return;
-    RET
-; end;
-@10:
-; call reboot;
-    CALL    REBOOT
-; end;
-@8:
-; end;
-    RET
+        LDA     ISISE       ;        if ISIS$E then      /* Parameter 1 of the ISIS 'E' command */
+        RAR
+        JNC     @10
+                            ;        do;
+        LHLD    USTATP      ;            userStatus = error$type;
+        LDA     ERRTYP
+        MOV     M,A
+        INX     H
+        MVI     M,0
+        LHLD    USRSP       ;            STACKPTR = usrSP;
+        SPHL
+        RET                 ;            return;
+@10:                        ;       end;
+        CALL    REBOOT      ;      call reboot;
+@8:                         ;    end;
+        RET                 ; end;
         
         
 ; abortx: PROCEDURE(errcode) PUBLIC;
@@ -2412,24 +2271,19 @@ ACCESS  equ 2   ; offset of aft.access
 DEVICE  equ 1   ; offset of aft.device
 
     CSEG
-; transfer$dir$aft: PROCEDURE;    /* copy data from directory to aft entry */
-;            ; PROC  TRANSFERDIRAFT
-;     a$eof$data$ptr = direct.eof$count;
-dr2aft: LHLD    AEOPP
+                            ; transfer$dir$aft: PROCEDURE;    /* copy data from directory to aft entry */
+dr2aft: LHLD    AEOPP       ;     a$eof$data$ptr = direct.eof$count;
         LDA     DIRECT+0BH
         MOV     M,A
-;     a$blk$count = direct.blk;
-        LHLD    DIRECT+0CH
+        LHLD    DIRECT+0CH  ;     a$blk$count = direct.blk;
         xchg
         LHLD    ABCNTP
         MOV     M,E
         INX     H
         MOV     M,D
-; end;
-        RET
+        RET                 ; end;
         
 ; open: PROCEDURE(pathname, access$mode, lined$aft) BYTE PUBLIC;
-;            ; PROC  OPEN
 open:   LXI     H,LINEDA+1H
         MOV     M,D
         DCX     H
@@ -2450,12 +2304,8 @@ open:   LXI     H,LINEDA+1H
 ;     DECLARE temp$buf ADDRESS;
 ;     DECLARE bytes BASED temp$buf (128) BYTE;
 ;     DECLARE addr BASED temp$buf (64) ADDRESS;
-        
-        
-        
-        
-;     if (reqAcc := access$mode) = 0 or access$mode > 3 then 
-        LHLD    mode
+
+        LHLD    mode    ;     if (reqAcc := access$mode) = 0 or access$mode > 3 then 
         mov     a,l
         sta     reqacc
         cpi     0
@@ -2463,19 +2313,16 @@ open:   LXI     H,LINEDA+1H
         MVI     A,3H
         CALL    @P0094
         JNC     @1
-;         call warn(BAD$ACCESS);
 L0F30:
-        MVI     C,16H
+        MVI     C,16H   ;         call warn(BAD$ACCESS);`
         CALL    WARN
 @1:
-;     call xpath(pathname, .pn);
-        LHLD    PATHNM
+        LHLD    PATHNM  ;     call xpath(pathname, .pn);
         MOV     B,H
         MOV     C,L
         LXI     D,PN
         CALL    XPATH
-;     if (i := supportedAccess(pn(0))) <> 3 then
-        LHLD    PN
+        LHLD    PN      ;     if (i := supportedAccess(pn(0))) <> 3 then
         MVI     H,0
         LXI     B,SUPACC
         DAD     B
@@ -2483,62 +2330,47 @@ L0F30:
         STA     I
         CPI     3H
         JZ      @2
-;         if i <> reqAccess then
-        LXI     H,REQACC
-;       LDA     I   optimised
+        LXI     H,REQACC ;         if i <> reqAccess then
         CMP     M
-;             call warn(BAD$ACCESS);
-        MVI     C,16H
+        MVI     C,16H   ;             call warn(BAD$ACCESS);
         cnz     warn
 @3:
 @2:
-;     if pn(0) = CIDEV then
-        LDA     PN
-        mov     c,a     ; for next block
-;        JNZ     @4
-        cpi     1bh     
-;         return CI$AFT;
-        MVI     A,1H
+
+        LDA     PN      ;     if pn(0) = CIDEV then
+        mov     c,a
+        cpi     1BH     
+        MVI     A,1H    ;         return CI$AFT;
         rz
 @4:
-;     if pn(0) = CODEV then
-;       LDA     PN  optimised
-        mov     a,c
+        mov     a,c     ;     if pn(0) = CODEV then
         CPI     1CH
-;         return CO$AFT;
-        MVI     A,0H
+        MVI     A,0H    ;         return CO$AFT;
         rz
 @5:
-;     call aft$window(aftn := get$aft$slot);
-        CALL    GASLOT
+        CALL    GASLOT  ;     call aft$window(aftn := get$aft$slot);
         STA     AFTN
         MOV     C,A
         CALL    AWINDO
-;     a$access = reqAccess;
-        LHLD    AACESP
+        LHLD    AACESP  ;     a$access = reqAccess;
         LDA     REQACC
         MOV     M,A
-;     a$edit = 0;
-        LHLD    AEDITP
+        LHLD    AEDITP  ;     a$edit = 0;
         MVI     M,0H
-;     if lined$aft <> 0 then
-        lhld    lineda
+        lhld    lineda  ;     if lined$aft <> 0 then
         mov     a,h
         ORA     L
         JZ      @6
-;     do;
-;         a$edit = AFT$BOTTOM + low(lined$aft);
-        MOV     A,L
+                        ;     do;
+        MOV     A,L     ;         a$edit = AFT$BOTTOM + low(lined$aft);
         ADI     0AH
         LHLD    AEDITP
         MOV     M,A
-;         if aft(a$edit).access <> 2 OR (reqAccess AND 1) = 0 then
-;       LHLD    AEDITP  optimised
-        mov     l,a
+        mov     l,a     ;         if aft(a$edit).access <> 2 OR (reqAccess AND 1) = 0 then
         MVI     H,0
         LXI     D,1CH
         CALL    @P0034 
-        LXI     B,AFT+2 ; aft.access
+        LXI     B,AFT+2
         DAD     B
         MOV     A,M
         cpi     2
@@ -2546,49 +2378,39 @@ L0F30:
         LDA     REQACC
         ANI     1H
         jnz     @7
-;             call warn(BAD$ECHO);
+
 L0FAA:
-        MVI     C,19H
+        MVI     C,19H   ;             call warn(BAD$ECHO);
         CALL    WARN
 @7:
-;     end;
-@6:
-;     if (a$device := pn(0)) <= F9DEV then
-        LHLD    ADEVP
+
+@6:                     ;     end;
+
+        LHLD    ADEVP   ;     if (a$device := pn(0)) <= F9DEV then
         LDA     PN
         MOV     M,A
         MVI     A,9H
         cmp     m
         JC      @8
-;     do;
-;         found = dlook(.PN);
-        LXI     B,PN
+                        ;     do;
+        LXI     B,PN    ;         found = dlook(.PN);
         CALL    DLOOK
         STA     FOUND
-;         if found then
-;       LDA     FOUND   optimised
-        RAR
+        RAR             ;         if found then
         JNC     @9
-;             do i = AFT$BOTTOM TO AFT$LAST;
-        LXI     H,I
+        LXI     H,I     ;             do i = AFT$BOTTOM TO AFT$LAST;
         MVI     M,0AH
 @27:
         MVI     A,11H
-;       LXI     H,I optimised
         CMP     M
         JC      @28
-;                 call aft$window(i);
-;       LHLD    I   optimised
-;       MOV     C,L
-        mov c,m
+        mov c,m         ;                 call aft$window(i);
         CALL    AWINDO
-;                 if not a$empty then
-        LHLD    AEMTYP
+        LHLD    AEMTYP  ;                 if not a$empty then
         MOV     A,M
         RAR
         JC      @10
-;                     if a$i$no = direct$i$no and a$device = pn(0) then
-        LHLD    AINOP
+        LHLD    AINOP   ;                     if a$i$no = direct$i$no and a$device = pn(0) then
         LXI     D,DIRINO
         CALL    @P0099 
         ORA     L
@@ -2596,147 +2418,112 @@ L0FAA:
         LHLD    ADEVP
         LDA     PN
         cmp     m
-;                         call warn(ALREADY$OPEN);
-        MVI     C,0CH
+        MVI     C,0CH   ;                         call warn(ALREADY$OPEN);
         cz      warn
 @11:
 @10:
-;             end;
+                        ;             end;
 @29:
         LXI     H,I
         INR     M
         JNZ     @27
 @28:
 @9:
-;         call aft$window(aftn);
-        LHLD    AFTN
+        LHLD    AFTN    ;         call aft$window(aftn);
         MOV     C,L
         CALL    AWINDO
-;         temp = 0;
-        LXI     H,TEMP
+        LXI     H,TEMP  ;         temp = 0;
         MVI     M,0H
-;         a$i$no = direct$i$no;
-;       PUSH    H   optimised
-        LHLD    DIRINO
+        LHLD    DIRINO  ;         a$i$no = direct$i$no;
         XCHG
         lhld    AINOP
-;       POP     H   optimised
         MOV     M,E
         INX     H
         MOV     M,D
-;         if reqAccess = 1 then
-        LDA     REQACC
+        LDA     REQACC  ;         if reqAccess = 1 then
         CPI     1H
-;         do;
-;             if not found then
-        LDA     FOUND
+        LDA     FOUND   ;             if not found then
            jnz    @12
         RAR
-;                 call warn(NO$SUCH$FILE);
-        MVI     C,0DH
+        MVI     C,0DH   ;                 call warn(NO$SUCH$FILE);
         cnc     warn
 @13:
-;         end;
         JMP     @14
 @12:
-;         else
-;         do;
-;             if not found then
-        RAR
-        JC      @15
-;             do;
-;                 if direct$i$no = 0ffffh then
-        LXI     B,0FFFFH
+                        ;         else
+                        ;         do;
+        RAR             ;             if not found then
+        JC      @15     ;             do;
+        LXI     B,0FFFFH ;                 if direct$i$no = 0ffffh then`
         LXI     D,DIRINO
         CALL    @P0100 
-        ORA     L
-;                     call warn(DIRECTORY$FULL);
-        MVI     C,9H
+        ora     l
+        MVI     C,9H    ;                     call warn(directory$full);
         cz      warn
 @16:
-;                 direct.blk = 0;
-        LXI     H,0H
+        LXI     H,0H    ;                  direct.blk = 0;
         SHLD    DIRECT+0CH
-;                 direct.eof$count = 128;
-        LXI     H,DIRECT+0BH
+        LXI     H,DIRECT+0BH ;             direct.eof$count = 128;
         MVI     M,80H
-;                 direct.attrib = 0;
-        DCX     H
+        DCX     H       ;                 direct.attrib = 0;
         MVI     M,0H
-;             end;
+                        ;             end;
 @15:
-;             call chk$write$protect;
-        CALL    CKWRIP
-;             direct.attrib = direct.attrib or 30h
-        LXI     H,DIRECT+0AH
+        CALL    CKWRIP  ;             call chk$write$protect;`
+
+        LXI     H,DIRECT+0AH ;        direct.attrib = direct.attrib or (A$ATTRIBUTE or D$ATTRIBUTE);
         MOV     A,M
         ORI     30H
         MOV     M,A
-;             call transfer$dir$aft;
-        CALL    DR2AFT
-;         end;
+        CALL    DR2AFT  ;             call transfer$dir$aft;
+                        ;         end;
 @14:
-;         a$hdr$blk = direct.hdr$blk;
-        LHLD    DIRECT+0EH
+        LHLD    DIRECT+0EH  ;     a$hdr$blk = direct.hdr$blk;
         XCHG
         lhld    ahblkp
-;       POP     H   optimised
         MOV     M,E
         INX     H
         MOV     M,D
-;         a$dbuf = get$buf;
-        CALL    GETBUF
+        CALL    GETBUF  ;         a$dbuf = get$buf;
         xchg
         LHLD    ADBUFP
         mov     m,e
         INX     H
         mov     m,d
-;         a$pbuf = get$buf;
-        CALL    GETBUF
+        CALL    GETBUF  ;         a$pbuf = get$buf;
         xchg
         LHLD    APBUFP
         mov     m,e
         INX     H
         mov     m,d
-;         if reqAccess = 2 and found then
-        LDA     REQACC
+        LDA     REQACC  ;         if reqAccess = 2 and found then
         cpi     2
         jnz     @17
         lda     FOUND
         RAR
         JNC     @17
-;         do;
-;             call del(a$device);
-        LHLD    ADEVP
+                        ;         do;
+        LHLD    ADEVP   ;             call del(a$device);
         MOV     C,M
         CALL    DEL
-;             call aft$window(aftn);
-        LHLD    AFTN
+        LHLD    AFTN    ;             call aft$window(aftn);
         MOV     C,L
         CALL    AWINDO
-;             direct.blk = 0;
-        LXI     H,0H
+        LXI     H,0H    ;             direct.blk = 0;
         SHLD    DIRECT+0CH
-;             direct.eof$count = 128;
-        LXI     H,DIRECT+0BH
+        LXI     H,DIRECT+0BH ;        direct.eof$count = 128;
         MVI     M,80H
-;         end;
-@17:
-;         call transfer$dir$aft;
-        CALL    DR2AFT
-;         ival = input(0fch);
-        IN      0FCH
+@17:                    ;         end;
+        CALL    DR2AFT  ;         call transfer$dir$aft;
+        IN      0FCH    ;         ival = input(0fch);
         STA     IVAL
-;         output(0fch) = ival OR 2;
-        ORI     2H
+        ORI     2H      ;         output(0fch) = ival OR 2;
         OUT     0FCH
-;         if reqAccess <> 1 then  /* not read only */
-        LDA     REQACC
+        LDA     REQACC  ;         if reqAccess <> 1 then  /* not read only */
         CPI     1H
         JZ      @18
-;         do;
-;             if (temp := not (reqAccess = 3 and found)) then
-        LDA     REQACC
+                        ;         do;
+        LDA     REQACC  ;             if (temp := not (reqAccess = 3 and found)) then
         SUI     3H
         SUI     1
         SBB     A
@@ -2747,57 +2534,38 @@ L0FAA:
         MOV     M,A
         RAR
         JNC     @19
-;             do;
-;                 direct.hdr$blk = get$block(a$device);
-        LHLD    ADEVP
+                        ;             do;
+        LHLD    ADEVP   ;                 direct.hdr$blk = get$block(a$device);
         MOV     C,M
         CALL    GETBLK
         SHLD    DIRECT+0EH
-;                 a$hdr$blk = direct.hdr$blk;
-        xchg        ; optimisation for code below
+        xchg            ;                 a$hdr$blk = direct.hdr$blk;
         LHLD    AHBLKP
-;       PUSH    H   optimised by xchg above
-;       LHLD    DIRECT+0EH
-;       XCHG
-;       POP     H
         MOV     M,E
         INX     H
         MOV     M,D
-;             end;
-@19:
-;             direct.empty = 0;
-        LXI     H,DIRECT
+@19:                    ;             end;
+        LXI     H,DIRECT ;            direct.empty = 0;
         MVI     M,0H
-;             call write$dir$entry;
-        CALL    WDIREN
-;         end;
-@18:
-;         call aft$window(aftn);
-        LHLD    AFTN
-; LER                                                                                                PAGE  11
-
-
+        CALL    WDIREN  ;             call write$dir$entry;
+@18:                    ;         end;
+        LHLD    AFTN    ;         call aft$window(aftn);
         MOV     C,L
         CALL    AWINDO
-;         call rewind;
-        CALL    REWIND
-;         if temp then    /* not update + new file */
-        LDA     TEMP
+        CALL    REWIND  ;         call rewind;
+        LDA     TEMP    ;         if temp then    /* not update + new file */
         RAR
         JNC     @20
-;         do;
-;             call clear$buf(a$pbuf);
-        LHLD    APBUFP
+                        ;         do;
+        LHLD    APBUFP  ;             call clear$buf(a$pbuf);
         MOV     C,M
         INX     H
         MOV     B,M
         CALL    CLRBUF
-;             call map$write(a$device);
-        LHLD    ADEVP
+        LHLD    ADEVP   ;             call map$write(a$device);
         MOV     C,M
         CALL    MAPWRI
-;             call abswrite(a$hdr$blk, a$pbuf);
-        LHLD    APBUFP
+        LHLD    APBUFP  ;             call abswrite(a$hdr$blk, a$pbuf);
         MOV     E,M
         INX     H
         MOV     D,M
@@ -2806,128 +2574,102 @@ L0FAA:
         INX     H
         MOV     B,M
         CALL    ABSWR
-;         end;
-@20:
-;         output(0FCh) = ival;
-        LDA     IVAL
+@20:                    ;         end;
+        LDA     IVAL    ;         output(0FCh) = ival;
         OUT     0FCH
-;     end;
-        JMP     @21
+        JMP     @21     ;     end;
 @8:
-;     else if a$device <> BBDEV then
-        LHLD    ADEVP
+        LHLD    ADEVP   ;     else if a$device <> BBDEV then
         MOV     A,M
         CPI     1AH
         JZ      @22
-;     do;
-;         do i = AFT$BOTTOM to AFT$LAST;
-        LXI     H,I
+                        ;     do;
+        LXI     H,I     ;         do i = AFT$BOTTOM to AFT$LAST;
         MVI     M,0AH
 @30:
         MVI     A,11H
-;       LXI     H,I optimisation
         CMP     M
         JC      @31
-;             if not aft(i).empty then
-        mov l,m ; optimisation
-        mvi h,0 ; reordering
+
+        mov     l,m     ;             if not aft(i).empty then
+        mvi     h,0 
         LXI     D,1CH
-;       LHLD    I
-;       MVI     H,0 optmisation and minor reorder
-    CALL    @P0034 
+        CALL    @P0034 
         LXI     B,AFT
         DAD     B
         MOV     A,M
         RAR
         JC      @23
-;                 if a$device = aft(i).device then
-        inx     h
+        inx     h       ;                 if a$device = aft(i).device then
         mov     a,m
         LHLD    ADEVP
         CMP     M
-;                     call warn(ALREADY$OPEN);
-        MVI     C,0CH
+        MVI     C,0CH   ;                     call warn(ALREADY$OPEN);
         cz      warn
 @24:
 @23:
-;         end;
 @32:
         LXI     H,I
         INR     M
         JNZ     @30
-@31:
-;         if a$device >= 14h and a$device <= 17h then
-        LHLD    ADEVP
+@31:                    ;         end;
+        LHLD    ADEVP   ;         if a$device >= 14h and a$device <= 17h then
         MOV     A,M
         cpi     14h
         jc      @25
         MVI     A,17H
         cmp     m
         jc      @25
-;             do i = 1 to 120;
-        LXI     H,I
+        LXI     H,I     ;             do i = 1 to 120;
         MVI     M,1H
 @33:
         MVI     A,78H
-;       LXI     H,I optimisation
         CMP     M
         JC      @34
-;                 a$empty = FALSE;
-        LHLD    AEMTYP
+        LHLD    AEMTYP  ;                 a$empty = FALSE;
         MVI     M,0H
-;                 call write(aftn, .(0), 1);
-        LHLD    AFTN
+        LHLD    AFTN    ;                 call write(aftn, .(0), 1);
         PUSH    H
         LXI     D,1H
         LXI     B,zero
         CALL    WRITE
-;             end;
-@35:
+@35:                    ;             end;
         LXI     H,I
         INR     M
         JNZ     @33
 @34:
 @25:
-;     end;
-@22:
+@22:                    ;     end;
 @21:
-;     if lined$aft <> 0 then
-        lhld    lineda
+        lhld    lineda  ;     if lined$aft <> 0 then
         mov     a,h
         ORA     L
         JZ      @26
-;     do;
-;         temp$buf, a$lbuf = get$buf;
-        CALL    GETBUF
+                        ;     do;
+        CALL    GETBUF  ;         temp$buf, a$lbuf = get$buf;
         SHLD    TMPBUF
         xchg
         LHLD    ALBUFP
         mov     m,e
         INX     H
         mov     m,d
-;         bytes(0) = LF;
-        LHLD    TMPBUF
+        LHLD    TMPBUF  ;         bytes(0) = LF;
         MVI     M,0AH
-;         addr(63) = 0ff00h;
-        LXI     B,7EH
+        LXI     B,7EH   ;         addr(63) = 0ff00h;
         LHLD    TMPBUF
         DAD     B
         LXI     B,0FF00H
         MOV     M,C
         INX     H
         MOV     M,B
-;         bytes(125) = TRUE;
-        LXI     B,7DH
+        LXI     B,7DH   ;         bytes(125) = TRUE;
         LHLD    TMPBUF
         DAD     B
         MVI     M,0FFH
-;     end;
-@26:
-;     a$empty = FALSE;
-        LHLD    AEMTYP
+@26:                    ;     end;
+        LHLD    AEMTYP  ;     a$empty = FALSE;
         MVI     M,0H
-;     return aftn - AFT$BOTTOM;
-        LDA     AFTN
+        LDA     AFTN    ;     return aftn - AFT$BOTTOM;
         SUI     0AH
         RET
 ; end;
@@ -3099,20 +2841,19 @@ L1263:  stc
         ret
 
 ;     parse: PROCEDURE;
-;         do while i < imax;
+                            ;         do while i < imax;
 parse:
 @20:
         LXI     H,IMAX
         LDA     I
         CMP     M
         rnc
-;             if non$terminate then
-        lhld    pthnam      ; non standard calling
+
+        lhld    pthnam      ;             if non$terminate then /* non standard calling convention */
         call    nontrm
         JNC     @3
-;             do;
-;                 pn(i) = toupper(pathCh);
-        MOV     C,M
+                            ;             do;
+        MOV     C,M         ;                 pn(i) = toupper(pathCh);
         call    touppr
         LHLD    I
         MVI     H,0
@@ -3121,29 +2862,23 @@ parse:
         LHLD    PNP
         DAD     D
         MOV     M,A
-;                 pathname = pathname + 1;
-        LHLD    pthnam
+        LHLD    pthnam      ;                 pathname = pathname + 1;
         INX     H
         SHLD    pthnam
-;                 if i < 2 then
-        mov     a,c         ; i
 
-
+        mov     a,c         ;                 if i < 2 then
         CPI     2H
         JNC     @4
-;                     null$name = FALSE;
-        xra     a
+        xra     a           ;                     null$name = FALSE;
         sta     nulnam
 @4:
-;             end;
-@3:
-;             i = i + 1;
-        LXI     H,I
+@3:                         ;             end;
+        LXI     H,I         ;             i = i + 1; 
         INR     M
-;         end;
-        JMP     @20
+
+        JMP     @20         ;         end;
 @21:
-;     end;
+                            ;     end;
 
 
 ; path: PROCEDURE(pathname, pn$p) BYTE PUBLIC;
@@ -3164,103 +2899,85 @@ path:
 ;     DECLARE devname ADDRESS, (second, first) BYTE AT (.devname);
 ;     DECLARE null$name BYTE;
 ;     DECLARE i BYTE, imax BYTE;
-        
-;     do i = 0 to last(pn);  pn(i) = 0; end;  /* clear pn */
-        mvi     c,12
+        mvi     c,12        ;     do i = 0 to last(pn);  pn(i) = 0; end;  /* clear pn */
         lhld    pnp
 @22:    mvi     m,0
         inx     h
         dcr     c
         jnz     @22
-
-;     do while pathCh = ' ';  /* skip leading space */
 @25:
-        LHLD    pthnam
+        LHLD    pthnam      ;     do while pathCh = ' ';  /* skip leading space */
         MOV     A,M
         CPI     20H
         JNZ     @26
-;         pathname = pathname + 1;
-        INX     H
+        INX     H           ;         pathname = pathname + 1;
         SHLD    pthnam
-;     end;
-        JMP     @25
+        JMP     @25         ;     end;
 @26:
-;     if pathCh = ':' then
-        CPI     ':'
+
+        CPI     ':'         ;     if pathCh = ':' then
         JNZ     @5
-;     do;
-;         pn(0) = 0FFH;
-        xchg
+                            ;     do;
+        xchg                ;         pn(0) = 0FFH;
         LHLD    PNP
         MVI     M,0FFH
-;         if pathArray(3) <> ':' then
-        xchg            ; get pthnam back
+        xchg                ;         if pathArray(3) <> ':' then
         inx     h
         inx     h
         inx     h
         MOV     A,M
         CPI     3AH
         JZ      @6
-;             return BAD$PATH;
-        MVI     A,4H
+        MVI     A,4H        ;             return BAD$PATH;
         RET
 @6:
-;         pathname = pathname + 1;    /* past ':' */
-        dcx     h           ; hl -> pthnam + 3
+        dcx     h           ;         pathname = pathname + 1;    /* past ':' */
         dcx     h
         SHLD    pthnam
-;         first = toupper(pathCh);
-        MOV     C,M
+        MOV     C,M         ;         first = toupper(pathCh);
         CALL    touppr
         STA     devnam + 1
-;         pathname = pathname + 1;
-        INX     H
+        INX     H           ;         pathname = pathname + 1;
         SHLD    pthnam
-;         second = toupper(pathCh);
-        MOV     C,M
+        MOV     C,M         ;         second = toupper(pathCh);
         CALL    touppr
         STA     devnam
-;         pathname = pathname + 2;
-        INX     H
+        INX     H           ;         pathname = pathname + 2;
         INX     H
         SHLD    pthnam
-;         do i = last(deviceNames) to 0 by -1;  /* pseudo code */
-;             if deviceNames(i).name = devname then
-;                 pn(0) = i;  /* save device number */
-;         end;
-;         if pn(0) = 0ffh then
-;             return BAD$DEVICE;
-        mvi    c,29
+
+                            ;         end;
+        mvi    c,29         ;         do i = last(deviceNames) to 0 by -1;  /* not legal plm code */
         lxi     h,devs + 3 * 28
 L12FE:
-        lxi     d,devnam
+        lxi     d,devnam    ;             if deviceNames(i).name = devname then
         push    b
         push    h
         call    @P0099  ; hl = [de] - [hl]
         ora     l
         pop     h
         pop     b
-        jz      @8
+        jz      @8          ;             goto fnd;
         dcx     h
         dcx     h
         dcx     h
         dcr     c
-        jnz     L12FE
-        mvi     a,5     ; bad device
+        jnz     L12FE       ;         end;
+        mvi     a,5         ;         return BAD$DEVICE;
         ret
 @8:
-        lhld    pnp     ; pn(0) = i
+        lhld    pnp         ; fnd:    pn(0) = i;  /* save device number */
         dcr     c
         mov     m,c
-@5:
-;     pn(11) = 0FFh;
-        LXI     B,0BH
+@5:                         ;     end;
+
+        LXI     B,0BH       ;     pn(11) = 0FFh;
         LHLD    PNP
         DAD     B
         MVI     M,0FFH
-;     if (pn(10) := deviceNames(pn(0)).type) = 3 then /* random access device */
-        dcx     h
-        push    h       ; hl -> pn(10)
+
+        dcx     h           ;     if (pn(10) := deviceNames(pn(0)).type) = 3 then /* random access device */
+        push    h
         LHLD    PNP
         MOV     L,M
         MVI     H,0
@@ -3268,13 +2985,12 @@ L12FE:
         CALL    @P0034 
         LXI     B,devs + 2
         DAD     B
-        pop     d       ; restore de -> pn(10)
+        pop     d
         mov     a,m
         stax    d
         CPI     3H
         JNZ     @9
-;         pn(11) = dk$cf$tb(pn(0));
-        inx     d       ; de -> pn(11)
+        inx     d           ;         pn(11) = dk$cf$tb(pn(0));
         LHLD    PNP
         MOV     C,M
         MVI     B,0
@@ -3283,71 +2999,53 @@ L12FE:
         mov     a,m
         stax    d
 @9:
-        
-;     null$name = TRUE;
-        LXI     H,nulnam
+        LXI     H,nulnam    ;     null$name = TRUE;
         MVI     M,0FFH
-;     i = 1;
-        INX     H
+        INX     H           ;     i = 1;
         MVI     M,1H
-;     imax = 7;
-        INX     H
+        INX     H           ;     imax = 7;
         MVI     M,7H
-;     call parse;
-        CALL    PARSE
-;     if pathCh = '.' then
-        LHLD    pthnam
+        CALL    PARSE       ;     call parse;
+        LHLD    pthnam      ;     if pathCh = '.' then
         MOV     A,M
         CPI     '.'
         JNZ     @10
-;     do;
-;         pathname = pathname + 1;
-        INX     H
+                            ;     do;
+        INX     H           ;         pathname = pathname + 1;
         SHLD    pthnam
-;         imax = 10;
-        LXI     H,IMAX
+        LXI     H,IMAX      ;         imax = 10;
         MVI     M,0AH
-;         call parse;
-        CALL    PARSE
-;         if pn(7) = 0 then
-        LXI     B,7H
+        CALL    PARSE       ;         call parse;
+        LXI     B,7H        ;         if pn(7) = 0 then
         LHLD    PNP
         DAD     B
         MOV     A,M
         ora     a
         JNZ     @11
-;             return NULL$EXTENSION;
-        MVI     A,1CH
+        MVI     A,1CH       ;             return NULL$EXTENSION;
         RET
 @11:
-;     end;
-@10:
-;     if pn(0) <= F9DEV and null$name then
-;         return NULL$FILENAME;
-        LHLD    PNP
+@10:                        ;     end;
+        LHLD    PNP         ;     if pn(0) <= F9DEV and null$name then
         mov     a,m
         cpi     9 + 1
         jnc     @12
         lda     nulnam
         ora     a
-        MVI     A,17H
+        MVI     A,17H       ;         return NULL$FILENAME;
         rnz
 @12:
-;     if non$terminate  OR pathCh = '.' OR pathCh = ':' then
-;         return BAD$PATH;
-;     else
-;         return OK;
-        lhld    pthnam
+        lhld    pthnam      ;     if not non$terminate and pathCh <> '.' and pathCh <> ':' then
         CALL    nontrm
         jc      L13A1
         mov     a,m
         cpi     '.'
         jz      L13A1
         cpi     ':'
-        mvi     a,0     ; ok
+        mvi     a,0         ;         return OK;
         rnz
 L13A1:
-        MVI     A,4H    ; BAD$PATH
+        MVI     A,4H        ;     return BAD$PATH;
         RET
 ; end;
         
@@ -3356,17 +3054,17 @@ L13A1:
 ; xpath: PROCEDURE(p1, p2) PUBLIC;
 ;     DECLARE (p1, p2) ADDRESS;
 ;     DECLARE status BYTE;
-;     if (status := path(p1, p2)) <> 0 then
-;         call warn(status);
-; end;
+
+
+
         public  xpath
 xpath:
-        call    path
+        call    path        ;     if (status := path(p1, p2)) <> 0 then
         ora     a
         rz
-        mov     c,a
+        mov     c,a         ;         call warn(status);
         call    warn
-        ret
+        ret                 ; end;
         
 ; unpath: PROCEDURE(pathname$p, pn$p) PUBLIC;
 ;     DECLARE (pathname$p, pn$p) ADDRESS;
@@ -3384,12 +3082,9 @@ unpath:
         MOV     M,B
         DCX     H
         MOV     M,C
-        
-;     pn(0) = ':';
-        xchg
+        xchg                ;     pn(0) = ':';
         MVI     M,3AH
-;     devname = deviceNames(pathname(0)).name;
-        mov     h,b
+        mov     h,b         ;     devname = deviceNames(pathname(0)).name;
         mov     l,c
         MOV     L,M
         MVI     H,0
@@ -3400,18 +3095,14 @@ unpath:
         MOV     E,M
         INX     H
         MOV     D,M
-;     pn(1) = high(devname);
-;     pn(2) = low(devname);
-        lhld    upnp
+        lhld    upnp        ;     pn(1) = high(devname);
         inx     h
         mov     m,d
-        inx     h
+        inx     h           ;     pn(2) = low(devname);
         mov     m,e
-;     pn(3) = ':';
-        inx     h
+        inx     h           ;     pn(3) = ':';
         MVI     M,3AH
-;     pn$p = pn$p + 4;
-        inx     h
+        inx     h           ;     pn$p = pn$p + 4;
         SHLD    upnp
 ;     do i = 0 to 5;  /* copy file name */
 ;         if (pn(0) := pathname(i + 1)) <> 0 then
@@ -3470,18 +3161,14 @@ L1413:
 
 
 ; chk$write$protect: PROCEDURE PUBLIC;
-;            ; PROC  CKWRIP
-;     if (direct.attrib and (WRITEP$ATTRIBUTE or FORMAT$ATTRIBUTE)) <> 0 then
-;         call warn(WRITE$PROTECT);
-; end;
         public  ckwrip
 ckwrip:
-        LDA     DIRECT+0AH
+        LDA     DIRECT+0AH  ;     if (direct.attrib and (WRITEP$ATTRIBUTE or FORMAT$ATTRIBUTE)) <> 0 then
         ANI     84H
         rz
-        MVI     C,0EH
+        MVI     C,0EH       ;         call warn(WRITE$PROTECT);
         CALL    WARN
-        RET
+        RET                 ; end;
         
 ; write$dir$entry: PROCEDURE PUBLIC;
 ;            ; PROC  WDIREN
@@ -3513,26 +3200,21 @@ copyfn: mov     a,m
         
 ; chk$pn$disk$file: PROCEDURE(filename) PUBLIC;
 ;     DECLARE filename ADDRESS;
-;     call xpath(filename, .pn);
-;     if pn(0) > F9DEV then
-;         call warn(NON$DISK$FILE);
-;     call aft$window(pn(0));
-; end;
         public  ckpndf
 ckpndf:
         lxi     d,pn
-        call    xpath           ; bc already equals filename
-        MVI     A,9H
+        call    xpath       ;     call xpath(filename, .pn);
+        MVI     A,9H        ;     if pn(0) > F9DEV then
         LXI     H,PN
         CMP     M
         JNC     @19
-        MVI     C,11H
+        MVI     C,11H       ;         call warn(NON$DISK$FILE);
         CALL    WARN
 @19:
-        lda     PN
+        lda     PN          ;     call aft$window(pn(0));
         MOV     c,a
         CALL    AWINDO
-        RET
+        RET                 ; end;
 ; end;
         end
 
@@ -3587,113 +3269,85 @@ exists: ds      1
 tmpdir: ds      16
 
         cseg
-;     call xpath(old$file, .pn2);
-        LXI     D,PN2       ; bc already has old$file
+        LXI     D,PN2       ;     call xpath(old$file, .pn2);
         CALL    XPATH
-;     call chk$pn$disk$file(new$file);
-        LHLD    newfil
+        LHLD    newfil      ;     call chk$pn$disk$file(new$file);
         MOV     B,H
         MOV     C,L
         CALL    CKPNDF
-;     if pn(0) <> pn2(0) then
-        LXI     H,PN2
+        LXI     H,PN2       ;     if pn(0) <> pn2(0) then
         LDA     PN
         CMP     M
         JZ      @1
-;         call warn(DIFFERENT$DISK);
-        MVI     C,0AH
+        MVI     C,0AH       ;         call warn(DIFFERENT$DISK);
         CALL    WARN
 @1:
-;     if (dk$cf$tb(pn(0)) = 9) then /* winchester */
-        lhld    pn
+        lhld    pn          ;     if dk$cf$tb(pn(0)) = 9 then /* winchester */
         mvi     h,0
         lxi     b,dkCfTb
         dad     b
         mov     a,m
         cpi     9
         jnz     @6
-;     do;
-;         if NOT dlook(.pn2) then
-        LXI     B,PN2
+                            ;     do;
+        LXI     B,PN2       ;         if NOT dlook(.pn2) then
         CALL    DLOOK
         RAR
         JC      @4
-;             call warn(NO$SUCH$FILE);
-        MVI     C,0DH
-        CALL    WARN;
+
+        MVI     C,0DH       ;             call warn(NO$SUCH$FILE);
+        CALL    WARN
 @4:
-;         call chk$write$protect;
-        CALL    CKWRIP;
-;        call copyfn(.direct+15, 16, .tmpdir + 15); /* non std calling */
-        mvi     c,16
-        lxi     d,tmpdir+15     ; last bytes of entries
+        CALL    CKWRIP      ;         call chk$write$protect;
+        mvi     c,16        ;         call copyfn(.direct+15, 16, .tmpdir + 15); /* save dir entry. non std calling convention */
+        lxi     d,tmpdir+15
         lxi     h,direct+15
         call    copyfn
-;         if dlook(.pn) then
-        lxi     b,pn
+        lxi     b,pn        ;         if dlook(.pn) then
         call    dlook
         rar
         jnc     @5
-;             call warn(MULTIDEFINED);
-        mvi     c,0bh
+        mvi     c,0bh       ;             call warn(MULTIDEFINED);
         call    warn
 @5:
-;         junk = dlook(.pn2);   /* junk optimised away */
-        lxi     b,pn2
+
+        lxi     b,pn2       ;         junk = dlook(.pn2);   /* reload old file dir entry. junk optimised away */
         call    dlook
-;         direct.empty = TRUE; 
-        lxi     h,direct
+        lxi     h,direct    ;         direct.empty = TRUE; 
         mvi     m,0ffh
-;         disable;
-        di
-;         call dir$close(a$dev);
-        lhld    aDevP
+        di                  ;         disable;
+        lhld    aDevP       ;         call dir$close(a$dev);
         mov     c,m
         call    dircls
-;         junk = dlook(pn); /* junk optimised away */
-        lxi     b,pn
+        lxi     b,pn        ;         junk = dlook(pn);   /* load the new file dir entry. junk optimised away */
         call    dlook
-;        call copyfn(.tmpdir+15, 16, .direct + 15); /* non std calling */
-        mvi     c,16
+        mvi     c,16        ;        call copyfn(.tmpdir+15, 16, .direct + 15); /* restore dir entry. non std calling convention */
         lxi     d,direct + 15
         lxi     h,tmpdir + 15
         call    copyfn
-        jmp     @3
-;     end;
-;     else
-;     do;
-@6:
-;         already$exists = dlook(.pn);
-        LXI     B,PN
+        jmp     @3          ;     end;
+@6:                         ;     else
+                            ;     do;
+        LXI     B,PN        ;         already$exists = dlook(.pn);
         CALL    DLOOK
         STA     exists
-;         if NOT dlook(.pn2) then
-        LXI     B,PN2
+        LXI     B,PN2       ;         if NOT dlook(.pn2) then
         CALL    DLOOK
         RAR
         JC      @2
-;             call warn(NO$SUCH$FILE);
-        MVI     C,0DH
+        MVI     C,0DH       ;             call warn(NO$SUCH$FILE);
         CALL    WARN
 @2:
-;         call chk$write$protect;
-        CALL    CKWRIP
-;         if already$exists then
-        LDA     exists
+        CALL    CKWRIP      ;         call chk$write$protect;
+        LDA     exists      ;         if already$exists then
         RAR
         JNC     @3
-;             call warn(MULTIDEFINED);
-        MVI     C,0BH
+        MVI     C,0BH       ;             call warn(MULTIDEFINED);
         CALL    WARN
-@3:
-;     end;
-;     call write$dir$entry;
-        CALL    WDIREN
-;     enable;
-        EI
-; end;
-        RET
-; end;
+@3:                         ;     end;
+        CALL    WDIREN      ;     call write$dir$entry;
+        EI                  ;     enable;
+        RET                 ; end;
         end
 
 rescan.plm
@@ -4796,7 +4450,7 @@ hash:
         mov     d, a
         lxi     h, 122
         call    @P0029          ; hl = de % hl
-        inx     h               ; return hash 1-123
+        inx     h               ; return 1-123
         ret                        
 
         
@@ -4836,7 +4490,7 @@ dlook:
         DCX     H
         MOV     M,C
 ;     DECLARE fn ADDRESS;
-;     DECLARE (aftn, b2F0D) byte;
+;     DECLARE (aftn, dirCnt) byte;
 ;     DECLARE rcount BYTE;
 ;     /* WARNING: the location at (rcount + 1) will be set to 0 by the procedure read */
 ;     DECLARE byteno ADDRESS;
@@ -4847,7 +4501,7 @@ dlook:
         dseg
 fn:     ds  2
 aftn:   ds  1
-b2F0D:  ds  1
+dirCnt:  ds  1
 rcount: ds  1
 byteno: ds  2
 blkno:  dw  0
@@ -4902,7 +4556,7 @@ i:      ds  1
 
         LXI     H,DIRINO        ; inoPtr = .direct$i$no;
         SHLD    INOPTR
-        lxi     h,b2F0D         ; b2F0D = 7ch;
+        lxi     h,dirCnt        ; dirCnt = 124
         mvi     m,7ch
         LXI     H,0H            ; dnum, return$value, fndFre = 0;
         SHLD    DNUM
@@ -4920,7 +4574,7 @@ i:      ds  1
         jnz     L26D2
                                 ; do;
         call    hash           ;    byteno = (dnum := hash * 8) * 16;
-        dad     h
+        dad     h              ;    /* start dir search based on hash. 8 dir entries per hash value */
         dad     h
         dad     h
         shld    dnum
@@ -4939,10 +4593,10 @@ i:      ds  1
                                 ; end;
 L26D2:
 
-        lda     b2F0D           ; do while b2F0D <> 0;
+        lda     dirCnt           ; do while dirCnt <> 0;
         ora     a
         jz      L273C
-L26D9:  LHLD    AFTN            ;    call read(aftn, a$dbuf, 128, .rcount);
+L26D9:  LHLD    AFTN            ; more: call read(aftn, a$dbuf, 128, .rcount);
         PUSH    H
         LHLD    ADBUFP
         MOV     C,M
@@ -4952,7 +4606,7 @@ L26D9:  LHLD    AFTN            ;    call read(aftn, a$dbuf, 128, .rcount);
         LXI     D,RCOUNT
         LXI     B,80H
         CALL    READ
-        lda     rcount          ;    if rcount = 0 then
+        lda     rcount          ;    if rcount = 0 then                     /* reached end of isis.dir */
         ora     a               ;    do;
         jnz     L2710
         lhld    fn              ;        if dk$cf$tb(fn(0)) <> 9 then      /* not winchester */
@@ -4963,7 +4617,7 @@ L26D9:  LHLD    AFTN            ;    call read(aftn, a$dbuf, 128, .rcount);
         mov     a,m
         cpi     9
         jnz     L273C           ;            goto done;
-        call    rewind          ;        call rewind;
+        call    rewind          ;        call rewind;                     /* rewind to start of isis.dir */
         lxi     h,0             ;        dnum = 0;
         shld    dnum
         jmp     L26D9           ;        goto more:
@@ -4986,8 +4640,8 @@ L2710:  LHLD    FN              ;     else if (i := fndDir(fn + 1, datum$base)) 
         mvi     m,0ffh
         jmp L273C                ;            goto done;
                                  ;        end;
-L2735:  lxi     h,b2F0D          ;        else
-        dcr     m                ;            b2F0D = b2F0D - 1;
+L2735:  lxi     h,dirCnt          ;        else
+        dcr     m                ;            dirCnt = dirCnt - 1;
         jmp     L26D2            ; end
 
 L273C:                           ; done:
