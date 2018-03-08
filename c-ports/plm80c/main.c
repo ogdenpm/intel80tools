@@ -3,10 +3,6 @@ static byte copyRight[] = "[C] 1976, 1977, 1982 INTEL CORP";
 
 static byte stateMain;
 
-// FatalError is shared between passes
-byte currentModule = 0xff;		// 0xff for main 0-6 for each overlay
-
-
 void FatalError_main(byte err)
 {
     if (err == ERR83)
@@ -18,9 +14,9 @@ void FatalError_main(byte err)
 word Start()
 {
 	stateMain = 10;
-	Sub_40AC();
+	SignOnAndGetSourceName();
 	stateMain = 15;
-	Sub_4767();
+	InitKeywordsAndBuiltins();
     return 0;   // Chain(invokeName);
 }
 

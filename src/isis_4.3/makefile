@@ -7,9 +7,9 @@ KEEP=T
 include $(ROOT)/tools/isis.mk
 
 REF = $(call ipath,isis,4.3)
-LOCATEOPT := SYMBOLS PUBLICS
-PLMOPT	:= DEBUG OPTIMIZE
-ASMOPT	:= DEBUG
+LOCATEFLAGS := SYMBOLS PUBLICS
+PLMFLAGS  := DEBUG OPTIMIZE CODE
+ASMFLAGS	:= DEBUG
 COMPARE := $(ROOT)/tools/isisc
 
 objs =	loc62.obj aft.obj attrib.obj\
