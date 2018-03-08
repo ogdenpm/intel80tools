@@ -444,7 +444,7 @@ static void Sub_4B4A(pointer str)
     Sub_48E2(GetLinkVal(), p);
     Sub_48A7();
     Xputstr2cLst(str, 0);
-    if (TestInfoFlag(2))
+    if (TestInfoFlag(F_BASED))
         Sub_49BB();
     if (TestInfoFlag(F_ARRAY)) {
         Xputstr2cLst(" ARRAY(", 0);
