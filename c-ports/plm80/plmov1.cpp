@@ -287,6 +287,9 @@ void sub_3F8B() {
 	if (byte_88B3) 
 		wrTx2File((byte *)&linfo, 7);
 	closeFile(&tx1File);
+#ifdef _DEBUG
+    copyFile(tx1File.fullName, "tx1File.tmp_ov1");
+#endif
 	deleteFile(&tx1File);
 	openFile(&tx1File, 3);
 	if (IXREF || XREF || SYMBOLS) {

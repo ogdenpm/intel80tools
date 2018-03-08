@@ -378,7 +378,7 @@ extern byte segId;
 void AddDataFrag(word saddr, word eaddr);
 pointer AddrInCache(word addr);
 void AddSegFrag(byte flags, byte seg, word start, word len);
-void Alloc(word cnt);
+static void Alloc(word cnt);
 pointer AllocNewPage(byte page);
 void AnotherPage(byte page);
 void BadRecordSeq();

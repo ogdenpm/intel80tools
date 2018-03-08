@@ -13,3 +13,19 @@ void WrcLst(byte ch)
     } else
         lChCnt++;
 }
+
+void Wr2cLst(word arg1w)
+{
+    pointer bp;
+
+    bp = (pointer)&arg1w;
+    WrcLst(bp[1]);
+    WrcLst(bp[0]);
+}
+
+void WrnStrLst(pointer str, word cnt)
+{
+
+    while (cnt-- != 0)
+        WrcLst(*str++);
+}

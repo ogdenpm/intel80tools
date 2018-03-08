@@ -147,3 +147,24 @@ void Delete(char *path, word *status_p)
 }
 
 
+#ifdef _DEBUG
+void copyFile(char *src, char* dst) // handles isis src file name
+{
+    char buffer[2048];
+    size_t actual;
+    word status;
+    FILE *srcfp, *dstfp;
+
+    Open(&srcfp, src, 1, 0, &status);
+    dstfp = fopen(dst, "wb");
+    if (status != 0 || dstfp == NULL) {
+        fprintf(stderr, "copyFile(%s, %s) fatal error\n", src, dst);
+        exit(1);
+    }
+
+    while ((actual = fread(buffer, 1, sizeof(buffer), srcfp)) > 0)
+        fwrite(buffer, 1, actual, dstfp);
+    fclose(srcfp);
+    fclose(dstfp);
+}
+#endif
