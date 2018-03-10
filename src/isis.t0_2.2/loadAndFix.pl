@@ -1,5 +1,4 @@
 %patches = (
-    0x3577 => "D0", # only code patch to work around missing AT
     0x388E => "32314544373337313234324537303445",   # change uninitalised data
     0x389E => "32433436323532454545373132333730",
     0x38AE => "323132390D0A7F203A31443545463130",
