@@ -7,6 +7,8 @@ DECLARE BELL LITERALLY '7';
 DECLARE BS LITERALLY '8';
 DECLARE CR LITERALLY '0DH';
 DECLARE LF LITERALLY '0AH';
+DECLARE HASH LITERALLY '23H';
+DECLARE CARET LITERALLY '5EH';
 DECLARE CONTROL$P LITERALLY '10H';
 DECLARE CONTROL$Q LITERALLY '11H';
 DECLARE CONTROL$R LITERALLY '12H';
@@ -122,13 +124,13 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
     DECLARE USERSTATUS$P ADDRESS, USERSTATUS BASED USERSTATUS$P ADDRESS;
     DECLARE (PARAM1, PARAM2, PARAM3, PARAM4, PARAM5) ADDRESS;
     DECLARE RETPARAMIDX(14) BYTE INITIAL( 5, 2, 2, 5, 4, 5, 5, 3,
-                                         3, 1, 4, 2, 2, 3, 3);
+                                         3, 1, 4, 2, 2, 3);
     DECLARE PARAMTYPE(5) ADDRESS INITIAL(
-                1000111110001010B,    /* BIT SET IF PARAMETER NEEDS TO CHECK FOR */
-                1111001100111110B,    /* ADDRESS BELOW MEMORY (3000H) */
-                1100001101000000B,
-                0000100001110000B,
-                0000000011010010B);
+                111110001010B,    /* BIT SET IF PARAMETER NEEDS TO CHECK FOR */
+                111001100111110B,    /* ADDRESS BELOW MEMORY (3000H) */
+                100001101000000B,
+                100001110000B,
+                11010010B);
 
     DECLARE COLD$START$FLAG BOOLEAN INITIAL (TRUE);
     DECLARE (COLD$CIDEV, ALT$CIDEV) BYTE;
@@ -351,8 +353,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         END;
         LBUF$P = .LBUF(AFT);
         DBUF$P = .DBUF(AFT);
-        POINTER$BASE = LBUF;
-        DATUM$BASE = DBUF;
+        POINTER$BASE = CUR$LBUF;
+        DATUM$BASE = CUR$DBUF;
     END;
 
     GETAFT: PROCEDURE BYTE;
@@ -455,7 +457,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         DECLARE IOPB ADDRESS;   /* POINTER TO THE PARAMATER BLOCK NAMED DCB */
         DECLARE DCB BASED IOPB (7) BYTE;
 
-        DECLARE TEMPA(0) ADDRESS, (TEMP2, TEMP1) BYTE;
+        DECLARE TEMPA(0) ADDRESS;
+        DECLARE (TEMP2, TEMP1, JNK) BYTE;
 
         /* RECALIBRATE COMMAND */
         DECLARE RECAL$PB(5) BYTE INITIAL(80H, RECALIBRATE, 0, 0, 0);
@@ -621,7 +624,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
             FILENAME = FILENAME + 2;
 
             I =  0;
-            DO WHILE I < 46; /* SIZE(DEVICENAMES) */
+            DO WHILE I < 45; /* SIZE(DEVICENAMES) */
                 IF DEVNAME = DEVPAIR THEN
                     INTFN(0) = SHR(I, 1);   /* SAVE DEVICE NUMBER */
                 I = I + 2;
@@ -694,8 +697,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         OPMAP: PROCEDURE;
             MAP$CHANGE = FALSE;
             BITMAPINDEX = 0;
-            BASESECTOR = 1;
-            BASETRACK = 0;
+            BASETRKSEC = 1;
             MAP$DCB(IOINS) = OPCD;
             MAP$DCB(BUFLO) = LOW(.BITMAPBUFFER);
             MAP$DCB(BUFHI) = HIGH(.BITMAPBUFFER);
@@ -707,7 +709,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         DO;
             IF OPCD = CMD$WRITE THEN
                 RETURN;
-            IF CURRENT$BITMAP = 0FFH AND MAP$CHANGE THEN
+            IF CURRENT$BITMAP <> 0FFH AND MAP$CHANGE THEN
             DO;
                 OPCD = CMD$WRITE;
                 TMP = DRIVE;
@@ -952,8 +954,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         DECLARE CH BASED BUFFER BYTE;
         DECLARE ACTUAL ADDRESS;
         DECLARE WRITECASE(23) BYTE INITIAL(0, 0, 0, 0, 0FFH, 1, 0FFH, 1,
-                                      0FFH, 0FFH, 0FFH, 0FFH, 2, 2, 2, 2,
-                                      3, 3, 4, 0FFH, 0FFH);
+                                      0FFH, 1, 0FFH, 0FFH, 0FFH, 0FFH, 2, 2,
+                                      2, 2, 3, 3, 4, 0FFH, 0FFH);
 
         CALL SETTABS(AFT);
         IF (CUR$ACCESS AND 2) = 0 OR CUR$CLOSED THEN
@@ -1060,7 +1062,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
                 END;
                 DO;         /* CASE 4 - CONTROL-X */
                     LPTR = 0;
-                    CALL ECHO('#');
+                    CALL ECHO(HASH);
                     CALL ECHO(CR);
                     CALL ECHO(LF);
                 END;
@@ -1090,7 +1092,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
                         I = DEVICE(AFT$CONSOL$IN);
                         DEVICE(AFT$CONSOL$IN) = ALT$CIDEV;
                         ALT$CIDEV = I;
-                        CALL ECHO('^');
+                        CALL ECHO(CARET);
                         CALL ECHO('E');
                     END;
                 END;
@@ -1227,7 +1229,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         IF LOWMODE = SEEK$ABS THEN
             CALL REWIND;
 
-        BACKWARDS = ((LOWMODE - 1) = 0) AND 1;
+        BACKWARDS = (LOWMODE = 1) AND 1;
         BACKFIX = CUR$BYTENO = 128 AND BACKWARDS;
         BLK = (BLK AND 07FFFH) + SHR(BYT, 7);
         BYTLO = (BYTLO AND 7FH);
@@ -1255,7 +1257,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
                 CALL SIZECK;
         END;
         DO WHILE BLK > 0;
-            BYT = BYT - 1;
+            BLK = BLK - 1;
             IF NOT BACKWARDS THEN
             DO;
                 IF CUR$DPTR = 63 THEN
@@ -1273,8 +1275,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
                     END;
                     ELSE
                         CALL RDSEC((CUR$LADDR := NEXT), CUR$LBUF);
-                    CUR$DPTR = CUR$DPTR + 1;
                 END;
+                CUR$DPTR = CUR$DPTR + 1;
             END;
             ELSE IF (CUR$DPTR := CUR$DPTR - 1) < 2 THEN
                 IF LINKS(BLINK) <> 0 THEN
@@ -1333,8 +1335,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         CALL SETTABS(AFT);
         CALL REWIND;
         DIRECT$I$NO = 0FFH;
-        RCOUNT = 1;
         DNUM = 0;
+        RCOUNT = 1;
         DIRECT$EMPTY, RETURN$VALUE = 0;
 
         DO WHILE RCOUNT <> 0 AND DIRECT$EMPTY <> 7FH;
@@ -1417,8 +1419,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
                 CALL FREE$BUF(CUR$DBUF);
                 IF CUR$ACCESS >= 2 THEN
                 DO;
-                    BLKZERO = 0;
                     CALL SIZECK;
+                    BLKZERO = 0;
                     CALL RWMAP(CUR$DEVICE, CMD$WRITE);
                     /* LET DEVICE USE RETURNED BUFFERS */
                     DBUF(CUR$DEVICE) = CUR$DBUF;
@@ -1499,7 +1501,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
         CALL SETTABS(AFT := DRIVE + 0);
         CALL WRITE(AFT, .DIRECT$EMPTY, 16);
         CALL XIO(CMD$WRITE, DRIVE, CUR$DADDR, CUR$DBUF);
-        CALL SEEK(AFT, SEEK$BACKWARD, .BLKNO, .BYTENO);
+        CALL SEEK(AFT, SEEK$BACKWARD, .BLOCKNO, .BYTENO);
         LINKBUF$P = CUR$DBUF;    /* LIST OF BLOCKS TO DELETE */
         DO WHILE DIRECT$HDR$BLK <> 0;
             CALL DEALLOC(DRIVE, DIRECT$HDR$BLK);
@@ -1751,7 +1753,8 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
     LOAD: PROCEDURE(PATHNAME, BIAS, RETSW, ENTRY$P);
         DECLARE (PATHNAME, BIAS, RETSW, ENTRY$P) ADDRESS;
         DECLARE ENTRY BASED ENTRY$P ADDRESS;
-        DECLARE (JNK, AFT, I, RETSW$B) BYTE;
+        DECLARE PAD1 BYTE;
+        DECLARE (AFT, I, RETSW$B, PAD2) BYTE;
         DECLARE HEADER$TYPE BYTE, HEADER$LENGTH ADDRESS;
         DECLARE RECORD$TYPE BYTE, RECORD$SEGID BYTE, RECORD$LOAD$ADDR ADDRESS;
         DECLARE ACTUAL ADDRESS, BYTENO ADDRESS;
@@ -1951,7 +1954,7 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
             CALL WHOCON(PARAM1, PARAM2);    /* 13 - WHOCON - AFTN, BUFFER */
             END;
         ELSE
-            CALL ERR(ABORT, BAD$COMMAND);
+            CALL ERR(WARNING, BAD$COMMAND);
     END;
     STACKPTR = USERSP;
 END;

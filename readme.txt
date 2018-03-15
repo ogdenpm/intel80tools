@@ -88,6 +88,20 @@ check out feature/asm80
 	    To clean up the directories all the C ports are now under c-ports
 	    and managed via a single solution
 
+15-Mar-2018 Added newer C port of plm80.
+        Added decompilations of isis.bin and isis.t0 for isis 2.2. The
+        compilation of isis.bin required a fix to be applied to the old
+        fortran compiler. I will release the corrected source shortly. In the
+        meantime compiled plm81 and plm82 with larger symbol, macro and memory
+        tables are in the tools directory. The fix in particular was to plm82
+        which previously generated incorrect code.
+        Added decompilations for objhex (2.2n and 4.3), hexobj (4.3), vers (4.3)
+        binobj (3.4), help (ipds 1.1), submit (4.3)
+        Added decompilations of isis.t0 and isis.bin for v4.3w.
+        Minor fixes to various utilities and thames.
+        Improved relst.pl and added pretty.pl that generates embedded plm /
+        asm for the old fortran compiler
+
 What's here
 c-ports/
   asm80/*.*	the port of asm80 v4.1 to C. 
@@ -110,6 +124,9 @@ c-ports/
 		would do differently in a future version.
 		Note it currently maps isis drives differently from the other
 		tools. Note the 10-Dec-2017 comment above. 
+
+  plm80c/*.* this is a newer port of plm80 v4.1 to C. This is the one I am
+        adding commentary to as I understand the compiler internals.
 
 itools/*/*.*	the various isis tools each set specified under a sub
 		directory of the format tool_version. Tools include
@@ -171,7 +188,9 @@ rebase.pl	(depreciated by relst.pl but may be required if there are no public
 		the tool writes to the console so you most likely want to redirect
 		to a file
 
-
+pretty.pl perl script to take a plm v2 listing file (source + symbols + code)
+        and recreate a listing similar to that of plm v3+.
+        usage: pretty.pl infile outfile
 		
 src\makefile	makefile to manage all of the builds. Runs make in each of the
 		subdirectories noted below. It supports the same common targets
@@ -191,6 +210,15 @@ To use this change to the directory and enter one of the following commands.
 src\asm80_4.1\*.* plm & asm recreated source for asm80
 		asm80_4.1_all.src is a packed file of all of the source.
 
+src\binobj_3.4\*.* plm recreated source for binobj v3.4
+		binobj_3.4_all.src is a packed file of all of the source.
+
+src\help_1.1\*.* plm & asm recreated source for iPDS help v1.1
+		help_1.1_all.src is a packed file of all of the source.
+
+src\hexobj_4.3\*.* plm recreated source for hexobj v3.4
+		hexobj_4.3_all.src is a packed file of all of the source.
+
 src\lib_2.1\*.*	plm & asm recreated source for lib80 v2.1
 		lib_2.1_all.src contains the packed source code.
 
@@ -202,6 +230,10 @@ src\locate_3.0\*.* plm & asm recreated source for locate v3.0
 
 src\plm_v4.0\*.* plm & asm recreated source for plm80 v4.0
 		 plm_4.0_all.src contains the packed source code.
+
+src\isis_2.2\*.*  files to build isis.bin 2.2
+		
+src\isis.t0_2.2\*.*  files to build isis 2.2 boot file
 
 src\isis_3.4\*.*	files to build isis 3.4
 		 isis_3.4_all.src contains the packed source code.
@@ -239,6 +271,12 @@ src\isis.ov0_4.3\*.* files to build isis 4.3 .ov0 file
 src\isisUtil_4.3\*.*	files to build isis 4.3 fixmap, format and idisk
 		isisUtil_4.3_all.src contains the packed source code
 
+src\isis_4.3w\*.*	files to build isis.bin 4.3w
+		 isis_4.3w_all.src contains the packed source code.
+		
+src\isis.t0_4.3w\*.* files to build isis.t0 4.3w boot file
+		 isis.t0_4.3w_all.src contains the packed source code.
+
 src\ixref_1.2\*.* files to build ixref 1.2
 		 ixref_1.2_all.src contains the packed source code.
 		
@@ -246,11 +284,20 @@ src\ixref_1.3\*.* files to build ixref 1.3
 		 ixref_1.3_all.src contains the packed source code and the
 		 isis.ov0 file needed to test it.
 
+src\objhex_2.2n\*.* files to build objhex isis utils v2.2n
+		objhex_2.2n_all.src contains the packed source
+
+src\objhex_4.3\*.* files to build objhex for isis 4.3
+		objhex_4.3_all.src contains the packed source
+
 src\plm80.lib\*.* files to build plm80.lib for plm v4.0
 		plm80lib_all.src contains the packed source
 
 src\system.lib_4.0\*.* files to build system.lib for plm v4.0
 		system.lib_4.0_all.src contains the packed source
+
+src\submit_4.3\*.* files to build submit for isis 4.3
+		submit_4.3_all.src contains the packed source
 
 src\kermit\*.*	files to build kermit for isis
 
@@ -370,6 +417,12 @@ tools\*.*	tools I wrote to help me decompile / build the files
 		-r -> same as plm RESET on the command line () are omitted
 		-o -> specifies the output file
 
+  plm81.exe & plm82.exe my personal builds of the plm v2 files. Supports
+        larger source files and contains fixes for plm82.
+        Note, the source files are in C++ and were created by passing the
+        fortran source through struct and then hand edited to clean up, rather
+        than a direct compile or use of f2c.
+
   t0bootdiff	compares to bootfile files to show differences
 
   mkisisdir.pl	simple script to create a basic ISIS.DIR file based on files
@@ -418,3 +471,5 @@ Update 8-Jun-2017    Updated thames to use 8080 emulation. This allows basic to 
 		     Added isis toolbox 2.0 and a new version of relst.pl
 Update 28-Nov-2017   Added decompilations isis.bin and isis.t0 for isis 4.0
 Update 10-Dec-2017   Added C ports
+Update 15-Mar-2018  Updated this file to reflect recent additions. See notes
+             earlier in the file.
