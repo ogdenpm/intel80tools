@@ -10,8 +10,8 @@ REF = $(call ipath,isis,2.2)
 
 all:: $(TARGETS)
 
-isis.bin: isis.hex
-	perl loadAndFix.pl
+isis.bin: isis.hex ;
+#perl loadAndFix.pl
 
 isis.hex: isis.plm
 	echo >fort.1
@@ -19,10 +19,13 @@ isis.hex: isis.plm
 	$(ROOT)/tools/plm81
 	mv fort.16 fort.4
 	mv fort.17 fort.7
-	mv fort.12 isist0.prn
+	mv fort.12 isis.lst
+	echo "\$$*=1 A=2 N=1" >fort.1
+	echo " " >>fort.1
 	$(ROOT)/tools/plm82
 	mv fort.17 isis.hex
-	cat fort.12 >>isis.prn
+	cat fort.12 >>isis.lst
+	perl $(ROOT)/pretty.pl isis.lst isis.prn
 	rm fort.*
 
 clean::
