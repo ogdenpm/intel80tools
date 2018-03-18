@@ -5,7 +5,7 @@ ASMFLAGS=debug
 
 include $(ROOT)/tools/isis.mk
 
-REF=$(call ipath,utils,2.2)
+REF=$(call ipath,utils,2.2n)
 
 PLM80 := 3.1
 

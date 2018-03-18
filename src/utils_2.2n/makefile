@@ -1,11 +1,11 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := objhex
-PEXFILE:=objhex.pex
+PEXFILE:=utils_2.2n.pex
 
 include $(ROOT)/tools/isis.mk
 
-REF = $(call ipath,utils,2.2)
+REF = $(call ipath,utils,2.2n)
 
 # build options
 LOCATEFLAGS:=SYMBOLS LINES

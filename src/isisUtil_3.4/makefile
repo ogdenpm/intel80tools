@@ -1,7 +1,7 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := binobj
-PEXFILE:=binobj.pex
+PEXFILE:=isisUtil_3.4.pex
 
 include $(ROOT)/tools/isis.mk
 
@@ -13,7 +13,7 @@ PLMFLAGS:=DEBUG CODE
 LINKFLAGS:=
 PLM80 = 3.1
 
-objs =	binobj.obj dblank.obj dlimit.obj filerr.obj forupp.obj\
+BINOBJOBJ =	binobj.obj dblank.obj dlimit.obj filerr.obj forupp.obj\
 	path.obj reperr.obj seq.obj upcase.obj wdlmt.obj mvasci.obj\
 	numout.obj
 
@@ -23,5 +23,5 @@ binobj: binobj.rel
 	$(call locate,$@,$^,code(3680H) name(binobj) stacksize(84) purge)
 
 .INTERMEDIATE: binobj.rel
-binobj.rel: $(objs)
+binobj.rel: $(BINOBJOBJ)
 	$(call link,$@,$^ $(system.lib) $(plm80.lib))
