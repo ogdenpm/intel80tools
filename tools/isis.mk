@@ -45,7 +45,7 @@ PLMFLAGS ?= code
 
 # the standard libraries
 plm80.lib := $(call ifile,plm80.lib)
-system.lib,4.0 := $(call ipath,utils,2.2)/system.lib
+system.lib,4.0 := $(call ipath,utils,2.2n)/system.lib
 system.lib,3.1 := $(call ipath,isis,3.4)/system.lib
 system.lib,3.0 := $(call ipath,isis,2.2)/system.lib
 system.lib = $(system.lib,$(PLM80))

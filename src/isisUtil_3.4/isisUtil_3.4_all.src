@@ -1,5 +1,4 @@
-hexobj.pex
-# vim:ts=4:shiftwidth=4:expandtab:
+isisUtil_3.4.pex
 # common literals
 TRUE            '0FFh'
 FALSE           '0'
@@ -38,7 +37,6 @@ NumOut      P("word" val,B base,B lc,"pointer" buf,B width)
 Path        P("pointer" filename,"pointer" pn)B
 Seq     P("pointer" str1,"pointer" str2,B cnt)"bool"
 ReportError P("word" errNum)
-ScanInteger P("pointer" buf$p)"word"
 UpperCase   P(B char)B
 WDelimit    P("pointer" ptr)"pointer"
 
@@ -55,20 +53,23 @@ Write           P("word" conn,"pointer" buff$p,"word" count,"apointer" status$p)
 READ$MODE   '1'
 WRITE$MODE  '2'
 
-hexobj.plm
-hexobj: DO;
-$include(hexobj.ipx)
-declare VERSION$LEVEL literally '4',
-        EDIT$LEVEL literally '0';
+binobj.plm
+binobj: DO;
+$include(binobj.ipx)
+declare VERSION$LEVEL literally '2',
+        EDIT$LEVEL literally '18h';
 
-declare copyRight(*) byte data(
-    '(C) 1975,1976,1977,1978,1979,1980,1981,1982 INTEL CORP');
 declare version(*) byte data(VERSION$LEVEL, EDIT$LEVEL);
-declare programVersion(*) byte data('program_version_number=', 1, 'V4.3', 0);
+declare copyRight(*) byte data(
+    '(C) 1975,1976,1977,1978 INTEL CORP');
 
 declare buffer$size word;
 declare iBuf(3328) byte;
 declare iPtr word;
+declare bin$base pointer;
+declare bin$rcd based binBase structure(
+                        length word,
+                        addr word);
 declare buffer(128) byte;
 declare buffer$ptr pointer, char based buffer$ptr byte;
 declare (output$ptr, input$ptr) pointer;
@@ -87,12 +88,16 @@ declare content structure(
                 length word,
                 seg$id byte,
                 addr   word,
-                dat    byte
+                dat(1) byte
                 ) at (.MEMORY);
+declare junk byte;
 declare record$address word;
-declare rlen byte;
+declare rlen word;
 declare type byte;
-declare i byte;
+declare in word;
+declare out word;
+declare len$bin word;
+declare end$rec byte;
 declare checksum byte;
 /*                                  */
 /*  module header record definition */
@@ -126,16 +131,6 @@ declare modeof structure(
                 chksum  byte);
 /*                                 */
 
-declare temp$ptr pointer;
-declare modloc structure(
-                rectype  byte,
-                length   word,
-                segid    byte,
-                offset   word,
-                namelen  byte,
-                name(35) byte);
-declare temp(17) byte;
-
 OutRecord: procedure(ptr);
     declare ptr pointer, char based ptr(1) byte;
     declare p1 apointer, addr based p1 word;
@@ -152,39 +147,28 @@ OutRecord: procedure(ptr);
     call FileError(status, output$ptr, TRUE);
 end OutRecord;
 
-Gnc: procedure byte;
-
-    if iPtr = length(iBuf) then
+GetNextBinRcd: procedure;
+    call Read(aft$in, .iBuf, length(iBuf), .actual, .status);
+    call FileError(status, input$ptr, TRUE);
+    if actual = 0 then
     do;
-        call Read(aft$in, .iBuf, length(iBuf), .actual, .status);
-        call FileError(status, input$ptr, TRUE);
-        if actual = 0 then
-        do;
-            call FileError(EARLY$EOF, input$ptr, TRUE);
-            call Exit;
-        end;
-        iPtr = 0;
+        call FileError(EARLY$EOF, input$ptr, TRUE);
     end;
-    iPtr = iPtr + 1;
-    return iBuf(iPtr - 1) and 7fh;
-end Gnc;
+end GetNextBinRcd;
+ 
+GetNextBinByte: procedure byte;
+    declare temp byte;
 
-Hex: procedure byte;
-    declare char byte;
+    if iPtr = 0 then
+        call GetNextBinRcd;
+    temp = iBuf(iPtr);
+    if (iPtr := iPtr + 1) = actual THEN
+        iPtr = 0;
+    return temp;
+end GetNextBinByte;
 
-    if (char := Gnc) >= '0' and char <= '9' then return char - '0';
-    if char >= 'A' and char <= 'F' then return char - 37h;
-    return 0ffh;
-end Hex;
-
-Bytes: procedure byte;
-    declare char byte;
-
-    char = shl(Hex, 4) + Hex;
-    checksum = checksum + char;
-    return char;
-end Bytes;
-
+start = FALSE;
+endFile = FALSE;
 /* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
    *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
@@ -194,10 +178,9 @@ end Bytes;
    *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* */
 
                 /* Initialize module header record area */
-start, endfile = 0;
 modhdr.type(0) = MODHDR$TYPE;
-do i = 1 to size(modhdr) - 1;
-    modhdr.type(i) = 0;
+do in = 1 to size(modhdr) - 1;
+    modhdr.type(in) = 0;
 end;
 /*                                 */
 input$ptr = .(':CI: ');
@@ -205,7 +188,7 @@ call Read(1, .buffer, length(buffer), .actual, .status);
 call FileError(status, input$ptr, TRUE);
 buffer(actual) = CR;
 call ForceUpper(.buffer);
-input$ptr,buffer$ptr  = Deblank(.buffer);
+input$ptr,buffer$ptr = Deblank(.buffer);
 call Open(.aft$in, input$ptr, READ$MODE, 0, .status);
 call FileError(status, input$ptr, TRUE);
 buffer$ptr = Deblank(Delimit(buffer$ptr));
@@ -216,33 +199,10 @@ do;
 end;
 else
 do;
-    call FileError(INVALID$SYNTAX, output$ptr, TRUE);
+    call FileError(INVALID$SYNTAX, buffer$ptr, TRUE);
 end;
-do while char <> CR;
-    if char = '$' then
-        buffer$ptr = Deblank(buffer$ptr + 1);
-    if Seq(buffer$ptr, .('START'), 5) then
-    do;
-        start = TRUE;
-        buffer$ptr = Deblank(buffer$ptr + 5);
-        if char <> '(' then
-        do;
-            call FileError(INVALID$SYNTAX, buffer$ptr, TRUE);
-        end;
-        buffer$ptr = buffer$ptr + 1;
-        start$value = ScanInteger(.buffer$ptr);    
-        buffer$ptr = Deblank(buffer$ptr);
-        if char <> ')' then
-        do;
-            call FileError(INVALID$SYNTAX, buffer$ptr, TRUE);
-        end;
-        buffer$ptr = Deblank(buffer$ptr + 1);
-    end;                /* end of search loop */
-    else
-    do;                 /* unrecognized option */
-        call FileError(UNRECOG$SWITCH, buffer$ptr, TRUE);
-    end;
-end;            /* end of command line search */
+if char <> CR then
+    call FileError(INVALID$SYNTAX, buffer$ptr, TRUE);
 /*                                 */
 /*                                 */
 call Open(.aft$out, output$ptr, WRITE$MODE, 0, .status);
@@ -264,122 +224,97 @@ call OutRecord(.modhdr);
 /*                                       */
 /* Assemble and output content record(s) */
 /*                                       */
-buffer$size = Memck - .MEMORY - 64;
+buffer$size = Memck - .MEMORY;
 content.type = CONTENT$TYPE;
-content.length = 0;
 content.seg$id = ABS$SEG;
-content.addr = 0;
-memory$ptr = .MEMORY + 6;
+iPtr = 0;
+out = 0;    /* set beginning value for output pointer */
 record$ptr = 0;
-iPtr = length(iBuf);
-rlen = 1;
-do while rlen <> 0;
-    do while (char := Gnc) <> ':';
-        if char >= '0' and char <= '9' then
-        do;
-            do while Gnc <> ' ';
-                ;
-            end;
-            do while (char := Gnc) = ' ';
-                ;
-            end;
-            modloc.name(0) = char;
-            i = 1;
-            do while (modloc.name(i) := Gnc) <> ' ';
-                i = i + 1;
-            end;
-            modloc.name(i) = 0;
-            modloc.namelen = i;
-            modloc.length = i + 6;
-            do while (char := Gnc) < '0' or char > '9';
-                ;
-            end;
-            do i = 0 to 9;
-                temp(i) = ' ';
-            end;
-            i = 1;
-            temp(0) = char;
-            do while (char := Gnc) <> ' ' and char <> '$' and char <> CR;
-                temp(i) = char;
-                i = i + 1;
-            end;
-            temp$ptr = .temp;   /* this is ludicrious, but needed do to ScanInteger */
-            modloc.offset = ScanInteger(.temp$ptr);
-            modloc.segId = 0;
-            modloc.recType = 12h;
-            call OutRecord(.modloc);
-        end;
+end$rec = FALSE;    /* reset end of bin file flag */
+do while not end$rec;
+    /* we are at the beginning of a bin record */
+    record$ptr = 0; /* reset bin record offset */
+    bin$base = .iBuf + iPtr;    /* update base of bin record structure */
+    do in = 1 to 2; /* dummy look to advace pointer is here */
+                    /* to insure that a new record is read into */
+                    /* iBuf if a bin record ends on a track */
+                    /* boundary */
+        junk = GetNextBinByte;
     end;
-    checksum = 0;
-    rlen = Bytes;
-    if rlen <> 0 then
-    do;
-        record$address = Bytes * 256 + Bytes;
-        if record$ptr <> record$address or
-          content.length > buffer$size then
+    if (rlen := bin$rcd.length) = 0 then
+        end$rec = TRUE;
+    record$address = bin$rcd.addr;
+    content.addr = record$address + record$ptr;
+    do in = 1 to 2;
+        junk = GetNextBinByte;
+    end;
+    /*                                 */
+    /*                                 */
+    do while rlen <> 0;
+                            /* process binary records until */
+                            /* a record with a length field */
+                            /* of zero is found             */
+    /*                                    */
+    /* transfer data to the output buffer */
+    /*                                    */
+        do while rlen <> 0 and out <= buffer$size - 2;
+            content.dat(out) = GetNextBinByte;
+            out = out + 1;
+            record$ptr = record$ptr + 1;
+            rlen = rlen - 1;
+        end;
+    /*                                */
+    /* we have reached the end of the */
+    /* input or output buffer         */
+    /*                                */
+        if out >= buffer$size - 2 then
         do;
-            if content.length <> 0 then
-            do;
-                content.length = content.length + 4;
+            content.length = out + 4;
+            out = 0;
+            call OutRecord(.MEMORY);
+            content.addr = record$address + record$ptr; /* update */
+                                            /* base address for next record */
+        end;
+    /*                                */
+        if rlen = 0 then
+        do;     /* end of input data in this buffer */
+            if out > 0 and rlen = 0 then
+            do; /* flush a partial record */
+                content.length = out + 4;
+                out = 0;
                 call OutRecord(.MEMORY);
             end;
-            content.length = 0;
-            record$ptr = record$address;
-            memory$ptr = .MEMORY + 6;
-            content.addr = record$address;
         end;
-        type = Bytes;
-        do i = 1 to rlen;
-            mem = Bytes;
-            memory$ptr = memory$ptr + 1;
-            record$ptr = record$ptr + 1;
-            content.length = content.length + 1;
-        end;
-        type = Bytes;   /* compute checksum */
-        if checksum <> 0 then
-        do;
-            call FileError(CHECKSUM$ERROR, input$ptr, TRUE);
-            call Exit;
-        end;
-    end; 
-    else
-    do;
-        if content.length <> 0 then
-        do;
-            content.length = content.length + 4;
-            call OutRecord(.MEMORY);
-        end;
+    end;    /* end of read binary record loop */
+end;
 
-        /*
-            Initialize, assemble and
-            output module end record
-        */
-
-        modend.rec$type = MODEND$TYPE;
-        modend.length = 5;
-        modend.type = 1;
-        modend.seg$id = 0;
-        modend.offset = Bytes * 256 + Bytes;
-        if start then
-            modend.offset = start$value;    /* start address was specified */
-        call OutRecord(.modend);
-    /*                                  */
-    /*    Initialize, assemble and      */
-    /*    output the                    */
-    /*    module end of file record     */
-    /*                                  */
-        modeof.type = EOF$TYPE;
-        modeof.length = 1;
-        call OutRecord(.modeof);
-    end;
-end; 
+/*
+    initialize, and assemble, and
+    output the module end record
+*/
+modend.rec$type = MODEND$TYPE;
+modend.length = 5;
+modend.type =  1;
+modend.seg$id = 0;
+modend.offset = record$address; /* set transfer address */
+if start then
+    modend.offset = start$value;    /* user specified start address */
+call OutRecord(.modend);
+/*                                  */
+/*    Initialize, assemble and      */
+/*    output the                    */
+/*    module end of file record     */
+/*                                  */
+modeof.type = EOF$TYPE;
+modeof.length = 1;
+call OutRecord(.modeof);
 
 call Close(aft$in, .status);
 call FileError(status, input$ptr, TRUE);
 call Close(aft$out, .status);
 call FileError(status, output$ptr, TRUE);
 call Exit;
-end hexobj;
+end binobj;
 EOF
 dblank.plm
 DEBLANK: DO;
@@ -607,11 +542,7 @@ declare msg(*) byte DATA(0, 0,
     0D8H, 'TOO MANY PARAMETERS', 0,
     0D9H, 'OBJECT RECORD TOO SHORT', 0,
     0DAH, 'ILLEGAL RECORD FORMAT', 0,
-    0DBH, 'PHASE ERROR', 0,
-    0EAh, 'CANNOT FORMAT FROM TARGET DRIVE', 0,
-    0EBh, 'NON-DISK DEVICE', 0,
-    3DH, 'UNASSIGNED DEVICE', 0,
-    0ECH, 'ILLEGAL FORMAT ON REMOTE DEVICE', 0
+    0DBH, 'PHASE ERROR', 0
     );
 
 
