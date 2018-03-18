@@ -10,9 +10,6 @@ REF = $(call ipath,isis,2.2)
 
 all:: $(TARGETS)
 
-isis.bin: isis.hex ;
-#perl loadAndFix.pl
-
 isis.hex: isis.plm
 	echo >fort.1
 	cp $^ fort.2
