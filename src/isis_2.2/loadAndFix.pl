@@ -27,5 +27,5 @@ for ($i = 0; $i < $#blks; $i += 2) {
     print $out pack("vvC*", $blks[$i + 1] - $blks[$i], $blks[$i], @code[$blks[$i]..$blks[$i+1] - 1]);
 }
 # write the ending record
-print $out pack("vv", 0, 0x3b); # 0x3b is entry point
+print $out pack("vC2", 0, @code[1..2]); # entry point is at location 1-2
 close $out;
