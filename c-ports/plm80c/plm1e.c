@@ -59,7 +59,7 @@ byte Sub_59D4()
         PushParseByte(16);
         if (MatchTx1Item(L_LPAREN)) {
             PushParseByte(15);
-            PushParseByte(0);       // <expression>
+            PushParseByte(0);
         }
     } else if (i == BUILTIN_T) {
         if (GetDataType() != 0) {
@@ -72,7 +72,7 @@ byte Sub_59D4()
         PushParseByte(17);
         if (MatchTx1Item(L_LPAREN)) {
             PushParseByte(15);
-            PushParseByte(0);       // <expression>
+            PushParseByte(0);
         }
     } else {
         if (i != ADDRESS_T || TestInfoFlag(F_ARRAY)) {
@@ -96,14 +96,14 @@ byte Sub_59D4()
 void Expression()
 {
     ResetStacks();
-    PushParseByte(0);           // <expression>
+    PushParseByte(0);
     ExpressionStateMachine();
     MoveExpr2Stmt();
     markedStSP = stSP;
 }
 
 // lifted to file scope
-static word w99BF;
+static word topNode;
 static word w99C1;
 
 static void FlgVisited(word arg1w, word arg2w)
@@ -135,54 +135,54 @@ static void Sub_5BF5(word arg1w)
     FlgVisited(arg1w, w99C1);
 }
 
-static void StmtParse0()
+static void SerialiseParse0()
 {
     byte i;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    if ((i = st1Stack[w99BF]) == I_OUTPUT)
+    if ((i = st1Stack[topNode]) == I_OUTPUT)
         return;
-    if (st2Stack[w99BF] == 0)
-        Sub_5BF5(w99BF);
+    if (st2Stack[topNode] == 0)
+        Sub_5BF5(topNode);
     else {
-        PushParseWord(w99BF);
+        PushParseWord(topNode);
         if (i == I_CALL)
             PushParseByte(3);
         else if (i == I_CALLVAR) {
-            PushParseByte(6);           // closing ')' of <subexpression>
-            PushParseWord(st3Stack[w99BF]);
-            PushParseByte(0);           // <expression>
+            PushParseByte(6);
+            PushParseWord(st3Stack[topNode]);
+            PushParseByte(0);
         } else if (i == I_COLONEQUALS)
-            PushParseByte(9);           // <data reference>
+            PushParseByte(9);
         else if (i == I_MOVE) {
-            PushParseByte(14);          // make member node
-            PushParseWord(st3Stack[w99BF]);
-            PushParseByte(0);           // <expression>
+            PushParseByte(14);
+            PushParseWord(st3Stack[topNode]);
+            PushParseByte(0);
         } else if (i == I_BYTEINDEX || i == I_WORDINDEX) {
-            PushParseByte(8);           // <variable reference>
-            PushParseWord(2);       /* serialise 2 leaves */
-            PushParseWord(st3Stack[w99BF]);
+            PushParseByte(8);
+            PushParseWord(2);
+            PushParseWord(st3Stack[topNode]);
             PushParseByte(1);
         } else {
-            PushParseByte(13);                  /* post serialisation */
-            PushParseWord(st2Stack[w99BF]); /* num args */
-            PushParseWord(st3Stack[w99BF]); /* loc of args */
+            PushParseByte(13);
+            PushParseWord(st2Stack[topNode]); /* num args */
+            PushParseWord(st3Stack[topNode]); /* loc of args */
             PushParseByte(1);
         }
     }
 }
 
 
-static void StmtParse1()
+static void SerialiseParse1()
 {  /* serialise 1 leaf) check */
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PushParseByte(2);   /* flag to check for more leaves */
-    PushParseWord(w99BF);   /* serialise this leaf */
-    PushParseByte(0);       // <expression>
+    PushParseWord(topNode);   /* serialise this leaf */
+    PushParseByte(0);
 }
 
-static void StmtParse2()
+static void SerialiseParse2()
 {  /* check for any more leaves */
     word p;
 
@@ -197,45 +197,45 @@ static void StmtParse2()
     }
 }
 
-static void StmtParse3()
+static void SerialiseParse3()
 {  /* parse args */
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PushParseByte(5);   /* final call wrap up */
-    if (st2Stack[w99BF] > 1) {   /* any args */
-        PushParseWord(st2Stack[w99BF] - 1); /* num args  */
-        PushParseWord(st3Stack[w99BF] + 1); /* index of arg info */
-        curInfoP = st3Stack[st3Stack[w99BF]];   /* info of procedure */
+    if (st2Stack[topNode] > 1) {   /* any args */
+        PushParseWord(st2Stack[topNode] - 1); /* num args  */
+        PushParseWord(st3Stack[topNode] + 1); /* index of arg info */
+        curInfoP = st3Stack[st3Stack[topNode]];   /* info of procedure */
         AdvNxtInfo();                           /* adv to arginfo */
         PushParseWord(curInfoP);
         PushParseByte(4);
-        PushParseWord(st3Stack[w99BF] + 1); /* index of arg info */
-        PushParseByte(0);                   // <expression>
+        PushParseWord(st3Stack[topNode] + 1); /* index of arg info */
+        PushParseByte(0);
     }
     w99C1 = WrTx2Item(T2_BEGCALL);
 }
 
-static void StmtParse4()
+static void SerialiseParse4()
 {
     word p, q;
     byte i, j;
 
     q = (p = parseSP - 1) - 1;
     curInfoP = parseStack[parseSP];
-    w99BF = parseStack[p];
+    topNode = parseStack[p];
     i = (byte)parseStack[q];
     if (i > 2) {   /* all bar first 2 args to stack */
         if (curInfoP == 0)
-            w99C1 = WrTx2Item1Arg(T2_STKARG, Sub_42EF(st3Stack[w99BF]));
+            w99C1 = WrTx2Item1Arg(T2_STKARG, Sub_42EF(st3Stack[topNode]));
         else {
             if (GetType() == BYTE_T)
                 j = T2_STKBARG;
             else
                 j = T2_STKWARG;
-            w99C1 = WrTx2Item1Arg(j, Sub_42EF(st3Stack[w99BF]));
+            w99C1 = WrTx2Item1Arg(j, Sub_42EF(st3Stack[topNode]));
             AdvNxtInfo();
             parseStack[parseSP] = curInfoP;
         }
-        FlgVisited(w99BF, w99C1);
+        FlgVisited(topNode, w99C1);
     }
     i = i - 1;
     if (i == 0) {           /* all done, clear working data */
@@ -244,24 +244,24 @@ static void StmtParse4()
         PopParseStack();
     } else {
         parseStack[q] = i;
-        w99BF = w99BF + 1;
-        parseStack[p] = w99BF;
+        topNode = topNode + 1;
+        parseStack[p] = topNode;
         PushParseByte(4);
-        PushParseWord(w99BF);   /* serialise the arg */
-        PushParseByte(0);       // <expression>
+        PushParseWord(topNode);   /* serialise the arg */
+        PushParseByte(0);
     }
 }
 
 
-static void StmtParse5()
+static void SerialiseParse5()
 {
     word p, q, r;
     byte i;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    r = st3Stack[w99BF];
-    i = st2Stack[w99BF] - 1;
+    r = st3Stack[topNode];
+    i = st2Stack[topNode] - 1;
     p = q = 0;
     if (i > 1) {
         p = Sub_42EF(st3Stack[r + i - 1]);
@@ -269,36 +269,36 @@ static void StmtParse5()
     } else if (i > 0)
         p = Sub_42EF(st3Stack[r + i]);
     w99C1 = WrTx2Item3Arg(T2_CALL, p, q, st3Stack[r] - botInfo);
-    FlgVisited(w99BF, w99C1);
+    FlgVisited(topNode, w99C1);
 }
 
-static void StmtParse6()
+static void SerialiseParse6()
 {
     byte i;
     word p;
     w99C1 = WrTx2Item(T2_BEGCALL);
-    w99BF = parseStack[parseSP];
-    PushParseByte(7);       // <location reference> make addressof node
-    if ((i = st2Stack[w99BF] - 1) != 0) {
+    topNode = parseStack[parseSP];
+    PushParseByte(7);
+    if ((i = st2Stack[topNode] - 1) != 0) {
         PushParseWord(i);
-        p = st3Stack[w99BF] + 1;
+        p = st3Stack[topNode] + 1;
         PushParseWord(p);
         PushParseWord(0);   /* no arg info */
         PushParseByte(4);
         PushParseWord(p);
-        PushParseByte(0);   // <expression>
+        PushParseByte(0);
     }
 }
 
-static void StmtParse7()
+static void SerialiseParse7()
 {
     byte i;
     word p, q, r;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    i = st2Stack[w99BF] - 1;
-    p = st3Stack[w99BF];
+    i = st2Stack[topNode] - 1;
+    p = st3Stack[topNode];
     q = r = 0;
     if (i > 1) {
         q = Sub_42EF(st3Stack[p + i - 1]);
@@ -306,51 +306,51 @@ static void StmtParse7()
     } else if (i > 0)
         q = Sub_42EF(st3Stack[p + i]);
     w99C1 = WrTx2Item3Arg(T2_CALLVAR, q, r, Sub_42EF(st3Stack[p]));
-    FlgVisited(w99BF, w99C1);
+    FlgVisited(topNode, w99C1);
 }
 
-static void StmtParse8()
+static void SerialiseParse8()
 {
     byte i;
     word p;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    i = st1Stack[w99BF];
-    p = st3Stack[w99BF];
+    i = st1Stack[topNode];
+    p = st3Stack[topNode];
     w99C1 = WrTx2Item3Arg(icodeToTx2Map[i], Sub_42EF(st3Stack[p]), Sub_42EF(st3Stack[p + 1]), st3Stack[p + 2]);
-    FlgVisited(w99BF, w99C1);
+    FlgVisited(topNode, w99C1);
 }
 
 
-static void StmtParse9()
+static void SerialiseParse9()
 {
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PushParseByte(10);  /* post serialise LHS */
-    PushParseWord(st3Stack[w99BF] + st2Stack[w99BF] - 1);
-    PushParseByte(0);       // <expression>
+    PushParseWord(st3Stack[topNode] + st2Stack[topNode] - 1);
+    PushParseByte(0);
 }
 
 
-static void StmtParse10()
+static void SerialiseParse10()
 {
     byte i;
     word p;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PushParseByte(12);      /* mark LHS as used at end */
-    i = st2Stack[w99BF] - 1;    /* num RHS */
-    p = st3Stack[w99BF];        /* base RHS */
+    i = st2Stack[topNode] - 1;    /* num RHS */
+    p = st3Stack[topNode];        /* base RHS */
     PushParseWord(i);
     PushParseWord(p);
     PushParseWord(p + i);           /* LHS */
     PushParseByte(11);              /* after serialised leaf */
     PushParseWord(p);               /* do the leaf */
-    PushParseByte(0);               // <expression>
+    PushParseByte(0);
 }
 
 
-static void StmtParse11()
+static void SerialiseParse11()
 {     /* do one RHS assignment */
     word p, q;
     byte i;
@@ -374,40 +374,40 @@ static void StmtParse11()
         parseStack[p] = r;
         PushParseByte(11);  /* state 11 after serialise */
         PushParseWord(r);   /* serialise leaf */
-        PushParseByte(0);   // <expression>
+        PushParseByte(0);
     }
 }
 
-static void StmtParse12()
+static void SerialiseParse12()
 {     /* mark LHS as used */
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    w99C1 = st3Stack[st3Stack[w99BF] + st2Stack[w99BF] - 1];
-    FlgVisited(w99BF, w99C1);
+    w99C1 = st3Stack[st3Stack[topNode] + st2Stack[topNode] - 1];
+    FlgVisited(topNode, w99C1);
 }
 
 
-static void StmtParse13()
+static void SerialiseParse13()
 { /* binary or unary op */
     word p;
     byte i;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    p = st3Stack[w99BF];
-    i = icodeToTx2Map[st1Stack[w99BF]];
-    if (st2Stack[w99BF] == 1)
+    p = st3Stack[topNode];
+    i = icodeToTx2Map[st1Stack[topNode]];
+    if (st2Stack[topNode] == 1)
         w99C1 = WrTx2Item1Arg(i, Sub_42EF(st3Stack[p]));
     else
         w99C1 = WrTx2Item2Arg(i, Sub_42EF(st3Stack[p]), Sub_42EF(st3Stack[p + 1]));
-    FlgVisited(w99BF, w99C1);
+    FlgVisited(topNode, w99C1);
 }
 
 
-static void StmtParse14()
+static void SerialiseParse14()
 {
     word p;
-    p = st3Stack[w99BF = parseStack[parseSP]];
+    p = st3Stack[topNode = parseStack[parseSP]];
     /* emit the count leaf */
     w99C1 = WrTx2Item1Arg(T2_BEGMOVE, Sub_42EF(st3Stack[p]));
     FlgVisited(p, w99C1);
@@ -417,18 +417,18 @@ static void StmtParse14()
     PushParseByte(1);
 }
 
-static void StmtParse15()
+static void SerialiseParse15()
 {     /* rest of Move() */
     word p;
 
-    w99BF = parseStack[parseSP];
+    topNode = parseStack[parseSP];
     PopParseStack();
-    p = st3Stack[w99BF];
+    p = st3Stack[topNode];
     w99C1 = WrTx2Item3Arg(T2_MOVE, Sub_42EF(st3Stack[p + 1]), Sub_42EF(st3Stack[p + 2]), Sub_42EF(st3Stack[p]));
-    FlgVisited(w99BF, w99C1);
+    FlgVisited(topNode, w99C1);
 }
 
-word StmtParseMachine(word arg1w)
+word SerialiseParse(word arg1w)
 {
     byte i;
     word p;
@@ -436,26 +436,26 @@ word StmtParseMachine(word arg1w)
     p = curInfoP;
     parseSP = 0;
     PushParseWord(arg1w);
-    PushParseByte(0);       // <expression>
+    PushParseByte(0);
     while (parseSP != 0) {
         i = (byte)parseStack[parseSP--];
         switch (i) {
-        case 0: StmtParse0(); break;
-        case 1: StmtParse1(); break;
-        case 2: StmtParse2(); break;
-        case 3: StmtParse3(); break;
-        case 4: StmtParse4(); break;
-        case 5: StmtParse5(); break;
-        case 6: StmtParse6(); break;
-        case 7: StmtParse7(); break;
-        case 8: StmtParse8(); break;
-        case 9: StmtParse9(); break;
-        case 10: StmtParse10(); break;
-        case 11: StmtParse11(); break;
-        case 12: StmtParse12(); break;
-        case 13: StmtParse13(); break;
-        case 14: StmtParse14(); break;
-        case 15: StmtParse15(); break;
+        case 0: SerialiseParse0(); break;
+        case 1: SerialiseParse1(); break;
+        case 2: SerialiseParse2(); break;
+        case 3: SerialiseParse3(); break;  // CALL
+        case 4: SerialiseParse4(); break;
+        case 5: SerialiseParse5(); break;
+        case 6: SerialiseParse6(); break;
+        case 7: SerialiseParse7(); break;
+        case 8: SerialiseParse8(); break;
+        case 9: SerialiseParse9(); break; // COLONEQUALS
+        case 10: SerialiseParse10(); break;
+        case 11: SerialiseParse11(); break;
+        case 12: SerialiseParse12(); break;
+        case 13: SerialiseParse13(); break;
+        case 14: SerialiseParse14(); break;
+        case 15: SerialiseParse15(); break;
         }
     }
     curInfoP = p;
@@ -590,7 +590,7 @@ static void Sub_67E3()
 static word Sub_6917()
 {
     Expression();
-    return StmtParseMachine(markedStSP);
+    return SerialiseParse(markedStSP);
 }
 
 
@@ -745,7 +745,7 @@ static void ParseStatement()
 {
     word p;
     if (Sub_5945())
-        p = StmtParseMachine(markedStSP);
+        p = SerialiseParse(markedStSP);
     ChkEndOfStmt();
 }
 
@@ -754,7 +754,7 @@ static void ParseCALL()
 {
     word p;
     if (Sub_59D4())
-        p = StmtParseMachine(markedStSP);
+        p = SerialiseParse(markedStSP);
     ChkEndOfStmt();
 }
 

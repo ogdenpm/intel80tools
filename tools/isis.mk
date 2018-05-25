@@ -5,7 +5,7 @@
 fixpath = $(if $1,$(subst |,,$(subst /|,,$(subst \,/,$(strip $1))|)),.)
 
 # normalise ROOT path
-ROOT := $(call fixpath,$(ROOT))
+export ROOT := $(call fixpath,$(ROOT))
 #
 # make sure bash and other unix tools are on the path
 PATH := $(ROOT)/unix;$(PATH)
@@ -23,6 +23,7 @@ export ISIS_F0 ?= ./
 # the none ISIS build tools
 ISIS:=$(ROOT)/thames -m
 PLMPP:=$(ROOT)/tools/plmpp
+ASM80X:=perl $(ROOT)/tools/asmx.pl
 NGENPEX:=$(ROOT)/tools/ngenpex
 MKDEPEND:=perl $(ROOT)/tools/makedepend.pl
 
@@ -96,6 +97,12 @@ define asm80
 	  "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
+# $(call asm80x,objfile,srcfile[,target specific options])
+# under the covers only asm80 v4.1 is used and a .lstx file is created
+define asm80x
+  @$(ASM80X) $2 "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+endef
+
 # $(call fort80,objfile,srcfile[,target specific options])
 define fort80
   @$(ISIS) $(call ifile,fort80,$(FORT80)) $2 "print($(call lst,$2))"\
@@ -163,6 +170,9 @@ $(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
 
 $(OBJ)/%.obj: %.f | $(OBJ) $(LST)
 	$(call fort80,$@,$<)
+
+$(OBJ)/%.obj: %.asmx | $(OBJ) $(LST)
+	$(call asm80x,$@,$<)
 
 # common targets
 .PHONY: all rebuild distclean
