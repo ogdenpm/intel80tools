@@ -26,7 +26,7 @@ REF = $(call ipath,toolbox,1.0)
 # the list below controls whether the freshly compiled library or
 # the original one shipped with the toolbox is used
 # due to limitations in cusp2 the new compiled library cannot be
-# used if a byte level exact file is neeed for others routines
+# used if a byte level exact file is needed for others routines
 # that compile differently are not used
 
 #cusp1.lib := $(call ipath,toolbox,1.0)/cusp1.lib
@@ -91,8 +91,7 @@ $(LIB):
 .INTERMEDIATE: cleanx
 
 Clean: $(OBJ)/clean.rel
-	$(call locate,cleanx,$^,$(PURGE))
-	mv cleanx Clean
+	$(call locate,clean,$^,$(PURGE))
 
 lib/cusp1.lib: cusp1/cusp1.lib  | $(LIB) ; cp $^ $@
 lib/cusp2.lib: cusp2/cusp2.lib  | $(LIB) ; cp $^ $@

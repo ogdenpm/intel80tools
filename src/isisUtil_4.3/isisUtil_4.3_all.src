@@ -2040,7 +2040,6 @@ declare fatalMsg(*) byte initial(' FATAL',
 declare trap0B structure(jmp byte, target address) at (0bh),
 	trap0E address at (0eh);
 
-declare trap0BCodeLocation address data(.SetupMap + 0DCh);
 declare bitmap based mapBase (1) byte;
 
 SetupMap: procedure(disk) address public;
@@ -2052,6 +2051,8 @@ SetupMap: procedure(disk) address public;
 		(badSectorCount, headFixItemPtr, nextFixItemPtr, fixItemPtr) address,
 		j byte, (i, bitmapLast, status) address;
 	declare fixItem based fixItemPtr structure(sector byte, driveErr address, next address);
+
+    declare trap0BCodeLocation address data(.newTrap0B);    /* used for error intercept handler */
 
 	ChkFixedSectors: procedure;
 		if (logicalTrack = 0 and (logicalSector < 1Ch or logicalSector = 58h or logicalSector > 72h))
