@@ -31,7 +31,854 @@ ClearBuffer: procedure(buf$ptr) public;
     end;
 end;
 end;
+altmap.plm
+altmap: do;
+$include(altmap.ipx)
 
+declare copyRight(*) byte data('(C) 1975,1976,1977,1978,1979,1980,1981 INTEL CORP');
+declare version(*) byte data(4, 0, 'program_version_number=', 1, 'V4.2W', 0);
+
+/* disk dimensioning info */
+declare maxCyl word data(522);
+declare maxUsrCyl word data(511);
+declare minAltCyl word data(512);
+declare CYL$BAD literally '523',    /* bad track info cylinder */
+        CYL$ALT literally '522',    /* alt track info cylinder */
+        CYL$DIAG literally '524',   /* diagnostic cylinder */
+        INFOSIG literally '0ABCDh';
+
+/*
+    messages collected here to allow size(msg) to be used
+    could have been put in line but would require manual size calculation
+*/
+
+declare help1(*) byte data(CR, LF,
+                ' IF THE BAD/ALTERNATE TRACK MAPS FOR THIS DISK HAVE NEVER BEEN INITIALIZED:', CR, LF);
+declare help11(*) byte data('  1. USE THE MARK COMMAND TO DEFINE THE BAD TRACKS.', CR, LF);
+declare help12(*) byte data('  2. USE THE AUTO COMMAND TO DEFINE THE ALTERNATE TRACKS.', CR, LF);
+declare help13(*) byte data('  3. USE THE INIT COMMAND TO INITIALIZE THE BAD/ALTERNATE MAP AREAS ON', CR, LF);
+declare help13a(*) byte data('     THE DISK.', CR, LF);
+declare help14(*) byte data('  4. USE THE WRITE COMMAND TO WRITE THE BAD/ALTERNATE MAPS ON THE DISK', CR, LF);
+declare help15(*) byte data('  5. USE THE EXIT COMMAND TO RETURN TO ISIS.', CR, LF, CR, LF);
+declare help2(*) byte data(' IF THE BAD/ALTERNATE TRACK MAPS FOR THIS DISK HAVE ALREADY BEEN INITIALIZED:', CR, LF);
+declare help21(*) byte data('  1. USE THE READ COMMAND TO READ THE BAD AND ALTERNATE TRACKS.', CR, LF);
+declare help22(*) byte data('  2. USE THE MARK/FREE COMMANDS TO CHANGE THE MAPS.', CR, LF);
+declare help23(*) byte data('  3. USE THE WRITE COMMAND TO REWRITE THE BAD/ALTERNATE MAPS ON THE DISK', CR, LF);
+declare help24(*) byte data('  4. USE THE EXIT COMMAND TO RETURN TO ISIS.', CR, LF, CR, LF);
+declare help3(*) byte data(' VALID COMMANDS: AUTO, COUNT, EXIT, FREE, INIT, LIST, MARK, QUIT, READ, WRITE',
+                           CR, LF, CR, LF);
+declare aCannotReadBad(*) byte data(' CANNOT READ DEFECTIVE TRACK MAP', CR, LF);
+declare altMapMismatch(*) byte data(' ALTERNATE TRACK MAP DOES NOT MATCH DEFECTIVE TRACK MAP', CR, LF);
+declare aCannotReadAlt(*) byte data(' CANNOT READ ALTERNATE TRACK MAP', CR, LF);
+declare confirmWriteBad(*) byte data('THIS COMMAND CHANGES THE DEFECTIVE TRACK MAP', CR, LF,
+                                     ' DO YOU WANT TO CONTINUE (Y/N)? ');
+declare badMapWritten(*) byte data(' DEFECTIVE TRACK MAP CHANGES RECORDED', CR, LF);
+declare partialAltMap(*) byte data(' ALTERNATE TRACKS NOT COMPLETELY SPECIFIED', CR, LF);
+declare confirmWriteAlt(*) byte data('THIS COMMAND CHANGES THE ALTERNATE TRACK MAP', CR, LF,
+                                       ' DO YOU WANT TO CONTINUE (Y/N)? ');
+declare altMapWritten(*) byte data(' ALTERNATE TRACK MAP CHANGES RECORDED', CR, LF);
+declare altMapTooBig(*) byte data(' ALTERNATE TRACKS EXCEEDED', CR, LF);
+declare aListWritten(*) byte data(' LIST WRITTEN', CR, LF);
+declare badDefCyl(*) byte data(' DEFECTIVE CYLINDER OUT OF RANGE', CR, LF);
+declare badDefHead(*) byte data(' DEFECTIVE HEAD OUT OF RANGE', CR, LF);
+declare badAltCyl(*) byte data(' ALTERNATE CYLINDER OUT OF RANGE', CR, LF);
+declare badAltHead(*) byte data(' ALTERNATE HEAD OUT OF RANGE', CR, LF);
+declare badAlternate(*) byte data(' DEFECTIVE ALTERNATE TRACKS MUST BE MAPPED TO "0 0"', CR, LF);
+declare altProcessed(*) byte data(' ALTERNATE PROCESSED', CR, LF);
+declare altAlreadyMarked(*) byte data(' TRACK ALREADY MARKED', CR, LF);
+declare altInUse(*) byte data(' ALTERNATE TRACK IN USE', CR, LF);
+declare altTrackBad(*) byte data(' ALTERNATE TRACK IS DEFECTIVE', CR, LF);
+declare badTrackAlreadyAlt(*) byte data(' DEFECTIVE TRACK IN USE AS ALTERNATE', CR, LF);
+declare aTrackProcessed(*) byte data(' TRACK PROCESSED', CR, LF);
+declare noDefects(*) byte data(' NO DEFECTIVE TRACKS', CR, LF);
+declare aTrackProcessed1(*) byte data(' TRACK PROCESSED', CR, LF);
+declare aTrackFree(*) byte data(' TRACK ALREADY FREE', CR, LF);
+declare signon(*) byte data('ISIS-II WINCHESTER DEFECTIVE TRACK MAPPER V1.2', CR, LF, CR, LF);
+declare aA(*) byte data('A ');
+declare winOnly(*) byte data(' USE ON WINCHESTER DISK SYSTEM ONLY', CR, LF);
+declare checkingWin(*) byte data('CHECKING WINCHESTER CONTROLLER AND DRIVE...', CR, LF);
+declare notResponding(*) byte data(' WINCHESTER CONTROLLER IS NOT RESPONDING.', CR, LF);
+declare checkInserted(*) byte data('   CHECK TO BE SURE CONTROLLER IS INSERTED PROPERLY.', CR, LF);
+declare failedRom(*) byte data(' WINCHESTER CONTROLLER FAILED ROM SELF-TEST DIAGNOSTIC.', CR, LF,
+                                       '   REPLACE CONTROLLER.', CR, LF);
+declare noDiagnostic(*) byte data(' CANNOT ACCESS WINCHESTER DISK FOR DIAGNOSTIC TEST.', CR, LF,
+                                     '   CHECK WINCHESTER CABLES AND BE SURE WINCHESTER IS SPINNING.', CR, LF,
+                                     '   IF THE WINCHESTER IS CONNECTED CORRECTLY AND THE DRIVE HAS NEVER ', CR, LF,
+                                     '   BEEN FORMATTED, THE DIAGNOSTIC TRACK MAY NOT BE FORMATTED CORRECTLY.',
+                                     CR, LF, CR, LF,
+                                     '   DO YOU WANT TO FORMAT THE DIAGNOSTIC TRACK (Y/N)? ');
+declare badController(*) byte data(' WINCHESTER CONTROLLER IS NOT COMMUNICATING CORRECTLY.', CR, LF,
+                                       '   REPLACE CONTROLLER.', CR, LF);
+
+declare aPrompt(*) byte data('*');
+declare aHelp(*) byte data('HELP');
+declare aMark(*) byte data('MARK');
+declare aFree(*) byte data('FREE');
+declare aExit(*) byte data('EXIT');
+declare aQuit(*) byte data('QUIT');
+declare notWritten(*) byte data('THE CURRENT BAD/ALTERNATE TRACK MAPS HAVE NOT BEEN WRITTEN ON DISK', CR, LF);
+declare useWrite(*) byte data('  TO WRITE THE CHANGES ON DISK, YOU MUST USE THE WRITE COMMAND.', CR, LF, CR, LF);
+declare exitNoWrite(*) byte data('DO YOU WANT TO EXIT WITHOUT WRITING THE MAPS ON DISK? ');
+declare aInit(*) byte data('INIT');
+declare confirmInit(*) byte data('INIT WILL REFORMAT THE MAP AREA ON THE DISK.', CR, LF,
+                                     ' DO YOU WANT TO CONTINUE (Y/N)? ');
+declare aRead(*) byte data('READ');
+declare aWrite(*) byte data('WRITE');
+declare aAuto(*) byte data('AUTO');
+declare aCount(*) byte data('COUNT');
+declare noDefects1(*) byte data(' NO DEFECTIVE TRACKS', CR, LF);
+declare aList(*) byte data('LIST');
+declare aCo(*) byte data(':CO: ', CR);
+declare cannotList(*) byte data(' CANNOT LIST TO TARGET DRIVE', CR, LF);
+declare emptyList(*) byte data(' NO DEFECTIVE TRACKS IN MEMORY BUFFER.', CR, LF,
+                           ' TO LIST DEFECTIVE TRACKS RECORDED ON DISK, USE THE READ COMMAND BEFORE LIST.', CR, LF);
+declare listOfDefects(*) byte data('LIST OF DEFECTIVE TRACKS IN MEMORY BUFFER.', CR, LF,
+                           ' TO LIST DEFECTIVE TRACKS RECORDED ON DISK, USE THE READ COMMAND BEFORE LIST.', CR, LF);
+
+/* local variables and modifiable messages */
+                                /* modifier set to 1 all others cleared */
+declare wiCcb WCCB$T at (56h);
+declare wiopb WDCB$T initial(0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+declare actual word;
+declare pad1(*) byte initial(' (***,**) ');
+declare aftOut word;
+declare altCyl word;
+declare altHead byte;
+declare pad2 word;
+declare defectiveTracks(*) byte initial(' ***** DEFECTIVE TRACKS', CR, LF);
+declare cmdBuf(128) byte;
+declare cmdPtr pointer, cmdCh based cmdPtr byte;
+declare queryBuf(128) byte;
+declare dirty bool initial(FALSE);
+declare pattern(128) byte;  /* used for diagnostics */
+declare badCyl word;
+declare badHead byte;
+declare b64DB byte;     /* BUG this is never initialised */
+declare diskType byte public initial(9);
+declare diagTrackError(*) byte initial(' CANNOT FORMAT DIAGNOSTIC TRACK, DISK ERROR: **', CR, LF);
+declare mapTrackError(*) byte initial(' CANNOT INITIALIZE MAP, DISK ERROR: **', CR, LF);
+declare i byte;
+declare mapping(*) byte initial(' ***,**:***,**', CR, LF);
+declare subCmd byte;
+declare (tokStart, scanPtr) pointer;
+declare status word;
+declare (badTrackInfo, altTrackInfo) (256) structure(cyl word, head byte, res byte);
+declare (badTrackSig, badTrackCount) word at(.badTrackInfo) initial(0, 0);
+declare (altTrackSig, altTrackCount) word at(.altTrackInfo) initial(0, 0);
+declare fmtBuf(6) byte initial(0, 0c7h, 0c7h, 0c7h, 0c7h, 1);
+declare pn(12) byte at(.MEMORY);
+
+
+    Help: procedure;
+        /* this and similar messages could have been written inline
+           this way however allows the use of size(msg)
+        */
+        call Write(CONSOLE$OUTPUT, .help1, size(help1), .status);
+        call Write(CONSOLE$OUTPUT, .help11, size(help11), .status);
+        call Write(CONSOLE$OUTPUT, .help12, size(help12), .status);
+        call Write(CONSOLE$OUTPUT, .help13, size(help13), .status);
+        call Write(CONSOLE$OUTPUT, .help13a, size(help13a), .status);
+        call Write(CONSOLE$OUTPUT, .help14, size(help14), .status);
+        call Write(CONSOLE$OUTPUT, .help15, size(help15), .status);
+        call Write(CONSOLE$OUTPUT, .help2, size(help2), .status);
+        call Write(CONSOLE$OUTPUT, .help21, size(help21), .status);
+        call Write(CONSOLE$OUTPUT, .help22, size(help22), .status);
+        call Write(CONSOLE$OUTPUT, .help23, size(help23), .status);
+        call Write(CONSOLE$OUTPUT, .help24, size(help24), .status);
+        call Write(CONSOLE$OUTPUT, .help3, size(help3), .status);
+    end;
+
+    InitAltTrackMap: procedure;
+        declare i word;
+
+        altTrackSig = INFOSIG;
+        altTrackCount = badTrackCount;
+        do i = 0 to 254;
+            altTrackInfo(i + 1).cyl = 0;
+            altTrackInfo(i + 1).head = 0;
+            altTrackInfo(i + 1).res = 0;
+        end;
+        if badTrackCount <> 0 then
+            do i = 0 to badTrackCount - 1;
+                altTrackInfo(i + 1).cyl = 0FFFFh;
+                altTrackInfo(i + 1).head = 0FFh;
+            end;
+    end;
+
+    InitBadTrackMap: procedure;
+        declare i word;
+
+        badTrackSig = INFOSIG;
+        do i = (badTrackCount := 0) to 254;
+            badTrackInfo(i + 1).cyl = 0;
+            badTrackInfo(i + 1).head = 0;
+            badTrackInfo(i + 1).res = 0;
+        end;
+        call InitAltTrackMap;
+    end;
+
+    ReadDefectiveTrackMap: procedure;
+        declare i word;
+
+        do i = 0 to 3;
+            wiopb.function = WINREAD;
+            wiopb.cyl = 523;        /* location of bad track info */
+            wiopb.head = 4;
+            wiopb.sector = i * 16;
+            wiopb.buffer(0) = .badTrackInfo;
+            wiopb.count(0) = size(badTrackInfo);
+            call WDiskio(.wiopb, .status);
+            if status = 0 then
+                goto read;
+        end;
+        goto error;
+
+    read:
+        if badTrackSig = INFOSIG then
+        do;
+            call InitAltTrackMap;
+            dirty = FALSE;
+            return;
+        end;
+
+    error:
+        call Write(CONSOLE$OUTPUT, .aCannotReadBad, size(aCannotReadBad), .status);
+        call InitBadTrackMap;
+    end;
+
+    ReadAlternateTrackMap: procedure;
+        declare i word, pad(3) byte;
+
+        do i = 0 to 3;
+            wiopb.function = WINREAD;
+            wiopb.cyl = 522;        /* location of alt track info */
+            wiopb.head = 4;
+            wiopb.sector = i * 16;
+            wiopb.buffer(0) = .altTrackInfo;
+            wiopb.count(0) = size(altTrackInfo);
+            call WDiskio(.wiopb, .status);
+            if status = 0 then
+                goto read;
+        end;
+        goto error;
+
+    read:
+        if altTrackSig = INFOSIG then
+        do;
+            if altTrackCount <> badTrackCount then
+            do;
+                call Write(CONSOLE$OUTPUT, .altMapMismatch, size(altMapMismatch), .status);
+                if badTrackCount > altTrackCount then
+                    do i = altTrackCount to badTrackCount - 1;
+                        altTrackInfo(i + 1).cyl = 0FFFFh;
+                        altTrackInfo(i + 1).head = 0FFh;
+                    end;
+                altTrackCount = badTrackCount;
+            end;
+            return;
+        end;
+
+    error:
+        call Write(CONSOLE$OUTPUT, .aCannotReadAlt, size(aCannotReadAlt), .status);
+        call InitAltTrackMap;
+    end;
+
+    FormatBadTrackMap: procedure bool;
+        wiopb.function = WINFORMAT;
+        wiopb.cyl = CYL$BAD;        /* track where bad track info is kept */
+        wiopb.head = 4;
+        wiopb.buffer(0) = .fmtBuf;
+        call WDiskio(.wiopb, .status);
+        if status = 0 then
+            return TRUE;
+       
+        call NumOut(status, 16, '0', .mapTrackError + 36, 2); 
+        call Write(CONSOLE$OUTPUT, .mapTrackError, size(mapTrackError), .status); 
+        return FALSE;
+    end;
+
+    FormatAltTrackMap: procedure bool;
+        wiopb.function = WINFORMAT;
+        wiopb.cyl = CYL$ALT;        /* track where alt track info is kept */
+        wiopb.head = 4;
+        wiopb.buffer(0) = .fmtBuf;
+        call WDiskio(.wiopb, .status);
+        if status = 0 then
+            return TRUE;
+                                      /* bug should be + 36 */
+        call NumOut(status, 16, '0', .mapTrackError + 37, 2); 
+        call Write(CONSOLE$OUTPUT, .mapTrackError, size(mapTrackError), .status); 
+        return FALSE;
+    end;
+
+    FormatDiagnosticTrack: procedure bool;
+        wiopb.function = WINFORMAT;
+        wiopb.cyl = CYL$DIAG;    /* diagnostic track */
+        wiopb.head = 0;
+        wiopb.buffer(0) = .fmtBuf;
+        call WDiskio(.wiopb, .status);
+        if status = 0 then
+            return TRUE;
+
+        call NumOut(status, 16, '0', .diagTrackError + 45, 2); 
+        call Write(CONSOLE$OUTPUT, .diagTrackError, size(diagTrackError), .status); 
+        return FALSE;
+    end;
+
+    WriteBadTrackMap: procedure;
+        declare i byte;
+
+        call Write(CONSOLE$OUTPUT, .confirmWriteBad, size(confirmWriteBad), .status);
+        call Read(CONSOLE$INPUT, .queryBuf, 128, .actual, .status);
+        queryBuf(actual) = CR;
+        call ForceUpper(.queryBuf);
+        if queryBuf(0) <> 'Y' then
+            return;
+
+        do i = 0 to 3;
+            wiopb.function = WINWRITE;
+            wiopb.cyl = CYL$BAD;
+            wiopb.head = 4;
+            wiopb.sector = i * 16;
+            wiopb.buffer(0) = .badTrackInfo;
+            wiopb.count(0) = size(badTrackInfo);
+            call WDiskio(.wiopb, .status);
+        end;
+
+        dirty = FALSE;
+        call Write(CONSOLE$OUTPUT, .badMapWritten, size(badMapWritten), .status);
+    end;
+
+    WriteAltTrackMap: procedure;
+        declare i word;
+
+        if badTrackCount <> 0 then
+            do i = 0 to badTrackCount - 1;
+                if altTrackInfo(i + 1).cyl = 0FFFFh and altTrackInfo(i + 1).head = 0FFh then
+                do;
+                    call Write(CONSOLE$OUTPUT, .partialAltMap, size(partialAltMap), .status);
+                    return;
+                end;
+            end;
+
+        call Write(CONSOLE$OUTPUT, .confirmWriteAlt, size(confirmWriteAlt), .status);
+        call Read(CONSOLE$INPUT, .queryBuf, 128, .actual, .status);
+        queryBuf(actual) = CR;
+        call ForceUpper(.queryBuf);
+        if queryBuf(0) <> 'Y' then
+            return;
+
+        do i = 0 to 3;
+            wiopb.function = WINWRITE;
+            wiopb.cyl = CYL$ALT;
+            wiopb.head = 4;
+            wiopb.sector = i * 16;
+            wiopb.buffer(0) = .altTrackInfo;
+            wiopb.count(0) = size(altTrackInfo);
+            call WDiskio(.wiopb, .status);
+        end;
+
+        dirty = FALSE;
+        call Write(CONSOLE$OUTPUT, .altMapWritten, size(altMapWritten), .status);
+    end;
+
+
+    Auto: procedure;
+        declare (i, j) word;
+
+        if badTrackCount = 0 then
+            return;
+
+        altCyl = 511;
+        altHead = 4;
+        do i = 0 to badTrackCount - 1;
+            if badTrackInfo(i + 1).cyl > maxUsrCyl then
+            do;
+                altTrackInfo(i + 1).cyl = 0;
+                altTrackInfo(i + 1).head = 0;
+            end;
+            else
+    loop:   do;
+                if (altHead := altHead + 1) > 4 then
+                do;
+                    altHead = 0;
+                    if (altCyl := altCyl + 1) >= 522 then
+                    do;
+                        call Write(CONSOLE$OUTPUT, .altMapTooBig, size(altMapTooBig), .status);
+                        return;
+                    end;
+                end; 
+               
+                do j = 0 to badTrackCount - 1; 
+                    /* check altCyl-altHead are not bad */
+                    if badTrackInfo(j + 1).cyl = altCyl and badTrackInfo(j + 1).head = altHead then
+                        goto loop;
+                end;
+                altTrackInfo(i + 1).cyl = altCyl;
+                altTrackInfo(i + 1).head = altHead;
+            end;
+        end;
+    end;
+
+
+    List: procedure;
+        declare i word;
+
+        do i = 0 to badTrackCount - 1;
+            call NumOut(badTrackInfo(i + 1).cyl, 10, ' ', .mapping + 1, 3);
+            call NumOut(badTrackInfo(i + 1).head, 10, ' ', .mapping + 5, 2);
+            if altTrackInfo(i + 1).cyl = 0FFFFh and altTrackInfo(i + 1).head = 0FFh then
+            do;
+                mapping(8) = '*';
+                mapping(9) = '*';
+                mapping(10) = '*';
+                mapping(12) = '*';
+                mapping(13) = '*';
+            end;
+            else
+            do;
+                call NumOut(altTrackInfo(i + 1).cyl, 10, ' ', .mapping + 8, 3);
+                call NumOut(altTrackInfo(i + 1).head, 10, ' ', .mapping + 12, 2);
+            end;
+            call Write(aftOut, .mapping, size(mapping), .status);
+        end;
+        if aftOut <> CONSOLE$OUTPUT then
+            call Write(CONSOLE$OUTPUT, .aListWritten, size(aListWritten), .status);
+    end;
+
+    InvalidSyntaxError: procedure;
+        call FileError(0CBH, cmdPtr, FALSE);
+    end;
+
+    GetCylHead: procedure bool;
+        declare flag byte;
+
+        /* get defect cylinder */
+        if cmdch - '0' > 9 then
+        do;
+            call InvalidSyntaxError;
+            return FALSE;
+        end;
+        scanPtr = cmdPtr;
+        if (badCyl := ScanInteger(.scanPtr)) > maxCyl then
+        do;
+            call Write(CONSOLE$OUTPUT, .badDefCyl, size(badDefCyl), .status); 
+            return FALSE;
+        end;
+        flag = FALSE;
+        if badCyl > maxUsrCyl then
+            flag = TRUE;
+        
+        /* get defect head */
+        cmdPtr = Deblank(scanPtr);
+        if cmdch - '0' > 9 then
+        do;
+            call InvalidSyntaxError;
+            return FALSE;
+        end;
+        if (badHead := ScanInteger(.scanPtr)) > 4 then
+        do;
+            call Write(CONSOLE$OUTPUT, .badDefHead, size(badDefHead), .status); 
+            return FALSE;
+        end;
+
+        /* check for alternate info */
+        cmdPtr = Deblank(scanPtr);
+        if cmdCh = CR then  /* no alternate info */
+        do;
+            altCyl = 0ffffh;
+            altHead = 0ffh;
+            return TRUE;
+        end;
+
+        /* check for : separator */
+        if cmdCh <> ':' then
+        do;
+            call InvalidSyntaxError;
+            return FALSE;
+        end;
+
+        /* check alternate cylinder */
+        cmdPtr = Deblank(cmdPtr + 1);
+        if cmdCh - '0' > 9 then
+        do;
+            call InvalidSyntaxError;
+            return FALSE;
+        end;
+
+        scanPtr = cmdPtr;
+        if ((altCyl := ScanInteger(.scanPtr)) > maxCyl or altCyl < minAltCyl) and
+                not (altCyl = 0 and flag) then
+        do;
+            call Write(CONSOLE$OUTPUT, .badAltCyl, size(badAltCyl), .status); 
+            return FALSE;
+        end;
+
+        /* check alternate head */
+        cmdPtr = Deblank(scanPtr);
+        if cmdch - '0' > 9 then
+        do;
+            call InvalidSyntaxError;
+            return FALSE;
+        end;
+        if (altHead := ScanInteger(.scanPtr)) > 4 then
+        do;
+            call Write(CONSOLE$OUTPUT, .badAltHead, size(badAltHead), .status); 
+            return FALSE;
+        end;
+     
+        /* defective alternate tracks must be mapped to 0 0 */
+        if (altCyl <> 0 or altHead <> 0) and flag then
+        do;
+            call Write(CONSOLE$OUTPUT, .badAlternate, size(badAlternate), .status); 
+            return FALSE;
+        end;
+
+        cmdPtr = Deblank(scanPtr);
+        if cmdCh = CR then
+            return TRUE;
+        else
+        do;
+            call InvalidSyntaxError;
+            return FALSE;
+        end;
+    end;
+
+
+    Mark: procedure;
+        declare i word;
+
+        if badTrackCount <> 0 then
+
+            do i = 0 to badTrackCount - 1;
+                if badTrackInfo(i + 1).cyl = badCyl and badTrackInfo(i + 1).head = badHead then
+                do;
+                    if altTrackInfo(i + 1).cyl = 0FFFFh and altTrackInfo(i + 1).head = 0FFh and
+                       altCyl <> 0FFFFh and altHead <> 0FFh then
+                    do; 
+                        altTrackInfo(i + 1).cyl = altCyl;
+                        altTrackInfo(i + 1).head = altHead;
+                        dirty = TRUE;
+                        call Write(CONSOLE$OUTPUT, .altProcessed, size(altProcessed), .status);
+                        return;
+                    end;
+                    call Write(CONSOLE$OUTPUT, .altAlreadyMarked, size(altAlreadyMarked), .status);
+                    return;
+                end;
+                if altTrackInfo(i + 1).cyl = altCyl and altTrackInfo(i + 1).head = altHead and
+                    (altCyl <> 0 or altHead <> 0) and (altCyl <> 0FFFFh or altHead <> 0FFh) then
+                do;
+                    call Write(CONSOLE$OUTPUT, .altInUse, size(altInUse), .status);
+                    return;
+                end;
+
+                if badTrackInfo(i + 1).cyl = altCyl and badTrackInfo(i + 1).head = altHead then
+                do;
+                    call Write(CONSOLE$OUTPUT, .altTrackBad, size(altTrackBad), .status);
+                    return;
+                end;
+
+                if altTrackInfo(i + 1).cyl = badCyl and altTrackInfo(i + 1).head = badHead then
+                do;
+                    call Write(CONSOLE$OUTPUT, .badTrackAlreadyAlt, size(badTrackAlreadyAlt), .status);
+                    return;
+                end;
+            end;
+        badTrackInfo(badTrackCount + 1).cyl = badCyl;
+        badTrackInfo(badTrackCount + 1).head = badHead;
+        altTrackInfo(badTrackCount + 1).cyl = altCyl;
+        altTrackInfo(badTrackCount + 1).head = altHead;
+        badTrackCount, altTrackCount = badTrackCount + 1;
+        dirty = TRUE;
+        call Write(CONSOLE$OUTPUT, .aTrackProcessed, size(aTrackProcessed), .status);
+    end;
+
+
+    Free: procedure;
+        declare (i, j) word;
+        if badTrackCount = 0 then
+        do;
+            call Write(CONSOLE$OUTPUT, .noDefects, size(noDefects), .status);
+            return;
+        end;
+
+        do i = 0 to badTrackCount - 1;
+            if badTrackInfo(i + 1).cyl = badCyl and badTrackInfo(i + 1).head = badHead then
+            do;
+                if i < badTrackCount - 1 then
+                    do j = i to badTrackCount - 2;
+                        badTrackInfo(j + 1).cyl = badTrackInfo(j + 2).cyl;
+                        badTrackInfo(j + 1).head = badTrackInfo(j + 2).head;
+                        badTrackInfo(j + 1).res = badTrackInfo(j + 2).res;
+                        altTrackInfo(j + 1).cyl = altTrackInfo(j + 2).cyl;
+                        altTrackInfo(j + 1).head = altTrackInfo(j + 2).head;
+                        altTrackInfo(j + 1).res = altTrackInfo(j + 2).res;
+                    end;
+                badTrackCount, altTrackCount = badTrackCount - 1;
+                dirty = TRUE;
+                call Write(CONSOLE$OUTPUT, .aTrackProcessed1, size(aTrackProcessed1), .status);
+                return;
+            end;
+        end;
+        call Write(CONSOLE$OUTPUT, .aTrackFree, size(aTrackFree), .status);
+    end;
+
+    testToken: procedure(ptr, cnt) bool;
+        declare ptr pointer, cnt byte;
+        declare cmdch based cmdPtr byte,
+                ch based ptr byte;
+
+        do while cmdch = ch and cnt <> 0;
+            cmdPtr = cmdPtr + 1;
+            ptr = ptr + 1;
+            cnt = cnt - 1;
+        end; 
+        if 'A' <= cmdch and cmdch <= 'Z' or cmdPtr = tokStart then
+        do;
+            cmdPtr = tokStart;
+            return FALSE;
+        end;
+        else
+        do;
+            cmdPtr = Deblank(cmdPtr);
+            return TRUE;
+        end;
+
+    end;
+
+
+
+/* main program entry point */
+start:
+    call InitBadTrackMap;
+    call Write(CONSOLE$OUTPUT, .signon, size(signon), .status);
+
+    call Read(CONSOLE$INPUT, .cmdBuf, 128, .actual, .status);
+    cmdBuf(actual) = CR;
+    call ForceUpper(.cmdBuf);
+    cmdPtr = Deblank(.cmdBuf);
+    if cmdCh <> CR then     /* check for spurious paramaters on cmd line */
+        call FileError(0CBH, cmdPtr, TRUE);
+
+    call SPath(.aA, .pn, .status);
+    if pn(11) <> 9 then
+    do;
+        call Write(CONSOLE$OUTPUT, .winOnly, size(winOnly), .status);
+        call Exit;
+    end;
+
+    call Write(CONSOLE$OUTPUT, .checkingWin, size(checkingWin), .status);
+
+    if wiCcb.busy1 <> 0 then
+    do;
+        call Write(CONSOLE$OUTPUT, .notResponding, size(notResponding), .status);
+        call Write(CONSOLE$OUTPUT, .checkInserted, size(checkInserted), .status);
+        call Exit;
+    end;
+
+    wiopb.function = WINDIAG;
+    wiopb.modifier = 101h;  /* perform ROM check - no interrupt */
+    call WDiskio(.wiopb, .status);
+    wiopb.modifier = 1;     /* no interrupt */
+    if status <> 0 then
+    do;
+        call Write(CONSOLE$OUTPUT, .failedRom, size(failedRom), .status);
+        call Exit;
+    end;
+
+    do i = 0 to 127;    /* fill buffer with 0-127 */
+        pattern(i) = i;
+    end;
+
+    /* write pattern to controller */
+
+    wiopb.function = WINBUFFERIO;
+    wiopb.cyl = 4000h;     /* controller ram location */
+    wiopb.head = 0FFH;          /* copy host to controller */
+    wiopb.buffer(0) = .pattern;
+    wiopb.count(0) = 128;
+    call WDiskio(.wiopb, .status);
+    if status <> 0 then
+        goto controllerProblem;
+
+    do i = 0 to 127;            /* clear buffer */
+        pattern(i) = 0;
+    end;
+
+    /* read the pattern back */
+    wiopb.function = WINBUFFERIO;
+    wiopb.cyl = 4000h;     /* controller ram location */
+    wiopb.head = 0;            /* copy controller to host */
+    wiopb.buffer(0) = .pattern;
+    wiopb.count(0) = 128;
+    call WDiskio(.wiopb, .status);
+    if status <> 0 then
+        goto controllerProblem;
+
+    /* check pattern read back ok */
+    do i = 0 to 127;
+        if pattern(i) <> i then
+            goto controllerProblem;
+    end;
+
+    /* access diagnostic track */
+    wiopb.function = WINDIAG;
+    wiopb.modifier = 0;        /* check diagnostic track */
+    call WDiskio(.wiopb, .status);
+    if status <> 0 then
+    do;
+        call Write(CONSOLE$OUTPUT, .noDiagnostic, size(noDiagnostic), .status);
+        call Read(CONSOLE$INPUT, .queryBuf, 128, .actual, .status);
+        queryBuf(actual) = CR;
+        call ForceUpper(.queryBuf);
+        if queryBuf(0) <> 'Y' then
+                goto main;
+        if not FormatDiagnosticTrack then
+            call Exit;
+    end;
+    goto main;
+
+controllerProblem:
+    call Write(CONSOLE$OUTPUT, .badController, size(badController), .status);
+    call Exit;
+
+main:
+    call Help;
+
+    do while (1);
+        call Write(CONSOLE$OUTPUT, .aPrompt, size(aPrompt), .status);
+        call Read(CONSOLE$INPUT, .cmdBuf, 128, .actual, .status);
+        cmdBuf(actual) = CR;
+        call ForceUpper(.cmdBuf);
+        cmdPtr, tokStart = Deblank(.cmdBuf);
+
+        if testToken(.aHelp, size(aHelp)) then
+            call Help;
+        else if testToken(.aMark, size(aMark)) then
+        do;
+            if GetCylHead then
+                call Mark;
+        end;
+        else if testToken(.aFree, size(aFree)) then
+        do;
+            if GetCylHead then
+                call Free;
+        end;
+        else if testToken(.aExit, size(aExit)) or testToken(.aQuit, size(aQuit)) then
+        do;
+            if cmdCh <> CR then
+                call InvalidSyntaxError;
+            else if dirty then
+            do;
+                call Write(CONSOLE$OUTPUT, .notWritten, size(notWritten), .status);
+                call Write(CONSOLE$OUTPUT, .useWrite, size(useWrite), .status);
+                call Write(CONSOLE$OUTPUT, .exitNoWrite, size(exitNoWrite), .status);
+                call Read(CONSOLE$INPUT, .queryBuf, 128, .actual, .status);
+                queryBuf(actual) = CR;
+                call ForceUpper(.queryBuf);
+                if queryBuf(0) =  'Y' then
+                    call Exit;
+            end;
+            else
+                call Exit;
+        end;
+        else if testToken(.aInit, size(aInit)) then
+        do;
+            if cmdCh <> 'A' and cmdCh <> 'D' and cmdCh <> 'B' then
+                call InvalidSyntaxError;
+            else
+            do;
+                subCmd = cmdCh;
+                call Write(CONSOLE$OUTPUT, .confirmInit, size(confirmInit), .status);
+                call Read(CONSOLE$INPUT, .queryBuf, 128, .actual, .status);
+                queryBuf(actual) = CR;
+                call ForceUpper(.queryBuf);
+                if queryBuf(0) =  'Y' then
+                do;
+                    if subCmd = 'D' or subCmd = 'B' then
+                        if FormatBadTrackMap then
+                            call WriteBadTrackMap;
+                    if subCmd = 'A' or subCmd = 'B' then
+                        if FormatAltTrackMap then
+                            call WriteAltTrackMap;
+                end;
+            end;
+        end;
+        else if testToken(.aRead, size(aRead)) then
+        do;
+            if cmdCh <> 'A' and cmdCh <> 'D' and cmdCh <> 'B' then
+                call InvalidSyntaxError;
+            else
+            do;
+                if cmdCh = 'D' or cmdCh = 'B' then
+                    call ReadDefectiveTrackMap;
+                if cmdCh = 'A' or cmdCh = 'B' then
+                    call ReadAlternateTrackMap;
+            end;
+        end;
+        else if testToken(.aWrite, size(aWrite)) then
+        do;
+            if cmdCh <> 'A' and cmdCh <> 'D' and cmdCh <> 'B' then
+                call InvalidSyntaxError;
+            else
+            do;
+                if cmdCh = 'D' or cmdCh = 'B' then
+                    call WriteBadTrackMap;
+                if cmdCh = 'A' or cmdCh = 'B' then
+                    call WriteAltTrackMap;
+            end;
+        end;
+        else if testToken(.aAuto, size(aAuto)) then
+            call Auto;
+        else if testToken(.aCount, size(aCount)) then
+        do;
+            if cmdCh <> CR then
+                call InvalidSyntaxError;
+            else if badTrackCount = 0 then
+                call Write(CONSOLE$OUTPUT, .noDefects1, size(noDefects1), .status);
+            else
+            do;
+                call NumOut(badTrackCount, 10, 0, .defectiveTracks + 1, 5);
+                call Write(CONSOLE$OUTPUT, .defectiveTracks, size(defectiveTracks), .status);
+            end;
+        end;
+        else if testToken(.aList, size(aList)) then
+        do;
+            if cmdCh = CR then
+                cmdPtr = .aCo;  /* :CO: \r */
+            call Spath(cmdPtr, .pn, .status);
+            if status <> 0 then
+                call FileError(status, cmdPtr, FALSE);
+            else if pn(0) = b64DB  then      /* BUG - b64DB is never initialised */
+                call Write(CONSOLE$OUTPUT, .cannotList, size(cannotList), .status);
+            else if pn(10) = 0 then
+                call FileError(16h, cmdPtr, FALSE);
+            else
+            do;
+                cmdPtr = Deblank(Delimit(tokStart := cmdPtr));
+                if cmdCh <> CR then
+                    call InvalidSyntaxError;
+                else if badTrackCount = 0 then
+                    call Write(CONSOLE$OUTPUT, .emptyList, size(emptyList), .status);
+                else
+                do;
+                    call Open(.aftOut, tokStart, WRITE$MODE, 0, .status);
+                    if status <> 0 then
+                        call FileError(status, tokStart, FALSE);
+                    else
+                    do;
+                        call Write(CONSOLE$OUTPUT, .listOfDefects, size(listOfDefects), .status);
+                        call List;
+                    end;
+                    call Close(aftOut, .status);
+                end;
+            end;
+        end;
+        else if cmdCh <> CR then
+            call InvalidSyntaxError;
+    end;    /* of while 1 */
+    call Exit;
+end;
 dblank.plm
 deblank: do;
 
@@ -62,7 +909,10 @@ Diskio: procedure(disk, dcb$p) public;
     param2 = dcb$p;
     call ISIS('D', .param1);
 end;
-
+end;
+wdskio.plm
+WDiskio: do;
+$include(wdskio.ipx)
 WDiskio: procedure(wiopb$p, status$p) public;
     declare wiopb$p pointer, status$p wpointer;
     declare status based status$p word;
@@ -1008,6 +1858,7 @@ directINO   A
 diskType        B
 mapBase         A
 maskArray       BS
+pn          BS
 singleDrive B
 
 # winchester modes
@@ -1020,6 +1871,7 @@ WINREADBUF  '5'
 WINWRITE    '6'
 WINWRITEBUF '7'
 WINSEEK     '8'
+WINBUFFERIO '14'
 WINDIAG     '15'
 
 # public procedures
@@ -1751,3 +2603,194 @@ Ypath: procedure(int, ext) public;
 	extName(0) = ' ';
 end;
 end; 
+popul.plm
+population: do;
+
+declare bitCnt(*) byte initial(
+	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+	4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8);
+
+Population: procedure(bufferLoc, length) address;
+	declare (bufferLoc, length, total) address,
+	(i, t, l) byte;
+	declare buffer based bufferLoc (1) byte;
+
+	total = 0;
+	do while length > 31;
+		t = 0;
+		do i = 0 to 30;
+			t = t + bitCnt(buffer(i));
+		end;
+		total = total + t;
+		bufferLoc = bufferLoc + 31;
+		length = length - 31;
+	end;
+	l = length - 1;
+	t = 0;
+	do i = 0 to l;
+		t = t + bitCnt(buffer(i));
+	end;
+	return total + t;
+end;
+end;
+scanin.plm
+ScanInteger: do;
+
+declare digits(*) byte data('0123456789ABCDEF');
+
+ScanInteger: procedure(ptrPtr) address public;
+	declare ptrPtr address;
+	declare ptr based ptrPtr address;
+	declare (scanPtr, updatePtr, stopPtr) address;
+	declare (i, radix, increment) byte;
+	declare (nVal, oVal) address;
+	declare c based scanPtr byte;
+
+	scanPtr = ptr;
+	do while c = ' ';
+		scanPtr = scanPtr + 1;
+	end;
+	ptr = scanPtr;
+	do while '0' <= c and c <= '9' or 'A' <= c and c <= 'F';
+		scanPtr = scanPtr + 1;
+	end;
+
+	stopPtr = scanPtr;
+	updatePtr = scanPtr + 1;
+	if c = 'H' then
+		radix = 16;
+	else if c = 'O' or c = 'Q' then
+		radix = 8;
+	else
+	do;
+		updatePtr = scanPtr;
+		stopPtr, scanPtr = scanPtr - 1;
+		if c = 'B' then
+			radix = 2;
+		else
+		do;
+			radix = 10;
+			if c <> 'D' then	/* include last increment */
+				stopPtr = stopPtr + 1;
+		end;
+	end;
+	scanPtr = ptr;
+	nVal, oVal = 0;
+	do while scanPtr < stopPtr;
+		do i = 0 to 15;
+			if c = digits(i) then
+				increment = i;
+		end;
+		if increment >= radix then
+			return 0;
+		nVal = oVal * radix + increment;
+		if nVal < oVal then
+			return 0;
+		oVal = nVal;
+		scanPtr = scanPtr + 1;
+	end;
+	ptr = updatePtr;
+	return nVal;
+end;
+end;
+
+rpter2.plm
+/* version of report error for altmap */
+ReportError: do;
+$include(rpter2.ipx)
+declare msg(*) byte DATA(0, 0,
+    2, 'ILLEGAL AFTN ARGUMENT', 0,
+    4, 'INCORRECTLY SPECIFIED FILE', 0,
+    5, 'UNRECOGNIZED DEVICE NAME', 0,
+    6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+    8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+    9, 'DISK DIRECTORY FULL', 0,
+    0AH, 'NOT ON SAME DISK', 0,
+    0BH, 'FILE ALREADY EXISTS', 0,
+    0CH, 'FILE IS ALREADY OPEN', 0,
+    0DH, 'NO SUCH FILE', 0,
+    0EH, 'WRITE PROTECTED', 0,
+    11H, 'NOT A DISK FILE', 0,
+    12H, 'ILLEGAL ISIS COMMAND', 0,
+    13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+    14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+    15H, 'CAN', 27H, 'T RESCAN', 0,
+    16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+    17H, 'MISSING FILENAME', 0,
+    19H, 'ILLEGAL ECHO FILE', 0,
+    1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+    1BH, 'ILLEGAL SEEK COMMAND', 0,
+    1CH, 'MISSING EXTENSION', 0,
+    1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+    20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+    21H, 'ILLEGAL PARAMETER', 0,
+    23H, 'SEEK PAST EOF', 0,
+    0C9H, 'UNRECOGNIZED SWITCH', 0,
+    0CAH, 'UNRECOGNIZED DELIMITER', 0,
+    0CBH, 'INVALID SYNTAX', 0,
+    0CCH, 'PREMATURE EOF', 0,
+    0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+    0D0H, 'CHECKSUM ERROR', 0,
+    0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+    0D2H, 'INSUFFICIENT MEMORY', 0,
+    0D3H, 'RECORD TOO LONG', 0,
+    0D4H, 'ILLEGAL RELO RECORD', 0,
+    0D5H, 'FIXUP BOUNDS ERROR', 0,
+    0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+    0D7H, 'ARGUMENT TOO LONG', 0,
+    0D8H, 'TOO MANY PARAMETERS', 0,
+    0D9H, 'OBJECT RECORD TOO SHORT', 0,
+    0DAH, 'ILLEGAL RECORD FORMAT', 0,
+    0DBH, 'PHASE ERROR', 0,
+    0EAH, 'CANNOT FORMAT FROM TARGET DRIVE', 0,
+    0EBH, 'NON-DISK DEVICE', 0,
+    3DH, 'UNASSIGNED DEVICE', 0,
+    0ECH, 'ILLEGAL FORMAT ON REMOTE DEVICE', 0
+    );
+
+ReportError: procedure(errNum) public;
+    declare errNum address;
+    declare numberBuffer(3) byte, i address, status address;
+
+
+    if errNum <> 0 then
+    do;
+        i = 0;
+        do while i < size(msg);
+            if errNum = msg(i) and msg(i + 1) <> 0 then
+            do;
+                i = i + 1;
+                call write(0, .(' '), 1, .status);
+                do while msg(i) <> 0;
+                    call write(0, .msg(i), 1, .status);
+                    i = i + 1;
+                end;
+                call write(0, .(CR, LF), 2, .status);
+                return;
+            end;
+            else
+            do;
+                do while msg(i) <> 0;
+                    i = i + 1;
+                end;
+                i = i + 1;
+            end;
+        end;
+    call error(errNum);
+    end;
+end;
+end;
