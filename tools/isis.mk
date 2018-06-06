@@ -100,7 +100,7 @@ endef
 # $(call asm80x,objfile,srcfile[,target specific options])
 # under the covers only asm80 v4.1 is used and a .lstx file is created
 define asm80x
-  @$(ASM80X) $2 "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+  @$(ASM80X) $2 "object($1)" $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call fort80,objfile,srcfile[,target specific options])

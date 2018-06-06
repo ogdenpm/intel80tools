@@ -107,7 +107,7 @@ sub strucDef {
         }
         $label = $label || $prevLabel || $auto++;           # get a non blank label
         $prevLabel = "";                                    # we have consumed label
-        my $dim = ($param =~ /^(\d+)/) || 1;                # look for dim in dim dup ?
+        my $dim = ($param =~ /^(\d+)/) ? $1 : 1;            # look for dim in dim dup ?
         push @{$struc{$name}{member}}, $label;               # add member name to list of members
         $struc{"$name.$label"} = {offset => $offset, type => $opcode, dim => $dim};
         if ($opcode eq "db") {                              # adjust offset
@@ -126,7 +126,7 @@ sub strucDef {
 }
 
 # scan through the program and process struc definitions
-# and noting vars that are structures in the hash $strucVar that maps a var name to its structure name
+# and noing vars that are structures in the hash $strucVar that maps a var name to its structure name
 # for simple initialisation vars are declared as
 #   varName:  strucName <initialisers>
 # for more complex initialisers e.g. arrays, nested struc, large number of members use
@@ -197,7 +197,8 @@ local $mappedId = 0;
 #
 sub mapname {
     my $origName = $_[0];
-    my $name = lc($origName);
+    my $name = substr(uc($origName), 0, 31);
+    $name =~ tr/?0-9\@A-Z//cd;
     if (!defined($namemap{$name})) {
         $nameLookup[$mappedId] = $origName;
         $namemap{$name} = sprintf "@@%04d", $mappedId++;
@@ -221,6 +222,9 @@ sub initialiser {
     my ($type, $param) = @_;
     my @expand;
 
+    if ($type eq 'assign?t') {
+        print "here\n";
+    }
     if ($param eq "?") {                            # simple ? so do ds for whole structure
         push @expand, "        ds $struc{$type}{size}    ; $type";
     } else {
@@ -229,7 +233,8 @@ sub initialiser {
         for my $member (@{$struc{$type}{member}}) {
             my $mtype = $struc{"$type.$member"}{type};
             my $mdim = $struc{"$type.$member"}{dim};
-            my $mval = shift @p || shift @p;        # if undef (,) take next parameter component
+            my $mval = shift @p;
+            $mval = shift @p if $mval eq "";        # if undef (,) take next parameter component
             $mval =~ s/\s*(\S*)\s*$/\1/;            # trim spaces
             if ($mdim != 1 || defined($struc{$mtype}{size})) {
                     unshift @expand, "; Warning $type.$member - only ? initialiser supported\n";
@@ -289,15 +294,25 @@ for ($curLine = 0; $curLine <= $#prog; $curLine++) {
 close $out;
 close $in;
 
-unlink "$ofile.lst";
+
+# now run the assembler
+unlink "$ofile.lst";        # delete old listing file
+local $objfile = "$ofile.obj";  # assume default .obj file
+# check for object(file) in the command line
+my @objargs = grep(/object\(/i, @ARGV);
+$objfile = $1 if $objargs[0] =~ /\(\s*([^\s\)]*)/;
+unlink $objfile;
+
 my $ROOT = $ENV{ROOT};
 my @args = ("-m", "$ROOT/itools/asm80_4.1/asm80", "$ofile.$oext", 
             "print($ofile.lst)", @ARGV);
 my $result = system("$ROOT/thames.exe", @args);
 
+
+# when finished check for listing file and regenerate using long names etc.
 if (-e "$ofile.lst") {
     open($in, "<", "$ofile.lst") or die "can't open $ofile.lst\n";
-    open ($out, ">$ofile.lstx") or die "can't create $ofile.lstx\n";
+    open ($out, ">$ofile.$$") or die "can't create $ofile.$$\n";
 
     my $syms = 0;
     while (<$in>) {
@@ -307,11 +322,14 @@ if (-e "$ofile.lst") {
             s/$tmpComment//;
             s/\@\@(\d{4})/ $nameLookup[$1]/eg;
         }
-        $syms++ if /^(PUBLIC|EXTERNAL|USER) SYMBOLS/;
-        if ($syms && /^[\w\?\@\.\$]+\s+[A-Z] [0-9A-F]{4}/) { 
+        $syms++ if /^(PUBLIC|EXTERNAL|USER) SYMBOLS/;           # look for symbol table reformat
+        if ($syms && /^[\w\?\@\.\$]+\s+[A-Z] [0-9A-F]{4}/) {    # reformat using wider symbol name
             my @item = split;
             for (my $i = 0; $i < $#item; $i += 3) {
-                print $out "    " if $i != 0;
+                print $out "   " if $i != 0;
+                $item[$i] = uc($item[$i]);                      # remove $ _ and make upper case
+                $item[$i] =~ tr/?0-9\@A-Z//cd;
+                $item[$i] = substr($item[$i], 0, 31);           # truncate to 31 chars
                 printf $out "%-*s %s %s", $maxName, $item[$i], $item[$i + 1], $item[$i + 2];
             }
             print $out "\n";
@@ -321,7 +339,112 @@ if (-e "$ofile.lst") {
     }
     close $in;
     close $out;
-    unlink "$ofile.lst";
-    unlink "$ofile.asm";
+    unlink "$ofile.lst";                                        # remove asm generated .lst file
+    unlink "$ofile.asm";                                        # remove intermediate .asm file
+    rename "$ofile.$$", "$ofile.lst"                            # replace with updated .lst file
 }
-$result;      
+
+# check for obj file and update names in public, extern, and locals definitions
+# commons are not checked because ASM doesn't support them
+# note like PLM $ and _ are removed and names are converted to upper case
+sub mkRecord {
+    my($type, $rec) = @_;
+    $rec = pack("Cva*", $type, length($rec) + 1, $rec);
+    return $rec . chr((256 - unpack("%8C*", $rec)) & 0xff);
+}
+
+sub mkObjName {
+    my $name = uc($_[0]);
+    if ($name =~ s/^\@\@(\d{4})$/ uc($nameLookup[$1])/e) {
+        $name =~ tr/?0-9\@A-Z//cd;
+        $name = substr($name, 0, 31);
+    }
+    return pack("Ca*", length($name), $name);
+}
+    
+sub renameOne {     # no need to check length as header and ancestor records are short
+    my ($name, $rest) = unpack("C/A*a*", $_[1]);
+    return mkRecord($_[0], mkObjName($name) . $rest);
+}
+
+
+sub renameExt {
+    my $data = $_[1];
+    my $rec = "";
+    my $name;
+    while ($data ne "") {
+        ($name, $data) = unpack("C/A*xa*", $data);
+        my $newName = pack("a*x", mkObjName($name));
+        if (length($rec) + length($newName) > 1020) {
+            print $out $rec;
+            $rec = "";
+        }
+        $rec .= $newName;
+    }
+    return mkRecord($_[0], $rec);
+}
+
+sub renamePubLocal {
+    my ($seg, $data) = unpack("aa*", $_[1]);       # split of segId
+    my $rec = $seg;
+    my ($offset, $name);
+    while ($data ne "") {
+        ($offset, $name, $data) = unpack("vC/A*xa*", $data);
+        my $newName = pack("va*x", $offset, mkObjName($name));
+        if (length($rec) + length($newName) > 1020) {
+            print $out $rec;
+            $rec = $seg;
+        }
+        $rec .= $newName;
+    }
+    return mkRecord($_[0], $rec);
+}
+
+sub getRecord {
+    my ($hdr, $type, $len, $data);
+    $type = $data = "";
+    if (read($in, $hdr, 3) != 3) {
+        print "premature eof\n";
+    } else { 
+        ($type, $len) = unpack("Cv", $hdr);
+        if (read($in, $data, $len) != $len) {
+            print "premature eof\n";
+            $type = "";
+        } elsif (unpack("%8C*", $hdr . $data) != 0) {
+            print "crc error\n";
+        } else {
+            chop $data;         # remove the crc
+        }
+    }
+    return ($type, $data);
+}
+
+if (-e "$objfile") {
+    open($in, "<:raw", "$objfile") or die "can't open $objfile\n";
+    open ($out, ">:raw", "$ofile.$$") or die "can't create $ofile.$$\n";
+
+    while (1) {
+        my ($type, $data) = getRecord();
+        last if ($type eq "");          # past eof
+        my $rec;
+
+        if ($type == 2 || $type == 0x10) {      # MODHDR or ANCESTOR
+            $rec = renameOne($type, $data);
+        } elsif ($type == 0x16 || $type == 0x12) { # PUBLIC or LOCAL
+            $rec = renamePubLocal($type, $data);
+        } elsif ($type == 0x18) {               # EXTERNAL
+            $rec = renameExt($type, $data);
+        } else {
+            $rec = mkRecord($type, $data);  # recreate the original record
+        }
+        print $out $rec;
+        last if $type == 0xE;        # end of file record seen
+    }
+
+    close $in;
+    close $out;
+    unlink "$objfile";
+    rename "$ofile.$$", "$objfile";
+}
+
+$result;        # let make or whatever aware of the asm result

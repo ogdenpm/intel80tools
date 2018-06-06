@@ -4,13 +4,22 @@
 # that added some of the library routines inline
 
 my $rmpub = 0;
-my $param = shift @ARGV;
-if ($param eq "-p") {
-    $rmpub++;
-} else {
-    unshift @ARGV, $param;
+if ($#ARGV > 0) {
+    my $param = shift @ARGV;
+    if ($param eq "-p") {
+        $rmpub++;
+    } else {
+        unshift @ARGV, $param;
+    }
 }
 die "usage: fixomf.pl [-p] infile [outfile]\n\t-p removes @Pnnnn publics\n" unless $#ARGV <= 1;
+my $file = shift @ARGV;
+my $ofile = ($#ARGV == 0 ? shift @ARGV : $file);
+my $overwrite = 0;
+if ($ofile eq $file) {
+    $overwrite++;
+    $ofile .= $$;
+}
 
 
 sub mkRecord {
@@ -31,41 +40,44 @@ sub stripPublic {
 }
 
 
+open my $in, "<:raw", "$file" or die "can't open $file\n";
+open my $out, ">:raw", "$ofile" or die "can't create $ofile\n";
 
-# split all records up
-# there are two entries per record
-# 1 = type
-# 2 = data including crc
-my $file = shift @ARGV;
-my @records;
-do {
-    local $/;       # slurp the whole omf file into memory
-    open $in, "<:raw", "$file" or die "can't open $file\n";
-
-    @records = unpack("(Cv/a*)*", <$in>);
-    close $in;
-};
-
-my $ofile = ($#ARGV == 0 ? shift @ARGV : $file);
-my $overwrite = 0;
-if ($ofile eq $file) {
-    $overwrite++;
-    $ofile .= $$;
-}
-
-open $out, ">:raw", "$ofile" or die "can't create $ofile\n";
-for (my $i = 0; $i <= $#records; $i += 2) {
-    my $crc = chop $records[$i+1];          # original crc
-    my $rec = mkRecord($records[$i], $records[$i + 1]); # recreate record
-    if ($crc ne substr($rec, -1) || $records[$i] > 0x2C || ($records[$i] & 1)) {    # check crc and type
-        printf "bad record: record %d type %d\n", $i / 2 + 1, $records[$i];
+sub getRecord {
+    my ($hdr, $type, $len, $data);
+    $type = $data = "";
+    if (read($in, $hdr, 3) != 3) {
+        print "premature eof\n";
+    } else { 
+        ($type, $len) = unpack("Cv", $hdr);
+        if (read($in, $data, $len) != $len) {
+            print "premature eof\n";
+            $type = "";
+        } elsif (unpack("%8C*", $hdr . $data) != 0) {
+            print "crc error\n";
+        } else {
+            chop $data;         # remove the crc
+        }
     }
-    if ($rmpub && $records[$i] == 0x16) {   # strip @Pnnnn publics if -p option
-        $rec = mkRecord($records[$i], stripPublic($records[$i + 1]));
-        next if length($rec) <= 4;      # empty record
-    } 
-    print $out $rec;
+    return ($type, $data);
 }
+
+
+while (1) {
+    my ($type, $data) = getRecord();
+    last if ($type eq "");          # past eof
+    my $rec;
+
+    if ($rmpub && $type == 0x16) {   # strip @Pnnnn publics if -p option
+        $rec = mkRecord($type, stripPublic($data));
+        next if length($rec) <= 5;      # no symbols left
+    } else {
+        $rec = mkRecord($type, $data);  # recreate the original record
+    }
+    print $out $rec;
+    last if $type == 0xE;        # end of file record seen
+}
+close $in;
 close $out;
 
 if ($overwrite) {

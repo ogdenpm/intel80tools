@@ -20,7 +20,7 @@ isis.cli: cli.rel
 
 monitr.obj: PLMFLAGS=code nooptimize debug
 
-.INTERMEDIATE: cli.rel
+.INTERMEDIATE: cli.rel cli.obj filerr.obj reperr.obj
 cli.rel: $(objs)
 	$(call link,$@,$^ $(system.lib,3.1))
 
