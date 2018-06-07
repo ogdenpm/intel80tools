@@ -372,7 +372,7 @@ The following .PHONY targets are defined in isis.mk
 
 * **all::** - the default rule. If a master file is detected it will make sure that the files are auto extracted. The main make file should also include a all:: rule.
 
-* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map *.hex files.
+* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map, *.hex, *.bin files.
 
   If **\$(OBJ)**or **\$(LST)** are not set to the current directory they are deleted.
 
