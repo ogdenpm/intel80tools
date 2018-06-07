@@ -41,6 +41,7 @@ LIB ?= 2.1
 LINK ?= 3.0
 LOCATE ?= 3.0
 FORT80 ?= 2.1
+ASM48 ?= 4.0
 
 PLMFLAGS ?= code
 
@@ -101,6 +102,12 @@ endef
 # under the covers only asm80 v4.1 is used and a .lstx file is created
 define asm80x
   @$(ASM80X) $2 "object($1)" $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+endef
+
+# $(call asm48,objfile,srcfile[,target specific options])
+define asm48
+  @$(ISIS) $(call ifile,asm48,$(ASM48)) $2 "print($(call lst,$2))"\
+	  "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call fort80,objfile,srcfile[,target specific options])
@@ -174,6 +181,9 @@ $(OBJ)/%.obj: %.f | $(OBJ) $(LST)
 $(OBJ)/%.obj: %.asmx | $(OBJ) $(LST)
 	$(call asm80x,$@,$<)
 
+$(OBJ)/%.hex: %.a48 | $(OBJ) $(LST)
+	$(call asm48,$@,$<)
+
 # common targets
 .PHONY: all rebuild distclean
 # all is default first rule
@@ -213,7 +223,7 @@ rebuild: distclean all
 ifeq ($(MAKECMDGOALS),clean)
 .PHONY: clean
 clean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map) 
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
@@ -221,7 +231,7 @@ endif
 endif
 
 distclean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs) 
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map)
 ifdef _masterfile
 	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 

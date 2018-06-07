@@ -34,7 +34,7 @@ int appError;
 int appType;
 enum apps {
     UNKNOWN = 0,
-    ASM80, PLM80, LIB80, LINK80, LOC80, IXREF, BASIC
+    ASM80, PLM80, LIB80, LINK80, LOC80, IXREF, BASIC, ASM48
 };
 
 
@@ -46,6 +46,7 @@ static struct {
 } signatures[] = {
     {"ISIS-II PL/M-80 COMPILER", PLM80},
     {"ISIS-II 8080/8085 MACRO ASSEMBLER", ASM80},
+    {"ISIS-II MCS-48/UPI-41 MACRO ASSEMBLER", ASM48},
     {"ISIS-II OBJECT LOCATER", LOC80},
     {"ISIS-II OBJECT LINKER", LINK80},
     {"ISIS-II LIBRARIAN", LIB80},
@@ -78,6 +79,7 @@ static struct {
     { "DUPLICATE",9 },
     { "DYNAMIC", 7},
     { "END", 3},
+    { "EOF", 3},
     { "ERROR:", 6},
     { "FILE",4 },
     { "FILENAME",8 },
@@ -185,6 +187,7 @@ static int match(char *line)
             return !!strncmp(line, "COMPILATION TERMINATED", 22);	// PLM is well behaved so only need to look for these 2 error options
         break;
     case ASM80:
+    case ASM48:
 		if (strncmp(line, "ASSEMBLY COMPLETE,", 18) == 0) {
 			for (line = line + 18; *line == ' '; line++)
 				;
