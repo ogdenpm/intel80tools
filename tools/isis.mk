@@ -107,7 +107,7 @@ endef
 # $(call asm48,objfile,srcfile[,target specific options])
 define asm48
   @$(ISIS) $(call ifile,asm48,$(ASM48)) $2 "print($(call lst,$2))"\
-	  "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+	  "object($1)"$(if $(ASM48FLAGS), "$(ASM48FLAGS)")$(if $3, "$3")
 endef
 
 # $(call fort80,objfile,srcfile[,target specific options])

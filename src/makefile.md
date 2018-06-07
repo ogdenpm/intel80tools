@@ -33,6 +33,10 @@ of make and makefiles
 * Cleaned up formatting
 * Added TOC & internal links
 
+### 7-Jun-1018
+
+- Added support for asmx (asm80 wrapper) and asm48
+
 ## Structure of the makefile
 
 The basic structure of the makefile is
@@ -89,7 +93,9 @@ The basic structure of the makefile is
 * **MKDEPEND** - set to the makedepend program
 * **PLM80** - the version of the PLM80 compiler to be used. Set to 4.0 if not previously specified
 * **PLMFLAGS** - set to code if not defined
-* **ASM80** - the version of the ASM80 to be used. Set to 4.1 if not previously specified
+* **ASM80** - the version of ASM80 to be used. Set to 4.1 if not previously specified
+* **ASM48** - the version of ASM48 to be used. Set to 4.2 if not previously specified
+* **ASM80X** - set to the asmx.pl program
 * **LIB** - the version of the LIB to be used. Set to 2.1 if not previously specified
 * **LINK** - the version of the LINK to be used. Set to 3.0 if not previously specified
 * **LOCATE** - the version of the LOCATE to be used. Set to 3.0 if not previously specified
@@ -115,7 +121,9 @@ The basic structure of the makefile is
 
 * **REF** - set to the location of the directory containing the reference file(s). Recommended to be after isis.mk to allow use of the ipath macro
 
-* <a name="asmflags"></a>**ASMFLAGS** - common options for asm80 - **print** and **object** should not be included as they are used internally
+* <a name="asmflags"></a>**ASMFLAGS** - common options for asm80 - **print** and **object** should not be included as they are used internally. Also used for asmx.pl
+
+* <a name="asm48flags"></a>**ASM48FLAGS** - common options for asm48 - **print** and **object** should not be included as they are used internally
 
 * <a name="ftnflags"></a>**FTNFLAGS** - common options for fort80 - **print**, **object** and **workfiles** should not be included as they are used internally
 
@@ -142,7 +150,7 @@ The basic structure of the makefile is
 For more complex builds it may be necessary to modify variables post isis.mk.
 Some of the more common examples are
 
-**ASM80, FORT80, LIB, LINK, LOCATE, PLM80** - If a file needs to be compiled with a specific version of a tool you can set these variables to specify the appropriate version. In practice it is likely that this will  only be used for plm80 and fort80 as the others should produce equivalent code.
+**ASM80, ASM48, FORT80, LIB, LINK, LOCATE, PLM80** - If a file needs to be compiled with a specific version of a tool you can set these variables to specify the appropriate version. In practice it is likely that this will  only be used for plm80 and fort80 as the others should produce equivalent code.
 Examples:
 
 ```text
@@ -176,6 +184,18 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
   [**ASMFLAGS**](#asmflags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
 
      Usage: $(call asm80,objfile,asmfile[,target specific options])
+
+* **asm48** - assemble an asmfile to produce the specified object file and a listing file, (asmfile with ext .lst) in the $(LST) directory.
+
+  [**ASM48FLAGS**](#asm48flags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+
+     Usage: $(call asm48,objfile,asmfile[,target specific options])
+
+* **asm80x** - assemble an asmfile with long name and structure support to produce the specified object file and a listing file, (asmfile with ext .lstx) in the $(LST) directory.
+
+  [**ASMFLAGS**](#asmflags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+
+     Usage: $(call asm80x,objfile,asmfile[,target specific options])
 
 * **fort80** - compile the specified ftnfile, to produce the specified object file and a listing file, (ftnfile with ext .lst), in the $(LST) directory.
 
@@ -337,10 +357,10 @@ the other to build a .obj from a .asm file. The rules are
 
     $(OBJ)/%.obj: %.plm  | $(OBJ) $(LST)
         $(call plm80,$@,$<)
-
+    
     $(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
         $(call asm80,$@,$<)
-
+    
     $(OBJ)/$.obj: %.f | $(OBJ) $(LST)
         $(call fort80,$@,$<)
 
@@ -352,7 +372,7 @@ The following .PHONY targets are defined in isis.mk
 
 * **all::** - the default rule. If a master file is detected it will make sure that the files are auto extracted. The main make file should also include a all:: rule.
 
-* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map files.
+* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map *.hex files.
 
   If **\$(OBJ)**or **\$(LST)** are not set to the current directory they are deleted.
 
@@ -383,27 +403,27 @@ how to write their own makefiles. Commentary preceeded by ~~
     ROOT := ../..                       ~~ mandatory variable. Points to top of build tree
     TARGETS := lib                      ~~ what we are building
     PEXFILE:=lib.pex                    ~~ mandatory variable as lib uses ngenpex
-
+    
     include $(ROOT)/tools/isis.mk
-
+    
     # build options
     LOCATEFLAGS:=SYMBOLS LINES          ~~ map file will show local symbols & debug info
     PLMFLAGS:=DEBUG                     ~~ generate the debug info
     LINKFLAGS:=
-
+    
     objs =  lib.obj lib1.obj isis1.obj isisa.obj isis2.obj lib3.obj lib4.obj
     ~~ objs lists the object files needed. Generated using the implicit plm rule
-
+    
     all:: $(TARGETS)                    ~~ mandatory default rule, builds lib
                                         ~~ note ::
-
+    
     lib: lib.rel                        ~~ how lib is built from a reloc file
         $(call locate,$@,$^,code(3680H) name(lib) stacksize(90) purge)
         ~~ cf. $(call locate,target,relocfile[,options])
         ~~ here target = $@ = lib
         ~~   relocfile = $^ = lib.rel
         ~~     options = code(3680H) name(lib) stacksize(90) purge
-
+    
         .INTERMEDIATE: lib.rel              ~~ the reloc file will be deleted after use
         lib.rel: $(objs)                    ~~ how the reloc file is built
             $(call link,$@,$^ $(plm80.lib))
@@ -420,34 +440,34 @@ how to write their own makefiles. Commentary preceeded by ~~
     ROOT=../..
     REF=ref                         ~~ set reference directory
     TARGETS=tex10.com tex12.com tex21.com tex21a.com    ~~ multiple targets
-
+    
     include $(ROOT)/tools/isis.mk
-
+    
     PLMFLAGS=code optimize
     ASMFLAGS=
-
+    
     all:: $(TARGETS)
-
+    
     tex10.com: tex10.abs                        ~~ rules to make .com & patch it
         $(ROOT)/tools/obj2bin $^ $@
         $(ROOT)/tools/patchbin patch10.txt $@
-
+    
     .
     .
     .
-
+    
     # intermediate files
     .INTERMEDIATE: $(TARGETS:.com=.rel) $(TARGETS:.com=.abs)
     ~~ uses make features to define .rel and .abs files are intermediate
-
+    
     STACK=100             ~~ default stacksize
     tex10.abs: STACK=60   ~~ overrides stacksize for tex10.abs
     %.abs: %.rel          ~~ user defined rule to make abs files from rel files
         $(call locate,$@,$^,code(100h) stacksize($(STACK)) purge)
-
+    
     tex10.rel: tex10.obj x0100.obj          ~~ the rule for the rel file
         $(call link,$@,$^ $(plm80.lib))
-
+    
     .
     .
     .
@@ -545,17 +565,17 @@ clean::                         ~~ extra rule over the default clean
     SRC:=src
     LST:=lst
     OBJ:=obj
-
+    
     PEXFILE:=$(SRC)/asm80.pex
-
+    
     PROTECT := notes.txt            ~~ notes.txt will be treated as part of distribution
-
+    
     include $(ROOT)/tools/isis.mk
-
+    
     # override default tools
     PLM80 = 3.1                     ~~ asm80 built using plm v3.1
     export ISIS_F3 = $(SRC)         ~~ include directory is :F3: so explicity define it
-
+    
     TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
     .
     .
@@ -586,15 +606,15 @@ clean::                         ~~ extra rule over the default clean
     $(OBJ)/%m.obj: $(SRC)/%.plx
         $(PLMPP) -sMACRO -o $(SRC)/$*m.plm $<
         $(call plm80,$@,$(SRC)/$*m.plm)
-
+    
     $(OBJ)/%n.obj: $(SRC)/%.plx
         $(PLMPP) -o $(SRC)/$*n.plm $<
         $(call plm80,$@,$(SRC)/$*n.plm)
-
+    
     $(OBJ)/%s.obj: $(SRC)/%.plx
         $(PLMPP) -sSMALL -o $(SRC)/$*s.plm $<
         $(call plm80,$@,$(SRC)/$*s.plm)
-
+    
     $(OBJ)/%b.obj: $(SRC)/%.plx
         $(PLMPP) -sBIG -o $(SRC)/$*b.plm $<
         $(call plm80,$@,$(SRC)/$*b.plm)
