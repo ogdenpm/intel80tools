@@ -41,7 +41,7 @@ LIB ?= 2.1
 LINK ?= 3.0
 LOCATE ?= 3.0
 FORT80 ?= 2.1
-ASM48 ?= 4.0
+ASM48 ?= 4.2
 
 PLMFLAGS ?= code
 
