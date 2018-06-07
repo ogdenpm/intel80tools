@@ -223,7 +223,7 @@ rebuild: distclean all
 ifeq ($(MAKECMDGOALS),clean)
 .PHONY: clean
 clean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex) 
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex *.bin) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map) 
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
@@ -231,7 +231,7 @@ endif
 endif
 
 distclean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex) 
+	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex *.bin) 
 	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map)
 ifdef _masterfile
 	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 
