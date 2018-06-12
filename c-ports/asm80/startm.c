@@ -15,7 +15,7 @@ byte aErrStrsLen[] = {7, 7, 9, 5, 6, 8};
 
 pointer Physmem()
 {
-	return (MemCk() - 0x100);	// top of memory
+    return (MemCk() - 0x100);	// top of memory
 }
 
 
@@ -114,9 +114,9 @@ bool IsPhase1()
 
 void Skip2EOL()
 {
-	if (!IsCR())
-		while (GetCh() != CR)
-			;
+    if (!IsCR())
+        while (GetCh() != CR)
+            ;
 }
 
 
@@ -160,7 +160,7 @@ void RuntimeError(byte errCode)
         OutStrN(aVar.bp, 8);
     }
 
-    if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file || EOF Error() */
+    if (errCode == RTE_FILE || errCode == RTE_EOF) {    /* file or EOF Error() */
         if (tokBufIdx == 0) {
             WrConsole("BAD SYNTAX\r\n", 12);
             if (! scanCmdLine) {
@@ -219,7 +219,7 @@ byte Nibble2Ascii(byte n)
 
 void Put2Hex(void (*pfunc)(byte), byte val)
 {
-	pfunc(Nibble2Ascii(val >> 4));
+    pfunc(Nibble2Ascii(val >> 4));
     pfunc(Nibble2Ascii(val));
 }
 
@@ -240,15 +240,15 @@ byte GetNibble(pointer bp, byte idx)	// not used
 
     bp += (idx >> 1);    /* index into buffer the number of nibbles */
     n = *bp;            /* pick up the byte there */
-	if (!(idx & 1))        /* pick up the right nibble */
-		n >>= 4;
+    if (!(idx & 1))        /* pick up the right nibble */
+        n >>= 4;
     return n & 0xF;    /* mask to leave just the nibble */
 }
 
 void SourceError(byte errCh)
 {
     if (! IsSkipping() || topOp == K_ELSE) {   /* ELSE */
-		if (inExtrn)
+        if (inExtrn)
             badExtrn = true;
         if (BlankAsmErrCode())
             errCnt++;
@@ -302,8 +302,8 @@ void InitialControls()
         PrintCmdLine();
     if (pendingInclude)
         OpenSrc();
-	
-	pendingInclude = isControlLine = scanCmdLine = bZERO;
+    
+    pendingInclude = isControlLine = scanCmdLine = bZERO;
     ParseControlLines();            /* initial control lines allow primary controls */
     primaryValid = false;            /* not allowed from now on */
     controls.debug == controls.debug && controls.object;    /* debug doesn't make sense if no object code */
@@ -320,10 +320,10 @@ void InitLine()
     if (pendingInclude)
         OpenSrc();
 #ifdef SHOWLINE
-	for (char *s = startLineP; s < endInBufP && *s != '\r' && *s != '\n';)
-		putchar(*s++);
-	putchar('\r');
-	putchar('\n');
+    for (char *s = startLineP; s < endInBufP && *s != '\r' && *s != '\n';)
+        putchar(*s++);
+    putchar('\r');
+    putchar('\n');
 #endif
     lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = lhsUserSymbol =
     inExpression = expectingOperands = xRefPending = gotLabel = rhsUserSymbol =
@@ -337,9 +337,9 @@ void InitLine()
     asmErrCode = ' ';
     macroP = macroLine;
     startMacroLine = macroInPtr;
-	expandingMacro = expandingMacro > 0 ? 0xff : 0;
+    expandingMacro = expandingMacro > 0 ? 0xff : 0;
     tokI = 1;
-	srcLineCnt++;
+    srcLineCnt++;
     macroP = macroLine;
     skipIf[0] = skipIf[0] > 0 ? 0xff : 0;
 }
@@ -372,12 +372,12 @@ void Start()
             WriteModhdr();        /* in overlay 2 */
         InitRecTypes();
     }
-	if (controls.print)
-		outfd = SafeOpen(lstFile, WRITE_MODE);
+    if (controls.print)
+        outfd = SafeOpen(lstFile, WRITE_MODE);
     ResetData();
     InitialControls();
     DoPass();
-	if (controls.print) {
+    if (controls.print) {
         AsmComplete();
         Flushout();
     }

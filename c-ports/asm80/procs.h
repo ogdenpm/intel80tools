@@ -101,13 +101,13 @@ void Sub546F();
 void InsertMacroSym(word val, byte type);
 void Sub7041_8447();
 void DoIrpX(byte mtype);
-void Sub7327();
+void initMacroParam();
 void GetMacroToken();
 void DoMacro();
 void DoMacroBody();
 void DoEndm();
 void DoExitm();
-void Sub770B();
+void DoIterParam();
 void DoRept();
 void DoLocal();
 void Sub78CE();
@@ -131,4 +131,6 @@ void WriteRec(pointer recP);
 
 void DumpSymbols(byte tableId);
 void DumpOpStack();
-void DumpTokenStack();
+void DumpTokenStack(bool pop);
+
+void DumpTokenStackItem(int i, bool pop);

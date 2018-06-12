@@ -32,18 +32,18 @@
 
 byte opFlags[] = {
        /* 0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F */
-          0, 0x80,   0,   0, 0xF, 0xF, 0x80, 0xF, 0xD, 0xF, 0xD, 0xF, 0xF, 0xF, 0xF, 0xF,
-        0xF,  0xD, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xD, 0xD, 0x40, 0x4D,   1,   1,   1,   1,
-        0x80,   1,   0,   0, 0x47,   7,   7,   7, 0x17, 0x47,   7, 0x47, 0x37,   5,   7,   0,
-          0,    0, 0x40, 0x40,   0,   1, 0x80, 0x40, 0x80,   0, 0x40, 0x80, 0x80, 0x40, 0x81,0xC0,
+          0, 0x80,   0,   0, 0xF, 0xF,0x80, 0xF, 0xD, 0xF, 0xD, 0xF, 0xF, 0xF, 0xF, 0xF,
+        0xF,  0xD, 0xF, 0xF, 0xF, 0xF, 0xF, 0xF, 0xD, 0xD,0x40,0x4D,   1,   1,   1,   1,
+        0x80,   1,   0,   0,0x47,   7,   7,   7,0x17,0x47,   7,0x47,0x37,   5,   7,   0,
+          0,    0,0x40,0x40,   0,   1,0x80,0x40,0x80,   0,0x40,0x80,0x80,0x40,0x81,0xC0,
         0x80, 0xD
-	};
+    };
 
 byte noRegOperand[] = {0x41, 0, 0, 0, 0x19, 0x40, 0, 0x1C, 0, 0};
     /* bit vector 66 -> 0 x 24 00011001 01000000 00000000 00011100 00000000 00 */
 byte b41C1[] = {0x1A, 5, 0x80, 0, 0xC0};
     /* bit vector 27 -> 00000101 10000000 00000000 110 */
-	/* K_SPECIAL, K_REGNAME, K_SP, K_HIGH, K_LOW*/
+    /* K_SPECIAL, K_REGNAME, K_SP, K_HIGH, K_LOW*/
 byte opCompat[] = {0x57, 0x71, 0xF4, 0x57, 0x76, 0x66, 0x66, 0x67, 0x77, 0x77, 0x77, 0x55};
     /* bit vector 88 -> 01110001 11110100 01010111 01110110
                         01100110 01100110 01100111 01110111
@@ -70,7 +70,7 @@ byte typeHasValue[] = {0x3A, 0xFF, 0x80, 0, 0, 0xF, 0xFE, 0, 0x20};
     4 - AND
     3 - OR, XOR,
     2 - ! used
-    1 - COMMA, DB - STKLEN, O_MACROARG, DoEndm, DoExitm, O_3D, DoRept, DoLocal
+    1 - COMMA, DB - STKLEN, O_MACROBODY, K_ENDM, K_EXITM, O_3D, K_REPT, K_LOCAL
     0 - T_BEGIN,T_CR,T_LPAREN,T_RPAREN,K_MACRO,T_MACRONAME,K_IRP,K_IRPC
 */
 byte precedence[] = {
@@ -129,10 +129,10 @@ void Sub4291()
                 acc1Flags = acc2Flags;
                 return;
             }
-		if (jj || aVar.hb || !TestBit(topOp, b41C1)) {	// unrolled jump to inside if statement
-			ExpressionError();
-			acc1Flags = 0;
-		}
+        if (jj || aVar.hb || !TestBit(topOp, b41C1)) {	// unrolled jump to inside if statement
+            ExpressionError();
+            acc1Flags = 0;
+        }
         return;
     }
     kk = ((topOp - 4) << 2) | (aVar.lb & 2) | (aVar.hb & 1);
@@ -168,28 +168,28 @@ void SetExpectOperands()
 
 void LogError(byte ch)
 {
-	if (tokenType[tokenIdx] != O_OPTVAL) {
-	    SourceError(ch);
-	    return;
-	}
-	if (tokenSize[0] == 0)
-	    tokenType[tokenIdx] = K_NUL;
+    if (tokenType[tokenIdx] != O_OPTVAL) {
+        SourceError(ch);
+        return;
+    }
+    if (tokenSize[0] == 0)
+        tokenType[tokenIdx] = K_NUL;
 }
 
 word GetNumVal()
 {
-	wpointer valP;
+    wpointer valP;
 
     acc1Flags = 0;
     accum1 = 0;
     acc1ValType = O_NAME;
     if (tokenType[0] == O_OPTVAL)
-        PushToken(CR);
+        PushToken(O_PARAM);
     if (tokenIdx == 0 || (tokenType[0] == O_DATA && !b6B36))
-        LogError('Q');
+        LogError('Q');		// questionable syntax - possible missing opcode
     else {
         if (tokenType[0] == O_NAME || tokenType[0] == T_COMMA)
-            LogError('U');
+            LogError('U');	// undefined symbol
         else {
             acc1ValType = tokenType[0];
             if (TestBit(acc1ValType, typeHasValue))
@@ -202,7 +202,7 @@ word GetNumVal()
 
             }
             else if (tokenSize[0] == 0)
-                LogError('V');
+                LogError('V');		// value illegal
             else {
                 if (tokenSize[0] > 2)
                     LogError('V');

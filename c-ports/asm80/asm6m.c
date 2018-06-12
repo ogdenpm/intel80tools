@@ -93,6 +93,9 @@ byte HaveTokens()
 
 void PopToken()
 {
+#if _DEBUG
+    DumpTokenStack(true);
+#endif
     tokStart[0] = tokStart[tokenIdx];
     tokenSym.stack[0] = tokenSym.stack[tokenIdx];
     tokenType[0] = tokenType[tokenIdx];
@@ -115,7 +118,7 @@ void Nest(byte sw)
             StackError();
             macroDepth = 0;
         } else {
-			macro.stack[macroDepth] = macro.stack[0];
+            macro.stack[macroDepth] = macro.stack[0];
             //memcpy(&macro.stack[macroDepth], &macro.stack[0], sizeof(macro_t));
             macro.top.condSP = macroCondSP;
             macro.top.ifDepth = ifDepth;
@@ -146,7 +149,7 @@ void UnNest(byte sw)
     macroCondStk[0] = macroCondStk[macroCondSP];    /* restore macro stack */
     macroCondSP--;
     if (sw == 1) {         /* is unnest macro */
-		macro.stack[0] = macro.stack[macroDepth];
+        macro.stack[0] = macro.stack[macroDepth];
         memcpy(&macro.stack[0], &macro.stack[macroDepth], sizeof(macro_t));
         ReadM(macro.top.blk);
         savedMtype = macro.top.mtype;
@@ -157,7 +160,7 @@ void UnNest(byte sw)
     } else {
         skipIf[0] = skipIf[ifDepth];    /* pop skipIf and inElse status */
         inElse[0] = inElse[ifDepth];
-		ifDepth--;
+        ifDepth--;
     }
 }
 
@@ -179,6 +182,9 @@ void PushToken(byte type)
         tokenSym.stack[0] = (tokensym_t *)wZERO;
         tokenSymId[0] = wZERO;
     }
+#if _DEBUG
+    DumpTokenStack(false);
+#endif
 }
 
 void CollectByte(byte c)
@@ -209,7 +215,7 @@ void GetId(byte type)
 
 void GetNum()
 {
-	word accum;
+    word accum;
     byte radix, digit, i;
 //    byte chrs based tokPtr [1];
 

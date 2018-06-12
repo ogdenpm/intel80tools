@@ -7,7 +7,7 @@ static word pad2;
 bool StrUcEqu(pointer s, pointer t)
 {
     while (*s != 0) {
-        if (*s != *t && *s != (*t && 0x5F))
+        if (*s != *t && *s != (*t & 0x5F))
             return false;
         s++;
         t++;
@@ -42,8 +42,8 @@ void Sub546F()
 
 void FinishLine()
 {
-	pointer linenoP;
-	bool updating;
+    pointer linenoP;
+    bool updating;
 
     Sub546F();
     if (IsPhase2Print()) {    /* update the ascii line number */
@@ -55,9 +55,9 @@ void FinishLine()
                 *linenoP = '0';
             else {
                 if (*linenoP == ' ')    /* new digit */
-					*linenoP = '1';
+                    *linenoP = '1';
                 else            /* just increment */
-					++*linenoP;
+                    ++*linenoP;
                 updating = false;
             }
             linenoP--;
@@ -68,7 +68,7 @@ void FinishLine()
     }
 
     if (skipRuntimeError) {
-		outP++;
+        outP++;
         Flushout();
         Exit();
     }

@@ -13,7 +13,7 @@ keyword_t extKeywords[151] = {
  /* [     token     ] opBase offset type        flags */
     { 0xA528, 0,      0,      0,      K_NE,      0},      /* NE */
     { 0x63B0, 0,      0xCC,   0,      K_IMM16,   0},      /* CZ */
-    { 0x6E60, 0x9C40, 0,      0,      K_ENDM,    0},      /* DoEndm */
+    { 0x6E60, 0x9C40, 0,      0,      K_ENDM,    0},      /* ENDM */
     { 0xBFB6, 0,      0xC0,   0,      K_SINGLE,  0},      /* RNZ */
     { 0xB354, 0,      0xC1,   0,      K_REG16,   0},      /* POP */
     { 0x6EE9, 0,      0,      0,      K_EQU,     0},      /* EQU */
