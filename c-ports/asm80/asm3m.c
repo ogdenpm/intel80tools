@@ -57,11 +57,11 @@ void UpdateHiLo(byte hilo)
 void HandleOp()
 {
     switch (topOp) {
-	case 0:	break;
-	case 1:	FinishLine();        /* CR */
-		    break;
-	case 2:	                    /* ( */
-	case 3:	                    /* ) */
+    case 0:	break;
+    case 1:	FinishLine();        /* CR */
+            break;
+    case 2:	                    /* ( */
+    case 3:	                    /* ) */
             if (! (topOp == T_LPAREN && newOp == T_RPAREN))
                 BalanceError();
 
@@ -75,72 +75,72 @@ void HandleOp()
             if (newOp == T_RPAREN)
                 b6B2C = true;
             break;
-	case 4:	accum1 *= accum2;    /* * */
+    case 4:	accum1 *= accum2;    /* * */
             break;
-	case 5:	accum1 += accum2;    /* + */
+    case 5:	accum1 += accum2;    /* + */
             break;
-	case 6:	                    /* , */
+    case 6:	                    /* , */
             SyntaxError();
             PopToken();
             break;
-	case 7:	accum1 -= accum2;    /* - */
+    case 7:	accum1 -= accum2;    /* - */
             break;
-	case 8:	;                /* unary + */
+    case 8:	;                /* unary + */
             break;
-	case 9:	                /* / */
-		if (accum2 == 0) {
-			ValueError();
-			accum1 = 0xffff;	/* synthesise what 8085 does on / 0 */
-		} 
-		else
-	            accum1 /= accum2;
+    case 9:	                /* / */
+        if (accum2 == 0) {
+            ValueError();
+            accum1 = 0xffff;	/* synthesise what 8085 does on / 0 */
+        } 
+        else
+                accum1 /= accum2;
             break;
-	case 10:	accum1 = -accum1;            /* unary - */
+    case 10:	accum1 = -accum1;            /* unary - */
             break;
-	case 11:	Cond2Acc(accum1 == accum2);        /* EQ */
+    case 11:	Cond2Acc(accum1 == accum2);        /* EQ */
             break;
-	case 12:	Cond2Acc(accum1 < accum2);        /* LT */
+    case 12:	Cond2Acc(accum1 < accum2);        /* LT */
             break;
-	case 13:	Cond2Acc(accum1 <= accum2);    /* LE */
+    case 13:	Cond2Acc(accum1 <= accum2);    /* LE */
             break;
-	case 14:	Cond2Acc(accum1 > accum2);        /* GT */
+    case 14:	Cond2Acc(accum1 > accum2);        /* GT */
             break;
-	case 15:	Cond2Acc(accum1 >= accum2);    /* GE */
+    case 15:	Cond2Acc(accum1 >= accum2);    /* GE */
             break;
-	case 16:	Cond2Acc(accum1 != accum2);    /* NE */
+    case 16:	Cond2Acc(accum1 != accum2);    /* NE */
             break;
-	case 17:	accum1 = ~accum1;            /* NOT */
+    case 17:	accum1 = ~accum1;            /* NOT */
             break;
-	case 18:	accum1 &= accum2;        /* AND */
+    case 18:	accum1 &= accum2;        /* AND */
             break;
-	case 19:	accum1 |= accum2;        /* OR */
+    case 19:	accum1 |= accum2;        /* OR */
             break;
-	case 20:	accum1 ^= accum2;        /* XOR */
+    case 20:	accum1 ^= accum2;        /* XOR */
             break;
-	case 21:	                    /* MOD */
-		if (accum2 == 0) {
-			ValueError();
-			accum1 = accum2;		// this is what the 8080 mod code would do
-		} else
+    case 21:	                    /* MOD */
+        if (accum2 == 0) {
+            ValueError();
+            accum1 = accum2;		// this is what the 8080 mod code would do
+        } else
             accum1 %= accum2;
             break;
-	case 22:	                    /* SHL */
+    case 22:	                    /* SHL */
             if (accum2Lb != 0)
                 accum1 <<= accum2;
             break;
-	case 23:	                    /* SHR */
+    case 23:	                    /* SHR */
             if (accum2Lb != 0)
                 accum1 >>= accum2;
             break;
-	case 24:	                    /* HIGH */
+    case 24:	                    /* HIGH */
             accum1 >>= 8;
             UpdateHiLo(UF_HIGH);
             break;
-	case 25:	                    /* LOW */
+    case 25:	                    /* LOW */
             accum1 &= 0xff;
             UpdateHiLo(UF_LOW);
             break;
-	case 26:	                    /* DB ? */
+    case 26:	                    /* DB ? */
             if (tokenType[0] != O_STRING)
             {
                 accum1 = GetNumVal();
@@ -161,15 +161,15 @@ void HandleOp()
             nextTokType = O_DATA;
             inDB = true;
             break;
-	case 27:                    /* DW ? */
+    case 27:                    /* DW ? */
             nextTokType = O_DATA;
             inDW = true;
             break;
-	case 28:	                    /* DS ? */
+    case 28:	                    /* DS ? */
             segSize[activeSeg] += accum1;
             showAddr = true;
             break;
-	case 29:            	/* EQU ? */
+    case 29:            	/* EQU ? */
     case 30:                /* SET ? */
             showAddr = true;
             if ((acc1Flags & UF_EXTRN) == UF_EXTRN) {   /* cannot SET or EQU to external */
@@ -180,7 +180,7 @@ void HandleOp()
             UpdateSymbolEntry(accum1, (K_SET + 4) - topOp);    /* 4 for set, 5 for equ */
             expectingOperands = false;
             break;
-	case 31:	                    /* ORG ? */
+    case 31:	                    /* ORG ? */
             showAddr = true;
             if ((acc1Flags & UF_EXTRN) != UF_EXTRN) {
                 if ((acc1Flags & UF_BOTH) != 0)
@@ -195,7 +195,7 @@ void HandleOp()
                     maxSegSize[activeSeg] = segSize[activeSeg];
             segSize[activeSeg] = accum1;
             break;
-	case 32:	                    /* END ? */
+    case 32:	                    /* END ? */
             if (tokenIdx > 0) {
                 startOffset = GetNumVal();
                 startDefined = 1;
@@ -219,7 +219,7 @@ void HandleOp()
             else
                 SyntaxError();
             break;
-	case 33:	                    /* IF ? */
+    case 33:	                    /* IF ? */
             if (expectOp)
             {
                 condAsmSeen = true;
@@ -230,7 +230,7 @@ void HandleOp()
                 inElse[0] = false;        /* ! in else at this nesting level */
             }
             break;
-	case 34:	                    /* ELSE ? */
+    case 34:	                    /* ELSE ? */
             condAsmSeen = true;
             if (macroCondStk[0] != 2)    /* check ! mid macro nest */
                 NestingError();
@@ -245,7 +245,7 @@ void HandleOp()
             else
                 NestingError();    /* multiple else !! */
             break;
-	case 35:	                    /* ENDIF ? */
+    case 35:	                    /* ENDIF ? */
             if (expectOp)
             {
                 condAsmSeen = true;
@@ -254,57 +254,57 @@ void HandleOp()
             break;
         /* in the following topOp = 36 and nextTokType = O_DATA
            except where noted on return from MkCode */
-	case 36:	                    /* LXI ? */
+    case 36:	                    /* LXI ? */
             if (nameLen == 1)
                 if (name[0] == 'M')
                     SyntaxError();
             MkCode(0x85);    /* topOp = 2Ch on return */
             break;
-	case 37:	                /* POP DAD PUSH INX DCX ? */
+    case 37:	                /* REG16 ops POP DAD PUSH INX DCX ? */
             if (nameLen == 1)
                 if (name[0] == 'M')
                     SyntaxError();
             MkCode(5);
             break;
-	case 38:	MkCode(7);        /* LDAX STAX ? */
+    case 38:	MkCode(7);        /* LDAX STAX ? */
             break;
-	case 39:	MkCode(2);        /* ADC ADD SUB ORA SBB XRA ANA CMP ? */
+    case 39:	MkCode(2);        /* ARITH ops ADC ADD SUB ORA SBB XRA ANA CMP ? */
             break;
-	case 40:	MkCode(8);        /* ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
+    case 40:	MkCode(8);        /* IMM8 ops ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
             break;
-	case 41:	MkCode(0x46);    /* MVI ?  topOp = 40 on return */
+    case 41:	MkCode(0x46);    /* MVI ?  topOp = 40 on return */
             break;
-	case 42:	MkCode(6);        /* INR DCR ? */
+    case 42:	MkCode(6);        /* INR DCR ? */
             break;
-	case 43:	MkCode(0x36);    /* MOV   topOp = 39 on return*/
+    case 43:	MkCode(0x36);    /* MOV   topOp = 39 on return*/
             break;
-	case 44:	MkCode(0);        /* CZ CNZ JZ STA JNZ JNC LHLD */
+    case 44:	MkCode(0);        /* IMM16 ops CZ CNZ JZ STA JNZ JNC LHLD */
                         /* CP JC SHLD CPE CPO CM LDA JP JM JPE */
                         /* CALL JPO CC CNC JMP */
             break;
-	case 45:	MkCode(0);        /* RNZ STC DAA DI SIM SPHL RLC */
+    case 45:	MkCode(0);        /* SINGLE ops RNZ STC DAA DI SIM SPHL RLC */
                         /* RP RAL HLT RM RAR RPE RET RIM */
                         /* PCHL CMA CNC RPO EI XTHL NOP */
                         /* RC RNX XCHG RZ RRC */
             break;
-	case 46:	MkCode(6);        /* RST */
+    case 46:	MkCode(6);        /* RST */
             break;
-	case 47:	activeSeg = 0;            /* ASEG ? */
+    case 47:	activeSeg = 0;            /* ASEG ? */
             break;
-	case 48:	                /* CSEG ? */
+    case 48:	                /* CSEG ? */
             activeSeg = 1;
             ChkSegAlignment(0);
             break;
-	case 49:	                /* DSEG ? */
+    case 49:	                /* DSEG ? */
             activeSeg = 2;
             ChkSegAlignment(1);
             break;
-	case 50:	                /* PUBLIC */
+    case 50:	                /* PUBLIC */
             inPublic = true;
             labelUse = 0;
             UpdateSymbolEntry(0, O_REF);
             break;
-	case 51:	                /* EXTRN ? */
+    case 51:	                /* EXTRN ? */
             inExtrn = true;
             if (externId == 0 && IsPhase1 && controls.object) 
                 WriteModhdr();
@@ -316,7 +316,7 @@ void HandleOp()
                 externId++;
             badExtrn = false;
             break;
-	case 52:	                /* NAME */
+    case 52:	                /* NAME */
             if (tokenIdx != 0 && noOpsYet) {
                 /* set the module name in the header - padded to 6 chars */
                 move(6, spaces6, aModulePage);
@@ -325,33 +325,33 @@ void HandleOp()
                 SourceError('R');
             PopToken();
             break;
-	case 53:	segSize[SEG_STACK] = accum1;    /* STKLN ? */
+    case 53:	segSize[SEG_STACK] = accum1;    /* STKLN ? */
             break;
-	case 54:	DoMacro();            /* MACRO ? */
+    case 54:	DoMacro();            /* MACRO ? */
             break;
-	case 55:	DoMacroBody();			  /* MACRO BODY */
+    case 55:	DoMacroBody();			  /* MACRO BODY */
             break;
-	case 56:	DoEndm();            /* DoEndm */
+    case 56:	DoEndm();            /* ENDM */
+            break; 
+    case 57:	DoExitm();            /* EXITM */
             break;
-	case 57:	DoExitm();            /* DoExitm */
-            break;
-	case 58:
+    case 58:						/* MACRONAME */
             macro.top.mtype = M_INVOKE;
-            Sub7327();
+            initMacroParam();
             break;
-	case 59:	DoIrpX(M_IRP);        /* IRP ? */
+    case 59:	DoIrpX(M_IRP);        /* IRP ? */
             break;
-	case 60:	DoIrpX(M_IRPC);        /* IRPC */
+    case 60:	DoIrpX(M_IRPC);        /* IRPC */
             break;
-	case 61:	Sub770B();
+    case 61:	DoIterParam();			/* MACRO PARAMETER */
             break;
-	case 62:	DoRept();            /* DoRept ? */
+    case 62:	DoRept();            /* REPT ? */
             break;
-	case 63:	DoLocal();            /* DoLocal */
+    case 63:	DoLocal();            /* LOCAL */
             break;
-	case 64:	Sub78CE();
+    case 64:	Sub78CE();
             break;
-	case 65:	                /* NUL */
+    case 65:	                /* NUL */
             Cond2Acc(tokenType[0] = K_NUL);
             PopToken();
             acc1Flags = 0;
@@ -410,14 +410,20 @@ void Parse()
                 inNestedParen = expectOp;
                 expectOp = true;
             }
+#if _DEBUG
+			DumpOpStack();
+			DumpTokenStack(false);
+#endif
             if (phase > 1)
                 inExpression = IsExpressionOp();
             return;
         }
 
     /* REDUCE */
-//		DumpOpStack();
-//		DumpTokenStack();
+#if _DEBUG
+		DumpOpStack();
+        DumpTokenStack(false);
+#endif
         inExpression = 0;
         if ((! expectOp) && topOp > T_RPAREN)
             SyntaxError();

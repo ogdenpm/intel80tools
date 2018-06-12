@@ -32,7 +32,7 @@ static void InitParamCollect()
 {
     symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;	// init macro parameter table
     paramCnt = macro.top.localsCnt = bZERO;	// no params yet
-    yyType = O_MACROARG;
+    yyType = O_MACROBODY;
 }
 
 
@@ -45,10 +45,10 @@ static void Sub720A()
     if (macroDepth == 0)
         expandingMacro = 0xFF;
 
-	if (nestMacro) {
-		macro.stack[macroDepth].bufP = macro.stack[0].bufP;
-		macro.stack[macroDepth].blk = macro.stack[0].blk;
-	}
+    if (nestMacro) {
+        macro.stack[macroDepth].bufP = macro.stack[0].bufP;
+        macro.stack[macroDepth].blk = macro.stack[0].blk;
+    }
 
     nestMacro = false;
     macro.top.pCurArg = pNextArg;
@@ -87,9 +87,9 @@ static void Acc1ToDecimal()
     PushToken(CR);
     kk = 0;
     /* build number in reverse digit order */
-	do {
-		buf[++kk] = accum1 % 10 + '0';
-	} while ((accum1 /= 10) > 0);
+    do {
+        buf[++kk] = accum1 % 10 + '0';
+    } while ((accum1 /= 10) > 0);
 
     /* insert in collect buffer in order */
     while (kk > 0)
@@ -97,10 +97,10 @@ static void Acc1ToDecimal()
 }
 
 
-void Sub7327()
+void initMacroParam()
 {
     pNextArg = baseMacroTbl;
-    yyType = 0x3D;
+    yyType = O_ITERPARAM;
     inMacroBody = true;
     b9060 = false;
 }
@@ -153,15 +153,15 @@ void GetMacroToken()
                 if ((curChar = GetCh()) == '\'') {
                     curChar = GetCh();
                     SkipWhite();
-					if (IsEndParam())
-						break;
+                    if (IsEndParam())
+                        break;
                     else {
                         CollectByte('\'');
                         CollectByte('\'');
                     }
                 } else {
                     CollectByte('\'');
-					continue;
+                    continue;
                 }
             }
             CollectByte(curChar);
@@ -229,44 +229,44 @@ void DoMacro()
 
 void DoMacroBody()
 {
-	if (HaveTokens()) {
-        if (tokenType[0] == 0)
-            MultipleDefError();
+    if (HaveTokens()) {
+        if (tokenType[0] == 0)		// saved parameters have type 0
+            MultipleDefError();		// so if found we have a multiple definition
 
-        InsertMacroSym(++paramCnt, 0);
+        InsertMacroSym(++paramCnt, 0);	// add the parameter setting type to 0
     }
-    else if (! (macro.top.mtype == M_MACRO))
+    else if (! (macro.top.mtype == M_MACRO))	// only MACRO is allowed to have no parameters
         SyntaxError();
 
-    if (! macro.top.mtype == M_MACRO) {
-        SkipWhite();
+    if (! macro.top.mtype == M_MACRO) {	// none MACRO have parameters -> dummy,value
+        SkipWhite();					// as dummy is entered above look for , value
         if (IsComma()) {
             reget = 0;
-            newOp = T_BEGIN;
-            Sub7327();
-            if (macro.top.mtype == M_IRP) {
+            newOp = T_BEGIN;		   // mark beginning of expression
+            initMacroParam();
+            if (macro.top.mtype == M_IRP) {		/* if IRP then expression begins with < */
                 curChar = GetCh();
                 SkipWhite();
                 if (! IsLT()) {
-                    SyntaxError();
-                    reget = 1;
+                    SyntaxError();		/* report error but assume < was given */
+                    reget = 1;			/* make sure the non < is read again */
                 }
             }
         }
         else
         {
-            SyntaxError();
-            InitSpoolMode();
+            SyntaxError();				/* report error and assume param list complete */
+            InitSpoolMode();			/* spool rest of definition */
         }
     }
     else if (newOp == T_CR)		// got the parameters
     {
-        if (! MPorNoErrCode())
+        if (! MPorNoErrCode())	// skip if multiple defined, phase or no error 
         {
             macro.top.mtype = M_BODY;
             pMacro += 2;		// now points to type
-            if ((*pMacro & 0x7F) == 0x3A)
-				*pMacro = asmErrCode == 'L' ? 0x89 : 9;
+            if ((*pMacro & 0x7F) == T_MACRONAME)
+                *pMacro = asmErrCode == 'L' ? (O_NAME + 0x80) : O_NAME;	// location error illegal forward ref
         }
         InitSpoolMode();
     }
@@ -281,23 +281,23 @@ void DoEndm()
                 if (macro.top.mtype == M_IRPC)
                     pNextArg = baseMacroTbl + 3;
 
-				/* endm cannot have a label */
+                /* endm cannot have a label */
                 for (byte *p = startMacroLine; p <= startMacroToken - 1; p++) {	// plm reuses aVar
                     curChar = *p;
                     if (! IsWhite())
                         SyntaxError();
                 }
 
-				/* replace line with the ESC char to mark end */
+                /* replace line with the ESC char to mark end */
                 macroInPtr = startMacroLine;
                 *macroInPtr = ESC;
                 FlushM();		// write to disk
                 WriteM();
-				symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);	// reset macro parameter symbol table
+                symHighMark = (pointer)(endSymTab[TID_MACRO] = symTab[TID_MACRO]);	// reset macro parameter symbol table
                 if (macro.top.mtype == M_MACRO) {
                     *(word *)pMacro = baseMacroBlk;
                     pMacro += 3;		// points to flags
-					*pMacro = macro.top.localsCnt;		// number of locals
+                    *pMacro = macro.top.localsCnt;		// number of locals
                 } else {
                     macro.top.savedBlk = baseMacroBlk;
                     Sub720A();
@@ -329,7 +329,7 @@ void DoExitm()
 }
 
 
-void Sub770B()
+void DoIterParam()
 {
     if (savedTokenIdx + 1 != tokenIdx)
         SyntaxError();
@@ -339,8 +339,8 @@ void Sub770B()
             Acc1ToDecimal();
         }
 
-		if (macro.top.mtype == M_IRPC)
-			macro.top.cnt = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. Replaced here for clarity
+        if (macro.top.mtype == M_IRPC)
+            macro.top.cnt = tokenSize[0] == 0 ? 1 : tokenSize[0];	// plm uses true->FF and byte arithmetic. Replaced here for clarity
 
         CollectByte((tokenSize[0] + 1) | 0x80);						// append a byte to record the token length + 0x80
         baseMacroTbl = AddMacroText(tokPtr, tokPtr + tokenSize[0] - 1);
