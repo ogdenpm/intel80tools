@@ -113,7 +113,7 @@ void ResetData()
     InitLine();
 
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = finished =
-		segHasData[0] = segHasData[1] = inComment = expandingMacro = macroDivert = mSpoolMode =
+		segDeclared[0] = segDeclared[1] = inComment = expandingMacro = macroDivert = mSpoolMode =
 		hasVarRef = pendingInclude = bZERO;
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;
@@ -121,7 +121,7 @@ void ResetData()
     macroDepth = macroSpoolNestDepth = macroCondStk[0] = macroCondSP = bZERO; 
     saveIdx = lookAhead = activeSeg = ifDepth = opSP = opStack[0] = bZERO;
     macroBlkCnt = wZERO;
-    segSize[SEG_ABS] = segSize[SEG_CODE] = segSize[SEG_DATA] =
+    segLocation[SEG_ABS] = segLocation[SEG_CODE] = segLocation[SEG_DATA] =
 		maxSegSize[SEG_ABS] = maxSegSize[SEG_CODE] = maxSegSize[SEG_DATA] =
 		effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
     passCnt++;

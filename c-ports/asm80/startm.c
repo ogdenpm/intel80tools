@@ -284,7 +284,7 @@ void ParseControlLines()
             Skip2NextLine();
             isControlLine = true;
             if (mSpoolMode == 1)
-                b6897 = true;
+                spooledControl = true;
         } else
             ParseControls();
         FinishLine();
@@ -332,7 +332,7 @@ void InitLine()
 
     atStartLine = expectingOpcode = isInstr = expectOp = bTRUE;
     controls.eject = hasVarRef = tokenIdx = inQuotes = argNestCnt =
-    tokenSize[0] = tokenType[0] = acc1ValType = acc2ValType = inComment = acc1Flags = bZERO;
+    tokenSize[0] = tokenType[0] = acc1ValType = acc2ValType = inComment = acc1RelocFlags = bZERO;
 
     asmErrCode = ' ';
     macroP = macroLine;

@@ -91,7 +91,7 @@ extern byte startSeg;
 extern byte activeSeg;
 extern bool inPublic;
 extern bool inExtrn;
-extern bool segHasData[2];
+extern bool segDeclared[2];
 extern byte alignTypes[4];
 extern word externId;
 extern word itemOffset;
@@ -122,13 +122,13 @@ extern word_t accum[2];
 #define accum1Hb accum[0].hb
 #define accum2Lb accum[1].lb
 #define accum2Hb accum[1].hb
-extern byte acc1Flags;
-extern byte acc2Flags;
+extern byte acc1RelocFlags;
+extern byte acc2RelocFlags;
 extern bool hasVarRef;
 extern byte acc1ValType;
 extern byte acc2ValType;
-extern word acc1NumVal;
-extern word acc2NumVal;
+extern word acc1RelocVal;
+extern word acc2RelocVal;
 extern byte curChar;
 extern byte reget;
 extern byte lookAhead;
@@ -154,7 +154,7 @@ extern word macrofd;
 extern word statusIO;
 extern word openStatus;  /* status of last open for Read */
 extern byte asmErrCode;
-extern bool b6897;
+extern bool spooledControl;
 extern bool primaryValid;
 extern byte tokI;
 extern bool errorOnLine;
@@ -218,7 +218,7 @@ extern bool b6B33;
 extern bool isInstr;
 extern bool expectOp;
 extern bool b6B36;
-extern word segSize[5];
+extern word segLocation[5];
 extern word maxSegSize[3];
 extern byte cmdLineBuf[129];
 extern address actRead;

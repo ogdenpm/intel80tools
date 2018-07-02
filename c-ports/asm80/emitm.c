@@ -13,12 +13,12 @@ static pointer dtaP, recSymP;
 
 void WriteRec(pointer recP)
 {
-	pointer lenP;
-	word recLen;
+    pointer lenP;
+    word recLen;
     byte i, crc;
 
-	lenP = recP + 1;		// point to the length word
-	recLen = ++*(wpointer)lenP + 3;    /* include crc byte + type + len word */
+    lenP = recP + 1;		// point to the length word
+    recLen = ++*(wpointer)lenP + 3;    /* include crc byte + type + len word */
     crc = 0;            /* crc */
     lenP--;
     for (i = 2; i <= recLen; i++)
@@ -45,7 +45,7 @@ static byte GetFixupType()
 void ReinitFixupRecs()
 {
     byte i;
-	wpointer dtaP;	// to check for conflicts with global dtaP usage in plm
+    wpointer dtaP;	// to check for conflicts with global dtaP usage in plm
 
     for (i = 0; i <= 3; i++) {
         ii = (i - 1) & 3; /* order as content, publics, interseg, externals */
@@ -58,7 +58,7 @@ void ReinitFixupRecs()
         if (curFixupType !=  ii)
             initFixupReq[ii] = true;
     }
-    rContent.offset = itemOffset + segSize[rContent.segid = activeSeg];
+    rContent.offset = itemOffset + segLocation[rContent.segid = activeSeg];
     rPublics.segid = curFixupHiLoSegId;
     rInterseg.segid = tokenAttr[spIdx] & 7;
     rInterseg.hilo = rExtref.hilo = curFixupHiLoSegId;
@@ -69,7 +69,7 @@ void ReinitFixupRecs()
 static void AddFixupRec()
 {
     word effectiveOffset;
-	wpointer dtaP;				// to check doesn't conflict with plm global usage 
+    wpointer dtaP;				// to check doesn't conflict with plm global usage 
 
     dtaP = fixupRecLenPtrs[curFixupType = GetFixupType()];
     if (*dtaP > fixupRecLenChks[curFixupType] || rContent.len + tokenSize[spIdx] > 124)
@@ -77,22 +77,22 @@ static void AddFixupRec()
 
     if (firstContent) {
         firstContent = false;
-        rContent.offset = segSize[rContent.segid = activeSeg] + itemOffset;
-	} else {
-		effectiveOffset = rContent.offset + fix6Idx;		// lifted out to make sure it is calculated
-		if (rContent.segid != activeSeg || effectiveOffset != segSize[activeSeg] + itemOffset || effectiveOffset < rContent.offset)
-			ReinitFixupRecs();
-	}
+        rContent.offset = segLocation[rContent.segid = activeSeg] + itemOffset;
+    } else {
+        effectiveOffset = rContent.offset + fix6Idx;		// lifted out to make sure it is calculated
+        if (rContent.segid != activeSeg || effectiveOffset != segLocation[activeSeg] + itemOffset || effectiveOffset < rContent.offset)
+            ReinitFixupRecs();
+    }
 
     switch(curFixupType) {
-	case 0:
+    case 0:
             if (initFixupReq[0]) {
                 initFixupReq[0] = false;
                 rPublics.segid = curFixupHiLoSegId;
             } else if (rPublics.segid != curFixupHiLoSegId)
                 ReinitFixupRecs();
         break;
-	case 1:
+    case 1:
             if (initFixupReq[1]) {
                 initFixupReq[1] = false;
                 rInterseg.segid = tokenAttr[spIdx] & 7;
@@ -100,24 +100,24 @@ static void AddFixupRec()
             } else if (rInterseg.hilo != curFixupHiLoSegId || (tokenAttr[spIdx] & 7) != rInterseg.segid)
                 ReinitFixupRecs();
         break;
-	case 2:
+    case 2:
             if (initFixupReq[2]) {
                 initFixupReq[2] = false;
                 rExtref.hilo = curFixupHiLoSegId;
             } else if (rExtref.hilo != curFixupHiLoSegId)
                 ReinitFixupRecs();
-	break;
-	case 3:	break;	        /* abs no fixup */
+    break;
+    case 3:	break;	        /* abs no fixup */
     }
 }
 
 
 static void RecAddContentBytes()
 {
-	for (byte i = 1; i <= tokenSize[spIdx]; i++)
+    for (byte i = 1; i <= tokenSize[spIdx]; i++)
         rContent.dta[fix6Idx++] = *contentBytePtr++;
 
-	rContent.len = rContent.len + tokenSize[spIdx];
+    rContent.len = rContent.len + tokenSize[spIdx];
 }
 
 
@@ -144,18 +144,18 @@ static void ExternalFix()
 
 static void Sub7131()
 {
-	curFixupHiLoSegId = (tokenAttr[spIdx] & 0x18) >> 3;
-    fixOffset = segSize[activeSeg] + itemOffset;
+    curFixupHiLoSegId = (tokenAttr[spIdx] & 0x18) >> 3;
+    fixOffset = segLocation[activeSeg] + itemOffset;
     if (! (inDB || inDW) && (tokenSize[spIdx] == 2 || tokenSize[spIdx] == 3))
         fixOffset++;
     AddFixupRec();
     contentBytePtr = startItem;
     RecAddContentBytes();
     switch (GetFixupType()) {
-	case 0:	IntraSegFix(); break;
-	case 1: InterSegFix(); break;
-	case 2: ExternalFix(); break;
-	case 3:	break;					/* no fixup as absolute */
+    case 0:	IntraSegFix(); break;
+    case 1: InterSegFix(); break;
+    case 2: ExternalFix(); break;
+    case 3:	break;					/* no fixup as absolute */
     }
 }
 
@@ -244,18 +244,18 @@ void WriteModhdr()
     dtaP = &rModhdr.dta[moduleNameLen + 1];
     *(wpointer)dtaP = 0;    /* the trnId & trnVn bytes */
     dtaP++;					/* past trnId byte */
-    if (segSize[SEG_CODE] < maxSegSize[SEG_CODE])    /* code segment */
-        segSize[SEG_CODE] = maxSegSize[SEG_CODE];
-    if (segSize[SEG_DATA] < maxSegSize[SEG_DATA])    /* data segment */
-        segSize[SEG_DATA] = maxSegSize[SEG_DATA];
+    if (segLocation[SEG_CODE] < maxSegSize[SEG_CODE])    /* code segment */
+        segLocation[SEG_CODE] = maxSegSize[SEG_CODE];
+    if (segLocation[SEG_DATA] < maxSegSize[SEG_DATA])    /* data segment */
+        segLocation[SEG_DATA] = maxSegSize[SEG_DATA];
 
     for (i = 1; i <= 4; i++) {
         *++dtaP = i;        /* seg id */
-        *(word *)(++dtaP) = segSize[i];    /* seg size */
+        *(word *)(++dtaP) = segLocation[i];    /* seg size */
         dtaP += 2;
         *dtaP = alignTypes[i - 1];    /* aln typ */
     }
-    rModhdr.len = moduleNameLen + (2 + 4 * 4 + 1);    /* set record length (trnId/trnVn 4 * (segid, segsize, align), crc) */
+    rModhdr.len = moduleNameLen + (2 + 4 * 4 + 1);    /* set record length (trnId/trnVn 4 * (segid, segLocation, align), crc) */
     WriteRec((pointer)&rModhdr);
 }
 

@@ -29,9 +29,8 @@ void Sub546F()
     if (HaveTokens())
         if (!(tokenType[spIdx] == O_DATA || lineNumberEmitted))
             SyntaxError();
-    if (inDB || inDW)
-    {
-        if (tokenIdx == 1 && ! BlankAsmErrCode() && tokenSize[0] != 1)
+    if (inDB || inDW) {
+            if (tokenIdx == 1 && ! BlankAsmErrCode() && tokenSize[0] != 1)
             tokenSize[0] = 2;
     }
     else if (! BlankAsmErrCode() && HaveTokens())
@@ -86,7 +85,7 @@ void FinishLine()
         if (ChkGenObj())
             Ovl8();
         b6B2C = true;
-        segSize[activeSeg] = effectiveAddr.w = (word)(segSize[activeSeg] + (w6BCE - lineBuf));
+        segLocation[activeSeg] = effectiveAddr.w = (word)(segLocation[activeSeg] + (w6BCE - lineBuf));
     }
 
     if (controls.xref && rhsUserSymbol)

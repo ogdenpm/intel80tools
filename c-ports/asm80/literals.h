@@ -22,7 +22,7 @@ enum {T_BEGIN = 0, T_CR, T_LPAREN, T_RPAREN, T_STAR, T_PLUS, T_COMMA,
     T_MINUS, T_UPLUS, T_SLASH, T_UMINUS};
 
 enum {
-O_ID = 1, O_TARGET, O_LABEL, O_SET, O_EQU, O_REF,
+O_ID = 1, O_TARGET, O_LABEL, O_SET, O_EQU, O_REF, TT_EQU, TT_SET,
 O_NAME = 9, O_STRING, O_DATA, O_NUMBER, O_PARAM
 };
 enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
@@ -34,10 +34,10 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
     K_LXI, K_REG16, K_LDSTAX, K_ARITH, K_IMM8,
     K_MVI, K_INRDCR, K_MOV, K_IMM16, K_SINGLE,
     K_RST, K_ASEG, K_CSEG, K_DSEG, K_PUBLIC,
-    K_EXTRN, K_NAME, K_STKLN, K_MACRO, O_MACROBODY,
+    K_EXTRN, K_NAME, K_STKLN, K_MACRO, O_MACROPARAM,
     K_ENDM, K_EXITM, T_MACRONAME, K_IRP, K_IRPC,
     O_ITERPARAM, K_REPT, K_LOCAL, O_OPTVAL, K_NUL,
-    O_MACROID = 100
+    O_SETEQUNAME = 100
 };
 
 
@@ -76,9 +76,9 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
 
 
 #define UF_SEGMASK  7
-#define UF_LOW  8
-#define UF_HIGH 0x10
-#define UF_BOTH 0x18
+#define UF_RLOW  8
+#define UF_RHIGH 0x10
+#define UF_RBOTH 0x18
 #define UF_PUBLIC   0x20
 #define UF_EXTRN    0x40
 
@@ -105,3 +105,8 @@ enum {K_SPECIAL = 5, K_REGNAME = 7, K_SP,
 #define RTE_CMDLINE	2
 #define RTE_EOF		3
 #define	RTE_FILE	4
+
+/* label usage */
+#define L_SETEQU      1 
+#define L_TARGET      2 
+#define L_REF         0

@@ -247,7 +247,7 @@ void GetNum()
             if ((digit = tokPtr[i] - '0') > 9)
                 digit = digit - 7;
             if (digit >= radix)
-                if (! (tokenType[2] == O_OPTVAL)) { /* bug? risk that may be uninitialised */
+                if (! (tokenType[2] == O_OPTVAL)) { /* bug? risk that may be random - tokenIdx may be < 2 */
                     IllegalCharError();
                     digit = 0;
                 }

@@ -9,7 +9,7 @@ byte tokReq[] = {
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
        0, 0 };
 
-byte b3EA0[] = { 0x36, 0, 0, 0, 6, 0, 0, 2 };
+byte definingLHS[] = { 0x36, 0, 0, 0, 6, 0, 0, 2 };
 /* bit vector 55 -> 0 x 24 00000110 0 x 16 0000001 */
 /* 29, 30, 55 */
 bool absValueReq[] = {
@@ -159,8 +159,8 @@ void Tokenise()
                 if (skipIf[0] || (mSpoolMode & 1))
                     PopToken();
                 else {
-                    labelUse = 2;
-                    UpdateSymbolEntry(segSize[activeSeg], O_TARGET);
+                    labelUse = L_TARGET;
+                    UpdateSymbolEntry(segLocation[activeSeg], O_TARGET);
                 }
                 expectingOperands = false;
                 gotLabel = expectingOpcode = bTRUE;
@@ -185,15 +185,15 @@ void Tokenise()
             yyType = curChar - '(' + T_LPAREN;
             return;
         case CC_DOLLAR:
-            PushToken(O_NUMBER);
-            CollectByte(segSize[activeSeg] & 0xff);
-            CollectByte(segSize[activeSeg] >> 8);
-            if (activeSeg != SEG_ABS)
-                tokenAttr[0] |= activeSeg | 0x18;
+            PushToken(O_NUMBER);        // $ is treated as a number
+            CollectByte(segLocation[activeSeg] & 0xff); /* its value is the current seg's size*/
+            CollectByte(segLocation[activeSeg] >> 8);
+            if (activeSeg != SEG_ABS)   // if not abs set seg and relocatable flags
+                tokenAttr[0] |= activeSeg | UF_RBOTH;
             Sub416B();
             break;
         case CC_QUOTE:
-            if (yyType == 0x37) {
+            if (yyType == O_MACROPARAM) {
                 IllegalCharError();
                 return;
             }
@@ -242,10 +242,10 @@ void Tokenise()
                     yyType = O_NAME;
                 }
             }
-            else if (yyType != O_MACROBODY && mSpoolMode != 2) {
+            else if (yyType != O_MACROPARAM && mSpoolMode != 2) {
                 if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
                     tokenType[0] = Lookup(TID_SYMBOL);    /* look up in symbol space */
-                    rhsUserSymbol = true;        /* note we have a used symbol */
+                    rhsUserSymbol = true;        /* note we have a user symbol */
                 }
 
                 yyType = tokenType[0];
@@ -253,26 +253,28 @@ void Tokenise()
                 if (!tokReq[tokenType[0]]) /* i.e. not instruction, reg or K_MACRONAME or 1->A */
                     PopToken();
 
-                if (lhsUserSymbol) {               /* EQU, SET or O_MACROBODY */
-                    EmitXref(!TestBit(yyType, b3EA0), savName);
+                // for name seen to lhs of op emit xref, for SET/EQU/MACRO PARAM then this is defining
+                // else it is reference
+                if (lhsUserSymbol) {               /* EQU, SET or O_MACROPARAM */
+                    EmitXref(!TestBit(yyType, definingLHS), savName);   // maps to XREF_DEF or XREF_REF
                     lhsUserSymbol = false;
                 }
             }
             if (mSpoolMode == 1) {
                 if (yyType == K_LOCAL) {
                     mSpoolMode = 2;
-                    if (b6897)
+                    if (spooledControl)
                         SyntaxError();
-                    b6897 = false;
+                    spooledControl = false;
                 } else {
-                    b6897 = false;
+                    spooledControl = false;
                     mSpoolMode = 0xff;
                 }
             }
 
             if (yyType == K_NUL)
                 PushToken(O_OPTVAL);
-            if (yyType < 10 /* || yyType == 9 or 80h*/) { /* !! only first term contributes */
+            if (yyType < 10 /* | yyType == 9 | 80h*/) { /* !! only first term contributes */
                 Sub416B();
                 if (expectingOpcode)
                     SetExpectOperands();
@@ -291,7 +293,7 @@ void Tokenise()
         case CC_ESC:
             if (expandingMacro) {
                 skipIf[0] = false;
-                yyType = 0x40;
+                yyType = O_OPTVAL;
                 return;
             }
             else

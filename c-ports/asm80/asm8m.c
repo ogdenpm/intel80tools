@@ -32,7 +32,7 @@ static void InitParamCollect()
 {
     symTab[TID_MACRO] = endSymTab[TID_MACRO] = (tokensym_t *)symHighMark;	// init macro parameter table
     paramCnt = macro.top.localsCnt = bZERO;	// no params yet
-    yyType = O_MACROBODY;
+    yyType = O_MACROPARAM;
 }
 
 
@@ -65,7 +65,7 @@ static bool Sub727F()
         return true;
     macroSpoolNestDepth++;
     b6B2C = topOp != K_REPT;
-    yyType = 0x37;
+    yyType = O_MACROPARAM;
     return false;
 }
 
@@ -195,6 +195,9 @@ void GetMacroToken()
                 PopToken();
                 pNextArg = macro.top.pCurArg;
                 opSP--;
+#if _DEBUG
+                printf("nested macro poped token & opStack\n");
+#endif
                 reget = 1;
                 EmitXref(XREF_DEF, name);
                 rhsUserSymbol = false;

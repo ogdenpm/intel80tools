@@ -11,7 +11,7 @@ bool inAngleBrackets;
 byte expandingMacro;		// 0,1 or 0xff
 bool macroDivert;
 bool inMacroBody = false;
-byte mSpoolMode;					// 0, 1, 2, 0xfe, 0xff
+byte mSpoolMode;					// 0->normal, 1->spool, 2->capture args, 0xfe->might not occur , 0xff->expanding
 static byte b905F;		// unused
 bool b9060;
 bool nestMacro;
@@ -81,7 +81,7 @@ static byte padb6746;
 byte activeSeg;
 bool inPublic = false;
 bool inExtrn = 0;
-bool segHasData[2];
+bool segDeclared[2];
 byte alignTypes[4] = {3, 3, 3, 3};
 word externId;
 word itemOffset;
@@ -108,13 +108,13 @@ static byte b94DD[2];
 byte opSP;
 byte opStack[17];
 word_t accum[2];
-byte acc1Flags;
-byte acc2Flags;
+byte acc1RelocFlags;
+byte acc2RelocFlags;
 bool hasVarRef;
 byte acc1ValType;
 byte acc2ValType;
-word acc1NumVal;
-word acc2NumVal;
+word acc1RelocVal;
+word acc2RelocVal;
 byte curChar = 0;
 byte reget = false;
 byte lookAhead;
@@ -142,7 +142,7 @@ word statusIO;
 word openStatus;  /* status of last open for Read */
 static word pad6894 = 0xFFFF;
 byte asmErrCode = ' '; 
-bool b6897 = false;
+bool spooledControl = false;
 bool primaryValid = true;
 byte tokI;
 bool errorOnLine;
@@ -218,7 +218,7 @@ bool b6B33;
 bool isInstr = true;
 bool expectOp = true;
 bool b6B36 = false;
-word segSize[5] = {0, 0, 0, 0, 0};    /* ABS, CODE, DATA, STACK, MEMORY */
+word segLocation[5] = {0, 0, 0, 0, 0};    /* ABS, CODE, DATA, STACK, MEMORY */
 word maxSegSize[3] = {0, 0, 0};        /* seg is only ABS, CODE or DATA */
 byte cmdLineBuf[129];
 address actRead;

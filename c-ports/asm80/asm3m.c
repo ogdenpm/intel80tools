@@ -18,20 +18,20 @@ bool isInstrMap[] = {
 void ChkSegAlignment(byte seg)
 {    /* seg = 0 => CSEG, seg = 1 => DSEG */
 
-    if (segHasData[seg]) {
+    if (segDeclared[seg]) {
         if (HaveTokens()) {
-            accum1 = GetNumVal();
-            if (alignTypes[seg] != accum1Lb)
+            accum1 = GetNumVal();                   // get align type
+            if (alignTypes[seg] != accum1Lb)        // alignt type mis-match
                 ExpressionError();
         }
         else if (alignTypes[seg] != 3)    /* no speficier - check byte algined */
             ExpressionError();
     } else {
-        segHasData[seg] = true;
+        segDeclared[seg] = true;
         if (HaveTokens()) {
-            accum1 = GetNumVal();
+            accum1 = GetNumVal();               // get align type
             if (accum1 == 1 || accum1 == 2)    /* only allow inPage and Page */
-                alignTypes[seg] = accum1 & 0xff;
+                alignTypes[seg] = accum1 & 0xff;    // set algin type
             else
                 ExpressionError();
         }
@@ -50,8 +50,8 @@ void Cond2Acc(byte cond)
 void UpdateHiLo(byte hilo)
 {
 
-    if ((acc1Flags & (UF_EXTRN + UF_SEGMASK)) != 0)
-        acc1Flags = (acc1Flags & ~UF_BOTH) | hilo;
+    if ((acc1RelocFlags & (UF_EXTRN + UF_SEGMASK)) != 0)
+        acc1RelocFlags = (acc1RelocFlags & ~UF_RBOTH) | hilo;
 }
 
 void HandleOp()
@@ -62,7 +62,7 @@ void HandleOp()
             break;
     case 2:	                    /* ( */
     case 3:	                    /* ) */
-            if (! (topOp == T_LPAREN && newOp == T_RPAREN))
+            if (! (topOp == T_LPAREN && newOp == T_RPAREN)) // incorrectly nested ()
                 BalanceError();
 
             if (tokenType[0] == O_DATA) {
@@ -134,11 +134,11 @@ void HandleOp()
             break;
     case 24:	                    /* HIGH */
             accum1 >>= 8;
-            UpdateHiLo(UF_HIGH);
+            UpdateHiLo(UF_RHIGH);
             break;
     case 25:	                    /* LOW */
             accum1 &= 0xff;
-            UpdateHiLo(UF_LOW);
+            UpdateHiLo(UF_RLOW);
             break;
     case 26:	                    /* DB ? */
             if (tokenType[0] != O_STRING)
@@ -147,60 +147,60 @@ void HandleOp()
                 if ((byte)(accum1Hb - 1) < 0xFE)    /* ! 0 or FF */
                     ValueError();
                 curOpFlags = 0x44;   /* adjusted from PLM as revised code doesn't use rotate */
-                if ((acc1Flags & UF_BOTH) == UF_BOTH) {
+                if ((acc1RelocFlags & UF_RBOTH) == UF_RBOTH) {  // can't db a 16 bit relocatable
                     ValueError();
-                    acc1Flags = (acc1Flags & ~UF_BOTH) | UF_LOW;
+                    acc1RelocFlags = (acc1RelocFlags & ~UF_RBOTH) | UF_RLOW;    // treat as 8 bit relocatable
                 }
             } else {
-                acc1Flags = 0;
-                tokenType[0] = O_DATA;
+                acc1RelocFlags = 0;         // abs bytes
+                tokenType[0] = O_DATA;      // flag as data
             }
 
-            if (IsReg(acc1ValType))
+            if (IsReg(acc1ValType))         // db of register is not valid
                 OperandError();
-            nextTokType = O_DATA;
-            inDB = true;
+            nextTokType = O_DATA;           // loook for more data
+            inDB = true;                    // we are in DB statement
             break;
     case 27:                    /* DW ? */
-            nextTokType = O_DATA;
-            inDW = true;
+            nextTokType = O_DATA;           // look for more data
+            inDW = true;                    // we are in DW
             break;
     case 28:	                    /* DS ? */
-            segSize[activeSeg] += accum1;
-            showAddr = true;
+            segLocation[activeSeg] += accum1;   // bump current $ value
+            showAddr = true;                // flag that new address should be shown
             break;
     case 29:            	/* EQU ? */
     case 30:                /* SET ? */
             showAddr = true;
-            if ((acc1Flags & UF_EXTRN) == UF_EXTRN) {   /* cannot SET or EQU to external */
+            if ((acc1RelocFlags & UF_EXTRN) == UF_EXTRN) {   /* cannot SET or EQU to external */
                 ExpressionError();
-                acc1Flags = 0;
+                acc1RelocFlags = 0;
             }
-            labelUse = 1;
-            UpdateSymbolEntry(accum1, (K_SET + 4) - topOp);    /* 4 for set, 5 for equ */
+            labelUse = L_SETEQU;
+            UpdateSymbolEntry(accum1, (K_SET + O_SET) - topOp);    /* 4 for set, 5 for equ */
             expectingOperands = false;
             break;
     case 31:	                    /* ORG ? */
             showAddr = true;
-            if ((acc1Flags & UF_EXTRN) != UF_EXTRN) {
-                if ((acc1Flags & UF_BOTH) != 0)
-                    if ((acc1Flags & UF_SEGMASK) != activeSeg
-                      || (acc1Flags & UF_BOTH) != UF_BOTH)
+            if ((acc1RelocFlags & UF_EXTRN) != UF_EXTRN) {      // check not ORG to extern
+                if ((acc1RelocFlags & UF_RBOTH) != 0)           // only org to abs or current seg 16 bit reloc
+                    if ((acc1RelocFlags & UF_SEGMASK) != activeSeg
+                      || (acc1RelocFlags & UF_RBOTH) != UF_RBOTH)
                         ExpressionError();
             } else
                 ExpressionError();
 
-            if (controls.object)
-                if (segSize[activeSeg] > maxSegSize[activeSeg])
-                    maxSegSize[activeSeg] = segSize[activeSeg];
-            segSize[activeSeg] = accum1;
+            if (controls.object)                                // if object file update maxSegSize for this segment
+                if (segLocation[activeSeg] > maxSegSize[activeSeg])
+                    maxSegSize[activeSeg] = segLocation[activeSeg];
+            segLocation[activeSeg] = accum1;                        // set new segLocation
             break;
     case 32:	                    /* END ? */
             if (tokenIdx > 0) {
                 startOffset = GetNumVal();
                 startDefined = 1;
-                startSeg = acc1Flags & 7;
-                if ((acc1Flags & UF_EXTRN) == UF_EXTRN)
+                startSeg = acc1RelocFlags & 7;
+                if ((acc1RelocFlags & UF_EXTRN) == UF_EXTRN)
                     ExpressionError();
                 if (IsReg(acc1ValType))
                     OperandError();
@@ -224,7 +224,7 @@ void HandleOp()
             {
                 condAsmSeen = true;
                 Nest(2);        /* push current skip/else status */
-                xRefPending = true;        /* push current skip/else status */
+                xRefPending = true;        /* force any pending xref info to be written*/
                 if (!skipIf[0])    /* if ! skipping set new status */
                     skipIf[0] = ! (accum1 & 1);
                 inElse[0] = false;        /* ! in else at this nesting level */
@@ -252,13 +252,13 @@ void HandleOp()
                 UnNest(2);    /* revert to previous status */
             }
             break;
-        /* in the following topOp = 36 and nextTokType = O_DATA
+        /* in the following topOp = K_LXI and nextTokType = O_DATA
            except where noted on return from MkCode */
     case 36:	                    /* LXI ? */
             if (nameLen == 1)
                 if (name[0] == 'M')
                     SyntaxError();
-            MkCode(0x85);    /* topOp = 2Ch on return */
+            MkCode(0x85);    /* topOp = K_INRDCR, nextTokType unchanged on return */
             break;
     case 37:	                /* REG16 ops POP DAD PUSH INX DCX ? */
             if (nameLen == 1)
@@ -272,11 +272,11 @@ void HandleOp()
             break;
     case 40:	MkCode(8);        /* IMM8 ops ADI OUT SBI ORI IN CPI SUI XRI ANI ACI ? */
             break;
-    case 41:	MkCode(0x46);    /* MVI ?  topOp = 40 on return */
+    case 41:	MkCode(0x46);    /* MVI ?  topOp = K_IMM8 on return */
             break;
     case 42:	MkCode(6);        /* INR DCR ? */
             break;
-    case 43:	MkCode(0x36);    /* MOV   topOp = 39 on return*/
+    case 43:	MkCode(0x36);    /* MOV   topOp = K_ARITH, nextTokType unchanged on return*/
             break;
     case 44:	MkCode(0);        /* IMM16 ops CZ CNZ JZ STA JNZ JNC LHLD */
                         /* CP JC SHLD CPE CPO CM LDA JP JM JPE */
@@ -301,14 +301,14 @@ void HandleOp()
             break;
     case 50:	                /* PUBLIC */
             inPublic = true;
-            labelUse = 0;
+            labelUse = L_REF;
             UpdateSymbolEntry(0, O_REF);
             break;
     case 51:	                /* EXTRN ? */
             inExtrn = true;
             if (externId == 0 && IsPhase1 && controls.object) 
                 WriteModhdr();
-            labelUse = 0;
+            labelUse = L_REF;
             UpdateSymbolEntry(externId, O_TARGET);
             if (IsPhase1 && controls.object && ! badExtrn)
                 WriteExtName();
@@ -322,10 +322,10 @@ void HandleOp()
                 move(6, spaces6, aModulePage);
                 move(moduleNameLen = nameLen, name, aModulePage);
             } else
-                SourceError('R');
-            PopToken();
+                SourceError('R');   /* NAME directive was preceded by an instruction or another directive */
+            PopToken();         // consume the token
             break;
-    case 53:	segSize[SEG_STACK] = accum1;    /* STKLN ? */
+    case 53:	segLocation[SEG_STACK] = accum1;    /* STKLN ? */
             break;
     case 54:	DoMacro();            /* MACRO ? */
             break;
@@ -349,12 +349,12 @@ void HandleOp()
             break;
     case 63:	DoLocal();            /* LOCAL */
             break;
-    case 64:	Sub78CE();
+    case 64:	Sub78CE();      /* optVal */
             break;
     case 65:	                /* NUL */
-            Cond2Acc(tokenType[0] = K_NUL);
+            Cond2Acc(tokenType[0] == K_NUL);
             PopToken();
-            acc1Flags = 0;
+            acc1RelocFlags = 0;
     }
 
     if (topOp != T_CR)
@@ -362,7 +362,7 @@ void HandleOp()
 }
 
 
-byte IsExpressionOp()
+static byte IsExpressionOp()    // returns true if op is valid in an expression
 {
     if (yyType > T_RPAREN)
         if (yyType != T_COMMA)
@@ -371,13 +371,13 @@ byte IsExpressionOp()
     return false;
 }
 
-byte IsVar(byte type)
+static byte IsVar(byte type)
 {
-    return type == O_NAME || type == O_MACROID;
+    return type == O_NAME || type == O_SETEQUNAME;
 }
 
 
-void UpdateIsInstr()
+static void UpdateIsInstr()
 {
     if (! isInstrMap[topOp])
         isInstr = false;
@@ -387,8 +387,16 @@ void UpdateIsInstr()
 void Parse()
 {
     while (1) {
-        if (! (yyType == T_CR ||( yyType >= K_END && yyType <= K_ENDIF))
-           && skipIf[0] || ((opFlags[yyType] < 128 || inQuotes) && (mSpoolMode & 1))) {
+        /* nothing to parse if
+            skipping if and not cr or if related keyword
+            or spooling and not macro related keyword or in quotes
+        */
+#ifdef _DEBUG
+        printf("Parse: ");
+        ShowYYType();
+#endif
+        if (((! (yyType == T_CR ||( K_END <= yyType && yyType <= K_ENDIF))) && skipIf[0])
+            || ((opFlags[yyType] < 128 || inQuotes) && (mSpoolMode & 1))) { // if spooling skip non macro and in quotes
             needsAbsValue = false;
             PopToken();
             return;
@@ -411,8 +419,10 @@ void Parse()
                 expectOp = true;
             }
 #if _DEBUG
-			DumpOpStack();
-			DumpTokenStack(false);
+            printf("\n>>>> Shift\n");
+            DumpOpStack();
+            DumpTokenStack(false);
+            printf("\n");
 #endif
             if (phase > 1)
                 inExpression = IsExpressionOp();
@@ -421,10 +431,11 @@ void Parse()
 
     /* REDUCE */
 #if _DEBUG
-		DumpOpStack();
+        printf("\n<<<< Start - reduce\n");
+        DumpOpStack();
         DumpTokenStack(false);
 #endif
-        inExpression = 0;
+        inExpression = false;
         if ((! expectOp) && topOp > T_RPAREN)
             SyntaxError();
 
@@ -434,22 +445,22 @@ void Parse()
             opSP--;    /* pop Op */
         
 
-        if ((curOpFlags = opFlags[topOp]) & 1) {     /* -------x -> getnum to acc1 & copy to acc2 */
+        if ((curOpFlags = opFlags[topOp]) & 1) {     /* load rhs operand into acc1 and acc2) */
             accum2 = GetNumVal();
-            acc2Flags = acc1Flags;
-            acc2NumVal = acc1NumVal;
+            acc2RelocFlags = acc1RelocFlags;
+            acc2RelocVal = acc1RelocVal;
             acc2ValType = acc1ValType;
         }
 
-        if (curOpFlags & 2) /* removed ror */ /* ------x- -> getnum to acc1 */
+        if (curOpFlags & 2) /* removed ror */ /* has a lhs operand so load into acc1 */
             accum1 = GetNumVal();
 
         if (! hasVarRef)
             hasVarRef = IsVar(acc1ValType) || IsVar(acc2ValType);
 
-        nextTokType = O_NUMBER;
+        nextTokType = O_NUMBER;            // assume next token is a number, HandleOp may change
         if (topOp > T_RPAREN && topOp < K_DB)    /* expression topOp */
-            Sub4291();
+            ResultType();                       // check and set result type
         else {
             UpdateIsInstr();
             ChkInvalidRegOperand();
@@ -474,13 +485,19 @@ void Parse()
             if (curOpFlags & (4 << ii))  /* --xxxx-- -> collect high/low acc1/acc2 */
                 CollectByte(((byte *)&accum1)[ii]);
 
-        tokenAttr[0] = acc1Flags;
-        tokenSymId[0] = acc1NumVal;
+        tokenAttr[0] = acc1RelocFlags;
+        tokenSymId[0] = acc1RelocVal;
         if (curOpFlags & 0x40)          /* -x------ -> list */
-            if (newOp == T_COMMA) {
-                yyType = topOp;
+            if (newOp == T_COMMA) {     // if comma then make the operator (topOp) as
+                yyType = topOp;         // the next item to read and mark as operator
                 expectOp = true;
             }
+#if _DEBUG
+        printf("\n<<<< End - reduce\n");
+        DumpOpStack();
+        DumpTokenStack(false);
+        printf("\n");
+#endif
     }
 }
 
