@@ -122,7 +122,7 @@ clean:
 %.odd %.evn : %
 	-@del  $*.odd $*.evn 2>NUL
 	$(file >ipps.in,initialize $(OMF)$(\n)\
-		format $*($BASE) p$(\n)\
+		format $*($(BASE)) p$(\n)\
 		3$(\n)\
 		2$(\n)\
 		1$(\n)\
@@ -131,7 +131,7 @@ clean:
 		$(\n)\
 		exit)
 	$(IPPS) <ipps.in
-	@del ipps.in
+#	@del ipps.in
 	$(call rename,$*.odd $*.evn)
 
 
