@@ -1,102 +1,140 @@
 # path to root of build tree
 ROOT := ..\..
+# location of the msdos build tools
+MSDOS := $(ROOT)\msdos
+
 # the raw built binaries
-# note files need to have the none extent name in upper case as gnu make is case sensitive
 TARGETS_88 = 8825 8840 8845
 TARGETS_86 = 8635
 TARGETS_188 = 18848
-TARGETS_186 = 18603A 18651
-TARGETS_286 = 286100  28610A 3861XX  3863X 
+TARGETS_186 = 18603a 18651
+TARGETS_286 = 286100  28610a 3861xx  3863x 
 
-# the derived proms
-PROMS_88 = $(foreach P,$(TARGETS_88),$P.PRM)
-PROMS_86 = $(foreach P,$(TARGETS_86),$P.ODD $P.EVN)
-PROMS_188 = $(foreach P,$(TARGETS_188),$P.PRM)
-PROMS_186 = $(foreach P,$(TARGETS_186),$P.ODD $P.EVN)
-PROMS_286 = $(foreach P,$(TARGETS_286),$P.ODD $P.EVN)
+# the derived prom names for 8 bit, 16 processors and 286
+PROMS_8 = $(foreach P,$(TARGETS_88) $(TARGETS_188),$P.prm)
+PROMS_16 = $(foreach P,$(TARGETS_86) $(TARGETS_186),$P.odd $P.evn)
+PROMS_286 = $(foreach P,$(TARGETS_286),$P.odd $P.evn)
 
 # all binaries and all proms
 TARGETS := $(TARGETS_88) $(TARGETS_86) $(TARGETS_186) $(TARGETS_286)
-PROMS := $(PROMS_88) $(PROMS_86) $(PROMS_188) $(PROMS_186) $(PROMS_286)
+PROMS := $(PROMS_8) $(PROMS_16) $(PROMS_286)
 
-# set up the dos emulator and build tools
-MSDOS = $(ROOT)\msdos\msdos
-ASM86 = $(MSDOS) $(ROOT)\msdos\asm86
-LINK86 = $(MSDOS) $(ROOT)\msdos\link86
-LOC86 = $(MSDOS) $(ROOT)\msdos\loc86
-ASM286 = $(MSDOS) $(ROOT)\msdos\asm286
-BND286 = $(MSDOS) $(ROOT)\msdos\bnd286
-BLD286 = $(MSDOS) $(ROOT)\msdos\bld286
-IPPS = $(MSDOS) $(ROOT)\msdos\ipps
+# paths to the build tools
+ASM86 = $(MSDOS)\asm86
+LINK86 =$(MSDOS)\link86
+LOC86 = $(MSDOS)\loc86
+ASM286 = $(MSDOS)\asm286
+BND286 = $(MSDOS)\bnd286
+BLD286 = $(MSDOS)\bld286
+IPPS = $(MSDOS)\ipps
+
+# defaults for locate
+START=reset_8086
+INIT=noinitcode
+# overrides for 186
+$(TARGETS_186) : START=montor_186
+$(TARGETS_186) : INIT=
+# defaults for PROM build
+BASE=0F8000H
+OMF=86
+# overides for 286
+$(PROMS_286) : BASE=0FF8000H
+$(PROMS_286): OMF=286
+
+# macro to allow newline in make rules using $(\n)
+define \n
 
 
+endef
+
+# macro to rename files to correct case as tools convert to upper case
+# $(call rename,file list)
+define rename
+	$(foreach F,$1,ren $F $F$(\n))
+endef
+
+####################################################
 # the top  level rule to make sure all is up to date
+####################################################
 all: $(TARGETS) $(PROMS)
 
 # target to clean up files
 .PHONY: clean
 clean:
-	del $(TARGETS) $(PROMS) *.LST *.MP1 *.MP2 *.in
+	del $(TARGETS) $(PROMS) *.LST *.MP1 *.MP2 *.in 2>NUL
 
-# below are the build runes
 
-# build customisation for assembly
-$(TARGETS_88) $(TARGETS_86) : START=reset_8086
-$(TARGETS_88) $(TARGETS_86) : INIT=noinitcode
-$(TARGETS_186) : START=montor_186
-$(TARGETS_186) : INIT=
-# build customisation for PROM creation
-$(PROMS_86) $(PROMS_186): BASE=0F8000H
-$(PROMS_286) : BASE=0FF8000H
-$(PROMS_86) $(PROMS_186): OMF=86
-$(PROMS_286): OMF=286
 
+##################################
 # 8088, 8086 and 80186 build rules
+##################################
 %.o86: %.a86
 	$(ASM86) $< object($@) macro(100) errorprint include(omf86.inc)
+	$(call rename,$@ $*.lst)
 
 %.l86: %.o86
 	$(LINK86) $<,cnfsdm.lib,8087.lib to $@ print($*.mp1)
+	$(call rename,$@ $*.mp1)
 
 %: %.l86
-	$(file >loc.in, addresses(classes(data(400h),code(0f8240h),restart (0fff80h))) &)
-	$(file >>loc.in,start($(START)) bootstrap print($*.mp2) $(INIT))
+	$(file >loc.in,addresses(classes( &$(\n)\
+		data(400h), &$(\n)\
+		code(0f8240h),&$(\n)\
+		restart(0fff80h))) &$(\n)\
+		start($(START)) bootstrap print($*.mp2) $(INIT))
 	-$(LOC86) $< ^& <loc.in
 	@del loc.in
+	$(call rename,$@ $*.mp2)
 
+###################
 # 80286 build rules
+###################
 %.o28: %.a28
 	-$(ASM286) $< object($@) pagewidth(132) macro(100) include(omf286.inc)
+	$(call rename,$@ $*.lst)
 
 %.l28: %.o28
 	$(BND286) $<,cnfsdm.lb2 object($@) print($*.mp1) name($*) noload
+	$(call rename,$@ $*.mp1)
 
 %: %.l28
 	$(BLD286) $< object($@) print($*.mp2) buildfile(cnf286.bld) bootload
+	$(call rename,$@ $*.mp2)
 
-# rule to build single PROM
-%.PRM: %
+
+# rule to build single PROM cf. prom88.csd
+%.prm: %
 	-@del $@ 2>NUL
-	$(file >ipps.in,initialize 86)
-	$(file >>ipps.in,format $*($0F8000H) p)
-	$(foreach O,3 1 1,$(file >>ipps.in,$O))
-	$(file >>ipps.in,0 to $@)
-	$(file >>ipps.in,)
-	$(file >>ipps.in,exit)
+	$(file >ipps.in,initialize $(OMF)$(\n)\
+		format $*($(BASE)) p$(\n)\
+		3$(\n)\
+		1$(\n)\
+		1$(\n)\
+		0 to $@$(\n)\
+		$(\n)\
+		exit)
 	$(IPPS) <ipps.in
 	@del ipps.in
+	$(call rename,$@)
 
-# rule to build odd / even PROMS
 
-%.ODD %.EVN : %
-	-@del  $*.ODD $*.EVN 2>NUL
-	$(file >ipps.in,initialize $(OMF))
-	$(file >>ipps.in,format $*($(BASE)) p)
-	$(foreach O,3 2 1,$(file >>ipps.in,$O))
-	$(file >>ipps.in,0 to $*.EVN)
-	$(file >>ipps.in,1 to $*.ODD)
-	$(file >>ipps.in,)
-	$(file >>ipps.in,exit)
+# rule to build odd / even PROMS cf. prom86.csd
+%.odd %.evn : %
+	-@del  $*.odd $*.evn 2>NUL
+	$(file >ipps.in,initialize $(OMF)$(\n)\
+		format $*($BASE) p$(\n)\
+		3$(\n)\
+		2$(\n)\
+		1$(\n)\
+		0 to $*.evn$(\n)\
+		1 to $*.odd$(\n)\
+		$(\n)\
+		exit)
 	$(IPPS) <ipps.in
 	@del ipps.in
+	$(call rename,$*.odd $*.evn)
+
+
+
+
 
