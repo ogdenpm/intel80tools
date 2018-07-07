@@ -16,7 +16,7 @@ PROMS_16 = $(foreach P,$(TARGETS_86) $(TARGETS_186),$P.odd $P.evn)
 PROMS_286 = $(foreach P,$(TARGETS_286),$P.odd $P.evn)
 
 # all binaries and all proms
-TARGETS := $(TARGETS_88) $(TARGETS_86) $(TARGETS_186) $(TARGETS_286)
+TARGETS := $(TARGETS_88) $(TARGETS_86) $(TARGETS_188) $(TARGETS_186) $(TARGETS_286)
 PROMS := $(PROMS_8) $(PROMS_16) $(PROMS_286)
 
 # paths to the build tools
@@ -26,20 +26,18 @@ LOC86 = $(MSDOS)\loc86
 ASM286 = $(MSDOS)\asm286
 BND286 = $(MSDOS)\bnd286
 BLD286 = $(MSDOS)\bld286
-IPPS = $(MSDOS)\ipps
+AOMF2BIN = $(ROOT)\tools\aomf2bin
 
 # defaults for locate
 START=reset_8086
 INIT=noinitcode
 # overrides for 186
-$(TARGETS_186) : START=montor_186
-$(TARGETS_186) : INIT=
+$(TARGETS_188) $(TARGETS_186) : START=montor_186
+$(TARGETS_188) $(TARGETS_186) : INIT=
 # defaults for PROM build
 BASE=0F8000H
-OMF=86
 # overides for 286
 $(PROMS_286) : BASE=0FF8000H
-$(PROMS_286): OMF=286
 
 # macro to allow newline in make rules using $(\n)
 define \n
@@ -61,7 +59,7 @@ all: $(TARGETS) $(PROMS)
 # target to clean up files
 .PHONY: clean
 clean:
-	del $(TARGETS) $(PROMS) *.LST *.MP1 *.MP2 *.in 2>NUL
+	del $(TARGETS) $(PROMS) *.lst *.mp? *.in *.o28 *.l28 2>NUL
 
 
 
@@ -104,35 +102,12 @@ clean:
 
 # rule to build single PROM cf. prom88.csd
 %.prm: %
-	-@del $@ 2>NUL
-	$(file >ipps.in,initialize $(OMF)$(\n)\
-		format $*($(BASE)) p$(\n)\
-		3$(\n)\
-		1$(\n)\
-		1$(\n)\
-		0 to $@$(\n)\
-		$(\n)\
-		exit)
-	$(IPPS) <ipps.in
-	@del ipps.in
-	$(call rename,$@)
+	$(AOMF2BIN) $< -b $(BASE) $@
 
 
 # rule to build odd / even PROMS cf. prom86.csd
 %.odd %.evn : %
-	-@del  $*.odd $*.evn 2>NUL
-	$(file >ipps.in,initialize $(OMF)$(\n)\
-		format $*($BASE) p$(\n)\
-		3$(\n)\
-		2$(\n)\
-		1$(\n)\
-		0 to $*.evn$(\n)\
-		1 to $*.odd$(\n)\
-		$(\n)\
-		exit)
-	$(IPPS) <ipps.in
-	@del ipps.in
-	$(call rename,$*.odd $*.evn)
+	$(AOMF2BIN) $< -b $(BASE) -o $*.odd -e $.evn
 
 
 
