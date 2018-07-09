@@ -107,7 +107,7 @@ clean:
 
 # rule to build odd / even PROMS cf. prom86.csd
 %.odd %.evn : %
-	$(AOMF2BIN) $< -b $(BASE) -o $*.odd -e $.evn
+	$(AOMF2BIN) $< -b $(BASE) -o $*.odd -e $*.evn
 
 
 
