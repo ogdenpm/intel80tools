@@ -7,13 +7,13 @@ MSDOS := $(ROOT)\msdos
 TARGETS_88 = 8825 8840 8845
 TARGETS_86 = 8635
 TARGETS_188 = 18848
-TARGETS_186 = 18603a 18651
-TARGETS_286 = 286100  28610a 3861xx  3863x 
+TARGETS_186 = 18603A 18651
+TARGETS_286 = 286100  28610A 3861XX  3863X 
 
 # the derived prom names for 8 bit, 16 processors and 286
-PROMS_8 = $(foreach P,$(TARGETS_88) $(TARGETS_188),$P.prm)
-PROMS_16 = $(foreach P,$(TARGETS_86) $(TARGETS_186),$P.odd $P.evn)
-PROMS_286 = $(foreach P,$(TARGETS_286),$P.odd $P.evn)
+PROMS_8 = $(foreach P,$(TARGETS_88) $(TARGETS_188),$P.PRM)
+PROMS_16 = $(foreach P,$(TARGETS_86) $(TARGETS_186),$P.ODD $P.EVN)
+PROMS_286 = $(foreach P,$(TARGETS_286),$P.ODD $P.EVN)
 
 # all binaries and all proms
 TARGETS := $(TARGETS_88) $(TARGETS_86) $(TARGETS_188) $(TARGETS_186) $(TARGETS_286)
@@ -45,12 +45,6 @@ define \n
 
 endef
 
-# macro to rename files to correct case as tools convert to upper case
-# $(call rename,file list)
-define rename
-	$(foreach F,$1,ren $F $F$(\n))
-endef
-
 ####################################################
 # the top  level rule to make sure all is up to date
 ####################################################
@@ -66,15 +60,13 @@ clean:
 ##################################
 # 8088, 8086 and 80186 build rules
 ##################################
-%.o86: %.a86
+%.O86: %.A86
 	$(ASM86) $< object($@) macro(100) errorprint include(omf86.inc)
-	$(call rename,$@ $*.lst)
 
-%.l86: %.o86
+%.L86: %.O86
 	$(LINK86) $<,cnfsdm.lib,8087.lib to $@ print($*.mp1)
-	$(call rename,$@ $*.mp1)
 
-%: %.l86
+%: %.L86
 	$(file >loc.in,addresses(classes( &$(\n)\
 		data(400h), &$(\n)\
 		code(0f8240h),&$(\n)\
@@ -82,32 +74,28 @@ clean:
 		start($(START)) bootstrap print($*.mp2) $(INIT))
 	-$(LOC86) $< ^& <loc.in
 	@del loc.in
-	$(call rename,$@ $*.mp2)
 
 ###################
 # 80286 build rules
 ###################
-%.o28: %.a28
+%.O28: %.A28
 	-$(ASM286) $< object($@) pagewidth(132) macro(100) include(omf286.inc)
-	$(call rename,$@ $*.lst)
 
-%.l28: %.o28
+%.L28: %.O28
 	$(BND286) $<,cnfsdm.lb2 object($@) print($*.mp1) name($*) noload
-	$(call rename,$@ $*.mp1)
 
-%: %.l28
+%: %.L28
 	$(BLD286) $< object($@) print($*.mp2) buildfile(cnf286.bld) bootload
-	$(call rename,$@ $*.mp2)
 
 
 # rule to build single PROM cf. prom88.csd
-%.prm: %
+%.PRM: %
 	$(AOMF2BIN) $< -b $(BASE) $@
 
 
 # rule to build odd / even PROMS cf. prom86.csd
-%.odd %.evn : %
-	$(AOMF2BIN) $< -b $(BASE) -o $*.odd -e $*.evn
+%.ODD %.EVN : %
+	$(AOMF2BIN) $< -b $(BASE) -o $*.ODD -e $*.EVN
 
 
 
