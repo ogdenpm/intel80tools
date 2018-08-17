@@ -67,7 +67,7 @@ void FormatDisk(int type) {
         fprintf(stderr, "fatal error out of memory\n");
         exit(1);
     }
-    memset(disk, FMTBYTE, diskSize);            // initial format
+    memset(disk, formatCh, diskSize);            // initial format
                                                 // now set up some of the global variables
     sectorSize = SECTORSIZE;
     diskType = type;

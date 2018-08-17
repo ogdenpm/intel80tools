@@ -13,7 +13,7 @@ label_t label;
 bool hasSystem = true;
 bool interleave = false;
 bool interTrackInterleave = false;
-
+byte formatCh = FMTBYTE;                     // default format character -e overrides
 
 char *special[] = { "AUTO", "DIR", "ZERO", NULL };
 
@@ -251,12 +251,13 @@ void usage() {
         return;
     shown++;
     printf(
-        "mkIsisDisk [options]* [-]recipe [diskname][.fmt]\n"
+        "usage: mkidsk [options]* [-]recipe [diskname][.fmt]\n"
         "where\n"
-        "recipe     file with instructions to build image. Optional - prefix is name starts with @\n"
+        "recipe     file with instructions to build image. Optional - prefix if name starts with @\n"
         "diskname   generated disk image name - defaults to recipe without leading @\n"
         "fmt        disk image format either .img or imd - defaults to " EXT "\n"
         "\noptions are\n"
+        "-f[nn]     override C7 format byte with E5 or hex value specified by nn\n"
         "-h         displays this help info\n"
         "-i         interleave disk image\n"
         "-t         apply inter track interleave\n"
@@ -270,6 +271,7 @@ void main(int argc, char **argv) {
     char outfile[_MAX_PATH + 4] = "";
     char *s;
     char *diskname;
+    int fmtCh;
 
     for (i = 1; i < argc; i++) {
         if (argv[i][0] != '-' || argv[i][1] == '@')
@@ -283,6 +285,11 @@ void main(int argc, char **argv) {
             break;
         case 't':
             interTrackInterleave = true;
+            break;
+        case 'f':
+            if (sscanf(argv[i] + 2, "%x", &fmtCh) != 1)
+                fmtCh = ALT_FMTBYTE;
+            formatCh = (byte)fmtCh;
             break;
         }
     }

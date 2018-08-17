@@ -19,6 +19,7 @@ enum { UNKNOWN = 0, ISIS_SD, ISIS_DD, ISIS_III, ISIS_IV };
 #define TRACKS      77  // number of tracks used
 #define SECTORSIZE  128 // bytes per sector
 #define FMTBYTE     0xc7    // default byte used by isis for newly formatted data sectors
+#define ALT_FMTBYTE 0xe5
 
 // fixed location information
 #define SDBINHDR    0x204
@@ -90,6 +91,7 @@ extern byte *disk;
 extern unsigned diskSize;
 extern int sectorSize;
 extern bool interTrackInterleave;
+extern byte formatCh;
 
 void WriteImgFile(char *fname, char *skews, char *comment);
 void InitFmtTable(byte t0Interleave, byte t1Interleave, byte interleave);

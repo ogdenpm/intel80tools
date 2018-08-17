@@ -812,7 +812,7 @@ void main(int argc, char **argv)
 
 
     if (argc != 2 || strlen(argv[1]) < 5 || (fp = fopen(argv[1], "rb")) == NULL) {
-        fprintf(stderr, "usage: isisImd file\n");
+        fprintf(stderr, "usage: unidsk file\n");
         exit(1);
     }
     if (_splitpath_s(argv[1], drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT) != 0) {
