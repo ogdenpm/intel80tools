@@ -1,4 +1,31 @@
 #pragma once
+
+/* unidsk.h     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    Common type, defines and externs for unidsk
+    Portions of the code are based on Dave Duffield's imageDisk sources
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as unidsk onto github
+    18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
+
+NOTES
+    This version relies on visual studio's pack pragma to force structures to be byte
+    aligned.
+    An alternative would be to use byte arrays and index into these to get the relevant
+    data via macros or simple function. This approach would also support big edian data.
+
+TODO
+    Add support in the recipe file to reference files in the repository vs. local files
+    Review the information generated for an ISIS IV disk to see if it is sufficient
+    to allow recreation of the original .imd or .img file
+    Review the information generated for an ISIS III disk to see it is sufficient to
+    recreate the ISIS.LAB and ISIS.FRE files.
+
+*/
+
+
 #include <stdbool.h>
 typedef unsigned char byte;
 typedef unsigned short word;
@@ -11,7 +38,7 @@ typedef unsigned __int32 dword;
 #define MAXHEAD		2
 
 // disk types
-enum { UNKNOWN, ISIS_SD, ISIS_DD, ISIS_III, ISIS_IV };
+enum { UNKNOWN, ISIS_SD, ISIS_DD, ISIS_III, ISIS_IV, ZXENIX, CPM };
 #define ISIS_SD_SIZE   256256
 #define ISIS_DD_SIZE   512512
 
@@ -32,10 +59,11 @@ enum { UNKNOWN, ISIS_SD, ISIS_DD, ISIS_III, ISIS_IV };
 
 
 typedef struct {
-    char name[11];
+    char name[12];      // isis name + optional # prefix for recovered files
     byte attrib;
     int len;
     int checksum;
+    int errors;
 }  isisDir_t;
 
 #pragma pack(push, 1)

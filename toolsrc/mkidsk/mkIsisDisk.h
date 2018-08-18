@@ -1,3 +1,14 @@
+/* mkIsisDisk.h     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    part of mkidsk
+    Common type, defines and externs
+    Portions of the code are based on Dave Duffield's imageDisk sources
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as mkidsk onto github
+    18 Aug 2018 -- moved some info from mkisisDisk.c to here
+*/
 #pragma once
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +19,12 @@
 
 typedef unsigned char byte;
 typedef unsigned short word;
+
+#define MAXLINE 512                     // maximum length of recipe line
+#define ROOT "E:/OneDrive/Intel/"       // my local copy of the repository - to use if recipe is not in .../Intel/diskindex/
+#define DISKINDEX   "diskIndex"         // directory name where diskIndex files are kept
+#define EXT ".imd"                      // default extension and hence format
+#define MAXCOMMENT	4096				// upper limit on comment length from source IMD
 
 
 // names for magic numbers

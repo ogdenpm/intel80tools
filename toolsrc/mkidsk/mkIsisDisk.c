@@ -1,10 +1,85 @@
+/* mkIsisDisk.c     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    Creates ISIS II format disk images in .imd or .img format using a recipe file
+    Supports:
+    * SD and DD formats and will apply both sector and track interleave as required
+    * non standard values for disk formatting byte
+    Portions of the code are based on Dave Duffield's imageDisk sources
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as mkidsk onto github
+    18 Aug 2018 -- updated to use non standard skew information and disk formatting byte
+
+LIMITATIONS
+    There are three cases where mkidsk will not create an exact image, although physical
+    disks create from these images should perform without problem.
+    1) The disk used for the original image had files added and deleted. In this case
+       the residual data from the deleted files will be missing in the image.
+       Also deleted files make cause some files be created in different isis.dir slots
+       and with different link block information.
+    2) The default disk images are created without interleave and using 0xc7 as the
+       initialisation byte for formating.
+       Sector interleave according to the ISIS.LAB information can be applied as can
+       the inter track interleave used in the isis formatting utilities.
+       Also the 0xC7 byte can be changed e.g. to 0xe5 or 0.
+       Despite this flexibility for the .imd disks there may be differences because IMD
+       sometimes incorrectly detects the first sector. Use Dave Duffield's MDU utility
+       to see this.
+    3) If the comment information is changed, the IMD files will be different although
+       disks created will not.
+
+ NOTES
+    This version relies on visual studio's pack pragma to force structures to be byte
+    aligned.
+    An alternative would be to use byte arrays and index into these to get the relevant
+    data via macros or simple function. This approach would also support big edian data
+
+TODO
+    Add support for ISIS III, this depends on understanding the format of ISIS.LAB and
+    ISIS.FRE for ISIS III
+
+
+RECIPE file format
+The following is the current recipe format, which has change a little recently
+with attributes split out and new locations behaviour
+
+initial comment lines
+    multiple comment lines each beginning a # and a space
+    these are included in generated IMD files and if the first comment starts with IMD
+    then this is used as the signature otherwise a new IMD signature is generated with
+    the current date /time
+information lines which can occur in any order, although the order below is the default
+and can be separated with multiple comment lines starting with #. These comments are ignored
+    label: name[.|-]ext     Used in ISIS.LAB name has max 6 chars, ext has max 3 chars
+    version: nn             Up to 2 chars used in ISIS.LAB
+    format: diskFormat      ISIS II SD, ISIS II DD or ISIS III
+    skew:  skewInfo         optional non standard skew info taken from ISIS.LAB. Rarely needed
+    os: operatingSystem     operating system on disk. NONE or ISIS ver, PDS ver, OSIRIS ver
+marker for start of files
+    Files:
+List of files to add to the image in ISIS.DIR order. Comment lines starting with # are ignored
+each line is formated as
+    IsisName,attributes,len,checksum,srcLocation
+where
+    isisName is the name used in the ISIS.DIR
+    attibutes are the file's attributes any of FISW
+    len is the file's length
+    checksum is the file's checksum
+    location is where the file is stored or a special marker as follows
+    AUTO - file is auto generated and the line is optional
+    DIR - file was a listing file and not saved - depreciated
+    ZERO - file has zero length and is auto generated
+    ZEROHDR - file has zero length but header is allocated eofcnt will be set to 128
+    *text - problems with the file the text explains the problem. It is ignored
+    path - location of file to load.
+           if path begins with a . then is is relative to current directory e.g. ./VT100.MAC
+           else it is relative to the file repository e.g. Intel80/aedit_1.0/vt100.mac
+
+*/
+
 #include "mkIsisDisk.h"
 
-#define MAXLINE 512
-#define ROOT "E:/OneDrive/Intel/"        // my local copy of the repository - to use if recipe is not in .../Intel/diskindex/
-#define DISKINDEX   "diskIndex"
-#define EXT ".imd"                      // default extension and hence format
-#define MAXCOMMENT	4096				// super large comment
 
 char comment[MAXCOMMENT];
 char root[_MAX_PATH];
@@ -15,7 +90,7 @@ bool interleave = false;
 bool interTrackInterleave = false;
 byte formatCh = FMTBYTE;                     // default format character -e overrides
 
-char *special[] = { "AUTO", "DIR", "ZERO", NULL };
+char *special[] = { "AUTO", "DIR", "ZERO", "ZEROHDR", NULL };
 
 
 void InitFmtTable(byte t0Interleave, byte t1Interleave, byte interleave) {
@@ -92,21 +167,22 @@ void ParseRecipeHeader(FILE *fp) {
             for (int i = 0; i < 2; i++)
                 if (isalnum(*s) || *s == '.')
                     label.version[i] = toupper(*s++);
-        } else if ((cnt = Match(line, "format:"))) {
+        }
+        else if ((cnt = Match(line, "format:"))) {
             s = line + cnt;
-            if ((cnt = Match(s, "ISIS II SD")))
+            if ((Match(s, "ISIS II SD")))
                 diskType = ISIS_SD;
-            else if ((cnt = Match(s, "ISIS II DD")))
+            else if ((Match(s, "ISIS II DD")))
                 diskType = ISIS_DD;
             else {
                 fprintf(stderr, "Unsupported disk format %s\n", s);
                 exit(1);
             }
-            s += cnt;        // skip the core format info
-            
-            if ('1' <= s[0] && s[0] <= 26 + '0' &&
-                '1' <= s[1] && s[1] <= 26 + '0' &&
-                '1' <= s[2] && s[2] <= 26 + '0') // we have user specified skew
+        } else if ((cnt = Match(line, "skew:"))) {      // we have non standard skew
+            s = line + cnt;
+            if ('1' <= s[0] && s[0] <= 52 + '0' &&
+                '1' <= s[1] && s[1] <= 52 + '0' &&
+                '1' <= s[2] && s[2] <= 52 + '0')
                 InitFmtTable(s[0] - '0', s[1] - '0', s[2] - '0');
         } else if (Match(line, "os: NONE"))
             hasSystem = false;
@@ -233,7 +309,7 @@ void ParseFiles(FILE *fp) {
         if ((s = strchr(s + 1, ',')) && (s = strchr(s + 1, ','))) { // path pointer
             ParsePath(path, s + 1, isisName);
             if (*path == '*')
-                fprintf(stderr, "%s - %s\n", line, path + 1);
+                fprintf(stderr, "%s - skipped because %s\n", line, path + 1);
             else if (strcmp(path, "DIR") == 0)
                 printf("%s - DIR listing not created\n", line);
             else

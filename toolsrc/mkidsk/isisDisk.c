@@ -1,3 +1,14 @@
+/* isisDisk.c     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    part of mkidsk
+    The routines to create a memory based ISIS disk image
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as mkidsk onto github
+    18 Aug 2018 -- added copyright info
+
+*/
 #include "mkIsisDisk.h"
 
 direct_t *directory;
@@ -171,6 +182,11 @@ void CopyFile(char *isisName, char *srcName, int attrib) {
     if (strcmp(srcName, "ZERO") == 0) {     // empty file
         if ((dir = Lookup(isisName, false)) == NULL)  // create dir entry if it doesn't exist
             dir = MakeDirEntry(isisName, attrib, 0, 0, 0);
+        return;
+    }
+    if (strcmp(srcName, "ZEROHDR") == 0) {     // empty file with header
+        if ((dir = Lookup(isisName, false)) == NULL)  // create dir entry if it doesn't exist
+            dir = MakeDirEntry(isisName, attrib, 128, 0, NewZeroSector(0));
         return;
     }
     /* all ISIS system files except ISIS.CLI are given the right attributes in WriteDirectory

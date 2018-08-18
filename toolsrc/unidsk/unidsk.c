@@ -1,3 +1,31 @@
+/* unidsk.c     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    Unpacks an isis .imd or .img file into the individual files.
+    Supports ISIS II SD, ISIS II DD, ISIS III and ISIS IV
+    For ISIS II and ISIS III a recipe file is generated to allow a sister
+    application mkidsk to reconstruct the .imd or .img file
+    Portions of the code are based on Dave Duffield's imageDisk sources
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as unidsk onto github
+    18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
+
+NOTES
+    This version relies on visual studio's pack pragma to force structures to be byte
+    aligned.
+    An alternative would be to use byte arrays and index into these to get the relevant
+    data via macros or simple function. This approach would also support big edian data
+
+TODO
+    Add support in the recipe file to reference files in the repository vs. local files
+    Review the information generated for an ISIS IV disk to see if it is sufficient
+    to allow recreation of the original .imd or .img file
+    Review the information generated for an ISIS III disk to see it is sufficient to
+    recreate the ISIS.LAB and ISIS.FRE files.
+
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
@@ -6,6 +34,7 @@
 #include <assert.h>
 #include <string.h>
 #include <direct.h>
+#include <stdarg.h>
 #include "unidsk.h"
 
 
@@ -18,6 +47,9 @@ char comment[MAXCOMMENT];
 
 int diskType;
 FILE *logfp;
+bool showRdError = true;
+int rdErrorCnt = 0;
+int recoveredFiles = 0;
 
 #define NIFILES	10
 
@@ -123,6 +155,35 @@ struct {
 } ifiles[NIFILES];
 
 
+/*
+* Display error message and exit
+*/
+error(char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    vfprintf(stderr, fmt, args);
+    exit(-1);
+}
+
+/*
+ * for Isis Read errors display error message if enabled
+ * and keep running count of errors
+ */
+void rdError(char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+
+    if (showRdError)
+        vfprintf(stderr, fmt, args);
+    rdErrorCnt++;
+
+}
+
+
+
 int volGran, volSize, maxFnode, fnodeStart, fnodeSize, rootFnode;
 /*
  * High - speed test for compressable sector(all bytes same value)
@@ -135,17 +196,7 @@ int issame(unsigned char *buf, int size)
     return 1;
 }
 
-/*
-* Display error message and exit
-*/
-error(char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
 
-    vprintf(fmt, args);
-    exit(-1);
-}
 
 void free_track(TRACK *t)
 {
@@ -308,47 +359,71 @@ void load_imd(FILE *fp)
 
 
 
+struct {
+    int size;
+    byte diskType;
+    byte tracks;
+    byte heads;
+    byte t0spt;
+    int t0SSize;
+    byte spt;
+    int sSize;
+} diskSizes[] = {
+    256256, ISIS_SD, 77, 1, 26, 128, 26, 128,
+    512512, ISIS_DD, 77, 1, 52, 128, 52, 128,
+    653312, ISIS_III, 80, 2, 16, 128, 16, 256,
+    653184, ISIS_IV, 80, 2, 15, 128, 8, 512   // currently unreliable
+};
+#define DISKOPT (sizeof(diskSizes) / sizeof(diskSizes[0]))
+
 void load_img(FILE *fp) {
     long fileSize;
     int spt;
     int track;
     TRACK *t;
+    int diskopt;
+    int sSize;
 
     fseek(fp, 0, SEEK_END);
     fileSize = ftell(fp);
     rewind(fp);
     
 
-    if (fileSize == ISIS_SD_SIZE) {
-        spt = 26;
-        diskType = ISIS_SD;
-    } 
-    else if (fileSize == ISIS_DD_SIZE) {
-        spt = 52;
-        diskType = ISIS_DD;
-    } 
-    else {
-        fprintf(stderr, "Only ISIS SS SD/DD disks supported for img load\n");
+    for (diskopt = 0; diskopt < DISKOPT; diskopt++)
+        if (fileSize == diskSizes[diskopt].size)
+            break;
+    if (diskopt >= DISKOPT) {
+        fprintf(stderr, "Unknown disk image\n");
         exit(1);
     }
-    for (track = 0; track < 77; track++) {
-        if ((t = (TRACK *)calloc(1, sizeof(TRACK))) && (t->buf = malloc(128 * spt))) {
-            t->Cyl = track;
-            t->Nsec = spt;
-            t->Size = 128;
-            t->startSec = 1;
-            if (fread(t->buf, 128, spt, fp) != spt) {
-                fprintf(stderr, "read error\n");
+    diskType = diskSizes[diskopt].diskType;
+    heads = diskSizes[diskopt].heads;
+
+    spt = diskSizes[diskopt].t0spt;
+    sSize = diskSizes[diskopt].t0SSize;
+    for (track = 0; track < diskSizes[diskopt].tracks; track++) {
+        for (int head = 0; head < diskSizes[diskopt].heads; head++) {
+            if ((t = (TRACK *)calloc(1, sizeof(TRACK))) && (t->buf = malloc(spt * sSize))) {
+                t->Cyl = track;
+                t->Head = head;
+                t->Nsec = spt;
+                t->Size = sSize;
+                t->startSec = 1;
+                if (fread(t->buf, sSize, spt, fp) != spt) {
+                    fprintf(stderr, "read error\n");
+                    exit(1);
+                }
+                disk[track][head] = t;
+            }
+            else {
+                fprintf(stderr, "out of memory\n");
                 exit(1);
             }
-            disk[track][0] = t;
-        }
-        else {
-            fprintf(stderr, "out of memory\n");
-            exit(1);
+            sSize = diskSizes[diskopt].sSize;       // rest of disk takes geometry
+            spt = diskSizes[diskopt].spt;
         }
     }
-    maxCylinder = 76;
+    maxCylinder = diskSizes[diskopt].tracks - 1;
 }
 
 
@@ -360,7 +435,7 @@ byte *getTS(int track, int sector)
     
     sector--;					// 0 base sector
     if (track > maxCylinder) {
-        printf("track %d > maxCylinder %d\n", track, maxCylinder);
+        rdError("track %d > maxCylinder %d\n", track, maxCylinder);
         return NULL;
     }
     if (disk[track][0])
@@ -378,7 +453,7 @@ byte *getTS(int track, int sector)
         return NULL;
     
     if (sector >= p->Nsec) {
-        printf("sector %d > max sector %d for cylinder %d head %d\n", sector + 1, p->Nsec, head, track);
+        rdError("sector %d > max sector %d for cylinder %d head %d\n", sector + 1, p->Nsec, head, track);
         return NULL;
     }
 
@@ -557,7 +632,7 @@ void dumpfile(int fd, char *filename)
 }
 
 
-dumpdirectory(int directory, char *dirPath)
+dumpdirectory(int directory, char *dirPath)       // note recover not yet implemented
 {
     char path[_MAX_PATH];
     fnode_t *fn;
@@ -624,7 +699,8 @@ void isis4()
 //	int offset;
     int *probe;
 
-    printf("looks like ISIS IV disk\n");
+    printf("Assuming ISIS IV disk\n");
+
     if ((logfp = fopen("__log__", "wt")) == NULL) {
         fprintf(stderr, "can't create __log__ file\n");
         exit(1);
@@ -669,6 +745,7 @@ void isis4()
         fnodeSize = readWord(p + 24);
         rootFnode = readWord(p + 26);
     }
+
     fprintf(logfp, "volGran = %d, volSize = %d, maxFnode = %d, fnodeStart = 0x%X, fnodeSize = %d, rootFnode = %d\n", volGran, volSize, maxFnode, fnodeStart, fnodeSize, rootFnode);
     fd = iOpen(rootFnode);
     dumpdirectory(fd, "");
@@ -717,6 +794,8 @@ void extractFile(dir_t *dptr)
     int size = 0, checksum = 0;
 
     filename[0] = 0;
+    if (dptr->status != 0)
+        strcat(filename, "#");          // mark recovered file
     strncat(filename, dptr->name, 6);
     if (dptr->ext[0]) {
         strcat(filename, ".");
@@ -731,6 +810,9 @@ void extractFile(dir_t *dptr)
     }
     prevTrk = prevSec = 0;
 
+    showRdError = dptr->status == 0;
+    rdErrorCnt = 0;
+
     for (blk = 0; blk < dptr->blocks; blk++) {
         if (blk == dptr->blocks - 1)
             sectorSize = diskType == ISIS_III ? dptr->lastblksize + 1 : dptr->lastblksize;
@@ -739,18 +821,19 @@ void extractFile(dir_t *dptr)
         if (blkIdx == 0) {
             isisLinkage_t *curLinks = links;
             if ((links = (isisLinkage_t *)getTS(links->next.track, links->next.sector)) == NULL) {
-                fprintf(stderr, "%s block %d bad linkage block t=%d s=%d\n", filename, blk, curLinks->next.track, curLinks->next.sector);
+                rdError("%s block %d bad linkage block t=%d s=%d\n", filename, blk, curLinks->next.track, curLinks->next.sector);
                 break;
             }
             if (prevSec != links->prev.sector && prevTrk != links->prev.track) {
-                fprintf(stderr, "%s block %d corrupt linkage block t=%d s=%d\n", filename, blk, curLinks->next.track, curLinks->next.sector);
+                rdError("%s block %d corrupt linkage block t=%d s=%d\n", filename, blk, curLinks->next.track, curLinks->next.sector);
                 break;
             }
             prevTrk = curLinks->next.track;
             prevSec = curLinks->next.sector;
         }
         if (links->pointers[blkIdx].sector == 0 || (p = getTS(links->pointers[blkIdx].track, links->pointers[blkIdx].sector)) == NULL) {
-            printf("%s block %d missing t=%d s=%d\n", filename, blk, links->pointers[blkIdx].track, links->pointers[blkIdx].sector);
+            rdError("%s block %d missing t=%d s=%d\n", filename, blk, links->pointers[blkIdx].track, links->pointers[blkIdx].sector);
+
             for (int i = 0; i < sectorSize; i++)
                 putc(0xc7, fout);
             size += sectorSize;
@@ -767,21 +850,29 @@ void extractFile(dir_t *dptr)
     // update the recipe info
     checksum %= 65535;
     strcpy(isisDir[dirIdx].name, filename);
-    isisDir[dirIdx].len = size;
+    isisDir[dirIdx].len = size ? size : -dptr->lastblksize;
     isisDir[dirIdx].checksum = checksum;
     isisDir[dirIdx].attrib = dptr->attributes;
+    isisDir[dirIdx].errors = rdErrorCnt;
     if (osChecksum == 0 && (strcmp(filename, "ISIS.BIN") == 0 || strcmp(filename, "ISIS.PDS") == 0))
         osChecksum = checksum;
 
     dirIdx++;
-
+    if (dptr->status != 0)          // deleted file
+        if (rdErrorCnt)
+            _unlink(filename);
+        else
+            recoveredFiles++;
 }
+
+
+
 void isis2_3(dir_t *dptr)
 {
     FILE *fp;
     dir_t dentry;
 
-    printf("looks like ISIS %s disk\n", diskType == ISIS_III ? "III" : "II");
+    printf("Looks like an ISIS %s disk\n", diskType == ISIS_III ? "III" : "II");
 
     extractFile(dptr);		// get the ISIS.DIR file, leaves filename in targetPath
     /* although processing of the header file could be done here
@@ -793,9 +884,10 @@ void isis2_3(dir_t *dptr)
     }
     fseek(fp, sizeof(dir_t), 0);	// skip ISIS.DIR entry it has already been done
     while (fread(&dentry, sizeof(dir_t), 1, fp) == 1 && dentry.status != 0x7f)
-        if (dentry.status == 0)
-            extractFile(&dentry);
+        extractFile(&dentry);
     fclose(fp);
+    if (recoveredFiles)
+        printf("%d deleted files recovered for checking\n", recoveredFiles);
 }
 
 
@@ -808,14 +900,13 @@ void main(int argc, char **argv)
     char drive[_MAX_DRIVE];
     char fname[_MAX_FNAME];
     char ext[_MAX_EXT];
- 
 
-
-    if (argc != 2 || strlen(argv[1]) < 5 || (fp = fopen(argv[1], "rb")) == NULL) {
+    
+    if (argc != 2 || (fp = fopen(*++argv, "rb")) == NULL) {
         fprintf(stderr, "usage: unidsk file\n");
         exit(1);
     }
-    if (_splitpath_s(argv[1], drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT) != 0) {
+    if (_splitpath_s(*argv, drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT) != 0) {
         fprintf(stderr, "invalid file name %s\n", argv[1]);
         exit(1);
     }

@@ -1,3 +1,69 @@
+/* recipe.c     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    Generates the recipe file for ISIS II and ISISI III disks.
+    Part of unidsk
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as unidsk onto github
+    18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
+
+
+
+TODO
+    Add support in the recipe file to reference files in the repository vs. local files
+    Review the information generated for an ISIS IV disk to see if it is sufficient
+    to allow recreation of the original .imd or .img file
+    Review the information generated for an ISIS III disk to see it is sufficient to
+    recreate the ISIS.LAB and ISIS.FRE files.
+
+RECIPE file format
+The following is the current recipe format, which has change a little recently
+with attributes split out and new locations behaviour
+
+initial comment lines
+    multiple comment lines each beginning a # and a space
+    these are included in generated IMD files and if the first comment starts with IMD
+    then this is used as the signature otherwise a new IMD signature is generated with
+    the current date /time
+information lines which can occur in any order, although the order below is the default
+and can be separated with multiple comment lines starting with #. These comments are ignored
+    label: name[.|-]ext     Used in ISIS.LAB name has max 6 chars, ext has max 3 chars
+    version: nn             Up to 2 chars used in ISIS.LAB
+    format: diskFormat      ISIS II SD, ISIS II DD or ISIS III
+    skew:  skewInfo         optional non standard skew info taken from ISIS.LAB. Rarely needed
+    os: operatingSystem     operating system on disk. NONE or ISIS ver, PDS ver, OSIRIS ver
+marker for start of files
+    Files:
+List of files to add to the image in ISIS.DIR order. Comment lines starting with # are ignored
+each line is formated as
+    IsisName,attributes,len,checksum,srcLocation
+where
+    isisName is the name used in the ISIS.DIR
+    attibutes are the file's attributes any of FISW
+    len is the file's length
+    checksum is the file's checksum
+    location is where the file is stored or a special marker as follows
+    AUTO - file is auto generated and the line is optional
+    DIR - file was a listing file and not saved - depreciated
+    ZERO - file has zero length and is auto generated
+    ZEROHDR - file has zero length but header is allocated eofcnt will be set to 128
+    *text - problems with the file the text explains the problem. It is ignored
+    path - location of file to load.
+           if path begins with a . then is is relative to current directory e.g. ./VT100.MAC
+           else it is relative to the file repository e.g. Intel80/aedit_1.0/vt100.mac
+
+Note unidsk creates special comment lines as follows
+if there are problems reading a file the message below is emitted before the recipe line
+    # there were errors reading filename
+if there were problems reading a delete file the message
+    # file filename could not be recovered
+For other deleted files the recipe line is commented out and the file is extracted to a file
+with a leading # prefix
+
+*/
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <direct.h>
@@ -89,6 +155,14 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
     fprintf(fp, "os: %s\nFiles:\n", osMap[i].os);
 
     for (int i = 0; i < MAXDIR && isisDir[i].name[0]; i++) {
+        if (isisDir[i].errors) {
+            if (isisDir[i].name[0] == '#') {
+                fprintf(fp, "# file %s could not be recovered\n", isisDir[i].name + 1);
+                continue;
+            }
+            else
+                fprintf(fp, "# there were errors reading %s\n", isisDir[i].name);
+        }
         fprintf(fp, "%s,", isisDir[i].name);
         if (isisDir[i].attrib & 0x80) putc('F', fp);
         if (isisDir[i].attrib & 4) putc('W', fp);
@@ -98,6 +172,8 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         alt = NULL;
         if (isisDir[i].len == 0)
             strcpy(dbPath, "ZERO");
+        else if (isisDir[i].len < 0)
+            strcpy(dbPath, "ZEROHDR");        // zero but link block allocated
         else if (strcmp(isisDir[i].name, "ISIS.DIR") == 0 ||
             strcmp(isisDir[i].name, "ISIS.LAB") == 0 ||
             strcmp(isisDir[i].name, "ISIS.MAP") == 0 ||

@@ -1,3 +1,15 @@
+/* writeImage.c     (c) by Mark Ogden 2018
+
+DESCRIPTION
+    part of mkidsk
+    Writes the disk image format to a file, applying interlave as requested
+    Portions of the code are based on Dave Duffield's imageDisk sources
+
+MODIFICATION HISTORY
+    17 Aug 2018 -- original release as mkidsk onto github
+    18 Aug 2018 -- added copyright info
+
+*/
 #include "mkIsisDisk.h"
 #include <time.h>
 
