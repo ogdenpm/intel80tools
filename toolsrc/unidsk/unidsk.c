@@ -10,7 +10,10 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as unidsk onto github
     18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
-
+    19 Aug 2019 -- Changed to use environment variable IFILEREPO for location of
+                   file repository. Changed location name to use ^ prefix for
+                   repository based files, removing need for ./ prefix for
+                   local files
 NOTES
     This version relies on visual studio's pack pragma to force structures to be byte
     aligned.

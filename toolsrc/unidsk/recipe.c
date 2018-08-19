@@ -7,6 +7,10 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as unidsk onto github
     18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
+    19 Aug 2019 -- Changed to use environment variable IFILEREPO for location of
+                   file repository. Changed location name to use ^ prefix for
+                   repository based files, removing need for ./ prefix for
+                   local files
 
 
 
@@ -49,9 +53,8 @@ where
     ZERO - file has zero length and is auto generated
     ZEROHDR - file has zero length but header is allocated eofcnt will be set to 128
     *text - problems with the file the text explains the problem. It is ignored
-    path - location of file to load.
-           if path begins with a . then is is relative to current directory e.g. ./VT100.MAC
-           else it is relative to the file repository e.g. Intel80/aedit_1.0/vt100.mac
+    path - location of file to load a leading ^ is replaced by the repository path
+
 
 Note unidsk creates special comment lines as follows
 if there are problems reading a file the message below is emitted before the recipe line
@@ -109,6 +112,7 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
     char dbPath[_MAX_PATH];
     char *alt;
     int i;
+    isisDir_t *dentry;
 
     strcpy(recipeName, "@");
     strcat(recipeName, name);
@@ -152,39 +156,37 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         if (osMap[i].checksum == osChecksum)
             break;
 
-    fprintf(fp, "os: %s\nFiles:\n", osMap[i].os);
+    fprintf(fp, "os: %s\nFiles:\n", osMap[i].checksum == osChecksum ? osMap[i].os : "UNKNOWN");
 
-    for (int i = 0; i < MAXDIR && isisDir[i].name[0]; i++) {
-        if (isisDir[i].errors) {
-            if (isisDir[i].name[0] == '#') {
-                fprintf(fp, "# file %s could not be recovered\n", isisDir[i].name + 1);
+    for (dentry = isisDir;  dentry < &isisDir[MAXDIR] && dentry->name[0]; dentry++) {
+        if (dentry->errors) {
+            if (dentry->name[0] == '#') {           // if the file was deleted and has errors note it and skip
+                fprintf(fp, "# file %s could not be recovered\n", dentry->name + 1);
                 continue;
             }
             else
-                fprintf(fp, "# there were errors reading %s\n", isisDir[i].name);
+                fprintf(fp, "# there were errors reading %s\n", dentry->name);
         }
-        fprintf(fp, "%s,", isisDir[i].name);
-        if (isisDir[i].attrib & 0x80) putc('F', fp);
-        if (isisDir[i].attrib & 4) putc('W', fp);
-        if (isisDir[i].attrib & 2) putc('S', fp);
-        if (isisDir[i].attrib & 1) putc('I', fp);
+        fprintf(fp, "%s,", dentry->name);
+        if (dentry->attrib & 0x80) putc('F', fp);
+        if (dentry->attrib & 4) putc('W', fp);
+        if (dentry->attrib & 2) putc('S', fp);
+        if (dentry->attrib & 1) putc('I', fp);
 
         alt = NULL;
-        if (isisDir[i].len == 0)
+        if (dentry->len == 0)
             strcpy(dbPath, "ZERO");
-        else if (isisDir[i].len < 0)
+        else if (dentry->len < 0)
             strcpy(dbPath, "ZEROHDR");        // zero but link block allocated
-        else if (strcmp(isisDir[i].name, "ISIS.DIR") == 0 ||
-            strcmp(isisDir[i].name, "ISIS.LAB") == 0 ||
-            strcmp(isisDir[i].name, "ISIS.MAP") == 0 ||
-            strcmp(isisDir[i].name, "ISIS.FRE") == 0)
+        else if (strcmp(dentry->name, "ISIS.DIR") == 0 ||
+            strcmp(dentry->name, "ISIS.LAB") == 0 ||
+            strcmp(dentry->name, "ISIS.MAP") == 0 ||
+            strcmp(dentry->name, "ISIS.FRE") == 0)
             strcpy(dbPath, "AUTO");
-        else if (!Dblookup(&isisDir[i], dbPath, &alt)) {
-            strcpy(dbPath, "./");
-            strcat(dbPath, isisDir[i].name);
-        }
+        else if (!Dblookup(dentry, dbPath, &alt))
+            strcpy(dbPath, dentry->name);
 
-        fprintf(fp, ",%d,%d,%s\n", isisDir[i].len, isisDir[i].checksum, dbPath);
+        fprintf(fp, ",%d,%d,%s\n", dentry->len, dentry->checksum, dbPath);
         // print the alternative names if available
         // alt is a concatanated set of c strings terminated with an additional 0 to mark the end
         if (alt) {

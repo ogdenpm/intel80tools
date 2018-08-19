@@ -10,13 +10,16 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as mkidsk onto github
     18 Aug 2018 -- updated to use non standard skew information and disk formatting byte
-
+    19 Aug 2019 -- Changed to use environment variable IFILEREPO for location of
+                   file repository. Changed location name to use ^ prefix for
+                   repository based files, removing need for ./ prefix for
+                   local files
 LIMITATIONS
     There are three cases where mkidsk will not create an exact image, although physical
     disks create from these images should perform without problem.
     1) The disk used for the original image had files added and deleted. In this case
        the residual data from the deleted files will be missing in the image.
-       Also deleted files make cause some files be created in different isis.dir slots
+       Also deleted files may cause some files be created in different isis.dir slots
        and with different link block information.
     2) The default disk images are created without interleave and using 0xc7 as the
        initialisation byte for formating.
@@ -72,9 +75,7 @@ where
     ZERO - file has zero length and is auto generated
     ZEROHDR - file has zero length but header is allocated eofcnt will be set to 128
     *text - problems with the file the text explains the problem. It is ignored
-    path - location of file to load.
-           if path begins with a . then is is relative to current directory e.g. ./VT100.MAC
-           else it is relative to the file repository e.g. Intel80/aedit_1.0/vt100.mac
+    path - location of file to load a leading ^ is replaced by the repository path
 
 */
 
@@ -82,13 +83,14 @@ where
 
 
 char comment[MAXCOMMENT];
-char root[_MAX_PATH];
+char root[_MAX_PATH + 1];
 byte diskType = ISIS_DD;
 label_t label;
 bool hasSystem = true;
 bool interleave = false;
 bool interTrackInterleave = false;
 byte formatCh = FMTBYTE;                     // default format character -e overrides
+char *forcedSkew = NULL;
 
 char *special[] = { "AUTO", "DIR", "ZERO", "ZEROHDR", NULL };
 
@@ -115,6 +117,14 @@ int Match(char *s, char *ref) {
     while (isblank(*s))
         s++;
     return (int) (s - start);
+}
+
+
+bool checkSkew(char *s) {    // check skew is valid
+    for (int i = 0; i < 3; i++)
+        if (s[i] < '1' || '0' + 52 < s[i] )
+            return false;
+    return true;
 }
 
 void ParseRecipeHeader(FILE *fp) {
@@ -232,6 +242,7 @@ enum {
 
 void ParsePath(char *path, char *src, char *isisName) {
     char *s;
+    static bool warnRepo = true;
 
     if ((s = strchr(src, ',')))    // remove any additional field
         *s = 0;
@@ -256,17 +267,20 @@ void ParsePath(char *path, char *src, char *isisName) {
         return;
     }
 
-    if (*src == '.') {				// local relative path
-        strcpy(path, strlen(src) < _MAX_PATH ? src : "*path too long");
-        return;
+    if (*src == '^') {               // repository file
+        if (*root == 0 && warnRepo) {
+            fprintf(stderr, "Warning IFILEREPO not defined assuming local directory\n");
+            warnRepo = false;
+        }
+        strcpy(path, root);
+        src++;
     }
-
-
-    if (strlen(root) + strlen(src) >= _MAX_PATH) {
+    else
+        *path = 0;
+    if (strlen(path) + strlen(src) >= _MAX_PATH) {
         strcpy(path, "*path too long");
         return;
     }
-    strcpy(path, root);
     strcat(path, src);
 }
 
@@ -277,6 +291,7 @@ void ParseFiles(FILE *fp) {
     int attributes;
     char *s;
     int c;
+
 
     while (fgets(line, MAXLINE, fp)) {
         if (line[0] == '#')
@@ -329,13 +344,16 @@ void usage() {
     printf(
         "usage: mkidsk [options]* [-]recipe [diskname][.fmt]\n"
         "where\n"
-        "recipe     file with instructions to build image. Optional - prefix if name starts with @\n"
+        "recipe     file with instructions to build image. Optional - prefix\n"
+        "           if name starts with @\n"
         "diskname   generated disk image name - defaults to recipe without leading @\n"
         "fmt        disk image format either .img or imd - defaults to " EXT "\n"
         "\noptions are\n"
         "-f[nn]     override C7 format byte with E5 or hex value specified by nn\n"
         "-h         displays this help info\n"
-        "-i         interleave disk image\n"
+        "-i[xyz]    apply interleave. xyz forces the interleave for track 0, 1, 2-76\n"
+        "           x,y & z are as per ISIS.LAB i.e. interleave + '0'\n"
+        "           note the ISIS.LAB format information is not changed\n"
         "-t         apply inter track interleave\n"
     );
 }
@@ -358,6 +376,11 @@ void main(int argc, char **argv) {
         case 'h': usage(); break;
         case 'i':
             interleave = true;
+            if (argv[i][2])
+                if (checkSkew(argv[i] + 2))
+                    forcedSkew = argv[i] + 2;
+                else
+                    fprintf(stderr, "ignoring invaild skew specification in -i option\n");
             break;
         case 't':
             interTrackInterleave = true;
@@ -399,22 +422,14 @@ void main(int argc, char **argv) {
         exit(1);
     }
 
-    // probe to find root - currently this code is windows only
-    if (_fullpath(root, recipe, _MAX_PATH)) {
-        s = strchr(root, 0);                        // to end of path;
-        while (s > root && *s != '\\')
-            s--;
-        *s-- = 0;                                   // remove \ file name
-        while (s >= root && *s != '\\')
-            s--;
-        if (_stricmp(s + 1, DISKINDEX) == 0)
-            *s = 0;
-        else
-            *root = 0;
+    // use envionment variable to define root
+    *root = 0;                              // assume  no prefix
+    if (s = getenv("IFILEREPO")) {         // environment variable defined
+        strncpy(root, s, _MAX_PATH - 1);    // path too long will be detected later
+        s = strchr(root, 0);                // end of path
+        if (s != root && s[-1] != '/' && s[-1] != '\\') // make sure directory
+            strcat(s, "/");
     }
-    if (!*root)                                 //  make sure we have a root
-        strcpy(root, ROOT);
-    strcat(root, "/");
 
     fp = fopen(recipe, "rt");
     ParseRecipeHeader(fp);
@@ -423,7 +438,7 @@ void main(int argc, char **argv) {
     WriteLabel();
     ParseFiles(fp);
     fclose(fp);
-    WriteImgFile(outfile, interleave ? label.fmtTable : NULL, comment);
+    WriteImgFile(outfile, interleave ? (forcedSkew ? forcedSkew : label.fmtTable) : NULL, comment);
 
 
 
