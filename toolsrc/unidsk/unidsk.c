@@ -913,18 +913,19 @@ void main(int argc, char **argv)
         fprintf(stderr, "invalid file name %s\n", argv[1]);
         exit(1);
     }
-    /* make a directory path from the name*/
+
 
     if (_stricmp(ext, ".imd") == 0)
         load_imd(fp);
     else if (_stricmp(ext, ".img") == 0)
         load_img(fp);
-    else if (ext[0] == 0) {
-        fprintf(stderr, "expecting .img or .imd extension %s\n", argv[1]);
+    else {
+        fprintf(stderr, "expecting .img or .imd extension\n");
         exit(1);
     }
     fclose(fp);
 
+    /* make a directory path from the name*/
     _makepath_s(targetPath, _MAX_PATH, drive, dir, fname, NULL);        // create a directory name with filename - extension
     _mkdir(targetPath);
     _chdir(targetPath);                                                 // move to new directory for simple file creation
