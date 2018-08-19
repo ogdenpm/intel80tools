@@ -7,6 +7,7 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as mkidsk onto github
     18 Aug 2018 -- added copyright info
+    19 Aug 2018 -- added non system boot file incase ISIS.T0 is not specified
 
 */
 #include "mkIsisDisk.h"
@@ -23,6 +24,43 @@ int sectorSize = 128;
 int cntDirSectors = CNTDIRSECTORS;
 int cntBitMapSectors;
 int binHdrBlk;
+
+
+/*
+    the code block below is loaded into isis.t0 on non system disks to print a message
+    the corresponding asm code is
+
+        ASEG
+        org 3000h
+
+        in	79h
+        in	7Bh
+    L3004:	in	0FFh
+        ani	2
+        jnz	L3004
+        lxi	h, Msg
+        mvi	b, 32
+    L3010:	mov	c, m
+        call	0F809h	; CO
+        inx	h
+        dcr	b
+        jnz	L3010
+        rst	0
+    Msg:	db	0Dh, 0Ah
+        db	'NON-SYSTEM DISK, TRY ANOTHER'
+        db	0Dh, 0Ah
+        end
+*/
+
+byte nsBoot[] = {
+    0xDB, 0x79, 0xDB, 0x7B, 0xDB, 0xFF, 0xE6, 0x2,
+    0xC2, 0x4, 0x30, 0x21, 0x1A, 0x30, 0x6, 0x20, 0x4E,
+    0xCD, 0x9, 0xF8, 0x23, 0x5, 0xC2, 0x10, 0x30, 0xC7,
+    0xD, 0xA,
+    'N', 'O', 'N', '-', 'S', 'Y', 'S', 'T', 'E', 'M', ' ',
+    'D', 'I', 'S', 'K', ',', ' ', 'T', 'R', 'Y', ' ', 'A',
+    'N', 'O', 'T', 'H', 'E', 'R', 0xD, 0xA
+};
 
 
 word AllocSector() {
@@ -275,6 +313,9 @@ void WriteDirectory() {
         NewHdr(binHdrBlk);
         MakeDirEntry("ISIS.BIN", FMT | SYS | INV, 128, 0, binHdrBlk);
     }
+    // make sure there is at least a non system boot file in ISIS.T0
+    memcpy(GetSectorLoc(ISIST0_DAT), nsBoot, sizeof(nsBoot));
+
 }
 
 void WriteLabel() {
