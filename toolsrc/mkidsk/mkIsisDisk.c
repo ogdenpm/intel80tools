@@ -86,7 +86,7 @@ char comment[MAXCOMMENT];
 char root[_MAX_PATH + 1];
 byte diskType = ISIS_DD;
 label_t label;
-bool hasSystem = true;
+bool hasSystem = false;
 bool interleave = false;
 bool interTrackInterleave = false;
 byte formatCh = FMTBYTE;                     // default format character -e overrides
@@ -194,8 +194,12 @@ void ParseRecipeHeader(FILE *fp) {
                 '1' <= s[1] && s[1] <= 52 + '0' &&
                 '1' <= s[2] && s[2] <= 52 + '0')
                 InitFmtTable(s[0] - '0', s[1] - '0', s[2] - '0');
-        } else if (Match(line, "os: NONE"))
-            hasSystem = false;
+        }
+        else if (cnt = Match(line, "os:")) {
+            s = line + cnt;
+            if (!Match(s, "NONE"))
+                hasSystem = true;
+        }
     }
 }
 
