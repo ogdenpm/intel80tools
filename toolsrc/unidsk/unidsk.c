@@ -702,7 +702,7 @@ void isis4()
 //	int offset;
     int *probe;
 
-    printf("Assuming ISIS IV disk\n");
+
 
     if ((logfp = fopen("__log__", "wt")) == NULL) {
         fprintf(stderr, "can't create __log__ file\n");
@@ -742,13 +742,25 @@ void isis4()
         p = disk[0][0]->buf;
         p += 384;
         volGran = readWord(p + 12);
+
+        unsigned i;
+        for (i = volGran; i && (i & 1) == 0; i >>= 1)    // vol should be 2^n
+            ;
+        if (i != 1) {
+            fprintf(stderr, "invalid volGran\n");
+            return;
+        }
         volSize = readDWord(p + 14);
+        if (volSize < 0 || volSize >(160 * 18 * 512)) { // max 1.44Mb diskette
+            fprintf(stderr, "invalid volSize\n");
+            return;
+        }
         maxFnode = readWord(p + 18);
         fnodeStart = readDWord(p + 20);
         fnodeSize = readWord(p + 24);
         rootFnode = readWord(p + 26);
     }
-
+    printf("Assuming ISIS IV disk\n");
     fprintf(logfp, "volGran = %d, volSize = %d, maxFnode = %d, fnodeStart = 0x%X, fnodeSize = %d, rootFnode = %d\n", volGran, volSize, maxFnode, fnodeStart, fnodeSize, rootFnode);
     fd = iOpen(rootFnode);
     dumpdirectory(fd, "");

@@ -12,8 +12,10 @@ MODIFICATION HISTORY
                    repository based files, removing need for ./ prefix for
                    local files
     20 Aug 2019 -- replaced len, checksum model with full sha1 checksum
-                   
-
+                   saves files with lower case names to avoid conflict with
+                   special paths e.g. AUTO, ZERO, DIR which became a potential
+                   issue when ./ prefix was removed. Lower case is also compatible
+                   with the thames emulator and the repository file names
 
 
 TODO
@@ -199,15 +201,17 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
             strcmp(dentry->name, "ISIS.MAP") == 0 ||
             strcmp(dentry->name, "ISIS.FRE") == 0)
             strcpy(dbPath, "AUTO");
-        else if (!Dblookup(dentry, dbPath, &alt))
+        else if (!Dblookup(dentry, dbPath, &alt)) {
             strcpy(dbPath, dentry->name);
+            _strlwr(dbPath);                     // force to lower case, also avoids conflict with AUTO & ZERO
+        }
 
         fprintf(fp, ",%s,%s\n", dentry->checksum, dbPath);
         // print the alternative names if available
         // alt is a concatanated set of c strings terminated with an additional 0 to mark the end
         if (alt) {
             while (strlen(alt)) {
-                int llen = fprintf(fp, (*dbPath == '.') ? "# consider %s\n" : "# also %s\n", alt);
+                int llen = fprintf(fp, "# also %s\n", alt);
                 alt = strchr(alt, 0) + 1;
                 while (*alt && strlen(alt) + llen < MAXLINE - 1) {
                     llen += fprintf(fp, " %s", alt);
