@@ -839,6 +839,7 @@ void extractFile(dir_t *dptr)
     isisName[0] = 0;
     if (dptr->status != 0)
         strcat(isisName, "#");          // mark recovered file
+
     strncat(isisName, dptr->name, 6);
     if (dptr->ext[0]) {
         strcat(isisName, ".");

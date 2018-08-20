@@ -180,6 +180,7 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
                 strcpy(dentry->checksum, "CORRUPT");
             }
         }
+
         fprintf(fp, "%s,", dentry->name);
         if (dentry->attrib & 0x80) putc('F', fp);
         if (dentry->attrib & 4) putc('W', fp);
