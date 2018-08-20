@@ -843,7 +843,7 @@ void extractFile(dir_t *dptr)
         strcat(filename, ".");
         strncat(filename, dptr->ext, 3);
     }
-    
+    _strlwr(filename);
 
 
     if ((fout = fopen(filename, "wb")) == NULL) {
