@@ -827,6 +827,7 @@ void GetSHA1(byte *checksum) {
 void extractFile(dir_t *dptr)
 {
     char filename[11];
+    char isisName[11];
     FILE *fout;
     byte *p;
     int blk, blkIdx;
@@ -835,17 +836,17 @@ void extractFile(dir_t *dptr)
     int sectorSize = diskType == ISIS_III ? 256 : 128;
     int size = 0;
 
-    filename[0] = 0;
+    isisName[0] = 0;
     if (dptr->status != 0)
-        strcat(filename, "#");          // mark recovered file
-    strncat(filename, dptr->name, 6);
+        strcat(isisName, "#");          // mark recovered file
+    strncat(isisName, dptr->name, 6);
     if (dptr->ext[0]) {
-        strcat(filename, ".");
-        strncat(filename, dptr->ext, 3);
+        strcat(isisName, ".");
+        strncat(isisName, dptr->ext, 3);
     }
+
+    strcpy(filename, isisName);
     _strlwr(filename);
-
-
     if ((fout = fopen(filename, "wb")) == NULL) {
         fprintf(stderr, "can't create %s\n", filename);
         return;
@@ -865,11 +866,11 @@ void extractFile(dir_t *dptr)
         if (blkIdx == 0) {
             isisLinkage_t *curLinks = links;
             if ((links = (isisLinkage_t *)getTS(links->next.track, links->next.sector)) == NULL) {
-                rdError("%s block %d bad linkage block t=%d s=%d\n", filename, blk, curLinks->next.track, curLinks->next.sector);
+                rdError("%s block %d bad linkage block t=%d s=%d\n", isisName, blk, curLinks->next.track, curLinks->next.sector);
                 break;
             }
             if (prevSec != links->prev.sector && prevTrk != links->prev.track) {
-                rdError("%s block %d corrupt linkage block t=%d s=%d\n", filename, blk, curLinks->next.track, curLinks->next.sector);
+                rdError("%s block %d corrupt linkage block t=%d s=%d\n", isisName, blk, curLinks->next.track, curLinks->next.sector);
                 break;
             }
             prevTrk = curLinks->next.track;
@@ -891,12 +892,12 @@ void extractFile(dir_t *dptr)
     fclose(fout);
     // update the recipe info
 
-    strcpy(isisDir[dirIdx].name, filename);
+    strcpy(isisDir[dirIdx].name, isisName);
     isisDir[dirIdx].len = size ? size : -dptr->lastblksize;
     GetSHA1(isisDir[dirIdx].checksum);
     isisDir[dirIdx].attrib = dptr->attributes;
     isisDir[dirIdx].errors = rdErrorCnt;
-    if (osIdx < 0 && dptr->status == 0 && (strcmp(filename, "ISIS.BIN") == 0 || strcmp(filename, "ISIS.PDS") == 0))
+    if (osIdx < 0 && dptr->status == 0 && (strcmp(isisName, "ISIS.BIN") == 0 || strcmp(isisName, "ISIS.PDS") == 0))
         osIdx = dirIdx;
 
     dirIdx++;

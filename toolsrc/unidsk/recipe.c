@@ -136,7 +136,7 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
     else
         fprintf(fp, "# %s\n", name);
 
-    if ((lab = fopen("ISIS.LAB", "rb")) == 0 || fread(&label, sizeof(label), 1, lab) != 1)
+    if ((lab = fopen("isis.lab", "rb")) == 0 || fread(&label, sizeof(label), 1, lab) != 1)
         fputs("label:\nversion:\n", fp);
     else {
         fputs("label:", fp);
