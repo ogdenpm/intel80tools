@@ -11,6 +11,8 @@ MODIFICATION HISTORY
                    file repository. Changed location name to use ^ prefix for
                    repository based files, removing need for ./ prefix for
                    local files
+    20 Aug 2019 -- replaced len, checksum model with full sha1 checksum
+                   
 
 
 
@@ -45,8 +47,7 @@ each line is formated as
 where
     isisName is the name used in the ISIS.DIR
     attibutes are the file's attributes any of FISW
-    len is the file's length
-    checksum is the file's checksum
+    sha1 checksum of the file stored in base64
     location is where the file is stored or a special marker as follows
     AUTO - file is auto generated and the line is optional
     DIR - file was a listing file and not saved - depreciated
@@ -76,23 +77,23 @@ with a leading # prefix
 
 
 struct {
-    int checksum;
+    char *checksum;
     char *os;
 } osMap[] = {
-    24037, "ISIS 2.2",
-    43778, "ISIS 3.4",
-    57037, "ISIS 4.0",
-    63738, "ISIS 4.1",
-    40129, "ISIS 4.2",
-    21906, "ISIS 4.2w",
-    41763, "ISIS 4.3",
-    27410, "ISIS 4.3w",
-    13328, "PDS 1.0",
-    10768, "PDS 1.1",
-    40937, "TEST 1.0",
-    43740, "TEST 1.1",
-    53568, "OSIRIS 3.0",
-    0, "NONE"
+    "/YmatRu9vhzEjMhDylDjhykvqZo", "ISIS 2.2",
+    "CDiOIW5+mmg+lMLUzBiKotg1Q58", "ISIS 3.4",
+    "sRiKeMMS6BzoByW8JMfR602LkRc", "ISIS 4.0",
+    "o3AUw0iiH+s7gzpbQng+QpJOpUU", "ISIS 4.1",
+    "sWQzN17YlQdDPy7hXQc+2Htq9lA", "ISIS 4.2",
+    "u/pkKs6Q7J2EBWs9znd6aTF7j3o", "ISIS 4.3w",
+    "IT/NSStKstpz2wMCcHbGrEj0GJM", "ISIS 4.3",
+    "oQXgd+7fmrQ/wH/Wfr9ptN4yK2s", "ISIS 4.2w",
+    "6zffO/tlxHVojxlqs2BQvu31814", "PDS 1.0",
+    "kr87fI+DkuGXQec3i2IG7S+8usI", "PDS 1.1",
+    "DJ5TiAs5F4yNGlp7fzUjT/k5Zsk", "TEST 1.0",
+    "7SzuQtZxju9XU/+ehbFOQ7W0tz8", "TEST 1.1",
+    "yOeRj3n6yo8SYlu3Ne4L8Ci52BI", "OSIRIS 3.0",
+    NULL, "NONE"
 };
 
 char *osFormat[] = { "UNKNOWN", "ISIS II SD", "ISIS II DD", "ISIS III", "ISIS IV" };
@@ -152,20 +153,30 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         diskType == ISIS_DD && strncmp(label.fmtTable, "145", 3))
         fprintf(fp, "skew: %.3s\n", label.fmtTable);
 
-    for (i = 0; osMap[i].checksum; i++)
-        if (osMap[i].checksum == osChecksum)
-            break;
+    char *os;
+    if (osIdx >= 0) {
+        os = "UNKNOWN";       // default to unknown os
+        for (i = 0; osMap[i].checksum; i++)
+            if (strcmp(osMap[i].checksum, isisDir[osIdx].checksum) == 0) {
+                os = osMap[i].os;
+                break;
+            }
+    }
+    else
+        os = "NONE";
 
-    fprintf(fp, "os: %s\nFiles:\n", osMap[i].checksum == osChecksum ? osMap[i].os : "UNKNOWN");
+    fprintf(fp, "os: %s\nFiles:\n", os);
 
-    for (dentry = isisDir;  dentry < &isisDir[MAXDIR] && dentry->name[0]; dentry++) {
+    for (dentry = isisDir; dentry < &isisDir[MAXDIR] && dentry->name[0]; dentry++) {
         if (dentry->errors) {
             if (dentry->name[0] == '#') {           // if the file was deleted and has errors note it and skip
                 fprintf(fp, "# file %s could not be recovered\n", dentry->name + 1);
                 continue;
             }
-            else
+            else {
                 fprintf(fp, "# there were errors reading %s\n", dentry->name);
+                strcpy(dentry->checksum, "CORRUPT");
+            }
         }
         fprintf(fp, "%s,", dentry->name);
         if (dentry->attrib & 0x80) putc('F', fp);
@@ -174,10 +185,15 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         if (dentry->attrib & 1) putc('I', fp);
 
         alt = NULL;
-        if (dentry->len == 0)
+        if (dentry->len == 0) {
             strcpy(dbPath, "ZERO");
-        else if (dentry->len < 0)
+            strcpy(dentry->checksum, "N/A");
+        }
+        else if (dentry->len < 0) {
             strcpy(dbPath, "ZEROHDR");        // zero but link block allocated
+            dentry->len = -dentry->len;
+            strcpy(dentry->checksum, "N/A");
+        }
         else if (strcmp(dentry->name, "ISIS.DIR") == 0 ||
             strcmp(dentry->name, "ISIS.LAB") == 0 ||
             strcmp(dentry->name, "ISIS.MAP") == 0 ||
@@ -186,7 +202,7 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         else if (!Dblookup(dentry, dbPath, &alt))
             strcpy(dbPath, dentry->name);
 
-        fprintf(fp, ",%d,%d,%s\n", dentry->len, dentry->checksum, dbPath);
+        fprintf(fp, ",%s,%s\n", dentry->checksum, dbPath);
         // print the alternative names if available
         // alt is a concatanated set of c strings terminated with an additional 0 to mark the end
         if (alt) {

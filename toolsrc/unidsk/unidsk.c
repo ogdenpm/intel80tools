@@ -45,7 +45,7 @@ char targetPath[_MAX_PATH];
 
 isisDir_t isisDir[MAXDIR];
 int dirIdx;
-int osChecksum = 0;
+int osIdx = -1;
 char comment[MAXCOMMENT];
 
 int diskType;
@@ -785,6 +785,33 @@ void isis4()
 }
 
 
+/* simplified interface to sha1 code */
+SHA1Context ctx;
+
+void InitSHA1()
+{
+    SHA1Reset(&ctx);
+}
+
+void AddSHA1(const byte *blk, unsigned len) {
+    SHA1Input(&ctx, blk, len);
+}
+
+void GetSHA1(byte *checksum) {
+    byte sha1[SHA1HashSize + 1];
+    static char enc[64] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+    SHA1Result(&ctx, sha1);
+    sha1[SHA1HashSize] = 0;     // 0 pad to triple boundary
+    
+    for (int i = 0; i < SHA1HashSize; i += 3) {
+        int triple = (sha1[i] << 16) + (sha1[i + 1] << 8) + sha1[i + 2];
+        for (int j = 0; j < 4; j++)
+            *checksum++ = enc[(triple >> (3 - j) * 6) & 0x3f];
+    }
+    *--checksum = 0;            // replace 28th char with 0;
+}
+
 void extractFile(dir_t *dptr)
 {
     char filename[11];
@@ -794,7 +821,7 @@ void extractFile(dir_t *dptr)
     isisLinkage_t *links = (isisLinkage_t *)&(dptr->blocks);	// trick to pick next block from directory info
     int prevTrk, prevSec;
     int sectorSize = diskType == ISIS_III ? 256 : 128;
-    int size = 0, checksum = 0;
+    int size = 0;
 
     filename[0] = 0;
     if (dptr->status != 0)
@@ -815,6 +842,8 @@ void extractFile(dir_t *dptr)
 
     showRdError = dptr->status == 0;
     rdErrorCnt = 0;
+
+    InitSHA1();
 
     for (blk = 0; blk < dptr->blocks; blk++) {
         if (blk == dptr->blocks - 1)
@@ -840,25 +869,23 @@ void extractFile(dir_t *dptr)
             for (int i = 0; i < sectorSize; i++)
                 putc(0xc7, fout);
             size += sectorSize;
-            checksum += 0xc7 * sectorSize;
         }
         else {
             size += (int) fwrite(p, 1, sectorSize, fout);
-            for (int i = 0; i < sectorSize; i++)
-                checksum += p[i];
+            AddSHA1(p, sectorSize);
         }
     }
 
     fclose(fout);
     // update the recipe info
-    checksum %= 65535;
+
     strcpy(isisDir[dirIdx].name, filename);
     isisDir[dirIdx].len = size ? size : -dptr->lastblksize;
-    isisDir[dirIdx].checksum = checksum;
+    GetSHA1(isisDir[dirIdx].checksum);
     isisDir[dirIdx].attrib = dptr->attributes;
     isisDir[dirIdx].errors = rdErrorCnt;
-    if (osChecksum == 0 && (strcmp(filename, "ISIS.BIN") == 0 || strcmp(filename, "ISIS.PDS") == 0))
-        osChecksum = checksum;
+    if (osIdx < 0 && dptr->status == 0 && (strcmp(filename, "ISIS.BIN") == 0 || strcmp(filename, "ISIS.PDS") == 0))
+        osIdx = dirIdx;
 
     dirIdx++;
     if (dptr->status != 0)          // deleted file
@@ -887,7 +914,12 @@ void isis2_3(dir_t *dptr)
     }
     fseek(fp, sizeof(dir_t), 0);	// skip ISIS.DIR entry it has already been done
     while (fread(&dentry, sizeof(dir_t), 1, fp) == 1 && dentry.status != 0x7f)
-        extractFile(&dentry);
+        if (dentry.status == 0 || dentry.status == 0xff)
+            extractFile(&dentry);
+        else {
+            fprintf(stderr, "corrupt directory - status byte %02X\n", dentry.status);
+            break;
+        }
     fclose(fp);
     if (recoveredFiles)
         printf("%d deleted files recovered for checking\n", recoveredFiles);

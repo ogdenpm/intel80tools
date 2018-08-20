@@ -14,6 +14,8 @@ MODIFICATION HISTORY
                    file repository. Changed location name to use ^ prefix for
                    repository based files, removing need for ./ prefix for
                    local files
+    20 Aug 2019 -- Updated to use SHA1 checksum, removing the len field
+
 LIMITATIONS
     There are three cases where mkidsk will not create an exact image, although physical
     disks create from these images should perform without problem.
@@ -67,8 +69,7 @@ each line is formated as
 where
     isisName is the name used in the ISIS.DIR
     attibutes are the file's attributes any of FISW
-    len is the file's length
-    checksum is the file's checksum
+    checksum is the file's SHA1 checksum
     location is where the file is stored or a special marker as follows
     AUTO - file is auto generated and the line is optional
     DIR - file was a listing file and not saved - depreciated
@@ -321,11 +322,11 @@ void ParseFiles(FILE *fp) {
         }
         s = ParseAttributes(++s, &attributes);
         if (*s != ',') {
-            fprintf(stderr, "%s - missing file length\n", line);
+            fprintf(stderr, "%s - missing checksum\n", line);
             continue;
         }
 
-        if ((s = strchr(s + 1, ',')) && (s = strchr(s + 1, ','))) { // path pointer
+        if (s = strchr(s + 1, ',')) { // skip checksum to the path
             ParsePath(path, s + 1, isisName);
             if (*path == '*')
                 fprintf(stderr, "%s - skipped because %s\n", line, path + 1);

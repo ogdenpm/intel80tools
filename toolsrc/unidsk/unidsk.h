@@ -27,6 +27,7 @@ TODO
 
 
 #include <stdbool.h>
+#include "sha1.h"
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef unsigned __int32 dword;
@@ -61,8 +62,8 @@ enum { UNKNOWN, ISIS_SD, ISIS_DD, ISIS_III, ISIS_IV, ZXENIX, CPM };
 typedef struct {
     char name[12];      // isis name + optional # prefix for recovered files
     byte attrib;
-    int len;
-    int checksum;
+    int len;            // used for zero size file check, if -ve then zero size file with header block
+    byte checksum[28];  // base 64 encoding of SHA1 + trailing NULL
     int errors;
 }  isisDir_t;
 
@@ -76,6 +77,6 @@ typedef struct {
 } label_t;
 #pragma pack(pop)
 
-extern int osChecksum;
+extern int osIdx;
 
 void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType);
