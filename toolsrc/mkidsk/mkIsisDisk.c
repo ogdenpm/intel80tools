@@ -15,6 +15,7 @@ MODIFICATION HISTORY
                    repository based files, removing need for ./ prefix for
                    local files
     20 Aug 2019 -- Updated to use SHA1 checksum, removing the len field
+    21 Aug 2019 -- correted handling of a directory path before the recipe file
 
 LIMITATIONS
     There are three cases where mkidsk will not create an exact image, although physical
@@ -371,6 +372,10 @@ void main(int argc, char **argv) {
     char *s;
     char *diskname;
     int fmtCh;
+    char dir[_MAX_DIR];
+    char drive[_MAX_DRIVE];
+    char fname[_MAX_FNAME];
+    char ext[_MAX_EXT];
 
     for (i = 1; i < argc; i++) {
         if (argv[i][0] != '-' || argv[i][1] == '@')
@@ -402,10 +407,11 @@ void main(int argc, char **argv) {
         exit(1);
     }
     recipe = argv[i][0] == '-' ? argv[i] + 1 : argv[i];    // allow - prefix to @filename for powershell
-    if (strlen(recipe) >= _MAX_PATH) {
-        fprintf(stderr, "recipe name too long\n");
+    if (_splitpath_s(recipe, drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT) != 0) {
+        fprintf(stderr, "invalid recipe name %s\n", argv[1]);
         exit(1);
     }
+
     diskname = ++i == argc - 1 ? argv[i] : EXT;            // use disk and ext if given else just assume default fmt
     if (*diskname != '.') {                            // we have a file name
         if (strlen(diskname) >= _MAX_PATH) {           // is it sensible?
@@ -413,9 +419,9 @@ void main(int argc, char **argv) {
             exit(1);
         }
         strcpy(outfile, diskname);
-    } else {
-        strcpy(outfile, *recipe == '@' ? recipe + 1 : recipe);      // apply the default name;
-    }
+    } else
+        _makepath_s(outfile, _MAX_PATH, drive, dir, *fname == '@' ? fname + 1 : fname, NULL); // create the default name
+
     if ((s = strrchr(diskname, '.')) && (_stricmp(s, ".imd") == 0 || _stricmp(s, ".img") == 0)) {
         if (s == diskname)                           // we had .fmt only so add
             strcat(outfile, s);

@@ -9,6 +9,9 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as unidsk onto github
     18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
+    21 Aug 2018 -- Added support for auto looking up files in the repository
+                   the new option -l or -L supresses the lookup i.e. local fiiles
+
 
 NOTES
     This version relies on visual studio's pack pragma to force structures to be byte
@@ -54,8 +57,8 @@ enum { UNKNOWN, ISIS_SD, ISIS_DD, ISIS_III, ISIS_IV, ZXENIX, CPM };
 
 #define MAXDIR      200
 #define MAXCOMMENT  2048
-#define MAXLINE 512
-
+#define MAXINLINE   512
+#define MAXOUTLINE  120
 
 
 
@@ -80,3 +83,5 @@ typedef struct {
 extern int osIdx;
 
 void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType);
+char *Dblookup(isisDir_t *entry);
+void loadCache();

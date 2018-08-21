@@ -7,19 +7,20 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as unidsk onto github
     18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
-    19 Aug 2019 -- Changed to use environment variable IFILEREPO for location of
+    19 Aug 2018 -- Changed to use environment variable IFILEREPO for location of
                    file repository. Changed location name to use ^ prefix for
                    repository based files, removing need for ./ prefix for
                    local files
-    20 Aug 2019 -- replaced len, checksum model with full sha1 checksum
+    20 Aug 2018 -- replaced len, checksum model with full sha1 checksum
                    saves files with lower case names to avoid conflict with
                    special paths e.g. AUTO, ZERO, DIR which became a potential
                    issue when ./ prefix was removed. Lower case is also compatible
                    with the thames emulator and the repository file names
+    21 Aug 2018 -- Added support for auto looking up files in the repository
+                   the new option -l or -L supresses the lookup i.e. local fiiles
 
 
 TODO
-    Add support in the recipe file to reference files in the repository vs. local files
     Review the information generated for an ISIS IV disk to see if it is sufficient
     to allow recreation of the original .imd or .img file
     Review the information generated for an ISIS III disk to see it is sufficient to
@@ -58,14 +59,24 @@ where
     *text - problems with the file the text explains the problem. It is ignored
     path - location of file to load a leading ^ is replaced by the repository path
 
+if you haave ISIS files files named AUTO, DIR or ZERO please prefix the path with ./, or use lower case
+for local files.
 
 Note unidsk creates special comment lines as follows
+
 if there are problems reading a file the message below is emitted before the recipe line
     # there were errors reading filename
+
 if there were problems reading a delete file the message
     # file filename could not be recovered
 For other deleted files the recipe line is commented out and the file is extracted to a file
 with a leading # prefix
+
+If there are aliases in the repository these are shown in one or more comments after the file
+    # also path [path]*
+If there is a match with the ISIS name then only alises with the same ISIS name will match
+otherwise all files with the same checksum will be listed
+The primary use of this is to change to prefered path names for human reading
 
 */
 
@@ -101,9 +112,7 @@ struct {
 char *osFormat[] = { "UNKNOWN", "ISIS II SD", "ISIS II DD", "ISIS III", "ISIS IV" };
 
 
-bool Dblookup(isisDir_t *entry, char *path, char **alt) {
-    return false;
-}
+
 
 
 void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
@@ -112,10 +121,10 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
     FILE *lab;
     char recipeName[_MAX_PATH];
     label_t label;
-    char dbPath[_MAX_PATH];
-    char *alt;
-    int i;
+    char *dbPath;
+    char *prefix;
     isisDir_t *dentry;
+
 
     strcpy(recipeName, "@");
     strcat(recipeName, name);
@@ -158,7 +167,7 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
     char *os;
     if (osIdx >= 0) {
         os = "UNKNOWN";       // default to unknown os
-        for (i = 0; osMap[i].checksum; i++)
+        for (int i = 0; osMap[i].checksum; i++)
             if (strcmp(osMap[i].checksum, isisDir[osIdx].checksum) == 0) {
                 os = osMap[i].os;
                 break;
@@ -187,13 +196,13 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         if (dentry->attrib & 2) putc('S', fp);
         if (dentry->attrib & 1) putc('I', fp);
 
-        alt = NULL;
+        prefix = "";
         if (dentry->len == 0) {
-            strcpy(dbPath, "ZERO");
+            dbPath = "ZERO";
             strcpy(dentry->checksum, "N/A");
         }
         else if (dentry->len < 0) {
-            strcpy(dbPath, "ZEROHDR");        // zero but link block allocated
+            dbPath = "ZEROHDR";        // zero but link block allocated
             dentry->len = -dentry->len;
             strcpy(dentry->checksum, "N/A");
         }
@@ -201,27 +210,24 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
             strcmp(dentry->name, "ISIS.LAB") == 0 ||
             strcmp(dentry->name, "ISIS.MAP") == 0 ||
             strcmp(dentry->name, "ISIS.FRE") == 0)
-            strcpy(dbPath, "AUTO");
-        else if (!Dblookup(dentry, dbPath, &alt)) {
-            strcpy(dbPath, dentry->name);
-            _strlwr(dbPath);                     // force to lower case, also avoids conflict with AUTO & ZERO
+            dbPath = "AUTO";
+        else if (dbPath = Dblookup(dentry))
+            prefix = "^";
+        else {
+            dbPath = dentry->name;
+            _strlwr(dbPath);                     // force to lower case, also avoids conflict with AUTO & ZERO, already used name
         }
 
-        fprintf(fp, ",%s,%s\n", dentry->checksum, dbPath);
+        fprintf(fp, ",%s,%s%s", dentry->checksum, prefix, dbPath);
         // print the alternative names if available
-        // alt is a concatanated set of c strings terminated with an additional 0 to mark the end
-        if (alt) {
-            while (strlen(alt)) {
-                int llen = fprintf(fp, "# also %s\n", alt);
-                alt = strchr(alt, 0) + 1;
-                while (*alt && strlen(alt) + llen < MAXLINE - 1) {
-                    llen += fprintf(fp, " %s", alt);
-                    alt = strchr(alt, 0) + 1;
-                }
-                putc('\n', fp);
-            }
 
+        int llen = MAXOUTLINE + 1;
+        while ((dbPath = Dblookup(NULL)) && *dbPath) {
+            if (llen + strlen(dbPath) >= MAXOUTLINE - 1)
+                llen = fprintf(fp, "\n# also");
+            llen += fprintf(fp, " %s", dbPath);
         }
+        putc('\n', fp);
     }
     fclose(fp);
 

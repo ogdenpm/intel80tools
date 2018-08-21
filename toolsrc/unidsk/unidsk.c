@@ -10,10 +10,13 @@ DESCRIPTION
 MODIFICATION HISTORY
     17 Aug 2018 -- original release as unidsk onto github
     18 Aug 2018 -- added attempted extraction of deleted files for ISIS II/III
-    19 Aug 2019 -- Changed to use environment variable IFILEREPO for location of
+    19 Aug 2018 -- Changed to use environment variable IFILEREPO for location of
                    file repository. Changed location name to use ^ prefix for
                    repository based files, removing need for ./ prefix for
                    local files
+    21 Aug 2018 -- Added support for auto looking up files in the repository
+                   the new option -l or -L supresses the lookup i.e. local fiiles
+
 NOTES
     This version relies on visual studio's pack pragma to force structures to be byte
     aligned.
@@ -21,7 +24,6 @@ NOTES
     data via macros or simple function. This approach would also support big edian data
 
 TODO
-    Add support in the recipe file to reference files in the repository vs. local files
     Review the information generated for an ISIS IV disk to see if it is sufficient
     to allow recreation of the original .imd or .img file
     Review the information generated for an ISIS III disk to see it is sufficient to
@@ -951,10 +953,18 @@ void main(int argc, char **argv)
     char ext[_MAX_EXT];
 
     
+    if (argc > 2 && _stricmp(argv[1], "-l") == 0) {
+        argv++;
+        argc--;
+    } else
+        loadCache();
+
     if (argc != 2 || (fp = fopen(*++argv, "rb")) == NULL) {
-        fprintf(stderr, "usage: unidsk file\n");
+        fprintf(stderr, "usage: unidsk [-l] file\n"
+                        "-l for local names only\n");
         exit(1);
     }
+
     if (_splitpath_s(*argv, drive, _MAX_DRIVE, dir, _MAX_DIR, fname, _MAX_FNAME, ext, _MAX_EXT) != 0) {
         fprintf(stderr, "invalid file name %s\n", argv[1]);
         exit(1);
