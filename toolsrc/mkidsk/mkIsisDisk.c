@@ -420,7 +420,7 @@ void main(int argc, char **argv) {
         }
         strcpy(outfile, diskname);
     } else
-        _makepath_s(outfile, _MAX_PATH, drive, dir, *fname == '@' ? fname + 1 : fname, NULL); // create the default name
+        _makepath_s(outfile, _MAX_PATH, drive, dir, *fname == '@' ? fname + 1 : fname, ext); // create the default name
 
     if ((s = strrchr(diskname, '.')) && (_stricmp(s, ".imd") == 0 || _stricmp(s, ".img") == 0)) {
         if (s == diskname)                           // we had .fmt only so add
@@ -442,7 +442,10 @@ void main(int argc, char **argv) {
             strcat(s, "/");
     }
 
-    fp = fopen(recipe, "rt");
+    if ((fp = fopen(recipe, "rt")) == NULL) {
+        fprintf(stderr, "cannot open %s\n", recipe);
+        exit(1);
+    }
     ParseRecipeHeader(fp);
     FormatDisk(diskType);
     WriteDirectory();
