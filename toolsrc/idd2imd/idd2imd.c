@@ -234,7 +234,7 @@ int getMarker() {
 
 
 
-void flux2track(byte *buf, size_t bufsize) {
+void flux2track(byte *buf, size_t bufsize, const char *fname) {
     byte dataBuf[131];
     int track = -1, sector;
     int blk = 0;
@@ -251,16 +251,16 @@ void flux2track(byte *buf, size_t bufsize) {
     while (1) {
         if (seekBlock(blk) == 0) {
             if (track == -1) {
-                printf("No Id markers\n");
+                printf("File %s - No Id markers\n", fname);
                 return;
             }
-            logger(ALWAYS, "track %d missing sectors:", track);
+            logger(ALWAYS, "File %s - track %d missing sectors:", fname, track);
             for (i = 1; i < DDSECTORS; i++) {
                 if (secToSlot[i] == DDSECTORS)
                     printf(" %d", i);
             }
             putchar('\n');
-            addIMD(track, &curTrack);
+            addIMD(track, &curTrack, fname);
             return;
         }
         slot = getSlot(INDEX_HOLE_MARK);                    // initialise the pyhsical sector logic
@@ -269,9 +269,6 @@ void flux2track(byte *buf, size_t bufsize) {
             slot = getSlot(marker);
             switch (marker) {
             case INDEX_ADDRESS_MARK:
-#if _DEBUG
-                printf("Index marker\n");
-#endif
                 break;
             case ID_ADDRESS_MARK:
                 if (getData(ID_ADDRESS_MARK, dataBuf, true)) {
@@ -312,12 +309,10 @@ void flux2track(byte *buf, size_t bufsize) {
         for (i = 0; i < DDSECTORS && curTrack.smap[i] && curTrack.hasData[i]; i++)
             ;
         if (i == DDSECTORS) {
-            addIMD(track, &curTrack);
+            addIMD(track, &curTrack, fname);
             return;
         }
-
-
-        logger(VERBOSE, "trying blk %d\n", ++blk);
+        logger(VERBOSE, "File %s - %s after trying blk %d\n", fname, (track == -1) ? "No Id markers" : "Missing sectors", blk++);
     }
 }
 
@@ -374,7 +369,7 @@ int main(int argc, char **argv) {
                 error("failed to load %s\n", argv[arg]);
             else {
                 logger(MINIMAL, "procesing %s\n", argv[arg]);
-                flux2track(buf, bufsize);
+                flux2track(buf, bufsize, argv[arg]);
                 if (histLevels)
                     displayHist(histLevels);
             }
@@ -395,11 +390,11 @@ int main(int argc, char **argv) {
                     const char *name = zip_entry_name(zip);
                     if ((len = strlen(name)) >= 8 && sscanf(name + len - 8, "%2d.%d.raw", &trk, &sec) == 2 && sec == 0 && trk < 77) {
                         logger(MINIMAL, "procesing %s\n", name);
-                        bufsize = zip_entry_size(zip);
+                        bufsize = (size_t)zip_entry_size(zip);
                         if (!(buf = (byte *)calloc(1, bufsize)))
                             error("out of memory\n");
                         zip_entry_noallocread(zip, (void *)buf, bufsize);
-                        flux2track(buf, bufsize);
+                        flux2track(buf, bufsize, name);
                         if (histLevels)
                             displayHist(histLevels);
                         free(buf);

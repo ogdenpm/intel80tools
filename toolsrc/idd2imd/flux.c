@@ -10,7 +10,7 @@ enum {
     OVL16 = -2, PAD = -3
 };
 
-#define FLUXCHUNKSIZE 400000        // default chunk size for flux stream
+#define FLUXCHUNKSIZE 400000UL        // default chunk size for flux stream
 #define ARRAYCHUNKSIZE  20          // default chunk size for stream and index info
 #define DEFAULT_8_BYTE_TIME 3976        // 64 bits sample count @ standard flux clock rate of 24027428.5714285Hz
 #define ONEUS       24
@@ -18,7 +18,7 @@ enum {
 /* private types for managing the data from the flux stream */
 typedef struct _flux {
     struct _flux *link;
-    int blkId;
+    unsigned blkId;
     int cnt;
     int flux[FLUXCHUNKSIZE];
 } flux_t;
@@ -107,8 +107,8 @@ static int streamArrayCnt;
 static int streamArraySize;
 
 
-static long fluxRead;           // total number of flux transitions read
-static long fluxPos;            // current flux transition
+static size_t fluxRead;           // total number of flux transitions read
+static size_t fluxPos;            // current flux transition
 
 static long sampleTime;         // tracks the sample flux time since start of track
 static size_t endTrack;         // flux index for end of track
@@ -118,7 +118,7 @@ static long byteX8Time;         // most recent timing fo 8 bytes used to support
     seek to pos in flux stream, updating fluxPos and curBlk as required
     returns true if ok else false
 */
-static bool fluxSeek(long pos) {
+static bool fluxSeek(size_t pos) {
     if (pos >= fluxRead)
         return false;
     fluxPos = pos;
@@ -150,7 +150,7 @@ size_t seekBlock(int blk) {
 }
 
 /* utility function to return current position in flux stream */
-int where() {
+size_t where() {
     return fluxPos;
 }
 
@@ -335,7 +335,7 @@ void oob() {
 /*
     Process the flux stream
 */
-int readFluxBuffer(byte *buf,  size_t bufsize) {
+size_t readFluxBuffer(byte *buf,  size_t bufsize) {
     int c;
     initInput(buf, bufsize);
     resetFlux();

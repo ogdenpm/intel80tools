@@ -24,14 +24,16 @@ byte smap[TRACKS][DDSECTORS];
 imd_t trackData[TRACKS];
 
 
-void addIMD(int track, imd_t *trackPtr) {
+void addIMD(int track, imd_t *trackPtr, const char *fname) {
     if (track < 0 || track >= TRACKS) {
-        logger(ALWAYS, "track %d invalid\n", track);
+        logger(ALWAYS, "File %s - Track %d invalid\n", fname, track);
         return;
     }
+    if (trackData[track].smap[0])
+        logger(ALWAYS, "File %s - Duplicate track %d\n", fname, track);
     trackData[track] = *trackPtr;           /* structure copy */
     if (showSectorMap) {
-        printf("track %d Sector Mapping:\n", track);
+        printf("File %s - Track %d Sector Mapping:\n", fname, track);
         for (int i = 0; i < DDSECTORS; i++) {
             if (trackPtr->smap[i])
                 printf("%02d", trackPtr->smap[i]);

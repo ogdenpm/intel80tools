@@ -49,13 +49,13 @@ int nextBits();
 size_t seekBlock(int blk);
 void resetFlux();
 void freeMem();
-int where();
+size_t where();
 long when();
 void *xalloc(void *buf, size_t size);
-int readFluxBuffer(byte *buf, size_t bufsize);
+size_t readFluxBuffer(byte *buf, size_t bufsize);
 
 int x8ByteTime();
-void addIMD(int track, imd_t *trackPtr);
+void addIMD(int track, imd_t *trackPtr, const char *fname);
 void WriteImgFile(char *fname, char *comment);
 _declspec(noreturn) void error(char *fmt, ...);
 void logger(int level, char *fmt, ...);
