@@ -361,6 +361,7 @@ int main(int argc, char **argv) {
         if (_stricmp(ext, ".raw") == 0) {
             if ((fp = fopen(argv[arg], "rb")) == NULL)
                 error("can't open %s\n", argv[arg]);
+            resetIMD();
             fseek(fp, 0, SEEK_END);
             bufsize = ftell(fp);
             rewind(fp);
@@ -380,7 +381,7 @@ int main(int argc, char **argv) {
         else if ((zip = zip_open(argv[arg], 0, 'r')) == NULL)
             error("can't open %s\n", argv[arg]);
         else {
-
+            resetIMD();
             int n = zip_total_entries(zip);
             for (int i = 0; i < n; i++) {
                 zip_entry_openbyindex(zip, i);

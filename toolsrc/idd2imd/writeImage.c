@@ -23,7 +23,9 @@ byte smap[TRACKS][DDSECTORS];
 
 imd_t trackData[TRACKS];
 
-
+void resetIMD() {
+    memset(trackData, 0, sizeof(trackData));
+}
 void addIMD(int track, imd_t *trackPtr, const char *fname) {
     if (track < 0 || track >= TRACKS) {
         logger(ALWAYS, "File %s - Track %d invalid\n", fname, track);
@@ -50,8 +52,9 @@ void addIMD(int track, imd_t *trackPtr, const char *fname) {
     }
 }
 
-bool chkTrack(imd_t *trackPtr) {
+imd_t *chkTrack(int track) {
     int noIdCnt;
+    imd_t *trackPtr = &trackData[track];
     size_t slotUsed = 0, secUsed = 0;
     // see what sector ids are missing */
     noIdCnt = 0;
@@ -66,9 +69,9 @@ bool chkTrack(imd_t *trackPtr) {
     }
 
     if (noIdCnt == 0)
-        return true;
+        return trackPtr;
     if (noIdCnt == DDSECTORS)       // no idea on sector mapping
-        return false;
+        return NULL;
     if (noIdCnt == 1) {             // we have one missing sector Id so reasonably safe to recover
         int slot, id;
         for (slot = 0; slotUsed & 1; slot++, slotUsed >>= 1)
@@ -77,11 +80,11 @@ bool chkTrack(imd_t *trackPtr) {
             ;
         logger(MINIMAL, "fixed missing sector id %d for slot %d\n", id, slot);
         trackPtr->smap[slot] = id;
-        return true;
+        return trackPtr;
     }
-    logger(ALWAYS, "recovery of multiple missing sector Ids not yet implemented - skipping track\n");
+    logger(ALWAYS, "recovery of multiple missing sector Ids not yet implemented - skipping track %d\n", track);
 
-    return false;           /* for now fail if we have multiple missing sector Ids */
+    return NULL;           /* for now fail if we have multiple missing sector Ids */
 }
 
 
@@ -121,8 +124,7 @@ void WriteImgFile(char *fname, char *comment) {
 
     WriteIMDHdr(fp, comment);
     for (int track = 0; track < TRACKS; track++) {
-        trackPtr = &trackData[track];
-        if (!chkTrack(trackPtr))
+        if ((trackPtr = chkTrack(track)) == NULL)
             continue;
         putc(3, fp);        // mode
         putc(track, fp);    // cylinder

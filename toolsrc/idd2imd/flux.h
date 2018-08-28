@@ -60,3 +60,4 @@ void WriteImgFile(char *fname, char *comment);
 _declspec(noreturn) void error(char *fmt, ...);
 void logger(int level, char *fmt, ...);
 void displayHist(int levels);
+void resetIMD();
