@@ -197,20 +197,20 @@ void mkRecipe(char *name, isisDir_t  *isisDir, char *comment, int diskType)
         if (dentry->attrib & 1) putc('I', fp);
 
         prefix = "";
-        if (dentry->len == 0) {
-            dbPath = "ZERO";
-            strcpy(dentry->checksum, "N/A");
-        }
-        else if (dentry->len < 0) {
-            dbPath = "ZEROHDR";        // zero but link block allocated
-            dentry->len = -dentry->len;
-            strcpy(dentry->checksum, "N/A");
-        }
-        else if (strcmp(dentry->name, "ISIS.DIR") == 0 ||
+        if (dentry->len <= 0)
+            strcpy(dentry->checksum, "NULL");
+
+        if (strcmp(dentry->name, "ISIS.DIR") == 0 ||
             strcmp(dentry->name, "ISIS.LAB") == 0 ||
             strcmp(dentry->name, "ISIS.MAP") == 0 ||
             strcmp(dentry->name, "ISIS.FRE") == 0)
             dbPath = "AUTO";
+        else if (dentry->len == 0)
+            dbPath = "ZERO";
+        else if (dentry->len < 0) {
+            dbPath = "ZEROHDR";        // zero but link block allocated
+            dentry->len = -dentry->len;
+        }
         else if (dbPath = Dblookup(dentry))
             prefix = "^";
         else {
