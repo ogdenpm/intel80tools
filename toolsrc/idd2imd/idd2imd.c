@@ -254,12 +254,6 @@ void flux2track(byte *buf, size_t bufsize, const char *fname) {
                 printf("File %s - No Id markers\n", fname);
                 return;
             }
-            logger(ALWAYS, "File %s - track %d missing sectors:", fname, track);
-            for (i = 1; i < DDSECTORS; i++) {
-                if (secToSlot[i] == DDSECTORS)
-                    printf(" %d", i);
-            }
-            putchar('\n');
             addIMD(track, &curTrack, fname);
             return;
         }

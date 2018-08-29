@@ -22,71 +22,116 @@ byte smap[TRACKS][DDSECTORS];
 
 
 imd_t trackData[TRACKS];
+#define RECOVERED    0x80        // flag for recovered sector id
+
 
 void resetIMD() {
     memset(trackData, 0, sizeof(trackData));
 }
+
+
 void addIMD(int track, imd_t *trackPtr, const char *fname) {
+    byte fmt[DDSECTORS];             // skew assignments - assuming starting at 1
+    int offset;                      // offset to make fmt align to smap
+    byte secToPhsMap[DDSECTORS];     // map of sectors (-1) to slots
+    int missingCnt = 0;
+    bool canRecover = true;
+
     if (track < 0 || track >= TRACKS) {
         logger(ALWAYS, "File %s - Track %d invalid\n", fname, track);
         return;
     }
-    if (trackData[track].smap[0])
-        logger(ALWAYS, "File %s - Duplicate track %d\n", fname, track);
-    trackData[track] = *trackPtr;           /* structure copy */
+    if (trackData[track].smap[0]) {
+        logger(ALWAYS, "File %s - Ignoring duplicate track %d\n", fname, track);
+        return;
+    }
+    /* see what sectors are present */
+    memset(secToPhsMap, 0xff, sizeof(secToPhsMap));
+    for (int i = 0; i < DDSECTORS; i++)
+        if (trackPtr->smap[i])
+            secToPhsMap[trackPtr->smap[i] - 1] = i;
+        else
+            missingCnt++;
+    if (missingCnt) {
+        int skew = -1;
+        for (int i = 0; i < DDSECTORS - 1; i++)
+            if (secToPhsMap[i] != 0xff && secToPhsMap[i + 1] != 0xff) {
+                skew = (secToPhsMap[i + 1] - secToPhsMap[i] + DDSECTORS) % DDSECTORS;
+                break;
+            }
+        if (skew < 0)
+            canRecover = false;
+        else {
+            /* create a skew map for the track based at 1 */
+            int slot = 0;
+
+            memset(fmt, 0, sizeof(fmt));            // 
+            for (int i = 1; i <= DDSECTORS; i++) {
+                while (fmt[slot])
+                    slot = (slot + 1) % DDSECTORS;
+                fmt[slot] = i;
+                slot = (slot + skew) % DDSECTORS;
+            }
+
+            for (slot = 0; trackPtr->smap[slot] == 0; slot++)       // find first slot with allocated sector
+                ;
+
+            for (offset = 0; fmt[offset] != trackPtr->smap[slot]; offset++)      // find this sector in fmt table
+                ;
+            offset -= slot;                                         // backup to align with first slot 
+            /* check whether skew recovery possible */
+            for (int i = 0; i < DDSECTORS; i++) {
+                if (trackPtr->smap[i] && trackPtr->smap[i] != fmt[(i + offset) % DDSECTORS]) {
+                    canRecover = false;
+                    break;
+                }
+            }
+
+        }
+    }
+
     if (showSectorMap) {
         printf("File %s - Track %d Sector Mapping:\n", fname, track);
         for (int i = 0; i < DDSECTORS; i++) {
             if (trackPtr->smap[i])
-                printf("%02d", trackPtr->smap[i]);
+                printf("%02d ", trackPtr->smap[i]);
+            else if (canRecover) {
+                trackPtr->smap[i] = fmt[(i + offset) % DDSECTORS];
+                printf("%02dr", trackPtr->smap[i]);
+            }
             else
-                printf("--");
-            putchar(i == DDSECTORS - 1 ? '\n' : ' ');
+                printf("-- ");
         }
+        putchar('\n');
         for (int i = 0; i < DDSECTORS; i++) {
             putchar(trackPtr->hasData[i] ? 'D' : 'X');
             putchar(' ');
-            putchar(i == DDSECTORS - 1 ? '\n' : ' ');
-        }
-
+            putchar(' ');
+        }putchar('\n');
     }
-}
-
-imd_t *chkTrack(int track) {
-    int noIdCnt;
-    imd_t *trackPtr = &trackData[track];
-    size_t slotUsed = 0, secUsed = 0;
-    // see what sector ids are missing */
-    noIdCnt = 0;
-    for (int i = 0; i < DDSECTORS; i++) {
-        if (!trackPtr->smap[i])
-            noIdCnt++;
+    else if (missingCnt) {
+        if (canRecover) {
+            printf("File %s - track %d recovering sector ids:", fname, track);
+            for (int i = 0; i < DDSECTORS; i++, offset = (offset + 1) % DDSECTORS) {
+                if (!trackPtr->smap[i])
+                    printf(" %02d", fmt[(i + offset) % DDSECTORS]);
+            }
+            putchar('\n');
+        }
         else {
-            slotUsed |= 1ULL << i;
-            secUsed |= 1ULL << trackPtr->smap[i]; 
+            printf("File %s - track %d cannot recover sector ids:", fname, track);
+            for (int i = 0; i < DDSECTORS; i++, offset = (offset + 1) % DDSECTORS) {
+                if (secToPhsMap[i] == 0xff)
+                    printf(" %02d", i + 1);
+            }
+            putchar('\n');
+
+
         }
-
     }
-
-    if (noIdCnt == 0)
-        return trackPtr;
-    if (noIdCnt == DDSECTORS)       // no idea on sector mapping
-        return NULL;
-    if (noIdCnt == 1) {             // we have one missing sector Id so reasonably safe to recover
-        int slot, id;
-        for (slot = 0; slotUsed & 1; slot++, slotUsed >>= 1)
-            ;
-        for (id = 1; secUsed & 2; id++, secUsed >>= 1)
-            ;
-        logger(MINIMAL, "fixed missing sector id %d for slot %d\n", id, slot);
-        trackPtr->smap[slot] = id;
-        return trackPtr;
-    }
-    logger(ALWAYS, "recovery of multiple missing sector Ids not yet implemented - skipping track %d\n", track);
-
-    return NULL;           /* for now fail if we have multiple missing sector Ids */
+    if (missingCnt == 0 || canRecover)
+        trackData[track] = *trackPtr;           /* structure copy */
 }
-
 
 void WriteIMDHdr(FILE *fp, char *comment) {
     struct tm *dateTime;
@@ -124,7 +169,10 @@ void WriteImgFile(char *fname, char *comment) {
 
     WriteIMDHdr(fp, comment);
     for (int track = 0; track < TRACKS; track++) {
-        if ((trackPtr = chkTrack(track)) == NULL)
+        trackPtr = &trackData[track];
+        if (trackPtr->smap[0] == 0)
+
+//        if ((trackPtr = chkTrack(track)) == NULL)
             continue;
         putc(3, fp);        // mode
         putc(track, fp);    // cylinder
