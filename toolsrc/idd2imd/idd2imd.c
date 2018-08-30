@@ -144,7 +144,6 @@ bool getData(int marker, byte *buf, bool cbit) {
     int bitCnt = cbit ? 1 : 0;
     int cnt;
     byte *s = buf;
-    bool crcOK;
 
     byteLogCnt = 0;
 
@@ -175,8 +174,7 @@ bool getData(int marker, byte *buf, bool cbit) {
         case BIT1S:         // had to resync in data which shouldn't happen
         case BITEND:        // ran out of flux data
         case BITBAD:        // corrupt flux data
-            if (debug >= VERYVERBOSE)
-                printf(" Error\n");
+            logger(VERYVERBOSE, "\nBad flux transition\n");
             return false;
 
 
@@ -189,11 +187,9 @@ bool getData(int marker, byte *buf, bool cbit) {
 
     } while (cnt > 0);
 
+    logger(VERYVERBOSE, "\n");          // terminate any dump in progress
     s -= 2;                 // backup to start of crc
-    crcOK = crcCheck(buf, (unsigned)(s - buf)) == s[0] * 256 + s[1]; // ok if crc matches
-    if (debug >= VERYVERBOSE)
-        printf(crcOK ? "\n" : " Bad CRC\n");
-    return crcOK;
+    return crcCheck(buf, (unsigned)(s - buf)) == s[0] * 256 + s[1]; // ok if crc matches
 }
 
 
@@ -207,26 +203,18 @@ int getMarker() {
         if (bits == BIT00 && nextBits() == BIT0M && nextBits() == BIT0M && nextBits() == BIT1)
             switch (nextBits()) {
             case BIT1:                              // 00MM11                     
-                if ((bits = nextBits()) == BIT00) {   // 00MM1100 - index address mark
-                    logger(VERBOSE, "[Index address Mark]\n");
+                if ((bits = nextBits()) == BIT00)   // 00MM1100 - index address mark
                     return INDEX_ADDRESS_MARK;
-                }
-                else if (bits == BIT1 && nextBits() == BIT00) {
-                    logger(VERBOSE, "[Id address Mark]\n");
+                else if (bits == BIT1 && nextBits() == BIT00)
                     return ID_ADDRESS_MARK;         // 00MM1110 (0) id address mark + preread of next 0 bit
-                }
                 break;
             case BIT01:
-                if (nextBits() == BIT1) {             // 00MM1011 - data address mark
-                    logger(VERBOSE, "[Data address Mark]\n");
+                if (nextBits() == BIT1)             // 00MM1011 - data address mark
                     return DATA_ADDRESS_MARK;
-                }
                 break;
             case BIT00:                             // 00MM1000 (0) deleted address mark
-                if (nextBits() == BIT00) {
-                    logger(MINIMAL, "[Data address Mark]\n");
+                if (nextBits() == BIT00)
                     return DELETED_ADDRESS_MARK;
-                }
             }
     }
     return INDEX_HOLE_MARK;
@@ -263,40 +251,52 @@ void flux2track(byte *buf, size_t bufsize, const char *fname) {
             slot = getSlot(marker);
             switch (marker) {
             case INDEX_ADDRESS_MARK:
+                logger(VERBOSE, "Index Address Mark\n");
                 break;
             case ID_ADDRESS_MARK:
+                logger(VERBOSE, "Id Address Mark\n");
                 if (getData(ID_ADDRESS_MARK, dataBuf, true)) {
+                    logger(VERBOSE, "Track = %d, Sector = %d at physical sector %d\n", dataBuf[1], dataBuf[3], slot);
 
                     if (track != dataBuf[1] && track != -1)
-                        error("track recorded as %d and %d\n", track, dataBuf[1]);
+                        error("Track recorded as %d and %d\n", track, dataBuf[1]);
                     track = dataBuf[1];
                     sector = dataBuf[3];
                     if (sector == 0 || sector > DDSECTORS)
-                        error("invalid sector number %d\n", sector);
+                        error("Invalid sector number %d\n", sector);
 
                     if (curTrack.smap[slot] && curTrack.smap[slot] != sector)
-                        error("pyhsical sector %d allocated twice %d & %d\n", slot, curTrack.smap[slot], sector);
+                        error("Pyhsical sector %d allocated twice %d & %d\n", slot, curTrack.smap[slot], sector);
 
                     if (secToSlot[sector] != slot && secToSlot[sector] != DDSECTORS)    // physical is 0 to DDSECTORS - 1
-                        error("sector %d allocated to physical sectors %d & %d\n", sector, secToSlot[sector], slot);
+                        error("Sector %d allocated to physical sectors %d & %d\n", sector, secToSlot[sector], slot);
 
                     curTrack.smap[slot] = sector;
                     secToSlot[sector] = slot;
                 }
+                else {
+                    logger(MINIMAL, "Id Info corrupt for physical sector %d\n", slot);
+                }
                 break;
             case DATA_ADDRESS_MARK:
+                logger(VERBOSE, "Data Address Mark\n");
                 if (getData(DATA_ADDRESS_MARK, dataBuf, false)) {
+                    logger(VERBOSE, "Valid data for physical sector %d\n", slot);
+
                     if (!curTrack.hasData[slot]) {
                         memcpy(curTrack.track + slot * SECTORSIZE, dataBuf + 1, 128);
                         curTrack.hasData[slot] = true;
                     }
                     else if (memcmp(curTrack.track + slot * SECTORSIZE, dataBuf + 1, 128) != 0)
-                        error("pyhsical sector %d has different valid sector data\n", slot);
+                        error("Pyhsical sector %d has different valid sector data\n", slot);
                 }
+                else {
+                    logger(MINIMAL, "Data corrupt for physical sector %d\n", slot);
+                }
+
                 break;
             case DELETED_ADDRESS_MARK:
                 logger(ALWAYS, "Deleted address mark at physical sector %d\n", slot);
-
             }
 
         }
@@ -319,7 +319,7 @@ _declspec(noreturn) void usage() {
         "No IMD file is created for non zip files\n");
 }
 int main(int argc, char **argv) {
-   int arg;
+    int arg;
     int optCnt, optVal;
     char optCh;
 

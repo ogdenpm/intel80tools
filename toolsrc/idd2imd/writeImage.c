@@ -34,7 +34,9 @@ void addIMD(int track, imd_t *trackPtr, const char *fname) {
     byte fmt[DDSECTORS];             // skew assignments - assuming starting at 1
     int offset;                      // offset to make fmt align to smap
     byte secToPhsMap[DDSECTORS];     // map of sectors (-1) to slots
-    int missingCnt = 0;
+    int missingIdCnt = 0;
+    int missingSecCnt = 0;
+
     bool canRecover = true;
 
     if (track < 0 || track >= TRACKS) {
@@ -47,12 +49,15 @@ void addIMD(int track, imd_t *trackPtr, const char *fname) {
     }
     /* see what sectors are present */
     memset(secToPhsMap, 0xff, sizeof(secToPhsMap));
-    for (int i = 0; i < DDSECTORS; i++)
+    for (int i = 0; i < DDSECTORS; i++) {
         if (trackPtr->smap[i])
             secToPhsMap[trackPtr->smap[i] - 1] = i;
         else
-            missingCnt++;
-    if (missingCnt) {
+            missingIdCnt++;
+        if (!trackPtr->hasData[i])
+            missingSecCnt++;
+    }
+    if (missingIdCnt) {
         int skew = -1;
         for (int i = 0; i < DDSECTORS - 1; i++)
             if (secToPhsMap[i] != 0xff && secToPhsMap[i + 1] != 0xff) {
@@ -109,7 +114,7 @@ void addIMD(int track, imd_t *trackPtr, const char *fname) {
             putchar(' ');
         }putchar('\n');
     }
-    else if (missingCnt) {
+    else if (missingIdCnt) {
         if (canRecover) {
             printf("File %s - track %d recovering sector ids:", fname, track);
             for (int i = 0; i < DDSECTORS; i++, offset = (offset + 1) % DDSECTORS) {
@@ -129,7 +134,21 @@ void addIMD(int track, imd_t *trackPtr, const char *fname) {
 
         }
     }
-    if (missingCnt == 0 || canRecover)
+    if (missingSecCnt) {
+        if (missingIdCnt == 0 || canRecover) {
+            printf("File %s - track %d missing data for sectors:", fname, track);
+            for (int i = 0; i < DDSECTORS; i++) {
+                if (!trackPtr->hasData[i]) {
+                    printf(" %02d", trackPtr->smap[i]);
+                }
+            }
+            putchar('\n');
+        }
+        else
+            printf("File %s - track %d not usable - missing %d sector Ids and %d data sectors\n", fname, track, missingIdCnt, missingSecCnt);
+    
+    }
+    if (missingIdCnt == 0 || canRecover)
         trackData[track] = *trackPtr;           /* structure copy */
 }
 

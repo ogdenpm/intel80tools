@@ -12,7 +12,7 @@ enum {
 
 #define FLUXCHUNKSIZE 400000UL        // default chunk size for flux stream
 #define ARRAYCHUNKSIZE  20          // default chunk size for stream and index info
-#define DEFAULT_8_BYTE_TIME 3976        // 64 bits sample count @ standard flux clock rate of 24027428.5714285Hz
+#define DEFAULT_8_BYTE_TIME 3075        // 64 bits sample count @ standard flux clock rate of 24027428.5714285Hz
 #define ONEUS       24
 
 /* private types for managing the data from the flux stream */
@@ -278,10 +278,10 @@ void oob() {
            skip(size);
         }
         else if (type == 1) {
-            long streamPos = get4();
-            long transferTime = get4();
+            unsigned streamPos = get4();
+            unsigned transferTime = get4();
 
-            logger(MINIMAL, "StreamInfo block, Stream Position = %ld, Transfer Time = %ld\n", streamPos, transferTime);
+            logger(MINIMAL, "StreamInfo block, Stream Position = %lu, Transfer Time = %lu\n", streamPos, transferTime);
             addStreamInfo(streamPos, transferTime);
         }
         else {
@@ -298,11 +298,11 @@ void oob() {
             skip(size);
         }
         else {
-            long streamPos = get4();
-            long sampleCounter = get4();
-            long indexCounter = get4();
+            unsigned streamPos = get4();
+            unsigned sampleCounter = get4();
+            unsigned indexCounter = get4();
 
-            logger(MINIMAL, "Index block, Stream Position = %ld, Sample Counter = %ld, Index Counter = %ld\n", streamPos, sampleCounter, indexCounter);
+            logger(MINIMAL, "Index block, Stream Position = %lu, Sample Counter = %lu, Index Counter = %lu\n", streamPos, sampleCounter, indexCounter);
 
             addIndexBlock(streamPos, sampleCounter, indexCounter);
         }
@@ -453,55 +453,75 @@ void displayHist(int levels)
 
 }
 
-
+int bitLog(int bits) {
+#ifdef _DEBUG
+    if (debug > VERYVERBOSE) {
+        switch (bits) {
+        case BIT00: putchar('0');
+        case BIT0: putchar('0'); break;
+        case BIT0M: putchar('M'); break;
+        case BIT01: putchar('0');
+        case BIT1: putchar('1'); break;
+        case BIT1S: putchar('S'); break;
+        case BITEND: putchar('E'); break;
+        case BITBAD: putchar('B'); break;
+        }
+    }
+#endif
+    return bits;
+}
 int nextBits() {
     int ovl16 = 0;
     int val;
     static bool cbit;              // true if last flux transition was control clock
-    static int usClk = 24;         // most recent estimate of bit clock - flux count per 1us
+    static int usClk = 24;        // most recent estimate of bit clock - flux count per 1us
     static int dbitCnt = 0;
-    static long byteTimingStart;
+    static unsigned long byte8TimingStart;
+
 
     if (when() == 0) {                    // reset bit extract engine
         cbit = true;
         byteX8Time = DEFAULT_8_BYTE_TIME;
         dbitCnt = 0;
+        usClk = 24;             // counter per uS
     }
 
     while (1) {
         val = getNextFlux();
         if (val == END_BLOCK || val == END_FLUX)
-            return BITEND;
+            return bitLog(BITEND);
         sampleTime += val;              // update running sample time
-        val = (val + usClk / 2) / usClk;      // convert to us Value
+        val = (val + usClk / 2) / usClk;    // convert to uS
+
         // use consecutive 1s in the GAPs to sync clock i.e. pulses every 2us
         if (val != 2)                  // use consecutive 1s in the GAPs to sync clock
             dbitCnt = 0;
         else if (++dbitCnt == 1)        // record time for approximating byte timing
-            byteTimingStart = when();
+            byte8TimingStart = when();
         else if (dbitCnt == 4) {          // sync cbit
             if (cbit) {
                 cbit = false;
-                return BIT1S;            // flag a resync
+                return bitLog(BIT1S);            // flag a resync
             }
         } else if (dbitCnt == 65) {        // we have 8 bytes of 1's so estimate byte timing
-            byteX8Time = (when() - byteTimingStart);
-            usClk = (byteX8Time + 64) / 128;   // update usClk (rounded)
+            byteX8Time = (when() - byte8TimingStart);
+            usClk = (byteX8Time + 64) / 128;   // update usClk (rounded) used as good starting point
+            dbitCnt = 0;
         }
 
         switch (val) {
         case 2:
-            return cbit ? BIT0M : BIT1; // note 0 value is only vaild in markers
+            return bitLog(cbit ? BIT0M : BIT1); // note 0 value is only vaild in markers
         case 3:
-            return (cbit = !cbit) ? BIT00 : BIT1; // previous 0 for cbit already sent
+            return bitLog((cbit = !cbit) ? BIT00 : BIT1); // previous 0 for cbit already sent
         case 4:
-            return cbit ? BIT00 : BIT01;
+            return bitLog(cbit ? BIT00 : BIT01);
         case 5:
-            return (cbit = !cbit) ? BITBAD : BIT01;      // ending on cbit is invalid
+            return bitLog((cbit = !cbit) ? BITBAD : BIT01);      // ending on cbit is invalid
         default:                        // all invalid, but keep cbit updated
             if (val & 1)
                 cbit = !cbit;
-            return BITBAD;
+            return bitLog(BITBAD);
         }
 
     }
