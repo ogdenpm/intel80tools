@@ -281,7 +281,7 @@ void oob() {
             unsigned streamPos = get4();
             unsigned transferTime = get4();
 
-            logger(MINIMAL, "StreamInfo block, Stream Position = %lu, Transfer Time = %lu\n", streamPos, transferTime);
+            logger(VERBOSE, "StreamInfo block, Stream Position = %lu, Transfer Time = %lu\n", streamPos, transferTime);
             addStreamInfo(streamPos, transferTime);
         }
         else {
@@ -302,15 +302,15 @@ void oob() {
             unsigned sampleCounter = get4();
             unsigned indexCounter = get4();
 
-            logger(MINIMAL, "Index block, Stream Position = %lu, Sample Counter = %lu, Index Counter = %lu\n", streamPos, sampleCounter, indexCounter);
+            logger(VERBOSE, "Index block, Stream Position = %lu, Sample Counter = %lu, Index Counter = %lu\n", streamPos, sampleCounter, indexCounter);
 
             addIndexBlock(streamPos, sampleCounter, indexCounter);
         }
         break;
     case 4:
 
-        logger(MINIMAL, "KFInfo block:\n");
-        if (debug >= MINIMAL) {
+        logger(VERBOSE, "KFInfo block:\n");
+        if (debug >= VERBOSE) {
             int c;
             while (size-- > 0 && (c = get1()) != EOF)
                 if (c)
@@ -453,23 +453,40 @@ void displayHist(int levels)
 
 }
 
+
+#define BITS_PER_LINE   80
+
 int bitLog(int bits) {
-#ifdef _DEBUG
+    static int bitCnt;
+    static char bitBuf[BITS_PER_LINE + 1];
     if (debug > VERYVERBOSE) {
-        switch (bits) {
-        case BIT00: putchar('0');
-        case BIT0: putchar('0'); break;
-        case BIT0M: putchar('M'); break;
-        case BIT01: putchar('0');
-        case BIT1: putchar('1'); break;
-        case BIT1S: putchar('S'); break;
-        case BITEND: putchar('E'); break;
-        case BITBAD: putchar('B'); break;
+        if (bits == BITSTART)
+            bitCnt = 0;
+        else if (bitCnt && (bitCnt == BITS_PER_LINE || bits == BITFLUSH)) {
+            printf("%.*s\n", bitCnt, bitBuf);
+            bitCnt = 0;
+        } else if (bitCnt > 0 && (bitCnt == BITS_PER_LINE + 1 || bits == BITFLUSH_1)) {
+            char tmp = bitBuf[bitCnt - 1];      // last char
+            printf("%.*s\n", bitCnt - 1, bitBuf);
+            bitCnt = 1;
+            bitBuf[0] = tmp;
         }
+        switch (bits) {
+        case BIT00: bitBuf[bitCnt++] = '0';
+        case BIT0:  bitBuf[bitCnt++] = '0'; break;
+        case BIT0M: bitBuf[bitCnt++] = 'M'; break;
+        case BIT01: bitBuf[bitCnt++] = '0';
+        case BIT1:  bitBuf[bitCnt++] = '1'; break;
+        case BIT1S: bitBuf[bitCnt++] = 'S'; break;
+        case BITEND: bitBuf[bitCnt++] = 'E'; break;
+        case BITBAD: bitBuf[bitCnt++] = 'B'; break;
+        }
+
     }
-#endif
     return bits;
 }
+
+
 int nextBits() {
     int ovl16 = 0;
     int val;
@@ -484,6 +501,7 @@ int nextBits() {
         byteX8Time = DEFAULT_8_BYTE_TIME;
         dbitCnt = 0;
         usClk = 24;             // counter per uS
+        bitLog(BITSTART);
     }
 
     while (1) {

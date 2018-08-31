@@ -116,52 +116,47 @@ int getSlot(int marker) {
 
 
 
-unsigned short crcCheck(byte * buf, unsigned length) {
+bool crcCheck(byte * buf, unsigned length) {
     byte x;
     unsigned short crc = 0;
-    while (length-- > 0) {
+    if (length < 2)
+        return false;
+    while (length-- > 2) {
         x = crc >> 8 ^ *buf++;
         x ^= x >> 4;
         crc = (crc << 8) ^ (x << 12) ^ (x << 5) ^ x;
     }
 
-    return crc;
-}
-#define BYTEPERLINE 16
-int byteLogCnt;
-void byteLog(int val) {
-    if (debug >= VERYVERBOSE) {
-        if (byteLogCnt % BYTEPERLINE == 0)
-            printf("%03d:", byteLogCnt);
-        printf(" %02X", val);
-        if (byteLogCnt++ % BYTEPERLINE == BYTEPERLINE - 1)
-            putchar('\n');
-    }
+    return crc == (buf[0] * 256 + buf[1]);      // check with recorded crc
 }
 
-bool getData(int marker, byte *buf, bool cbit) {
+enum {
+    BAD_DATA = 256,
+};
+
+// read data into buffer and check crc  ok
+// returns bytes read + marker if CRC error or bad flux transition
+int getData(int marker, byte *buf, bool cbit) {
     int val = 0;
     int bitCnt = cbit ? 1 : 0;
-    int cnt;
-    byte *s = buf;
-
-    byteLogCnt = 0;
+    int toRead;
+    int byteCnt = 0;
 
     switch (marker) {
     case ID_ADDRESS_MARK:
-        cnt = 6;
+        toRead = 7;
         break;
     case DATA_ADDRESS_MARK:
     case DELETED_ADDRESS_MARK:
-        cnt = 130;
+        toRead = 131;
         break;
     case INDEX_ADDRESS_MARK:
-        return true;
+        return 0;
     default:
-        return false;
+        return 0;
     }
 
-    *s++ = marker;        // record the marker
+    buf[byteCnt++] = marker;        // record the marker
 
     do {
         switch (nextBits()) {
@@ -174,23 +169,47 @@ bool getData(int marker, byte *buf, bool cbit) {
         case BIT1S:         // had to resync in data which shouldn't happen
         case BITEND:        // ran out of flux data
         case BITBAD:        // corrupt flux data
-            logger(VERYVERBOSE, "\nBad flux transition\n");
-            return false;
-
-
+            bitLog(BITFLUSH);   // flush every thing
+            return byteCnt + BAD_DATA;
         }
         if (bitCnt >= 8) {
-            byteLog(*s++ = bitCnt == 8 ? val : val >> 1);
+            buf[byteCnt++] = bitCnt == 8 ? val : val >> 1;
             bitCnt -= 8;
-            cnt--;
         }
 
-    } while (cnt > 0);
+    } while (byteCnt < toRead);
+    bitLog(bitCnt ? BITFLUSH_1 : BITFLUSH);
 
-    logger(VERYVERBOSE, "\n");          // terminate any dump in progress
-    s -= 2;                 // backup to start of crc
-    return crcCheck(buf, (unsigned)(s - buf)) == s[0] * 256 + s[1]; // ok if crc matches
+    return crcCheck(buf, byteCnt) ? byteCnt : byteCnt + BAD_DATA;    // flag if crc error
 }
+
+#define BYTES_PER_LINE  16
+
+void dumpBuf(byte *buf, int length) {
+    char text[BYTES_PER_LINE + 1];
+
+    if (debug < VERYVERBOSE)
+        return;
+
+    for (int i = 0; i < length; i += BYTES_PER_LINE) {
+        printf("%04x:", i);
+        for (int j = 0; j < BYTES_PER_LINE; j++)
+            if (i + j < length) {
+                printf(" %02X", buf[i + j]);
+                if (' ' <= buf[i + j] && buf[i + j] <= '~')
+                    text[j] = buf[i + j];
+                else
+                    text[j] = '.';
+            }
+            else {
+                printf(" --");
+                text[j] = 0;
+            }
+        text[BYTES_PER_LINE] = 0;
+        printf(" |%s|\n", text);
+    }
+}
+
 
 
 imd_t curTrack;
@@ -203,18 +222,26 @@ int getMarker() {
         if (bits == BIT00 && nextBits() == BIT0M && nextBits() == BIT0M && nextBits() == BIT1)
             switch (nextBits()) {
             case BIT1:                              // 00MM11                     
-                if ((bits = nextBits()) == BIT00)   // 00MM1100 - index address mark
+                if ((bits = nextBits()) == BIT00) { // 00MM1100 - index address mark
+                    bitLog(BITFLUSH);
                     return INDEX_ADDRESS_MARK;
-                else if (bits == BIT1 && nextBits() == BIT00)
+                }
+                else if (bits == BIT1 && nextBits() == BIT00) {
+                    bitLog(BITFLUSH_1);
                     return ID_ADDRESS_MARK;         // 00MM1110 (0) id address mark + preread of next 0 bit
+                }
                 break;
             case BIT01:
-                if (nextBits() == BIT1)             // 00MM1011 - data address mark
+                if (nextBits() == BIT1) {             // 00MM1011 - data address mark
+                    bitLog(BITFLUSH);
                     return DATA_ADDRESS_MARK;
+                }
                 break;
             case BIT00:                             // 00MM1000 (0) deleted address mark
-                if (nextBits() == BIT00)
+                if (nextBits() == BIT00) {
+                    bitLog(BITFLUSH);
                     return DELETED_ADDRESS_MARK;
+                }
             }
     }
     return INDEX_HOLE_MARK;
@@ -229,7 +256,9 @@ void flux2track(byte *buf, size_t bufsize, const char *fname) {
     int slot;
     int i;
     int marker;
+    int missingIdCnt, missingSecCnt;
     byte secToSlot[DDSECTORS + 1];
+    int len;
 
     readFluxBuffer(buf, bufsize);         // load in the flux data from buffer extracted from zip file
 
@@ -251,62 +280,84 @@ void flux2track(byte *buf, size_t bufsize, const char *fname) {
             slot = getSlot(marker);
             switch (marker) {
             case INDEX_ADDRESS_MARK:
-                logger(VERBOSE, "Index Address Mark\n");
+                logger(VERBOSE, "Blk %d - Index Address Mark\n", blk + 1);
                 break;
             case ID_ADDRESS_MARK:
-                logger(VERBOSE, "Id Address Mark\n");
-                if (getData(ID_ADDRESS_MARK, dataBuf, true)) {
-                    logger(VERBOSE, "Track = %d, Sector = %d at physical sector %d\n", dataBuf[1], dataBuf[3], slot);
-
-                    if (track != dataBuf[1] && track != -1)
-                        error("Track recorded as %d and %d\n", track, dataBuf[1]);
+                if ((len = getData(marker, dataBuf, true)) & BAD_DATA) {
+                    logger(curTrack.smap[slot] ? VERBOSE : MINIMAL, "Block %d - Id corrupt for physical sector %d\n", blk + 1, slot);
+                    dumpBuf(dataBuf + 1, (len & 0xff) - 1);
+                }
+                else {
+                    logger(VERBOSE, "Block %d - Sector Id - Track = %d, Sector = %d at physical sector %d\n", blk + 1, dataBuf[1], dataBuf[3], slot);
+                    dumpBuf(dataBuf + 1, len - 1);
+                    if (track != -1 && track != dataBuf[1]) {
+                        logger(ALWAYS, "Block %d - Multiple track Ids %d and %d - skipping track", track, dataBuf[1]);
+                        return;
+                    }
                     track = dataBuf[1];
                     sector = dataBuf[3];
-                    if (sector == 0 || sector > DDSECTORS)
-                        error("Invalid sector number %d\n", sector);
+                    if (sector == 0 || sector > DDSECTORS) {
+                        logger(ALWAYS, "Block %d - Ignoring invalid sector number %d at physical sector %d\n", blk + 1, sector, slot);
+                        continue;
+                    }
 
-                    if (curTrack.smap[slot] && curTrack.smap[slot] != sector)
-                        error("Pyhsical sector %d allocated twice %d & %d\n", slot, curTrack.smap[slot], sector);
+                    if (curTrack.smap[slot] && curTrack.smap[slot] != sector) {
+                        logger(ALWAYS, "Block %d - Pyhsical sector %d already used by sector %d ignoring allocation to sector %d\n",
+                            blk + 1, slot, curTrack.smap[slot], sector);
+                        continue;
+                    }
 
-                    if (secToSlot[sector] != slot && secToSlot[sector] != DDSECTORS)    // physical is 0 to DDSECTORS - 1
-                        error("Sector %d allocated to physical sectors %d & %d\n", sector, secToSlot[sector], slot);
+                    if (secToSlot[sector] != slot && secToSlot[sector] != DDSECTORS) {   // physical is 0 to DDSECTORS - 1
+                        logger(ALWAYS, "Block %d - Sector %d already allocated to pyhsical sector %d ignoring allocation to physical sector %d\n",
+                            blk + 1, curTrack.smap[slot], slot, sector);
+                        continue;
 
+                    }
                     curTrack.smap[slot] = sector;
                     secToSlot[sector] = slot;
                 }
-                else {
-                    logger(MINIMAL, "Id Info corrupt for physical sector %d\n", slot);
-                }
-                break;
-            case DATA_ADDRESS_MARK:
-                logger(VERBOSE, "Data Address Mark\n");
-                if (getData(DATA_ADDRESS_MARK, dataBuf, false)) {
-                    logger(VERBOSE, "Valid data for physical sector %d\n", slot);
-
-                    if (!curTrack.hasData[slot]) {
-                        memcpy(curTrack.track + slot * SECTORSIZE, dataBuf + 1, 128);
-                        curTrack.hasData[slot] = true;
-                    }
-                    else if (memcmp(curTrack.track + slot * SECTORSIZE, dataBuf + 1, 128) != 0)
-                        error("Pyhsical sector %d has different valid sector data\n", slot);
-                }
-                else {
-                    logger(MINIMAL, "Data corrupt for physical sector %d\n", slot);
-                }
-
                 break;
             case DELETED_ADDRESS_MARK:
-                logger(ALWAYS, "Deleted address mark at physical sector %d\n", slot);
+                logger(ALWAYS, "Block %d - Deleted Data Marker seen at pyhsical sector %d\n", blk + 1, slot);
+            case DATA_ADDRESS_MARK:
+                if ((len = getData(marker, dataBuf, marker == DELETED_ADDRESS_MARK)) & BAD_DATA) {
+                    logger(curTrack.smap[slot] ? VERBOSE : MINIMAL, "Block %d - Data corrupt for physical sector %d\n", blk + 1, slot);
+                    dumpBuf(dataBuf + 1, (len & 0xff) - 1);
+                }
+                else {
+                    if (curTrack.smap[slot])
+                        logger(VERBOSE, "Block %d - Data for sector %d at physical sector\n", blk + 1, curTrack.smap[slot], slot);
+                    else
+                        logger(VERBOSE, "Block %d - Data for physical sector %d\n", blk + 1, slot);
+
+                    dumpBuf(dataBuf + 1, len - 1);
+
+                    if (marker == DATA_ADDRESS_MARK) {
+                        if (!curTrack.hasData[slot]) {
+                            memcpy(curTrack.track + slot * SECTORSIZE, dataBuf + 1, 128);
+                            curTrack.hasData[slot] = true;
+                        }
+                        else if (memcmp(curTrack.track + slot * SECTORSIZE, dataBuf + 1, 128) != 0)
+                            logger(ALWAYS, "Block %d - Pyhsical sector %d has different valid sector data\n", blk + 1, slot);
+                    }
+                }
+                break;
             }
 
         }
-        for (i = 0; i < DDSECTORS && curTrack.smap[i] && curTrack.hasData[i]; i++)
-            ;
-        if (i == DDSECTORS) {
+        missingIdCnt = missingSecCnt = 0;
+        for (i = 0; i < DDSECTORS; i++) {
+            if (!curTrack.smap[i])
+                missingIdCnt++;
+            if (!curTrack.hasData[i])
+                missingSecCnt++;
+        }
+        ;
+        if (missingIdCnt == 0 && missingSecCnt == 0) {
             addIMD(track, &curTrack, fname);
             return;
         }
-        logger(VERBOSE, "File %s - %s after trying blk %d\n", fname, (track == -1) ? "No Id markers" : "Missing sectors", blk++);
+        logger(MINIMAL, "File %s - missing %d ids and %d sectors after trying blk %d\n", fname, missingIdCnt, missingSecCnt, ++blk);
     }
 }
 

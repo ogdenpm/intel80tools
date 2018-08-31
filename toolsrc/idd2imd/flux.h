@@ -34,7 +34,12 @@ enum {      // bit combinations returned by nextBits
     BIT00,
     BIT01,
     BITEND, // no more bits
-    BITBAD  // illegal flux pattern
+    BITBAD,  // illegal flux pattern
+
+    BITSTART,   // used to signal start of bitstream for bitLogging
+    BITFLUSH,    // used to flush bitstream for bitLogging
+    BITFLUSH_1   // variant that flushes all but last bit (used for marker alignment)
+
 };
 
 extern int debug;
@@ -61,3 +66,5 @@ _declspec(noreturn) void error(char *fmt, ...);
 void logger(int level, char *fmt, ...);
 void displayHist(int levels);
 void resetIMD();
+
+int bitLog(int bits);
