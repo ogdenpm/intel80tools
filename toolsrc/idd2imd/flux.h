@@ -45,6 +45,8 @@ enum {      // bit combinations returned by nextBits
 extern int debug;
 extern bool showSectorMap;
 
+extern char curFile[];
+
 #define LINELEN 80
 enum {
     ALWAYS = 0, MINIMAL, VERBOSE, VERYVERBOSE
@@ -60,7 +62,7 @@ void *xalloc(void *buf, size_t size);
 size_t readFluxBuffer(byte *buf, size_t bufsize);
 
 int x8ByteTime();
-void addIMD(int track, imd_t *trackPtr, const char *fname);
+void addIMD(int track, imd_t *trackPtr);
 void WriteImgFile(char *fname, char *comment);
 _declspec(noreturn) void error(char *fmt, ...);
 void logger(int level, char *fmt, ...);

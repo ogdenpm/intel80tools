@@ -486,6 +486,8 @@ int bitLog(int bits) {
     return bits;
 }
 
+#define DGUARD     (usClk * 3 / 5)     // 60% guard for dbit
+#define CGUARD     (usClk * 2 / 5)     // 40% guard for cbit
 
 int nextBits() {
     int ovl16 = 0;
@@ -494,9 +496,9 @@ int nextBits() {
     static int usClk = 24;        // most recent estimate of bit clock - flux count per 1us
     static int dbitCnt = 0;
     static unsigned long byte8TimingStart;
+    int us;
 
-
-    if (when() == 0) {                    // reset bit extract engine
+    if (when() == 0) {            // reset bit extract engine
         cbit = true;
         byteX8Time = DEFAULT_8_BYTE_TIME;
         dbitCnt = 0;
@@ -509,10 +511,16 @@ int nextBits() {
         if (val == END_BLOCK || val == END_FLUX)
             return bitLog(BITEND);
         sampleTime += val;              // update running sample time
-        val = (val + usClk / 2) / usClk;    // convert to uS
+        us = val / usClk;
+        if (us & 1)
+            cbit = !cbit;
+        if (val % usClk >= usClk - (cbit ? DGUARD : CGUARD)) {   // check for early D or C bit
+            us++;
+            cbit = !cbit;
+        }
 
         // use consecutive 1s in the GAPs to sync clock i.e. pulses every 2us
-        if (val != 2)                  // use consecutive 1s in the GAPs to sync clock
+        if (us != 2)                  // use consecutive 1s in the GAPs to sync clock
             dbitCnt = 0;
         else if (++dbitCnt == 1)        // record time for approximating byte timing
             byte8TimingStart = when();
@@ -527,18 +535,17 @@ int nextBits() {
             dbitCnt = 0;
         }
 
-        switch (val) {
+        switch (us) {
         case 2:
             return bitLog(cbit ? BIT0M : BIT1); // note 0 value is only vaild in markers
         case 3:
-            return bitLog((cbit = !cbit) ? BIT00 : BIT1); // previous 0 for cbit already sent
+            return bitLog(cbit ? BIT00 : BIT1); // previous 0 for cbit already sent
         case 4:
             return bitLog(cbit ? BIT00 : BIT01);
         case 5:
-            return bitLog((cbit = !cbit) ? BITBAD : BIT01);      // ending on cbit is invalid
+            return bitLog(cbit ? BITBAD : BIT01);      // ending on cbit is invalid
         default:                        // all invalid, but keep cbit updated
-            if (val & 1)
-                cbit = !cbit;
+
             return bitLog(BITBAD);
         }
 

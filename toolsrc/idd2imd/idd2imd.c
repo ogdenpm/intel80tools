@@ -24,6 +24,7 @@
 int debug = 0;      // debug level
 int histLevels = 0;
 bool showSectorMap = false;
+char curFile[_MAX_PATH + _MAX_FNAME + _MAX_EXT + 3];    // core file name + possibly [zip file entry]
 /*
  * Display error message and exit
  */
@@ -109,8 +110,7 @@ int getSlot(int marker) {
     }
     if (lastSlot - initialSlot > 3)
         logger(MINIMAL, "warning more than 3 sectors missing\n");
-    if (lastSlot >= DDSECTORS)
-        error("physical sector (%d) >= %d\n", lastSlot, DDSECTORS);
+
     return lastSlot;
 }
 
@@ -249,7 +249,7 @@ int getMarker() {
 
 
 
-void flux2track(byte *buf, size_t bufsize, const char *fname) {
+void flux2track(byte *buf, size_t bufsize) {
     byte dataBuf[131];
     int track = -1, sector;
     int blk = 0;
@@ -268,16 +268,20 @@ void flux2track(byte *buf, size_t bufsize, const char *fname) {
     while (1) {
         if (seekBlock(blk) == 0) {
             if (track == -1) {
-                printf("File %s - No Id markers\n", fname);
+                printf("File %s - No Id markers\n", curFile);
                 return;
             }
-            addIMD(track, &curTrack, fname);
+            addIMD(track, &curTrack);
             return;
         }
         slot = getSlot(INDEX_HOLE_MARK);                    // initialise the pyhsical sector logic
 
         while ((marker = getMarker()) != INDEX_HOLE_MARK) {          // read this track
-            slot = getSlot(marker);
+            if ((slot = getSlot(marker)) >= DDSECTORS) {
+                logger(ALWAYS, "File %s - Physical sector (%d) >= %d\n", curFile, slot, DDSECTORS);
+                continue;
+            }
+
             switch (marker) {
             case INDEX_ADDRESS_MARK:
                 logger(VERBOSE, "Blk %d - Index Address Mark\n", blk + 1);
@@ -354,10 +358,10 @@ void flux2track(byte *buf, size_t bufsize, const char *fname) {
         }
         ;
         if (missingIdCnt == 0 && missingSecCnt == 0) {
-            addIMD(track, &curTrack, fname);
+            addIMD(track, &curTrack);
             return;
         }
-        logger(MINIMAL, "File %s - missing %d ids and %d sectors after trying blk %d\n", fname, missingIdCnt, missingSecCnt, ++blk);
+        logger(MINIMAL, "File %s - missing %d ids and %d sectors after trying blk %d\n", curFile, missingIdCnt, missingSecCnt, ++blk);
     }
 }
 
@@ -405,26 +409,29 @@ int main(int argc, char **argv) {
 
         if (_stricmp(ext, ".raw") == 0) {
             if ((fp = fopen(argv[arg], "rb")) == NULL)
-                error("can't open %s\n", argv[arg]);
-            resetIMD();
-            fseek(fp, 0, SEEK_END);
-            bufsize = ftell(fp);
-            rewind(fp);
-            buf = (byte *)xalloc(NULL, bufsize);
-            if (fread(buf, bufsize, 1, fp) != 1)
-                error("failed to load %s\n", argv[arg]);
+                logger(ALWAYS, "can't open %s\n", argv[arg]);
             else {
-                logger(MINIMAL, "procesing %s\n", argv[arg]);
-                flux2track(buf, bufsize, argv[arg]);
-                if (histLevels)
-                    displayHist(histLevels);
+                resetIMD();
+                fseek(fp, 0, SEEK_END);
+                bufsize = ftell(fp);
+                rewind(fp);
+                buf = (byte *)xalloc(NULL, bufsize);
+                if (fread(buf, bufsize, 1, fp) != 1)
+                    logger(ALWAYS, "failed to load %s\n", argv[arg]);
+                else {
+                    sprintf(curFile, "%s%s", fname, ext);
+                    logger(MINIMAL, "procesing %s\n", curFile);
+                    flux2track(buf, bufsize);
+                    if (histLevels)
+                        displayHist(histLevels);
+                }
+                fclose(fp);
             }
-            fclose(fp);
         }
         else if (_stricmp(ext, ".zip") != 0)
             usage();
         else if ((zip = zip_open(argv[arg], 0, 'r')) == NULL)
-            error("can't open %s\n", argv[arg]);
+            logger(ALWAYS, "can't open %s\n", argv[arg]);
         else {
             resetIMD();
             int n = zip_total_entries(zip);
@@ -440,7 +447,8 @@ int main(int argc, char **argv) {
                         if (!(buf = (byte *)calloc(1, bufsize)))
                             error("out of memory\n");
                         zip_entry_noallocread(zip, (void *)buf, bufsize);
-                        flux2track(buf, bufsize, name);
+                        sprintf(curFile, "%s%s[%s]", fname, ext, name);
+                        flux2track(buf, bufsize);
                         if (histLevels)
                             displayHist(histLevels);
                         free(buf);
