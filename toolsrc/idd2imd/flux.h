@@ -3,9 +3,10 @@
 
 typedef unsigned char byte;
 typedef unsigned short word;
-#define TRACKS      77
-#define DDSECTORS   52
-#define SECTORSIZE  128
+#define MAXTRACKS       80
+#define MAXSECTORS      52
+#define SECTORSIZE      128
+#define MAXTRACKSIZE    10417       // max data based on 10417 bytes per unformatted track
 
 
 enum {
@@ -18,11 +19,20 @@ enum {
     HASDATA = 2
 };
 
+typedef struct _sector {
+    struct _sector *next;
+    int offset;                         // offset to start of sector in bytes from index mark
+    byte id;                            // the sector id
+    byte *buf;                          // pointer to the sector data or null if not present
+} sector_t;
 
 typedef struct {
-    byte smap[DDSECTORS];               // physical slot to sector map
-    bool hasData[DDSECTORS];            // in physical slot order
-    byte track[DDSECTORS * SECTORSIZE]; // in physical slot order
+    byte fmt;
+    byte spt;
+    int size;                            // sector size
+    byte smap[MAXSECTORS];               // physical slot to sector map
+    bool hasData[MAXSECTORS];            // in physical slot order
+    byte track[MAXTRACKSIZE]; // in physical slot order
 } imd_t;
 
 
@@ -42,6 +52,17 @@ enum {      // bit combinations returned by nextBits
 
 };
 
+
+enum {      // disk format types
+    UNKNOWN_FMT,
+    FM,
+    MFM,
+    M2FM
+};
+
+#define MINSAMPLE   20000
+#define SAMPLESCALER 500
+
 extern int debug;
 extern bool showSectorMap;
 
@@ -52,12 +73,12 @@ enum {
     ALWAYS = 0, MINIMAL, VERBOSE, VERYVERBOSE
 };
 
-int nextBits();
+int nextBitsM2FM();
 size_t seekBlock(int blk);
 void resetFlux();
 void freeMem();
 size_t where();
-long when();
+long when(int val);
 void *xalloc(void *buf, size_t size);
 size_t readFluxBuffer(byte *buf, size_t bufsize);
 
@@ -68,5 +89,8 @@ _declspec(noreturn) void error(char *fmt, ...);
 void logger(int level, char *fmt, ...);
 void displayHist(int levels);
 void resetIMD();
+void flux2track();
+int getNextFlux();
 
 int bitLog(int bits);
+int guessFormat();

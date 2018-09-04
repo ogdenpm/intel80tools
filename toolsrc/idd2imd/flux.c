@@ -112,7 +112,7 @@ static size_t fluxPos;            // current flux transition
 
 static long sampleTime;         // tracks the sample flux time since start of track
 static size_t endTrack;         // flux index for end of track
-static long byteX8Time;         // most recent timing fo 8 bytes used to support variances in disk rotation
+static long byteX8Time = DEFAULT_8_BYTE_TIME;         //timing fo 8 bytes used to support variances in disk rotation
 
 /*
     seek to pos in flux stream, updating fluxPos and curBlk as required
@@ -139,13 +139,13 @@ static bool fluxSeek(size_t pos) {
 
 // seeks to the start of a full block and returns streamPos of next block
 // or 0 if no full block or seek error
+// if blk is -ve it sets up to read everything
 size_t seekBlock(int blk) {
+    sampleTime = 0;                         // reset sample time
     if (blk < 0 || blk >= indexArrayCnt - 1)
         return 0;
     if (!fluxSeek(indexArray[blk].streamPos))
         return 0;
-    sampleTime = 0;                         // reset sample time
-
     return endTrack = indexArray[blk + 1].streamPos;
 }
 
@@ -154,9 +154,14 @@ size_t where() {
     return fluxPos;
 }
 
-/* utility function to return current sampleTime of last flux transition */
-long when() {
-    return sampleTime;
+/* utility function to return current sampleTime of last flux transition
+   after adding in the current flux val or setting to zero if val -ve
+*/
+long when(int val) {
+    if (val >= 0)
+        return sampleTime += val;
+    else
+        return sampleTime = 0;
 }
 
 int x8ByteTime() {
@@ -268,14 +273,14 @@ void oob() {
 
     switch (type) {
     case 0:
-        logger(MINIMAL, "Invaild OOB - skipped\n"); 
+        logger(MINIMAL, "Invaild OOB - skipped\n");
         skip(size);
         break;
     case 1:
     case 3:
         if (size != 8) {
             logger(MINIMAL, "bad OOB block type %d size %d - skipped\n", type, size);
-           skip(size);
+            skip(size);
         }
         else if (type == 1) {
             unsigned streamPos = get4();
@@ -317,9 +322,10 @@ void oob() {
                     putchar(c);
                 else
                     putchar('\n');
-        } else
+        }
+        else
 
-        skip(size);
+            skip(size);
 
         break;
     case 0xd:
@@ -335,10 +341,11 @@ void oob() {
 /*
     Process the flux stream
 */
-size_t readFluxBuffer(byte *buf,  size_t bufsize) {
+size_t readFluxBuffer(byte *buf, size_t bufsize) {
     int c;
     initInput(buf, bufsize);
     resetFlux();
+    addIndexBlock(0, 0, 0);         // mark start of all data
 
     while ((c = get1()) != EOF) {
         if (c >= 0xe || (c < 7 && (c = get1()) != EOF) || (c == 0xc && (c = get2()) != EOF))
@@ -388,19 +395,17 @@ void displayHist(int levels)
     int cols[HIST_MAX + 1];
     char line[HIST_MAX + 2];        // allow for 0 at end
     int val;
+    int blk = 1;
     int maxHistCnt = 0;
     int maxHistVal = 0;
     int outRange = 0;
     double sck = 24027428.5714285;
 
     /* read all of the flux data */
-    fluxSeek(0);        // start of all flux data
-    endTrack = 0;       // no end track
-
     memset(histogram, 0, sizeof(histogram));
 
-    while ((val = getNextFlux()) != END_FLUX)
-        if (val >= 0) {
+    while (seekBlock(blk++)) {
+        while ((val = getNextFlux()) != END_FLUX && val != END_BLOCK) {
             if (val > maxHistVal)
                 maxHistVal = val;
             if (val > HIST_MAX)
@@ -408,7 +413,7 @@ void displayHist(int levels)
             else if (++histogram[val] > maxHistCnt)
                 maxHistCnt++;
         }
-
+    }
     if (maxHistCnt == 0) {
         logger(ALWAYS, "No histogram data\n");
         return;
@@ -420,7 +425,7 @@ void displayHist(int levels)
     int lowVal, highVal;
     for (lowVal = 0; lowVal < ONEUS / 2 && cols[lowVal] == 0; lowVal++)
         ;
-    for (highVal = HIST_MAX; highVal >= ONEUS * 5 + ONEUS / 2  && cols[highVal] == 0; highVal--)
+    for (highVal = HIST_MAX; highVal >= ONEUS * 5 + ONEUS / 2 && cols[highVal] == 0; highVal--)
         ;
 
     printf("max flux value = %.1fus, flux values > %.1fus = %d\n", maxHistVal * 1000000.0 / sck, HIST_MAX * 1000000.0 / sck, outRange);
@@ -431,7 +436,7 @@ void displayHist(int levels)
     for (int i = levels * 2; i > 0; i -= 2) {
         line[highVal + 1] = fillch = 0;
         for (int j = highVal; j >= lowVal; j--) {
-            if (cols[j]  >= i - 1) {
+            if (cols[j] >= i - 1) {
                 line[j] = cols[j] >= i ? '#' : '+';
                 fillch = ' ';
             }
@@ -454,100 +459,3 @@ void displayHist(int levels)
 }
 
 
-#define BITS_PER_LINE   80
-
-int bitLog(int bits) {
-    static int bitCnt;
-    static char bitBuf[BITS_PER_LINE + 1];
-    if (debug > VERYVERBOSE) {
-        if (bits == BITSTART)
-            bitCnt = 0;
-        else if (bitCnt && (bitCnt == BITS_PER_LINE || bits == BITFLUSH)) {
-            printf("%.*s\n", bitCnt, bitBuf);
-            bitCnt = 0;
-        } else if (bitCnt > 0 && (bitCnt == BITS_PER_LINE + 1 || bits == BITFLUSH_1)) {
-            char tmp = bitBuf[bitCnt - 1];      // last char
-            printf("%.*s\n", bitCnt - 1, bitBuf);
-            bitCnt = 1;
-            bitBuf[0] = tmp;
-        }
-        switch (bits) {
-        case BIT00: bitBuf[bitCnt++] = '0';
-        case BIT0:  bitBuf[bitCnt++] = '0'; break;
-        case BIT0M: bitBuf[bitCnt++] = 'M'; break;
-        case BIT01: bitBuf[bitCnt++] = '0';
-        case BIT1:  bitBuf[bitCnt++] = '1'; break;
-        case BIT1S: bitBuf[bitCnt++] = 'S'; break;
-        case BITEND: bitBuf[bitCnt++] = 'E'; break;
-        case BITBAD: bitBuf[bitCnt++] = 'B'; break;
-        }
-
-    }
-    return bits;
-}
-
-#define DGUARD     (usClk * 3 / 5)     // 60% guard for dbit
-#define CGUARD     (usClk * 2 / 5)     // 40% guard for cbit
-
-int nextBits() {
-    int ovl16 = 0;
-    int val;
-    static bool cbit;              // true if last flux transition was control clock
-    static int usClk = 24;        // most recent estimate of bit clock - flux count per 1us
-    static int dbitCnt = 0;
-    static unsigned long byte8TimingStart;
-    int us;
-
-    if (when() == 0) {            // reset bit extract engine
-        cbit = true;
-        byteX8Time = DEFAULT_8_BYTE_TIME;
-        dbitCnt = 0;
-        usClk = 24;             // counter per uS
-        bitLog(BITSTART);
-    }
-
-    while (1) {
-        val = getNextFlux();
-        if (val == END_BLOCK || val == END_FLUX)
-            return bitLog(BITEND);
-        sampleTime += val;              // update running sample time
-        us = val / usClk;
-        if (us & 1)
-            cbit = !cbit;
-        if (val % usClk >= usClk - (cbit ? DGUARD : CGUARD)) {   // check for early D or C bit
-            us++;
-            cbit = !cbit;
-        }
-
-        // use consecutive 1s in the GAPs to sync clock i.e. pulses every 2us
-        if (us != 2)                  // use consecutive 1s in the GAPs to sync clock
-            dbitCnt = 0;
-        else if (++dbitCnt == 1)        // record time for approximating byte timing
-            byte8TimingStart = when();
-        else if (dbitCnt == 4) {          // sync cbit
-            if (cbit) {
-                cbit = false;
-                return bitLog(BIT1S);            // flag a resync
-            }
-        } else if (dbitCnt == 65) {        // we have 8 bytes of 1's so estimate byte timing
-            byteX8Time = (when() - byte8TimingStart);
-            usClk = (byteX8Time + 64) / 128;   // update usClk (rounded) used as good starting point
-            dbitCnt = 0;
-        }
-
-        switch (us) {
-        case 2:
-            return bitLog(cbit ? BIT0M : BIT1); // note 0 value is only vaild in markers
-        case 3:
-            return bitLog(cbit ? BIT00 : BIT1); // previous 0 for cbit already sent
-        case 4:
-            return bitLog(cbit ? BIT00 : BIT01);
-        case 5:
-            return bitLog(cbit ? BITBAD : BIT01);      // ending on cbit is invalid
-        default:                        // all invalid, but keep cbit updated
-
-            return bitLog(BITBAD);
-        }
-
-    }
-}
