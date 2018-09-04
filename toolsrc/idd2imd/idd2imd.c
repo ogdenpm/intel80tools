@@ -94,7 +94,6 @@ int main(int argc, char **argv) {
                     logger(ALWAYS, "Failed to load %s\n");
                 else {
                     readFluxBuffer(buf, bufsize);         // load in the flux data from buffer extracted from zip file
-                    guessFormat();
                     flux2track();
                     if (histLevels)
                         displayHist(histLevels);
@@ -123,7 +122,6 @@ int main(int argc, char **argv) {
 
                         zip_entry_noallocread(zip, (void *)buf, bufsize);
                         readFluxBuffer(buf, bufsize);         // load in the flux data from buffer extracted from zip file
-                        guessFormat();
                         flux2track();
                         if (histLevels)
                             displayHist(histLevels);
