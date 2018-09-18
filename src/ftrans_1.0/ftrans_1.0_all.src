@@ -1,0 +1,1570 @@
+ftrans.pex
+# common literals
+TRUE            '0FFh'
+FALSE           '0'
+CR              '0Dh'
+LF              '0Ah'
+ESC             '01Bh'
+bool            'byte'
+word            'address'
+pointer         'address'
+wpointer        'address'
+CONSOLE$OUT     '0'
+CONSOLE$IN      '1'
+#
+# protocol bytes
+NUL             '0'
+SOH             '1'
+STX             '2'
+ACK             '6'
+NAK             '15h'
+ETB             '17h'
+# ISIS system calls
+Close           P("word" conn,"wpointer" status$p)
+Error           P(A errNum)
+Exit            P
+Open            P("wpointer" conn$p,"pointer" buf,"word" mode,"word" echo,"wpointer" status$p)
+Read            P(A conn,A buff$p,A count,A actual$p,A status$p)
+Seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
+Spath           P(A path$p,A info$p,A status$p)
+Write           P(A aftn,A buf$ptr,A len,A status$ptr)
+CSTS            PB
+CI              PB
+
+# UART flags
+TXRDY           '1'
+RXRDY           '2'
+TXEMPTY         '4'
+PE              '8'
+OE              '16'
+FE              '32'
+SYNDET          '64'
+DSR             '128'
+RXERROR         '(PE + OE + FE)'
+
+
+CONTROLPORT     '0F5h'
+STATUSPORT      '0F5h'
+DATAPORT        '0F4h'
+UARTRESET       '40h'
+#  mode 1 stop bit, even parity, 8 bit char 16x clock
+UARTMODE        '7Eh'
+#  command  RTS, error reset, receive enable, DTR, transmit enable
+UARTCOMMAND     '37h'
+ 
+
+# common ISIS error codes
+NOERROR         '0'
+BADFILESPEC     '4'
+BADDEVICE       '5'
+NOSUCHFILE      '0Dh'
+WRITEPROTECTED  '0Eh'
+MISSINGFNAME    '17h'
+MISSINGEXT      '1ch'
+UNKNOWNDEV      '5'
+
+# FTRANS error codes
+NOSTX           '0F2h'
+CRCERROR        '0F4h'
+TRANSFERERROR        '0F5h'
+NODATA          '0FDh'
+
+# public procedures in source
+MasterConnect         P
+Deblank         P(A str)A
+Dmeq            P(A dir$aftn,A search$arg,A initial$i$no,A dir$entry)A
+DType           P(B drive)B
+FileError       P(A status,A ptr,B callExit)
+ForceUpper      P(A bufferPtr)
+GetByte         PB
+IoError         P(A fname)
+Meq             P(A mPtr,A fptr)B
+ParseCmdLine    P
+PSeq            P("pointer" pstr1, "pointer" pstr2)"bool"
+PutByte         P(B val)
+GetFile       P
+ReceiveFile     P
+ReportError     P(A status)
+ScanInteger     P(A str$p,A val$p,A status$p)A
+SendBlock       P(B len, "pointer" buf$p)
+PutFile        P
+ReadBlock         P(A buf$p)B
+SlaveConnect         P
+Sub45D6         P
+TestRange       P(B device,A ioBuffer$p)B
+TransmissionError P
+UnPath          P(A int,A ext)
+Uppercase       P(B ch)B
+WDelimit        P(A ptr)A
+WPath           P(A pathNamePtr,A pn,A wc1)B
+WriteCopied     P
+WriteSpace      P
+
+BUFFER$SIZE     '37000'
+BLOCK$SIZE      '250'
+
+# public variables in source
+exitOpt           B
+bufCnt          "word"
+dirConn         "word"
+fn              A
+ioBuffer        BS
+ioStatus        "word"
+isFrom          "bool"
+isMaster        "bool"
+masterFile      BS
+protocol        B
+readConn        "word"
+slaveFile       BS
+status          "word"
+w5A3C           A
+writeConn       "word"
+
+ftrans.plm
+Ftrans: do;
+$include(ftrans.ipx)
+declare
+    copyright(*) byte data('(C) 1982 INTEL CORP'),
+    signOnMsg(*) byte data(CR, LF, 'ISIS FTRANS   V1.'),
+    completed(*) byte data(CR, LF, 'TRANSPORTING COMPLETED', CR, LF),
+    aborted(*) byte data(CR, LF, 'TRANSPORT ABORTED', CR, LF),
+    instruction(*) byte data('   +------------------------------------------------+', CR, LF,
+                             '   |  Enter FTRANS commands at the Master Console   |', CR, LF,
+                             '   +------------------------------------------------+', CR, LF),
+    crlf(2) byte data(CR, LF);
+    declare junk byte;
+
+
+    Sub38FF: procedure(argbc, argde);
+        declare (argbc, argde) address;
+        w5A3C = argbc;
+        fn = argde;
+    end;
+
+main:
+    call Write(CONSOLE$OUT, .signOnMsg, 19, .status);
+    call Write(CONSOLE$OUT, .protocol, 1, .status);
+    call Write(CONSOLE$OUT, .crlf, 2, .status);
+    call parseCmdLine;
+    if isMaster then
+    do;    
+        call MasterConnect;
+        if isFrom then
+        do;
+            call Sub38FF(.slaveFile(1), .masterFile(1));
+            call SendBlock(15, w5A3C);
+            call TransmissionError;
+            if ioStatus <> 0 then
+                call Exit;
+            call SendBlock(15, fn);
+            call TransmissionError;
+            if ioStatus <> 0 then
+                call Exit;
+            call ReceiveFile;
+        end;
+        else
+        do;
+            call Sub38FF(.masterFile(1), .slaveFile(1));
+            call Sub45D6;
+            call Close(dirConn, .status);
+            call Close(readConn, .status);
+            call TransmissionError;
+        end;
+    end;
+    else
+    do;
+        call Write(CONSOLE$OUT, .instruction, 165, .status);
+        exitOpt = 0; 
+        do while not exitOpt;
+            call SlaveConnect;
+            if isFrom then
+            do;
+                call Sub38FF(.slaveFile(1), .masterFile(1));
+                junk = ReadBlock(w5A3C);
+                call PutByte(ETB);
+                if ioStatus = NOERROR then
+                do;
+                    junk = ReadBlock(fn);
+                    call PutByte(ETB);
+                    if ioStatus = NOERROR then
+                    do;
+                        call Sub45D6;
+                        call Close(dirConn, .status);
+                        call Close(readConn, .status);
+                    end;
+                end;
+            end;
+            else
+            do;
+                call Sub38FF(.masterFile(1), .slaveFile(1));
+                call ReceiveFile;
+            end;
+            call TransmissionError;
+        end;
+    end;
+    if ioStatus = NOERROR then
+        call Write(CONSOLE$OUT, .completed, 26, .status);
+    else
+        call Write(CONSOLE$OUT, .aborted, 21, .status);
+    call Exit;
+end;
+cmdlin.plm
+CmdLine: do;
+$include(cmdlin.ipx)
+
+declare
+    cmdLine(128)    byte,
+    cmdLineLen      word,
+    cmdPtr          address, cmdCh based cmdPtr byte,
+    savCmdPtr       address,
+    bitRate         word,
+    exitToken(16)   byte,
+    toFrom(16)      byte;
+
+SyntaxError: procedure;
+    declare syntaxMsg(*) byte data(
+            CR, LF, 'SYNTAX ERROR',
+            CR, LF, 'SYNTAX ==> FTRANS master-file {TO | FROM} slave-file [baudrate] [E | EXIT] <cr>',
+            CR, LF);
+
+    call Write(CONSOLE$OUT, .syntaxMsg, size(syntaxMsg), .status);
+    call Exit;
+end;
+
+CmdDeblank: procedure;
+    do while cmdCh = ' ';
+        cmdPtr = cmdPtr + 1;
+    end;
+end;
+
+
+getToken: procedure(pStr);
+    declare pStr address, str based pStr(1) byte;
+
+    str(0) = 0;
+    call cmdDeblank;
+    do while cmdCh = ':' or cmdCh = '.' or cmdCh = '*' or cmdCh = '?' or
+            ('0' <= cmdCh and cmdCh <= '9') or
+            ('A' <= cmdCh and cmdCh <= 'Z' and str(0) < 16);       /* possible error on length test */
+       str(str(0) := str(0) + 1) = cmdCh;
+        cmdPtr = cmdPtr + 1;
+    end;
+    if cmdCh <> ' ' and cmdCh <> CR then
+        call syntaxError;
+    str(str(0) + 1) = ' ';
+    call cmdDeblank;
+end;
+
+declare sysFlag byte at(0FFFFh);
+
+setBitRateScaler:  procedure(scaler);
+    declare scaler word;
+    if sysFlag = 0 then
+        return;
+    output(0F3h) = 36h;
+    output(0F0h) = low(scaler);
+    output(0F0h) = high(scaler);
+end;
+
+Sub3AE6: procedure;
+    declare junk byte;
+    output(CONTROLPORT) = 0;       /* reset uart */
+    output(CONTROLPORT) = 0;       /* handles sync mode + 2 sync chars */
+    output(CONTROLPORT) = 0;       
+    output(CONTROLPORT) = UARTRESET;
+    output(CONTROLPORT) = UARTMODE;
+    output(CONTROLPORT) = UARTCOMMAND;
+    junk = input(DATAPORT);     /* clear data port */
+end;
+
+
+setBitRate: procedure;
+    declare badBaud(*) byte data(
+            CR, LF, 'ILLEGAL BAUD RATE',
+            CR, LF, 'Legal Baudrates ==> 110, 150, 300, 600, 1200, 2400, 4800, 9600, 19200(default)',
+            CR, LF);
+
+    cmdPtr = ScanInteger(cmdPtr, .bitRate, .status);
+    if status <> 0 then
+        bitRate = 255;
+    if bitRate = 110 then
+        call SetBitRateScaler(698);
+    else if bitRate = 150 then
+        call SetBitRateScaler(512);
+    else if bitRate = 300 then
+        call SetBitRateScaler(256);
+    else if bitRate = 600 then
+        call SetBitRateScaler(128);
+    else if bitRate = 1200 then
+        call SetBitRateScaler(64);
+    else if bitRate = 2400 then
+        call SetBitRateScaler(32);
+    else if bitRate = 4800 then
+        call SetBitRateScaler(16);
+    else if bitRate = 9600 then
+        call SetBitRateScaler(8);
+    else if bitRate = 19200 then
+        call SetBitRateScaler(4);
+    else
+    do;
+        call Write(CONSOLE$OUT, .badBaud, size(badBaud), .status);
+        call Exit;
+    end;
+    call cmdDeblank;
+end;
+
+
+ParseCmdLine: procedure public;
+    call Read(CONSOLE$IN, .cmdLine, 128, .cmdLineLen, .status);
+    call ForceUpper(cmdPtr := .cmdLine);
+    exitOpt = FALSE;
+    isMaster = 0;
+    bitRate = 255;
+    call cmdDeblank;
+    savCmdPtr = cmdPtr;
+    call getToken(.masterFile);
+    if cmdCh = CR then
+    do;
+        if '0' <= masterFile(1) and masterFile(1) <= '9' and masterFile(0) > 0 then
+        do;
+            cmdPtr = savCmdPtr;
+            call SetBitRate;
+        end;
+        else if masterFile(0) > 0 then
+            call SyntaxError;
+    end;
+    else
+        isMaster = 0FFh;
+    if isMaster then
+    do;
+        call getToken(.toFrom);
+        call getToken(.slaveFile);
+        do while cmdCh <> CR;
+            if '0' <= cmdCh and cmdCh <= '9' and bitRate = 255 then
+                call SetBitRate;
+            else
+            do;
+                call getToken(.exitToken);
+                if pSeq(.exitToken, .(4, 'EXIT')) or (pSeq(.exitToken, .(1, 'E')) and not exitOpt) then
+                    exitOpt = TRUE;
+                else
+                    call SyntaxError;
+            end;
+        end;
+        if pSeq(.toFrom, .(4, 'FROM')) then
+            isFrom = TRUE;
+        else if pSeq(.toFrom, .(2, 'TO')) then
+            isFrom = FALSE;
+        else
+            call SyntaxError;
+        if slaveFile(0) = 0 then
+            call SyntaxError;
+    end;
+    if bitRate = 255 then
+    do;
+        bitRate = 19200;
+        call SetBitRateScaler(4);
+    end;
+    call Sub3AE6;
+end;
+end;
+
+byteop.plm
+ByteOps: do;
+$include(byteop.ipx)
+
+declare
+    protocol    byte public initial('0'),
+    readConn    word public,
+    writeConn   word public,
+    dirConn     address public,
+    fn          address public,
+    w5A3C       address public,
+    status      word public,
+    ioStatus    word public,
+    exitOpt       byte public,
+    b5A43       byte,
+    isFrom      bool public,
+    isMaster    bool public,
+    masterFile(16) byte public,
+    slaveFile(18)  byte public,
+    timer       word public;
+
+PutByte: procedure(val) public;
+    declare val byte;
+    do while (input(STATUSPORT) and (TXEMPTY + TXRDY)) = 0;
+    end;
+    output(DATAPORT) = val;
+end;
+
+
+GetByte: procedure byte public;
+    declare i word;
+
+    if (input(STATUSPORT) and RXRDY) <> 0 then   /* RxReady */
+        return input(DATAPORT);
+
+    timer = 0FFFFh;
+
+    do while (input(STATUSPORT) and RXRDY) = 0 and timer <> 0;
+        timer = timer - 1;
+        do i = 1 to 12;
+            if (input(STATUSPORT) and RXRDY) <> 0 then
+                return input(DATAPORT);
+        end;
+    end;
+    if timer = 0 then
+    do;
+        call Write(CONSOLE$OUT, .(CR, LF, 'TIME OUT ERROR ON INPUT', CR, LF), 27, .status);
+        call Exit;
+    end;
+    return input(DATAPORT);
+end;
+end;
+txdata.plm
+TransferData: do;
+$include(txdata.ipx)
+declare w5A6D word;
+declare ioCnt byte;
+declare b5A70 byte;
+declare w5A71 address;
+declare crc byte;
+
+GetDataByte: procedure byte;
+    if (input(STATUSPORT) and RXRDY) <> 0 then
+        return input(DATAPORT);
+
+    do w5A6D = 1 to 20000;
+        if (input(STATUSPORT) and RXRDY) <> 0 then
+            return input(DATAPORT);
+    end;
+    ioStatus = NODATA;
+    return 1;
+end;
+
+
+ReadBlock: procedure(buf$p) byte public;
+    declare buf$p address, buf based buf$p (1) byte,
+            rcvLen byte;
+    b5A70 = 0bh;
+    buf$p = buf$p - 1;  /* adjust as index is 1..rcvlen */
+    
+retry:
+    do;
+        ioStatus, crc = 0;
+        call PutByte(STX);
+        rcvLen = GetByte;
+        do ioCnt = 1 to rcvLen;
+            crc = crc + (buf(ioCnt) := GetDataByte);
+        end;
+        if crc + GetDataByte <> 0 then
+            ioStatus = CRCERROR;
+        if (input(STATUSPORT) and RXERROR) <> 0 then
+        do;
+            ioStatus = TRANSFERERROR;
+            output(CONTROLPORT) = UARTCOMMAND;
+        end;
+        call PutByte(ioStatus);
+        if ioStatus <> 0 then
+        do;
+            b5A70 = b5A70 - 1;
+            if b5A70 <> 0 then
+            do;
+                call Write(CONSOLE$OUT, .('#'), 1, .status);
+                goto retry;
+            end;
+        end;
+        call Write(CONSOLE$OUT, .('.'), 1, .status);
+        return rcvLen;
+    end;
+end;
+
+SendBlock: procedure(len, buf$p) public;
+    declare len byte, buf$p address, ch based buf$p byte;
+    w5A71 = buf$p;
+    b5A70 = 11;
+
+retry:
+    do;
+        w5A6D = BLOCK$SIZE;
+        do while GetByte <> 2;
+            if (w5A6D := w5A6D - 1) = 0 then
+            do;
+                ioStatus = NOSTX;
+                return;
+            end;
+        end;
+        call PutByte(len);
+        ioStatus, crc = 0;
+        buf$p = w5A71;
+        do ioCnt = 1 to len;
+            call PutByte(ch);
+            crc = crc + ch;
+            buf$p = buf$p + 1;
+        end;
+        call Write(CONSOLE$OUT, .('.'), 1, .status);
+        call PutByte(-crc);
+        if (ioStatus := GetByte) <> 0 then
+        do;
+            b5A70 = b5A70 - 1;
+            if b5A70 <> 0 then
+            do;
+                call Write(CONSOLE$OUT, .('#'), 1, .status);
+                goto retry;
+            end;
+            else
+            do;
+                ioStatus = 0F5h;
+                return;
+            end;
+        end;
+    end;
+    if GetByte <> 17h then
+        ioStatus = 0F1h;
+end;
+
+
+GetFile: procedure public;
+    declare readCnt byte, filling bool;
+
+    readCnt = BLOCK$SIZE;
+    do while readCnt <> 0;
+        filling = TRUE;
+        bufCnt = 0;
+        do while filling;
+            readCnt = ReadBlock(.ioBuffer + bufCnt);
+            if ioStatus <> 0 then
+                return;
+            bufCnt = bufCnt + readCnt;
+            if readCnt = 0  or bufCnt > (BUFFER$SIZE - BLOCK$SIZE) then
+                filling = FALSE;
+            else
+                call PutByte(ETB);
+        end;
+        call Write(writeConn, .ioBuffer, bufCnt, .ioStatus);
+        call PutByte(ETB);
+        if ioStatus <> 0 then
+        do;
+            call IoError(fn);
+            return;
+        end;
+    end;
+end;
+
+
+PutFile: procedure public;
+    declare (toWrite, actual) word;
+
+    actual = BUFFER$SIZE;
+    do while actual = BUFFER$SIZE;
+        call Read(readConn, .ioBuffer, BUFFER$SIZE, .actual, .ioStatus);
+        if ioStatus <> 0 then
+        do;
+            call IoError(w5A3C);
+            return;
+        end;
+        bufCnt = 0;
+        do while actual <> bufCnt;
+            if (toWrite := actual - bufCnt) > BLOCK$SIZE then
+                toWrite = BLOCK$SIZE;
+            call SendBlock(low(toWrite), .ioBuffer + bufCnt);
+            if ioStatus <> 0 then
+            do;
+                call IoError(fn);
+                return;
+            end;
+            bufCnt = bufCnt + toWrite;
+        end;
+    end;
+    call SendBlock(0, .ioBuffer);
+end;
+end;
+ioBuf.plm
+ioBuffer: do;
+$include(ioBuf.ipx)
+declare bufCnt word public,
+        ioBuffer(BUFFER$SIZE) byte public;
+end;
+conect.plm
+MasterConnect: do;
+$include(conect.ipx)
+
+declare noNetwork(*) byte data(CR, LF, 'FAILED TO ESTABLISH NETWORK', CR, LF);
+declare badConnect(*) byte data(CR, LF, 'CHECK CABLE AND/OR BAUD RATES', CR, LF);
+declare incompatable(*) byte data(CR, LF, 'INCOMPATABLE VERSION NUMBERS', CR, LF);
+
+declare (wEB0A, wEB0C) address,
+        (bEB0E, bEB0F) byte;
+
+SlaveConnect: procedure public;
+retry:
+    do;
+        if (input(STATUSPORT) and RXERROR) <> 0 then
+            output(CONTROLPORT) = UARTCOMMAND;
+        wEB0A = 0FFh;
+x:  /* force compiler code generation */
+        bEB0F = 0FFh;
+        ioStatus = NOERROR; 
+
+        do while bEB0F <> 0 and ioStatus = NOERROR;
+            if (input(STATUSPORT) and RXERROR) <> 0 then
+                output(CONTROLPORT) = UARTCOMMAND;
+            do while (input(STATUSPORT) and RXRDY) = 0;
+                if CSTS then 
+                    if (CI and 7Fh) = ESC then
+                        call Exit;
+            end;
+            bEB0F = input(DATAPORT) xor SOH;    /* loop until SOH seen or timeout */
+            if (wEB0A := wEB0A - 1) = 0 then
+                ioStatus = 0FAh;
+        end;
+        if ioStatus <> 0 then
+        do;
+            call Write(CONSOLE$OUT, .badConnect, size(badConnect), .status);
+            goto retry;
+        end;
+        call PutByte(ACK);
+        do while (bEB0E := GetByte) = SOH;  /* gobble up any extra SOH */
+        end;
+        if bEB0E <> ACK then
+        do;
+            call Write(CONSOLE$OUT, .noNetwork, size(noNetwork), .status);
+            call PutByte(0FFh);
+            goto retry;
+        end;
+        else
+            call PutByte(STX);
+        wEB0C = ReadBlock(.isFrom);
+        call PutByte(ETB);
+        if ioStatus <> 0 then
+        do;
+            call TransmissionError;
+            call putByte(0FFh);
+            goto retry;
+        end;
+
+        wEB0C = ReadBlock(.exitOpt);
+        call PutByte(ETB);
+        if ioStatus <> 0 then
+        do;
+            call TransmissionError;
+            call putByte(0FFh);
+            goto retry;
+        end;
+
+        wEB0C = ReadBlock(.bEB0E);
+        call PutByte(ETB);
+        if ioStatus <> 0 then
+        do;
+            call TransmissionError;
+            call putByte(0FFh);
+            goto retry;
+        end; 
+    end;
+    if bEB0E <> protocol then
+    do;
+        call Write(CONSOLE$OUT, .incompatable, size(incompatable), .status);
+        call PutByte(NAK);
+        call Exit;
+    end;
+    else
+        call PutByte(ACK);
+end;
+  
+
+MasterConnect: procedure public;
+    wEB0A = 10;
+    ioStatus = NOERROR;
+    bEB0F = 0FFh;
+
+    do while  bEB0F <> 0 and ioStatus = NOERROR;
+        wEB0C = 5;
+
+        do while (input(STATUSPORT) and RXRDY) = 0 and ioStatus = NOERROR;
+            call PutByte(SOH);
+            do bEB0E = 1 to 50;
+                call time(100);
+            end;
+            if (wEB0C := wEB0C - 1) = 0 then
+                ioStatus = 0F0h;
+        end;
+        if (input(STATUSPORT) and RXRDY) <> 0 then
+            bEB0F = input(DATAPORT) xor ACK;
+        if (wEB0A := wEB0A - 1) = 0 then
+            ioStatus = 0F8h;
+        else
+            ioStatus = NOERROR;
+    end;
+    if ioStatus <> 0 then
+    do;
+        call Write(CONSOLE$OUT, .noNetwork, size(noNetwork), .status);
+        call PutByte(NAK);
+        call Exit;
+    end;
+
+    call PutByte(ACK);
+    if GetByte <> STX then
+    do;
+        ioStatus = 0F5h;
+        call TransmissionError;
+    end;
+    call SendBlock(1, .isFrom);
+    if ioStatus <> 0 then
+        call TransmissionError;
+
+    call SendBlock(1, .exitOpt);
+    if ioStatus <> 0 then
+        call TransmissionError;
+
+    call SendBlock(1, .protocol);
+    if ioStatus <> 0 then
+        call TransmissionError;
+
+    if GetByte <> ACK then
+    do;
+        call Write(CONSOLE$OUT, .incompatable, size(incompatable), .status);
+        call Exit;
+    end;
+end;
+end;
+receiv.plm
+receiveFile: do;
+$include(receiv.ipx)
+
+declare wEB10 address,
+        isisDir(*) byte initial(':FX:ISIS.DIR '),
+        (bEB1F, bEB20) bool;
+
+ReceiveFile: procedure public;
+    if (ioStatus := GetByte) <> 0 then
+    do;
+        call IoError(.(' '));
+        return;
+    end;
+    if (ioStatus := GetByte) <> 0 then
+    do;
+        if ioStatus = 1 then
+            ioStatus = 0FFh;
+        call IoError(.isisDir + 4);
+        return;
+    end;
+    bEB20 = 0FFh;
+    bEB1F = 0FFh;
+    do while bEB20;
+        if (bEB20 := GetByte) then
+        do;
+            wEB10 = ReadBlock(w5A3C);
+            call PutByte(ETB);
+            if ioStatus <> 0 then
+                return;
+            
+            wEB10 = ReadBlock(fn);
+            call PutByte(ETB);
+            if ioStatus <> 0 then
+                return;
+            if (ioStatus := GetByte <> 0) then
+            do;
+                call IoError(w5A3C);
+                return;
+            end;
+            call OPEN(.writeConn, fn, 2, 0, .ioStatus);
+            call PutByte(ioStatus);
+            call IoError(fn);
+            if ioStatus = WRITEPROTECTED then
+                goto writeProtect;
+            if iostatus <> 0 then
+                return;
+
+            call GetFile;
+            call Close(writeConn, .status);
+            if ioStatus <> 0 then
+                return;
+            call PutByte(status);
+            if status <> 0 then
+            do;
+                ioStatus = status;
+                call IoError(fn);
+                return;
+            end;
+            call writeCopied;
+
+writeProtect:
+            bEB1F = 0;
+        end;
+    end;
+    if bEB1F then
+    do;
+        ioStatus = NOSUCHFILE;
+        if isMaster then
+            call IoError(w5A3C);
+        else
+            call IoError(.(' '));
+    end;
+end;
+
+
+
+Sub45D6: procedure public;
+    declare s based fn (1) byte;
+    declare (dirEntry, maxDir) address,
+            (wc1, wc2, drive, i) byte,
+            (pn1, pn2, pn3) (10) byte,
+            pn4 structure(drive byte, name(9) byte),    /* only one to force code generation */
+            bEB51(6) byte;
+
+    ioStatus = NOERROR;
+    status = WPath(w5A3C, .pn1, .wc1);
+    if (drive := pn1(0)) > 5 then
+        ioStatus = BADDEVICE;
+    else if status <> 0 then
+        ioStatus = status;
+    else
+    do;
+        status = WPath(fn, .pn2, .wc2);
+        if pn2(0) > 5 then
+            ioStatus = BADDEVICE;
+        else if status = 17h then   /* missing filename */
+        do;
+            status = WPath(w5A3C, .pn2, .wc1);
+            pn2(0) = s(2) - '0';
+            wc2 =0;
+        end;
+        else
+        do;
+            do i = 0 to 9;
+                if pn1(i) = '?' and (pn2(i) <> '?' and pn2(i) <> '*')
+                   or (pn1(i) = '*' and pn2(i) <> '*')
+                   or (pn1(i) = 0 and pn2(i) = '?') then
+                    status = BADFILESPEC; /* incorrectly specified file */
+            end;
+
+            if status <> 0 then
+                ioStatus = status;
+        end;
+    end;
+
+    call PutByte(ioStatus);
+    if ioStatus <> 0 then
+    do;
+        call IoError(.(' '));
+        return;
+    end;
+
+    isisDir(2) = drive + '0';
+    call Open(.dirConn, .isisDir, 1, 0, .ioStatus);
+    call PutByte(ioStatus);
+    if ioStatus <> 0 then
+    do;
+        call IoError(.isisDir);
+        return;
+    end;
+    if DType(drive) = 4 then
+        maxDir = 992;
+    else
+        maxDir = 200;
+
+    bEB20 = TRUE;
+    bEB1F = TRUE;
+    pn1(0) = 0;
+    dirEntry =  0;
+
+    do while bEB20;
+        dirEntry = Dmeq(dirConn, .pn1, dirEntry, .pn4);
+        if dirEntry > maxDir then
+        do;
+            bEB20 = FALSE;
+            call PutByte(bEB20);
+        end;
+        else if (bEB51(0) and 80h) = 0 or not wc1 then
+        do;
+            call PutByte(bEB20);
+            pn4.drive = drive;
+            call UnPath(.pn4, w5A3C);
+
+            if not wc2 and wc1 then
+            do;
+                pn4.drive = pn2(0);
+                call UnPath(.pn4, fn);
+            end;
+            else
+            do;
+                do i = 0 to 9;
+                    if pn2(i) = '?' or pn2(i) = '*' then
+                        pn3(i) = pn4.name(i - 1);   /* pn2(0) must not be wild card or code goes wrong */
+                    else
+                        pn3(i) = pn2(i);
+                end;
+                call UnPath(.pn3, fn);
+            end;
+
+            call SendBlock(15, w5A3C);
+            if ioStatus <> 0 then
+                return;
+
+            call SendBlock(15, fn);
+            if ioStatus <> 0 then
+                return;
+
+            call Open(.readConn, w5A3C, 1, 0, .ioStatus);
+            call PutByte(ioStatus);
+            call IoError(w5A3C);
+            if ioStatus <> 0 then
+                return;
+
+            ioStatus = GetByte;
+            if ioStatus = 1 then
+                ioStatus = 0FFh;
+
+            call IoError(fn);
+            if ioStatus = WRITEPROTECTED then
+                goto writeProtect;
+            if ioStatus <> 0 then
+                return;
+
+            call PutFile;
+            if ioStatus <> 0 then
+                return;
+
+            if (ioStatus := GetByte <> 0) then
+            do;
+                call IoError(fn);
+                return;
+            end;
+            call writeCopied;
+
+writeProtect:
+            call Close(readConn, .status);
+            bEB1F = 0;
+        end;
+    end;
+    if bEB1F then
+    do;
+        ioStatus = NOSUCHFILE;
+        call IoError(w5A3C);
+    end;
+end;
+
+end;
+copied.plm
+copied: do;
+$include(copied.ipx)
+
+WriteToSpace: procedure(ptr);
+    declare ptr address, ch based ptr byte;
+    do while ch <> ' ';
+        call Write(CONSOLE$OUT, ptr, 1, .status);
+        ptr = ptr + 1;
+    end;
+end;
+
+
+WriteSpace: procedure public;
+    call Write(CONSOLE$OUT, .(' '), 1, .status);
+end;
+
+WriteCopied: procedure public;
+    declare (master, slave) address;
+
+    if isFrom then 
+    do;
+        master = fn;
+        slave = w5A3C;
+    end;
+    else
+    do;
+        master = w5A3C;
+        slave = fn;
+    end;
+
+    call WriteToSpace(.(LF, CR, 'COPIED '));
+    call WriteSpace;
+    call WriteToSpace(master);
+    call WriteSpace;
+    if isFrom then
+        call WriteToSpace(.('FROM '));
+    else
+        call WriteToSpace(.('TO '));
+    call WriteSpace;
+    call WriteToSpace(slave);
+    call WriteToSpace(.(CR, LF, ' '));
+end;
+end;
+ioerr.plm
+IoError: do;
+$include(ioerr.ipx)
+declare txError(*) byte data(CR, LF, 'TRANSMISSION ERROR', CR, LF);
+declare errMsg(*) byte data(CR, LF, 'ERROR==>');
+
+
+IoError: procedure(fname) public;
+    declare fname address;
+
+    if ioStatus <> 0 and ioStatus <0F0h then
+    do;
+        call Write(CONSOLE$OUT, .errMsg, size(errMsg), .status);
+        call FileError(iostatus, fname, FALSE);
+    end;
+end;
+
+
+TransmissionError: procedure public;
+    if ioStatus >= 0F0h then
+    do;
+        call Write(CONSOLE$OUT, .txError, size(txError), .status);
+        if isMaster then
+            call Exit;
+    end;
+end;
+end;
+dtype.plm
+DTYPE: DO;
+
+Spath: procedure(path$p, info$p, status$p) external;
+    declare (path$p, info$p, status$p) address;
+end;
+
+declare isisDrive(*) byte initial(':FX: ');
+
+DType: procedure(drive) byte public;
+    declare drive byte;
+    declare status address, info(12) byte;
+
+    if  drive > 9 then
+        return 0;
+    isisDrive(2) = drive + '0';
+    call Spath(.isisDrive, .info, .status);
+    return info(11);
+end;
+end;
+ferror.plm
+FILEERROR: DO;
+
+write: procedure (conn, buff$p, count, actual$p) external;
+    declare (conn, buff$p, count, actual$p) address;
+end write;
+
+exit: procedure external; end exit;
+
+deblank: procedure(str) address external; declare str address; end;
+WDelimit: procedure(ptr) address external; declare ptr address; end;
+reporterror: procedure(status) external; declare status address; end;
+
+declare OK literally '0';
+
+FileError: procedure(status, ptr, callExit) public;
+	declare (status, ptr) address;
+	declare callExit byte;
+	declare wrStatus address;
+
+	if status <> OK then
+	do;
+		ptr = deblank(ptr);
+		call write(0, .(' '), 1, .wrStatus);
+		call write(0, ptr, WDelimit(ptr) - ptr, .wrStatus);
+		call write(0, .(','), 1, .wrStatus);
+		call reporterror(status);
+		if callExit then
+			call exit;
+	end;
+end;
+end;
+forupp.plm
+FORCEUPPER: DO;
+declare CR literally '0DH';
+
+uppercase: procedure(ch) byte external; declare ch byte; end;
+
+forceupper: procedure(bufferPtr) public;
+	declare bufferPtr address, ch based bufferPtr byte;
+
+	do while ch <> CR;
+		ch = uppercase(ch);
+		bufferPtr = bufferPtr + 1;
+	end;
+end;
+end;
+unpath.plm
+UNPATH: DO;
+
+declare devTab(*) byte data('F0F1F2F3F4F5TITO',
+			     'VIVOI1O1TRHRR1R2',
+			     'TPHPP1P2LPL1BBCICO',
+			     'F6F7F8F9');
+
+unpath:	procedure(int, ext) public;
+	declare (int, ext) address;
+	declare i byte;
+	declare intName based int (1) byte;
+	declare extName based ext (1) byte;
+
+	extName(0) = ':';
+	extName(1) = devTab(intName(0) + intName(0));
+	extName(2) = devTab(intName(0) + intName(0) + 1);
+	extName(3) = ':';	
+	ext = ext + 4;
+	do i = 0 to 5;
+		if (extName(0) := intName(i + 1)) <> 0 then
+			ext = ext + 1; 
+	end;
+	if intName(7) <> 0 then
+	do;
+		extName(0) = '.';
+		ext = ext + 1;
+	end;
+	do i = 0 to 2;
+		if (extName(0) := intName(i + 7)) <> 0 then
+			ext = ext + 1; 
+
+	end;
+	extName(0) = ' ';
+end;
+end;
+wpath.plm
+WPATH: DO;
+uppercase: procedure(char) byte external;
+	declare char byte;
+end;
+
+TestRange: procedure(device, ioBuffer$p) byte external;
+	declare device byte, ioBuffer$p address;
+end;
+
+declare FALSE literally '0';
+declare TRUE literally '0FFh';
+
+
+declare lastPathNameParsed(15) byte;
+
+/* the error return codes */
+declare BADFILESPEC	literally '4';
+declare UNKNOWNDEV	literally '5';
+declare MISSINGFNAME	literally '17h';
+declare MISSINGEXT	literally '1ch';
+declare NOERROR		literally '0';
+
+declare devTab(*) byte data('F0F1F2F3F4F5TITOVIVOI1O1',
+			    'TRHRR1R2TPHPP1P2LPL1BBCICOF6F7F8F9');
+
+WPath: procedure(pathNamePtr, pn, wc1) byte public;
+	declare (pathNamePtr, pn, wc1) address;
+	declare ptr address;
+	declare	addr address, (hi, lo) byte at (.addr);
+	declare	devPtr address, (nullName, pl, i) byte;
+	declare pathName based pathNamePtr (1) byte;
+	declare pnStr based pn (1) byte;
+	declare wcFlag based wc1 byte;
+	declare dev based devPtr address;
+	declare ch based ptr byte;
+	
+	NonTerminator: procedure byte;
+		return ('A' <= pathName(0) and pathName(0) <= 'Z') or
+		       ('0' <= pathName(0) and pathName(0) <= '9') or
+		       pathName(0) = '?' or pathName(0) = '*' or
+		       ('a' <= pathName(0) and pathName(0) <= 'z');
+	end;
+	wcFlag = FALSE;
+	devPtr = .devTab;
+	do i = 0 to 9;
+		pnStr(i) = 0;
+	end;
+	do while pathName(0) = ' ';
+		pathNamePtr = pathNamePtr + 1;
+	end;
+
+	ptr = pathNamePtr;
+	if pathName(0) = ':' then
+	do;
+		if pathName(3) <> ':' then
+			return BADFILESPEC;	/* incorrectly specified file */
+		pathNamePtr = pathNamePtr + 1;
+		hi = Uppercase(pathName(0));
+		pathNamePtr = pathNamePtr + 1;
+		lo = Uppercase(pathName(0));
+		pathNamePtr = pathNamePtr + 2;
+		pnStr(0) = 0FFh;
+		i = 0;
+		do while i < 57;
+			if dev = addr then
+				pnStr(0) = shr(i, 1);
+			i = i + 2;
+			devPtr = devPtr + 2;
+		end;
+		if pnStr(0) = 0FFh then
+			return UNKNOWNDEV;	/* unrecognized device pathName */
+	end;
+	nullName = TRUE;
+	i = 1;
+	do while i < 7;
+		if NonTerminator then
+		do;
+			pnStr(i) = Uppercase(pathName(0));
+			if pathName(0) = '*' then
+				do while i < 7;
+					wcFlag = TRUE;
+					pnStr(i) = '*';
+					i = i + 1;
+				end;
+			else if pathName(0) = '?' then
+				wcFlag = TRUE;
+			pathNamePtr = pathNamePtr + 1;
+			nullName = FALSE;
+		end;
+		i = i + 1;
+	end;
+	if pathName(0) = '.' then
+	do;
+		pathNamePtr = pathNamePtr + 1;
+		i = 7;
+		do while i < 10;
+			if NonTerminator then
+			do;
+				pnStr(i) = Uppercase(pathName(0));
+				if pathName(0) = '*' then
+					do while i < 10;
+						wcFlag = TRUE;
+						pnStr(i) = '*';
+						i = i + 1;
+					end;
+				else if pathName(0) = '?' then
+					wcFlag = TRUE;
+				pathNamePtr = pathNamePtr + 1;
+			end;
+			i = i + 1;
+		end;
+	end;
+	if TestRange(pnStr(0), 1) <= 9 and nullName then
+		return MISSINGFNAME;	/*  missing filename */
+	pl = 0FFh;
+	do while ptr < pathNamePtr;
+		lastPathNameParsed(pl := pl + 1) = ch;
+		ptr = ptr + 1;
+	end;
+	if lastPathNameParsed(pl) = '.' then
+		return MISSINGEXT;	/* missing extension */
+	lastPathNameParsed(pl + 1) = ' ';
+	if NonTerminator or pathName(0) = '.' or pathName(0) = ':' then
+		return BADFILESPEC;	/* incorrectly specified file */
+	return NOERROR;
+end;
+end;
+pseq.asm
+        name pseq
+        public pseq
+; pSeq: procedure(str1, str2) public; (str1, str2) address; end;
+; compare two pascal style strings being the same
+        cseg
+pSeq:
+        xchg
+        mov     e, m
+        inr     e
+
+cmplop:
+        ldax    b
+        cmp     m
+        jnz     neq
+        inx     h
+        inx     b
+        dcr     e
+        jnz     cmplop
+        mvi     a, 0FFh
+        ret
+
+neq: 
+        xra     a
+        ret
+        end;
+
+scanin.plm
+scanInteger: do;
+declare word literally 'address';
+declare NOERROR literally '0';
+
+ScanInteger: procedure(str$p, val$p, status$p) address public;
+    declare (str$p, val$p, status$p) address;
+    declare val based val$p word;
+    declare status based status$p byte;
+    declare (scanPtr, pastNum$p, endNum$p) address;
+    declare ch based scanPtr byte;
+    declare (i, radix, digit) byte;
+    declare curVal word;
+
+    declare hexDigits(16) byte data('0123456789ABCDEF');
+
+    status = NOERROR;
+    scanPtr = str$p;    
+    do while '0' <= ch and ch <= '9' or 'A' <= ch and ch <= 'F';
+        scanPtr = scanPtr + 1;
+    end;
+
+    pastNum$p = (endNum$p := scanPtr) + 1;
+    if ch = 'H' then
+        radix = 16;
+    else if ch = 'O' or ch = 'Q' then
+        radix = 8;
+    else
+    do;
+        endNum$p, scanPtr = (pastNum$p := scanPtr) - 1;
+        if ch = 'B' then
+            radix = 2;
+        else
+        do;
+            radix = 10;
+            if ch <> 'D' then
+                endNum$p = endNum$p + 1;
+        end;
+    end;    
+    scanPtr = str$p;
+    val = 0;
+    do while scanPtr < endNum$p;
+        do i = 0 to 15; 
+            if ch = hexDigits(i) then
+                digit = i;
+        end;
+        if digit >= radix then
+            goto err;
+        curVal = val;
+        do i = 1 to radix - 1;
+            val = val + curVal;
+            if carry then
+                goto err;
+        end;
+        val = val + digit;
+        if carry then
+            goto err;
+        else
+            scanPtr = scanPtr + 1;
+    end;
+    return pastNum$p;
+
+err:
+    status = 0ffh;
+    return pastNum$p;
+end;
+end;
+dmeq.plm
+DMEQ: DO;
+declare TRUE	literally '0FFH',
+	FALSE	literally '0';
+
+read: procedure (conn, buff$p, count, actual$p, status$p) external;
+    declare (conn, buff$p, count, actual$p, status$p) address;
+end read;
+
+seek: procedure (conn, mode, block$p, byte$p, status$p) external;
+    declare (conn, mode, block$p, byte$p, status$p) address;
+end seek;
+
+meq: procedure(A, B) byte external ; declare (A,B) address; end;
+
+/* should return a word as per requirement, code loads hl and l */
+Dmeq: procedure (dir$aftn, search$arg, initial$i$no, dir$entry) byte public;
+    declare (dir$aftn, search$arg, initial$i$no, dir$entry) address;
+    declare (byteNo, blockNo, actual, status) address;
+    declare (pad, searching) byte;
+    declare dirFlag based dir$entry byte;
+
+	blockNo = 0;
+	byteNo = initial$i$no * 16;
+	call seek(dir$aftn, 2, .blockNo, .byteNo, .status);
+
+	searching = TRUE;
+	do while searching;
+		call read(dir$aftn, dir$entry, 16, .actual, .status);
+		searching = not meq(search$arg, dir$entry);
+		initial$i$no = initial$i$no + 1;
+		if dirFlag = 7Fh or actual = 0 then
+		do;
+			initial$i$no = 0FFFFh;
+			searching = FALSE;
+		end;
+	end;
+		
+	return initial$i$no;
+end;
+end;
+dblank.plm
+DEBLANK: DO;
+deblank: procedure(ptr) address public;
+	declare ptr address, c based ptr byte;
+
+	do while (c = ' ');
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+end;
+meq.plm
+MEQ: DO;
+
+meq: procedure(mPtr, fptr) byte public;
+	declare (mPtr, fptr) address;
+	declare m based mPtr (10) byte;
+	declare f based fptr (10) byte;
+	declare i byte;
+
+	do i = 0 to 9;
+		if m(i) = '?' then
+		do;
+			if f(i) = 0 then
+				return 0;
+		end;
+		else if m(i) <> '*' then
+		do;
+			if m(i) <> f(i) then
+				return 0;
+		end;
+	end;
+	return 0ffh;
+end;
+end;
+
+reperr.plm
+REPORTERROR: DO;
+
+error: procedure(errNum) external; declare errNum address; end;
+
+write: procedure(aftn, buf$ptr, len, status$ptr) external;
+   declare (aftn, buf$ptr, len, status$ptr) address;
+end write;
+
+declare CR	literally '0dh';
+declare LF	literally '0ah';
+
+reporterror: procedure(errNum) public;
+	declare errNum address;
+	declare numberBuffer(3) byte;
+	declare (i, status) address;
+ 
+	declare msg(*) byte DATA(0, 0,
+		2, 'ILLEGAL AFTN ARGUMENT', 0,
+		4, 'INCORRECTLY SPECIFIED FILE', 0,
+		5, 'UNRECOGNIZED DEVICE NAME', 0,
+		6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+		8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+		9, 'DISK DIRECTORY FULL', 0,
+		0AH, 'NOT ON SAME DISK', 0,
+		0BH, 'FILE ALREADY EXISTS', 0,
+		0CH, 'FILE IS ALREADY OPEN', 0,
+		0DH, 'NO SUCH FILE', 0,
+		0EH, 'WRITE PROTECTED', 0,
+		11H, 'NOT A DISK FILE', 0,
+		12H, 'ILLEGAL ISIS COMMAND', 0,
+		13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+		14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+		15H, 'CAN''T RESCAN', 0,
+		16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+		17H, 'MISSING FILENAME', 0,
+		19H, 'ILLEGAL ECHO FILE', 0,
+		1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+		1BH, 'ILLEGAL SEEK COMMAND', 0,
+		1CH, 'MISSING EXTENSION', 0,
+		1FH, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+		20H, 'CAN''T DELETE OPEN FILE', 0,
+		23H, 'SEEK PAST EOF', 0,
+		0C9H, 'UNRECOGNIZED SWITCH', 0,
+		0CAH, 'UNRECOGNIZED DELIMITER', 0,
+		0CBH, 'INVALID SYNTAX', 0,
+		0CCH, 'PREMATURE EOF', 0,
+		0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+		0D0H, 'CHECKSUM ERROR', 0,
+		0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+		0D2H, 'INSUFFICIENT MEMORY', 0,
+		0D3H, 'RECORD TOO LONG', 0,
+		0D4H, 'ILLEGAL RELO RECORD', 0,
+		0D5H, 'FIXUP BOUNDS ERROR', 0,
+		0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+		0D7H, 'ARGUMENT TOO LONG', 0,
+		0D8H, 'TOO MANY PARAMETERS', 0,
+		0D9H, 'OBJECT RECORD TOO SHORT', 0,
+		0DAH, 'ILLEGAL RECORD FORMAT', 0,
+		0DBH, 'PHASE ERROR', 0,
+		0EAH, 'CANNOT FORMAT FROM TARGET DRIVE', 0,
+		0EBH, 'NON-DISK DEVICE', 0
+		);
+
+
+	if errNum <> 0 then
+	do;
+		i = 0;
+		do while i < size(msg);
+			if errNum = msg(i) and msg(i + 1) <> 0 then
+			do;
+				i = i + 1;
+				call write(0, .(' '), 1, .status);
+				do while msg(i) <> 0;
+					call write(0, .msg(i), 1, .status);
+					i = i + 1;
+				end;
+				call write(0, .(CR, LF), 2, .status);
+				return;
+			end;
+			else
+			do;
+				do while msg(i) <> 0;
+					i = i + 1;
+				end;
+				i = i + 1;
+			end;
+		end;
+	call error(errNum);
+	end;
+end;
+end;
+trange.plm
+TESTRANGE: DO;
+
+FileError: procedure(status, ptr, callExit) external;
+	declare (status, ptr) address, callExit byte;
+end;
+
+ReportError: procedure(status) external; declare status address; end;
+
+Exit: procedure external; end exit;
+
+declare TRUE literally '0ffh';
+
+TestRange: procedure(device, ioBuffer$p) byte public;
+	declare device byte, ioBuffer$p address;
+
+	if device >= 25 then	/* diskdrive 6-9 */
+		device = device - 19;	/* bring disks together */
+	else if device > 5 then		/* shift others above disks */
+		device = device + 4;
+
+	if device <=  9 or ioBuffer$p = 1 then
+		return device;
+	if ioBuffer$p <> 0 then
+		call FileError(0EBh, ioBuffer$p, TRUE);
+	else
+	do;
+		call ReportError(0EBh);
+		call exit;
+	end;
+end;
+end;
+upcase.plm
+UPPERCASE: DO;
+uppercase: procedure(char) byte public;
+	declare char byte;
+	if char < 'a' then
+		return char;
+	if char > 'z' then
+		return char;
+	return char and 0dfh;
+end;
+end;
+wdlmt.plm
+WDELIMIT: DO;
+
+wdelimit: procedure(ptr) address public;
+	declare ptr address;
+	declare ch based ptr byte;
+
+	do while ch = ':' or ch = '.' or ch = '*' or ch = '?' or
+		  ('0' <= ch and ch <= '9') or ('A' <= ch and ch <= 'Z');
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+end;
+
