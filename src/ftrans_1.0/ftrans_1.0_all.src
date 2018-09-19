@@ -31,6 +31,12 @@ Write           P(A aftn,A buf$ptr,A len,A status$ptr)
 CSTS            PB
 CI              PB
 
+# ISIS directory stuff
+DIRECT$T1	'status BYTE, file(6) BYTE, ext(3) BYTE, attrib BYTE'
+DIRECT$T2	'eof$count BYTE, blk ADDRESS, hdr$blk ADDRESS'
+DIRECT$T	'structure(DIRECT$T1, DIRECT$T2)'
+FORMAT$ATTRIBUTE    '80h'
+
 # UART flags
 TXRDY           '1'
 RXRDY           '2'
@@ -42,16 +48,47 @@ SYNDET          '64'
 DSR             '128'
 RXERROR         '(PE + OE + FE)'
 
+# UART ports
+TTYC            '0F5h'
+TTYS            '0F5h'
+TTYI            '0F4h'
+TTYO            '0F4h'
 
-CONTROLPORT     '0F5h'
-STATUSPORT      '0F5h'
-DATAPORT        '0F4h'
-UARTRESET       '40h'
+# UART mode flags
+R64X            '11B'
+R16X            '10B'
+R1X             '01B'
+SYNC            '00B'
+CL8             '1100B'
+CL7             '1000B'
+CL6             '0100B'
+CL5             '0000B'
+PENB            '10000B'
+PEVEN           '100000B'
+ST2             '11000000B'
+ST15            '10000000B'
+ST1             '01000000B'
+
+# UART command flags
+TXEN            '1'
+DTR             '2'
+RXEN            '4'
+SBCH            '8'
+CLERR           '16'
+RTS             '32'
+USRST           '64'
+ENHM            '128'
+
 #  mode 1 stop bit, even parity, 8 bit char 16x clock
-UARTMODE        '7Eh'
+UMODE        '(ST1 + PEVEN + PENB + CL8 + R16X)'
 #  command  RTS, error reset, receive enable, DTR, transmit enable
-UARTCOMMAND     '37h'
- 
+UCOMMAND     '(RTS + CLERR + RXEN + DTR + TXEN)'
+
+# Interval Timer Ports and commands
+CTR0P           '0F0h'
+ITCP            '0F3h'
+RLLM            '110000B'
+MODE3           '000110B'
 
 # common ISIS error codes
 NOERROR         '0'
@@ -64,10 +101,15 @@ MISSINGEXT      '1ch'
 UNKNOWNDEV      '5'
 
 # FTRANS error codes
+CANNOTSEND      '0F0h'
+NOETB           '0F1h'
 NOSTX           '0F2h'
-CRCERROR        '0F4h'
-TRANSFERERROR        '0F5h'
+CRC$ERROR        '0F4h'
+TRANSFER$ERROR   '0F5h'
+NOSLAVE         '0F8h'
+NOMASTER        '0FAh'
 NODATA          '0FDh'
+PROTOCOL$ERROR       '0FFh'
 
 # public procedures in source
 MasterConnect         P
@@ -83,14 +125,14 @@ ParseCmdLine    P
 PSeq            P("pointer" pstr1, "pointer" pstr2)"bool"
 PutByte         P(B val)
 GetFile       P
-ReceiveFile     P
+GetMultipleFiles     P
 ReportError     P(A status)
 ScanInteger     P(A str$p,A val$p,A status$p)A
-SendBlock       P(B len, "pointer" buf$p)
+PutBlock       P(B len, "pointer" buf$p)
 PutFile        P
-ReadBlock         P(A buf$p)B
+GetBlock         P(A buf$p)B
 SlaveConnect         P
-Sub45D6         P
+PutMultipleFiles         P
 TestRange       P(B device,A ioBuffer$p)B
 TransmissionError P
 UnPath          P(A int,A ext)
@@ -107,7 +149,7 @@ BLOCK$SIZE      '250'
 exitOpt           B
 bufCnt          "word"
 dirConn         "word"
-fn              A
+dstName              A
 ioBuffer        BS
 ioStatus        "word"
 isFrom          "bool"
@@ -117,7 +159,7 @@ protocol        B
 readConn        "word"
 slaveFile       BS
 status          "word"
-w5A3C           A
+srcName           A
 writeConn       "word"
 
 ftrans.plm
@@ -135,37 +177,37 @@ declare
     declare junk byte;
 
 
-    Sub38FF: procedure(argbc, argde);
-        declare (argbc, argde) address;
-        w5A3C = argbc;
-        fn = argde;
+    SetSrcDst: procedure(src, dst);
+        declare (src, dst) address;
+        srcName = src;
+        dstName = dst;
     end;
 
 main:
     call Write(CONSOLE$OUT, .signOnMsg, 19, .status);
     call Write(CONSOLE$OUT, .protocol, 1, .status);
     call Write(CONSOLE$OUT, .crlf, 2, .status);
-    call parseCmdLine;
+    call ParseCmdLine;
     if isMaster then
     do;    
         call MasterConnect;
         if isFrom then
         do;
-            call Sub38FF(.slaveFile(1), .masterFile(1));
-            call SendBlock(15, w5A3C);
+            call SetSrcDst(.slaveFile(1), .masterFile(1));
+            call PutBlock(15, srcName);
             call TransmissionError;
             if ioStatus <> 0 then
                 call Exit;
-            call SendBlock(15, fn);
+            call PutBlock(15, dstName);
             call TransmissionError;
             if ioStatus <> 0 then
                 call Exit;
-            call ReceiveFile;
+            call GetMultipleFiles;
         end;
         else
         do;
-            call Sub38FF(.masterFile(1), .slaveFile(1));
-            call Sub45D6;
+            call SetSrcDst(.masterFile(1), .slaveFile(1));
+            call PutMultipleFiles;
             call Close(dirConn, .status);
             call Close(readConn, .status);
             call TransmissionError;
@@ -179,16 +221,16 @@ main:
             call SlaveConnect;
             if isFrom then
             do;
-                call Sub38FF(.slaveFile(1), .masterFile(1));
-                junk = ReadBlock(w5A3C);
+                call SetSrcDst(.slaveFile(1), .masterFile(1));
+                junk = GetBlock(srcName);
                 call PutByte(ETB);
                 if ioStatus = NOERROR then
                 do;
-                    junk = ReadBlock(fn);
+                    junk = GetBlock(dstName);
                     call PutByte(ETB);
                     if ioStatus = NOERROR then
                     do;
-                        call Sub45D6;
+                        call PutMultipleFiles;
                         call Close(dirConn, .status);
                         call Close(readConn, .status);
                     end;
@@ -196,8 +238,8 @@ main:
             end;
             else
             do;
-                call Sub38FF(.masterFile(1), .slaveFile(1));
-                call ReceiveFile;
+                call SetSrcDst(.masterFile(1), .slaveFile(1));
+                call GetMultipleFiles;
             end;
             call TransmissionError;
         end;
@@ -216,7 +258,7 @@ declare
     cmdLine(128)    byte,
     cmdLineLen      word,
     cmdPtr          address, cmdCh based cmdPtr byte,
-    savCmdPtr       address,
+    tokStart        address,
     bitRate         word,
     exitToken(16)   byte,
     toFrom(16)      byte;
@@ -257,28 +299,28 @@ end;
 
 declare sysFlag byte at(0FFFFh);
 
-setBitRateScaler:  procedure(scaler);
+SetBitRateScaler:  procedure(scaler);
     declare scaler word;
-    if sysFlag = 0 then
+    if sysFlag = 0 then     /* return if series I monitor */
         return;
-    output(0F3h) = 36h;
-    output(0F0h) = low(scaler);
-    output(0F0h) = high(scaler);
+    output(ITCP) = RLLM + MODE3;
+    output(CTR0P) = low(scaler);
+    output(CTR0P) = high(scaler);
 end;
 
-Sub3AE6: procedure;
+InitUart: procedure;
     declare junk byte;
-    output(CONTROLPORT) = 0;       /* reset uart */
-    output(CONTROLPORT) = 0;       /* handles sync mode + 2 sync chars */
-    output(CONTROLPORT) = 0;       
-    output(CONTROLPORT) = UARTRESET;
-    output(CONTROLPORT) = UARTMODE;
-    output(CONTROLPORT) = UARTCOMMAND;
-    junk = input(DATAPORT);     /* clear data port */
+    output(TTYC) = 0;       /* reset uart */
+    output(TTYC) = 0;       /* handles sync mode + 2 sync chars */
+    output(TTYC) = 0;       
+    output(TTYC) = USRST;
+    output(TTYC) = UMODE;
+    output(TTYC) = UCOMMAND;
+    junk = input(TTYI);     /* clear data port */
 end;
 
 
-setBitRate: procedure;
+SetBitRate: procedure;
     declare badBaud(*) byte data(
             CR, LF, 'ILLEGAL BAUD RATE',
             CR, LF, 'Legal Baudrates ==> 110, 150, 300, 600, 1200, 2400, 4800, 9600, 19200(default)',
@@ -318,28 +360,28 @@ ParseCmdLine: procedure public;
     call Read(CONSOLE$IN, .cmdLine, 128, .cmdLineLen, .status);
     call ForceUpper(cmdPtr := .cmdLine);
     exitOpt = FALSE;
-    isMaster = 0;
-    bitRate = 255;
+    isMaster = FALSE;
+    bitRate = 255;      /* dummy bitRate used to check if user specified */
     call cmdDeblank;
-    savCmdPtr = cmdPtr;
+    tokStart = cmdPtr;
     call getToken(.masterFile);
-    if cmdCh = CR then
-    do;
+    if cmdCh = CR then  /* only one or no parameter */
+    do; /* SLAVE mode */
         if '0' <= masterFile(1) and masterFile(1) <= '9' and masterFile(0) > 0 then
-        do;
-            cmdPtr = savCmdPtr;
+        do;                     /* its a number so rescan as bit rate */
+            cmdPtr = tokStart;
             call SetBitRate;
         end;
-        else if masterFile(0) > 0 then
+        else if masterFile(0) > 0 then  /* non numeric parameter so bad syntax */
             call SyntaxError;
     end;
     else
-        isMaster = 0FFh;
+        isMaster = TRUE;
     if isMaster then
     do;
-        call getToken(.toFrom);
-        call getToken(.slaveFile);
-        do while cmdCh <> CR;
+        call getToken(.toFrom);     /* should be FROM or TO */
+        call getToken(.slaveFile);  /* slave file name */
+        do while cmdCh <> CR;       /* pick up any EXIT, E or bit rate parameters */
             if '0' <= cmdCh and cmdCh <= '9' and bitRate = 255 then
                 call SetBitRate;
             else
@@ -365,25 +407,25 @@ ParseCmdLine: procedure public;
         bitRate = 19200;
         call SetBitRateScaler(4);
     end;
-    call Sub3AE6;
+    call InitUart;
 end;
 end;
 
-byteop.plm
-ByteOps: do;
-$include(byteop.ipx)
+txbyte.plm
+TxByte: do;
+$include(txbyte.ipx)
 
 declare
     protocol    byte public initial('0'),
     readConn    word public,
     writeConn   word public,
     dirConn     address public,
-    fn          address public,
-    w5A3C       address public,
+    dstName     address public,
+    srcName     address public,
     status      word public,
     ioStatus    word public,
-    exitOpt       byte public,
-    b5A43       byte,
+    exitOpt     byte public,
+    unused      byte,
     isFrom      bool public,
     isMaster    bool public,
     masterFile(16) byte public,
@@ -392,25 +434,25 @@ declare
 
 PutByte: procedure(val) public;
     declare val byte;
-    do while (input(STATUSPORT) and (TXEMPTY + TXRDY)) = 0;
+    do while (input(TTYS) and (TXEMPTY + TXRDY)) = 0;
     end;
-    output(DATAPORT) = val;
+    output(TTYO) = val;
 end;
 
 
 GetByte: procedure byte public;
     declare i word;
 
-    if (input(STATUSPORT) and RXRDY) <> 0 then   /* RxReady */
-        return input(DATAPORT);
+    if (input(TTYS) and RXRDY) <> 0 then   /* RxReady */
+        return input(TTYI);
 
     timer = 0FFFFh;
 
-    do while (input(STATUSPORT) and RXRDY) = 0 and timer <> 0;
+    do while (input(TTYS) and RXRDY) = 0 and timer <> 0;
         timer = timer - 1;
         do i = 1 to 12;
-            if (input(STATUSPORT) and RXRDY) <> 0 then
-                return input(DATAPORT);
+            if (input(TTYS) and RXRDY) <> 0 then
+                return input(TTYI);
         end;
     end;
     if timer = 0 then
@@ -418,35 +460,35 @@ GetByte: procedure byte public;
         call Write(CONSOLE$OUT, .(CR, LF, 'TIME OUT ERROR ON INPUT', CR, LF), 27, .status);
         call Exit;
     end;
-    return input(DATAPORT);
+    return input(TTYI);
 end;
 end;
 txdata.plm
 TransferData: do;
 $include(txdata.ipx)
-declare w5A6D word;
+declare ii word;
 declare ioCnt byte;
-declare b5A70 byte;
-declare w5A71 address;
+declare triesLeft byte;
+declare startBuf address;
 declare crc byte;
 
 GetDataByte: procedure byte;
-    if (input(STATUSPORT) and RXRDY) <> 0 then
-        return input(DATAPORT);
+    if (input(TTYS) and RXRDY) <> 0 then
+        return input(TTYI);
 
-    do w5A6D = 1 to 20000;
-        if (input(STATUSPORT) and RXRDY) <> 0 then
-            return input(DATAPORT);
+    do ii = 1 to 20000;
+        if (input(TTYS) and RXRDY) <> 0 then
+            return input(TTYI);
     end;
     ioStatus = NODATA;
     return 1;
 end;
 
 
-ReadBlock: procedure(buf$p) byte public;
+GetBlock: procedure(buf$p) byte public;
     declare buf$p address, buf based buf$p (1) byte,
             rcvLen byte;
-    b5A70 = 0bh;
+    triesLeft = 11;
     buf$p = buf$p - 1;  /* adjust as index is 1..rcvlen */
     
 retry:
@@ -458,17 +500,17 @@ retry:
             crc = crc + (buf(ioCnt) := GetDataByte);
         end;
         if crc + GetDataByte <> 0 then
-            ioStatus = CRCERROR;
-        if (input(STATUSPORT) and RXERROR) <> 0 then
+            ioStatus = CRC$ERROR;
+        if (input(TTYS) and RXERROR) <> 0 then
         do;
-            ioStatus = TRANSFERERROR;
-            output(CONTROLPORT) = UARTCOMMAND;
+            ioStatus = TRANSFER$ERROR;
+            output(TTYC) = UCOMMAND;
         end;
         call PutByte(ioStatus);
         if ioStatus <> 0 then
         do;
-            b5A70 = b5A70 - 1;
-            if b5A70 <> 0 then
+            triesLeft = triesLeft - 1;
+            if triesLeft <> 0 then
             do;
                 call Write(CONSOLE$OUT, .('#'), 1, .status);
                 goto retry;
@@ -479,16 +521,16 @@ retry:
     end;
 end;
 
-SendBlock: procedure(len, buf$p) public;
+PutBlock: procedure(len, buf$p) public;
     declare len byte, buf$p address, ch based buf$p byte;
-    w5A71 = buf$p;
-    b5A70 = 11;
+    startBuf = buf$p;
+    triesLeft = 11;
 
 retry:
     do;
-        w5A6D = BLOCK$SIZE;
-        do while GetByte <> 2;
-            if (w5A6D := w5A6D - 1) = 0 then
+        ii = BLOCK$SIZE;
+        do while GetByte <> STX;
+            if (ii := ii - 1) = 0 then
             do;
                 ioStatus = NOSTX;
                 return;
@@ -496,7 +538,7 @@ retry:
         end;
         call PutByte(len);
         ioStatus, crc = 0;
-        buf$p = w5A71;
+        buf$p = startBuf;
         do ioCnt = 1 to len;
             call PutByte(ch);
             crc = crc + ch;
@@ -506,21 +548,21 @@ retry:
         call PutByte(-crc);
         if (ioStatus := GetByte) <> 0 then
         do;
-            b5A70 = b5A70 - 1;
-            if b5A70 <> 0 then
+            triesLeft = triesLeft - 1;
+            if triesLeft <> 0 then
             do;
                 call Write(CONSOLE$OUT, .('#'), 1, .status);
                 goto retry;
             end;
             else
             do;
-                ioStatus = 0F5h;
+                ioStatus = TRANSFER$ERROR;
                 return;
             end;
         end;
     end;
-    if GetByte <> 17h then
-        ioStatus = 0F1h;
+    if GetByte <> ETB then
+        ioStatus = NOETB;
 end;
 
 
@@ -532,7 +574,7 @@ GetFile: procedure public;
         filling = TRUE;
         bufCnt = 0;
         do while filling;
-            readCnt = ReadBlock(.ioBuffer + bufCnt);
+            readCnt = GetBlock(.ioBuffer + bufCnt);
             if ioStatus <> 0 then
                 return;
             bufCnt = bufCnt + readCnt;
@@ -545,7 +587,7 @@ GetFile: procedure public;
         call PutByte(ETB);
         if ioStatus <> 0 then
         do;
-            call IoError(fn);
+            call IoError(dstName);
             return;
         end;
     end;
@@ -560,23 +602,23 @@ PutFile: procedure public;
         call Read(readConn, .ioBuffer, BUFFER$SIZE, .actual, .ioStatus);
         if ioStatus <> 0 then
         do;
-            call IoError(w5A3C);
+            call IoError(srcName);
             return;
         end;
         bufCnt = 0;
         do while actual <> bufCnt;
             if (toWrite := actual - bufCnt) > BLOCK$SIZE then
                 toWrite = BLOCK$SIZE;
-            call SendBlock(low(toWrite), .ioBuffer + bufCnt);
+            call PutBlock(low(toWrite), .ioBuffer + bufCnt);
             if ioStatus <> 0 then
             do;
-                call IoError(fn);
+                call IoError(dstName);
                 return;
             end;
             bufCnt = bufCnt + toWrite;
         end;
     end;
-    call SendBlock(0, .ioBuffer);
+    call PutBlock(0, .ioBuffer);
 end;
 end;
 ioBuf.plm
@@ -586,37 +628,37 @@ declare bufCnt word public,
         ioBuffer(BUFFER$SIZE) byte public;
 end;
 conect.plm
-MasterConnect: do;
+Connect: do;
 $include(conect.ipx)
 
 declare noNetwork(*) byte data(CR, LF, 'FAILED TO ESTABLISH NETWORK', CR, LF);
 declare badConnect(*) byte data(CR, LF, 'CHECK CABLE AND/OR BAUD RATES', CR, LF);
 declare incompatable(*) byte data(CR, LF, 'INCOMPATABLE VERSION NUMBERS', CR, LF);
 
-declare (wEB0A, wEB0C) address,
-        (bEB0E, bEB0F) byte;
+declare (syncTriesLeft, iw) address,
+        (ib, waitSync) byte;
 
 SlaveConnect: procedure public;
 retry:
     do;
-        if (input(STATUSPORT) and RXERROR) <> 0 then
-            output(CONTROLPORT) = UARTCOMMAND;
-        wEB0A = 0FFh;
-x:  /* force compiler code generation */
-        bEB0F = 0FFh;
+        if (input(TTYS) and RXERROR) <> 0 then
+            output(TTYC) = UCOMMAND;
+        syncTriesLeft = 255;
+x:  /* force sub optimal compiler code generation */
+        waitSync = 255;
         ioStatus = NOERROR; 
 
-        do while bEB0F <> 0 and ioStatus = NOERROR;
-            if (input(STATUSPORT) and RXERROR) <> 0 then
-                output(CONTROLPORT) = UARTCOMMAND;
-            do while (input(STATUSPORT) and RXRDY) = 0;
+        do while waitSync <> 0 and ioStatus = NOERROR;
+            if (input(TTYS) and RXERROR) <> 0 then
+                output(TTYC) = UCOMMAND;
+            do while (input(TTYS) and RXRDY) = 0;
                 if CSTS then 
                     if (CI and 7Fh) = ESC then
                         call Exit;
             end;
-            bEB0F = input(DATAPORT) xor SOH;    /* loop until SOH seen or timeout */
-            if (wEB0A := wEB0A - 1) = 0 then
-                ioStatus = 0FAh;
+            waitSync = input(TTYI) xor SOH;    /* loop until SOH seen or timeout */
+            if (syncTriesLeft := syncTriesLeft - 1) = 0 then
+                ioStatus = NOMASTER;
         end;
         if ioStatus <> 0 then
         do;
@@ -624,44 +666,44 @@ x:  /* force compiler code generation */
             goto retry;
         end;
         call PutByte(ACK);
-        do while (bEB0E := GetByte) = SOH;  /* gobble up any extra SOH */
+        do while (ib := GetByte) = SOH;  /* gobble up any extra SOH */
         end;
-        if bEB0E <> ACK then
+        if ib <> ACK then
         do;
             call Write(CONSOLE$OUT, .noNetwork, size(noNetwork), .status);
-            call PutByte(0FFh);
+            call PutByte(PROTOCOL$ERROR);
             goto retry;
         end;
         else
             call PutByte(STX);
-        wEB0C = ReadBlock(.isFrom);
-        call PutByte(ETB);
+        iw = GetBlock(.isFrom);
+        call PutByte(ETB);          /* would be better to put in an else part of test below */
         if ioStatus <> 0 then
         do;
             call TransmissionError;
-            call putByte(0FFh);
+            call PutByte(PROTOCOL$ERROR);
             goto retry;
         end;
 
-        wEB0C = ReadBlock(.exitOpt);
-        call PutByte(ETB);
+        iw = GetBlock(.exitOpt);
+        call PutByte(ETB);          /* see comment above */
         if ioStatus <> 0 then
         do;
             call TransmissionError;
-            call putByte(0FFh);
+            call PutByte(PROTOCOL$ERROR);
             goto retry;
         end;
 
-        wEB0C = ReadBlock(.bEB0E);
-        call PutByte(ETB);
+        iw = GetBlock(.ib);
+        call PutByte(ETB);          /* see comment above */
         if ioStatus <> 0 then
         do;
             call TransmissionError;
-            call putByte(0FFh);
+            call PutByte(PROTOCOL$ERROR);
             goto retry;
         end; 
     end;
-    if bEB0E <> protocol then
+    if ib <> protocol then
     do;
         call Write(CONSOLE$OUT, .incompatable, size(incompatable), .status);
         call PutByte(NAK);
@@ -673,25 +715,25 @@ end;
   
 
 MasterConnect: procedure public;
-    wEB0A = 10;
+    syncTriesLeft = 10;
     ioStatus = NOERROR;
-    bEB0F = 0FFh;
+    waitSync = 0FFh;
 
-    do while  bEB0F <> 0 and ioStatus = NOERROR;
-        wEB0C = 5;
+    do while  waitSync <> 0 and ioStatus = NOERROR;
+        iw = 5;
 
-        do while (input(STATUSPORT) and RXRDY) = 0 and ioStatus = NOERROR;
+        do while (input(TTYS) and RXRDY) = 0 and ioStatus = NOERROR;
             call PutByte(SOH);
-            do bEB0E = 1 to 50;
+            do ib = 1 to 50;
                 call time(100);
             end;
-            if (wEB0C := wEB0C - 1) = 0 then
-                ioStatus = 0F0h;
+            if (iw := iw - 1) = 0 then
+                ioStatus = CANNOTSEND;
         end;
-        if (input(STATUSPORT) and RXRDY) <> 0 then
-            bEB0F = input(DATAPORT) xor ACK;
-        if (wEB0A := wEB0A - 1) = 0 then
-            ioStatus = 0F8h;
+        if (input(TTYS) and RXRDY) <> 0 then
+            waitSync = input(TTYI) xor ACK;
+        if (syncTriesLeft := syncTriesLeft - 1) = 0 then
+            ioStatus = NOSLAVE;
         else
             ioStatus = NOERROR;
     end;
@@ -705,18 +747,18 @@ MasterConnect: procedure public;
     call PutByte(ACK);
     if GetByte <> STX then
     do;
-        ioStatus = 0F5h;
+        ioStatus = TRANSFER$ERROR;
         call TransmissionError;
     end;
-    call SendBlock(1, .isFrom);
+    call PutBlock(1, .isFrom);
     if ioStatus <> 0 then
         call TransmissionError;
 
-    call SendBlock(1, .exitOpt);
+    call PutBlock(1, .exitOpt);
     if ioStatus <> 0 then
         call TransmissionError;
 
-    call SendBlock(1, .protocol);
+    call PutBlock(1, .protocol);
     if ioStatus <> 0 then
         call TransmissionError;
 
@@ -727,15 +769,15 @@ MasterConnect: procedure public;
     end;
 end;
 end;
-receiv.plm
-receiveFile: do;
-$include(receiv.ipx)
+multif.plm
+MultipleFiles: do;
+$include(multif.ipx)
 
-declare wEB10 address,
+declare junk address,
         isisDir(*) byte initial(':FX:ISIS.DIR '),
-        (bEB1F, bEB20) bool;
+        (noFile, moreFiles) bool;
 
-ReceiveFile: procedure public;
+GetMultipleFiles: procedure public;
     if (ioStatus := GetByte) <> 0 then
     do;
         call IoError(.(' '));
@@ -743,33 +785,33 @@ ReceiveFile: procedure public;
     end;
     if (ioStatus := GetByte) <> 0 then
     do;
-        if ioStatus = 1 then
-            ioStatus = 0FFh;
+        if ioStatus = SOH then
+            ioStatus = PROTOCOL$ERROR;
         call IoError(.isisDir + 4);
         return;
     end;
-    bEB20 = 0FFh;
-    bEB1F = 0FFh;
-    do while bEB20;
-        if (bEB20 := GetByte) then
+    moreFiles = TRUE;
+    noFile = TRUE;
+    do while moreFiles;
+        if (moreFiles := GetByte) then
         do;
-            wEB10 = ReadBlock(w5A3C);
+            junk = GetBlock(srcName);
             call PutByte(ETB);
             if ioStatus <> 0 then
                 return;
             
-            wEB10 = ReadBlock(fn);
+            junk = GetBlock(dstName);
             call PutByte(ETB);
             if ioStatus <> 0 then
                 return;
             if (ioStatus := GetByte <> 0) then
             do;
-                call IoError(w5A3C);
+                call IoError(srcName);
                 return;
             end;
-            call OPEN(.writeConn, fn, 2, 0, .ioStatus);
+            call OPEN(.writeConn, dstName, 2, 0, .ioStatus);
             call PutByte(ioStatus);
-            call IoError(fn);
+            call IoError(dstName);
             if ioStatus = WRITEPROTECTED then
                 goto writeProtect;
             if iostatus <> 0 then
@@ -783,20 +825,20 @@ ReceiveFile: procedure public;
             if status <> 0 then
             do;
                 ioStatus = status;
-                call IoError(fn);
+                call IoError(dstName);
                 return;
             end;
             call writeCopied;
 
 writeProtect:
-            bEB1F = 0;
+            noFile = FALSE;
         end;
     end;
-    if bEB1F then
+    if noFile then
     do;
         ioStatus = NOSUCHFILE;
         if isMaster then
-            call IoError(w5A3C);
+            call IoError(srcName);
         else
             call IoError(.(' '));
     end;
@@ -804,29 +846,28 @@ end;
 
 
 
-Sub45D6: procedure public;
-    declare s based fn (1) byte;
+PutMultipleFiles: procedure public;
+    declare name based dstName (1) byte;
     declare (dirEntry, maxDir) address,
             (wc1, wc2, drive, i) byte,
             (pn1, pn2, pn3) (10) byte,
-            pn4 structure(drive byte, name(9) byte),    /* only one to force code generation */
-            bEB51(6) byte;
+            direct DIRECT$T;
 
     ioStatus = NOERROR;
-    status = WPath(w5A3C, .pn1, .wc1);
+    status = WPath(srcName, .pn1, .wc1);
     if (drive := pn1(0)) > 5 then
         ioStatus = BADDEVICE;
     else if status <> 0 then
         ioStatus = status;
     else
     do;
-        status = WPath(fn, .pn2, .wc2);
+        status = WPath(dstName, .pn2, .wc2);
         if pn2(0) > 5 then
             ioStatus = BADDEVICE;
-        else if status = 17h then   /* missing filename */
+        else if status = MISSINGFNAME then   /* missing filename */
         do;
-            status = WPath(w5A3C, .pn2, .wc1);
-            pn2(0) = s(2) - '0';
+            status = WPath(srcName, .pn2, .wc1);
+            pn2(0) = name(2) - '0';
             wc2 =0;
         end;
         else
@@ -858,64 +899,64 @@ Sub45D6: procedure public;
         call IoError(.isisDir);
         return;
     end;
-    if DType(drive) = 4 then
+    if DType(drive) = 4 then    /* Hard Disk */
         maxDir = 992;
     else
         maxDir = 200;
 
-    bEB20 = TRUE;
-    bEB1F = TRUE;
+    moreFiles = TRUE;
+    noFile = TRUE;
     pn1(0) = 0;
     dirEntry =  0;
 
-    do while bEB20;
-        dirEntry = Dmeq(dirConn, .pn1, dirEntry, .pn4);
+    do while moreFiles;
+        dirEntry = Dmeq(dirConn, .pn1, dirEntry, .direct);
         if dirEntry > maxDir then
         do;
-            bEB20 = FALSE;
-            call PutByte(bEB20);
+            moreFiles = FALSE;
+            call PutByte(moreFiles);
         end;
-        else if (bEB51(0) and 80h) = 0 or not wc1 then
+        else if (direct.attrib and FORMAT$ATTRIBUTE) = 0 or not wc1 then
         do;
-            call PutByte(bEB20);
-            pn4.drive = drive;
-            call UnPath(.pn4, w5A3C);
+            call PutByte(moreFiles);
+            direct.status = drive;         /* convert to file name */
+            call UnPath(.direct, srcName);
 
             if not wc2 and wc1 then
             do;
-                pn4.drive = pn2(0);
-                call UnPath(.pn4, fn);
+                direct.status = pn2(0);    /* convert to file name */
+                call UnPath(.direct, dstName);
             end;
             else
             do;
                 do i = 0 to 9;
                     if pn2(i) = '?' or pn2(i) = '*' then
-                        pn3(i) = pn4.name(i - 1);   /* pn2(0) must not be wild card or code goes wrong */
+                        pn3(i) = direct.file(i - 1);   /* pn2(0) must not be wild card or code goes wrong */
                     else
                         pn3(i) = pn2(i);
                 end;
-                call UnPath(.pn3, fn);
+                call UnPath(.pn3, dstName);
             end;
 
-            call SendBlock(15, w5A3C);
+            call PutBlock(15, srcName);
             if ioStatus <> 0 then
                 return;
 
-            call SendBlock(15, fn);
+            call PutBlock(15, dstName);
             if ioStatus <> 0 then
                 return;
 
-            call Open(.readConn, w5A3C, 1, 0, .ioStatus);
+            call Open(.readConn, srcName, 1, 0, .ioStatus);
             call PutByte(ioStatus);
-            call IoError(w5A3C);
+            call IoError(srcName);
             if ioStatus <> 0 then
                 return;
 
             ioStatus = GetByte;
-            if ioStatus = 1 then
+            if ioStatus = SOH then
                 ioStatus = 0FFh;
 
-            call IoError(fn);
+            call IoError(dstName);
             if ioStatus = WRITEPROTECTED then
                 goto writeProtect;
             if ioStatus <> 0 then
@@ -927,20 +968,20 @@ Sub45D6: procedure public;
 
             if (ioStatus := GetByte <> 0) then
             do;
-                call IoError(fn);
+                call IoError(dstName);
                 return;
             end;
             call writeCopied;
 
 writeProtect:
             call Close(readConn, .status);
-            bEB1F = 0;
+            noFile = FALSE;
         end;
     end;
-    if bEB1F then
+    if noFile then
     do;
         ioStatus = NOSUCHFILE;
-        call IoError(w5A3C);
+        call IoError(srcName);
     end;
 end;
 
@@ -967,13 +1008,13 @@ WriteCopied: procedure public;
 
     if isFrom then 
     do;
-        master = fn;
-        slave = w5A3C;
+        master = dstName;
+        slave = srcName;
     end;
     else
     do;
-        master = w5A3C;
-        slave = fn;
+        master = srcName;
+        slave = dstName;
     end;
 
     call WriteToSpace(.(LF, CR, 'COPIED '));
@@ -999,7 +1040,7 @@ declare errMsg(*) byte data(CR, LF, 'ERROR==>');
 IoError: procedure(fname) public;
     declare fname address;
 
-    if ioStatus <> 0 and ioStatus <0F0h then
+    if ioStatus <> 0 and ioStatus < 0F0h then
     do;
         call Write(CONSOLE$OUT, .errMsg, size(errMsg), .status);
         call FileError(iostatus, fname, FALSE);

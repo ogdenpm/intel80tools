@@ -1,0 +1,93 @@
+The following data bytes have special meaning
+NUL             0'
+SOH             1
+STX             2
+ACK             6
+NAK             15h
+ETB             17h
+
+CRC$ERROR       0F4h        checksum error
+TRANSFER$ERROR  0F5h        data transfer, probably missing data
+PROTOCOL$ERROR  0FFh        protocol error, possibly two master invocations
+
+Data block transfer
+-------------------
+
+SENDER                              RECEIVER                    Comment
+wait for STX                    <-  Send STX when ready         sender reads up to 250 chars. Returns NOSTX if STX not seen
+Send length byte                ->  Read lenght byte            length of data up to 250 chars
+Send data bytes                 ->  Read data bytes             Sender writes '.' to console after all data sent
+Send crc byte                   ->  Read crc byte               crc is -sum(data bytes)
+Read status byte                <-  Send status byte            0 => ok, CRC$ERROR => bad crc, TRANSFER$ERROR => receive problem
+                                                                if status <> ok both ends write '#' to console and retry up to 10 times.
+                                                                If status ok RECEIVER writes '.' to console
+Read ETB                        <-  Send ETB when ready         if Sender does not read ETB causes NOETB error
+
+
+
+
+During the conenction phase, errors are handled as follows
+MASTER
+If SOH cannot be sent within a reasonable time or ACK is not read, the initiation phase will be tried up to 9 times.
+If no success the message "FAILED TO ESTABLISH NETWORK" will be shown, NAK will be sent and the program will exit.
+if there is an error after ACK is seen, an error the message "TRANSMISSION ERROR" will be shown and the program will exit
+Note that if the SLAVE encounters an error and sends 0FFh the MASTER will eventually time out and show "TIME OUT ERROR ON INPUT" then exit
+
+SLAVE
+While waiting for SOH the message "CHECK CABLE AND/OR BAUD RATES" will be shown periodically. The user can quit the program by pressing ESC
+Any other data errors in connection phase the message "TRANSMISSION ERROR" will be shown, an 0FFh byte will be sent and the connection phase will be restarted.
+If the protocol versions are different the the message "INCOMPATABLE VERSION NUMBERS" will be shown, a NAK byte will be send and the program will exit
+
+Connection
+----------
+MASTER                              SLAVE                           Comment
+Send SOH                        ->  Wait for SOH
+Read ACK                        <-  Send ACK
+Send ACK                        ->  Read ACK
+Read STX                        <-  Send STX
+
+Send FROM/TO option as data     ->  Read FROM/TO option as data     See Data block transfer above. These are all 1 byte of data
+Send Exit option as data        ->  Read Exit option as data
+Send protocol as data           ->  Read protocol as data
+Read ACK                        <-  Send ACK                        Will send NAK if protocols are incompatable
+
+
+File transfer
+-------------
+Setup files from Slave
+----------------------
+MASTER                              SLAVE
+Send src name as data           ->  Read src name as data           15 byte data - fatal on failure
+Send dst name as data           ->  Read dst name as data           15 byte data - fatal on failure
+
+Transfer files
+--------------
+SENDER                              RECEIVER
+Check master/slave file names                                       status set if bad device, missing name, bad or incompatable specs
+Send status byte                ->  Read status byte                if status <> 0 then both ends finish and MASTER will exit as will SLAVE if exit option given
+Open ISIS.DIR
+Send status byte                ->  Read status byte                if status <> 0 then both ends finish and MASTER will exit as will SLAVE if exit option given
+
+For each file that matches spec                                     Note isis files with format attribute can only be copied with explicit file names
+===============================
+Send src file name as data      ->  Read src file name as data      15 bytes
+Send dst file name as data      ->  Read dst file name as data      15 bytes
+Open src file
+Send status byte                ->  Read status byte                if status <> 0 then both ends finish and MASTER will exit as will SLAVE if exit option given
+                                    Open dst file
+Read status byte                <-  Send status byte                Note Write Protected file on receiver causes file to be skipped but does not trigger no such file error
+
+Send file as data               ->  Read file as data               Each data block is up to 250 chars and a 37000 byte buffer is used in memory
+                                                                    When the buffer is full or the transfer done, the data is flushed to disk and
+                                                                    the ETB is delayed until writing is complete, otherwise ETB is sent immediately after the block is reveived.
+Send 0 length data              ->  Read 0 length data              Used to signal end of file.
+                                    close file
+Read status byte                <-  Send status byte                if status <> 0 then both ends finish and MASTER will exit as will SLAVE if exit option given
+File copied info to console         File copied info to console
+close file
+
+At end of transfer
+------------------
+MASTER                              SLAVE (if exit option)
+Competed to console                 Completed to console            Will be Aborted message if there is an error
+Program exits                       Program exits

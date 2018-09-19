@@ -6,14 +6,14 @@ PEXFILE:=ftrans.pex
 include $(ROOT)/tools/isis.mk
 
 REF = $(call ipath,ftrans,1.0)
-
+PROTECT := protocol.txt
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:= OPTIMIZE DEBUG CODE
 LINKFLAGS:=
 
-objs = ftrans.obj cmdlin.obj byteop.obj txdata.obj ioBuf.obj conect.obj\
-	   receiv.obj copied.obj ioerr.obj dtype.obj ferror.obj forupp.obj\
+objs = ftrans.obj cmdlin.obj txbyte.obj txdata.obj ioBuf.obj conect.obj\
+	   multif.obj copied.obj ioerr.obj dtype.obj ferror.obj forupp.obj\
 	   unpath.obj wpath.obj pseq.obj scanin.obj dmeq.obj dblank.obj meq.obj\
 	   reperr.obj trange.obj upcase.obj wdlmt.obj
 
