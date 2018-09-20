@@ -854,24 +854,30 @@ PutMultipleFiles: procedure public;
             direct DIRECT$T;
 
     ioStatus = NOERROR;
-    status = WPath(srcName, .pn1, .wc1);
+    status = WPath(srcName, .pn1, .wc1);    /* parse src filename */
     if (drive := pn1(0)) > 5 then
         ioStatus = BADDEVICE;
     else if status <> 0 then
         ioStatus = status;
     else
     do;
-        status = WPath(dstName, .pn2, .wc2);
+        status = WPath(dstName, .pn2, .wc2);    /* parse dst filename */
         if pn2(0) > 5 then
             ioStatus = BADDEVICE;
         else if status = MISSINGFNAME then   /* missing filename */
         do;
-            status = WPath(srcName, .pn2, .wc1);
-            pn2(0) = name(2) - '0';
-            wc2 =0;
+            status = WPath(srcName, .pn2, .wc1);    /* initialise with src name */
+            pn2(0) = name(2) - '0';         /* copy drive over */
+            wc2 =0;                         /* just use wc1 flag */
         end;
         else
         do;
+            /*
+                check names are compatable as follows
+                src ?    ok with dst ? or *
+                src *    ok with dst *
+                src null ok with dst char, null or *
+            */
             do i = 0 to 9;
                 if pn1(i) = '?' and (pn2(i) <> '?' and pn2(i) <> '*')
                    or (pn1(i) = '*' and pn2(i) <> '*')
@@ -922,7 +928,7 @@ PutMultipleFiles: procedure public;
             direct.status = drive;         /* convert to file name */
             call UnPath(.direct, srcName);
 
-            if not wc2 and wc1 then
+            if not wc2 and wc1 then        /* dst uses same name as src */
             do;
                 direct.status = pn2(0);    /* convert to file name */
                 call UnPath(.direct, dstName);
@@ -931,9 +937,9 @@ PutMultipleFiles: procedure public;
             do;
                 do i = 0 to 9;
                     if pn2(i) = '?' or pn2(i) = '*' then
-                        pn3(i) = direct.file(i - 1);   /* pn2(0) must not be wild card or code goes wrong */
+                        pn3(i) = direct.file(i - 1);   /* pn2(0) will not be ? or * so ok */
                     else
-                        pn3(i) = pn2(i);
+                        pn3(i) = pn2(i);   /* create dstName based on pattern */
                 end;
                 call UnPath(.pn3, dstName);
             end;
@@ -1160,8 +1166,8 @@ unpath:	procedure(int, ext) public;
 	extName(0) = ' ';
 end;
 end;
-wpath.plm
-WPATH: DO;
+WPath.plm
+WPath: DO;
 uppercase: procedure(char) byte external;
 	declare char byte;
 end;
