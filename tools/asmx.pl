@@ -43,6 +43,7 @@ open ($out, ">$ofile.$oext") or die "can't create $ofile.$oext\n";
 # pass 1 of the pre-processor
 # handles include files, struc definitions and struc var definitions
 
+
 sub include {
     my $file = $_[0];
     my $root = "./";
@@ -123,6 +124,13 @@ sub strucDef {
         }
     }
     $struc{$name}{size} = $offset;                          # recorded the total size
+}
+
+# look for include options
+$inc = 0;
+foreach (grep(/^include\s*\(/i, @ARGV)) {
+        splice(@prog, $inc++, 0, "\$$_\n");
+        $_ = "";
 }
 
 # scan through the program and process struc definitions
@@ -222,9 +230,6 @@ sub initialiser {
     my ($type, $param) = @_;
     my @expand;
 
-    if ($type eq 'assign?t') {
-        print "here\n";
-    }
     if ($param eq "?") {                            # simple ? so do ds for whole structure
         push @expand, "        ds $struc{$type}{size}    ; $type";
     } else {
@@ -271,10 +276,10 @@ for ($curLine = 0; $curLine <= $#prog; $curLine++) {
     for my $p (@parts) {
         next if $p =~ /^'/;                        # don't convert string fragments
         # look for name1.name2[.name3]* and process as struc access
-        $fixup++ if $p =~ s/([\w\$\?\@_]+)\.([\w\?\$\@_\.]+)/ &strucMember(lc($1), lc($2)) /ieg;
+        $fixup++ if $p =~ s/([\w\?\@][\w\$\?\@_]*)\.([\w\?\$\@_\.]+)/ &strucMember(lc($1), lc($2)) /ieg;
         # finally look for names > 6 chars and map
-        $fixup++ if $p =~ s/([a-z\?\@][\w\?\@]{6,})/ mapname($1) /ieg;   # long names
-        $fixup++ if $p =~ s/([a-z\?\@] [\w\?\@]*[\$\_] [\w\?\@\$\_]* |      # name with embedded $ or _
+        $fixup++ if $p =~ s/([\w\?\@][\w\?\@]{6,})/ mapname($1) /ieg;   # long names
+        $fixup++ if $p !~ /^\$/ && $p =~ s/([\w\?\@] [\w\?\@]*[\$\_] [\w\?\@\$\_]* |      # name with embedded $ or _
                              [\$\_] [\w\?\@\$\_]*)/ mapname($1) /xieg;   # names with $ and _
     }
     $line = join("", @parts);                       # put the line back together
@@ -296,22 +301,28 @@ close $in;
 
 
 # now run the assembler
-unlink "$ofile.lst";        # delete old listing file
+$lst = "$ofile.lst";
+foreach (grep(/print\s*\(/i, @ARGV)) {
+    /\(\s*(.*?)\s*\)/;
+    $lst = $1;
+    last;
+}
+
+unlink $lst;        # delete old listing file
 local $objfile = "$ofile.obj";  # assume default .obj file
 # check for object(file) in the command line
 my @objargs = grep(/object\(/i, @ARGV);
 $objfile = $1 if $objargs[0] =~ /\(\s*([^\s\)]*)/;
 unlink $objfile;
 
-my $ROOT = $ENV{ROOT};
-my @args = ("-m", "$ROOT/itools/asm80_4.1/asm80", "$ofile.$oext", 
-            "print($ofile.lst)", @ARGV);
+my $ROOT = $ENV{ROOT} || $ENV{ITOOLS};
+my @args = ("-m", "$ROOT/itools/asm80_4.1/asm80", "$ofile.$oext", @ARGV);
 my $result = system("$ROOT/thames.exe", @args);
 
 
 # when finished check for listing file and regenerate using long names etc.
-if (-e "$ofile.lst") {
-    open($in, "<", "$ofile.lst") or die "can't open $ofile.lst\n";
+if (-e $lst) {
+    open($in, "<", $lst) or die "can't open $lst\n";
     open ($out, ">$ofile.$$") or die "can't create $ofile.$$\n";
 
     my $syms = 0;
@@ -322,6 +333,7 @@ if (-e "$ofile.lst") {
             s/$tmpComment//;
             s/\@\@(\d{4})/ $nameLookup[$1]/eg;
         }
+
         $syms++ if /^(PUBLIC|EXTERNAL|USER) SYMBOLS/;           # look for symbol table reformat
         if ($syms && /^[\w\?\@\.\$]+\s+[A-Z] [0-9A-F]{4}/) {    # reformat using wider symbol name
             my @item = split;
@@ -339,9 +351,9 @@ if (-e "$ofile.lst") {
     }
     close $in;
     close $out;
-    unlink "$ofile.lst";                                        # remove asm generated .lst file
+    unlink $lst;                                        # remove asm generated .lst file
     unlink "$ofile.asm";                                        # remove intermediate .asm file
-    rename "$ofile.$$", "$ofile.lst"                            # replace with updated .lst file
+    rename "$ofile.$$", $lst;                            # replace with updated .lst file
 }
 
 # check for obj file and update names in public, extern, and locals definitions
