@@ -4,6 +4,9 @@
 # $(call fixpath,path)
 fixpath = $(if $1,$(subst |,,$(subst /|,,$(subst \,/,$(strip $1))|)),.)
 
+# if user hasn't provided an explicit ROOT use the ITOOLS environment variable
+# going forward using ITOOLS is the prefered approach
+ROOT ?= $(ITOOLS)
 # normalise ROOT path
 export ROOT := $(call fixpath,$(ROOT))
 #
@@ -88,14 +91,14 @@ vpath %.asm $(SRC)
 # $(call plm80,objfile,srcfile[,target specific options])
 define plm80
   $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2,$(MKDEPEND) $1 $2)
-  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "print($(call lst,$2))"\
-	  "object($1)"$(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "object($1)"\
+	  $(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call asm80,objfile,srcfile[,target specific options])
 define asm80
-  @$(ISIS) $(call ifile,asm80,$(ASM80)) $2 "print($(call lst,$2))"\
-	  "object($1)"$(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+  @$(ISIS) $(call ifile,asm80,$(ASM80)) $2 "object($1)"\
+	  $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call asm80x,objfile,srcfile[,target specific options])
@@ -106,7 +109,7 @@ endef
 
 # $(call asm48,objfile,srcfile[,target specific options])
 define asm48
-  @$(ISIS) $(call ifile,asm48,$(ASM48)) $2 "print($(call lst,$2))"\
+  @$(ISIS) $(call ifile,asm48,$(ASM48)) $2 \
 	  "object($1)"$(if $(ASM48FLAGS), "$(ASM48FLAGS)")$(if $3, "$3")
 endef
 
