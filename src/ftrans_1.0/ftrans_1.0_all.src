@@ -101,7 +101,7 @@ MISSINGEXT      '1ch'
 UNKNOWNDEV      '5'
 
 # FTRANS error codes
-CANNOTSEND      '0F0h'
+NORESPONSE      '0F0h'
 NOETB           '0F1h'
 NOSTX           '0F2h'
 CRC$ERROR        '0F4h'
@@ -446,7 +446,7 @@ GetByte: procedure byte public;
     if (input(TTYS) and RXRDY) <> 0 then   /* RxReady */
         return input(TTYI);
 
-    timer = 0FFFFh;
+    timer = 0FFFFh;                     /* tries for ~ 36s assuming 5Mhz 8085 */
 
     do while (input(TTYS) and RXRDY) = 0 and timer <> 0;
         timer = timer - 1;
@@ -476,7 +476,7 @@ GetDataByte: procedure byte;
     if (input(TTYS) and RXRDY) <> 0 then
         return input(TTYI);
 
-    do ii = 1 to 20000;
+    do ii = 1 to 20000;         /* tries for ~ 750ms assuming 5Mhz 8085 */
         if (input(TTYS) and RXRDY) <> 0 then
             return input(TTYI);
     end;
@@ -728,7 +728,7 @@ MasterConnect: procedure public;
                 call time(100);
             end;
             if (iw := iw - 1) = 0 then
-                ioStatus = CANNOTSEND;
+                ioStatus = NORESPONSE;
         end;
         if (input(TTYS) and RXRDY) <> 0 then
             waitSync = input(TTYI) xor ACK;
@@ -1166,7 +1166,7 @@ unpath:	procedure(int, ext) public;
 	extName(0) = ' ';
 end;
 end;
-WPath.plm
+wpath.plm
 WPath: DO;
 uppercase: procedure(char) byte external;
 	declare char byte;
