@@ -96,9 +96,11 @@ void Open(FILE **conn_p, char *path_p, word access, word echo, word * status_p) 
 
 void Read(FILE *conn, void *buf_p, word count, word * actual_p, word * status_p)
 {
-    int actual;
+    size_t actual;
+	if (ferror(conn))
+		clearerr(conn);
     if (conn == stdin && cmdLine[0]) {
-        int len = strlen(cmdLine);
+        size_t len = strlen(cmdLine);
         actual = len <= count ? len : count;
         memcpy(buf_p, cmdLine, actual);
         if (len <= count)
@@ -107,8 +109,8 @@ void Read(FILE *conn, void *buf_p, word count, word * actual_p, word * status_p)
             memmove(cmdLine, cmdLine + actual, len - actual);
     } else
         actual = fread(buf_p, 1, count, conn);
-    *actual_p = actual;
-    *status_p = (actual < 0) ? errno: 0;
+    *actual_p = (word)actual;
+    *status_p = actual == 0 ? ferror(conn): 0;
 }
 
 void Rescan(word conn, word *status_p) {

@@ -699,7 +699,7 @@ void accessOptStrVal()
 		}
 		nxtCh();
     }
-    tknLen = curCh_p - optStrVal_p;
+    tknLen = (byte)(curCh_p - optStrVal_p);
     acceptRPAR();
 }
 
@@ -716,7 +716,7 @@ void acceptFileName()
 		optStrVal_p = curCh_p;	// save start of token
 		while (*curCh_p != ' ' && *curCh_p != ')' && chrClass != CC_NEWLINE)
 			nxtCh();		// collect until space, ) or EOL
-		if ((tknLen = curCh_p - optStrVal_p) > 14) {	// allow  max 14 chars
+		if ((tknLen = (byte)(curCh_p - optStrVal_p)) > 14) {	// allow  max 14 chars
 			badCmdTail(ERR17);	// INVALID PATH-NAME
 			tknLen = 0;
 		} else {
@@ -815,7 +815,7 @@ void getToken()
     while (*curCh_p != ' ' && *curCh_p != '(' && chrClass != CC_NEWLINE)
 		nxtCh();
 	
-    tknLen = curCh_p - optStrVal_p;
+    tknLen = (byte)(curCh_p - optStrVal_p);
 }
 
 
