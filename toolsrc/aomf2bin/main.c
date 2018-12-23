@@ -230,29 +230,46 @@ bool loadOmf286(FILE *fp) {
     return true;
 }
 
+void usage() {
+    fprintf(stderr, "usage: aomf2bin option* infile [outfile | -o odd_outfile | -e even_outfile]+\n"
+            "   supported options are\n"
+            "   -b address - sets base address of rom\n"
+            "   -p         - pads image to eprom boundary\n"
+            "   -z         - sets uninitialsed data to 0 instead of 0xff\n");
+    exit(1);
+
+}
+
 int main(int argc, char **argv) {
     FILE *fp;
     unsigned char magic;
     bool loaded = false;
+    bool pad = false;
+    int arg;
+    int fill = 0xff;
 
-    if (argc < 3 || (strcmp(argv[2], "-b") == 0 && argc < 5)) {
-        fprintf(stderr, "usage: aomf2bin infile [-b address] [outfile | -o odd_outfile | -e even_outfile]+\n");
+    for (arg = 1; arg < argc; arg++) {
+        if (strcmp(argv[arg], "-b") == 0 && arg + 1 < argc) {
+            char tailch;
+            int itemcnt = sscanf(argv[++arg], "%X%c", &base, &tailch);
+            if (itemcnt == 0 || (itemcnt == 2 && toupper(tailch) != 'H')) {
+                fprintf(stderr, "invalid base address %s\n", argv[arg]);
+                usage();
+            }
+        } else if (strcmp(argv[arg], "-p") == 0)
+            pad = true;
+        else if (strcmp(argv[arg], "-z") == 0)
+            fill = 0;
+        else
+            break;
+    }
+    if (arg >= argc || *argv[arg] == '-')
+        usage();
+    if ((fp = fopen(argv[arg], "rb")) == NULL) {
+        fprintf(stderr, "can't open input file %s\n", argv[arg]);
         exit(1);
     }
-
-    if (strcmp(argv[2], "-b") == 0) {
-        char tailch;
-        int itemcnt = sscanf(argv[3], "%X%c", &base, &tailch);
-        if (itemcnt == 0 || (itemcnt == 2 && toupper(tailch) != 'H')) {
-            fprintf(stderr, "error in base address %s\n", argv[3]);
-            exit(1);
-        }
-    }
-    if ((fp = fopen(argv[1], "rb")) == NULL) {
-        fprintf(stderr, "can't open input file %s\n", argv[1]);
-        exit(1);
-    }
-    memset(rom, 0xff, MAXROM);      // default uninitialised to 0xff
+    memset(rom, fill, MAXROM);      // set default uninitialised
 
     magic = getc(fp);               // peek at the magic header byte
     ungetc(magic, fp);
@@ -268,25 +285,28 @@ int main(int argc, char **argv) {
 
     if (loaded) {                   // if good load generate the bin files
         int select;
-
-        for (int i = 2; i < argc; i++) {
-            if (strcmp(argv[i], "-b") == 0) {       // skip -b option here
-                i++;
-                continue;
-            }
-            if (strcmp(argv[i], "-o") == 0) {       // odd bytes
+        if (pad) {                  // if padding set toprom to size to match an eprom (2^n k)
+            unsigned i;
+            for (i = 256; i < toprom; i <<= 1)
+                ;
+            toprom = i;
+        }
+        for (arg++; arg < argc; arg++) {
+            if (strcmp(argv[arg], "-o") == 0) {       // odd bytes
                 select = ODD;
-                i++;
-            } else if (strcmp(argv[i], "-e") == 0) {    // even bytes
+                arg++;
+            } else if (strcmp(argv[arg], "-e") == 0) {    // even bytes
                 select = EVEN;
-                i++;
-            } else
+                arg++;
+            } else if (*argv[arg] == '-')
+                usage();
+            else
                 select = ALL;
-            if (i == argc) {
+            if (arg == argc) {
                 fprintf(stderr, "missing filename on command line\n");
-                return 1;
+                usage();
             }
-            if (!dump(select, argv[i]))         // generate bin file
+            if (!dump(select, argv[arg]))         // generate bin file
                 return 1;
         }
         return 0;
