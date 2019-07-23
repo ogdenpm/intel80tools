@@ -6,7 +6,6 @@ omf_t *newOMF(file_t *fi, int mod, int start, int end)
 {
     omf_t *omf;
     char modStr[8];
-    int nameLen;
 
     if (mod < 0)
         modStr[0] = 0;

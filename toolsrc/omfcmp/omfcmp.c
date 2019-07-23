@@ -1,5 +1,6 @@
 #include "omfcmp.h"
 #include "omf.h"
+#include <ctype.h>
 
 enum {
     UNUSED = 0,
@@ -140,23 +141,51 @@ void addContent(content_t *con, word addr, word length, byte *image)
     con->items[con->cnt++].image = image;
 }
 
+#define DUMPLEN	8
 
+void dumpDiff(omf_t *left, omf_t *right, int start, int cnt)
+{
+	printf("%04X:", start);
+	for (int i = 0; i < DUMPLEN; i++)
+		if (i < cnt)
+			printf(" %02X", left->image[start + i]);
+		else
+			printf("   ");
+	printf(" |");
+	for (int i = 0; i < DUMPLEN; i++)
+		printf("%c", i < cnt && isprint(left->image[start + i]) ? left->image[start + i] : '.');
+	printf("| :");
+	for (int i = 0; i < DUMPLEN; i++)
+		if (i >= cnt)
+			printf("   ");
+		else if (left->image[start + i] != right->image[start + i])
+			printf(" %02X", right->image[start + i]);
+		else
+			printf(" ==");
+	printf(" |");
+	for (int i = 0; i < DUMPLEN; i++)
+		printf("%c", i < cnt && isprint(right->image[start + i]) ? right->image[start + i] : '.');
+	printf("|\n");
+}
 
 /* print out the binary differences*/
 void diffBinary(omf_t *left, omf_t *right)
 {
-    int i;
+	int cmplen = left->size < right->size ? left->size : right->size;
 
     printf("%s : %s ===Binary difference===\n", left->name, right->name);
 
-    
+    int i = 0;
+	while (i < cmplen) {
+		if (left->image[i] != right->image[i]) {
+			i = (i / DUMPLEN) * DUMPLEN;		// truncate to block boundary
+			dumpDiff(left, right, (i / DUMPLEN) * DUMPLEN, (i + DUMPLEN <= cmplen) ? DUMPLEN : cmplen - i);
+			i += DUMPLEN;
+		}
+		else
+			i++;
+	}
 
-    for (i = 0; i < left->size && i < right->size; i++) {
-        if (left->image[i] != right->image[i]) {
-            printf("%04X: %02X %02X\n", i, left->image[i], right->image[i]);
-            returnCode = 1;
-        }
-    }
     if (left->size > right->size) {
         printf("%s is longer\n", left->name);
         returnCode = 1;
