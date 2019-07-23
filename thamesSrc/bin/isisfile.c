@@ -108,7 +108,7 @@ int isis_name2unix(const char *isisname, char *unixname)
         return ERROR_SUCCESS;
     }
 
-    /* It"s an ISIS filename. If it doesn"t start with a device
+    /* It's an ISIS filename. If it doesn't start with a device
      * specifier, assume :F0: */
     if (strlen(isisname) < 4 || isisname[0] != ':' || isisname[3] != ':')
     {
@@ -129,13 +129,13 @@ int isis_name2unix(const char *isisname, char *unixname)
 #else
         strcpy(unixname, "/dev/null");
 #endif
-		return ERROR_SUCCESS;
+        return ERROR_SUCCESS;
 
     }
 /* Check for other mapped devices */
     if (isis_isdev(isisname) == 1)	/* Character device */
     {
-		src = xlt_device(isisname);
+        src = xlt_device(isisname);
         if (!src)
         {
             fprintf(stderr, "No UNIX mapping for ISIS "
@@ -164,10 +164,10 @@ int isis_name2unix(const char *isisname, char *unixname)
     strcpy(destname, src);
 #ifdef _WIN32		// [Mark Ogden] map \ to / and handle x: fpr dps
     for (char *s = strchr(destname, '\\'); s; s = strchr(s, '\\'))	*s = '/';
-    if (destname[2] || destname[1] == ':' || !isalpha(destname[0]))	// x: only shouldn"t assume root
+    if (destname[2] || destname[1] == ':' || !isalpha(destname[0]))	// x: only shouldn't assume root
 #endif
     {
-        /* Append a path separator if there isn"t one */
+        /* Append a path separator if there isn't one */
         if (destname[strlen(destname) - 1] != '/')
             strcat(destname, "/");
     }
@@ -195,7 +195,7 @@ static int new_isis_file(ISIS_FILE **pf)
     int handle;
 
     memset(handle_used, 0, sizeof(handle_used));
-    /* Generate a new file handle that isn"t in use. */
+    /* Generate a new file handle that isn't in use. */
     for (result = root; result != NULL; result = result->next)
     {
         handle = result->handle;
@@ -236,10 +236,10 @@ void delete_isis_file(ISIS_FILE *f)
     {
         isis_close_file(f);
     }
-    // [Mark Ogden] - bug fix don"t delete :ci: or :co:
+    // [Mark Ogden] - bug fix don't delete :ci: or :co:
     if (f == conin || f == conout)
         return;
-    /* Remove entry f from the linked list, if it"s present */
+    /* Remove entry f from the linked list, if it's present */
 
     for (other = root; other != NULL; other = other->next)
     {
@@ -269,7 +269,7 @@ static int isis_close_file(ISIS_FILE *self)
         fflush(self->fp);
         return ERROR_SUCCESS;
     }
-    /* Don"t actually close stdin / stdout / stderr */
+    /* Don't actually close stdin / stdout / stderr */
     if (self->fp == stdin || self->fp == stdout || self->fp == stderr)
     {
         self->fp = NULL;
@@ -399,23 +399,23 @@ int  isis_open(int *handle, const char *isisname, int access, int echo)
     {
         case 1: isf->fp = fopen(unixname, "rb"); 
 //			printf("Open %s rb = %p\n", unixname, isf->fp);
-            break;
+           break;
         case 2: isf->fp = fopen(unixname, "wb"); 
-//			printf("Open %s wb = %p\n", unixname, isf->fp);
+//            printf("Open %s wb = %p\n", unixname, isf->fp);
             break;
-        case 3: isf->fp = fopen(unixname, "r+b"); 
-//			printf("Open %s r+b = %p\n", unixname, isf->fp);
+        case 3: isf->fp = fopen(unixname, "r+b");
+//            printf("Open %s r+b = %p\n", unixname, isf->fp);
             if (!isf->fp) 
             {
                 isf->fp = fopen(unixname, "w+b");
-//				printf("Open %s w+b = %p\n", unixname, isf->fp);
+//            printf("Open %s w+b = %p\n", unixname, isf->fp);
             }
             break;
-    }	
+    }
     if (!isf->fp)
     {
         if (trace)
-            fprintf(stderr, "Can't open %s\n", unixname);
+            fprintf(stderr, "Can't open '%s'\n", unixname);
         delete_isis_file(isf);
         return ERROR_FILENOTFOUND;
     }
@@ -444,7 +444,7 @@ int isis_delete(const char *isisname)
     char realname[PATH_MAX];
     int err;
 
-    /* If the filename refers to a device, it can"t be deleted */
+    /* If the filename refers to a device, it can't be deleted */
     if (isis_isdev(isisname)) return ERROR_ISDEVICE;
 
     /* This should never return true, because isis_isdev() ought to
@@ -597,7 +597,7 @@ int isis_seek(int handle, int mode, long *offset)
     {
         case 0:	 /* Get position */
              pos = ftell(fd->fp);
-             /* Can"t get current position */
+             /* Can't get current position */
              if (pos < 0) return ERROR_CANTSEEKDEV;
             *offset = pos;
              break;
@@ -654,7 +654,7 @@ int isis_rename(const char *oldname, const char *newname)
     err = isis_name2unix(newname, unixnew); if (err) return err;	
 
     if (isis_getdrive(oldname) != isis_getdrive(newname))
-        return ERROR_RENACROSS;	/* Can"t rename across drives */
+        return ERROR_RENACROSS;	/* Can't rename across drives */
 
     if (!stat(unixnew, &st)) return ERROR_EXISTS;	/* Target file exists */
 
@@ -669,7 +669,7 @@ int isis_console(const char *ciname, const char *coname)
     FILE *fp;
     int err;
 
-/* If filename is :CI: or :CO:, don"t reassign */
+/* If filename is :CI: or :CO:, don't reassign */
     if (isis_devspecial(ciname) == NULL)	
     {
         err = isis_name2unix(ciname, unixname); 
@@ -744,67 +744,67 @@ int isis_whocon(int handle, char *isisname)
 // Mark Ogden - updated spath to follow isis 4.3 behaviour
 
 struct {
-	char *dev;
-	unsigned char devtype;
+    char *dev;
+    unsigned char devtype;
 } deviceMap[] = {
-	 {"F0", 3}, {"F1", 3}, {"F2", 3}, {"F3", 3},
-	 {"F4", 3}, {"F5", 3}, {"TI", 0}, {"TO", 1},
-	 {"VI", 0}, {"VO", 1}, {"I1", 0}, {"O1", 1},
-	 {"TR", 0}, {"HR", 0}, {"R1", 0}, {"R2", 0},
-	 {"TP", 1}, {"HP", 1}, {"P1", 1}, {"P2", 1},
-	 {"LP", 1}, {"L1", 1}, {"BB", 2}, {"CI", 0},
-	 {"CO", 1}, {"F6", 3}, {"F7", 3}, {"F8", 3},
-	 {"F9", 3}};
+     {"F0", 3}, {"F1", 3}, {"F2", 3}, {"F3", 3},
+     {"F4", 3}, {"F5", 3}, {"TI", 0}, {"TO", 1},
+     {"VI", 0}, {"VO", 1}, {"I1", 0}, {"O1", 1},
+     {"TR", 0}, {"HR", 0}, {"R1", 0}, {"R2", 0},
+     {"TP", 1}, {"HP", 1}, {"P1", 1}, {"P2", 1},
+     {"LP", 1}, {"L1", 1}, {"BB", 2}, {"CI", 0},
+     {"CO", 1}, {"F6", 3}, {"F7", 3}, {"F8", 3},
+     {"F9", 3}};
 
 int isis_spath(const char *isisname, ISIS_STAT *result)
 {
-	const char *pathname;
-	char devname[3];
+    const char *pathname;
+    char devname[3];
 
-	memset(result, 0, sizeof(*result));
+    memset(result, 0, sizeof(*result));
 
-	for (pathname = isisname; *pathname == ' '; pathname++);	// skip leading space
+    for (pathname = isisname; *pathname == ' '; pathname++);	// skip leading space
 
-	if (pathname[0] == ':') {
-		result->device = 0xff;
-		if (pathname[3] != ':')
-			return ERROR_BADFILENAME;
-		devname[0] = toupper(pathname[1]);
-		devname[1] = toupper(pathname[2]);
-		devname[2] = 0;
-		pathname += 4;
+    if (pathname[0] == ':') {
+        result->device = 0xff;
+        if (pathname[3] != ':')
+            return ERROR_BADFILENAME;
+        devname[0] = toupper(pathname[1]);
+        devname[1] = toupper(pathname[2]);
+        devname[2] = 0;
+        pathname += 4;
 
-		for (int i = 0; i < sizeof(deviceMap) / sizeof(deviceMap[0]); i++) {
-			if (isisname[1] == deviceMap[i].dev[0] && isisname[2] == deviceMap[i].dev[1]) {
-				result->device = i;
-				break;
-			}
-		}
-		if (result->device == 0xff)
-			return ERROR_BADDEVICE;
+        for (int i = 0; i < sizeof(deviceMap) / sizeof(deviceMap[0]); i++) {
+            if (isisname[1] == deviceMap[i].dev[0] && isisname[2] == deviceMap[i].dev[1]) {
+                result->device = i;
+                break;
+            }
+        }
+        if (result->device == 0xff)
+            return ERROR_BADDEVICE;
 
-	}
-	result->drivetype = 0xff;
-	if ((result->devtype = deviceMap[result->device].devtype) == 3)		/* random access */
-		result->drivetype = isis_drive_exists(result->device < 6 ? result->device : result->device - 19) ? 4 : 0;
+    }
+    result->drivetype = 0xff;
+    if ((result->devtype = deviceMap[result->device].devtype) == 3)		/* random access */
+        result->drivetype = isis_drive_exists(result->device < 6 ? result->device : result->device - 19) ? 4 : 0;
 
-	for (int i = 0; i < 6 && isalnum(*pathname); i++)
-		result->filename[i] = toupper(*pathname++);
+    for (int i = 0; i < 6 && isalnum(*pathname); i++)
+        result->filename[i] = toupper(*pathname++);
 
-	if (*pathname == '.') {
-		pathname++;
-		for (int i = 0; i < 3 && isalnum(*pathname); i++)
-			result->ext[i] = toupper(*pathname++);
-		if (result->ext[0] == 0)
-			return ERROR_BADEXT;
-	}
-	if (result->device <= 9 && result->filename[0] == 0)
-		return ERROR_NOFILENAME;
+    if (*pathname == '.') {
+        pathname++;
+        for (int i = 0; i < 3 && isalnum(*pathname); i++)
+            result->ext[i] = toupper(*pathname++);
+        if (result->ext[0] == 0)
+            return ERROR_BADEXT;
+    }
+    if (result->device <= 9 && result->filename[0] == 0)
+        return ERROR_NOFILENAME;
 
-	if (isalnum(*pathname) || *pathname == '.' || *pathname == ':')
-		return ERROR_BADFILENAME;
+    if (isalnum(*pathname) || *pathname == '.' || *pathname == ':')
+        return ERROR_BADFILENAME;
 
-	return ERROR_SUCCESS;
+    return ERROR_SUCCESS;
 }
 
 
