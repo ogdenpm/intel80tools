@@ -200,7 +200,7 @@ void GetMacroToken()
 #endif
                 reget = 1;
                 EmitXref(XREF_DEF, name);
-                rhsUserSymbol = false;
+                haveUserSymbol = false;
                 nestedMacroSeen = true;
                 return;
             }
@@ -245,7 +245,7 @@ void DoMacroBody()
         SkipWhite();					// as dummy is entered above look for , value
         if (IsComma()) {
             reget = 0;
-            newOp = T_BEGIN;		   // mark beginning of expression
+            curOp = T_VALUE;		   // mark beginning of expression
             initMacroParam();
             if (macro.top.mtype == M_IRP) {		/* if IRP then expression begins with < */
                 curChar = GetCh();
@@ -262,7 +262,7 @@ void DoMacroBody()
             InitSpoolMode();			/* spool rest of definition */
         }
     }
-    else if (newOp == T_CR)		// got the parameters
+    else if (curOp == T_CR)		// got the parameters
     {
         if (! MPorNoErrCode())	// skip if multiple defined, phase or no error 
         {
@@ -318,7 +318,7 @@ void DoEndm()
 void DoExitm()
 {
     if (expandingMacro) {
-        if (newOp == T_CR) {
+        if (curOp == T_CR) {
             condAsmSeen = true;
             macroCondSP = macro.top.condSP;
             ifDepth = macro.top.ifDepth;
@@ -360,7 +360,7 @@ void DoIterParam()
     else
         SyntaxError();
 
-    if (newOp == T_CR) {
+    if (curOp == T_CR) {
         inMacroBody = false;
         if (argNestCnt > 0)
             BalanceError();
@@ -393,7 +393,7 @@ void DoIterParam()
 void DoRept()
 {
     DoIrpX(M_REPT);
-    if ((yyType = newOp) != T_CR)
+    if ((yyType = curOp) != T_CR)
         SyntaxError();
 
     if (! (mSpoolMode & 1)) {
@@ -411,21 +411,21 @@ void DoLocal()
 {
     if (mSpoolMode == 2) {
         if (HaveTokens()) {
-            if ((byte)(++macro.top.localsCnt) == 0)
+            if ((byte)(++macro.top.localsCnt) == 0)		// 256 locals!!
                 StackError();
 
-            if (tokenType[0] != O_NAME)
+            if (tokenType[0] != O_NAME)					// already seen so error
                 MultipleDefError();
 
-            InsertMacroSym(macro.top.localsCnt, 1);
+            InsertMacroSym(macro.top.localsCnt, 1);		// save this local with index
             macroInPtr = symHighMark;
         }
-        if (newOp == T_CR) {
+        if (curOp == T_CR) {			// local line processed to return to normal spooling
             mSpoolMode = 1;
             macroInPtr = symHighMark;
         }
     } else
-        SyntaxError();
+        SyntaxError();					// local not ok here
 }
 
 

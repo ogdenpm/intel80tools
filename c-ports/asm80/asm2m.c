@@ -162,7 +162,7 @@ void SetExpectOperands() {
 
 
 void LogError(byte ch) {
-    if (tokenType[tokenIdx] != O_OPTVAL) {  /* ignore error if processing an optional value */
+    if (tokenType[tokenIdx] != O_NULVAL) {  /* ignore error if processing an optional value */
         SourceError(ch);
         return;
     }
@@ -177,7 +177,7 @@ word GetNumVal()        // load numeric value from top of stack
     acc1RelocFlags = 0;         // initialise to absoulte zero value
     accum1 = 0;
     acc1ValType = O_NAME;       // with NAME type
-    if (tokenType[0] == O_OPTVAL)
+    if (tokenType[0] == O_NULVAL)
         PushToken(O_PARAM);
     if (tokenIdx == 0 || (tokenType[0] == O_DATA && !b6B36))
         LogError('Q');		// questionable syntax - possible missing opcode

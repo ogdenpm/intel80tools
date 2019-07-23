@@ -52,7 +52,7 @@ bool IsWhiteOrCr(byte c)
 
 void GetAsmFile()
 {
-    /* select key words depending on whether macro version | ~ */
+    /* select key words depending on whether macro version or not */
     symTab[TID_KEYWORD] = (tokensym_t *) extKeywords;    /* extended key words */
     /* set location of symbol table */
 	endSymTab[TID_KEYWORD] = symTab[TID_SYMBOL] = endSymTab[TID_SYMBOL] = (tokensym_t *)(symHighMark = MEMORY);
@@ -80,7 +80,7 @@ void GetAsmFile()
     kk = 0;     /* length of file name */
     while (! IsWhiteOrCr(*cmdchP)) {    /* copy file name over to the files list */
         files[0].name[kk] = *cmdchP;
-        if (ii)        /* && the name for the lst && obj files */
+        if (ii)        /* and the name for the lst && obj files */
             lstFile[kk] = objFile[kk] = *cmdchP;
         if (*cmdchP == '.')
         {
@@ -100,7 +100,7 @@ void GetAsmFile()
     }
 
     files[0].name[kk] = ' ';    /* append trailing space */
-    /* set drive for macro && asxref tmp files if specified in source file */
+    /* set drive for macro and asxref tmp files if specified in source file */
     if (lstFile[0] == ':' && lstFile[2] != '0')
         asmacRef[2],
         asxrefTmp[2] = lstFile[2];
@@ -113,7 +113,7 @@ void ResetData()
     InitLine();
 
     b6B33 = scanCmdLine = skipIf[0] = b6B2C = inElse[0] = finished =
-		segDeclared[0] = segDeclared[1] = inComment = expandingMacro = macroDivert = mSpoolMode =
+		segDeclared[0] = segDeclared[1] = inComment = expandingMacro = expandingMacroParameter = mSpoolMode =
 		hasVarRef = pendingInclude = bZERO;
     noOpsYet = primaryValid = controls.list = ctlListChanged = bTRUE;
     controls.gen = bTRUE;
@@ -126,13 +126,13 @@ void ResetData()
 		effectiveAddr.w = localIdCnt = externId = errCnt = wZERO;
     passCnt++;
 #pragma warning(disable:4244)
-    srcLineCnt = newOp = pageCnt = pageLineCnt = 1;
+    srcLineCnt = curOp = pageCnt = pageLineCnt = 1;
 #pragma warning(default: 4224)
     b68AE = false;
     curChar = ' ';
-    for (ii = 0; ii <= 11; ii++) {        /* reset all the control seen flags */
+    for (ii = 0; ii <= 11; ii++)          /* reset all the control seen flags */
         controlSeen[ii] = false;
-    }
+
     curMacroBlk = 0xFFFF;
     if (! IsPhase1()) {   /* close any Open() include file */
         if (fileIdx != 0) {

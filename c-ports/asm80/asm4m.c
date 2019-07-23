@@ -88,7 +88,7 @@ void FinishLine()
         segLocation[activeSeg] = effectiveAddr.w = (word)(segLocation[activeSeg] + (w6BCE - lineBuf));
     }
 
-    if (controls.xref && rhsUserSymbol)
+    if (controls.xref && haveUserSymbol)
         if (phase == 1)
             EmitXref(XREF_REF, name);
 

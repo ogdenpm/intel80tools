@@ -310,7 +310,7 @@ byte Lookup(byte tableId) {
                         SourceError('O');
 
                     if (tokenType[0] == K_SP) {       /* SP */
-                        if (!(newOp == K_LXI || newOp == K_REG16))
+                        if (!(curOp == K_LXI || curOp == K_REG16))
                             SourceError('X');
                         tokenType[0] = K_REGNAME;    /* reg */
                     }
@@ -385,42 +385,35 @@ byte Lookup(byte tableId) {
 byte GetCh() {
     static byte curCH, prevCH;
 
-reGetCh:
-    if (!reget) {
+    while (!reget) {
         prevCH = curCH;
-    nextCh:
-        curCH = lookAhead;
-        if (expandingMacro) {
-            while ((lookAhead = *macro.top.bufP) == MACROEOB) {
-                ReadM(curMacroBlk + 1);
-                macro.top.bufP = macroBuf;
-            }
+		do {
+			curCH = lookAhead;
+			if (expandingMacro)
+				while ((lookAhead = *macro.top.bufP++) == MACROEOB) {
+					ReadM(curMacroBlk + 1);
+					macro.top.bufP = macroBuf;
+				}
+			else
+				lookAhead = scanCmdLine ? GetCmdCh() : GetSrcCh();
+		} while (curCH == 0 || curCH == 0x7F || curCH == FF);
 
-            macro.top.bufP++;
-        } else if (scanCmdLine)
-            lookAhead = GetCmdCh();
-        else
-            lookAhead = GetSrcCh();
-
-        //        if (chClass[curCH] == CC_BAD)		// check may access beyond end of array. also not needed
-        if (curCH == 0 || curCH == 0x7F || curCH == FF) // ignore
-            goto nextCh;
         if (expandingMacro) {
             if (curCH == ESC)		// reached end of spooled macro
-                goto doneGetCh;
+                break;
             else if (curCH == '&') {
-                if (prevCH >= MACROPARAM || lookAhead == MACROPARAM)	// macro param/DoLocal before or after
-                    goto reGetCh;										// ignore as text will be joined
+                if (prevCH >= MACROPARAM || lookAhead == MACROPARAM)	// macro param/Local before or after
+                    continue;										// ignore as text will be joined
             } else if (curCH == '!' && prevCH != 0) {					// ! and previous char wasn't a !
-                if (!(inMacroBody || (mSpoolMode & 1)) && macroDivert) {
+                if (!(inMacroBody || (mSpoolMode & 1)) && expandingMacroParameter) {
                     curCH = 0;											// will make sure !! is passed through as !
-                    goto reGetCh;
+                    continue;
                 }
             } else if (curCH >= MACROPARAM) {
-                if (!(macroDivert = !macroDivert))
-                    macro.top.bufP = savedMacroBufP;	// was end of macro divert
+                if (!(expandingMacroParameter = !expandingMacroParameter))
+                    macro.top.bufP = savedMacroBufP;	// back to macro as macro parameter expansion has finished
                 else {
-                    savedMacroBufP = macro.top.bufP;	// is parameter or DoLocal
+                    savedMacroBufP = macro.top.bufP;	// is parameter or Local
                     if (curCH == MACROPARAM) {				// parameter
                         macro.top.bufP = macro.top.pCurArg;	// parameter text
                         if (savedMtype == M_IRPC) {
@@ -437,8 +430,8 @@ reGetCh:
                             }
                             macro.top.bufP++;						// skip over the length of next parameter
                         }
-                    } else {										// DoLocal
-                        macro.top.bufP = localVarName;				// generate DoLocal id from instance & current DoLocal base
+                    } else {										// Local
+                        macro.top.bufP = localVarName;				// generate Local id from instance & current DoLocal base
                         word tmp = lookAhead + macro.top.localIdBase;		// plm reuses aVar instead of tmp
                         // generate DoLocal variable name
                         for (ii = 1; ii <= 4; ii++) {
@@ -449,7 +442,7 @@ reGetCh:
                 }
 
                 lookAhead = 0;
-                goto reGetCh;
+                continue;
             }
         }
 
@@ -458,7 +451,7 @@ reGetCh:
                 if (macroP < macroLine + 127)					/* append character if room */
                     *macroP++ = curCH;
 
-        if (mSpoolMode & 1)						/* don't spool if CR at start of macro or char in excluded comments */
+        if (mSpoolMode & 1)						/* spool char if not in excluded comments or is the end of line CR for none empty line */
             if ((startMacroLine != macroInPtr && curCH == CR) || !excludeCommentInExpansion)
                 InsertCharInMacroTbl(curCH);
 
@@ -469,8 +462,8 @@ reGetCh:
             if (curCH == '<')
                 argNestCnt++;
         }
+		break;
     }
-doneGetCh:
     reget = 0;
     return (curChar = curCH);
 }
@@ -491,7 +484,7 @@ void ChkLF() {
     else {
         mSpoolMode &= 0xFE;     // prevent the error from being supressed by spooling
         IllegalCharError();     // record the error
-        mSpoolMode = mSpoolMode > 0 ? 0xff : 0;     // 0xff if expanding macro marker
+        mSpoolMode = mSpoolMode > 0 ? 0xff : 0;     // 0xff if capturing
     }
 }
 

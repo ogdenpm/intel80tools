@@ -20,6 +20,7 @@ bool absValueReq[] = {
        false, false, false, false, false, false, false, false, false, false, true,  true,  true, false,  true,  false,
        false, false };
 /* true for DS, ORG, IF, 3A?, IRP, IRPC DoRept */
+
 byte b3F88[] = { 0x41, 0x90, 0, 0, 0, 0, 0, 0, 0, 0x40 };
 /* bit vector 66 -> 10010000 0 x 56 01 */
 
@@ -40,20 +41,20 @@ byte NonHiddenSymbol()
 }
 
 
-
+/* seek to specified macro block (128 byte) in macro spool file */
 void SeekM(word blk)
 {
-    if (aVar.w = blk - nxtMacroBlk) {
-        kk = SEEKFWD;
+    if (aVar.w = blk - nxtMacroBlk) {		// if already there then nothing to do
+        kk = SEEKFWD;						// check if we need to seek fwd / bwd
         if (blk < nxtMacroBlk) {
             aVar.w = -aVar.w;
             kk = SEEKBACK;
         }
 
-        Seek(macrofd, kk, &aVar.w, &seekMZero, &statusIO);
+        Seek(macrofd, kk, &aVar.w, &seekMZero, &statusIO);	// seek to the required block
         IoErrChk();
     }
-    nxtMacroBlk = blk + 1;
+    nxtMacroBlk = blk + 1;					// update next block info
 }
 
 
@@ -89,7 +90,8 @@ void WriteM()
 }
 
 
-
+// flush the macro buffer to disk in full 128 byte blocks
+// residual are moved to start of macro buffer endSymTab[TID_MACRO]
 void FlushM()
 {
     word bytesLeft;
@@ -122,12 +124,12 @@ void Skip2NextLine()
 }
 
 
-void Sub416B()
+void gotValue()
 {
-    if (newOp == T_BEGIN)
+    if (curOp == T_VALUE)		// if previous was value then two consecutive values so error
         ExpressionError();
     inExpression = 0;
-    newOp = T_BEGIN;
+    curOp = T_VALUE;			// record we just saw a value
 }
 
 void Tokenise()
@@ -139,8 +141,14 @@ void Tokenise()
         }
 
         switch (GetChClass()) {
+		case CC_ESC:	// moved to allow fall through to error case rather than use goto
+			if (expandingMacro) {
+				skipIf[0] = false;
+				yyType = O_NULVAL;
+				return;
+			}
         case CC_BAD:
-        case0:      IllegalCharError(); break;
+		    IllegalCharError(); break;
         case CC_WS: break;
         case CC_SEMI:
             if (!inQuotes) {
@@ -155,32 +163,32 @@ void Tokenise()
             }
             break;
         case CC_COLON:
-            if (!gotLabel) {
-                if (skipIf[0] || (mSpoolMode & 1))
+            if (!gotLabel) {				// ok if only label on line
+                if (skipIf[0] || (mSpoolMode & 1))	// skipping or spooling so junk tokens
                     PopToken();
                 else {
-                    labelUse = L_TARGET;
+                    labelUse = L_TARGET;			// note label usage and update symbol table with location
                     UpdateSymbolEntry(segLocation[activeSeg], O_TARGET);
                 }
-                expectingOperands = false;
-                gotLabel = expectingOpcode = bTRUE;
+                expectingOperands = false;			// should see an opcode first
+				gotLabel = expectingOpcode = bTRUE;
             }
             else {
-                SyntaxError();
+                SyntaxError();				// two labels is an error
                 PopToken();
             }
-            EmitXref(XREF_DEF, name);
-            rhsUserSymbol = false;
-            newOp = O_LABEL;
+            EmitXref(XREF_DEF, name);		// this is a x-ref definition
+            haveUserSymbol = false;			// not a user symbol but a label
+            curOp = O_LABEL;
             break;
         case CC_CR:
             ChkLF();
             yyType = T_CR;
-            inQuotes = false;
+            inQuotes = false;		// auto close string for spooling
             return;
         case CC_PUN:
             if (curChar == '+' || curChar == '-')
-                if (!TestBit(newOp, b3F88)) /* not T_BEGIN, T_RPAREN or K_NUL */
+                if (!TestBit(curOp, b3F88)) /* not T_BEGIN, T_RPAREN or K_NUL */
                     curChar += (T_UPLUS - T_PLUS);    /* make unary versions */
             yyType = curChar - '(' + T_LPAREN;
             return;
@@ -190,27 +198,27 @@ void Tokenise()
             CollectByte(segLocation[activeSeg] >> 8);
             if (activeSeg != SEG_ABS)   // if not abs set seg and relocatable flags
                 tokenAttr[0] |= activeSeg | UF_RBOTH;
-            Sub416B();
+            gotValue();
             break;
         case CC_QUOTE:
-            if (yyType == O_MACROPARAM) {
+            if (yyType == O_MACROPARAM) {		// quote not allowed in macro parameter (unless escaped)
                 IllegalCharError();
                 return;
             }
-            if (mSpoolMode & 1)
+            if (mSpoolMode & 1)					// spooling passes through string, record whether in / out of string
                 inQuotes = !inQuotes;
             else {
-                GetStr();
-                if (expectingOpcode)
+                GetStr();						// normal processing so collect string
+                if (expectingOpcode)			// can't be an opcode
                     SetExpectOperands();
-                Sub416B();
+                gotValue();
             }
             break;
         case CC_DIG:
             GetNum();
-            if (expectingOpcode)
+            if (expectingOpcode)				// can't be an opcode
                 SetExpectOperands();
-            Sub416B();
+            gotValue();
             break;
         case CC_LET:
             startMacroToken = macroInPtr - 1;
@@ -226,9 +234,9 @@ void Tokenise()
             memcpy(name, tokPtr, tokenSize[0]);
             nameLen = tokenSize[0];
             PackToken();        /* make into 4 byte name */
-            if (rhsUserSymbol) {
-                lhsUserSymbol = true;
-                rhsUserSymbol = false;
+            if (haveUserSymbol) {			// user symbol not followed by a colon
+                haveNonLabelSymbol = true;
+                haveUserSymbol = false;
             }
 
 
@@ -239,43 +247,43 @@ void Tokenise()
                     InsertCharInMacroTbl(kk ? 0x80 : 0x81);
                     InsertByteInMacroTbl((byte)GetNumVal());
                     InsertCharInMacroTbl(curChar);
-                    yyType = O_NAME;
+                    yyType = O_NAME;			// reuse of yyType?
                 }
             }
-            else if (yyType != O_MACROPARAM && mSpoolMode != 2) {
+            else if (yyType != O_MACROPARAM && mSpoolMode != 2) {		// skip if capturing macro parameter or local names
                 if (Lookup(TID_KEYWORD) == O_NAME) {       /* not a key word */
                     tokenType[0] = Lookup(TID_SYMBOL);    /* look up in symbol space */
-                    rhsUserSymbol = true;        /* note we have a user symbol */
+                    haveUserSymbol = true;        /* note we have a user symbol */
                 }
 
                 yyType = tokenType[0];
                 needsAbsValue = absValueReq[tokenType[0]]; /* DS, ORG, IF, K_MACRONAME, IRP, IRPC DoRept */
-                if (!tokReq[tokenType[0]]) /* i.e. not instruction, reg or K_MACRONAME or 1->A */
+                if (!tokReq[tokenType[0]]) /* i.e. not instruction, reg or K_MACRONAME or punctuation */
                     PopToken();
 
                 // for name seen to lhs of op emit xref, for SET/EQU/MACRO PARAM then this is defining
                 // else it is reference
-                if (lhsUserSymbol) {               /* EQU, SET or O_MACROPARAM */
+                if (haveNonLabelSymbol) {               /* EQU, SET or O_MACROPARAM */
                     EmitXref(!TestBit(yyType, definingLHS), savName);   // maps to XREF_DEF or XREF_REF
-                    lhsUserSymbol = false;
+                    haveNonLabelSymbol = false;
                 }
             }
-            if (mSpoolMode == 1) {
-                if (yyType == K_LOCAL) {
+            if (mSpoolMode == 1) {					// start of macro spooling
+                if (yyType == K_LOCAL) {			// move to capture locals
                     mSpoolMode = 2;
-                    if (spooledControl)
+                    if (spooledControl)				// error if there are any controls before local in macro
                         SyntaxError();
                     spooledControl = false;
                 } else {
-                    spooledControl = false;
-                    mSpoolMode = 0xff;
+                    spooledControl = false;			// clear spooled control flag
+                    mSpoolMode = 0xff;				// capture body
                 }
             }
 
             if (yyType == K_NUL)
-                PushToken(O_OPTVAL);
+                PushToken(O_NULVAL);
             if (yyType < 10 /* | yyType == 9 | 80h*/) { /* !! only first term contributes */
-                Sub416B();
+                gotValue();
                 if (expectingOpcode)
                     SetExpectOperands();
             }
@@ -290,14 +298,6 @@ void Tokenise()
             if (nestedMacroSeen)
                 return;
             break;
-        case CC_ESC:
-            if (expandingMacro) {
-                skipIf[0] = false;
-                yyType = O_OPTVAL;
-                return;
-            }
-            else
-                goto case0;
         }
     }
 }

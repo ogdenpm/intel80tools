@@ -9,9 +9,9 @@ bool inQuotes = false;
 bool excludeCommentInExpansion;
 bool inAngleBrackets;
 byte expandingMacro;		// 0,1 or 0xff
-bool macroDivert;
+bool expandingMacroParameter;
 bool inMacroBody = false;
-byte mSpoolMode;					// 0->normal, 1->spool, 2->capture args, 0xfe->might not occur , 0xff->expanding
+byte mSpoolMode;					// 0->normal, 1->spool (local ok), 2->capture locals, 0xfe->might not occur , 0xff->capture body
 static byte b905F;		// unused
 bool b9060;
 bool nestMacro;
@@ -126,8 +126,8 @@ pointer baseMacroTbl;
 byte gotLabel = 0;
 byte name[6];
 byte savName[6];
-bool lhsUserSymbol;
-bool rhsUserSymbol;
+bool haveNonLabelSymbol;		// true if we have seen a user symbol and confirmed that there is no :
+bool haveUserSymbol;			// true if we have seen a user symbol and  not yet seen a following :
 bool xRefPending = false;
 byte passCnt = 0;
 bool createdUsrSym = false;
@@ -205,7 +205,7 @@ bool has16bitOperand;
 byte phase;
 byte curOpFlags;
 byte yyType;
-byte newOp;
+byte curOp;
 byte topOp;
 bool b6B2C;
 byte nextTokType;

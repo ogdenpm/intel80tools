@@ -62,7 +62,7 @@ void HandleOp()
             break;
     case 2:	                    /* ( */
     case 3:	                    /* ) */
-            if (! (topOp == T_LPAREN && newOp == T_RPAREN)) // incorrectly nested ()
+            if (! (topOp == T_LPAREN && curOp == T_RPAREN)) // incorrectly nested ()
                 BalanceError();
 
             if (tokenType[0] == O_DATA) {
@@ -72,7 +72,7 @@ void HandleOp()
             }
 
             expectOp = inNestedParen;
-            if (newOp == T_RPAREN)
+            if (curOp == T_RPAREN)
                 b6B2C = true;
             break;
     case 4:	accum1 *= accum2;    /* * */
@@ -212,7 +212,7 @@ void HandleOp()
 
             if (macroCondSP > 0 || (kk & 1))
                 NestingError();
-            if (newOp != T_CR)
+            if (curOp != T_CR)
                 SyntaxError();
             if (expectOp)
                 b6B33 = true;
@@ -347,7 +347,7 @@ void HandleOp()
             break;
     case 62:	DoRept();            /* REPT ? */
             break;
-    case 63:	DoLocal();            /* LOCAL */
+    case 63:	 DoLocal();            /* LOCAL */
             break;
     case 64:	Sub78CE();      /* optVal */
             break;
@@ -408,13 +408,13 @@ void Parse()
                     if (GetPrec(yyType) <= GetPrec(opStack[opSP]))
                         ExpressionError();
 
-        if (GetPrec(newOp = yyType) > GetPrec(topOp = opStack[opSP]) || newOp == T_LPAREN) {    /* SHIFT */
+        if (GetPrec(curOp = yyType) > GetPrec(topOp = opStack[opSP]) || curOp == T_LPAREN) {    /* SHIFT */
             if (opSP >= 16) {
                 opSP = 0;
                 StackError();
             } else
-                opStack[++opSP] = newOp;
-            if (newOp == T_LPAREN) {
+                opStack[++opSP] = curOp;
+            if (curOp == T_LPAREN) {
                 inNestedParen = expectOp;
                 expectOp = true;
             }
@@ -439,8 +439,8 @@ void Parse()
         if ((! expectOp) && topOp > T_RPAREN)
             SyntaxError();
 
-        if (topOp == T_BEGIN) /* topOp used so set to newOp */
-            topOp = newOp;
+        if (topOp == T_VALUE) /* topOp used so set to curOp */
+            topOp = curOp;
         else
             opSP--;    /* pop Op */
         
@@ -488,7 +488,7 @@ void Parse()
         tokenAttr[0] = acc1RelocFlags;
         tokenSymId[0] = acc1RelocVal;
         if (curOpFlags & 0x40)          /* -x------ -> list */
-            if (newOp == T_COMMA) {     // if comma then make the operator (topOp) as
+            if (curOp == T_COMMA) {     // if comma then make the operator (topOp) as
                 yyType = topOp;         // the next item to read and mark as operator
                 expectOp = true;
             }

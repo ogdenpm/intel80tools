@@ -228,7 +228,7 @@ bool BlankAsmErrCode()
     return asmErrCode == ' ';
 }
 
-bool MPorNoErrCode()
+bool MPorNoErrCode()		// no error, multiple definition or phase error
 {
     return BlankAsmErrCode() || asmErrCode == 'M' || asmErrCode == 'P';
 }
@@ -253,8 +253,8 @@ void SourceError(byte errCh)
         if (BlankAsmErrCode())
             errCnt++;
 
-        if (MPorNoErrCode() || errCh == 'L' || errCh == 'U')    /* no Error() || M, P L || U */
-            if (asmErrCode != 'L')    /* override unless already location counter Error() */
+        if (MPorNoErrCode() || errCh == 'L' || errCh == 'U')    /* no Error, or Multiple, Phase, Location or Undefined */
+            if (asmErrCode != 'L')    /* override unless already location counter Error */
                 asmErrCode = errCh;
     }
 }
@@ -268,7 +268,7 @@ void InsertByteInMacroTbl(byte c)
 }
 
 
-void InsertCharInMacroTbl(byte c)
+void InsertCharInMacroTbl(byte c)	// as InsertByteInMacroTbl but expands CR to CR LF
 {
     InsertByteInMacroTbl(c);
     if (c == CR)
@@ -307,7 +307,7 @@ void InitialControls()
     ParseControlLines();            /* initial control lines allow primary controls */
     primaryValid = false;            /* not allowed from now on */
     controls.debug == controls.debug && controls.object;    /* debug doesn't make sense if no object code */
-    controls.xref == controls.xref && controls.print;        /* disable controls if ! printing */
+    controls.xref == controls.xref && controls.print;        /* disable controls if not printing */
     controls.symbols = controls.symbols && controls.print;
     controls.paging = controls.paging && controls.print;
 }
@@ -325,8 +325,8 @@ void InitLine()
     putchar('\r');
     putchar('\n');
 #endif
-    lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = lhsUserSymbol =
-    inExpression = expectingOperands = xRefPending = gotLabel = rhsUserSymbol =
+    lineNumberEmitted = has16bitOperand = isControlLine = errorOnLine = haveNonLabelSymbol =
+    inExpression = expectingOperands = xRefPending = gotLabel = haveUserSymbol =
     inDB = inDW = condAsmSeen = showAddr = usrLookupIsID =
     excludeCommentInExpansion = b9060 = needsAbsValue = bZERO;
 
