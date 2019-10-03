@@ -120,7 +120,7 @@ static bool sub_70BC(byte arg1b)
     return false;
 }
 
-Sub_7055()
+void Sub_7055()
 {
     if (sub_70BC(tx2qp))
         bC25A = tx2qp;

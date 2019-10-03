@@ -19,7 +19,7 @@ static byte errStrTable[] = {
 static word off, slen;  // global for nested function
 
 
-static void FindErrStr(word errNum)
+static void xFindErrStr(word errNum)
 {
     word i, j;
 
@@ -53,7 +53,7 @@ void FatlIO(file_t *fileP, word errNum)
 	PrintStr(aError, Length(aError));
 	len = Num2Asc(errNum, 0, 10, buf);
 	PrintStr(buf, len);
-	FindErrStr(errNum);
+	xFindErrStr(errNum);
 	if (slen != 0 )
 	{
 		PrintStr("--", 2);

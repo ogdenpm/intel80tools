@@ -292,7 +292,7 @@ void Sub_5FE7(word arg1w, byte arg2b)
 static byte i;
 static byte bA1AB;
 
-Sub_66F1()
+void Sub_66F1()
 {
 
     if (cfCode >= 0xAE) { 
@@ -453,7 +453,7 @@ static void Sub_67AD(byte arg1b, byte arg2b)
     }
 } /* Sub_67AD() */
 
-Sub_6720()
+void Sub_6720()
 {
     static byte i;
 

@@ -169,8 +169,9 @@ static byte segChar[] = " CDSME";    /* seg id char */
 
 void PrintAddr2(void(*printFunc)(byte), byte zeroAddr)	// no longer used
 {
-    ((pointer)tokenSym.curP)--;    /* backup into value */
-    printFunc(zeroAddr ? 0 : *(pointer)tokenSym.curP);    /* print word or 0 */
+    tokenSym.bPtr--;    /* backup into value */
+    
+    printFunc(zeroAddr ? 0 : *tokenSym.bPtr);    /* print word or 0 */
 }
 
 void Sub7041_8447()

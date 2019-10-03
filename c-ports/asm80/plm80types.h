@@ -169,6 +169,7 @@ typedef union {
 typedef union {
 	tokensym_t *stack[9];
 	tokensym_t *curP;
+    pointer bPtr;
 } tokensymStk_t;
 
 typedef union {

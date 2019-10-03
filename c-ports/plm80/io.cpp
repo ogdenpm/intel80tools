@@ -1,25 +1,21 @@
 // $Id: io.cpp,v 1.1 2003/10/04 21:08:48 Mark Ogden Exp $
 #include <stdlib.h>
 #include <stdio.h>
-#include <io.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef __GNUG__
+#ifdef _WIN32
+#include <io.h>
+#define unlink  _unlink
+#else
+#ifdef __GNUC__
 #include <unistd.h>
-#define _tell	tell
-#define _lseek	lseek
 #include <errno.h>
-#define _open open
-#define _S_IREAD S_IREAD
-#define _S_IWRITE S_IWRITE
+#define _setmode(fd, mode)
+#endif
 #endif
 
-#ifdef __BORLAND__
-#define _tell tell
-#define _open open
-#endif
 #include "plm.hpp"
 int gargc;
 char **gargv;
@@ -72,7 +68,7 @@ char *mapFile(char *path_p) {
 
 
 void Open(FILE **conn_p, char *path_p, word access, word echo, word * status_p) {
-    char *mode;
+    const char *mode;
     FILE *fp; 
 
 	errno = 0;
@@ -145,7 +141,7 @@ void Write(FILE *conn, void *buff_p, word count, word * status_p)
 
 void Delete(char *path, word *status_p)
 {
-    *status_p = _unlink(mapFile(path)) < 0 ? errno : 0;
+    *status_p = unlink(mapFile(path)) < 0 ? errno : 0;
 }
 
 

@@ -9,9 +9,9 @@ void sub_4EC5();
 void ixiWrite(byte *arg1w, word arg2w);
 void sub_4D03();
 void sub_4C84();
-void sub_4B4A(char *arg1w);
+void sub_4B4A(const char *arg1w);
 void sub_4A92();
-void sub_4A78(char *arg1w);
+void sub_4A78(const char *arg1w);
 void sub_4A42();
 void sub_49BB();
 void sub_499C();
@@ -26,7 +26,7 @@ void sub_451A();
 void sub_4287();
 byte cmpSym(word arg1w, word arg2w);
 void sub_4140();
-void sub_4121(char *arg1w);
+void sub_4121(const char *arg1w);
 
 
 void sub_77BF(byte arg1b, byte arg2b, byte arg3b);
@@ -69,7 +69,7 @@ int overlay5()
 	return -1;
 }
 
-void sub_4121(char *arg1w)
+void sub_4121(const char *arg1w)
 {
 	newLineLst();
 	xputstr2cLst("*** WARNING -- ", 0);
@@ -461,7 +461,7 @@ void sub_4A42()
 	curInfo_p = p;
 }
 
-void sub_4A78(char *arg1w)
+void sub_4A78(const char *arg1w)
 {
 	sub_4921();
 	sub_48A7();
@@ -472,7 +472,7 @@ void sub_4A78(char *arg1w)
 
 void sub_4A92()
 {
-	char *p;
+	const char *p;
 
 	sub_4921();
 	sub_48E2(getAddr(), getDimension());
@@ -506,7 +506,7 @@ void sub_4A92()
 	sub_480A();
 }
 
-void sub_4B4A(char *arg1w)
+void sub_4B4A(const char *arg1w)
 {
 	word p;
 	byte i;

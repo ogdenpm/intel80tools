@@ -32,7 +32,7 @@ pointer macroInPtr;
 	5 -> ???
 */
 #pragma pack(push, 1)
-extern macroStk_t macro = { .top.blk = 0xffff };
+macroStk_t macro = { .top.blk = 0xffff };
 #pragma pack(pop)
 static word w910C;	// unused
 word curMacroBlk = 0xFFFF;

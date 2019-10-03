@@ -1,6 +1,16 @@
 #include <stdbool.h>
 #include "error.h"
 
+#ifdef _WIN32
+#define NORETURN(func)      __declspec(noreturn) void func
+#else
+#ifdef __GNUC__
+#define NORETURN(func)     __attribute__((noreturn)) void func 
+#else
+#define NORETURN(func)     void func
+#endif
+#endif
+
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef unsigned short address;
@@ -139,7 +149,7 @@ void GetCmd();
 void GetName(pointer buf);
 void GetRecordBytes(word count, pointer bufP);
 void GetToken();
-__declspec(noreturn) void LibError(byte err);
+NORETURN(LibError(byte err));
 void LibSeek(byte modeB, wpointer blkByteP);
 void Log(pointer buf, word cnt);
 void LogCRLF(pointer buf, word cnt); 

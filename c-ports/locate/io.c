@@ -1,11 +1,25 @@
 // vim:ts=4:shiftwidth=4:expandtab:
 #include <ctype.h>
-#include <io.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef _WIN32
+#include <io.h>
+#define close   _close
+#define open    _open
+#define read    _read
+#define write   _write
+#define unlink  _unlink
+#define lseek   _lseek
+#else
+#include <unistd.h>
+#include <errno.h>
+#define _MAX_PATH 4096
+#define O_BINARY    0
+#endif
 
 #include "loc.h"
 
@@ -112,7 +126,7 @@ static word MapFile(osfile_t *osfileP, const char *isisPath)
 	const char *src;
 	char buf[8];
 	int status;
-	static modes[] = { READ_MODE, WRITE_MODE, UPDATE_MODE, UPDATE_MODE + RANDOM_ACCESS };
+	static byte modes[] = { READ_MODE, WRITE_MODE, UPDATE_MODE, UPDATE_MODE + RANDOM_ACCESS };
 
 	if ((status = ParseIsisName(&info, isisPath)) != ERROR_SUCCESS) // get canocial name
 		return status;
@@ -163,9 +177,10 @@ int main(int argc, char **argv)
 	size_t len;
 	char *s, *progname;
 
-	_setmode(_fileno(stdin), _O_BINARY);
-	_setmode(_fileno(stdout), _O_BINARY);
-
+#ifdef _WIN32
+	_setmode(_fileno(stdin), O_BINARY);
+	_setmode(_fileno(stdout), O_BINARY);
+#endif
 	/* find program name */
 	for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)
 		;
@@ -222,7 +237,7 @@ void Close(word conn, wpointer statusP)
 	if (conn <= BB_DEV)					// ingore requests to close CO, CI or BB
 		return;
 
-	if (_close(aft[conn].fd) < 0)
+	if (close(aft[conn].fd) < 0)
 		*statusP = ERROR_NOTOPEN;
 	aft[conn].mode = 0;
 }
@@ -235,7 +250,7 @@ void Delete(pointer pathP, wpointer statusP)
 	if ((*statusP = MapFile(&osfile, pathP)) == ERROR_SUCCESS) {
 		if (!(osfile.modes & RANDOM_ACCESS))
 			*statusP = ERROR_ISDEVICE;
-		else if (_unlink(osfile.name) < 0) {
+		else if (unlink(osfile.name) < 0) {
 			if (errno == EACCES)
 				*statusP = ERROR_PERMISSIONS;
 			else if (errno == ENOENT)
@@ -322,9 +337,9 @@ void Open(wpointer connP, pointer pathP, word access, word echo, wpointer status
 		return;
 
 	switch (access) {
-	case READ_MODE: mode = _O_RDONLY | O_BINARY; break;
-	case WRITE_MODE: mode = _O_WRONLY | _O_CREAT | _O_TRUNC | O_BINARY; break;
-	case UPDATE_MODE: mode = _O_RDWR | _O_CREAT | _O_TRUNC | O_BINARY; break;
+	case READ_MODE: mode = O_RDONLY | O_BINARY; break;
+	case WRITE_MODE: mode = O_WRONLY | O_CREAT | O_TRUNC | O_BINARY; break;
+	case UPDATE_MODE: mode = O_RDWR | O_CREAT | O_TRUNC | O_BINARY; break;
 	default: fprintf(stderr, "bad access mode %d for %s\n", access, osfile.name);
 		*statusP = ERROR_BADPARAM;
 		return;
@@ -358,7 +373,7 @@ void Open(wpointer connP, pointer pathP, word access, word echo, wpointer status
 		return;
 	}
 
-	conn = _open(osfile.name, mode, _S_IREAD | _S_IWRITE);
+	conn = open(osfile.name, mode, S_IREAD | S_IWRITE);
 
 	if (conn < 0)
 		switch (errno) {
@@ -418,7 +433,7 @@ void Read(word conn, pointer buffP, word count, wpointer actualP, wpointer statu
 		*actualP = 0;
 		return;
 	}
-	if ((actual = _read(aft[conn].fd, buffP, count)) >= 0) {
+	if ((actual = read(aft[conn].fd, buffP, count)) >= 0) {
 		*actualP = actual;
 		*statusP = 0;
 	}
@@ -462,7 +477,7 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
 
 	switch (mode) {
 	case SEEKTELL:
-		offset = _tell(aft[conn].fd);
+		offset = lseek(aft[conn].fd, 0L, SEEK_CUR);
 		*blockP = (word) (offset / 128);
 		*byteP = offset % 128;
 		*statusP = 0;
@@ -475,7 +490,7 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
 		*statusP = ERROR_BADMODE;
 		return;
 	}
-	if (_lseek(aft[conn].fd, offset, origin) >= 0)
+	if (lseek(aft[conn].fd, offset, origin) >= 0)
 		*statusP = 0;
 	else
 		*statusP = ERROR_BADPARAM;
@@ -488,7 +503,7 @@ void Write(word conn, pointer buffP, word count, wpointer statusP)
 	if (conn == BB_DEV)
 		return;
 
-	if (_write(aft[conn].fd, buffP, count) != count)
+	if (write(aft[conn].fd, buffP, count) != count)
 		switch (errno) {
 		case ENOSPC: *statusP = ERROR_DISKFULL; break;
 		case EINVAL: *statusP = ERROR_BADPARAM;

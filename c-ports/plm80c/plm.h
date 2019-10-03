@@ -4,6 +4,19 @@
 #include <setjmp.h>
 #include "error.h"
 
+#ifdef __GNUC__
+#define trunc   _trunc
+#endif
+
+#ifdef _WIN32
+#define NORETURN(func)      __declspec(noreturn) void func
+#else
+#ifdef __GNUC__
+#define NORETURN(func)     __attribute__((noreturn)) void func 
+#else
+#define NORETURN(func)     void func
+#endif
+#endif
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;
@@ -1356,8 +1369,7 @@ void EndCompile();
 void Error(word ErrorNum);
 
 /* exit.plm */
-__declspec(noreturn) void Exit();
-
+NORETURN(Exit());
 /* Fatal.plm */
 void Fatal(pointer str,byte len);
 

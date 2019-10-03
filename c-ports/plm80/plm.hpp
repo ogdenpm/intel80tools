@@ -96,79 +96,79 @@ public:
 
 
 struct cmdLine_t {
-	cmdLine_pt link;
-	byte	len;
-	char	text[1];
+    cmdLine_pt link;
+    byte	len;
+    char	text[1];
 };
 
 
 
 struct info_t {
-	byte	len;				// 0
-	byte	type;				// 1
-	word	symbolOffset;		// 2
-	word	infoScope;			// 4
-	union {						// 6
-		word	nextInfoOffset;
-		word	addr;
-	};
-    union {						// 8
-	    byte	flags[3];
-        word litaddr;       // can't use address here because its in a union
-		struct {
-			byte builtinId;
-			byte builtinParamCnt;
-			byte builtinDataType;
-		};
-		byte cflag;				// used for simple controls
+    byte	len;				// 0
+    byte	type;				// 1
+    word	symbolOffset;		// 2
+    word	infoScope;			// 4
+    union {						// 6
+        word	nextInfoOffset;
+        word	addr;
     };
-	byte	externId;			// 11
-	word	dimension;			// 12
-	word	basedOffset;
-	union {						// 14
-		word parentOffset;
-		word size;
-	};
-	byte	dataType;			// 18
-	byte	intrNo;				// 19
-	byte	paramCnt;			// 20
-	byte	procID;				// 21
+    union {						// 8
+        byte	flags[3];
+        word litaddr;       // can't use address here because its in a union
+        struct {
+            byte builtinId;
+            byte builtinParamCnt;
+            byte builtinDataType;
+        };
+        byte cflag;				// used for simple controls
+    };
+    byte	externId;			// 11
+    word	dimension;			// 12
+    word	basedOffset;
+    union {						// 14
+        word parentOffset;
+        word size;
+    };
+    byte	dataType;			// 18
+    byte	intrNo;				// 19
+    byte	paramCnt;			// 20
+    byte	procID;				// 21
 };
 
 
 struct symbol_t {
     symbol_pt link;   //	symbol_t *link;
     info_pt infoChain; // info_pt infoChain;
-	byte	name[1];
+    byte	name[1];
 };
 
 
 
 struct loc_t {
-	word	block;
-	word	byte;
+    word	block;
+    word	byte;
 };
 
 
 struct control_t {
-	byte tokenId;
-	byte primary;
-	byte controlId;
-	byte controlVal;
-	byte PrimaryId;
+    byte tokenId;
+    byte primary;
+    byte controlId;
+    byte controlVal;
+    byte PrimaryId;
 };
 
 struct macroStk_t {
-	char *inChr_p;
-	info_pt info_p;
+    char *inChr_p;
+    info_pt info_p;
 };
 
 enum ISIS { OPEN=0, CLOSE, DELETE, READ, WRITE, SEEK, LOAD, RENAME,
-	    CONSOL, EXIT, ATTRIB, RESCAN, ERROR, WHOCON, SPATH};
+        CONSOL, EXIT, ATTRIB, RESCAN, ERROR, WHOCON, SPATH};
 
 enum { F_PUBLIC=0, F_EXTERNAL, F_BASED, F_INITIAL, F_REENTRANT, F_DATA,
-	F_INTERRUPT, F_AT, F_ARRAY, F_STARDIM, F_PARAMETER, F_MEMBER,
-	F_LABEL, F_AUTOMATIC, F_PACKED, F_ABSOLUTE, F_MEMORY, F_DECLARED, F_DEFINED, F_MODGOTO};
+    F_INTERRUPT, F_AT, F_ARRAY, F_STARDIM, F_PARAMETER, F_MEMBER,
+    F_LABEL, F_AUTOMATIC, F_PACKED, F_ABSOLUTE, F_MEMORY, F_DECLARED, F_DEFINED, F_MODGOTO};
 
 enum ERRORS {
 ERR1 = 1,// INVALID PL/M-80 CHARACTER
@@ -532,13 +532,13 @@ MACRO_T, UNK_T, TEMP_T };
 enum /* AT file types */ { AT_AHDR = 0, AT_DHDR, AT_2, AT_STRING, AT_DATA, AT_END, AT_EOF};
 
 typedef struct {
-	byte type;
-	word info_p;
-	word stmtNum;
-	word varInfoOffset;
-	word varArrayIndex;
-	word varNestedArrayIndex;
-	word val;
+    byte type;
+    word info_p;
+    word stmtNum;
+    word varInfoOffset;
+    word varArrayIndex;
+    word varNestedArrayIndex;
+    word val;
 } atFData_t;	
 
 
@@ -705,9 +705,9 @@ void fatalError_ov1(byte errcode);
 void fatalError_ov6(byte errcode);
 
 typedef struct {
-	byte type;
-	word len;
-	byte data[1];
+    byte type;
+    word len;
+    byte data[1];
 } rec;
 
 void recAddWord(rec *arg1w, byte arg2b, word arg3w);
@@ -722,12 +722,12 @@ inline address off2Info(word val) { return botInfo + val; }
 
 void printExitMsg();
 void putcLst(byte ch);
-void putnstrLst(char *arg1w, word arg2b);
+void putnstrLst(const char *arg1w, word arg2b);
 void newLineLst();
 void newLineLeaderLst();
 void xputcLst(byte arg1b);
-void xputnstrLst(char *arg1w, byte arg2w);
-void xputstr2cLst(char *arg1w, byte arg2b);
+void xputnstrLst(const char *arg1w, byte arg2w);
+void xputstr2cLst(const char *arg1w, byte arg2b);
 void xnumLst(word arg1w, byte arg2b, byte arg3b);
 void tabLst(byte arg1b);
 void newPageNextChLst();

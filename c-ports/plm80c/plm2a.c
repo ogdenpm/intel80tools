@@ -489,7 +489,7 @@ void PutTx1Word(word arg1w)
     PutTx1Byte(High(arg1w));
 }
 
-static arg1b_53D6; // copied to file level for nested procedures
+static byte arg1b_53D6; // copied to file level for nested procedures
 static byte bC214, bC215;
 
 static void Sub_545D()
@@ -1103,7 +1103,8 @@ void GetTx2Item()
             Fread(&tx2File, (pointer)&tx2op3[tx2qp], 2);
 #ifdef _DEBUGX
             printf("%04X %04X %04X\n", tx2op1[tx2qp], tx2op2[tx2qp], tx2op3[tx2qp]);
-#endif            break;
+#endif
+            break;
     }
 }
 

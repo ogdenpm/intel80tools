@@ -1,6 +1,7 @@
 #include "plm.h"
 #include <stdio.h>
 
+#ifdef _DEBUG
 FILE *Fopen(char *isisPath, char *mode);
 
 int symMode = 1;
@@ -202,7 +203,7 @@ char *lexItems[] = {
 };
 
 
-static getWord(FILE *fp)
+static int getWord(FILE *fp)
 {
     int cl = getc(fp);
     int ch = getc(fp);
@@ -303,3 +304,4 @@ void DumpLexStream() // to be used after Start1
     fclose(fp);
     fclose(fpout);
 }
+#endif

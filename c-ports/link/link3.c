@@ -73,7 +73,7 @@ byte ReadName()
 	if (recLen < 2)		/* only CRC left ? */
 	{
 		bufP = bufP + recLen;	/* advance and flag no more */
-		return (byte)recLen = 0;
+		return (byte)(recLen = 0);
 	}
 	ChkRead(*inP + 1);		/* check all of the name is there */
 	inP = bufP;			/* in case it has moved */

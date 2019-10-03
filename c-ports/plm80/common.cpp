@@ -2,6 +2,9 @@
 #include <assert.h>
 #include "plm.hpp"
 #include "common.hpp"
+#ifdef __GNUC__
+#include <errno.h>
+#endif
 
 
 const byte tblOffsets[] = { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -26,25 +29,25 @@ void alloc(word size1, word size2)
     blk2Used += size2;
 
     if (blk1Used >= blkSize1 || blk2Used >= blkSize2)
-	fatalError(ERR83);	// LIMIT EXCEEDED: DYNAMIC STORAGE
+    fatalError(ERR83);	// LIMIT EXCEEDED: DYNAMIC STORAGE
 }
 
 symbol_pt allocSymbolSpc(word spc)
 {
     address newbot;
     if ((newbot = (word)botSymbol - spc) < topInfo)
-	fatalError(ERR83);	// LIMIT EXCEEDED: DYNAMIC STORAGE
+    fatalError(ERR83);	// LIMIT EXCEEDED: DYNAMIC STORAGE
     return botSymbol = (symbol_pt)newbot;
 }
 
 void setAddr(word val)
 {
-	curInfo_p->addr = val;
+    curInfo_p->addr = val;
 }
 
 void setNextInfo(info_pt  val)
 {
-	curInfo_p->nextInfoOffset = (val == 0) ? 0 : info2Off(val);
+    curInfo_p->nextInfoOffset = (val == 0) ? 0 : info2Off(val);
 }
 
 void setInfoSymbol(symbol_pt  psym)
@@ -81,46 +84,46 @@ byte num2Asc(word num, byte width, byte radix, char *buf)
     byte fmt, j, lwidth, firstch, i;
 
     if (width > 0x7f) {
-	padch = '0';
-	width = -width;
+    padch = '0';
+    width = -width;
     }
     lwidth = (width != 0 && width <= 16) ? width : 16;
     fmt = 0;
     if (radix > 0x7f) {
-	fmt = 0xff;
-	radix = -radix;
+    fmt = 0xff;
+    radix = -radix;
     }
     if (radix > 16)
-	radix = 16;
+    radix = 16;
     firstch = 17 - lwidth;
     FILL(lwidth, lbuf + firstch, padch);
     i = lwidth;
     j = 16;
     while (i-- != 0) {
-	lbuf[j] = "0123456789ABCDEF"[num % radix];
-	if ((num /= radix) == 0)
-	    break;
-	j--;
+    lbuf[j] = "0123456789ABCDEF"[num % radix];
+    if ((num /= radix) == 0)
+        break;
+    j--;
     }
     if (width == 0) {
-	if (fmt && lbuf[j] > '9')
-	    lbuf[--j] = '0';
-	firstch = j;
-	lwidth = 17 - j;
+    if (fmt && lbuf[j] > '9')
+        lbuf[--j] = '0';
+    firstch = j;
+    lwidth = 17 - j;
     }
     if (fmt) {
-	lwidth++;
-	lbuf[17] = "BXXXXXQXDXXXXXH"[radix - 2];
+    lwidth++;
+    lbuf[17] = "BXXXXXQXDXXXXXH"[radix - 2];
     }
     movemem(lwidth, lbuf + firstch, buf);
     return lwidth;
 }
 
 
-void cpyTill(char *src, char *dest, word maxcnt, byte endch)
+void cpyTill(const char *src, char *dest, word maxcnt, byte endch)
 {
     while (maxcnt-- != 0 && *src != endch)
-	*dest++ = *src++;
+    *dest++ = *src++;
 }
 
 
@@ -153,13 +156,13 @@ void fatalIO(file_t * fp, word errcode)
 //    fatalIO_errcode = errcode;
 
     printf("\r\n\nPL/M-80 I/O ERROR --\r\n  FILE: %.6s\r\n", fp->shortName);
-	printf("  NAME: %.15s\r\n", fp->fullName);
-	
-	printf("  ERROR: %d--%s\r\nCOMPILATION TERMINATED\r\n\n", errcode,
-		errcode == 0xfe ? "ATTEMPT TO READ PAST EOF" : strerror(errcode));
+    printf("  NAME: %.15s\r\n", fp->fullName);
+    
+    printf("  ERROR: %d--%s\r\nCOMPILATION TERMINATED\r\n\n", errcode,
+        errcode == 0xfe ? "ATTEMPT TO READ PAST EOF" : strerror(errcode));
 
 
-	exit(errcode);
+    exit(errcode);
 }
 
 //void findErrStr()
@@ -180,27 +183,27 @@ void fatalIO(file_t * fp, word errcode)
 
 void lookup(unsigned char *s)
 {
-	word hval = hash(s);
-	symbol_pt p;
+    word hval = hash(s);
+    symbol_pt p;
 
-	curSymbol_p = hashChains_p[hval];
+    curSymbol_p = hashChains_p[hval];
 
-	for (p = 0; curSymbol_p != 0; p = curSymbol_p, curSymbol_p = curSymbol_p->link) {
-		if (strncmp((char *)curSymbol_p->name, (char *)s, (byte) (s[0] + 1)) == 0) {
-			if (p != 0) {	// move to front if not already there
-				p->link = curSymbol_p->link;	// remove curSymbol from chain;
-				curSymbol_p->link = hashChains_p[hval];	// and move to front;
-				hashChains_p[hval] = curSymbol_p;
-			}
-			return;
-		}
-	}
-	alloc(0, (word) (s[0] + 1));
-	curSymbol_p = allocSymbolSpc((word) (s[0] + 5));
-	movemem((word) (s[0] + 1), s, curSymbol_p->name);
-	curSymbol_p->infoChain = 0;
-	curSymbol_p->link = hashChains_p[hval];
-	hashChains_p[hval] = curSymbol_p;
+    for (p = 0; curSymbol_p != 0; p = curSymbol_p, curSymbol_p = curSymbol_p->link) {
+        if (strncmp((char *)curSymbol_p->name, (char *)s, (byte) (s[0] + 1)) == 0) {
+            if (p != 0) {	// move to front if not already there
+                p->link = curSymbol_p->link;	// remove curSymbol from chain;
+                curSymbol_p->link = hashChains_p[hval];	// and move to front;
+                hashChains_p[hval] = curSymbol_p;
+            }
+            return;
+        }
+    }
+    alloc(0, (word) (s[0] + 1));
+    curSymbol_p = allocSymbolSpc((word) (s[0] + 5));
+    movemem((word) (s[0] + 1), s, curSymbol_p->name);
+    curSymbol_p->infoChain = 0;
+    curSymbol_p->link = hashChains_p[hval];
+    hashChains_p[hval] = curSymbol_p;
 }
 
 
@@ -210,15 +213,15 @@ word hash(unsigned char *p)
     byte len;
 
     for (len = *p; len; len--) {
-	c = (c << 1) + ((c >> 7) & 1) + *p++;
+    c = (c << 1) + ((c >> 7) & 1) + *p++;
     }
     return c & 0x3f;
 }
 
-void setDATE(char *buf, byte len)
+void setDATE(const char *buf, byte len)
 {
     if (len > 9)
-	len = 9;
+    len = 9;
     FILL(9, DATE, ' ');
     movemem(len, buf, DATE);
 }
@@ -252,7 +255,7 @@ info_pt allocInfo(word size)
     alloc(size, size);
     base = topInfo + 1;
     if (botSymbol < topInfo + size)
-	fatalError(ERR83);	// LIMIT EXCEEDED: DYNAMIC STORAGE
+    fatalError(ERR83);	// LIMIT EXCEEDED: DYNAMIC STORAGE
     FILL(size, base, 0);
     topInfo += size;
     return base;
@@ -312,22 +315,22 @@ void chain(char *filename)
 
     Load(filename, 0, (word) (debugFlag ? 2 : 1), &entry, &status);
     if (status != 0) {
-	initFile(&loadFile, "LOAD ", filename);
-	fatalIO(&loadFile, status);
+    initFile(&loadFile, "LOAD ", filename);
+    fatalIO(&loadFile, status);
     }
 }
 
-void fatal(char *str, byte len)
+void fatal(const char *str, byte len)
 {
     printf("\r\n\nPL/M-80 FATAL ERROR --\r\n\n%*s\r\n\nCOMPILATION TERMINATED\r\n\n", len, str);
 
-	exit(1);
+    exit(1);
 }
 
-void initFile(file_t * fp, char *shortName, char *fullname)
+void initFile(file_t * fp, const char *shortName, const char *fullname)
 {
-	if (fp->aftn != 0)
-		fclose(fp->aftn);
+    if (fp->aftn != 0)
+        fclose(fp->aftn);
 
     fp->aftn = 0;
     FILL(0x16, fp->shortName, ' ');
@@ -341,16 +344,16 @@ void openFile(file_t * fp, byte access)
 
     Open(&fp->aftn, fp->fullName, access, 0, &status);
     if (status != 0)
-	fatalIO(fp, status);
+    fatalIO(fp, status);
 }
 
 void readFile(file_t * fp, void *buf, word len, word * pactual)
 {
     word status;
 
-	Read(fp->aftn, buf, len, pactual, &status);
+    Read(fp->aftn, buf, len, pactual, &status);
     if (status != 0)
-	fatalIO(fp, status);
+    fatalIO(fp, status);
 }
 
 void writeFile(file_t * fp, void *  buf, word count)
@@ -358,26 +361,26 @@ void writeFile(file_t * fp, void *  buf, word count)
     word status;
     Write(fp->aftn, buf, count, &status);
     if (status != 0)
-	fatalIO(fp, status);
+    fatalIO(fp, status);
 }
 
 void tellFile(file_t * fp, loc_t * loc)
 {
-	long pos;
-	pos = ftell(fp->aftn);
-	if (pos < 0)
-		fatalIO(fp, errno);
-	else {
-		loc->block = (word)pos / 128;
-		loc->byte = (word)pos % 128;
-	}
+    long pos;
+    pos = ftell(fp->aftn);
+    if (pos < 0)
+        fatalIO(fp, errno);
+    else {
+        loc->block = (word)pos / 128;
+        loc->byte = (word)pos % 128;
+    }
 }
 
 
 void seekFile(file_t * fp, loc_t * loc)
 {
-	if (fseek(fp->aftn, loc->block * 128 + loc->byte, SEEK_SET) < 0)
-		fatalIO(fp, errno);
+    if (fseek(fp->aftn, loc->block * 128 + loc->byte, SEEK_SET) < 0)
+        fatalIO(fp, errno);
 }
 
 
@@ -386,7 +389,7 @@ void rewindFile(file_t * fp)
     loc_t loc;
     loc.byte = loc.block = 0;
     seekFile(fp, &loc);
-	long junk = ftell(fp->aftn);
+    long junk = ftell(fp->aftn);
 }
 
 
@@ -398,10 +401,10 @@ void backupPos(loc_t * lp, word cnt)
     loc.byte = cnt % 128;
     lp->block -= loc.block;
     if (loc.byte > lp->byte) {
-	lp->block--;
-	lp->byte += 128 - loc.byte;
+    lp->block--;
+    lp->byte += 128 - loc.byte;
     } else
-	lp->byte -= loc.byte;
+    lp->byte -= loc.byte;
 }
 
 
@@ -411,9 +414,9 @@ void closeFile(file_t * fp)
     word status;
 
     Close(fp->aftn, &status);
-	fp->aftn = 0;
+    fp->aftn = 0;
     if (status != 0)
-		fatalIO(fp, status);
+        fatalIO(fp, status);
 }
 
 // ллллллллллллллл S U B    R O U T I N E ллллллллллллллллллллллллллллллллллллллл
@@ -442,62 +445,62 @@ void closeFile(file_t * fp)
 
 void ifwrite(file_t * fp, void *buf, word len)
 {
-	if (fwrite(buf, 1, len, fp->aftn) != len)
-		fatalIO(fp, errno);
+    if (fwrite(buf, 1, len, fp->aftn) != len)
+        fatalIO(fp, errno);
 
-	//word wcnt;
-	//word room = fp->bufSize - fp->curoff;
-	//
-	//while (1) {
-	//	wcnt = room >= len ? len : room;
-	//	movemem(wcnt, buf, &fp->bufptr[fp->curoff]);
-	//	fp->curoff += wcnt;
-	//	len -= wcnt;
-	//	if (len == 0)
-	//		break;
-	//	buf = (byte *)buf + wcnt;
-	//	if (fp->curoff >= fp->bufSize)
-	//		flushFile(fp);
-	//	room = fp->bufSize;
-	//}
+    //word wcnt;
+    //word room = fp->bufSize - fp->curoff;
+    //
+    //while (1) {
+    //	wcnt = room >= len ? len : room;
+    //	movemem(wcnt, buf, &fp->bufptr[fp->curoff]);
+    //	fp->curoff += wcnt;
+    //	len -= wcnt;
+    //	if (len == 0)
+    //		break;
+    //	buf = (byte *)buf + wcnt;
+    //	if (fp->curoff >= fp->bufSize)
+    //		flushFile(fp);
+    //	room = fp->bufSize;
+    //}
 }
 
 void ifread(file_t *fp, void *buf, word cnt) {
 
-	if (fread(buf, 1, cnt, fp->aftn) != cnt)
-		fatalIO(fp, IOERR_254);
+    if (fread(buf, 1, cnt, fp->aftn) != cnt)
+        fatalIO(fp, IOERR_254);
 
-	//word inbuf = fp->actual - fp->curoff;
+    //word inbuf = fp->actual - fp->curoff;
 
-	//for (;;) {
-	//	word avail = cnt > inbuf ? inbuf : cnt;
-	//	if (fp->actual == 0)
-	//		fatalIO(fp, IOERR_254);		// ATTEMPT TO READ PAST EOF
-	//	movemem(avail, &fp->bufptr[fp->curoff], buf);
-	//	fp->curoff += avail;
-	//	if((cnt -= avail) == 0)
-	//		break;
-	//	buf = (byte *)buf + avail;
-	//	if (fp->actual <= fp->curoff) {	
-	//		readFile(fp, fp->bufptr, fp->bufSize, &fp->actual);
-	//		fp->curoff = 0;
-	//	}
-	//	inbuf = fp->actual;
-	//}
+    //for (;;) {
+    //	word avail = cnt > inbuf ? inbuf : cnt;
+    //	if (fp->actual == 0)
+    //		fatalIO(fp, IOERR_254);		// ATTEMPT TO READ PAST EOF
+    //	movemem(avail, &fp->bufptr[fp->curoff], buf);
+    //	fp->curoff += avail;
+    //	if((cnt -= avail) == 0)
+    //		break;
+    //	buf = (byte *)buf + avail;
+    //	if (fp->actual <= fp->curoff) {	
+    //		readFile(fp, fp->bufptr, fp->bufSize, &fp->actual);
+    //		fp->curoff = 0;
+    //	}
+    //	inbuf = fp->actual;
+    //}
 }
 
 
 void deleteFile(file_t *fp) {
-	word status;
-	Delete(fp->fullName, &status);
+    word status;
+    Delete(fp->fullName, &status);
 }
 
 
 
 void SeekEnd(file_t *fp)
 {
-	if (fseek(fp->aftn, 0, SEEK_END) < 0)
-		fatalIO(fp, errno);
+    if (fseek(fp->aftn, 0, SEEK_END) < 0)
+        fatalIO(fp, errno);
 }
 
 
@@ -514,20 +517,20 @@ void setBuiltinId(byte val)
 
 void setCondFlag(byte val)
 {
-	curInfo_p->cflag = val;
+    curInfo_p->cflag = val;
 }
 
 void findInfo()
 {
     word i;
     if (curSymbol_p->infoChain == 0) {
-		curInfo_p = 0;
-		return;
+        curInfo_p = 0;
+        return;
     }
     for (i = blockDepth; i != 0; i--) {
-		findScopedInfo(procChains[i]);
-		if (curInfo_p != 0)
-			return;
+        findScopedInfo(procChains[i]);
+        if (curInfo_p != 0)
+            return;
     }
 }
 
@@ -538,23 +541,23 @@ void findScopedInfo(word val)
     curInfo_p = curSymbol_p->infoChain;
     p = 0;
     while (curInfo_p != 0) {
-		if (val == getInfoScope()) {
-			byte infoType = getInfoType();
-			if (infoType == LIT_T || infoType == MACRO_T || !testInfoFlag(F_MEMBER)) {
-				if (p != 0) {	// not at start of chain
-					info_pt symval = getNextInfo();
-					info_pt q = curInfo_p;
-					curInfo_p = p;
-					setNextInfo(symval);
-					curInfo_p = q;
-					setNextInfo(curSymbol_p->infoChain);
-					curSymbol_p->infoChain = curInfo_p;
-				}
-				return;
-			}
-		}
-		p = curInfo_p;
-		curInfo_p = getNextInfo();
+        if (val == getInfoScope()) {
+            byte infoType = getInfoType();
+            if (infoType == LIT_T || infoType == MACRO_T || !testInfoFlag(F_MEMBER)) {
+                if (p != 0) {	// not at start of chain
+                    info_pt symval = getNextInfo();
+                    info_pt q = curInfo_p;
+                    curInfo_p = p;
+                    setNextInfo(symval);
+                    curInfo_p = q;
+                    setNextInfo(curSymbol_p->infoChain);
+                    curSymbol_p->infoChain = curInfo_p;
+                }
+                return;
+            }
+        }
+        p = curInfo_p;
+        curInfo_p = getNextInfo();
     }
 }
 
@@ -566,15 +569,15 @@ word getInfoLen()
 
 word getAddr()
 {
-	return curInfo_p->addr;
+    return curInfo_p->addr;
 }
 
 info_pt getNextInfo()
 {
-	if (curInfo_p->nextInfoOffset)
-		return off2Info(curInfo_p->nextInfoOffset);
+    if (curInfo_p->nextInfoOffset)
+        return off2Info(curInfo_p->nextInfoOffset);
     else
-		return 0;
+        return 0;
 }
 
 
@@ -606,7 +609,7 @@ void clrFlags(byte *base)
 {
     byte i;
     for (i = 0; i <= 2; i++)
-	base[i] = 0;
+    base[i] = 0;
 }
 
 
@@ -622,7 +625,7 @@ void cpyFlags(byte *base)
 {
     byte i;
     for (i = 0; i <= 2; i++)
-	curInfo_p->flags[i] = base[i];
+    curInfo_p->flags[i] = base[i];
 }
 
 
@@ -639,7 +642,7 @@ void setDimension(word val)
 }
 
 info_pt getBase() {
-	return curInfo_p->basedOffset == 0 ? 0 : (word)off2Info(curInfo_p->basedOffset) ;
+    return curInfo_p->basedOffset == 0 ? 0 : (word)off2Info(curInfo_p->basedOffset) ;
 }
 
 void setBase(info_pt  val)
@@ -649,7 +652,7 @@ void setBase(info_pt  val)
 
 void setBasedOffset(word  val)
 {
-	curInfo_p->basedOffset = val;
+    curInfo_p->basedOffset = val;
 }
 
 word getBasedOffset() {
@@ -663,16 +666,16 @@ byte getBuiltinId()
 
 byte getCondFlag()
 {
-	return curInfo_p->cflag;
+    return curInfo_p->cflag;
 }
 
 byte getInfoExternId() {
-	return curInfo_p->externId;
+    return curInfo_p->externId;
 }
 
 
 void setInfoExternId(byte val) {
-	curInfo_p->externId = val;
+    curInfo_p->externId = val;
 }
 
 word getDimension() {
@@ -686,59 +689,59 @@ void findMemberInfo()
     curInfo_p = curSymbol_p->infoChain;	// get the symbol's info
 
     while (curInfo_p != 0) {
-	if (testInfoFlag(F_MEMBER))	// ? structure member
-	    if (tmp == getOwningStructure())
-		return;
-	curInfo_p = getNextInfo();
+    if (testInfoFlag(F_MEMBER))	// ? structure member
+        if (tmp == getOwningStructure())
+        return;
+    curInfo_p = getNextInfo();
     }
 }
 
 word getOwningStructure()
 {
     if (curInfo_p->type == STRUCT_T)
-	return curInfo_p->parentOffset;
+    return curInfo_p->parentOffset;
     else
-	return (curInfo_p->parentOffset ==
-		0) ? 0: (word)off2Info(curInfo_p->parentOffset);
+    return (curInfo_p->parentOffset ==
+        0) ? 0: (word)off2Info(curInfo_p->parentOffset);
 }
 
 void setOwningStructure(info_pt  val)
 {
     if (curInfo_p->type == STRUCT_T)
-		curInfo_p->parentOffset = (word) val;
+        curInfo_p->parentOffset = (word) val;
     else
-		curInfo_p->parentOffset =
-			(val == 0) ? 0 : info2Off(val);
+        curInfo_p->parentOffset =
+            (val == 0) ? 0 : info2Off(val);
 }
 
 byte getProcId()
 {
-	return curInfo_p->procID;
+    return curInfo_p->procID;
 }
 
 byte getExternId()
 {
-	return curInfo_p->externId;
+    return curInfo_p->externId;
 }
 
 word getParentOffsetOrSize()
 {
-	return curInfo_p->parentOffset;
+    return curInfo_p->parentOffset;
 }
 
 byte getIntrNo()
 {
-	return curInfo_p->intrNo;
+    return curInfo_p->intrNo;
 }
 
 void advNextInfo() {
     while (1) {
-	    curInfo_p += getInfoLen();
-	    if (curInfo_p >= topInfo) {
-		curInfo_p = 0;
-		return;
-	    }
-	    if (getInfoType() != TEMP_T)
-		return;
+        curInfo_p += getInfoLen();
+        if (curInfo_p >= topInfo) {
+        curInfo_p = 0;
+        return;
+        }
+        if (getInfoType() != TEMP_T)
+        return;
     }
 }

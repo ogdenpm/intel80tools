@@ -157,19 +157,20 @@ static bool GetControlNumArg()
 
 static void SetControl(byte ctlVal, byte noInvalid)
 {
-	if (!noInvalid) {
-		controls.all[controlId] = ctlVal;
-		if (!ctlVal)
-			controlId = 17;    /* no action needed */
-	}
+    if (!noInvalid) {
+        controls.all[controlId] = ctlVal;
+        if (!ctlVal)
+            controlId = 17;    /* no action needed */
+    }
 }
 
 static byte LookupControl()
 {
-	byte cmdIdx, cmdStartIdx;
-	bool ctlVal;
-	byte cmdLen, ctlFlags, noInvalid;
-	pointer controlP, nextControlP, ctlSeenP;
+    byte cmdIdx, cmdStartIdx;
+    bool ctlVal;
+    byte cmdLen, ctlFlags, noInvalid;
+    pointer controlP, nextControlP;
+    bool *ctlSeenP;
 
     cmdLen = tokBufLen;
     cmdStartIdx = 0;
@@ -223,8 +224,8 @@ found:
     if (*ctlSeenP)
         return 255;
     *ctlSeenP = true;
-	SetControl(ctlVal, noInvalid);
-	return controlId;
+    SetControl(ctlVal, noInvalid);
+    return controlId;
 }
 
 static void ProcessControl()
@@ -234,22 +235,22 @@ static void ProcessControl()
         return;
 
     switch (controlId - 5) {
-	case 0:            /* TTY */
+    case 0:            /* TTY */
             controls.tty = true;
-	case 1:            /* MOD85 */
+    case 1:            /* MOD85 */
             controls.mod85 = true;
             return;
-	case 2:            /* PRINT */
+    case 2:            /* PRINT */
             controlFileType = 2;
             curFileNameP = lstFile;
             GetFileParam();
             return;
-	case 3:            /* OBJECT */
+    case 3:            /* OBJECT */
             controlFileType = 3;
             curFileNameP = objFile;
             GetFileParam();
             return;
-	case 4:            /* MACROFILE */
+    case 4:            /* MACROFILE */
             controlFileType = 3;
             if (ChkParen(0))    /* optional drive for tmp file */
                 GetMacroFileDrive();
@@ -257,7 +258,7 @@ static void ProcessControl()
                 reget = 1;
             controls.macroFile = true;
             return;
-	case 5:            /* PAGEWIDTH */
+    case 5:            /* PAGEWIDTH */
             if (GetControlNumArg()) {
                 controls.pageWidth = (byte) tokNumVal;
                 if (controls.pageWidth > 132)
@@ -266,16 +267,16 @@ static void ProcessControl()
                     controls.pageWidth = 72;
                 return;
             }
-			break;
-	case 6:            /* PAGELENGTH */
+            break;
+    case 6:            /* PAGELENGTH */
             if (GetControlNumArg()) {
                 controls.pageLength = (byte) tokNumVal;
                 if (controls.pageLength < 15)
                     controls.pageLength = 15;
                 return;
             }
-			break;
-	case 7:            /* INCLUDE */
+            break;
+    case 7:            /* INCLUDE */
             if (! pendingInclude) {		// multiple includes on control line not supported
                 controlFileType = 1;
                 if (fileIdx == 5)
@@ -291,8 +292,8 @@ static void ProcessControl()
                     return;
                 }
             }
-			break;
-	case 8:            /* TITLE */
+            break;
+    case 8:            /* TITLE */
             if (ChkParen(0)) {
                 tokVal = GetTok();
                 if (tokType == TT_STR && tokBufLen != 0) {
@@ -306,23 +307,23 @@ static void ProcessControl()
                     }
                 }
             }
-			break;
-	case 9:            /* SAVE */
+            break;
+    case 9:            /* SAVE */
             if (saveIdx > 7)
                 StackError();
             else {
                 memcpy(&saveStack[saveIdx++], &controls.list, 3);
                 return;
             }
-			break;
-	case 10:            /* RESTORE */
+            break;
+    case 10:            /* RESTORE */
             if (saveIdx > 0) {
                 memcpy(&controls.list, &saveStack[--saveIdx], 3);
                 return;
             }
-			break;
-	case 11:            /* EJECT */
-		controls.eject++;
+            break;
+    case 11:            /* EJECT */
+        controls.eject++;
             return;
     }
     controlError = true;

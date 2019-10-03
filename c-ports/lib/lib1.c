@@ -448,7 +448,7 @@ byte tokLen;
 // byte junk1;
 bool inModuleList;
 
-__declspec(noreturn) void LibError(byte err)
+NORETURN(LibError(byte err))
 {
     line_t *lineP;
     pointer s;

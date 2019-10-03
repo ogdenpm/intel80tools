@@ -179,7 +179,7 @@ void PushToken(byte type)
         tokStart[0] += tokenSize[0];    /* advance for next token */
         tokenType[0] = type;
         tokenAttr[0] = tokenSize[0] = bZERO;
-        tokenSym.stack[0] = (tokensym_t *)wZERO;
+        tokenSym.stack[0] = NULL; // (tokensym_t *)wZERO;
         tokenSymId[0] = wZERO;
     }
 #if _DEBUG

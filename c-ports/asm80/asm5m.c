@@ -387,16 +387,16 @@ byte GetCh() {
 
     while (!reget) {
         prevCH = curCH;
-		do {
-			curCH = lookAhead;
-			if (expandingMacro)
-				while ((lookAhead = *macro.top.bufP++) == MACROEOB) {
-					ReadM(curMacroBlk + 1);
-					macro.top.bufP = macroBuf;
-				}
-			else
-				lookAhead = scanCmdLine ? GetCmdCh() : GetSrcCh();
-		} while (curCH == 0 || curCH == 0x7F || curCH == FF);
+        do {
+            curCH = lookAhead;
+            if (expandingMacro)
+                while ((lookAhead = *macro.top.bufP++) == MACROEOB) {
+                    ReadM(curMacroBlk + 1);
+                    macro.top.bufP = macroBuf;
+                }
+            else
+                lookAhead = scanCmdLine ? GetCmdCh() : GetSrcCh();
+        } while (curCH == 0 || curCH == 0x7F || curCH == FF);
 
         if (expandingMacro) {
             if (curCH == ESC)		// reached end of spooled macro
@@ -462,7 +462,7 @@ byte GetCh() {
             if (curCH == '<')
                 argNestCnt++;
         }
-		break;
+        break;
     }
     reget = 0;
     return (curChar = curCH);

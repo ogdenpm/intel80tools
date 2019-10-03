@@ -5,7 +5,7 @@
 #include "trace.hpp"
 
 
-char *tx1Names[] = {
+const char *tx1Names[] = {
 "L_LINEINFO", "L_SYNTAXERROR", "L_TOKENERROR", "L_LIST", "L_NOLIST", "L_CODE", "L_NOCODE", "L_EJECT",
 "L_INCLUDE", "L_STMTCNT", "L_LABELDEF", "L_LOCALLABEL", "L_JMP", "L_JMPFALSE", "L_PROCEDURE", "L_SCOPE",
 "L_END", "L_DO", "L_DOLOOP", "L_WHILE", "L_CASE", "L_CASELABEL", "L_IF", "L_STATEMENT",
@@ -18,7 +18,7 @@ char *tx1Names[] = {
 };
 
 
-char *tx2Names[] = {
+const char *tx2Names[] = {
     "LT", "LE", "NE", "EQ", "GE", "GT", "ROL", "ROR",
     "SCL", "SCR", "SHL", "SHR", "JMPFALSE", "T2_13", "T2_14", "T2_15",
     "T2_16", "T2_17", "DOUBLE", "PLUSSIGN", "MINUSSIGN", "STAR", "SLASH", "MOD",
@@ -101,7 +101,7 @@ void traceTx2(word cnt, byte *buf, byte len)
     putchar('\n');
 }
 
-static char *typenames[] = {"Literal", "Label", "Byte", "Address", "Structure",
+static const char *typenames[] = {"Literal", "Label", "Byte", "Address", "Structure",
 					   "Procedure", "BuiltIn", "MacroExpand", "type8", "temp"};
 
 void dumpInfo(info_pt p)

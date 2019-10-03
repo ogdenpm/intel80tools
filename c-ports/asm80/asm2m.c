@@ -189,7 +189,7 @@ word GetNumVal()        // load numeric value from top of stack
             if (TestBit(acc1ValType, typeHasTokSym)) {
                 tokPtr = &tokenSym.curP->flags;    /* point to flags */
                 acc1RelocFlags = *tokPtr & ~UF_PUBLIC; /* remove public attribute */
-                valP = (wpointer)tokPtr = &tokenSym.curP->value;    /* point to value */
+                valP = (wpointer)(tokPtr = (pointer)&tokenSym.curP->value);    /* point to value */
                 acc1RelocVal = *valP;            /* pick up value */
                 tokenSize[0] = 2;        /* word value */
 
