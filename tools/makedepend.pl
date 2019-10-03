@@ -6,19 +6,20 @@ die "usage: makedepend.pl target source\n" if $#ARGV != 1;
 
 sub realfile {
 	my $isisfile = $_[0];
-	my $path;
+	my $path = "";
 
 	return $isisfile if $isisfile =~ /\/\\/;	# passed in dos/unix filename. Assume user has correct char case
 
 	$isisfile = lc($isisfile);
 	if ($isisfile =~ s/:(..)://) {	# remove drive from file if present
 		$device = uc($1);
-		$path = $ENV{"ISIS_".uc($1)};
-		$path =~ s/[\/\\]$//;	# remove training / or \ if present
-		return "$path/$isisfile" if $path && $path ne '.';
-		print "warning ISIS_$device not defined\n";
+		if (($path = $ENV{"ISIS_".uc($1)}) eq "") {
+            print "warning ISIS_$device not defined\n";
+        } elsif ($path !~ s/^([A-Z]:)?\.$/\1/) {    # drive:. or . only remove .
+            $path =~ s/([^\\\/])$/\1\//;            # append any missing / or \ with a /
+        }
 	} 
-	return $isisfile;
+	return "$path$isisfile";
 }
 
 # scan the source file for include files and recursively process
