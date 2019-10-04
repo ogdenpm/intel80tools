@@ -1,5 +1,11 @@
 These files are my attempts at decompiling the ISIS plm80 compiler and these
 associated utilities link and locate.
+The tool support has been built under windows using visual studio. Although
+I use VS2019 community edition, they should compile with most of the recent
+VS builds.
+Additionally thames will build under various flavours of linux, use .configure
+and c-ports are known to build using gcc under linux although limited testing
+has been done.
 
 *****************************************************************************
 * WARNING: git stores crlf as lf in line with common usage. When cloning    *
@@ -102,6 +108,14 @@ check out feature/asm80
         Improved relst.pl and added pretty.pl that generates embedded plm /
         asm for the old fortran compiler
 
+3-Oct-2019 further refinments of C ports including variable naming
+	Added exe files for C ports to tools
+	The C ports now compile under linux, although limited testing has been done
+	Added asxref support for asm80
+	Added note on msdos applications for 8086 build
+	Updated readme to reflect re-organisation of code done some time ago
+
+
 What's here
 c-ports/
   asm80/*.*	the port of asm80 v4.1 to C. 
@@ -158,6 +172,10 @@ thamesSrc\*.*	I have included the source of the tool in thamesSrc where you will
 make.exe	64bit and 32bit versions of the gnu make utility
 make32.exe
 
+msdos\*.*	various Intel 8086 based tools. The files ending _16.exe are the
+		original Intel tools that run under dos 16bit. The others have
+		an msdos emulator prepended to allow running under windows 64bit
+
 unix\*.*	various unix like tools used for the build
 
 unpack.pl	perl script to unpack the combined source files I use personally
@@ -206,76 +224,62 @@ To use this change to the directory and enter one of the following commands.
 ..\..\make distclean	- cleans out files not needed to rebuild from source
 ..\..\make rebuild	- runs distclean followed by all
 
+For most of the directories noted below the source files are stored in a single
+file. Use unpack.pl to expand to the underlying files or run make which will do
+this automatically. The packed file ends in _all.src
+The packed format allows me to edit the files as one so name changes, searches
+are much easier as I don't have a fully fledged IDE for plm.
 
 src\asm80_4.1\*.* plm & asm recreated source for asm80
-		asm80_4.1_all.src is a packed file of all of the source.
 
-src\binobj_3.4\*.* plm recreated source for binobj v3.4
-		binobj_3.4_all.src is a packed file of all of the source.
+src\ftrans_1.0\*.* plm & asm recreated source for ftrans v1.0
+		protocol.txt documents the protocol used by ftrans
 
 src\help_1.1\*.* plm & asm recreated source for iPDS help v1.1
-		help_1.1_all.src is a packed file of all of the source.
 
 src\hexobj_4.3\*.* plm recreated source for hexobj v3.4
 		hexobj_4.3_all.src is a packed file of all of the source.
 
-src\lib_2.1\*.*	plm & asm recreated source for lib80 v2.1
-		lib_2.1_all.src contains the packed source code.
-
-src\link_3.0\*.* plm & asm recreated source for link and link.ovl v3.0
-		link_3.0_all.src contains the packed source code
-
-src\locate_3.0\*.* plm & asm recreated source for locate v3.0
-		locate_3.0_all.src contains the packed source code
-
-src\plm_v4.0\*.* plm & asm recreated source for plm80 v4.0
-		 plm_4.0_all.src contains the packed source code.
+src\isdm3.2\*.* build of idsm v3.2 converted to use make and the  msdos tools
+		not no _ as the Intel msdos ports fail if on the path
 
 src\isis_2.2\*.*  files to build isis.bin 2.2
-		
+src\isis.cli_2.2\*.* files to build isis.cli 2.2
 src\isis.t0_2.2\*.*  files to build isis 2.2 boot file
 
-src\isis_3.4\*.*	files to build isis 3.4
-		 isis_3.4_all.src contains the packed source code.
-		
+src\isis_3.4\*.*	files to build isis.bin 3.4
+src\isis.cli_3.4\*.*	files to build isis.cli 3.4	
 src\isis.t0_3.4\*.* files to build isis 3.4 boot file
-		 isis.t0_3.4_all.src contains the packed source code.
 
 src\isis_4.0\*.*	files to build isis 4.0
-		 isis_4.0_all.src contains the packed source code.
-		
+src\isis.cli_4.0\*.*	files to build isis.cli 4.0	
 src\isis.t0_4.0\*.* files to build isis 4.0 boot file
-		 isis.t0_4.0_all.src contains the packed source code.
-
-src\isis_4.1\*.*	files to build isis 4.1
-		 isis_4.1_all.src contains the packed source code.
 		
+src\isis_4.1\*.*	files to build isis 4.1
+src\isis.cli_4.1\*.*	files to build isis.cli 4.1	
 src\isis.t0_4.1\*.* files to build isis 4.1 boot file
-		 isis.t0_4.1_all.src contains the packed source code.
 
-src\isis.cli_4.1\*.* files to build isis 4.1 cli file
-		 isis.cli_4.1_all.src contains the packed source code.
+src\isis_4.2\*.*	files to build isis 4.2
+src\isis.cli_4.2\*.*	files to build isis.cli 4.2	
+src\isis.ov0_4.2	files to build isis.ov0 4.2
+src\isis.t0_4.2\*.* files to build isis 4.2 boot file
+
 
 src\isis_4.3\*.*	files to build isis 4.3
-		 isis_4.3_all.src contains the packed source code.
-		
+src\isis.cli_4.3\*.*	files to build isis.cli 4.3	
+src\isis.ov0_4.3	files to build isis.ov0 4.3
 src\isis.t0_4.3\*.* files to build isis 4.3 boot file
-		 isis.t0_4.3_all.src contains the packed source code.
 
-src\isis.cli_4.3\*.* files to build isis 4.3 cli file
-		 isis.cli_4.3_all.src contains the packed source code.
+src\isis_4.3w\*.*	files to build isis 4.3w
+src\isis.t0_4.3w\*.* files to build isis 4.3w boot file
 
-src\isis.ov0_4.3\*.* files to build isis 4.3 .ov0 file
-		 isis.ov0_4.3_all.src contains the packed source code.
 
-src\isisUtil_4.3\*.*	files to build isis 4.3 fixmap, format and idisk
-		isisUtil_4.3_all.src contains the packed source code
+src\isisUtil_3.4\*.* plm recreated source for binobj v3.4
 
-src\isis_4.3w\*.*	files to build isis.bin 4.3w
-		 isis_4.3w_all.src contains the packed source code.
-		
-src\isis.t0_4.3w\*.* files to build isis.t0 4.3w boot file
-		 isis.t0_4.3w_all.src contains the packed source code.
+src\isisUtil_4.3\*.*	files to build isis 4.3 fixmap, format, idisk
+			submit, hexobj, objhex and vers
+
+src\isisUtil_4.3w\*.*	files to build format, idisk, altmap
 
 src\ixref_1.2\*.* files to build ixref 1.2
 		 ixref_1.2_all.src contains the packed source code.
@@ -284,11 +288,15 @@ src\ixref_1.3\*.* files to build ixref 1.3
 		 ixref_1.3_all.src contains the packed source code and the
 		 isis.ov0 file needed to test it.
 
-src\objhex_2.2n\*.* files to build objhex isis utils v2.2n
-		objhex_2.2n_all.src contains the packed source
+src\kermit\*.*	files to build kermit for isis
 
-src\objhex_4.3\*.* files to build objhex for isis 4.3
-		objhex_4.3_all.src contains the packed source
+src\lib_2.1\*.*	plm & asm recreated source for lib80 v2.1
+
+src\link_3.0\*.* plm & asm recreated source for link and link.ovl v3.0
+
+src\locate_3.0\*.* plm & asm recreated source for locate v3.0
+
+src\plm_v4.0\*.* plm & asm recreated source for plm80 v4.0
 
 src\plm80.lib\*.* files to build plm80.lib for plm v4.0
 		plm80lib_all.src contains the packed source
@@ -298,8 +306,6 @@ src\system.lib_4.0\*.* files to build system.lib for plm v4.0
 
 src\submit_4.3\*.* files to build submit for isis 4.3
 		submit_4.3_all.src contains the packed source
-
-src\kermit\*.*	files to build kermit for isis
 
 src\tex\*.*	files to build tex v1.0, v1.2, v2.1 for cpm also a patched version
                 of v2.1 that fixes a bug in printing text only
@@ -327,10 +333,21 @@ src\toolbox_2.0\*.* the source files for version 2.0 of the isis toolbox includi
 		toolbox_2.0_all.src, it contains nested master files for the
 		libraries. See toolbox_1.0 above.
 
+src\utils_2.2n\*.* files to build objhex from Intel's utils 2.2 disk
+
+
 tools\*.*	tools I wrote to help me decompile / build the files
 
-  isis.mk	include makefile script see src/makefile.md for details
+  isis.mk	include makefile script see src/makefile.pdf for details
 		also look at the makefiles in the source tree
+
+  aomf2bin.exe	tool to dump omf binary files into binary file for prom programming
+		supports omf85, omf86 and omf286
+
+  asm80.exe	32bit executable from c-port of asm80
+
+  asmx.pl	experimental pre/post processor to allow longer variable names in
+		asm80 and structures
 
   delib.pl	tool to split a library out into individual object files
 		usage: delib.pl libraryfile targetdir
@@ -350,10 +367,17 @@ tools\*.*	tools I wrote to help me decompile / build the files
   dumpintel.exe dumps the contents of an omf file
 		usage: dumpintel objectfile
 
-  omfcmp.exe	a small utility to compare intel files with respect to final
-		image load in memory. This is a significant update on the
-		previous diffbin that now supports library comparison and will do
-		a binary compare if the files are not in omf format.
+  fixomf.pl	fixes checksums for omf files and optionally removed @Pnnnn
+		publics from the file. Used to synthesie old unavailable plm
+		compilers (see comment in file)
+
+  lib.exe	32bit executables from c-ports of lib, link and locate
+  link.exe
+  locate.exe
+
+  mkmake.pl	convert elements of csd files to make format
+
+ 
   ngenpex.exe   My own implemenation of the intel software tools utility
 		genpex. This fixes a number of issues with the original which
 		I have included in the plm80v4 directory along with the
@@ -390,6 +414,11 @@ tools\*.*	tools I wrote to help me decompile / build the files
 		and I will see if there is a simple fix. I should also point
 		out that it only works for plm80 source.
 
+  omfcmp.exe	a small utility to compare intel files with respect to final
+		image load in memory. This is a significant update on the
+		previous diffbin that now supports library comparison and will do
+		a binary compare if the files are not in omf format.
+
   isisc.exe	a utility to check the isis4.1 build is compatible with the reference
   isisu.exe	a utility to unpack the isis boot file to show the load addresses
 		and length of each block - not needed for the build
@@ -406,6 +435,9 @@ tools\*.*	tools I wrote to help me decompile / build the files
 		note all values are entered in hex.
 		The latest version allows writing beyond the end of the
 		comfile, which is useful for tail end padding of files.
+
+  plm80.exe	32bit executable of c-port of plm80
+
   plmpp.exe	Implements the plm preprocessor for $IF $ELSE $ELSEIF and $END
 		so that plm 3.x version files can include the preprocessor
 		directives. 
@@ -422,6 +454,9 @@ tools\*.*	tools I wrote to help me decompile / build the files
         Note, the source files are in C++ and were created by passing the
         fortran source through struct and then hand edited to clean up, rather
         than a direct compile or use of f2c.
+
+  pack.pl	pack files in a directory (except makefile) into my packed file format
+  repack.pl	version that updates files into the packed format
 
   t0bootdiff	compares to bootfile files to show differences
 
@@ -472,4 +507,6 @@ Update 8-Jun-2017    Updated thames to use 8080 emulation. This allows basic to 
 Update 28-Nov-2017   Added decompilations isis.bin and isis.t0 for isis 4.0
 Update 10-Dec-2017   Added C ports
 Update 15-Mar-2018  Updated this file to reflect recent additions. See notes
-             earlier in the file.
+             	     earlier in the file.
+Update 4-Oct-2019    Added notes re build environment, the c-port executables, the msdos 8086 programming
+		     and documented some additional scripts. Also updated locations of small Intel apps

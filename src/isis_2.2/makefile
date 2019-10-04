@@ -23,13 +23,13 @@ isis.hex: isis.plm
 	mv fort.17 isis.hex
 	cat fort.12 >>isis.lst
 	perl $(ROOT)/pretty.pl isis.lst isis.prn
-	rm fort.*
+	rm -fr fort.*
 
 isis.bin: isis.hex
 	perl loadAndFix.pl
 
 clean::
-	rm isis.hex isis.prn
+	rm -fr isis.hex isis.prn
 
 distclean::
-	rm isis.hex isis.prn
+	rm -fr isis.hex isis.prn

@@ -226,21 +226,18 @@ rebuild: distclean all
 ifeq ($(MAKECMDGOALS),clean)
 .PHONY: clean
 clean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex *.bin) 
-	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map) 
+	-$(eval _cleanup_ =  $(filter-out $(PROTECT) $(REF) $(TARGETS) $(_masterfile),$(shell ls *.*)))
+	-$(if $(filter-out .,$(OBJ) $(LST)),rm -fr $(filter-out ., $(OBJ) $(LST)))
+	-$(if $(_cleanup_), rm -f $(_cleanup_)) 
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
 endif
 endif
 
 distclean::
-	-$(if $(filter-out .,$(OBJ)),rm -fr $(OBJ),rm -f *.obj *.abs *.hex *.bin) 
-	-$(if $(filter-out .,$(LST)),rm -fr $(LST),rm -fr *.lst *.lin *.map)
-ifdef _masterfile
-	-rm -fr $(filter-out mk makefile $(REF) $(_masterfile) $(PROTECT),$(shell ls)) $(TARGETS) .extract 
-else
-	-rm -f $(TARGETS) 
-endif
+	-$(eval _cleanup_ =  $(filter-out $(PROTECT) $(REF) $(_masterfile) mk makefile,$(shell ls)))
+	-$(if $(filter-out .,$(OBJ) $(LST)),rm -fr $(filter-out ., $(OBJ) $(LST)))
+	-rm -f $(_cleanup_) .extract
 ifdef PEXFILE
 	-rm -fr $(SRC)/*.ipx
 else

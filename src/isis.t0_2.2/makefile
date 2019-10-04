@@ -23,7 +23,7 @@ isist0.hex: isist0.plm
 	$(ROOT)/tools/plm82
 	mv fort.17 isist0.hex
 	cat fort.12 >>isist0.prn
-	rm fort.*
+	rm -fr fort.*
 
 clean::
-	rm isist0.hex isist0.prn
+	rm -fr isist0.hex isist0.prn
