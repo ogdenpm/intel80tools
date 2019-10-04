@@ -178,8 +178,8 @@ int main(int argc, char **argv)
 	char *s, *progname;
 
 #ifdef _WIN32
-	_setmode(_fileno(stdin), O_BINARY);
-	_setmode(_fileno(stdout), O_BINARY);
+	(void)_setmode(_fileno(stdin), O_BINARY);
+	(void)_setmode(_fileno(stdout), O_BINARY);
 #endif
 	/* find program name */
 	for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)
@@ -326,7 +326,7 @@ void Load(pointer pathP, word LoadOffset, word swt, word entryP, wpointer status
 
 
 
-void Open(wpointer connP, pointer pathP, word access, word echo, wpointer statusP)
+void Open(wpointer connP, const pointer pathP, word access, word echo, wpointer statusP)
 {
 	int mode, conn;
 	osfile_t osfile;
@@ -495,7 +495,7 @@ void Seek(word conn, word mode, wpointer blockP, wpointer byteP, wpointer status
 	else
 		*statusP = ERROR_BADPARAM;
 }
-void Write(word conn, pointer buffP, word count, wpointer statusP)
+void Write(word conn, const pointer buffP, word count, wpointer statusP)
 {
 	if ((*statusP = ChkMode(conn, WRITE_MODE)) != ERROR_SUCCESS)
 		return;

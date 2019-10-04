@@ -104,6 +104,7 @@ enum {
 #define XREF_DEF    0
 #define XREF_REF    1
 #define XREF_FIN    2
+#define XREF_EOF    3
 
 #define M_MACRO		0
 #define M_IRP		1

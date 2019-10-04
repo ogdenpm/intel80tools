@@ -423,17 +423,9 @@ void FinishAssembly()
     Delete(asmacRef, &statusIO);
     if (controls.object)   /* ?? why only for MACRO version */
         CloseF(objfd);
-    /* asxref is currently not supported */
-    //if (controls.xref) /* invoke asxref ?? */
-    //{
-    //    effectiveAddr.bp = Physmem() - 1;
-    //    *effectiveAddr.bp = '0';    /* put drive in a known location */
-    //    if (asxrefTmp[0] == ':')
-    //        *effectiveAddr.bp = asxrefTmp[2];
-    //
-    //    Load(asxref, 0, 1, 0, &statusIO);
-    //    IoErrChk();
-    //}
+
+    if (controls.xref) /* invoke asxref ?? */
+        GenAsxref();
 
     Exit();
 }
