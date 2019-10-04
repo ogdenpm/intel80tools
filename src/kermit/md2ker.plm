@@ -1,0 +1,579 @@
+kermit:
+do;
+
+declare true literally '0FFH';
+declare false literally '00H';
+
+declare port1cmd literally '0F5H';
+declare port1dat literally '0F4H';
+declare port1clk literally '0F0H';
+declare timing1 literally '036H';
+declare port2cmd literally '0F7H';
+declare port2dat literally '0F6H';
+declare port2clk literally '0F1H';
+declare timing2 literally '076H';
+declare modesel literally '0F3H';
+declare reset literally '040H';
+declare EnaTxRx literally '025H';
+declare tx$rdy literally '01H';
+declare rx$rdy literally '02H';
+
+declare null literally '000H';
+declare lf literally '0AH';
+declare cr literally '0DH';
+declare crlf literally 'cr,lf,null';
+declare space literally '20H';
+declare dollar literally '24H';
+
+declare buflen literally '122';
+declare buffer(buflen) byte;
+declare (cmdstr, temp, realspeed) address;
+declare cmdptr address public;
+declare cmd byte;
+declare speed byte public;
+declare port byte public;
+declare driver byte public ;
+declare filename address public;
+declare buff1 based filename (50) byte;
+declare lfilename address public;
+declare buff2 based lfilename (50) byte;
+
+declare debug byte public;
+
+
+/* here are the subroutines */
+
+co:     procedure(char)external;
+        declare char byte;
+end co;
+
+
+ci:     procedure byte external;
+end ci;
+
+
+read:   procedure(jfn, buf, max, count, status)external;
+        declare(jfn, buf, max, count, status)address;
+end read;
+
+
+error:  procedure(errnum)external;
+        declare(errnum)address;
+end error;
+
+
+exit:   procedure external; end exit;
+
+
+finish:
+        procedure byte external;
+end finish;
+
+bye:
+        procedure byte external;
+end bye;
+
+connect:
+        procedure external;
+end connect;
+
+send:   procedure byte external;
+end send;
+
+get:    procedure byte external;
+end get;
+
+cwd:    procedure byte external;
+end cwd;
+
+lsend:  procedure byte external;
+end lsend;
+
+
+recv:   procedure external;
+end recv;
+
+
+newline:
+        procedure public;
+        call co(13);
+        call co(10);
+end newline;
+
+
+spin:   procedure(string)address public;
+        declare string address;
+        declare char based string byte;
+
+        do while (char <> null) and (char < 021H);
+          string = string + 1;
+        end;
+        return string;
+end spin;
+
+strcmp: procedure(s1,s2)byte public;
+        declare(s1,s2)address;
+        declare c1 based s1 byte;
+        declare c2 based s2 byte;
+        declare retval byte;
+
+        retval = 0;
+        s1 = spin(s1);
+        s2 = spin(s2);
+        if not(c1 = c2) then retval = c1 - c2;
+        do while (c1 > 0) and (c2 > 0) and (retval=0);
+          retval = c1 - c2;
+          s1 = s1+1;
+          s2 = s2+1;
+        end;
+        return retval;
+
+end strcmp;
+
+
+/* TOKEN: returns a pointer to a null-terminated token pointed          */
+/* to prior to the call by cmdptr.  after the call, cmdptr points       */
+/* to the end of the original string, or the first character after      */
+/* the null character replacing the first whitespace after the first    */
+/* token.                                                               */
+
+token:  procedure address public;
+        declare result address;
+        declare char based cmdptr byte;
+
+        result = 0;
+        cmdptr = spin(cmdptr);
+        if char <> null then
+          do;
+            result = cmdptr;
+            do while char > ' ';
+              cmdptr = cmdptr + 1;
+            end;
+            if char <> null then
+              do;
+                char = null;
+                cmdptr = cmdptr + 1;
+              end;
+          end;
+        return result;
+end token;
+
+/* to print out a decimal number */
+
+nout:   procedure(n) public;
+        declare n address;
+        declare (quotient, digit, curr) address;
+        declare numbuf(20) byte;
+        declare index byte;
+
+        if n = 0 then
+          do;
+            call co('0');
+            return;
+          end;
+        index = 1;
+        do while (n > 0);
+          digit = n mod 10;
+          numbuf(index) = digit+030H;
+          index = index + 1;
+          n = n / 10;
+        end;
+        do while ((index := index - 1) > 0);
+          call co(numbuf(index));
+        end;
+end nout;
+
+
+nin:    procedure(string) address public;
+        declare string address;
+        declare result address;
+        declare c based string byte;
+
+        result = 0;
+        if (string <> 0) then do;
+          string = spin(string);
+          do while (c >= 030H) and (c <= 039H);
+            result = result * 10 + (c - 030H);
+            string = string + 1;
+          end;
+        end;
+        return result;
+end nin;
+
+
+print:  procedure(msg) public;
+        declare msg address;
+        declare c based msg byte;
+
+        do while (c > 0) and (c <> '$');
+          if c = '\' then
+            call newline;
+          else
+            call co(c);
+          msg = msg + 1;
+        end;
+end print;
+
+
+/* IOINIT:  this routine takes a port number, 0,1 or 2, and a speed in the   */
+/* range 1-4 and initializes the require port to work at the required speed. */
+/* The routine returns no parameters.                                        */
+
+ioinit: procedure;
+        declare ispeed byte;
+        declare baud structure (code(4) byte,
+                                mult(4) byte)
+                data (40H, 10H, 10H, 08H, 0CFH, 0CFH, 0CEH, 0CEH);
+
+        ispeed = speed - 1;
+        if debug then
+          do;
+             call newline;
+             call print(.('initializing serial port',crlf));
+          end;
+        do case port;
+          do;
+            if debug then call print(.('port 0 initialized',crlf));
+          end;
+          do;
+            if debug then call print(.('port 1 initialized',crlf));
+            output(port1cmd) = reset;
+            output(modesel) = timing1;
+            output(port1clk) = baud.code(ispeed);
+            output(port1clk) = 0H;
+            output(port1cmd) = baud.mult(ispeed);
+            output(port1cmd) = EnaTxRx;
+          end;
+          do;
+            if debug then call print(.('port 2 initialized',crlf));
+            output(port2cmd) = reset;
+            output(modesel) = timing2;
+            output(port2clk) = baud.code(ispeed);
+            output(port2clk) = 0H;
+            output(port2cmd) = baud.mult(ispeed);
+            output(port2cmd) = EnaTxRx;
+          end;
+        end;
+end ioinit;
+
+
+usage:  procedure;
+        call print(.('usage: kermit (300|1200|4800|9600) (1|2)',crlf));
+        call exit;
+end usage;
+
+
+readln: procedure;
+        declare (count, status) address;
+
+        call read(1, .buffer, buflen, .count, .status);
+        if status > 0 then
+          do;
+            call print(.('READLN FAILED',crlf));
+            call error(status);
+            call exit;
+          end;
+        buffer(count-2) = 0;
+        cmdptr = .buffer;
+end readln;
+
+
+help: procedure;
+     call print(.('                      HELP MENU $  ',crlf));
+     call newline;
+     call newline;
+     call print(.(' there are 10 commands used in ISIS-Kermit',crlf));
+     call print(.(' CONNECT connect to the host as a virtual terminal ',crlf));
+     call print(.('      The format of CONNECT command is   ',crlf));
+     call print(.('          ISIS-Kermit> Connect',crlf));
+     call newline;
+     call print(.(' SEND Send files from the MDS to the other Kermit. ',crlf));
+     call print(.('      The format of SEND command is   ',crlf));
+     call print(.('          ISIS-Kermit> Send Filename.Ext ',crlf));
+     call newline;
+     call print(.(' RECEIVE Receive files from the other Kermit ',crlf));
+     call print(.('      received filename has at most 6 characters ',crlf));
+     call print(.('      The format of RECEIVE command is   ',crlf));
+     call print(.('          ISIS-Kermit> Receive',crlf));
+     call newline;
+     call print(.(' DEBUG Display packet traffic , packet number ',crlf));
+     call print(.('      packet contents. ',crlf));
+     call print(.('      The format of DEBUG command is  ',crlf));
+     call print(.('          ISIS-Kermit> Debug',crlf));
+     call newline;
+     call print(.(' LSEND send files from the MDS to VAX-KERMIT . ',crlf));
+     call print(.('      The format of LSEND command is ',crlf));
+     call print(.('          ISIS-Kermit> LSEND Listfile.Ext ',crlf));
+     call print(.(' NOTE : Listfile contains the filenames of files ',crlf));
+     call print(.('        to be send to the VAX ',crlf));
+     call newline;
+     call print(.(' GET  Get files from the VAX to the MDS ',crlf));
+     call print(.('      when VAX-KERMIT is in SERVER mode .',crlf));
+     call print(.('      The format of GET command is   ',crlf));
+     call print(.('          ISIS-Kermit> Get Filename.Ext ',crlf));
+     call newline;
+     call print(.(' CWD  Change working directory on the VAX ',crlf));
+     call print(.('      when VAX-KERMIT is in SERVER mode .',crlf));
+     call print(.('      The format of CWG command is   ',crlf));
+     call print(.('          ISIS-Kermit> CWD [directory] ',crlf));
+     call newline;
+     call print(.(' EXIT EXIT ISIS-Kermit ',crlf));
+     call print(.('      The format of EXIT command is   ',crlf));
+     call print(.('          ISIS-Kermit> Exit ',crlf));
+     call newline;
+     call print(.(' FINISH EXIT  From VAX-KERMIT ',crlf));
+     call print(.('      when VAX-KERMIT is in SERVER mode .',crlf));
+     call print(.('      The format of FINISH command is   ',crlf));
+     call print(.('          ISIS-Kermit> FINISH ',crlf));
+     call newline;
+     call print(.(' BYE  Log out from VAX ',crlf));
+     call print(.('      when VAX-KERMIT is in SERVER mode .',crlf));
+     call print(.('      The format of BYE command is   ',crlf));
+     call print(.('          ISIS-Kermit> BYE ',crlf));
+     call newline;
+     call newline;
+   end help;
+
+
+/* to specify the disk driver number ( from 0 to 4 ) which will be used for
+   file transfer */
+
+setdrnum : procedure;
+
+            cmdstr = 0;
+            do while (cmdstr = 0);
+                call print(.('disk driver number(0|1|2|3|4) ==> ',null));
+                call readln;
+                cmdstr = token;
+            end;
+            call newline;
+            if (strcmp(cmdstr,.('0',null)) = 0) then driver = 0;
+            else
+               if (strcmp(cmdstr,.('1',null)) = 0) then driver = 1;
+              else
+                if (strcmp(cmdstr,.('2',null)) = 0) then driver = 2;
+                  else
+                    if (strcmp(cmdstr,.('3',null)) = 0) then driver = 3;
+                     else
+                       if (strcmp(cmdstr,.('4',null)) = 0) then driver = 4;
+                        else do;
+                          call print(.('error , try again ' ,crlf));
+                          call exit;
+                        end;
+
+end setdrnum;
+
+
+/* *** main program *** */
+Call newline;
+Call newline;
+debug = false;
+call readln;
+cmdstr = 0;
+do while (cmdstr = 0);
+ call print(.('input your desired baud rate (300|1200|4800|9600)  ',null));
+ call readln;
+ cmdstr = token;
+end;
+ call newline;
+     if (strcmp(cmdstr,.('9600',null)) = 0) then do;
+                realspeed = 9600;
+                speed = 4;
+          end;
+          else
+            if (strcmp(cmdstr,.('4800',null)) = 0) then do;
+                realspeed  = 4800;
+                speed = 3;
+              end;
+              else
+                if (strcmp(cmdstr,.('1200',null)) = 0) then do;
+                   realspeed = 1200;
+                   speed = 2;
+                  end;
+                  else
+                    if (strcmp(cmdstr,.('300',null)) = 0) then do;
+                        realspeed = 300;
+                        speed = 1;
+                      end;
+                      else call usage;
+
+port = 1;
+
+/* read desired baud rate, if supplied */
+
+temp = token;
+if temp > 0 then realspeed = nin(temp);
+
+/* get desired port, if supplied */
+
+temp = token;
+if temp > 0 then port = nin(temp);
+
+/* make sure there's garbage on the end of the line */
+
+if token > 0 then call usage;
+
+if (port < 1) or (port > 2) then call usage;
+
+call print(.('Serial port ',null));
+call nout(port);
+call print(.(', Baud rate ',null));
+call nout(realspeed);
+call newline;
+
+call ioinit;
+
+do while (true);
+        cmdstr = 0;
+        do while (cmdstr = 0);
+          call print(.('ISIS-Kermit>',null));
+          call readln;
+          cmdstr = token;
+        end;
+
+        if ((strcmp(cmdstr,.('connect',null)) = 0) or
+            (strcmp(cmdstr,.('CONNECT',null)) = 0)) then cmd = 1;
+          else
+            if ((strcmp(cmdstr,.('send',null)) = 0) or
+                (strcmp(cmdstr,.('SEND',null)) = 0)) then cmd = 2;
+              else
+            if ((strcmp(cmdstr,.('lsend',null)) = 0) or
+                (strcmp(cmdstr,.('LSEND',null)) = 0)) then cmd = 3;
+              else
+                if ((strcmp(cmdstr,.('get',null)) = 0) or
+                    (strcmp(cmdstr,.('GET',null)) = 0)) then cmd = 4;
+                 else
+                if ((strcmp(cmdstr,.('cwd',null)) = 0) or
+                    (strcmp(cmdstr,.('CWD',null)) = 0)) then cmd = 5;
+                 else
+                if ((strcmp(cmdstr,.('receive',null)) = 0) or
+                    (strcmp(cmdstr,.('RECEIVE',null)) = 0)) then cmd = 6;
+                  else
+                    if ((strcmp(cmdstr,.('exit',null)) = 0) or
+                        (strcmp(cmdstr,.('EXIT',null)) = 0)) then cmd = 7;
+                      else
+                    if ((strcmp(cmdstr,.('finish',null)) = 0) or
+                        (strcmp(cmdstr,.('FINISH',null)) = 0)) then cmd = 8;
+                      else
+                    if ((strcmp(cmdstr,.('bye',null)) = 0) or
+                        (strcmp(cmdstr,.('BYE',null)) = 0)) then cmd = 9;
+                      else
+                        if ((strcmp(cmdstr,.('debug',null)) = 0) or
+                            (strcmp(cmdstr,.('DEBUG',null)) = 0)) then cmd = 10;
+                        else
+                          if ((strcmp(cmdstr,.('help',null)) = 0) or
+                            (strcmp(cmdstr,.('HELP',null)) = 0)) then cmd = 11;
+                             else cmd = 0;
+
+        if ((cmd < 2) or (cmd > 5))then
+          if token > 0 then
+            cmd = 0;
+
+        do case cmd;
+
+          do; /* cmd = 0 */
+              call print(.('Syntax error',crlf));
+          end;
+
+          do; /* cmd = 1*/
+              call connect;
+          end; /* cmd = 1 */
+
+          do;/* send files   cmd = 2 */
+            filename = token;
+            if (filename = 0)
+            then
+              call print(.('No files specified',crlf));
+            else
+              if send
+              then
+                   call print(.(cr,lf,'OK',crlf));
+              else
+                   call print(.('Send failed',crlf));
+
+          end; /* send files   cmd = 2 */
+
+          do;/* send files     cmd = 3 */
+            lfilename = token;
+            if (lfilename = 0)
+            then
+                call print(.('No list of files specified',crlf));
+            else
+                if lsend
+                then
+                   call print(.(cr,lf,' OK ',crlf));
+
+          end; /* send files     cmd = 3 */
+
+          do;/* get      cmd = 4 */
+            filename = token;
+            if (filename = 0)
+            then
+                 call print(.('No files specified',crlf));
+            else do;
+                 call setdrnum;
+                 if get
+                 then
+                     call print(.(cr,lf,'OK',crlf));
+                 else
+                      call print(.('Get failed',crlf));
+            end;
+          end; /* get      cmd = 4 */
+
+          do;/* change directory  cmd = 5 */
+            call newline;
+            filename = token;
+            if (filename = 0)
+            then
+                call print(.('No directory specified',crlf));
+            else do;
+                if cwd
+                then
+                      call newline;
+                else
+                      call print(.(' Can not change working directory',crlf));
+            end;
+            call newline;
+          end; /* change directory  cmd = 5 */
+
+          do; /* receive   cmd = 6 */
+            filename = token;
+            call setdrnum;
+            call recv;
+            call print(.(cr,lf,'OK',crlf));
+          end; /* receive   cmd = 6 */
+
+          do; /* exit cmd = 7 */
+              call exit;
+          end ; /* exit cmd = 7 */
+
+          do; /* finish cmd = 8 */
+            call newline;
+            if finish
+              then
+                        call print(.('end of SERVER mode on VAX-KERMIT ',crlf));
+              else
+                      call print(.('SERVER mode on VAX ',crlf));
+          end; /* finish cmd = 8 */
+
+          do; /* bye cmd = 9 */
+            call newline;
+            if bye
+              then
+                    call print(.('logout from VAX-VMS ',crlf));
+              else
+                    call print(.('login VAX-VMS ',crlf));
+         end; /* bye cmd = 9 */
+
+          do; /* debug cmd = 10 */
+               debug = not debug;
+          end; /* bye cmd = 10 */
+
+          do; /* help cmd = 11 */
+               call help;
+          end ;/* help cmd = 11 */
+        end; /* case cmd */
+end;
+
+end kermit;
+

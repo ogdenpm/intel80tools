@@ -1,0 +1,985 @@
+/* SEND MODULE: this module handles all sending of data between the     */
+/* host and development system                                          */
+
+
+send$module:
+do;
+
+/* here are some global declarations for the communication module */
+
+declare true literally '0FFH';
+declare false literally '00H';
+declare oldtry byte;
+declare port1cmd literally '0F5H';
+declare port2cmd literally '0F7H';
+declare port1dat literally '0F4H';
+declare port2dat literally '0F6H';
+
+declare tx$rdy literally '01H';
+declare rx$rdy literally '02H';
+declare chrmsk literally '07FH';
+
+declare maxtry literally '05';
+declare space literally '020H';
+declare cr literally '0DH';
+declare lf literally '0AH';
+declare null literally '00H';
+declare crlf literally 'cr,lf,null';
+declare soh literally '1';
+declare eofl literally '0';
+declare delete literally '07FH';
+
+declare myquote literally '023H';
+declare mynumpads literally '0';
+declare mypadchr literally '0';
+declare myeol literally 'cr';
+declare mytime literally '5';
+
+declare readonly literally '1';
+declare writeonly literally '2';
+declare rdwr literally '3';
+declare noedit literally '0';
+
+declare pksize literally '94';
+declare packet(pksize) byte public;     /* buffer for packets */
+
+declare state  byte;                    /* FSM last state */
+declare msgnum byte;                    /* message number */
+declare tries byte;                     /* max number of retries */
+declare numpads byte;                   /* how many pads to send */
+declare padchar byte;                   /* the present pad character */
+declare eol byte;                       /* the present eol character */
+declare quote byte;                     /* the present quote character */
+declare timeint byte;                   /* the present time out */
+declare spsize byte;                    /* the present packet size */
+
+declare port byte external;             /* the port to use */
+declare filename address external;      /* the address of the filename */
+declare lfilename address external;      /* the address of the filename */
+declare (jfn, status, pklen) address;
+declare ljfn address;
+declare cmdptr address external;
+declare debug byte external;
+
+
+
+/* here are the subroutines */
+
+exit:   procedure external;
+end exit;
+
+co:     procedure(char) external;
+        declare char byte;
+end co;
+
+
+print:  procedure(string) external;
+        declare string address;
+end print;
+
+
+nout:   procedure(n) external;
+        declare n address;
+end nout;
+
+getrecv:   procedure byte external;
+end getrecv;
+
+
+ci:     procedure byte external;
+end ci;
+
+
+open:   procedure(jfn, filenm, access, mode, status) external;
+        declare (jfn, filenm, access, mode, status) address;
+end open;
+
+
+read:   procedure(jfn, buffer, count, actual, status) external;
+        declare (jfn, buffer, count, actual, status) address;
+end read;
+
+
+close:  procedure(jfn, status) external;
+        declare (jfn, status) address;
+end close;
+
+
+newline: procedure external; end newline;
+
+
+token:  procedure address external; end token;
+
+
+/* GNXTFN: this routine returns a pointer to the next file in a file    */
+/* list, or false if there are none.                                    */
+
+gnxtfn: procedure address;
+        filename = token;
+        return (filename > 0);
+end gnxtfn;
+
+
+/* PUTC: takes a character and a port, waits for transmit ready from    */
+/* port and then sends the character to it.  Doesn't return a result    */
+
+putc:   procedure (c, port) public;
+        declare (c, status, port) byte;
+
+        status = 0;
+        do case port;
+          do;
+            call co(c);
+          end;
+          do;
+            do while (status := input(port1cmd) and tx$rdy) = 0; end;
+            output(port1dat) = c;
+          end;
+          do;
+            do while (status := input(port2cmd) and tx$rdy) = 0; end;
+            output(port2dat) = c;
+          end;
+        end;
+end putc;
+
+
+/* GETC: this routine waits for something from the receive port then    */
+/* brings in the character and returns as a result.                     */
+
+getc:   procedure (port) byte public;
+        declare (c, status, port) byte;
+        status = 0;
+        do case port;
+          do;
+            c = ci;
+          end;
+          do;
+           do while status = 0;
+              status = (input(port1cmd) and rx$rdy);
+           end;
+            c = input(port1dat);
+          end;
+          do;
+            do while status = 0;
+             status = (input(port2cmd) and rx$rdy);
+            end;
+            c = input(port2dat);
+         end;
+        end;
+        return c;
+end getc;
+
+
+/* TOCHAR: takes a character and converts it to a printable character   */
+/*         by adding a space                                            */
+
+tochar: procedure(char) byte public;
+        declare char byte;
+        return (char + space);
+end tochar;
+
+
+/* UNCHAR: undoes 'tochar' */
+
+unchar: procedure(char) byte public;
+        declare char byte;
+        return (char - space);
+end unchar;
+
+
+/* CTL: this routine takes a character and toggles the control bit      */
+/* (ie. ^A becomes A and A becomes ^A).                                 */
+
+ctl:    procedure(char) byte public;
+        declare char byte;
+        declare cntrlbit literally '040H';
+        return (char xor cntrlbit);
+end ctl;
+
+
+spar:   procedure (a) public;
+        declare a address;
+        declare b based a byte;
+
+
+        b = tochar(pksize);             /* set up header */
+        a = a + 1;
+        b = tochar(mytime);
+        a = a + 1;
+        b = tochar(mynumpads);
+        a = a + 1;
+        b = ctl(mypadchr);
+        a = a + 1;
+        b = tochar(myeol);
+        a = a + 1;
+        b = myquote;
+end spar;
+
+
+rpar:   procedure (addr) public;
+        declare addr address;
+        declare item based addr byte;
+
+        spsize = unchar(item);          /* isn't plm wonderful? */
+        addr = addr + 1;
+        timeint = unchar(item);
+        addr = addr + 1;
+        numpads = unchar(item);
+        addr = addr + 1;
+        padchar = ctl(item);
+        addr = addr + 1;
+        eol = unchar(item);
+        addr = addr + 1;
+        quote = item;
+end rpar;
+
+
+bufill: procedure (packet) byte;
+        declare packet address;
+        declare (pp, maxpp) address;
+        declare (i, c, done) byte;
+        declare chr based pp byte;
+        declare count address;
+
+        done = false;
+        pp = packet;
+        maxpp = pp + spsize - 8;
+        do while not done;
+          call read(jfn, .c, 1, .count, .status);
+          if status > 0 then
+            do;
+              call print(.('Error reading file',crlf));
+              call exit;
+            end;
+          if count = 0 then
+            done = true;
+          else do;
+            if ((c and chrmsk) < space) or
+                ((c and chrmsk) = delete) then
+              do;
+                chr = quote;
+                pp = pp + 1;
+                chr = ctl(c);
+              end;
+            else
+              if (c and chrmsk) = quote then
+                do;
+                  chr = quote;
+                  pp = pp + 1;
+                  chr = c;
+                end;
+              else
+                chr = c;
+            pp = pp + 1;
+            if pp >= maxpp then done = true;
+          end;
+        end;
+        return (pp - packet);
+end bufill;
+
+
+/* SPACK: this routine sends a packet of data to the host, it takes     */
+/* four parameters, the type of packet, message number, packet length   */
+/* and a pointer to a buffer containing what is to be output. It does   */
+/* not return a value.                                                  */
+
+spack:  procedure(type, pknum, length, packet) public;
+        declare (type, pknum, length) byte;
+        declare packet address;
+        declare char based packet byte;
+        declare (i, chksum) byte;
+
+        if debug then do;
+          call print(.('Sending packet ',null));
+          call nout(pknum);
+          call newline;
+        end;
+
+        i = 1;                                  /* do padding */
+        do while (i <= numpads);
+          call putc(padchar, port);
+          if debug then call co('p');
+          i = i + 1;
+        end;
+
+        chksum = 0;
+        /* send the packet header */
+
+        call putc(soh, port);                   /* send packet marker (soh) */
+        if debug then call co('s');
+        i = tochar(length + 3);
+        chksum = i;
+        call putc(i, port);                     /* send character count     */
+        if debug then call co('c');
+        i = tochar(pknum);
+        chksum = chksum + i;                    /* add in packet number     */
+        call putc(i, port);                     /* send packet number       */
+        if debug then call co('n');
+        chksum = chksum + type;                 /* add in packet type       */
+        call putc(type, port);                  /* send the packet type     */
+        if debug then call co(type);
+
+        /* now send the data */
+        do i = 1 to length;
+          chksum = chksum + char;
+          call putc(char, port);
+          if debug then call co('.');
+          packet = packet + 1;
+        end;
+
+        /* check sum generation */
+
+        chksum = ((chksum + (chksum and 192) / 64) and 63);
+        chksum = tochar(chksum);
+        call putc(chksum, port);                /* send the chksum */
+        if debug then call co('c');
+
+        call putc(eol, port);                   /* terminate the packet */
+        if debug then do;
+          call print(.('e',crlf));
+          call co('.');
+        end;
+end spack;
+
+
+/* RPACK: this routine receives a packet from the host.  It takes three */
+/* parameters: the address of where to put the length of the packet,    */
+/* the address of where to put the packet number and the address of the */
+/* buffer to recieve the data.  It returns true for a positive reply or */
+/* false for a NEGative reply.                                          */
+
+rpack:  procedure(length, pknum, packet) byte public;
+        declare (length, pknum, packet, pkptr) address;
+
+        declare len based length byte;
+        declare num based pknum byte;
+        declare pk based pkptr byte;
+        declare (i, index, chksum, hischksum, type, inchar, msglen) byte;
+
+        declare buffer(128) byte;
+
+        if debug then call print(.('rpack | ',null));
+
+        inchar = 0;                     /* wait for a header */
+        do while inchar <> soh; inchar = getc(port); end;
+        index = 0;
+        inchar = getc(port);
+        do while (inchar <> myeol);
+          buffer(index) = inchar;
+          index = index + 1;
+          inchar = getc(port);
+        end;
+        buffer(index) = null;
+        if debug then do;
+        call print(.('Received packet: [',null));
+        call print(.buffer);
+        call print(.(']',cr,lf,'Length of message: ',null));
+        end;
+        msglen = index - 1;
+        if debug then do;
+        call nout(msglen);
+        call newline;
+        call print(.('Length field: ',null));
+        call nout(buffer(0));
+        call co('_');
+        end;
+        len = unchar(buffer(0)-3);
+        if debug then do;
+        call nout(len);
+        call print(.(cr,lf,'Message number: ',null));
+        call nout(buffer(1));
+        call co('_');
+        end;
+        num = unchar(buffer(1));
+        if debug then do;
+        call nout(num);
+        call print(.(cr,lf,'Type: ',null));
+        end;
+        type = buffer(2);
+        if debug then do;
+        call co(type);
+        call newline;
+        end; /* debug */
+
+        pkptr = packet;
+        chksum = buffer(0) + buffer(1) + buffer(2);
+
+        i = 3;                          /* index of first data character */
+        do while (i < msglen);
+          chksum = (pk := buffer(i)) + chksum;
+          pkptr = pkptr+1;
+          i = i + 1;
+        end;
+        pk = null;              /* terminate with null for printing */
+
+        chksum = (chksum + ((chksum and 192) / 64)) and 63;
+
+        if debug then do;
+        call print(.('His checksum: ',null));
+        call nout(buffer(msglen));
+        call co('_');
+        end; /* debug */
+        hischksum = unchar(buffer(msglen));
+        if debug then do;
+        call nout(hischksum);
+        call print(.(cr,lf,'Our checksum: ',null));
+        call nout(chksum);
+        call newline;
+        end; /* debug */
+        if chksum = hischksum then do;
+          if debug then call co('.');
+          return type;
+        end;
+        call print(.('Bad checksum received', crlf));
+        return false;
+end rpack;
+
+
+
+
+/* SDATA: this routine sends the data from the buffer area to the host. */
+/* It takes no parameters but returns the next state depending on the   */
+/* type of acknowledgement.                                             */
+
+sdata:  procedure byte;
+        declare (num, length, retc) byte;
+
+        if debug then call print(.('sdata...',crlf));
+
+        if tries > maxtry then return 'A';
+          else tries = tries + 1;
+
+        call spack('D', msgnum, pklen, .packet);
+        retc = rpack(.length, .num, .packet);
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here when good acknowledgement */
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        pklen = bufill(.packet);
+        if pklen > 0 then return 'D';
+          else return 'Z';
+end sdata;
+
+
+/* SFILE: this routine sends a packet to the host which contains the    */
+/* filename of the file being sent so that the file can be created at   */
+/* the host end. It returns a new state depending on the nature of the  */
+/* the hosts acknowledgement.                                           */
+
+sfile:  procedure byte;
+        declare (char,num, length, retc) byte;
+        declare fnptr address;
+        declare fnindex based fnptr byte;
+
+        if debug then call print(.('sfile...',crlf));
+
+        if tries > maxtry then return 'A';
+          else tries = tries + 1;
+
+        length = 0;                     /* count characters in filename */
+        fnptr = filename;
+        char = fnindex;
+        do while fnindex > space;
+          length = length + 1;
+          fnptr = fnptr + 1;
+        end;
+        if debug then call print(.(cr,lf,'Filename is: ',null));
+        call print(filename);
+        if debug then do;
+        call print(.(cr,lf,'length is: ',null));
+        call nout(length);
+        call newline;
+        end; /* debug */
+        if ( char = ':' ) then do;
+           filename = filename + 4;
+           length = length - 4;
+        end; /* if */
+        call spack('F', msgnum, length, filename);
+        retc = rpack(.length, .num, .packet);
+
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here on valid acknowledgement */
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        pklen = bufill(.packet);
+        if pklen > 0 then return 'D';
+          else return 'Z';
+end sfile;
+
+
+/* SEOF: this routine is used when eof is detected, it closes up and    */
+/* returns the new state as usual.                                      */
+
+seof:   procedure byte;
+        declare (num, length, retc) byte;
+
+        if debug then call print(.('seof...',crlf));
+
+        if tries > maxtry then return 'A';
+          else tries = tries + 1;
+
+        call spack('Z', msgnum, 0, .packet);
+        retc = rpack(.length, .num, .packet);
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here on valid acknowledgement */
+        tries = 0;
+        call close(jfn, .status);
+        if status > 0 then call print(.('Unable to close file',crlf));
+        if gnxtfn = false then
+          do;
+            msgnum = (msgnum + 1) mod 64;
+            return 'B';
+          end;
+        else return 'S';
+end seof;
+
+
+/* SINIT: this routine does initialisations and opens the file to be    */
+/* send, it returns a new state depending on the outcome of trying to   */
+/* open the file.                                                       */
+
+sinit:  procedure byte;
+        declare (len, num, retc) byte;
+
+        call print(.(cr,lf,'Sending ',null));
+
+        if debug then call print(.('sinit...',crlf));
+
+        if tries  > maxtry then return 'A';
+          else tries = tries + 1;
+
+        if filename = 0 then return 'A';
+        call spar(.packet);
+        call spack('S', msgnum, 6, .packet);    /* send start packet */
+
+        retc = rpack(.len, .num, .packet);
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here on valid acknowledgement */
+        call rpar(.packet);
+        if eol = 0 then eol = myeol;
+        if quote = 0 then quote = myquote;
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        call open(.jfn, filename, readonly, noedit, .status);
+        if (status > 0) then return 'A';
+          else return 'F';
+end sinit;
+
+/* this routine sends a command to the VAX to shut down
+   the SERVER mode
+*/
+sfini:  procedure byte;
+        declare (len, num, retc) byte;
+
+        if debug then call print(.('sinit...',crlf));
+        if tries  > maxtry then return 'A';
+          else tries = tries + 1;
+
+        call spar(.packet);
+        call spack('G', msgnum, 1, .('F'));    /* send start packet */
+
+        retc = rpack(.len, .num, .packet);
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here on valid acknowledgement */
+        call rpar(.packet);
+        if eol = 0 then eol = myeol;
+        if quote = 0 then quote = myquote;
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        return 'W';
+end sfini;
+
+/* this routine sends a command to the VAX to log out
+   the VAX itself
+*/
+
+sbye:  procedure byte;
+        declare (len, num, retc) byte;
+
+        if debug then call print(.('sinit...',crlf));
+
+        if tries  > maxtry then return 'A';
+          else tries = tries + 1;
+
+        call spar(.packet);
+        call spack('G', msgnum, 1, .('L'));    /* send start packet */
+
+        retc = rpack(.len, .num, .packet);
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here on valid acknowledgement */
+        call rpar(.packet);
+        if eol = 0 then eol = myeol;
+        if quote = 0 then quote = myquote;
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        return 'W';
+end sbye;
+
+sget:   procedure byte;
+        declare (len, num, retc) byte,
+                pp   address,
+                cch based pp byte;
+
+        if debug then call print(.('sinit...',crlf));
+
+        if tries  > maxtry then return 'A';
+          else tries = tries + 1;
+
+        if filename = 0 then return 'A';
+        else do;
+           pp = filename;
+           /* check the length of filename */
+           if cch = '[' then do;
+              do while cch <> ']';
+                 pp = pp + 1;
+              end;
+           end;
+           do while cch <> '.';
+              pp = pp + 1;
+           end;
+        end;
+        len = pp - filename + 4;
+        call spack('R', msgnum, len, filename);    /* send start packet */
+        retc = rpack(.len, .num, .packet);
+
+        if (retc <> 'S') then return state;
+        /* here on send init received */
+        call rpar(.packet);
+        call spar(.packet);
+        call spack('Y', msgnum, 6, .packet);
+        oldtry = tries;
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        return 'F';
+end sget;
+
+scwd:   procedure byte;
+        declare (len, num, retc) byte,
+                i byte,
+                dir (20) byte,
+                pp   address,
+                cch based pp byte;
+
+        if debug then call print(.('sinit...',crlf));
+
+        if tries  > maxtry then return 'A';
+          else tries = tries + 1;
+        pp = filename;
+        dir(0) = 'C';
+        i = 2;
+        if filename > 0 then
+         do;
+           do while cch <> 0;
+                 dir(i) = cch;
+                 pp = pp + 1;
+                 i = i + 1;
+           end;
+        end;
+        dir(i) = 0;
+        len = pp - filename + 2;
+        dir(1) = len + 32;
+        filename = .dir;
+        call spack('G', msgnum, len, filename);    /* send start packet */
+        retc = rpack(.len, .num, .packet);
+
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* here on valid acknowledgement */
+        call rpar(.packet);
+        if eol = 0 then eol = myeol;
+        if quote = 0 then quote = myquote;
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        return 'W';
+end scwd;
+
+
+/* SBREAK: this module breaks the flow of control at the end of a       */
+/* transmission and allows the send routine to terminate by returning   */
+/* either a successful or failure condition to the main kermit routine. */
+
+sbreak: procedure byte;
+        declare (num, length, retc) byte;
+
+        if debug then call print(.('sbreak...',crlf));
+
+        if tries > maxtry then return 'A';
+          else tries = tries + 1;
+
+        call spack('B', msgnum, 0, .packet);
+        retc = rpack(.length, .num, .packet);
+
+        if (retc = 'N') then return state;
+        if (retc <> 'Y') then return 'A';
+        /* we only get here if we received a valid acknowledgement */
+        tries = 0;
+        msgnum = (msgnum + 1) mod 64;
+        return 'C';
+end sbreak;
+
+
+/* SEND: here's the main code for the send command, it's a FSM for      */
+/* sending files. The main loop calles various routines until it        */
+/* finishes or an error occurs; this is signified by a true or false    */
+/* result being returned to the main 'kermit' routine.                  */
+
+send:   procedure byte public;
+        declare filename address;
+
+        state = 'S';                            /* start in Send-Init state */
+        msgnum = 0;
+        tries = 0;
+
+        spsize = pksize;
+        timeint = mytime;
+        numpads = mynumpads;
+        padchar = mypadchr;
+        eol = myeol;
+        quote = myquote;
+
+        do while true;
+          if debug then
+            do;
+              call print(.('state : ',null));
+              call co(state);
+              call newline;
+            end;
+          if state = 'D' then state = sdata;
+          else
+            if state = 'F' then state = sfile;
+            else
+              if state = 'Z' then state = seof;
+              else
+                if state = 'S' then state = sinit;
+                else
+                  if state = 'B' then state = sbreak;
+                  else
+                    if state = 'C' then return true;
+                    else
+                      if state = 'A' then return false;
+                      else return false;
+        end;
+end send;
+
+
+/* this routine will get a file from VAX when VAX-KERMIT is in
+   SERVER mode .
+*/
+get:    procedure byte public;
+
+        state = 'R';                            /* start in Get-Init state */
+        msgnum = 0;
+        tries = 0;
+
+        spsize = pksize;
+        timeint = mytime;
+        numpads = mynumpads;
+        padchar = mypadchr;
+        eol = myeol;
+        quote = myquote;
+
+        do while true;
+          if debug then
+            do;
+              call print(.('state : ',null));
+              call co(state);
+              call newline;
+            end;
+          if state = 'F' then state = getrecv;
+             else
+               if state = 'R' then state = sget;
+                else
+                  if state = 'W' then return true;
+                else
+                  if state = 'A' then return false;
+                    else return false;
+        end;
+end get;
+
+/* this routine is used to change working directory of
+   VAX when VAX-KERMIT is in SERVER mode .
+*/
+cwd: procedure byte public;
+
+        state = 'C';
+        msgnum = 0;
+        tries = 0;
+
+        spsize = pksize;
+        timeint = mytime;
+        numpads = mynumpads;
+        padchar = mypadchr;
+        eol = myeol;
+        quote = myquote;
+
+        do while true;
+          if debug then
+            do;
+              call print(.('state : ',null));
+              call co(state);
+              call newline;
+            end;
+          if state = 'C' then state = scwd;
+             else
+               if state = 'W' then
+                do;
+                 call print(.('  DIRECTORY SYSUSERS:$'));
+                 filename = filename + 2;
+                 call print(filename);
+                 return true;
+               end;
+                 else
+                  if state = 'A' then return false;
+                    else return false;
+        end;
+end cwd;
+
+/* This routine is used to exit from VAX-KERMIT
+   When VAX-KERMIT is in SERVER mode
+*/
+finish:    procedure byte public;
+
+        state = 'F';
+        msgnum = 0;
+        tries = 0;
+
+        spsize = pksize;
+        timeint = mytime;
+        numpads = mynumpads;
+        padchar = mypadchr;
+        eol = myeol;
+        quote = myquote;
+
+        do while true;
+          if debug then
+            do;
+              call print(.('state : ',null));
+              call co(state);
+              call newline;
+            end;
+          if state = 'F' then state = sfini;
+             else
+               if state = 'W' then return true;
+                 else
+                  if state = 'A' then return false;
+                    else return false;
+        end;
+end finish;
+
+/* This routine is used to logout from VAX
+   When VAX-KERMIT is in SERVER mode
+*/
+bye:    procedure byte public;
+
+        state = 'L';
+        msgnum = 0;
+        tries = 0;
+
+        spsize = pksize;
+        timeint = mytime;
+        numpads = mynumpads;
+        padchar = mypadchr;
+        eol = myeol;
+        quote = myquote;
+
+        do while true;
+          if debug then
+            do;
+              call print(.('state : ',null));
+              call co(state);
+              call newline;
+            end;
+          if state = 'L' then state = sbye;
+             else
+               if state = 'W' then return true;
+                 else
+                  if state = 'A' then return false;
+                    else return false;
+        end;
+end bye;
+
+/* this routine is used to send files from MDS to VAX
+   when there are a lot of transmitted files involved.
+   The argument of LSEND command is the name of a file
+   which contains names of files to be sent to VAX .
+   In this file , filenames are seperated by at least
+   one space or a carage return .
+*/
+lsend:   procedure byte public;
+
+        declare
+                (lcount,index,ltlength)  address,
+                (ch,lstatus,lstate,flag)  byte,
+                pp address,
+                buff (2000) byte;
+
+          lstate = 'L';                        /* start in Send-Init state */
+          if debug then
+            do;
+              call print(.('lstate : ',null));
+              call co(lstate);
+              call newline;
+            end;
+            call open(.ljfn,lfilename,readonly,noedit,.lstatus);
+          if (lstatus > 0 ) then do;
+                call print(.('unable to open list file',crlf));
+                return false;
+          end;
+
+          ltlength = 0;
+          flag = true ;
+          do while flag; /* read filename into buffer */
+             call read(ljfn, .buff(ltlength), 100, .lcount, .lstatus);
+             if lstatus > 0 then do ;
+                call print(.('unable to read list file',crlf));
+                call exit;
+             end;
+             ltlength = ltlength + lcount;
+             if lcount = 0   then   /* stop reading  */
+                flag = false;
+
+         end; /* while */
+
+             index = 0;
+             /* replace carage return , line feed by space  */
+             do while (index <= ltlength );
+                ch = buff(index);
+                if ((ch = cr) or (ch = lf)) then
+                   buff(index) = space;
+                index = index + 1;
+             end;/* while*/
+
+          buff(ltlength) = 0;
+          call close(ljfn,.lstatus);
+          if lstatus > 0 then do;
+             call print(.('unable to close list file',crlf));
+             call exit;
+          end;
+          cmdptr = .buff;
+          filename = token;
+          flag = true;
+
+          do while flag ;
+             if send then
+                call print(.('file sent : OK ',crlf));
+             else do;
+                call print(.('send failed :  '));
+                call print(filename);
+                if gnxtfn = false
+                then
+                 do;
+                    flag = false;
+                    return true;
+                 end;/* if*/
+             end ;/* else */
+          end;/* while */
+
+end lsend;
+
+end send$module;

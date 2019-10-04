@@ -1,0 +1,1862 @@
+TEX: DO;
+DECLARE	/* CPM */
+	F$REBOOT LITERALLY '0',
+	F$RDCON LITERALLY '1',
+	F$WRCON LITERALLY '2',
+	F$RDRDR LITERALLY '3',
+	F$WRPUN LITERALLY '4',
+	F$WRLST LITERALLY '5',
+	F$CONIO LITERALLY '6',
+	F$GETIO LITERALLY '7',
+	F$SETIO LITERALLY '8',
+	F$WRSTR LITERALLY '9',
+	F$RDBUF LITERALLY '10',
+	F$RDSTAT LITERALLY '11',
+	F$VERS LITERALLY '12',
+	F$RESET LITERALLY '13',
+	F$SELECT LITERALLY '14',
+	F$OPEN LITERALLY '15',
+	F$CLOSE LITERALLY '16',
+	F$SEARCHF LITERALLY '17',
+	F$SEARCHN LITERALLY '18',
+	F$DELETE LITERALLY '19',
+	F$RDSEQ LITERALLY '20',
+	F$WRSEQ LITERALLY '21',
+	F$MAKE LITERALLY '22',
+	F$RENAME LITERALLY '23',
+	F$LOGVEC LITERALLY '24',
+	F$CURDSK LITERALLY '25',
+	F$SETDMA LITERALLY '26',
+	F$ALLVEC LITERALLY '27',
+	F$WPDISK LITERALLY '28',
+	F$ROVEC LITERALLY '29',
+	F$FILATT LITERALLY '30';
+
+DECLARE /* enum OUTMODE */
+	SUPPRESS LITERALLY '0',
+	LIST LITERALLY '1',
+	CONSOLE LITERALLY '2';
+
+DECLARE /* STATES */
+	SINITIAL LITERALLY '0',
+	INWORD LITERALLY '1',
+	INSPACE LITERALLY '2',
+	PUNCTUATED LITERALLY '3',
+	SKIPBLANKLINE LITERALLY '4',
+	HYPHEN LITERALLY '5';
+
+DECLARE	ESC	LITERALLY '1BH',
+	CR	LITERALLY '0DH',
+	LF	LITERALLY '0AH',
+	DC1	LITERALLY '11H',
+	CPMEOF	LITERALLY '1AH',
+	US	LITERALLY '1FH';
+
+/* jmp to TEXSTART - 3 (to address LXI SP ) */
+DECLARE TEXJMP BYTE DATA(0C3H),
+	TEXADR ADDRESS DATA(.TEXSTART - 3);
+
+DECLARE copyright(*) BYTE DATA(' COPYRIGHT (C) 1978, 1980 DIGITAL RESEARCH ');
+DECLARE BASECCP ADDRESS AT(6);
+DECLARE CMDLINE(128) BYTE AT(80H);
+DECLARE FCB1(33) BYTE AT(5CH);
+DECLARE FCB2(33) BYTE AT(6CH);
+DECLARE PAD(*) BYTE INITIAL(6, 5, 4, 3, 2, 1);
+DECLARE TABSTOPS(*) BYTE INITIAL(9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105,
+				 113, 121, 129, 137, 145, 153, 255);
+DECLARE PATCHAREA(128) BYTE;
+DECLARE OUT$COL	BYTE;
+DECLARE OUTFCB(33) BYTE;
+DECLARE (TLINE, WLINE, idx, ELINE, SLINE, NLINE) BYTE;
+DECLARE LINEOUT$BUF(256) BYTE;
+DECLARE INPUT$BUF ADDRESS;
+DECLARE INPUT$BUF$SIZE ADDRESS;
+DECLARE INPUT$CHR$OFFSET ADDRESS;
+DECLARE OUTPUT$BUF ADDRESS;
+DECLARE OUTPUT$CHR$OFFSET ADDRESS;
+DECLARE CUR$LINENO ADDRESS;
+DECLARE PAGE$NUM ADDRESS;
+DECLARE LINE$LEN BYTE;
+DECLARE PAGE$OFFSET BYTE;
+DECLARE CUR$INDENT	BYTE;
+DECLARE nonSpaceCnt	byte initial(0);
+DECLARE PP$INDENT	BYTE;
+DECLARE PAGE$WIDTH	BYTE;
+DECLARE PAGE$LEN	BYTE;
+DECLARE PRINT$LEN	BYTE;
+DECLARE TOP$MARGIN	BYTE;
+DECLARE TOP$SPACES	BYTE;
+DECLARE HEADING$MARGIN	BYTE;
+DECLARE BOTTOM$MARGIN	BYTE;
+DECLARE LINE$SPACING	BYTE;
+DECLARE IS$INDENTED	BYTE;
+DECLARE IS$JUSTIFIED	BYTE;
+DECLARE	boldPS		BYTE INITIAL(0),	/* true if proportional space bold */
+	autoJustify	BYTE INITIAL(0),
+	autoUnderscore	BYTE INITIAL(0),
+	nonPSShadow	BYTE INITIAL(0),
+	doPS		BYTE INITIAL(0),	/* proportional spacing flag */
+	centreLinesCnt	BYTE INITIAL(0),
+	fontWidth	BYTE INITIAL(0),
+	escCodes(128)	BYTE,			/* esc sequence characters */
+	escColumn(128)	BYTE,			/* column esc sequence applies to */
+	escIdx		BYTE INITIAL(0),
+	rightMargin	BYTE INITIAL(0);
+DECLARE HAS$TMP$INDENT	BYTE;
+DECLARE LL$INCREASED	BYTE;
+DECLARE SAV$LL		BYTE initial(0);
+DECLARE b2487		BYTE;
+DECLARE LOWER$CASE	BYTE;	/* not used */
+DECLARE FORM$FEED	BYTE;
+DECLARE PAGE$MODE	BYTE;
+DECLARE ERR$PRINT	BYTE;
+DECLARE IO$REDIRECT	BYTE;
+DECLARE PO$CHANGED	BYTE;
+DECLARE SAV$LINELENGTH	BYTE initial(0);
+DECLARE DO$PAGENUM	BYTE;
+DECLARE outMode	BYTE;	
+DECLARE STATE		BYTE;
+DECLARE b2492		BYTE;
+DECLARE SLACK		BYTE;
+DECLARE footing(133)	BYTE;
+DECLARE heading(133)	BYTE;
+DECLARE LINE$BUF(256)	BYTE;
+DECLARE CHARS$IN$LINE$BUF BYTE;
+DECLARE LINE$POS	BYTE initial(0);
+DECLARE signPrefix	BYTE;
+DECLARE havePeeked	BYTE;
+DECLARE peekedChar	BYTE;
+DECLARE pad1		ADDRESS;
+DECLARE cpmRetVal	BYTE;
+
+DECLARE MAXLEN BYTE;
+
+MON1: PROCEDURE(F,A) EXTERNAL;
+    DECLARE F BYTE, A ADDRESS;
+    END MON1;
+
+MON2: PROCEDURE(F,A) BYTE EXTERNAL;
+    DECLARE F BYTE, A ADDRESS;
+    END MON2;
+
+
+reboot:	PROCEDURE EXTERNAL;
+END reboot;
+
+rdcon: PROCEDURE BYTE PUBLIC;
+	RETURN MON2(F$RDCON, 0);
+END rdcon;
+
+
+wrcon: PROCEDURE(CH) PUBLIC;
+	DECLARE CH BYTE;
+	CALL MON1(F$WRCON, CH);
+END wrcon;	
+
+
+wrconCRLF: PROCEDURE PUBLIC;
+	CALL wrcon(CR);
+	CALL wrcon(LF);
+END wrconCRLF;
+
+
+wrlst: PROCEDURE(CH) PUBLIC;
+	DECLARE CH BYTE;
+	CALL MON1(F$WRLST, CH);
+END wrlst;	
+
+
+wrstr: PROCEDURE(STR) PUBLIC;
+	DECLARE STR ADDRESS;
+	CALL wrconCRLF;
+	CALL MON1(F$WRSTR, STR);
+END wrstr;
+
+
+rdbuf: PROCEDURE(BUF) PUBLIC;
+	DECLARE BUF ADDRESS;
+	CALL MON1(F$RDBUF, BUF);
+END rdbuf;
+
+
+rdstat: PROCEDURE BYTE PUBLIC;
+	RETURN MON2(F$RDSTAT, 0);
+end rdstat;
+
+
+reset: PROCEDURE PUBLIC;
+	CALL MON1(F$RESET, 0);
+end reset;
+
+
+open: PROCEDURE(FCB) PUBLIC;
+	DECLARE FCB ADDRESS;
+	cpmRetVal = MON2(F$OPEN, FCB);
+end open;
+
+close: PROCEDURE(FCB) PUBLIC;
+	DECLARE FCB ADDRESS;
+	cpmRetVal = MON2(F$CLOSE, FCB);
+end close;
+
+
+searchf: PROCEDURE(FCB) PUBLIC;
+	DECLARE FCB ADDRESS;
+	cpmRetVal = MON2(F$SEARCHF, FCB);
+end searchf;
+
+
+
+delete: PROCEDURE(FCB) PUBLIC;
+	DECLARE FCB ADDRESS;
+	CALL MON1(F$DELETE, FCB);
+end delete;
+
+
+rdseq: PROCEDURE(FCB) BYTE PUBLIC;
+	DECLARE FCB ADDRESS;
+	return MON2(F$RDSEQ, FCB);
+end rdseq;
+
+
+wrseq: PROCEDURE(FCB) BYTE PUBLIC;
+	DECLARE FCB ADDRESS;
+	return MON2(F$WRSEQ, FCB);
+end wrseq;
+
+
+make: PROCEDURE(FCB) PUBLIC;
+	DECLARE FCB ADDRESS;
+	cpmRetVal = MON2(F$MAKE, FCB);
+end make;
+
+setdma: PROCEDURE(BUF$P) PUBLIC;
+	DECLARE BUF$P ADDRESS;
+	CALL MON1(F$SETDMA, BUF$P);
+end setdma;
+
+
+
+unused1: PROCEDURE PUBLIC;
+	MAXLEN = 128;
+	CALL RDBUF(.MAXLEN);
+end unused1;
+
+unused2: PROCEDURE BYTE PUBLIC;
+	return MON2(F$RDSTAT, 0);
+end unused2;
+
+
+outnewline: PROCEDURE PUBLIC;
+	IF ERR$PRINT THEN
+	DO;
+		call wrlst(CR);
+		call wrlst(LF);
+	END;
+	ELSE
+		call wrConCRLF;
+end outnewline;
+
+outchar: PROCEDURE(CH) PUBLIC;
+	DECLARE CH BYTE;
+	if ERR$PRINT THEN
+		call wrlst(CH);
+	else
+		call wrcon(CH);
+end outchar;
+
+
+outstr: PROCEDURE(STR) PUBLIC;
+	DECLARE STR ADDRESS;
+	DECLARE c BYTE, i BYTE;
+	DECLARE CH BASED STR(1) BYTE;
+
+	i = 0ffh;
+	if ERR$PRINT then
+	DO;
+		call wrlst(CR);
+		call wrlst(LF);
+		DO WHILE (c := CH(i := i + 1)) <> '$';
+			call wrlst(c);
+		END;
+	END;
+	else
+		call wrstr(STR);
+end outstr;
+
+wrapup: PROCEDURE PUBLIC;
+	IF NOT IO$REDIRECT THEN
+	DO;	
+		CALL SETDMA(80H); /* to fix */
+		CALL CLOSE(.OUTFCB);
+	END;
+	CALL wrconCRLF;
+	CALL wrstr(.('Tex Finished$'));
+	CALL wrconCRLF;
+	CALL reboot;
+END wrapup;
+
+
+error:	PROCEDURE(ERR) PUBLIC;
+	DECLARE ERR ADDRESS;
+	DECLARE n BYTE;
+
+	call outstr(.('Error During $'));
+	call outstr(ERR);
+	call outnewline;
+	if CHARS$IN$LINE$BUF > 0 then
+	do;
+		call outstr(.('Input Context:$'));
+		call outnewline;
+		n = LINE$POS - CHARS$IN$LINE$BUF;	/* start offset of context chars */
+		do while (n := n + 1) <> LINE$POS + 1;
+			call outchar(LINE$BUF(n));
+		end;		
+		call outnewline;
+	end;
+end error;
+
+
+fatalError: PROCEDURE(ERR) PUBLIC;
+	DECLARE ERR ADDRESS;
+	call error(ERR);
+	call outstr(.('This Error Terminates TEX$'));
+	call wrapup;
+end fatalError;
+
+FILL:	PROCEDURE(BUF$P, CH, CNT) PUBLIC;
+	DECLARE BUF$P ADDRESS, (CH, CNT) BYTE;
+	DECLARE BCH BASED BUF$P BYTE;
+
+	do while (CNT := CNT - 1) <> 0ffh;
+		BCH = CH;		
+		BUF$P = BUF$P + 1;
+	end;
+end FILL;
+
+memcpy: PROCEDURE(SRC$P, DST$P, LEN) PUBLIC;
+	DECLARE (SRC$P, DST$P) ADDRESS, LEN BYTE;
+	DECLARE SRC BASED SRC$P BYTE;
+	DECLARE DST BASED DST$P BYTE;
+
+	do while (LEN := LEN - 1) <> 0ffh;
+		DST = SRC;
+		SRC$P = SRC$P + 1;
+		DST$P = DST$P + 1;
+	end;
+end memcpy;
+
+READ$CHUNK:	PROCEDURE PUBLIC;
+	DECLARE r BYTE;
+	DECLARE p ADDRESS;
+	DECLARE CH BASED p BYTE;
+	DECLARE readexit LABEL;
+
+	p = INPUT$BUF;
+	do while p < INPUT$BUF + INPUT$BUF$SIZE;
+		call setdma(p);
+		if (r := rdseq(.FCB1)) <> 0 then
+		do;
+			if r > 1 then
+				call fatalError(.('File Read$'));
+			else
+			do;
+				CH = CPMEOF;
+				goto readexit;
+			end;
+		end;
+		else
+		do;
+			INPUT$CHR$OFFSET = INPUT$CHR$OFFSET + 128;
+			p = p + 128;
+		end;
+	end;
+readexit:
+	INPUT$CHR$OFFSET = 0;
+end READ$CHUNK;
+
+GETCH:	PROCEDURE BYTE PUBLIC;
+	DECLARE c BYTE;
+	DECLARE INB BASED INPUT$BUF(1) BYTE;
+
+	if havePeeked then
+	do;
+		havePeeked = 0;
+		return peekedChar;
+	end;
+	if INPUT$CHR$OFFSET >= INPUT$BUF$SIZE  then
+		call READ$CHUNK;
+	c = INB(INPUT$CHR$OFFSET);	
+	INPUT$CHR$OFFSET = INPUT$CHR$OFFSET + 1;
+	if CHARS$IN$LINE$BUF < 255 then
+		CHARS$IN$LINE$BUF = CHARS$IN$LINE$BUF + 1;
+	LINE$BUF(LINE$POS := LINE$POS + 1) = c;
+	return c;
+end GETCH;
+	
+peekChar: PROCEDURE PUBLIC;
+	IF NOT havePeeked THEN
+	DO;
+		peekedChar = GETCH;
+		havePeeked = 0ffh;
+	END;
+end peekChar;
+
+
+getnonEOFchar:	PROCEDURE BYTE PUBLIC;
+	DECLARE CH BYTE;
+
+	if (CH := GETCH) = CPMEOF THEN
+		call fatalError(.('Reading EOF$'));
+	else
+		return CH;
+end getnonEOFchar;
+
+
+FLUSH$OUTPUT: PROCEDURE PUBLIC;
+	DECLARE p ADDRESS;
+
+	p = OUTPUT$BUF;
+	do while p < OUTPUT$BUF + OUTPUT$CHR$OFFSET;
+		call setdma(p);
+		if wrseq(.OUTFCB) <> 0 then
+			call fatalError(.('Disk Write$'));
+		else
+			p = p + 128;
+	end;
+	OUTPUT$CHR$OFFSET = 0;
+end FLUSH$OUTPUT;
+
+PUTDEST: PROCEDURE(CH) PUBLIC;
+	DECLARE CH BYTE;
+	DECLARE (i, tab) BYTE;
+
+	PUTCHAR: PROCEDURE(CH);
+		DECLARE CH BYTE;
+		DECLARE OUTB BASED OUTPUT$BUF(1) BYTE;
+
+		OUT$COL = OUT$COL + 1;
+		if rdstat then call reboot;	/* new */
+		if IO$REDIRECT then
+		do;
+			if outMode = LIST then
+				call wrlst(CH);
+			else if outMode = CONSOLE then
+				call wrcon(CH);
+			else
+				;
+	/*		if rdstat then
+				if rdcon = CR then
+					call reboot;
+	*/	
+		end;
+		else
+		do;
+			OUTB(OUTPUT$CHR$OFFSET) = CH;
+			if (OUTPUT$CHR$OFFSET := OUTPUT$CHR$OFFSET + 1) >= INPUT$BUF$SIZE then
+				call FLUSH$OUTPUT;
+		end;
+	end PUTCHAR;
+
+	if CH = LF then
+	do;
+		call PUTCHAR(CH);
+		OUT$COL = 1;
+	end;
+	else if CH = 9 then
+	do;
+		i = 0;
+		do while (tab := TABSTOPS(i)) <= OUT$COL;
+			i = i + 1;
+		end;
+		if tab = 255 then
+			return;
+		do while tab > OUT$COL;
+			call PUTCHAR(' ');
+		end;
+	end;
+	else
+		call PUTCHAR(CH);
+
+
+
+end PUTDEST;
+
+
+emitPAGEOFFSET: PROCEDURE PUBLIC;
+	DECLARE i BYTE;
+	i = PAGE$OFFSET;
+	do while (i := i - 1) <> 0ffh;
+		call PUTDEST(' ');
+	end;
+	OUT$COL = 1;
+end emitPAGEOFFSET;
+
+enablePS: PROCEDURE PUBLIC;	/* enable proportional spacing */
+	call putdest(ESC);	/* return HMI control to spacing switch */
+	call putdest('S');
+	call putdest(ESC);	/* enable proportional spacing */
+	call putdest('P');
+end;
+
+disablePS: PROCEDURE(C) PUBLIC;
+	declare C byte;
+	call putdest(ESC);	/* disable proportional space */
+	call putdest('Q');
+	call putdest(US);	/* looks like ESC is missing */
+	call putdest(C);	/* sets HMI offset to C - 1 */
+end;
+
+
+GET$CURLINE$LEN: PROCEDURE BYTE PUBLIC;	/* -- fixed - moved to new location */
+	DECLARE i BYTE;
+	i = LINE$LEN;
+	if LL$INCREASED then
+		i = SAV$LL;
+	if HAS$TMP$INDENT then
+		i = i + CUR$INDENT;
+	return i;
+end GET$CURLINE$LEN;
+
+
+setRightMargin: PROCEDURE PUBLIC;
+	DECLARE width BYTE;
+
+	if boldPS then
+		call disablePS(12+1);
+	width = PAGE$WIDTH;
+
+	do while (width := width - 1) <> 0FFH;
+		call putdest(' ');
+	end;
+	call putdest(ESC);	/* set right margin here */
+	call putdest('0');
+	call putdest(CR);
+	rightMargin = PAGE$WIDTH;
+	if boldPS then
+		call enablePS;
+end;
+
+
+emitLineText:	PROCEDURE PUBLIC;
+	DECLARE (i, j) BYTE;
+
+	emitCharItem: PROCEDURE;
+		do while escColumn(j) = i and j < escIdx;
+			call putdest(escCodes(j));
+			j = j + 1;
+		end;
+		call putdest(lineout$buf(i));
+		i = i + 1;
+	end;
+
+	if rightMargin <> PAGE$WIDTH and autoJustify then
+		call setRightMargin;
+	
+	if not HAS$TMP$INDENT then
+	do;
+		i = CUR$INDENT;
+		do while (i := i - 1) <> 0ffh;
+			call PUTDEST(' ');
+		end;
+	end;
+	call emitPAGEOFFSET;
+	i = SLINE;
+	j = 0;
+	if has$tmp$indent then
+		do while cur$indent + sline <> i;
+			call emitCharItem;
+		end;
+	if autoJustify then
+	do;
+		call putdest(ESC);	/* enable auto justify */
+		call putdest('M');
+	end;
+	do while i <> nline;
+		call emitCharItem;
+	end;
+	if autoUnderscore then
+	do;
+		autoUnderscore = 0;
+		call putdest(ESC);	/* auto underscore off */
+		call putdest('R');
+	end;
+	if nonPSShadow then
+	do;
+		nonPSShadow = 0;
+		call putdest(ESC);	/* return HMI control to the spacing switch */
+		call putdest('S');
+	end;
+	call PUTDEST(CR);
+	call PUTDEST(LF);
+	if autoJustify then
+	do;
+		call putdest(ESC);	/* cancel all WP modes except PS and carriage settling time */
+		call putdest('X');
+	end;
+	CUR$LINENO = CUR$LINENO + 1;
+	has$tmp$indent = 0;
+	escIdx = 0;
+end emitLineText;
+
+
+CENTRE:	PROCEDURE PUBLIC;
+	DECLARE cspc BYTE;
+	
+	cspc = SHR(LINE$LEN - (NLINE - SLINE), 1);
+	do while (cspc := cspc - 1) <> 0ffh;
+		LINEOUT$BUF(SLINE := SLINE - 1) = ' ';
+	end;
+	call emitLineText;
+	SLINE = NLINE;
+end CENTRE;
+
+
+NEWLINE: PROCEDURE PUBLIC;
+	CALL PUTDEST(CR);
+	CALL PUTDEST(LF);
+	CUR$LINENO = CUR$LINENO + 1;
+END NEWLINE;
+
+
+
+
+emitHeading:	PROCEDURE PUBLIC;
+	DECLARE (i, c) BYTE;
+
+	call emitPAGEOFFSET;
+	i = 0FFh;
+	do while (i := i + 1) < SAV$LINELENGTH AND (c := heading(i)) <> 0;
+		call PUTDEST(c);
+	end;
+	call NEWLINE;
+end emitHeading;
+
+EOP:	PROCEDURE PUBLIC;
+	DECLARE num ADDRESS;
+	DECLARE CH BYTE AT (.num);
+	DECLARE (rem, ascLen) BYTE, ascStr(5) BYTE;
+	DECLARE (spcCnt, i) BYTE;
+
+	do while CUR$LINENO < (PRINT$LEN + TOP$MARGIN);
+		call NEWLINE;
+	end;
+	if BOTTOM$MARGIN > 0 then
+	do;
+		spcCnt = SHR(BOTTOM$MARGIN, 1); 
+		if spcCnt > 2 then
+		do;
+			do while spcCnt <> 2;
+				spcCnt = spcCnt - 1;
+				call NEWLINE;
+			end;
+			call emitPAGEOFFSET;
+			i = 0FFH;
+			do while (CH := footing(i := i + 1)) <> 0;
+				call putdest(CH);
+			end;
+		end;
+		do i = 1 to spcCnt;
+			call newline;
+		end;
+
+		if DO$PAGENUM then
+		do;
+			num = PAGE$NUM;
+			ascLen = 0FFH;
+			do while num <> 0;
+				rem = num - (num / 10) * 10;
+				ascStr(ascLen := ascLen + 1) = rem + '0';
+				num = num / 10;
+			end;
+			spcCnt = SHR(SAV$LINELENGTH - ascLen, 1) + PAGE$OFFSET;
+			do i = 1 to spcCnt;
+				call PUTDEST(' ');
+			end;
+			ascLen = ascLen + 1;
+			do while (ascLen := ascLen - 1) <> 0FFH;
+				call PUTDEST(ascStr(ascLen));
+			end;
+			call NEWLINE;
+		end;
+		PAGE$NUM = PAGE$NUM + 1;
+		do while CUR$LINENO < PAGE$LEN;
+			call NEWLINE;
+		end;
+			
+	end;
+	CUR$LINENO = 0;
+	if FORM$FEED then
+		call PUTDEST(0CH);
+	if PAGE$MODE then
+	do;
+		if outMODE <> CONSOLE then
+			call wrstr(.('INSERT NEW PAGE; THEN TYPE RETURN$'));
+		do while rdcon <> CR;
+		end;
+	end;
+end EOP;
+
+
+
+procLine0: PROCEDURE PUBLIC;
+	DECLARE i BYTE;
+	if PO$CHANGED then
+	do;
+		if FORM$FEED then		/* -- fixed */
+			call PUTDEST(0CH);		
+		SAV$LINELENGTH = LINE$LEN;
+		PO$CHANGED = 0;
+	end;	
+	if TOP$MARGIN <> 0 then
+	do;
+		if heading(0) = 0 then
+			do i = 1 to TOP$MARGIN;
+				call NEWLINE;
+			end;
+		else
+		do;
+			do i = 1 to TOP$SPACES;
+				call NEWLINE;
+			end;
+			call emitHeading;
+			do i = 1 to HEADING$MARGIN;
+				call NEWLINE;
+			end;
+		end;
+	end;
+end procLine0;
+
+
+
+
+SPACING: PROCEDURE(CNT) PUBLIC;
+	DECLARE CNT BYTE;
+	if CUR$LINENO = 0 then
+		call procLine0;
+	if CUR$LINENO + CNT < PRINT$LEN + TOP$MARGIN then
+		do while (CNT := CNT - 1) <> 0FFH;
+			call NEWLINE;
+		end;
+	else
+		call EOP;
+end SPACING;
+
+
+
+emitLine: PROCEDURE PUBLIC;
+	DECLARE i BYTE;
+
+	if CUR$LINENO = 0 then
+		call procLine0;
+	call emitLineText;
+	if PRINT$LEN + TOP$MARGIN <= CUR$LINENO then
+		call EOP;
+	i = 0;
+	do while (i := i + 1) < LINE$SPACING AND CUR$LINENO > 0;
+		call NEWLINE;
+		if PRINT$LEN + TOP$MARGIN <= CUR$LINENO then
+			call EOP;
+	end;
+end emitLine;
+
+
+break:	PROCEDURE PUBLIC;
+	if NLINE <> SLINE THEN
+		if autoJustify then		/* -- fixed */
+		do;
+			autoJustify = 0;
+			call emitLine;
+			autoJustify = 0FFH;
+		end;
+		else
+			call emitLine;
+	SLINE, ELINE, WLINE = NLINE;
+end break;
+
+
+
+
+JUSTIFY: PROCEDURE PUBLIC;
+	DECLARE (CH, FLG) BYTE;
+	DECLARE (LEAD$SPACECNT) BYTE;
+	DECLARE loc$D7D LABEL;
+	DECLARE loc$F10 LABEL;
+	DECLARE loc$D89 LABEL;
+
+	TLINE = NLINE;
+	if WLINE = SLINE or ELINE = SLINE then
+	do;
+		WLINE = NLINE;
+		call error(.('Fitting a Word$'));
+		return;
+	end;
+	else if WLINE - ELINE > 127 then
+	do;
+		TLINE, WLINE = NLINE;
+		NLINE = ELINE;
+		return;
+	end;
+	else
+		NLINE = ELINE;
+	SLACK = GET$CURLINE$LEN - (NLINE - SLINE);
+	LEAD$SPACE$CNT = 0;
+	do while LINEOUT$BUF(SLINE) = ' ';
+		LEAD$SPACE$CNT = LEAD$SPACE$CNT + 1;
+		if (SLINE := SLINE + 1) = NLINE then
+			return;
+	end;
+		
+	if b2487 then
+	do;
+		b2487 = 0;
+		sline = sline + nonSpaceCnt;
+		do while LINEOUT$BUF(SLINE) <> ' ';
+			nonSpaceCnt = nonSpaceCnt + 1;
+			if (SLINE := SLINE + 1) = NLINE then
+				goto loc$D7D;
+		end;
+		do while LINEOUT$BUF(SLINE) = ' ';
+			NON$SPACE$CNT = NON$SPACE$CNT + 1;
+			if (SLINE := SLINE + 1) = NLINE then
+				goto loc$D7D;
+		end;
+	end;
+	goto loc$D89;
+loc$D7D: 
+	SLINE = SLINE - NON$SPACE$CNT;
+	NON$SPACE$CNT = 0;
+loc$D89:
+	ELINE = TLINE - 1;
+	do while ELINE <> WLINE;
+		LINEOUT$BUF(ELINE + SLACK) = LINEOUT$BUF(ELINE);
+		ELINE = ELINE - 1;
+	end;
+	LINEOUT$BUF(ELINE + SLACK) = LINEOUT$BUF(ELINE);
+	TLINE = TLINE + SLACK;
+	WLINE = WLINE + SLACK;		
+	do while 1;
+		FLG = 0ffh;
+		if b2492 then
+		do;
+			ELINE = NLINE + SLACK;
+			idx = NLINE;
+			NLINE = ELINE;
+			do while idx <> SLINE;
+				CH, LINEOUT$BUF(ELINE := ELINE - 1) = LINEOUT$BUF(idx := idx - 1);
+				if CH = ' ' AND SLACK <> 0 then
+				do;
+					FLG = 0;
+					LINEOUT$BUF(ELINE := ELINE - 1) = ' ';
+					SLACK = SLACK - 1;
+				end;
+			end;
+			b2492 = 0;
+			SLINE = ELINE;
+			if SLACK = 0 then
+				goto loc$F10;
+		end;
+		else
+		do;
+			idx = SLINE - 1;
+			SLINE = SLINE - SLACK;
+			ELINE = SLINE - 1;
+
+			do while NLINE - 1 <> idx;
+				CH, LINEOUT$BUF(ELINE := ELINE + 1) = LINEOUT$BUF(idx := idx + 1);
+				if CH = ' ' AND SLACK <> 0 then
+				do;
+					FLG = 0;
+					LINEOUT$BUF(ELINE := ELINE + 1) = ' ';
+					SLACK = SLACK - 1;
+				end;
+			end;
+			b2492 = 0FFH;
+			NLINE = ELINE + 1;
+			if SLACK = 0  or FLG then
+				goto loc$F10;	
+		end;
+	end;
+
+loc$F10:	 SLINE = SLINE - NON$SPACE$CNT;
+
+		do while (LEAD$SPACE$CNT := LEAD$SPACE$CNT - 1) <> 0ffH;
+			LINEOUT$BUF(SLINE := SLINE - 1) = ' ';
+		end;
+		nonSpaceCnt = 0;
+end JUSTIFY;
+
+
+
+processLine: PROCEDURE PUBLIC;
+	if IS$JUSTIFIED then
+		call JUSTIFY;
+	else
+	DO;	
+		TLINE = NLINE;
+		if WLINE - ELINE > 127 then
+			WLINE = NLINE;
+		NLINE = ELINE;
+	END;
+	call emitLine;
+	SLINE, ELINE = WLINE;
+	NLINE = TLINE;			/* next line offset in circular buffer */
+end processLine;
+
+ADD$CHAR:	PROCEDURE(CH) PUBLIC;
+	DECLARE CH BYTE;
+	DECLARE (curLineLen, I) BYTE;
+
+	if NLINE = SLINE AND LL$INCREASED then	/* -- merged test */
+		LL$INCREASED = 0;
+	if ch < ' ' and escIdx < 128 then
+	do;
+		escCodes(escIdx) = ch;
+		escColumn(escIdx) = nline;
+		escIdx = escIdx + 1;
+		return;
+	end;
+		
+	LINEOUT$BUF(NLINE) = CH;
+	curLineLen = get$curline$len;
+	if autoJustify then
+		curLineLen = curLineLen + curLineLen / fontWidth;
+
+	if (NLINE := NLINE + 1) - SLINE > curLineLen then
+	do;
+		call processLine;
+		LL$INCREASED = 0;
+		i = 0;
+		TLINE = NLINE;
+		do while LINEOUT$BUF(TLINE := TLINE - 1) = ' ' and TLINE >= SLINE;
+			i = i + 1;
+		end;
+		if NLINE - SLINE = i then
+			NLINE = SLINE;
+	end;
+end ADD$CHAR;
+
+/* put character unless leading space
+   at start of indented line */
+
+PUT$TEXT$CHAR:	PROCEDURE(CH) PUBLIC;
+	DECLARE CH BYTE;
+
+	if NLINE = SLINE AND IS$INDENTED THEN
+		if CH = ' ' THEN
+			return;
+	call ADD$CHAR(CH);
+end PUT$TEXT$CHAR;
+
+putEscCode: procedure(ch);
+	declare ch byte;
+
+	if escIdx < 127 then
+	do;
+		escCodes(escIdx) = ESC;
+		escColumn(escIdx) = nline;
+		escCodes(escIdx := escIdx + 1) = ch;
+		escColumn(escIdx) = nline;
+		escIdx = escIdx + 1;
+	end;
+end;
+
+	
+
+
+centreLine: PROCEDURE PUBLIC;
+	if cur$lineno = 0 then
+		call procLine0;
+	if autoJustify then
+	do;
+		autoJustify = 0;
+		call centre;
+		autoJustify = 0ffh;
+	end;
+	else
+		call centre;
+
+	if print$len + top$margin <= cur$lineno then
+		call eop;
+	centreLinesCnt = centreLinesCnt - 1;
+end;		
+
+breakPage: PROCEDURE PUBLIC;
+	call break;
+	if CUR$LINENO <> 0 then
+		call EOP;
+end breakPage;
+
+
+cleanup: PROCEDURE PUBLIC;
+	call breakPage;
+	call PUTDEST(CPMEOF);
+	if NOT IO$REDIRECT AND OUTPUT$CHR$OFFSET <> 0 then
+		call FLUSH$OUTPUT;
+	call wrapup;
+end cleanup;
+
+
+fatalCmdError:	PROCEDURE PUBLIC;
+	call error(.('Command Verify$'));
+	call cleanup;
+end fatalCmdError;
+
+DECLARE PAD$26FA ADDRESS;
+DECLARE INPUT$CHAR BYTE;
+
+skipToEOL: PROCEDURE PUBLIC;	/* absorb rest of line but check not additional char */
+	if INPUT$CHAR <> CR and INPUT$CHAR <> ' ' then	
+		call fatalCmdError;
+	do while GETCH <> LF;
+	end;
+end skipToEOL;
+
+
+GET$NUMBER: PROCEDURE ADDRESS PUBLIC;
+	DECLARE val ADDRESS;
+
+	getc:	PROCEDURE;
+		INPUT$CHAR = GETCH;
+	end getc;
+
+	isdigit: PROCEDURE BYTE;
+		return (INPUT$CHAR - '0') < 10;
+	end isdigit;
+
+	signPrefix = 0;
+	val = 0;
+	do while INPUT$CHAR = ' ';
+		call getc;
+	end;
+	if INPUT$CHAR = CR then
+		return 0;
+
+	if INPUT$CHAR = '+' then
+	do;
+		signPrefix = 1;
+		call getc;
+	end;
+	else if INPUT$CHAR = '-' then
+	do;
+		signPrefix = 0ffh;
+		call getc;
+	end;
+	if NOT isdigit then
+		call fatalCmdError;
+	do while isdigit;
+		val = val * 10 + (INPUT$CHAR - '0');
+		call getc;
+	end;
+	return val;
+end GET$NUMBER;
+
+
+
+
+
+
+
+
+GET16$NEW$VALUE: PROCEDURE(REF) ADDRESS PUBLIC;
+	DECLARE REF ADDRESS;
+	DECLARE val ADDRESS;
+
+	INPUT$CHAR = ' ';
+	val = GET$NUMBER;
+	if signPrefix = 0 then
+		REF = val;
+	if signPrefix = 1 then
+		REF = REF + val;
+	if signPrefix = 0ffh then
+		REF = REF - val;
+	if ROL(HIGH(REF), 1) then	/* check < 32k */
+		REF = 0;
+	call skipToEOL;
+	return REF;
+end GET16$NEW$VALUE;
+
+
+
+
+GET8$NEW$VALUE: PROCEDURE(REF) BYTE PUBLIC;
+	DECLARE REF BYTE;
+	DECLARE val ADDRESS;
+
+	if HIGH(val := GET16$NEW$VALUE(DOUBLE(REF))) <> 0 then
+		call fatalCmdError;
+	return val;
+end GET8$NEW$VALUE;
+
+
+
+
+GET8$ABS$NUMBER: PROCEDURE BYTE PUBLIC;
+	DECLARE val BYTE;
+	val = GET8$NEW$VALUE(0);
+	if signPrefix <> 0 then
+		call fatalCmdError;
+	return val;
+end GET8$ABS$NUMBER;
+
+
+
+GET$TEXT$CHAR: PROCEDURE BYTE PUBLIC;
+	DECLARE CH BYTE;
+	
+	if (CH := GETCH) = CR then
+		do while (CH := GETCH) = LF;
+		end;
+	return CH;
+end GET$TEXT$CHAR;
+
+
+
+IGNORE: PROCEDURE PUBLIC;
+	DECLARE c BYTE;
+
+	if (c := GET$TEXT$CHAR) = '.' or c = CPMEOF then
+		return;
+	do while 1;
+		do while (c := getnonEOFchar) <> LF;
+		end;
+		if (c := GETCH) = '.' or c = CPMEOF then
+			return;
+	end;
+end IGNORE;
+
+LITERAL: PROCEDURE PUBLIC;
+	DECLARE (CH, PAD) BYTE;
+	call break;
+	if (CH := GET$TEXT$CHAR) = '.' or CH = CPMEOF then
+		return;
+
+	if doPS then
+		call disablePS(16+1);
+
+	do while 1;
+		if CUR$LINENO = 0 then
+			call procLine0;
+		call emitPAGEOFFSET;
+		call PUTDEST(CH);
+		do while (cH := getnonEOFchar) <> LF;
+			call PUTDEST(CH);
+		end;
+		call PUTDEST(CH);
+		CUR$LINENO = CUR$LINENO + 1;
+		if PRINT$LEN + TOP$MARGIN <= CUR$LINENO then
+			call EOP;
+		if (CH := GETCH) = '.' then
+		do;
+			if doPS then
+				call enablePS;
+			return;
+		end;
+		if ch = CPMEOF then
+			call cleanup;
+	end;
+end LITERAL;
+
+
+getCmdChar: PROCEDURE BYTE PUBLIC;
+	DECLARE CH BYTE;
+
+	if (CH := GETCH) < 'A' then
+		call fatalCmdError;
+	else if CH >= 'a' then
+		CH = CH - ' ';
+	if CH > 'U' then
+		call fatalCmdError;
+	return CH;
+end getCmdChar;
+
+
+procDotCmd:	PROCEDURE PUBLIC;
+	DECLARE (cmdChr1, cmdChr2) BYTE;
+	DECLARE (i, j, k) BYTE;
+	DECLARE n ADDRESS;
+
+procLoop:
+	cmdChr1 = getCmdChar;
+	cmdChr2 = getCmdChar;
+	cmdChr1 = cmdChr1 - 'A';
+	do case cmdChr1;
+		DO;	/* DOTA */
+			if cmdChr2 = 'D' THEN
+			do;
+				call break;
+				IS$INDENTED = 0ffh;
+				IS$JUSTIFIED = 0ffh;
+				autoJustify = 0;
+			end;
+			else if cmdChr2 = 'J' then
+			do;
+				if (fontWidth := get8$abs$number) < 10 then
+					fontWidth = 20;
+				if boldPS then
+					fontWidth = 5;
+				call break;
+				is$justified = 0;
+				is$indented = 0ffh;
+				autoJustify = 0ffh;
+			end;
+			else
+				call fatalCmdError;
+		END;
+		DO; 	/* DOTB */
+			if cmdChr2 = 'O' then
+			do;
+				call putEscCode('O');	/* enable bold */
+				if boldPS then
+				do;
+					call put$text$char(ESC);	/* set offset to +2 */
+					call put$text$char(DC1);
+					call put$text$char(2);
+				end;
+				i = get8$abs$number;
+			end;
+			else if cmdChr2 = 'P' then
+			do;
+				call breakPage;
+				if (n := GET16$NEW$VALUE(PAGE$NUM - 1)) <> 0 then
+				do;
+					PAGE$NUM = n;
+					DO$PAGENUM = 0ffh;
+				end;
+			end;
+			else if cmdChr2 = 'R' then
+				call break;
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTC */
+			if cmdChr2 = 'E' then
+			do;
+				call break;
+				if (centreLinesCnt := GET8$ABS$NUMBER) = 0 then
+					centreLinesCnt = 1;
+			end;
+			else if cmdChr2 = 'P' then
+			do;
+				if CUR$LINENO + GET8$ABS$NUMBER * LINE$SPACING >= PRINT$LEN + TOP$MARGIN then
+					call breakPage;
+			end;
+			else if cmdChr2 = 'S' then
+				call putEscCode('%');	/* extend carriage settling time */
+			else
+				call fatalCmdError;
+		END;	
+		DO;	/* DOTD */
+			if cmdChr2 = 'S' then
+				LINE$SPACING = 2;
+			else
+				call fatalCmdError;
+		END;
+		call	fatalCmdError;	/* DOTE */
+		DO;	/* DOTF */
+			if cmdChr2 = 'T' then
+			do;
+				if shr(bottom$margin, 1) < 3 then
+					call error(.('No room for Footing$'));
+				i = 0ffh;
+				call fill(.footing, ' ', 133);
+				if (j := getnonEOFChar) <> ' ' then
+				do;
+					if j = 0dh then
+						goto L15AD;
+					else
+						footing(0) = j;
+					i = 0;
+				end;
+				do while (i := i + 1) < 133;
+					if (j := getnonEOFChar) = 0dh then
+						goto L15AD;
+					footing(i) = j;
+				end;
+				return;
+			L15AD:
+				if (j := getnonEOFChar) <> 0ah then
+					call error(.('Invalid CRLF Sequence$'));
+				footing(i) = 0;
+			end;	
+			else
+				call fatalCmdError;
+		END;
+		call	fatalCmdError;	/* DOTG */
+		DO;	/* DOTH */
+			if cmdChr2 = 'E' then
+			do;
+				i = 0ffh;
+				call FILL(.heading, ' ', 133);
+				if (j := getnonEOFchar) <> ' ' then
+				do;
+					if j = CR then
+						goto L162B;
+					heading(0) = j;	
+					i = 0;
+				end;
+				do while (i := i + 1) < 133;
+					if (j := getnonEOFchar) = CR then
+						goto L162B;
+					heading(i) = j;
+				end;
+				return;
+			L162B:	if (j := getnonEOFchar) <> LF then
+					call error(.('Invalid CRLF Sequence$'));
+				heading(i) = 0;
+			end;
+			else if cmdChr2 = 'M' then
+			do;
+				HEADING$MARGIN = GET8$NEW$VALUE(HEADING$MARGIN);
+				if HEADING$MARGIN >= TOP$MARGIN then
+				do;
+					call error(.('HM Command$'));
+					if TOP$MARGIN < 2 then
+						HEADING$MARGIN = 0;
+					else
+						HEADING$MARGIN = TOP$MARGIN - 1;
+				end;
+				if TOP$MARGIN = 0 then
+					TOP$SPACES = 0;
+				else
+					TOP$SPACES = TOP$MARGIN - HEADING$MARGIN - 1; 
+			end;
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTI */
+			if cmdChr2 = 'G' then
+			do;
+				call IGNORE;
+				goto procLoop;
+			end;
+			else if cmdChr2 = 'N' then
+			do;
+				call break;
+				IS$INDENTED = 0FFH;
+				CUR$INDENT = GET8$NEW$VALUE(CUR$INDENT);
+				if PAGE$OFFSET + CUR$INDENT > 160 then
+					CUR$INDENT = 0;
+				LINE$LEN = PAGE$WIDTH - PAGE$OFFSET - CUR$INDENT;
+			end;
+			else
+				call fatalCmdError;
+		end;
+		call fatalCmdError;	/* DOTJ */
+		call fatalCmdError;	/* DOTK */
+		do;	/* DOTL */
+			if cmdChr2 = 'I' then
+			do;
+				CALL LITERAL;
+				goto procLoop;
+			end;
+			else if cmdChr2 = 'L' then
+			do;
+				i = GET8$NEW$VALUE(LINE$LEN);
+				if i < LINE$LEN then
+				do;
+					LL$INCREASED = 0FFH;
+					SAV$LL = LINE$LEN;
+				end;	
+				if i > 160 then
+					LINE$LEN = 70;
+				else
+					LINE$LEN = i;
+				PAGE$WIDTH = PAGE$OFFSET + CUR$INDENT + LINE$LEN;
+			end;
+			else if cmdChr2 = 'S' then
+			do;
+				LINE$SPACING = GET8$NEW$VALUE(LINE$SPACING);
+			end;
+			else
+				call fatalCmdError;
+		end;
+		DO;	/* DOTM */
+			if cmdChr2 = 'B' then
+			do;
+				BOTTOM$MARGIN = GET8$NEW$VALUE(BOTTOM$MARGIN);
+				if PAGE$LEN - TOP$MARGIN <= BOTTOM$MARGIN then
+				do;
+					call error(.('MB Command$'));
+					BOTTOM$MARGIN = 1;
+				end;
+				PRINT$LEN = PAGE$LEN - (TOP$MARGIN + BOTTOM$MARGIN);
+			end;
+			else if cmdChr2 = 'T' then
+			do;
+				TOP$MARGIN = GET8$NEW$VALUE(TOP$MARGIN);
+				if PAGE$LEN - BOTTOM$MARGIN <= TOP$MARGIN then
+				do;
+					call error(.('MT too Large$'));
+					TOP$MARGIN = 1;
+				end;
+				PRINT$LEN = PAGE$LEN - (TOP$MARGIN + BOTTOM$MARGIN);
+				if HEADING$MARGIN < TOP$MARGIN then
+					TOP$SPACES = TOP$MARGIN - HEADING$MARGIN - 1;
+				else
+				do;
+					TOP$SPACES = 0;
+					if TOP$MARGIN < 2 then
+						HEADING$MARGIN = 0;
+					else
+						HEADING$MARGIN = TOP$MARGIN - 1;
+				end;	
+			end;
+			else
+				call fatalCmdError;
+		end;
+		DO;	/* DOTN */
+			if cmdChr2 = 'A' then
+			do;
+				call break;
+				autoJustify = 0;
+				IS$JUSTIFIED = 0;
+			end;
+			else if cmdChr2 = 'S' then
+				call putEscCode('N');	/* restore normal carriage settling time */
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTO */
+			if cmdChr2 = 'P' then
+				DO$PAGENUM = 0;
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTP */
+			if cmdChr2 = 'A' then
+			do;
+				call break;
+				if (i := GET8$ABS$NUMBER) = 0 then
+					i = 1;
+				if CUR$LINENO = 0 then
+					i = i - 1;
+				do j = 1 to i;
+					call EOP;
+				end;
+			end;
+			else if cmdChr2 = 'L' then
+			do;
+				PAGE$LEN = GET8$NEW$VALUE(PAGE$LEN);
+				if PAGE$LEN > 128 or PAGE$LEN = 0 then
+					PAGE$LEN = 66;
+				PRINT$LEN = PAGE$LEN - (BOTTOM$MARGIN + TOP$MARGIN);
+			end;
+			else if cmdChr2 = 'N' then
+			do;
+				if (PAGE$NUM := GET16$NEW$VALUE(PAGE$NUM)) = 0 then
+					PAGE$NUM = 1;
+				DO$PAGENUM = 0FFH;
+			end;
+			else if cmdChr2 = 'O' then
+			do;
+				call break;
+				PO$CHANGED = 0FFH;
+				PAGE$OFFSET = GET8$NEW$VALUE(PAGE$OFFSET);
+				PAGE$WIDTH = PAGE$OFFSET + CUR$INDENT + LINE$LEN;
+				if PAGE$WIDTH > 160 then
+				do;
+					LINE$LEN = 160;
+					PAGE$WIDTH = 160 + PAGE$OFFSET + CUR$INDENT;
+				end;
+			end;
+			else if cmdChr2 = 'P' then
+			do;
+				call break;
+				if CUR$LINENO = 0 then
+					call procLine0;
+				else
+					call SPACING(LINE$SPACING);
+				IS$INDENTED = 0FFH;
+				if (i := GET8$ABS$NUMBER) <> 0 then
+				do;
+					if i < LINE$LEN  then
+						PP$INDENT = i;
+					else
+						call error(.('PP Command $'));
+				end;
+				do j = 1 to PP$INDENT;
+					call ADD$CHAR(' ');
+				end;
+			end;
+			else if cmdChr2 = 'S' then
+			do;
+				call break;
+				call enablePS;
+				if (i := get8$abs$number) = 0 then
+					doPS = 0ffh;
+				boldPS = 0ffh;
+				fontWidth = 5;
+			end;
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTQ */
+			if cmdChr2 = 'B' or cmdChr2 = 'S' then
+			do;
+				call putEscCode('&');	/* bold / shadow off */
+				if boldPS then
+				do;
+					call put$text$char(ESC); /* set offset */
+					call put$text$char(DC1);
+					if cmdChr2 = 'B' then
+						call put$text$char(42H);	/* -2 offset i.e. remove bold */
+					else
+						call put$text$char(43H);	/* -3 offset i.e. remove shadow */
+				end;
+				if nonPSShadow then
+				do;
+					call putEscCode('S');	/* return HMI control to the spacing switch */
+					nonPSShadow = 0;
+				end;	
+				i = get8$abs$number;	
+			end;
+			else if cmdChr2 = 'I' then
+			do;
+				call break;
+				CUR$INDENT = 0;
+				LINE$LEN = PAGE$WIDTH -  PAGE$OFFSET;
+			end;
+			else if cmdChr2 = 'P' then
+			do;
+				call putEscCode('Q');	/* disable proportional space */
+				doPS = 0;
+				boldPS = 0;
+				fontWidth = 20;
+			end;
+			else if cmdChr2 = 'U' then
+			do;
+				autoUnderscore = 0;
+				i = 0;
+				if (j := get8$abs$number) = 0 then
+				do;
+					do while lineout$buf(nline := nline - 1) = ' ';
+						i = i + 1;
+					end;
+					nline = nline + 1;
+				end;
+				call putEscCode('R');	/* auto underscore off */
+				do while (i := i - 1) <> 0ffh;
+					call put$text$char(' ');
+				end;
+			end;
+			else
+				call fatalCmdError;
+		END;
+		call fatalCmdError;	/* DOTR */
+		DO;	/* DOTS */
+			if cmdChr2 = 'H' then
+			do;
+				call putEscCode('W');	/* shadow print on */
+				i = get8$abs$number;
+				if boldPS then
+				do;
+					call put$text$char(ESC);	/* set offset +3 */
+					call put$text$char(DC1);
+					call put$text$char(3);
+				end;
+				else if i > 8 then
+				do;
+					call put$text$char(ESC);	/* set HMI to i */
+					call put$text$char(US);
+					call put$text$char(i + 1);
+					nonPSShadow = 0ffh;
+				end;
+			end;
+			else if cmdChr2 = 'P' then
+			do;
+				call break;
+				if (i := GET8$ABS$NUMBER) = 0 then
+					i = 1;
+				call SPACING(i * LINE$SPACING);
+			end;
+			else if cmdChr2 = 'S' then
+			do;
+				LINE$SPACING = 1;
+			end;
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTT */
+			if cmdChr2 = 'I' then
+			do;
+				call break;
+				HAS$TMP$INDENT = 0FFH;
+				IS$INDENTED = 0FFH;
+				i = GET8$NEW$VALUE(CUR$INDENT);
+				if i < cur$indent then
+					non$spaceCnt = cur$indent - i;
+				do while (i := i - 1) <> 0FFH;
+					call ADD$CHAR(' ');
+				end;
+			end;
+			else
+				call fatalCmdError;
+		END;
+		DO;	/* DOTU */
+			if cmdChr2 = 'S' then
+			do;
+				autoUnderscore = 0ffh;
+				call putEscCode('E');	/* auto underscore on */
+				i = get8$abs$number;
+			end;
+			else
+				call fatalCmdError;
+		END;
+	end;
+end procDotCmd;
+
+
+
+
+sub$1C36: PROCEDURE PUBLIC;
+
+	DECLARE (chr, AT$BOL) BYTE;
+
+	sub$1DA7: PROCEDURE;
+		if AT$BOL then
+		do;
+			if state = PUNCTUATED or state = INWORD then	/* -- fixed */
+			do;
+				ELINE = NLINE;
+				call PUT$TEXT$CHAR(' ');
+			end;
+			if STATE = PUNCTUATED then
+				call PUT$TEXT$CHAR(' ');
+			WLINE = NLINE;
+			STATE = INSPACE;
+		end;
+	end sub$1DA7;
+
+	CHECK$PUNCTUATION: PROCEDURE BYTE;
+		if chr = '.' or chr = '?' or chr = '!' or chr = ':' then
+		do;
+			call peekChar;
+			if peekedChar = CR or peekedChar = CPMEOF or peekedChar = ' ' then
+				return 0FFH;
+		end;
+		return 0;
+	end CHECK$PUNCTUATION;
+
+	AT$BOL = 0;
+	STATE = SINITIAL;
+	ELINE, WLINE = NLINE;
+	do while (chr := GETCH) <> CPMEOF;
+		if chr = CR then
+		do;
+			AT$BOL = 0FFH;
+			if centreLinesCnt > 0 then	/* -- fixed */
+				call centreLine;
+			do while (chr := GETCH) = LF;
+			end;
+			if chr = CPMEOF then
+				return;
+		end;
+		else
+			AT$BOL = 0;
+		GCR: if chr = CR then
+		do;
+			if STATE <> SKIPBLANKLINE then
+				call break;
+			do while (chr := GETCH) = LF;
+			end;
+			call emitLine;
+			STATE = SKIPBLANKLINE;
+			if chr = CPMEOF then
+				return;
+			else
+				goto GCR;
+		end;
+		else if chr < ' ' then			/* -- fixed */
+			call put$text$char(chr);
+		else if chr = ' ' then 
+		do;
+			if STATE <> INSPACE then
+				ELINE = NLINE;
+			call PUT$TEXT$CHAR(chr);
+			STATE = INSPACE;
+		end;
+		else if CHECK$PUNCTUATION then
+		do;
+			if STATE <> INWORD then
+				WLINE = NLINE;
+			call PUT$TEXT$CHAR(chr);
+			WLINE, ELINE = NLINE;
+			STATE = PUNCTUATED;
+		end;
+		else if chr = '.' and (STATE = 0 or AT$BOL or STATE = SKIPBLANKLINE) then
+		do;
+			call sub$1DA7;
+			call procDotCmd;
+			b2492 = 0FFH;
+			b2487 = 0FFH;
+			STATE = SINITIAL;	
+		end;
+		else
+		do;
+			call sub$1DA7;
+			if STATE <> INWORD then
+				WLINE = NLINE;
+			if state = HYPHEN then		/* -- fixed */
+				ELINE = NLINE;
+			call PUT$TEXT$CHAR(chr);
+			if chr = '-' then		/* -- fixed */
+				state = HYPHEN;
+			else
+				STATE = INWORD;	
+		end;
+	end;
+end sub$1C36;
+
+
+
+
+
+
+
+
+
+PARAM$SCAN: PROCEDURE PUBLIC;
+	DECLARE (c, i, dollar) BYTE;
+
+	dollar = 0;
+	i = 0;
+	do while (c := CMDLINE(i := i+1)) <> 0;
+		if dollar then
+		do;
+			if c = 'C' then
+			do;
+				IO$REDIRECT = 0FFH;
+				outMode = CONSOLE;
+			end;
+			else if c = 'L' then
+			do;
+				IO$REDIRECT = 0FFH;
+				outMode = LIST;
+			end;
+			else if c = 'S' then	
+			do;
+				IO$REDIRECT = 0FFH;
+				outMode = SUPPRESS;
+			end;
+			else if c = 'E' then
+				ERR$PRINT = 0FFH;
+			else if c = 'F' then
+				FORM$FEED = 0FFH;
+			else if c = 'P' then
+			do;
+				PAGE$MODE = 0FFH;
+				IO$REDIRECT = 0FFH;
+				outMode = LISt;
+			end;
+			else if c <> ' ' and c <> '$' then
+				call fatalError(.('Parameter Scan$'));
+		end;
+		else if c = '$' then
+			dollar = 0FFH;
+	end;
+end PARAM$SCAN;
+
+prepFiles: PROCEDURE PUBLIC;
+	if FCB1(1) = ' ' then
+		call fatalError(.('Opening Source$'));
+	if FCB1(9) = ' ' then
+		call memcpy(.('TEX'), .FCB1(9), 3);
+	if FCB2(1) = ' ' or FCB2(1) = '$' then
+	do;
+		call memcpy(.FCB1, .OUTFCB, 16);
+		OUTFCB(0) = FCB2(0);
+		call memcpy(.('PRN'), .OUTFCB(9), 3);
+	end;
+	else
+	do;
+		call memcpy(.FCB2, .OUTFCB, 16);
+		if OUTFCB(9) = ' ' then
+			call memcpy(.('PRN'), .OUTFCB(9), 3);
+	end;
+	FCB1(32) = 0;
+	OUTFCB(32) = 0;
+	call PARAM$SCAN;
+	call open(.FCB1);
+	if cpmRetVal = 0FFH then
+		call fatalError(.('Opening Source$'));
+	if not IO$REDIRECT then	
+	do;
+		call delete(.OUTFCB);
+		call make(.OUTFCB);
+		if cpmRetVal = 0FFH then
+			call fatalError(.('Opening Destination$'));
+	end;
+end prepFiles;
+
+
+signOn:	PROCEDURE PUBLIC;
+	if outMode <> CONSOLE then
+		CALL wrstr(.('TEX version 1.2$'));
+	else if FORM$FEED then
+	DO;
+		call wrstr(.('TEX version 1.2$'));
+		call PUTDEST(0CH);
+	END;
+end signOn;
+
+
+INITIALISE:	PROCEDURE PUBLIC;
+	DECLARE INB BASED INPUT$BUF(1) BYTE;
+
+	INPUT$CHR$OFFSET = INPUT$BUF$SIZE;
+	INB(1) = 0;
+	NLINE = 0;
+	SLINE = 0;	
+	OUTPUT$CHR$OFFSET = 0;
+	outMode = 0;
+	CUR$LINENO = 0;
+	PAGE$NUM = 1;
+	CHARS$IN$LINE$BUF = 0;
+	OUT$COL = 1;
+	heading(0) = 0;
+	heading(132) = 0;
+	footing(0) = 0;
+	footing(132) = 0;
+	LINE$LEN = 70;
+	PAGE$OFFSET = 8;
+	CUR$INDENT = 0;
+	PP$INDENT = 6;
+	PAGE$WIDTH = 78;
+	PAGE$LEN = 66;
+	PRINT$LEN = 55;
+	TOP$MARGIN = 6;
+	TOP$SPACES = 3;
+	HEADING$MARGIN = 2;
+	BOTTOM$MARGIN = 5;
+	LINE$SPACING = 1;
+	IS$INDENTED = 0FFH;
+	IS$JUSTIFIED = 0FFH;
+	HAS$TMP$INDENT = 0;
+	LL$INCREASED = 0;
+	b2487 = 0;
+	LOWER$CASE = 0;
+	FORM$FEED = 0;
+	PAGE$MODE = 0;
+	ERR$PRINT = 0;
+	IO$REDIRECT = 0;
+	PO$CHANGED = 0FFH;
+	DO$PAGENUM = 0FFH;
+	b2492 = 0FFH;
+	havePeeked = 0;
+end INITIALISE;
+
+DECLARE PADBYTE BYTE;	/* aligns data in .com file */
+
+TEXSTART:
+	INPUT$BUF$SIZE = SHR((BASECCP - .MEMORY) AND 0FF00H,1);
+	INPUT$BUF = .MEMORY;
+	OUTPUT$BUF = INPUT$BUF + INPUT$BUF$SIZE;
+	call INITIALISE;
+	call prepFiles;
+	call signON;
+	call wrconCRLF;
+	call sub$1C36;
+	call cleanup;
+end;
+

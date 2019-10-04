@@ -1,0 +1,105 @@
+TEX21APN.TXT
+------------
+
+
+                   TEX-80 V2.1 Application Note 01, 4/17/81
+    Copyright (C) 1981 by Digital Research, Inc., Pacific Grove, CA 93950
+                             Editor Compatibility
+
+(Retyped by Emmanuel ROCHE.)
+
+Applicable product and version numbers: TEX-80 V2.1
+
+Program: TEX.COM, TEX.PRL
+
+Some  CP/M editors, such as WordStar, create non-standard ASCII files and  are 
+incompatible   with  TEX-80.  TEX-80  does  not  remove  extra   spaces   that 
+incompatible editors place between words. Be careful, TEX-80 may add spaces to 
+re-justify  margins  if the margin settings in the editor used to  create  the 
+file  are different than TEX-80 margin specifications. TEX-80  default  margin 
+settings are 8 and 78.
+
+
+Patch procedure
+---------------
+
+You  can modify TEX.COM under CP/M or TEX.PRL under MP/M to make  TEX-80  read 
+the  non-standard  ASCII files created by some editors. Make sure you  have  a 
+back-up  copy of TEX.COM before using DDT to make the following changes  under 
+CP/M.  The  "NEXT" value 2B80 shown below is 2C00 if other patches  have  been 
+installed in TEX.COM.
+
+        A>ddt tex.com
+        DDT VERS 2.2
+        NEXT  PC
+        2B80 0100
+        -l135B
+          135B  STA  2824
+          135E  CPI  1A
+        -a135B
+        135B call 263B
+        135E .
+        -l139C
+          139C  STA  2824
+          139F  CPI  1A
+        -a139C
+        139C call 263B
+        139F .
+        -l263B
+          263B  NOP
+          263C  NOP
+          263D  NOP
+        -a263B
+        263B ani 7F
+        263D sta 2824
+        2640 ret
+        2641 .
+        -g0
+
+        A>save 43 tex.com
+
+
+Make  sure  you have a back-up copy of TEX.PRL before using DDT  to  make  the 
+following changes under MP/M.
+
+        0A>ddt tex.prl
+        [MP/M] DDT VERS 1.1
+        NEXT  PC
+        3200 0100
+        -l145B
+          145B  STA  2824
+          1455  CPI  1A
+        -a145B
+        145B call 263B
+        145C .
+        -l149C
+          149C  STA  2824
+          149F  CPI  1A
+        -a149C
+        149C call 263B
+        149F .
+        -l273B 2740
+          273B  NOP
+          273C  NOP
+          273D  NOP
+          273E  NOP
+          273F  NOP
+          2740  NOP
+        -a273B
+        273B ani 7F
+        273D sta 2824
+        2740 ret
+        2741 .
+        -b263F,1
+        -itex.prl
+        -w62
+        -g0
+
+        A>
+
+Licensed  users are granted the right to include these changes in TEX-80  V2.1 
+software.  TEX-80  and  MP/M are trademarks of Digital  Research.  CP/M  is  a 
+registered trademark of Digital Research.
+
+
+EOF

@@ -166,5 +166,4 @@ $(OBJ)/data.abs: $(OBJ)/data.obj
 
 # extra rule for clean
 clean::
-	-rm -f $(SHARED)/*.ipx
-
+	-rm -f $(SHARED)/*.ipx $(SHARED)/*.lst

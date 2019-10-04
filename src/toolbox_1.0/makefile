@@ -232,6 +232,7 @@ $(OBJ)/xlate2.rel: $(OBJ)/xlate2.obj $(util2.lib) $(sys2.lib) $(isis3.lib) $(plm
 clean::
 	-@for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done;
 
+
 # special verify
 # firstly makes sure the latest sources are extracted
 # then invokes verify on the subdirectories which avoids separate invocation of make all

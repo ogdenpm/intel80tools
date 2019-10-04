@@ -221,26 +221,25 @@ endif
 rebuild: distclean all
 # to allow the toolbox to creat the utility clean
 # clean target is only defined here if the make command explicitly has
-# it as a target
+# clean, distclean or rebuild as a target
 ## housekeeping rules
-ifeq ($(MAKECMDGOALS),clean)
+ifneq ('$(filter clean distclean rebuild,$(MAKECMDGOALS))','')
 .PHONY: clean
+CLEANFILES += %.hex %.bin %.obj %.lst %.ipx %.abs %.lin %.map
 clean::
-	-$(eval _cleanup_ =  $(filter-out $(PROTECT) $(REF) $(TARGETS) $(_masterfile),$(shell ls *.*)))
-	-$(if $(filter-out .,$(OBJ) $(LST)),rm -fr $(filter-out ., $(OBJ) $(LST)))
+	-rm -fr $(filter-out ., $(OBJ) $(LST))
+	$(eval _cleanup_ =  $(filter-out  $(PROTECT) $(REF) $(TARGETS), $(filter $(CLEANFILES), $(shell ls $(if $(filter-out .,$(SRC)),$(SRC)/*,*)))))
 	-$(if $(_cleanup_), rm -f $(_cleanup_)) 
-ifdef PEXFILE
-	-rm -fr $(SRC)/*.ipx
-endif
 endif
 
-distclean::
-	-$(eval _cleanup_ =  $(filter-out $(PROTECT) $(REF) $(_masterfile) mk makefile,$(shell ls)))
-	-$(if $(filter-out .,$(OBJ) $(LST)),rm -fr $(filter-out ., $(OBJ) $(LST)))
-	-rm -f $(_cleanup_) .extract
-ifdef PEXFILE
-	-rm -fr $(SRC)/*.ipx
+distclean:: clean
+ifdef _masterfile
+	$(eval _cleanup_ =  $(filter-out $(PROTECT) $(REF) $(_masterfile) mk makefile,$(shell ls)))
+	-rm -fr $(_cleanup_) .extract
 else
+	-rm -fr $(TARGETS)
+endif
+ifndef PEXFILE
 	-rm -fr .deps
 endif
 
