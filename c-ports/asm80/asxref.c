@@ -65,13 +65,13 @@ typedef struct {
     offset next;
 } line_t;
 
-static inline pointer Offset2Ptr(off) {
+static inline pointer Offset2Ptr(offset off) {
     return MEMORY + off;
 }
-static inline xref_t *MkXrefPtr(off) {
+static inline xref_t *MkXrefPtr(offset off) {
     return (xref_t *)Offset2Ptr(off);
 }
-static inline line_t *MkLinePtr(off) {
+static inline line_t *MkLinePtr(offset off) {
     return (line_t *)Offset2Ptr(off);
 }
 
