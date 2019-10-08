@@ -178,8 +178,8 @@ int main(int argc, char **argv)
 	char *s, *progname;
 
 #ifdef _WIN32
-	_setmode(_fileno(stdin), O_BINARY);
-	_setmode(_fileno(stdout), O_BINARY);
+	(void)_setmode(_fileno(stdin), O_BINARY);
+	(void)_setmode(_fileno(stdout), O_BINARY);
 #endif
 	/* find program name */
 	for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)

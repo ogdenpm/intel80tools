@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <direct.h>
+//#include <direct.h>
 
 #ifndef _MAX_PATH
 #define _MAX_PATH 256

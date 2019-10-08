@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -44,12 +45,12 @@ int main(int argc, char **argv)
 			fseek(fpIn, len, SEEK_CUR);
 		else {
 			putword(len - 4, fpOut);	// segId, offset and CRC are not in the isis.bin length field
-			getc(fpIn);			// junk the segId
+			(void)getc(fpIn);			// junk the segId
 			putword(getword(fpIn), fpOut);	// offset to load to
 			len -= 4;	// correct for bytes to copy
 			while (len-- > 0) 
 				putc(getc(fpIn), fpOut);
-			getc(fpIn);	// junk the CRC
+			(void)getc(fpIn);	// junk the CRC
 		}
 	}
 	putword(0, fpOut);

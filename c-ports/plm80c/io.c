@@ -179,8 +179,8 @@ int main(int argc, char **argv)
     word ovl;
 
 #ifdef _WIN32
-    _setmode(_fileno(stdin), O_BINARY);
-    _setmode(_fileno(stdout), O_BINARY);
+    (void)_setmode(_fileno(stdin), O_BINARY);
+    (void)_setmode(_fileno(stdout), O_BINARY);
 #endif
 
     /* find program name */
@@ -351,7 +351,7 @@ void Error(word ErrorNum)
 NORETURN(Exit())
 {
 #ifdef _DEBUG
-    getchar();
+    (void)getchar();
 #endif
     _exit(1);
 }

@@ -361,7 +361,7 @@ void parseInvokeName(void) {
     if (*(start_p = cmdText_p) == ':')
         cmdText_p += 4;		// past the :xx:
     skipAlphaNum();
-    if ((len = cmdText_p - start_p) > 10)	// limit file name
+    if ((len = word(cmdText_p - start_p)) > 10)	// limit file name
         len = 10;
     //for (p = aF0Plm80_ov1; p <= aF0Plm80_ov5; p += /*15*/sizeof(aF0Plm80_ov1))
     //	movemem(len, start_p, p);	// replace the invoke name for overlays
@@ -393,18 +393,18 @@ void parseSrcFile(void) {
     }
     filename_p = cmdText_p;
     skipAlphaNum();
-    if ((nameLen = cmdText_p - filename_p) == 0 || nameLen > 6)
+    if ((nameLen = word(cmdText_p - filename_p)) == 0 || nameLen > 6)
         fatal("SOURCE FILE NAME INCORRECT", 26);
-    srcStemLen = cmdText_p - fullName_p; 
+    srcStemLen = byte(cmdText_p - fullName_p); 
     FILL(10, srcStemName, ' ');
     movemem(srcStemLen, fullName_p, srcStemName);
     if (*cmdText_p == '.') {
         filename_p = ++cmdText_p;
         skipAlphaNum();
-        if ((nameLen = cmdText_p - filename_p) == 0 || nameLen > 3)
+        if ((nameLen = word(cmdText_p - filename_p)) == 0 || nameLen > 3)
             fatal("SOURCE FILE EXTENSION INCORRECT", 31);
     }
-    nameLen = cmdText_p - fullName_p;
+    nameLen = word(cmdText_p - fullName_p);
     srcFileIdx = 0;
     FILL(16, srcFileTable[0].filename, ' ');
     movemem(nameLen, fullName_p, srcFileTable[0].filename);
@@ -415,7 +415,7 @@ void parseSrcFile(void) {
     if (*cmdText_p == '\r') 
         offNextCmdChM1 = 0;	// no more command line
     else
-        offNextCmdChM1 = cmdText_p - (char *)cmdLine_p - 1;
+        offNextCmdChM1 = word(cmdText_p - (char *)cmdLine_p - 1);
 }
 
 

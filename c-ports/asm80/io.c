@@ -312,7 +312,7 @@ void Error(word ErrorNum)
 		fprintf(stderr, "Unknown error %d.\n", ErrorNum);
 }
 
-void Exit()
+NORETURN(Exit())
 {
 	_exit(1);
 }

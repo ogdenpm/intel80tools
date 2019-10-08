@@ -399,12 +399,14 @@ void printSegHeader(seg_t *ls, seg_t *rs, int status)
     rs->status |= status;
 }
 
-int cmpPublic(const struct _public *a, const struct _public *b)
+int cmpPublic(const void *a, const void *b)
 {
- 
+    const struct _public *ap = a;
+    const struct _public *bp = b;
+
     int cmp;
-    if ((cmp = pstrCmp(a->name, b->name)) == 0)
-        cmp = a->addr - b->addr;
+    if ((cmp = pstrCmp(ap->name, bp->name)) == 0)
+        cmp = ap->addr - bp->addr;
     return cmp;
 }
 
@@ -426,8 +428,8 @@ void diffPublics(module_t *lm, byte lseg, module_t *rm, byte rseg)
 
 
 
-    qsort(lp->items, (size_t)lp->cnt, sizeof(public_t), &cmpPublic);
-    qsort(rp->items, (size_t)rp->cnt, sizeof(public_t), &cmpPublic);
+    qsort(lp->items, (size_t)lp->cnt, sizeof(public_t), cmpPublic);
+    qsort(rp->items, (size_t)rp->cnt, sizeof(public_t), cmpPublic);
 
     i = j = 0;
     while (i < lp->cnt || j < rp->cnt) {
@@ -461,10 +463,12 @@ void diffPublics(module_t *lm, byte lseg, module_t *rm, byte rseg)
 }
 
 
-int cmpContent(const struct _content *a, const struct _content *b)
+int cmpContent(const void *a, const void *b)
 {
+    const struct _content *ap = a;
+    const struct _content *bp = b;
 
-    return a->addr - b->addr;
+    return ap->addr - bp->addr;
 }
 
 
@@ -514,6 +518,7 @@ void diffContent(module_t *lm, byte lseg, module_t *rm, byte rseg)
 
     lcb = rcb = 0;
     laddr = raddr = -1;
+    li = ri = 0;
     while (lcb < lc->cnt || rcb < rc->cnt) {
         if (laddr < 0 && lcb < lc->cnt) {
             laddr = lc->items[lcb].addr;
@@ -574,11 +579,14 @@ void diffContent(module_t *lm, byte lseg, module_t *rm, byte rseg)
     emitRun(arun, run, lrun, rrun);
 }
 
-int cmpFixup(const struct _fixup *a, const struct _fixup *b)
+int cmpFixup(const void *a, const void *b)
 {
     int cmp;
-    if ((cmp = a->addr - b->addr) == 0 && (cmp = a->segId < 256 ? a->segId - b->segId : pstrCmp(a->name, b->name)) == 0)
-        cmp = a->type - b->type;
+    const struct _fixup *ap = a;
+    const struct _fixup *bp = b;
+
+    if ((cmp = ap->addr - bp->addr) == 0 && (cmp = ap->segId < 256 ? ap->segId - bp->segId : pstrCmp(ap->name, bp->name)) == 0)
+        cmp = ap->type - bp->type;
     return cmp;
 }
 

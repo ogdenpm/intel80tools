@@ -3,7 +3,7 @@
 typedef struct {
     int count;
     int current;
-    byte **names;
+    char **names;
     int *locations;
 } library_t;
 

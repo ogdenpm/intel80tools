@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -33,7 +34,7 @@ int main(int argc, char **argv)
 		}
 		printf("%04X - %04X\n", start, start + len - 1);
 		while (len-- > 0)
-			getc(fp);
+			(void)getc(fp);
 	}
 	fclose(fp);
 	return 0;

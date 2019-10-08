@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -11,7 +12,7 @@ unsigned int low = 0x10000;
 unsigned int high = 0;
 
 void loadfile(char *s, int id);
-void loadt0(char *s, int id);
+void loadt0(const char *s, int id);
 void dumpdiff();
 
 int main(int argc, char **argv)
@@ -27,7 +28,7 @@ int main(int argc, char **argv)
 }
 
 
-void loadt0(char *file, int id)
+void loadt0(const char *file, int id)
 {
 
 	FILE *fp;
@@ -102,25 +103,25 @@ void readRec(FILE *fp, int id)
 		read6(fp, len - 1, id);
 	else
 		skipRec(fp, len - 1);
-	getc(fp);	// crc
+	(void)getc(fp);	// crc
 }
 
 void skipRec(FILE *fp, int len)
 {
 	while (len-- > 0)
-		getc(fp);
+		(void)getc(fp);
 }
 
 
 
 void read6(FILE *fp, int len, int id)
 {
-	unsigned int addr;
+	unsigned short addr;
 	if (len < 3) {
 		fprintf(stderr, ">>>corrupt type 6 field\n");
 		skipRec(fp, len);
 	} else {
-		getc(fp);	// Seg
+		(void)getc(fp);	// Seg
 		addr = getc(fp);
 		addr += getc(fp) * 256;
 		len -= 3;

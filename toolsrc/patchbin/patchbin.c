@@ -43,10 +43,10 @@ int main(int argc, char **argv)
 		if ((s = gethex(s, &addr)) == NULL || addr < 0x100) 
 			fprintf(stderr, "bad address: %s", line);
         else {
-            if (addr - 0x100 >= fsize) {
+            if ((long)addr - 0x100 >= fsize) {
                 fseek(fp, 0, SEEK_END);
 
-                while (addr - 0x100 > fsize) {
+                while ((long)addr - 0x100 > fsize) {
                     putc(0, fp);
                     fsize++;
                 }

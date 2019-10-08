@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -75,25 +76,25 @@ void readRec(FILE *fp)
 		read4(fp, len - 1);
 	else
 		skipRec(fp, len - 1);
-	getc(fp);	// crc
+	(void)getc(fp);	// crc
 }
 
 void skipRec(FILE *fp, int len)
 {
 	while (len-- > 0)
-		getc(fp);
+		(void)getc(fp);
 }
 
 
 
 void read6(FILE *fp, int len)
 {
-	unsigned int addr;
+	unsigned short addr;
 	if (len < 3) {
 		fprintf(stderr, ">>>corrupt type 6 field\n");
 		skipRec(fp, len);
 	} else {
-		getc(fp);	// Seg
+		(void)getc(fp);	// Seg
 		addr = getc(fp);
 		addr += getc(fp) * 256;
 		len -= 3;

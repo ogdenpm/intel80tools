@@ -190,7 +190,7 @@ static void OutStrCRLF(const pointer str, byte len)
 }
 
 
-static void FatalError(byte err)
+static NORETURN(FatalError(byte err))
 {
     if (err == 0)
         OutStrCRLF("INPUT FILE FORMAT ERROR", 23);
@@ -496,7 +496,7 @@ static void OutputXref()
 void GenAsxref() {      // will reuse the asxrefTmp file from the main routine so no need to set drive
     itemCount = 0;
     topLowHeap = 0;
-    botHighHeap = topHighHeap = MemCk() - MEMORY;
+    botHighHeap = topHighHeap = (offset)(MemCk() - MEMORY);
 
     haveFileInfo = false;
     OpenTmp();

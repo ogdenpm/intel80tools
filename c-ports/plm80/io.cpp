@@ -5,15 +5,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include <io.h>
 #define unlink  _unlink
-#else
-#ifdef __GNUC__
+#elif __GNUC__
 #include <unistd.h>
 #include <errno.h>
 #define _setmode(fd, mode)
-#endif
 #endif
 
 #include "plm.hpp"
@@ -74,12 +72,13 @@ void Open(FILE **conn_p, char *path_p, word access, word echo, word * status_p) 
 	errno = 0;
     if (strncmp(path_p, ":CI:", 4) == 0) {  // console input
         fp = stdin;
-		_setmode(_fileno(fp), _O_BINARY);
+		(void)_setmode(_fileno(fp), _O_BINARY);
     } else if (strncmp(path_p, ":CO:", 4) == 0) {
         fp = stdout;
-		_setmode(_fileno(fp), _O_BINARY);
+		(void)_setmode(_fileno(fp), _O_BINARY);
     } else {
         switch (access) {
+        default:
         case 1: mode = "rb"; break;
         case 2: mode = "wb"; break;
         case 3: mode = "w+b"; break;

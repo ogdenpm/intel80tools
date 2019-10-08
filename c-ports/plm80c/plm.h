@@ -8,15 +8,14 @@
 #define trunc   _trunc
 #endif
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define NORETURN(func)      __declspec(noreturn) void func
-#else
-#ifdef __GNUC__
+#elif __GNUC__
 #define NORETURN(func)     __attribute__((noreturn)) void func 
 #else
 #define NORETURN(func)     void func
 #endif
-#endif
+
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef byte *pointer;

@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#ifdef _MSC_VER
+#define strdup  _strdup
+#else
+#define _stricmp strcasecmp
+#endif
+
+
 FILE *openIsisFile(const char *isisName, char *mode);
 
 #define MAX_ID		31
@@ -71,7 +78,7 @@ symbol_t *lookup(char *symbol)
     /* doesn't exist so create symbol */
     p = (symbol_t *)malloc(sizeof(symbol_t));
     p->next = head;
-    p->symbol = _strdup(symbol);
+    p->symbol = strdup(symbol);
     p->value = 0;
     head = p;
     return p;
@@ -99,7 +106,7 @@ int pushInc(char *filename)
         fprintf(stderr, "can't open %s\n", filename);
         return 0;
     }
-    incFile[++incDepth].filename = _strdup(filename);
+    incFile[++incDepth].filename = strdup(filename);
     inFP = incFile[incDepth].fp = fp;
     return 1;
 }
@@ -138,10 +145,13 @@ int parseNum()
         t++;
 
     for (val = 0; s < t; s++) {
-        if (isdigit(*s))
-            digit = *s - '0';
-        else if (isxdigit(*s))
-            digit = toupper(*s) - 'A' + 10;
+        if (isxdigit(*s))
+            digit = isdigit(*s) ? *s - '0' : toupper(*s) - 'A' + 10;
+        else {
+            fprintf(stderr, "invalid digit %c in token %s\n", *s, token);
+            return 0xffff;
+        }
+
         if (digit >= radix || (val = val * radix + digit) > 255) {
             fprintf(stderr, "bad number %s\n", token);
             return 0xffff;
@@ -448,7 +458,7 @@ void doControl(char *line)
 }
 
 
-pp()
+void pp()
 {
 
     for (;;) {

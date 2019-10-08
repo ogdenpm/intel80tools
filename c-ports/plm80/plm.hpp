@@ -24,14 +24,14 @@ protected:
     byte *getaddr() { return memory + loc; }
     void setloc(int n) { loc = n; }
     void setloc(address n) { loc = n.getloc(); }
-    void setaddr(void *p) { loc = (byte *)p - memory; }
+    void setaddr(void *p) { loc = word((byte *)p - memory); }
     word getloc() { return loc; }
 public:
     address(int n=0) : loc(n) {}
-    address(void *p) : loc((byte *)p - memory) {}
+    address(void *p) : loc(word((byte *)p - memory)) {}
     address& operator =(int n) { loc = n; return *this; }
     address& operator =(address n) { loc = n.getloc(); return *this;}
-    address& operator =(void *p) { loc = (byte *)p - memory; return *this;}
+    address& operator =(void *p) { loc = word((byte *)p - memory); return *this;}
     operator word() { return loc; }
     operator byte *() { return memory + loc; }
     operator char *() { return (char *)(memory + loc); }

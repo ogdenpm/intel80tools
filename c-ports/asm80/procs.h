@@ -13,7 +13,7 @@ void Delete(pointer pathP, wpointer statusP);
 void DoPass();
 void EmitXref(byte xrefMode, pointer name);
 void Error(word ErrorNum);
-void Exit();
+NORETURN(Exit());
 void ExpressionError();
 void FileError();
 void FinishAssembly();
