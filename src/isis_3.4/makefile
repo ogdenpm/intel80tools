@@ -16,7 +16,8 @@ objs =	loc62.obj isis.obj load.obj open.obj path.obj\
 	error.obj exit.obj jmpto.obj reboot.obj memck.obj\
 	upper.obj unpath.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 isis.bin: isis
 	$(ROOT)/tools/packisis isis

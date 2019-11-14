@@ -12,7 +12,8 @@ LOCATEFLAGS=symbols publics
 objs=	cli.obj dblank.obj dlimit.obj filerr.obj forupp.obj monitr.obj\
 	reperr.obj seq.obj upcase.obj wdlmt.obj numout.obj 
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 isis.cli: cli.rel
 	$(call locate,$@,$^,code(3680h) name(CLI) stacksize(74) purge)

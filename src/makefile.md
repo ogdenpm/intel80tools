@@ -33,9 +33,13 @@ of make and makefiles
 * Cleaned up formatting
 * Added TOC & internal links
 
-### 7-Jun-1018
+### 7-Jun-2018
 
 - Added support for asmx (asm80 wrapper) and asm48
+
+### 24-Oct-2019
+
+* Modified to take account of changes to support parallel builds and combined obj2bin and patch
 
 ## Structure of the makefile
 
@@ -143,7 +147,7 @@ The basic structure of the makefile is
      export ISIS_F3 := ./include/
      ```
 
-     ​
+     
 
 ### Variables modified post inclusion of isis.mk
 
@@ -241,7 +245,7 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
 
 * **locate-overlaps** - this is the same as locate with the exception that overlaps names are not treated as an error.
 
-     It is designed to support using obj2bin by including junk data to synthesise what was in memory when Intel originally built isis.bin.  An alternative would be to use **patchbin**.
+     It is designed to support using obj2bin by including junk data to synthesise what was in memory when Intel originally built isis.bin.  A newer cleaner option is to use a patch file with the obj2bin command line.
 
      ``Usage: $(call locate-overlaps,target,relocfile files[,target specific options])``
 
@@ -448,9 +452,8 @@ how to write their own makefiles. Commentary preceeded by ~~
     
     all:: $(TARGETS)
     
-    tex10.com: tex10.abs                        ~~ rules to make .com & patch it
-        $(ROOT)/tools/obj2bin $^ $@
-        $(ROOT)/tools/patchbin patch10.txt $@
+    tex10.com: tex10.abs patch10.txt                    ~~ rules to make .com & patch it
+        $(ROOT)/tools/obj2bin $@ $^
     
     .
     .
@@ -661,8 +664,8 @@ V30:
      $(call link,$*.rel,$^ $(plm80.lib))
      $(call locate,$*.abs,$*.rel,CODE(100h) purge)
      @rm $*.rel                          ~~ can't use .INTERMEDIATE so rm manually
-     $(ROOT)/tools/obj2bin $*.abs $@
+     $(ROOT)/tools/obj2bin $@ $*.abs
      @rm $*.abs                          ~~ can't use .INTERMEDIATE so rm manually
 ```
 
-### Mark Ogden 17-Dec-2017
+### Mark Ogden 24-Oct-2019

@@ -17,7 +17,8 @@ objs = ftrans.obj cmdlin.obj txbyte.obj txdata.obj ioBuf.obj conect.obj\
 	   unpath.obj wpath.obj pseq.obj scanin.obj dmeq.obj dblank.obj meq.obj\
 	   reperr.obj trange.obj upcase.obj wdlmt.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 ftrans: ftrans.rel
 	$(call locate,$@,$^,code(3680H) name(FTXMAI) stacksize(98h) purge)

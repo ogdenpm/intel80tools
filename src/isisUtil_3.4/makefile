@@ -17,7 +17,8 @@ BINOBJOBJ =	binobj.obj dblank.obj dlimit.obj filerr.obj forupp.obj\
 	path.obj reperr.obj seq.obj upcase.obj wdlmt.obj mvasci.obj\
 	numout.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 binobj: binobj.rel
 	$(call locate,$@,$^,code(3680H) name(binobj) stacksize(84) purge)

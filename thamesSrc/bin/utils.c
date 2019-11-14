@@ -46,6 +46,19 @@ void capitals(char *s)
 	}
 }
 
+char *getExt(char *path)
+{
+    char *s = getName(path);
+
+    return (s = strrchr(path, '.')) ? s : strchr(path, 0);
+
+}
 
 
+char *getName(char *path) {
+    char *s;
+    while ((s = strchr(path, '/')) || (s = strchr(path, '\\')))
+        path = s + 1;
+    return path;
+}
 

@@ -8,7 +8,8 @@ include $(ROOT)/tools/isis.mk
 REF = $(call ipath,isis,2.2)
 
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 isis.hex: isis.plm
 	echo >fort.1

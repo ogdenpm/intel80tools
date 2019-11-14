@@ -21,9 +21,6 @@
  ***************************************************************************/
 
 #include "thames.h"
-#ifdef _WIN32
-#include <conio.h>
-#endif
 
 /* Global variables */
 
@@ -97,25 +94,29 @@ void mdsbios(int func, byte *a, byte *b, byte *c, byte *d, byte *e,
             byte *h, byte *l)
 {
     static byte iobyte = 0;
-	static byte warned;
+    static byte warned;
 
     switch(func)
     {
 /* MDS BIOS traps implemented by ISX but not by THAMES are: */
         /* 6: LIST */
         /* 7: CONST */
-	    case 7:
-			if (_isatty(0))
-				*a = _kbhit() ? 0xff : 0;
-			else
-				*a = 0xff;
-			break;
+        case 7:
+#ifdef _MSC_VER
+            if (isatty(0))
+                *a = kbhit() ? 0xff : 0;
+            else
+#endif
+                *a = 0xff;
+            break;
         case 2:		/* CONIN */
-			if (_isatty(0) && !(*a = _getch()))
-				*a = _getch();
-			else
-				*a = getchar();
-				break;
+#ifdef _MSC_VER
+            if (isatty(0) && !(*a = getch()))
+                *a = getch();
+            else
+#endif
+                *a = getchar();
+                break;
         case 4:		/* CONOUT */
             putchar(*c);
             break;
@@ -227,7 +228,7 @@ int main(int ac, char **av)
     lencmd = 0;
     for (n = isisProgArg; n < argc; n++)
     {
-        lencmd += 1 + strlen(argv[n]);
+        lencmd += 1 + (int)strlen(argv[n]);
     }
     conin->buffer = new_buffer(lencmd + 3);
     if (!conin->buffer)
@@ -252,9 +253,9 @@ int main(int ac, char **av)
     unix2Isis();
 
     /* [Mark Ogden] calculate offset of first arg after application name - replaces npos */
-    conin->buffer->pos = (str = strchr(conin->buffer->data, ' ')) ? str - conin->buffer->data + 1: strlen(conin->buffer->data);
+    conin->buffer->pos = (int)((str = strchr(conin->buffer->data, ' ')) ? str - conin->buffer->data + 1: strlen(conin->buffer->data));
     strcat(conin->buffer->data, "\r\n");
-    conin->buffer->len = strlen(conin->buffer->data);
+    conin->buffer->len = (int)strlen(conin->buffer->data);
 
 //	capitals(conin->buffer->data);			// [Mark Ogden] commented out to allow lower case chars
 
@@ -265,7 +266,7 @@ int main(int ac, char **av)
     if (trace)
     {
         printf("Command line is:\n");
-        dumpbuffer(0, (byte *)conin->buffer->data, strlen(conin->buffer->data));
+        dumpbuffer(0, (byte *)conin->buffer->data, (int)strlen(conin->buffer->data));
     }
 
 /* Set up MDS800 jumpblock -- all entries are CALL F980 */
@@ -275,7 +276,7 @@ int main(int ac, char **av)
         RAM[0xF801 + 3*n] = 0x80;
         RAM[0xF802 + 3*n] = 0xF9;
     }
-	/* modified to use only 8080 instructions */
+    /* modified to use only 8080 instructions */
     RAM[0xF980] = 0xE3;	/* XTHL - get callee */
     RAM[0xF981] = 0x22; /* SHLD 0F990h - save callee */
     RAM[0xF982] = 0x90;	
@@ -322,6 +323,7 @@ int main(int ac, char **av)
 
 void thames_exit(int code)
 {
+    genDependencies(depFile);
     exit(code);
 }
 

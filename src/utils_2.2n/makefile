@@ -15,7 +15,8 @@ LINKFLAGS:=
 objs =	objhex.obj dblank.obj dlimit.obj filerr.obj forupp.obj numout.obj\
 	path.obj seq.obj mvasci.obj reperr.obj upcase.obj wdlmt.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 objhex: objhex.rel
 	$(call locate,$@,$^,code(3680H) name(objhex) stacksize(86) purge)

@@ -15,7 +15,8 @@ OBJS= 	attrib.obj ci.obj close.obj co.obj consol.obj csts.obj delete.obj exit.ob
 	ui.obj uo.obj upps.obj spath.obj error.obj getatt.obj getd.obj\
 	filinf.obj chgacs.obj detime.obj v1p5.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 system.lib: $(OBJS)
 	$(call lib,$@,$^)

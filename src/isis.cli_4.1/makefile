@@ -11,7 +11,8 @@ PLMFFLAGS=code optimize
 objs=	cli.obj dblank.obj dlimit.obj filerr.obj forupp.obj monitr.obj seq.obj\
 	reperr.obj upcase.obj wdlmt.obj 
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 isis.cli: cli.rel
 	$(call locate,$@,$^,code(3680h) name(CLI) stacksize(68) purge)

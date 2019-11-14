@@ -15,7 +15,8 @@ LINKFLAGS:=
 objs =	help.obj pstreq.obj pseq.obj scanin.obj forupp.obj shwerr.obj\
 		numout.obj upcase.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 help: help.rel
 	$(call locate,$@,$^,code(3680H) name(help) stacksize(68) purge)

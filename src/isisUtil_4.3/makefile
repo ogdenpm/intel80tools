@@ -37,7 +37,8 @@ OBJHEXOBJ =	objhex.obj dblank.obj dlimit.obj filerr.obj forupp.obj numout.obj\
 
 VERSOBJ = vers.obj
 
-all::	$(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 fixmap: fixmap.rel
 	$(call locate,$@,$^,stacksize(96) name(FIXMAP) purge)

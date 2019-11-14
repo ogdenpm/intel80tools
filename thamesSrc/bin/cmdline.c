@@ -27,14 +27,16 @@
 
 // structure giving mapping of ISIS drives to unix path; dynamic is non zero if path is auto allocated
 static struct {
-	char *path;
-	int dynamic;
+    char *path;
+    int dynamic;
 } disks[10];
 
 int mOption;	// map drives in command line
 int uOption;	// ignore unresolved / unsatisfied errors
 int oOption;	// ingore overlap errors
 int iOption;	// ignore load errors
+int tOption;    // map tmp files to windows/unix tmp files to allow parallel compiles
+char *depFile;  // used to create dependency file
 
 
 
@@ -42,24 +44,24 @@ int iOption;	// ignore load errors
 * variable (eg: ISIS_F0) */
 const char *xlt_device(const char *dev)
 {
-	char buf[20];
+    char buf[20];
 
-	if (strlen(dev) != 4 || dev[0] != ':' || dev[3] != ':')
-		return NULL;
+    if (strlen(dev) != 4 || dev[0] != ':' || dev[3] != ':')
+        return NULL;
 
-	if (dev[1] == 'F' || dev[1] == 'f' && isdigit(dev[2]))	// for F0-F9 returned cached disk path
-		return disks[dev[2] - '0'].path;
+    if (dev[1] == 'F' || dev[1] == 'f' && isdigit(dev[2]))	// for F0-F9 returned cached disk path
+        return disks[dev[2] - '0'].path;
 
-	sprintf(buf, "ISIS_%-2.2s", dev + 1);
+    sprintf(buf, "ISIS_%-2.2s", dev + 1);
 
-	return getenv(buf);
+    return getenv(buf);
 }
 
 int isis_drive_exists(int n)
 {
-	if (n < 0 || n > 9) return 0;	/* Bad drive number */
+    if (n < 0 || n > 9) return 0;	/* Bad drive number */
 
-	return disks[n].path != NULL;		// use cached disk info
+    return disks[n].path != NULL;		// use cached disk info
 
 }
 
@@ -67,39 +69,39 @@ int isis_drive_exists(int n)
 // dump the drive mapping for F0-F9
 static void showDriveMapping()
 {
-	for (int i = 0; i < 10; i++)
-		if (disks[i].path)
-			printf("ISIS_F%d=%s [%s]\n", i, disks[i].path, disks[i].dynamic ? "dynamic" : "static");
+    for (int i = 0; i < 10; i++)
+        if (disks[i].path)
+            printf("ISIS_F%d=%s [%s]\n", i, disks[i].path, disks[i].dynamic ? "dynamic" : "static");
 }
 
 
 void getDriveMapping()
 {
-	char envpath[] = { "ISIS_F?" };
-	char *s, *t;
-	for (int i = 0; i < 10; i++) {		// process F0-F9
-		envpath[6] = i + '0';
-		s = getenv(envpath);
-		if (s) {						// exists
-			disks[i].path = (char *)malloc(strlen(s) + 2);	// room for null and possibly trailing /
-			strcpy(disks[i].path, s);
+    char envpath[] = { "ISIS_F?" };
+    char *s, *t;
+    for (int i = 0; i < 10; i++) {		// process F0-F9
+        envpath[6] = i + '0';
+        s = getenv(envpath);
+        if (s) {						// exists
+            disks[i].path = (char *)malloc(strlen(s) + 2);	// room for null and possibly trailing /
+            strcpy(disks[i].path, s);
 #ifdef _WIN32
-			for (s = strchr(disks[i].path, '\\'); s; s = strchr(s, '\\')) *s = '/';		// map \ to /
+            for (s = strchr(disks[i].path, '\\'); s; s = strchr(s, '\\')) *s = '/';		// map \ to /
 #endif
-			t = strchr(disks[i].path, 0) - 1;	// add trailing / if needed
-			if (*t != '/')
-				strcat(t, "/");
-		
-		} else if (i == 0) {					// F0 treated specially, defaults to ./ if not specified
-			disks[i].path = "./";
-			disks[i].dynamic = 1;
-		}
-	}
-	if (trace) {
-		printf("Initial drive mapping\n");
-		showDriveMapping();
+            t = strchr(disks[i].path, 0) - 1;	// add trailing / if needed
+            if (*t != '/')
+                strcat(t, "/");
+        
+        } else if (i == 0) {					// F0 treated specially, defaults to ./ if not specified
+            disks[i].path = "./";
+            disks[i].dynamic = 1;
+        }
+    }
+    if (trace) {
+        printf("Initial drive mapping\n");
+        showDriveMapping();
 
-	}
+    }
 }
 
 
@@ -109,21 +111,25 @@ void getDriveMapping()
 
 int parseOptions(int argc, char *argv[])
 {
-	int isisProgArg;
+    int isisProgArg;
 
-	for (isisProgArg = 1; isisProgArg < argc && *argv[isisProgArg] == '-'; isisProgArg++) {
-		if (strcmp(argv[isisProgArg], "-m") == 0)
-			mOption = 1;
-		else if (strcmp(argv[isisProgArg], "-u") == 0)
-			uOption = 1;
-		else if (strcmp(argv[isisProgArg], "-o") == 0)
-			oOption = 1;
-		else if (strcmp(argv[isisProgArg], "-i") == 0)
-			iOption = 1;
-		else
-			printf("Unknown option %s\n", argv[isisProgArg]);
-	}
-	return isisProgArg;
+    for (isisProgArg = 1; isisProgArg < argc && *argv[isisProgArg] == '-'; isisProgArg++) {
+        if (strcmp(argv[isisProgArg], "-m") == 0)
+            mOption = 1;
+        else if (strcmp(argv[isisProgArg], "-u") == 0)
+            uOption = 1;
+        else if (strcmp(argv[isisProgArg], "-o") == 0)
+            oOption = 1;
+        else if (strcmp(argv[isisProgArg], "-i") == 0)
+            iOption = 1;
+        else if (strcmp(argv[isisProgArg], "-MF") == 0 && isisProgArg + 1 < argc)
+            depFile = argv[++isisProgArg];
+        else if (strcmp(argv[isisProgArg], "-T") == 0)
+            tOption = 1;
+        else
+            printf("Unknown option %s\n", argv[isisProgArg]);
+    }
+    return isisProgArg;
 }
 
 
@@ -147,32 +153,32 @@ Note path must be terminated with / (or : for Windows) */
 
 void path2Isis(char *path)
 {
-	int i;
-	for (i = 0; i < 10; i++)
-		if (disks[i].path && PATHCMP(disks[i].path, path) == 0)
-			break;
+    int i;
+    for (i = 0; i < 10; i++)
+        if (disks[i].path && PATHCMP(disks[i].path, path) == 0)
+            break;
 
-	if (i == 10) {
-		/* scan for an unallocated mapping */
-		for (i = 0; i < 10; i++) {
-			if (disks[i].path == NULL) {
-				disks[i].path = strdup(path);
-				disks[i].dynamic = 1;
-				break;
-			}
-		}
-		if (i == 10) {
-			fprintf(stderr, "too many drives allocated\n");
-			showDriveMapping();
-			exit(1);
-		}
-	}
-	if (i == 0)		// don't need :F0:
-		*path = 0;
-	else {
-		strcpy(path, ":F0:");
-		path[2] = i + '0';		// fix the drive number
-	}
+    if (i == 10) {
+        /* scan for an unallocated mapping */
+        for (i = 0; i < 10; i++) {
+            if (disks[i].path == NULL) {
+                disks[i].path = strdup(path);
+                disks[i].dynamic = 1;
+                break;
+            }
+        }
+        if (i == 10) {
+            fprintf(stderr, "too many drives allocated\n");
+            showDriveMapping();
+            exit(1);
+        }
+    }
+    if (i == 0)		// don't need :F0:
+        *path = 0;
+    else {
+        strcpy(path, ":F0:");
+        path[2] = i + '0';		// fix the drive number
+    }
 }
 
 /* parse the string -> inArgs and return the parsed argument converted to ISIS format
@@ -180,129 +186,130 @@ inArgs is updated to point to the rest of the input string */
 
 static char *unixArg2Isis(char **inArgs)
 {
-	static char arg[PATH_MAX];		// returned value of parsed Arg
-	char *s = *inArgs;
-	char *t = arg;
-	char *path, *filename;
-	int inParen = 0;				// set to none 0 inside () for an option
+    static char arg[PATH_MAX];		// returned value of parsed Arg
+    char *s = *inArgs;
+    char *t = arg;
+    char *path, *filename;
+    int inParen = 0;				// set to none 0 inside () for an option
 
-	while (*s && *s != '&') {
-		if (*s == '\t') *s = ' ';	// convert tabs to space outside quotes
-		if (!inParen && (*s == ' ' || *s == ',') || inParen && *s == ')')	// space outside () and ) also end arg
-			break;
-		if (*s == ' ' || *s == ',' || *s == ')')
-			*t++ = *s++;
-		else if (*s == '(') {			// start of option arg
-			*t++ = *s++;
-			inParen = 1;
-		}
-		else if (*s == '\'') {	// copy string
-			while (*t++ = *s++)
-				if (*s == '\'') {
-					*t++ = *s++;	// '' is handled by starting new string
-					break;
-				}
-		}
-		else if (strlen(s) >= 4 && s[0] == ':' && s[3] == ':') {		// ISIS device + possibly file name
-			path = t;
-			while (isalnum(*s) || *s == ':' || *s == '.')				// copy the name
-				*t++ = *s++;
-			/* if device is F0-F9 then check the environvent variable is defined else error */
-			if ((path[1] == 'F' || path[1] == 'f') && isdigit(path[2])) {
-				*t = 0;													// mark end to allow filename to be displayed if error
-				if (!disks[path[2] - '0'].path) {							// not allocated to allocate to current working directory
-					disks[path[2] - '0'].path = "./";
-					disks[path[2] - '0'].dynamic = 1;
-				}
-				if (disks[path[2] - '0'].dynamic)					// already auto allocated
-					fprintf(stderr, "WARNING ISIS_F%c not explicitly defined for file %s - using %s\n", path[2], path, disks[path[2] - '0'].path);
-			}
-		}
-		else {		// standard file name or an option name
-			filename = path = t;	// start of filename path or option
-			while (*s && *s != ' ' && *s != ',' && *s != '(' && *s != '&' && *s != ')') {
+    while (*s && *s != '&') {
+        if (*s == '\t') *s = ' ';	// convert tabs to space outside quotes
+        if (!inParen && (*s == ' ' || *s == ',') || inParen && *s == ')')	// space outside () and ) also end arg
+            break;
+        if (*s == ' ' || *s == ',' || *s == ')')
+            *t++ = *s++;
+        else if (*s == '(') {			// start of option arg
+            *t++ = *s++;
+            inParen = 1;
+        }
+        else if (*s == '\'') {	// copy string
+            while (*t++ = *s++)
+                if (*s == '\'') {
+                    *t++ = *s++;	// '' is handled by starting new string
+                    break;
+                }
+        }
+        else if (strlen(s) >= 4 && s[0] == ':' && s[3] == ':') {		// ISIS device + possibly file name
+            path = t;
+            while (isalnum(*s) || *s == ':' || *s == '.')				// copy the name
+                *t++ = *s++;
+            /* if device is F0-F9 then check the environvent variable is defined else error */
+            if ((path[1] == 'F' || path[1] == 'f') && isdigit(path[2])) {
+                *t = 0;													// mark end to allow filename to be displayed if error
+                if (!disks[path[2] - '0'].path) {							// not allocated to allocate to current working directory
+                    disks[path[2] - '0'].path = "./";
+                    disks[path[2] - '0'].dynamic = 1;
+                }
+                if (disks[path[2] - '0'].dynamic)					// already auto allocated
+                    fprintf(stderr, "WARNING ISIS_F%c not explicitly defined for file %s - using %s\n", path[2], path, disks[path[2] - '0'].path);
+            }
+        }
+        else {		// standard file name or an option name
+            filename = path = t;	// start of filename path or option
+            while (*s && *s != ' ' && *s != ',' && *s != '(' && *s != '&' && *s != ')') {
 #ifdef _WIN32
-				if (*s == '\\') *s = '/';
+                if (*s == '\\') *s = '/';
 #endif
-				if ((*t++ = *s++) == '/')	// copy chars updating start of file name if needed
-					filename = t;
-			}
-			*t = 0;		// mark end
+                if ((*t++ = *s++) == '/')	// copy chars updating start of file name if needed
+                    filename = t;
+            }
+            *t = 0;		// mark end
 #ifdef _WIN32
-			if (filename == path && path[1] == ':')		// check for dos x: if no directory found
-				filename = path + 2;
+            if (filename == path && path[1] == ':')		// check for dos x: if no directory found
+                filename = path + 2;
 #endif
 
-			if (filename != path) {		// we had a directory so need to fixit
-				s = s - strlen(filename);	// backup inArgs to filename part
-				path[strlen(path) - strlen(filename)] = 0;	// remove filename part from path
-				path2Isis(path);
-				t = strchr(path, 0);	// find new end
-			}
-		}
-	}
-	if (*s == ',' || *s == ')' || (t == arg && *s))		// tag comma to end of arg. Space and & treated as single chars
-		if (s[0] == '&' && s[1] == '&') {					// && treated as simple new line
-			*t++ = '\n';
-			s += 2;
-		}
-		else
-			*t++ = *s++;
-	*t = 0;
-	*inArgs = s;
-	return arg;
+            if (filename != path) {		// we had a directory so need to fixit
+                s = s - strlen(filename);	// backup inArgs to filename part
+                path[strlen(path) - strlen(filename)] = 0;	// remove filename part from path
+                path2Isis(path);
+                t = strchr(path, 0);	// find new end
+            }
+        }
+    }
+    if (*s == ',' || *s == ')' || (t == arg && *s))		// tag comma to end of arg. Space and & treated as single chars
+        if (s[0] == '&' && s[1] == '&') {					// && treated as simple new line
+            *t++ = '\n';
+            s += 2;
+        }
+        else
+            *t++ = *s++;
+    *t = 0;
+    *inArgs = s;
+    return arg;
 }
 
 
 void unix2Isis()
 {
-	char *inArgs = conin->buffer->data;
-	char *newCmdLine = (char *)malloc(MAXBUFSIZE + 1);		//  big command line buffer
-	char *arg, *sline;
-	LINE_BUFFER *newLineBuffer;
+    char *inArgs = conin->buffer->data;
+    char *arg, *sline;
+    LINE_BUFFER *newLineBuffer;
+    char *newCmdLine;
 
 
-	getDriveMapping();
-	if (!mOption)
-		return;
+    getDriveMapping();
+    if (!mOption)
+        return;
 
-	sline = newCmdLine;
-	*sline = 0;
-	while (*inArgs) {
-		arg = unixArg2Isis(&inArgs);
+    sline = newCmdLine = (char *)malloc(MAXBUFSIZE + 1);		//  big command line buffer
 
-		if (strlen(newCmdLine) + strlen(arg) + 3 > MAXBUFSIZE) {
-			fprintf(stderr, "Command line too long. Recompile thames with large MAXBUFSIZE\n");
-			exit(1);
-		}
-		if (*arg == '&') {
-			if (*sline == 0)	// already at start of line so ignore
-				continue;
-			strcat(sline, "&");
-		}
-		if (*arg == '\n' || *arg == '&') {		// && or &
-			strcat(sline, "\r\n");
-			sline = strchr(sline, 0);
-		}
-		else {
-			if (strlen(sline) + strlen(arg) > ISIS_LINE_MAX - 3) {	// need room for &\r\n
-				strcat(sline, "&\r\n");
-				sline = strchr(sline, 0);
-			}
-			if (*arg != ' ' || *sline)		// surpress ' ' at start of line
-				strcat(sline, arg);
-		}
-	}
+    *sline = 0;
+    while (*inArgs) {
+        arg = unixArg2Isis(&inArgs);
 
-	newLineBuffer = new_buffer(strlen(newCmdLine) + 3);
-	strcpy(newLineBuffer->data, newCmdLine);
-	free(conin->buffer);
-	conin->buffer = newLineBuffer;
-	free(newCmdLine);
+        if (strlen(newCmdLine) + strlen(arg) + 3 > MAXBUFSIZE) {
+            fprintf(stderr, "Command line too long. Recompile thames with large MAXBUFSIZE\n");
+            exit(1);
+        }
+        if (*arg == '&') {
+            if (*sline == 0)	// already at start of line so ignore
+                continue;
+            strcat(sline, "&");
+        }
+        if (*arg == '\n' || *arg == '&') {		// && or &
+            strcat(sline, "\r\n");
+            sline = strchr(sline, 0);
+        }
+        else {
+            if (strlen(sline) + strlen(arg) > ISIS_LINE_MAX - 3) {	// need room for &\r\n
+                strcat(sline, "&\r\n");
+                sline = strchr(sline, 0);
+            }
+            if (*arg != ' ' || *sline)		// surpress ' ' at start of line
+                strcat(sline, arg);
+        }
+    }
 
-	if (trace) {
-		printf("\nDrive mapping post command line processing\n");
-		showDriveMapping();
-	}
+    newLineBuffer = new_buffer((int)strlen(newCmdLine) + 3);
+    strcpy(newLineBuffer->data, newCmdLine);
+    free(conin->buffer);
+    conin->buffer = newLineBuffer;
+    free(newCmdLine);
+
+    if (trace) {
+        printf("\nDrive mapping post command line processing\n");
+        showDriveMapping();
+    }
 }
 

@@ -17,10 +17,11 @@ LOCATEFLAGS := SYMBOLS
 
 objs = boot.obj t0boot.obj numout.obj consol.obj exit.obj write.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 isis.t0: isist0.abs
-	$(ROOT)/tools/obj2bin $^ $@
+	$(ROOT)/tools/obj2bin $@ $<
 
 .INTERMEDIATE: isist0.rel
 

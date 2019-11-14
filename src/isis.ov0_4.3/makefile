@@ -9,7 +9,8 @@ PLMFLAGS := DEBUG OPTIMIZE
 ASMFLAGS :=
 LOCATEFLAGS:= PUBLICS SYMBOLS
 
-all::	isis.ov0
+all::
+	$(MAKE) isis.ov0
 
 isis.ov0: isisov.rel
 	$(call locate,$@,$^,CODE(0E800h) NAME(ISOV0) STACKSIZE(46) PURGE)

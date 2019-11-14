@@ -6,7 +6,8 @@ include $(ROOT)/tools/isis.mk
 
 objs =	md2ker.obj md2con.obj md2sen.obj md2rec.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 kermit: kermit.rel
 	$(call locate,$@,$^,name(kermit) purge)

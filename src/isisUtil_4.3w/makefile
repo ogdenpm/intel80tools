@@ -27,7 +27,8 @@ IDISKOBJ =	idisk.obj alloc.obj direct.obj dblank.obj dlimit.obj ferror.obj fmttr
 	diskio.obj wdskio.obj rpterr.obj setblk.obj ucase.obj wdelim.obj wdisk.obj
 
 
-all::	$(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 altmap: altmap.rel
 	$(call locate,$@,$^,stacksize(54h) name(ALTMAP) purge)

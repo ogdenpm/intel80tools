@@ -16,7 +16,8 @@ objs =	loc62.obj isis.obj aft.obj attrib.obj\
 	alloc.obj trap0b.obj buffer.obj rw1.obj direct.obj disk2.obj\
 	jmpto.obj trap.obj fnddir.obj memck.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 isis.bin: isis
 	$(ROOT)/tools/packisis isis

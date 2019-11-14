@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 
 void readRec(FILE *fp);
@@ -14,17 +15,19 @@ unsigned int high = 0;
 
 void loadfile(char *s);
 void dumpfile(char *s);
+void patchfile(char *s);
 
 int main(int argc, char **argv)
 {
-	
-	if (argc != 3) {
-		fprintf(stderr, "usage: %s infile outfile\n", argv[0]);
-		exit(0);
-	}
-	loadfile(argv[1]);
-	dumpfile(argv[2]);
 
+    if (argc < 3 || argc > 4) {
+        fprintf(stderr, "usage: %s outfile infile [patchfile]\n", argv[0]);
+        exit(0);
+    }
+    loadfile(argv[2]);
+    if (argc == 4)
+        patchfile(argv[3]);
+    dumpfile(argv[1]);
 }
 
 void loadfile(char *file)
@@ -125,3 +128,56 @@ void read4(FILE *fp, int len)
 
 }
 
+char *gethex(char *s, unsigned *val)
+{
+    *val = 0;
+    while (*s == ' ' || *s == '\t')
+        s++;
+    if (!isxdigit(*s))
+        return 0;
+    while (isxdigit(*s)) {
+        *val = *val * 16 + (isdigit(*s) ? *s - '0' : toupper(*s) - 'A' + 10);
+        s++;
+    }
+    return s;
+}
+
+
+
+void patchfile(char *fname) {
+    char line[256];
+    char *s;
+    unsigned addr, patch;
+
+    FILE *fp = fopen(fname, "rt");
+    if (fp == NULL) {
+        fprintf(stderr, "can't load patchfile (ignoring)\n");
+        return;
+    }
+
+    while (fgets(line, 256, fp)) {
+        for (s = line; *s && (*s == ' ' || *s == '\t' || *s == '\n'); s++)
+            ;
+        if (!*s || *s == '#')
+            continue;
+
+        if ((s = gethex(s, &addr)) == NULL)
+            fprintf(stderr, "bad address: %s", line);
+        else {
+            if (addr < low) {
+                fprintf(stderr, "Warning: new start address %04X\n", addr);
+                low = addr;
+            }
+            while ((s = gethex(s, &patch))) {
+                if (patch < 0 || patch >= 0x100) {
+                    fprintf(stderr, "bad patch (%04X) in line %s", patch, line);
+                    break;
+                } else
+                    mem[addr++] = patch;
+            }
+            if (addr > high)
+                high = addr;
+        }
+    }
+    fclose(fp);
+}

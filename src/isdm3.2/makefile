@@ -48,7 +48,12 @@ endef
 ####################################################
 # the top  level rule to make sure all is up to date
 ####################################################
-all: $(TARGETS) $(PROMS)
+all:
+	$(MAKE)	$(TARGETS) $(PROMS)
+
+# the msdos applications create tmp files that are not unique
+# so force all build to be done serially
+.NOTPARALLEL:
 
 # target to clean up files
 .PHONY: clean distclean

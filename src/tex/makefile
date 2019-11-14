@@ -1,29 +1,27 @@
 ROOT=../..
 REF=ref
 TARGETS=tex10.com tex12.com tex21.com tex21a.com
-
+PROTECT = build.ninja
 include $(ROOT)/tools/isis.mk
 
 PLMFLAGS=code optimize 
 ASMFLAGS=
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
-tex10.com: tex10.abs
-	$(ROOT)/tools/obj2bin $^ $@
-	$(ROOT)/tools/patchbin patch10.txt $@
+tex10.com: tex10.abs patch10.txt
+	$(ROOT)/tools/obj2bin $@ $^
 
-tex12.com: tex12.abs
-	$(ROOT)/tools/obj2bin $^ $@
-	$(ROOT)/tools/patchbin patch12.txt $@
+tex12.com: tex12.abs patch12.txt
+	$(ROOT)/tools/obj2bin $@ $^
 
 
-tex21.com: tex21.abs
-	$(ROOT)/tools/obj2bin $^ $@
-	$(ROOT)/tools/patchbin patch21.txt $@
+tex21.com: tex21.abs patch21.txt
+	$(ROOT)/tools/obj2bin $@ $^
 
 tex21a.com: tex21a.abs
-	$(ROOT)/tools/obj2bin $^ $@
+	$(ROOT)/tools/obj2bin $@ $^
 
 # intermediate files
 .INTERMEDIATE: $(TARGETS:.com=.rel) $(TARGETS:.com=.abs)

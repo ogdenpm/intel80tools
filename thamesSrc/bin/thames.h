@@ -20,12 +20,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#ifdef _WIN32
-#include "config-w32.h"
-#else
+#include <sys/stat.h>
 #include "config.h"
-#endif
-
 /* System include files */
 
 #include <stdio.h>
@@ -48,8 +44,11 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
-#ifdef __MSDOS
-#include <dos.h>
+#ifdef HAVE_IO_H
+#include <io.h>
+#endif
+#ifdef HAVE_CONIO_H
+#include <conio.h>
 #endif
 
 /* #define Z80 */	/* uncomment to build z80 emulator (old thames default */
@@ -76,6 +75,8 @@ int thames_term(void);
 void thames_exit(int code);
 void capitals(char *s); /* Make a string uppercase */
 void trim(char *s);	/* Remove trailing whitespace from a string */
+char *getExt(char *fname);
+char *getName(char *path);
 
 /* Global variables */
 
@@ -86,20 +87,24 @@ extern byte RAM[65536]; /* The Z80's address space */
 extern int trace;	/* Trace level */
 
 /* [Mark Ogden] tweaks to make source compile with VS2015 (& possibly earlier versions) */
-#ifdef _WIN32
-					// typedef for mode_t taken from the defintion of stat
+#ifdef _MSC_VER
 typedef unsigned short mode_t;
 // windows uses io.h for the mode flags and doesn't directly support other and group permissions
-#include <io.h>
 #define S_IWUSR _S_IWRITE
 #define S_IWGRP _S_IWRITE
 #define S_IWOTH _S_IWRITE
-// visual studio complains that chmod is not posix
+// visual studio complains that certain functions are not posix
 #define chmod   _chmod
 #define strdup	_strdup
-// windows uses different name!!
-#define PATH_MAX    _MAX_PATH
-#define PATHCMP	_stricmp	/* windows is case insensitive */
+#define isatty  _isatty
+#define kbhit   _kbhit
+#define getch   _getch
+#define strcasecmp  _stricmp    // use more common name
+#define PATH_MAX    _MAX_PATH   // MSC uses different name
+#endif
+
+#ifdef _WIN32
+#define PATHCMP	strcasecmp	/* windows is case insensitive */
 #else
 #define PATHCMP strcmp
 #endif
@@ -121,3 +126,4 @@ typedef unsigned short mode_t;
 /* error intercept */
 #include "errcheck.h"
 
+#include "extensions.h"

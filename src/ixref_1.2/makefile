@@ -17,7 +17,8 @@ REF:=$(call ipath,ixref,1.2)
 objs =	ixref.obj ixref2.obj ixref3.obj ixref4.obj ixref5.obj ixref6.obj ixref7.obj
 IXIS = $(subst .obj,.ixi,$(objs))
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 ixref: ixref.rel
 	$(call locate,$@,$^,code(3880H) stacksize(136) purge)

@@ -24,7 +24,7 @@ OBJ := $(call fixpath,$(OBJ))
 export ISIS_F0 ?= ./
 
 # the none ISIS build tools
-ISIS:=$(ROOT)/thames -m
+ISIS:=$(ROOT)/thames -m -T
 PLMPP:=$(ROOT)/tools/plmpp
 ASM80X:=perl $(ROOT)/tools/asmx.pl
 NGENPEX:=$(ROOT)/tools/ngenpex
@@ -90,10 +90,13 @@ vpath %.asm $(SRC)
 ## the generic build commands
 # $(call plm80,objfile,srcfile[,target specific options])
 define plm80
-  $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2,$(MKDEPEND) $1 $2)
-  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "object($1)"\
+  $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2)
+  @$(ISIS) $(if $(PEXFILE),,-MF .deps/$1.d) $(call ifile,plm80,$(PLM80)) $2 "object($1)"\
 	  $(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 endef
+#  $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2,$(MKDEPEND) $1 $2)
+#  @$(ISIS) $(call ifile,plm80,$(PLM80)) $2 "object($1)"\
+#	  $(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 
 # $(call asm80,objfile,srcfile[,target specific options])
 define asm80
@@ -218,7 +221,8 @@ verify: all
 	    $(info verify failed - REF variable not set) exit 1))
 endif
 
-rebuild: distclean all
+rebuild: distclean
+	$(MAKE) all
 # to allow the toolbox to creat the utility clean
 # clean target is only defined here if the make command explicitly has
 # clean, distclean or rebuild as a target

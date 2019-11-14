@@ -10,7 +10,8 @@ ASMFLAGS :=
 LOCATEFLAGS:= PUBLICS SYMBOLS
 PLM80 := 3.1
 
-all::	isis.ov0
+all::
+	$(MAKE) isis.ov0
 
 isis.ov0: isisov.rel
 	$(call locate,$@,$^,CODE(0E800h) NAME(ISOV0) STACKSIZE(46) PURGE)

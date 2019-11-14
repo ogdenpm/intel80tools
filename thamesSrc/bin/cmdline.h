@@ -39,6 +39,8 @@ extern int mOption;
 extern int uOption;
 extern int oOption;
 extern int iOption;
+extern int tOption;
+extern char *depFile;
 
 #define UNRESOLVED	1
 #define UNSATISFIED 2

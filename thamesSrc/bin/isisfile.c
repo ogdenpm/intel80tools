@@ -32,6 +32,7 @@ ISIS_FILE *conin = NULL, *conout = NULL, *devnull = NULL;
 
 
 
+
 /* [Mark Ogden]
     const char *xlt_device(const char *dev);
     int isis_drive_exists(int n);
@@ -94,7 +95,6 @@ int isis_name2unix(const char *isisname, char *unixname)
     char *dest;
     int havedev;
 
-    memset(destname, 0, sizeof(destname));
     /* If filename starts with a . or a /, treat it as a UNIX filename */
 #ifdef _WIN32	// [Mark Ogden] added support for dos filenames
     if (isisname[0] == '/' || isisname[0] == '.' || (isalpha(isisname[0]) &&  isisname[1] == ':') || isisname[0] == '\\')
@@ -161,6 +161,8 @@ int isis_name2unix(const char *isisname, char *unixname)
     if (strlen(src) >= PATH_MAX)	// catch file name too long
         return ERROR_BADFILENAME;
 
+    memset(destname, 0, sizeof(destname));  // make sure 0 at end of any string created below
+
     strcpy(destname, src);
 #ifdef _WIN32		// [Mark Ogden] map \ to / and handle x: fpr dps
     for (char *s = strchr(destname, '\\'); s; s = strchr(s, '\\'))	*s = '/';
@@ -178,6 +180,8 @@ int isis_name2unix(const char *isisname, char *unixname)
     {
         *dest++ = tolower(*src++);
     }
+    if (tOption)
+        mapTmpFile(destname);
     if (strlen(destname) >= PATH_MAX)	// [Mark Ogden] check file name path is still ok
         return ERROR_BADFILENAME;
     strcpy(unixname, destname);
@@ -395,20 +399,17 @@ int  isis_open(int *handle, const char *isisname, int access, int echo)
         delete_isis_file(isf);
         return err;
     }
+    addFileRef(unixname, access);
     switch(access)
     {
         case 1: isf->fp = fopen(unixname, "rb"); 
-//			printf("Open %s rb = %p\n", unixname, isf->fp);
            break;
         case 2: isf->fp = fopen(unixname, "wb"); 
-//            printf("Open %s wb = %p\n", unixname, isf->fp);
             break;
         case 3: isf->fp = fopen(unixname, "r+b");
-//            printf("Open %s r+b = %p\n", unixname, isf->fp);
             if (!isf->fp) 
             {
                 isf->fp = fopen(unixname, "w+b");
-//            printf("Open %s w+b = %p\n", unixname, isf->fp);
             }
             break;
     }
@@ -461,6 +462,7 @@ int isis_delete(const char *isisname)
             return ERROR_FILEINUSE;
     }
 
+    deleteFileRef(realname);
     if (remove(realname)) return ERROR_PERMISSIONS;
     /* Saves deleted files for future comparison.
         {
@@ -523,12 +525,12 @@ int isis_read(int handle, byte *buffer, int count, int *actual)
                 input[strlen(input) - 1] = 0;
             }
             delete_buffer(fd->buffer);
-            fd->buffer = new_buffer(2 + strlen(input));		// [Mark Ogden] note new_buffer allocates 1 additional byte
+            fd->buffer = new_buffer(2 + (int)strlen(input));		// [Mark Ogden] note new_buffer allocates 1 additional byte
             strcpy(fd->buffer->data, input);
             strcat(fd->buffer->data, "\r\n");
             fd->buffer->pos = 0;
             /* [Mark Ogden] avail was not set */
-            avail = fd->buffer->len = strlen(fd->buffer->data);
+            avail = fd->buffer->len = (int)strlen(fd->buffer->data);
         }
         if (avail > count) avail = count;
         for (int i = 0; i < avail; i++)						// [Mark Ogden] modified to handle multiple lines in buffer
@@ -547,7 +549,7 @@ int isis_read(int handle, byte *buffer, int count, int *actual)
 
     if (fp == stdout) fp = stdin;
 
-    avail = fread(buffer, 1, count, fp);
+    avail = (int)fread(buffer, 1, count, fp);
     *actual = avail;
     return ERROR_SUCCESS;
 }
@@ -571,7 +573,7 @@ int isis_write(int handle, byte *buffer, int count)
     if (fp == stdout)
         errCheck(buffer, count);		// intercept to check if app error
 
-    done = fwrite(buffer, 1, count, fp);
+    done = (int)fwrite(buffer, 1, count, fp);
     if (done < count) return ERROR_DISKFULL;
     return ERROR_SUCCESS;
 }
