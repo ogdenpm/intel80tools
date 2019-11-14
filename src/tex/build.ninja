@@ -1,0 +1,92 @@
+root = ..\..
+itools = $root\itools
+tools = $root\tools
+thames = thames
+plmVer = 4.0
+plmFlags = CODE
+asmFlags =  
+linkVer = 3.0
+locateVer = 3.0
+plm80Lib = $itools\plm80.lib\plm80.lib
+asmVer = 4.1
+
+
+rule plm80
+    depfile = $out.d
+    deps = gcc
+    command = $thames -m -T -MF $depfile $itools\plm80_$plmVer\plm80 $in $plmFlags
+    description = Compiling $in
+
+rule asm80
+    depfile = $out.d
+    deps = gcc
+    command = $thames -m -T -MF $depfile $itools\asm80_$asmVer\asm80 $in $asmFlags
+    description = Assembling $in
+
+
+rule link80
+    command = $thames -m -T $itools\link_$linkVer\link $inlist to $out
+    description = Linking to $out
+
+rule locate80
+    command = cmd /c "$thames -m -T $itools\locate_$locateVer\locate $in to $out code(0100h) stacksize($stack) purge"
+    description = Locating to $out
+
+rule obj2bin
+    command = $tools\obj2bin $out $in
+    description = Creating com file
+
+rule verify
+    command = cmd /c "for %i in ($in) do $tools\omfcmp %i ref/%i"
+    description = Verifying $in
+
+build tex10.obj: plm80 tex10.plm
+
+build tex12.obj: plm80 tex12.plm
+
+build tex21.obj: plm80 tex21.plm
+
+build tex21a.obj: plm80 tex21a.plm
+
+build cpm.obj: asm80 cpm.asm
+
+build cpmio.obj: plm80 cpmio.plm
+
+build x0100.obj: asm80 x0100.asm
+
+build tex10.rel: link80 tex10.obj x0100.obj
+    inlist = tex10.obj,x0100.obj,$plm80Lib
+
+build tex12.rel: link80 tex12.obj cpm.obj
+    inlist = tex12.obj,cpm.obj,$plm80Lib
+
+build tex21.rel: link80 tex21.obj cpmio.obj cpm.obj
+    inlist = tex21.obj,cpmio.obj,cpm.obj,$plm80Lib
+
+build tex21a.rel: link80 tex21a.obj cpmio.obj cpm.obj
+    inlist = tex21a.obj,cpmio.obj,cpm.obj,$plm80Lib
+
+build tex10.abs: locate80 tex10.rel
+    stack = 60
+
+build tex12.abs: locate80 tex12.rel
+    stack = 100
+
+build tex21.abs: locate80 tex21.rel
+    stack = 100
+
+build tex21a.abs: locate80 tex21a.rel
+    stack = 100
+
+build tex10.com: obj2bin tex10.abs patch10.txt
+
+build tex12.com: obj2bin tex12.abs patch12.txt
+
+build tex21.com: obj2bin tex21.abs patch21.txt
+
+build tex21a.com: obj2bin tex21a.abs
+
+build verify: verify tex10.com tex12.com tex21.com tex21a.com
+
+default tex10.com tex12.com tex21.com tex21a.com
+
