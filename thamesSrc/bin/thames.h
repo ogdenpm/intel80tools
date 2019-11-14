@@ -88,6 +88,7 @@ extern int trace;	/* Trace level */
 
 /* [Mark Ogden] tweaks to make source compile with VS2015 (& possibly earlier versions) */
 #ifdef _MSC_VER
+#include <direct.h>
 typedef unsigned short mode_t;
 // windows uses io.h for the mode flags and doesn't directly support other and group permissions
 #define S_IWUSR _S_IWRITE
@@ -99,6 +100,8 @@ typedef unsigned short mode_t;
 #define isatty  _isatty
 #define kbhit   _kbhit
 #define getch   _getch
+#define access  _access
+#define mkdir   _mkdir
 #define strcasecmp  _stricmp    // use more common name
 #define PATH_MAX    _MAX_PATH   // MSC uses different name
 #endif
