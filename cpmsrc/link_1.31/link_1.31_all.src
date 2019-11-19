@@ -96,29 +96,23 @@ WriteSymFile    P
 YRewind         P
 
 additionalMem   "bool"
+aField          "word"
+aIndexError		B(12)
 aMemoryOverflow B(32)
 aNoFil          B(10)
 aOverlappingSeg B(21)
-aField          "word"
-aIndexError		B(12)
 b3979           B
-b397B           B
-b398A           B
-b398D           B
-b39F3	    	B
-b39F4		    B
-b39F5		    B
-b3A39           B
-b3A3A           B(7)
+modName         B(8)
 b3A55           B
 b3A5C           B
 b3A5E		    B
 b3A66           B
 b3A9D           B
 b3A9E           B
-b3DA8		    B
+isMinus		    B
 baseCr		    B
 baseEx		    B
+baseOutType     B
 biosLink        "bool"
 bitCnt          B
 chains  		"word"(4)
@@ -131,8 +125,10 @@ dataOrigin		"word"
 dMemry          B(6)
 dstDrive		B
 fcb1            BS
-fname397E       B(12)
+objFName       B(12)
 hashTable		A(128)
+haveOverlays    B
+haveSpecialSym  B
 i3A51		    B
 i3A5D           B
 indexBuf		B(512)
@@ -148,11 +144,11 @@ IRLWinHigh		"word"
 IRLWinLow		"word"
 isIRL           B
 labelStartAddress	B
+labLen          B
+labName         b(8)
 lengths         "word"(4)
 libDrive		B
 librarySearch   "bool"
-labLen          B
-labName         b(8)
 lname   		B(9)
 loadAddress		"word"
 modLengths      "word"(4)
@@ -165,6 +161,7 @@ progOrgRequest  "bool"
 progOrigin		"word"
 qMark           B
 qMemry          B
+signature    	B(3)
 starts          "word"(4)
 startSym		B(7)
 symDrive		B
@@ -176,12 +173,12 @@ topMemory		A
 topSymTable		"word"
 tPtr	    	"word"
 transferFlag    "bool"
+w397C           "word"
 w398B           "word"
 w39A8           "word"
-w397C           "word"
 w3A33           "word"
 w3A35           "word"
-w3A41           "word"
+curAddr           "word"
 w3A53           "word"
 w3A56           "word"
 w3A58           "word"
@@ -192,15 +189,15 @@ wordPtr         A
 xFileTable      A(4)
 xFPtr           A
 xxabs           "XFILE$T"
-xxprog          "XFILE$T"
-xxdata          "XFILE$T"
 xxcomm          "XFILE$T"
+xxdata          "XFILE$T"
+xxprog          "XFILE$T"
 yFileTable	    A(4)
 yFPtr           A
 yyabs           "YFILE$T"
-yyprog          "YFILE$T"
-yydata          "YFILE$T"
 yycomm          "YFILE$T"
+yydata          "YFILE$T"
+yyprog          "YFILE$T"
 
 /* fcb offsets */
 FCB$DR      '0'
@@ -223,6 +220,13 @@ COMMREL     '3'
 CR          '0dh'
 LF          '0ah'
 TAB         '9'
+
+/* extension types */
+COM$EXT     '0'
+PRL$EXT     '1'
+RSP$EXT     '2'
+SPR$EXT     '3'
+OVL$EXT     '4'
 
 /* my types */
 bool        'byte'
@@ -282,23 +286,23 @@ declare banner(*) byte initial(0Ch, 'LINK 1.31', LF, CR, '$01/04/83');
 declare qMemry(*) byte public initial('?MEMRY');
 declare dMemry(*) byte public initial('$MEMRY');
 declare MPMMemSize word public initial(0);
-declare outType byte public initial(0);
+declare outType byte public initial(COM$EXT);
 declare loadAddress word public initial(100h);
 declare biosLink bool public initial(0);
-declare bannerFlag byte initial(1);
+declare needBanner bool initial(TRUE);
 declare charOutDev byte public initial('X');
 declare intermediateDrive byte public initial(0);
 declare libDrive byte public initial(0);
 declare dstDrive byte public initial(0);
 declare symDrive byte public initial(0);
 declare b3979 byte public initial(0);
-declare noLeadingQ bool public initial(1);
-declare b397B byte public initial(0);
+declare noLeadingQ bool public initial(TRUE);
+declare haveSpecialSym bool public initial(0);
 declare w397C word public initial(0);
-declare fname397E(*) byte public initial(0, '           ');
-declare b398A byte public initial(0);
+declare objFName(*) byte public initial(0, '           ');
+declare baseOutType byte public initial(COM$EXT);
 declare w398B word public initial(0);
-declare b398D byte public initial(0);
+declare haveOverlays byte public initial(FALSE);
 declare syntaxOnly byte initial(0);
 declare overlayCnt byte initial(   0);
 declare overlayTable(5) structure(loadAddress word, symPtr address);
@@ -309,9 +313,10 @@ declare w39A8 word public initial(0);
 declare aMemoryOverflow(*) byte public initial('MEMORY OVERFLOW, USE [A] SWITCH$');
 declare aInsufficientMemory(*) byte initial('INSUFFICIENT MEMORY$');
 declare aOverlappingSeg(*) byte public initial('OVERLAPPING SEGMENTS$');
-declare b39F3 byte public initial(0);
-declare b39F4 byte public initial(0);
-declare b39F5 byte public initial(0);
+/* only used for special symbol processing
+   exact usage unknown
+*/
+declare signature(3) byte public initial(0, 0, 0);
 declare IRLWinLow word public initial(0);
 declare IRLWinHigh word public initial(0);
 declare baseEx byte public initial(0);
@@ -328,9 +333,9 @@ declare IRLPtr word public initial(0);
 declare w3A33 word public initial(400h);
 declare w3A35 word public initial(0);
 declare IRLLen word public initial(400h);
-declare b3A39 byte public initial(0);
-declare b3A3A(*) byte public initial(0, 0, 0, 0, 0, 0, 0);
-declare w3A41 word public initial(0);
+/* modName is only written to */
+declare modName(8) byte public initial(0, 0, 0, 0, 0, 0, 0, 0);
+declare curAddr word public initial(0);
 declare progOrgRequest byte public initial(0);
 declare dataOrgRequest byte public initial(0);
 declare labelStartAddress byte public initial(0);
@@ -383,7 +388,7 @@ declare yFileTable(4) address public initial(.yyabs, .yyprog, .yydata, .yycomm);
 
 
 
-PutChDev: procedure (ch);
+OutCh: procedure (ch);
     declare ch byte;
 
     if charOutDev = 'X' then
@@ -392,12 +397,12 @@ PutChDev: procedure (ch);
         call LWrite(ch);
 end;
 
-PutStrDev: procedure(str);
+OutStr: procedure(str);
     declare str address;
     declare ch based str byte;
 
     do while ch <> '$';
-        call PutChDev(ch);
+        call OutCh(ch);
         str = str + 1;
     end;
 end;
@@ -405,26 +410,26 @@ end;
 PrinterBanner: procedure;
     if charOutDev = 'Y' then
     do;
-        bannerFlag = 0;
-        call PutStrDev(.banner);
+        needBanner = FALSE;
+        call OutStr(.banner);
     end;
 end;
 
 PutCh: procedure(ch) public;
     declare ch byte;
 
-    if bannerFlag then
+    if needBanner then
         call PrinterBanner;
-    call PutChDev(ch);
+    call OutCh(ch);
 end;
 
 
 PutStr: procedure(str) public;
     declare str address;
 
-    if bannerFlag then
+    if needBanner then
         call PrinterBanner;
-    call PutStrDev(str);
+    call OutStr(str);
 end;
 
 
@@ -474,7 +479,7 @@ InitLinker: procedure;
     labelStartAddress = 0;
     loadAddress = 100h;
     MPMMemSize = 0;
-    outType = 0;
+    outType = COM$EXT;
     noLeadingQ = TRUE;
     libDrive, symDrive, dstDrive = 0;
     charOutDev = 'X';
@@ -530,7 +535,7 @@ end;
 
 PutOverlay: procedure;
     overlayTable(overlayCnt).symPtr = topSymTable;
-    loadAddress, overlayTable(overlayCnt).loadAddress = (w3A41 + 127) and 0ff80h;
+    loadAddress, overlayTable(overlayCnt).loadAddress = (curAddr + 127) and 0ff80h;
 end;
 
 IncOverlayCount: procedure;
@@ -551,7 +556,7 @@ end;
 
 SetupOverlay: procedure;
 
-    b398D = 1;
+    haveOverlays = TRUE;
     if syntaxOnly then
        call InitOverlayFields; 
 
@@ -581,7 +586,7 @@ SetupOverlay: procedure;
     do;
         call SolveLibRequest;
         call SetExt$OVLA0;
-        outType = 4;
+        outType = OVL$EXT;
         call CloseLoadSession;
         call PutOverlay;
     end;
@@ -611,18 +616,18 @@ SampleFiles: procedure;
     b3979 = dstDrive;
     if syntaxOnly then
     do;
-        if b398D then
+        if haveOverlays then
             call SetExt$OVLAY;
         call SolveLibRequest;
         call Process$FPBNX;
-        if b398D then
+        if haveOverlays then
             call SetExt$OVLA0;
 
-        if outType = 2 or outType = 3 then
+        if outType = RSP$EXT or outType = SPR$EXT then
             loadAddress = 0;
 
         call CloseLoadSession;
-        b398A = outType;
+        baseOutType = outType;
         w398B = loadAddress;
         call PutOverlay;
     end;
@@ -673,7 +678,7 @@ main:
     call BuildCmdLine;
     syntaxOnly = FALSE;
     call SampleFiles;
-    if outType <> 0 and b398D then
+    if outType <> COM$EXT and haveOverlays then
         call CmdLineError;
 
     call InitLinker;
@@ -700,7 +705,7 @@ main:
     syntaxOnly = TRUE;
     call SampleFiles;
     call EndFileProcessing;
-    if b398D then
+    if haveOverlays then
         call TellTopModule;
 
     call OS;
@@ -897,7 +902,7 @@ ParseOption: procedure;
         else if curChar = 'B' then
         do;
             biosLink = TRUE;
-            outType = 3;
+            outType = SPR$EXT;
             call GetNextChar;
         end;
         else if curChar = 'P' then
@@ -918,13 +923,13 @@ ParseOption: procedure;
         do;
             call GetNextChar;
             if curChar = 'P' then
-                outType = 1;    /* .PRL */
+                outType = PRL$EXT;    /* .PRL */
             else if curChar = 'C' then
-                outType = 0;    /* .COM */
+                outType = COM$EXT;    /* .COM */
             else if curChar = 'R' then
-                outType = 2;    /* .RSP */
+                outType = RSP$EXT;    /* .RSP */
             else if curChar = 'S' then
-                outType = 3;    /* .SPR */
+                outType = SPR$EXT;    /* .SPR */
             else
                 call CmdLineError;
             call GetNextChar;
@@ -1289,7 +1294,7 @@ MkTRecord: procedure(addrOrChn, ChnOrValue, mode, solveChn, index, offBit, offse
     call SetTB2(solveChn);
     call SetTB1B0(mode);
     call SetTB3(offBit);
-    call SetTB4(b3DA8);
+    call SetTB4(isMinus);
     if ii3C45 = 0 then
         symTables(index) = w3A71;
     else
@@ -1513,7 +1518,7 @@ InsertSymbol: procedure(namePtr, nameLen, nameValue, controlBits, entryBit, isCo
     if isCommon then
         call SetCommonLength(sizeCommon);
     if sym.lname(0) = '#' then
-        b397B = 1;
+        haveSpecialSym = TRUE;
 end;
 end;
 link2.plm
@@ -1671,7 +1676,7 @@ FixSymbolValues: procedure;
     symPtr = symTable;
 
     do while symPtr < topSymTable;
-        if not GetFixed and (GetEntryState or b398D) then
+        if not GetFixed and (GetEntryState or haveOverlays) then
         do;
             call SetCurSymValue(GetCurSymValue + starts(GetSymbolControlBits));
             call SetFixed;
@@ -1937,7 +1942,7 @@ link3: do;
 $include(link3.ipx)
 
 declare b3DA7 byte initial(0);
-declare b3DA8 byte public initial(0);
+declare isMinus byte public initial(false);
 declare aIndexError(*) byte public initial('INDEX ERROR$');
 declare aMultipleDefinition(*) byte initial('MULTIPLE DEFINITION: $');
 declare aMainModuleError(*) byte initial('MAIN MODULE ERROR$');
@@ -2062,7 +2067,7 @@ ClearSpecialSymbols: procedure;
             sym.lname(0) = 0;
         symPtr = symPtr + GetItemLength;
     end;
-    b397B = FALSE;
+    haveSpecialSym = FALSE;
 end;
 
 declare sName(8) byte at(.lname + 1);
@@ -2085,8 +2090,8 @@ LinkSetCommon: procedure;
 end;
 
 LinkModuleName: procedure;
-    call move(lname(0), .lname(1), .b3A3A);
-    b3A39 = lname(0);
+    call move(lname(0), .lname(1), .modName(1));
+    modName(0) = lname(0);
 end;
 
 LinkLibRequest: procedure;
@@ -2149,9 +2154,9 @@ LinkExternalPlus: procedure;
 end;
 
 LinkExternalMinus: procedure;
-    b3DA8 = TRUE;
+    isMinus = TRUE;
     call LinkExternalPlus;
-    b3DA8 = FALSE;
+    isMinus = FALSE;
 end;
 
 LinkDsegSize: procedure;
@@ -2212,7 +2217,7 @@ LinkEndModule: procedure;
 
     call SelectTmpFile(1);
     b3A5E = not librarySearch;
-    if b397B then
+    if haveSpecialSym then
         call ClearSpecialSymbols;
 end;
 
@@ -2575,7 +2580,7 @@ end;
 WriteByteWithUpdate: procedure(n);
     declare n byte;
     call WriteChar(n); 
-    w3A41 = w3A41 + 1;
+    curAddr = curAddr + 1;
 end;
 
 WriteWordWithUpdate: procedure(n);
@@ -2588,7 +2593,7 @@ end;
 BuildObjectFile: procedure;
     declare i byte;
 
-    declare w3E41 word;
+    declare curOff word;
 
     WriteCSeg: procedure(seg);
         declare seg byte;
@@ -2607,10 +2612,10 @@ BuildObjectFile: procedure;
             addr = w3A58;
         else
             addr = starts(seg);
-        if w3A41 > addr then
+        if curAddr > addr then
             call Fatal(.aOverlappingSeg);
 
-        do while w3A41 < addr;
+        do while curAddr < addr;
             call WriteByteWithUpdate(0);
         end;
 
@@ -2620,8 +2625,8 @@ BuildObjectFile: procedure;
                 call WriteSegment(w3A58);
             else
             call WriteSegment(0);
-        if w3A41 > w397C then
-            w397C = w3A41;
+        if curAddr > w397C then
+            w397C = curAddr;
     end;
 
 
@@ -2629,11 +2634,11 @@ BuildObjectFile: procedure;
     BuildPrefixPage: procedure;
         declare i byte;
 
-        w3E41 = starts(objTable(b3A9D - 1)) + chains(objTable(b3A9D - 1)) - loadAddress;
+        curOff = starts(objTable(b3A9D - 1)) + chains(objTable(b3A9D - 1)) - loadAddress;
         call WriteByteWithUpdate(0);
-        call WriteWordWithUpdate(w3E41);
+        call WriteWordWithUpdate(curOff);
         call WriteByteWithUpdate(0);
-        if outType = 4 then
+        if outType = OVL$EXT then
         do;
             call WriteWordWithUpdate(0);
             call WriteByteWithUpdate(0);
@@ -2666,12 +2671,12 @@ BuildObjectFile: procedure;
             declare n  byte;
 
             call WriteToBitMap(n);
-            w3A41 = w3A41 + 1;
+            curAddr = curAddr + 1;
         end;
 
 
         WriteRelocatableBits: procedure;
-            do while w3A41 <= addr;
+            do while curAddr <= addr;
                 call WriteBitToBitMap(0);
             end;
             call WriteBitToBitMap(1);
@@ -2715,7 +2720,7 @@ BuildObjectFile: procedure;
         end;
 
 
-        w3A41 = loadAddress;
+        curAddr = loadAddress;
         if b3A5C then
         do;
             call WriteBitToBitMap(0);
@@ -2725,7 +2730,7 @@ BuildObjectFile: procedure;
         do i = 0 to b3A9D - 1;
             if (seg := objTable(i)) <> 0 then
             do;
-                do while starts(seg) > w3A41;
+                do while starts(seg) > curAddr;
                     call WriteBitToBitMap(0);
                 end;
             if additionalMem then
@@ -2736,7 +2741,7 @@ BuildObjectFile: procedure;
 
         end;
 
-        do while w3A41 < w3E41 + loadAddress;
+        do while curAddr < curOff + loadAddress;
             call WriteBitToBitMap(0);
         end;
         do while b3E37 <> 0;
@@ -2748,10 +2753,10 @@ BuildObjectFile: procedure;
     if b3A9D = 0 then
         return;
 
-    if outType <> 0 then
+    if outType <> COM$EXT then
         call BuildPrefixPage;
 
-    w3A41 = loadAddress;
+    curAddr = loadAddress;
     if b3A5C then
     do;
         call WriteByteWithUpdate(0c3h);
@@ -2764,7 +2769,7 @@ BuildObjectFile: procedure;
             call WriteCSeg(objTable(i));
     end;
 
-    if outType <> 0 and outType <> 4 then
+    if outType <> COM$EXT and outType <> OVL$EXT then
         call BuildBitMap;
 end;
 
@@ -2789,8 +2794,8 @@ CloseObjFile: procedure public;
         fcb1(FCB$DR) = dstDrive;
 
     call CreatF(.fcb1);
-    if fname397E(FCB$NAME) = ' ' then
-        call move(12, .fcb1, .fname397E);
+    if objFName(FCB$NAME) = ' ' then
+        call move(12, .fcb1, .objFName);
 
     w3A35, b3E38, b3E37 =  0;
     call BuildObjectFile;
@@ -2857,17 +2862,17 @@ end;
 
 
 PositionEndMem: procedure;
-    declare w3E57 word, b3E59 byte;
+    declare recCnt word, extent byte;
 
-    w3E57 =  w3E39 / 128;
-    b3E59 = w3E57 / 128;
-    if b3E59 <> fcb1(FCB$EX) then
+    recCnt =  w3E39 / 128;
+    extent = recCnt / 128;
+    if extent <> fcb1(FCB$EX) then
     do;
-        fcb1(FCB$EX) = b3E59;
+        fcb1(FCB$EX) = extent;
         if Open(.fcb1) = 255 then
             call IOErr(.aNoFil, .fcb1);
     end; 
-    fcb1(FCB$CR) = w3E57 mod 128;
+    fcb1(FCB$CR) = recCnt mod 128;
 end;
 
 ProcessEndMem: procedure;
@@ -2875,8 +2880,8 @@ ProcessEndMem: procedure;
 
 
     w3E39 = GetCurSymValue - w398B;
-    call move(12, .fname397E, .fcb1);
-    if b398A <> 0 then
+    call move(12, .objFName, .fcb1);
+    if baseOutType <> COM$EXT then
         w3E39 = w3E39 + 100h;
 
     call OpenF(.fcb1);
@@ -2893,7 +2898,7 @@ end;
 
 
 EndFileProcessing: procedure public;
-    if b398D then
+    if haveOverlays then
         w397C = (w397C + 7fh) and 0ff80h;
     if b3979 = 'Z' then
         return;
@@ -3470,9 +3475,9 @@ Process$FPBNX: procedure public;
     call SelectTmpFile(3);
     bPtr = chains(COMMREL);
     chains(COMMREL) = curSymValue + 9;
-    call SaveConstByte(b39F3);    /* 0 */
-    call SaveConstByte(b39F4);    /* 0 */
-    call SaveConstByte(b39F5);    /* 0 */
+    call SaveConstByte(signature(0));    /* 0 */
+    call SaveConstByte(signature(1));    /* 0 */
+    call SaveConstByte(signature(2));    /* 0 */
     call SaveConstByte(mfgCode);  /* mfg code */
     call SaveConstByte(serial2);  /* 2nd byte of serial number (| 80h for mpm) */
     call SaveConstByte(serial3);  /* 3rd byte of serial number */

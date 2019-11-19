@@ -1,0 +1,1774 @@
+lib.pex
+Close           P(A fcbP)B
+CloseFile       P(A fcbP)
+CStat           PB
+CreateFile      P("pointer" fcbPtr)
+CWrite		    P(B ch)
+CWriteCRLF		P
+Delete          P("pointer" fcbPtr)
+Fatal           P(A msg)
+FindEntry       P(A name,B len)"bool"
+FirstScan       P
+InsertEntry     P(A name,B len,"bool" isAngle,"word" value)
+IOErr           P(A msg,A fcbP)
+IrlERB          P
+Make            P(A fcbP)B
+Open            P(A fcbP)B
+OpenFile        P("pointer" fcbPtr)
+OS              P
+ParseFile       P(A ptr)"word"
+ParseLine       P("bool" allowAssign)
+ProcessSelectionItem P
+Read            P(A fcbP)B
+ReadFile        P(A bufP,"word" len,A fcbP)"word"
+RdRelItem       PB
+RdBits          P(B n)B
+Rename          P("pointer" fcbPtr)
+SetDMA          P(A bufP)
+SkipRelModule   P
+SrcERB          P
+StrEqu          P("pointer" str1,"pointer" str2,B len)"bool"
+Write           P(A fcbP)B
+WriteFile       P(A bufP,"word" len,A fcbP)
+WriteIRLByte    P(B val)
+WriteRelByte    P(B val)
+WriteRelOffsetToIRL P
+WriteStr        P(A str)
+mon1            P(B op,A ptr)
+mon2            P(B op,A ptr)B
+
+angleFlag       "bool"
+aSyntaxError    B(13)
+assignment      "bool"
+bitCnt          B
+cmdBuffer       B(128)
+cmdBufPtr       A
+libFcbPtr       A
+cmdLine         B(128)
+cmdLineCopy     A
+curByte         B
+dumpFlag        "bool"
+dFlag           "bool"
+emptyItem       "bool"
+fcb1            B(33)
+fcb2            B(33)
+fileId          B
+iFlag           "bool"
+isEndOfParen    "bool"
+isEndOfCmdLine  "bool"
+isRange         "bool"
+mFlag           "bool"
+pFlag           "bool"
+hasAssign       "bool"
+highMem         A
+topMemory       A
+in2Buf          B(512)
+in1Fcb          B(33)
+in2Fcb          B(33)
+in1Buf          B(1024)
+in1Idx          "word"
+in1Cnt          B
+in2Cnt          B
+IRLAccess       "bool"
+IRLEx           B
+IRLCr           B
+IRLOff          B
+mStart          "bool"
+moduleLen       B
+moduleName      B(7)
+outIRLSize      "word"
+outIRLBuf       B(1024)
+outIRLFcb       B(33)
+outIRLIdx       "word" 
+outRelSize      "word"
+outRelBuf       BS 
+outRelFcb       B(33)
+outRelIdx       "word"
+outRelRecCnt    "word"
+segs            "word"(4)
+selectionFlag   "bool"
+selectionRequested  "bool"
+subItemLen      B
+subItemName     B(7)
+srcBitPos       "word"
+srcEx           B
+srcCr           B
+srcOff          B
+curModulePtr    A 
+declare curModule based curModulePtr structure(len byte, ex byte, crec byte, off byte, value word, name(6) byte);
+
+
+
+/* fcb offsets */
+FCB$DR      '0'
+FCB$NAME    '1'
+FCB$EXT     '9'
+FCB$EX      '12'
+FCB$S1      '13'
+FCB$S2      '14'
+FCB$RC      '15'
+FCB$REC     '16'
+FCB$CR      '32'
+
+/* code types */
+ABSOLUTE    '0'
+CODEREL     '1'
+DATAREL     '2'
+COMMREL     '3'
+
+/* non printable chars */
+CR          '0dh'
+LF          '0ah'
+TAB         '9'
+
+/* CPM functions */
+COWR		'2'
+COWSTR      '9'
+COSTAT		'11'
+FOPEN		'15'
+FCLOSE		'16'
+FDEL		'19'
+FREAD		'20'
+FWRITE		'21'
+FMAKE		'22'
+FREN		'23'
+FDMA		'26'
+/* my types */
+bool        'byte'
+word        'address'
+pointer     'address'
+wpointer    'address'
+
+/* lib's version of TRUE/FALSE */
+TRUE        '1'
+FALSE       '0'
+
+MOD$T       'structure(len byte, ex byte, crec byte, off byte, value word, name(6) byte)'
+
+cmdCh       B..cmdBufPtr
+curModule   "MOD$T"..curModulePtr
+
+lib.plm
+lib: do;
+$include(lib.ipx)
+
+declare fcb1(33) byte public at(5ch);
+declare fcb2(33) byte public at(6ch);
+declare cmdLine(128) byte public at(80h);
+
+declare jmp structure(jp byte, target address) data(0c3h, .main - 3);
+declare copyRight(*) byte data('COPYRIGHT (C) 1980 DIGITAL RESEARCH ');
+declare patch(*) byte data(
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+declare banner(*) byte initial('LIB 1.1', CR, LF, '$');
+declare firstRecExtent byte initial(0);
+declare firstRecRecNum byte initial(0);
+declare fileId byte public initial(0);
+declare dumpFlag bool public initial(FALSE);
+declare wordPtr word initial(0);
+declare wMem based wordPtr word;
+declare topMemory address public initial(0);
+declare highMem address public initial(0);
+declare limitMem word initial(0ffffh);
+declare savedFName(12) byte;
+declare in1Fcb(33) byte public initial(0);
+declare in2Fcb(33) byte public initial(0);
+declare outRelFcb(33) byte public initial(0, 'REL     $$$');
+declare outIRLFcb(33) byte public initial(0, 'IRL     $$$');
+declare in1Len word public initial(1024);
+declare in1Cnt byte public initial(0);
+declare in1Idx word public initial(0);
+declare in2Len word public initial(512);
+declare in2Cnt byte public initial(0);
+declare in2Idx word public initial(0);
+declare outRelSize word public initial(0);
+declare outRelIdx word public initial(0);
+declare bitCnt byte public initial(0);
+declare curByte byte public initial(0);
+declare outRelRecCnt word public initial(0);
+declare outIRLSize word public initial(1024);
+declare outIRLIdx word public initial(0);
+declare srcBitPos word public initial(0);
+declare srcRecCnt word initial(0);
+declare cmdBufPtr word public initial(0);      /* relies on being consecutive */
+declare libFcbPtr word public initial(0);      /*             "               */
+declare cmdCh based cmdBufPtr byte;
+declare curModulePtr word public initial(0);
+declare curModule based curModulePtr structure(len byte, ex byte, crec byte, off byte, value word, name(6) byte);
+declare dFlag bool public initial(FALSE);
+declare iFlag bool public initial(FALSE);
+declare assignment bool public initial(FALSE);
+declare mFlag bool public initial(FALSE);
+declare pFlag bool public initial(FALSE);
+declare hasAssign bool public initial(FALSE);
+declare isRange bool public initial(FALSE);
+declare selectionFlag bool public initial(FALSE);
+declare angleFlag bool public initial(FALSE);
+declare selectionRequested bool public initial(FALSE);
+declare emptyItem bool public initial(0);
+declare cmdLineCopy address public initial(0);
+declare mStart bool public initial(FALSE);
+declare srcEx byte public initial(0);
+declare srcCr byte public initial(0);
+declare srcOff byte public initial(0);
+declare IRLAccess bool public initial(0);
+declare IRLEx byte public initial(0);
+declare IRLCr byte public initial(0);
+declare IRLOff byte public initial(0);
+declare pos structure(ex byte, rec byte, off byte) initial(0,0,0);
+declare isEndOfCmdLine bool public initial(FALSE);
+declare isEndOfParen bool public initial(FALSE);
+declare moduleLen byte public initial(0);      /* relies on consecutive bytes */
+declare moduleName(7) byte public;             /*              "              */
+declare subItemLen byte public initial(0);     /* relies on consecutive bytes */
+declare subItemName(7) byte public;            /*              "              */
+declare aIndexError(*) byte initial('INDEX ERROR$');
+declare aNoModule(*) byte initial('NO MODULE: $');
+declare aSyntaxError(*) byte public initial('SYNTAX ERROR$');
+declare junk(3) byte initial(0, 0, 1);
+
+declare aRel(3) byte data('REL');
+declare aIRL(3) byte data('IRL');
+
+
+FindEntry: procedure(name, len) bool public;
+    declare name address, len byte;
+
+    curModulePtr = topMemory - 12;
+    do while curModulePtr >= highMem;
+        if (curModule.len and 7) = len then
+            if StrEqu(name, .curModule.name, len) then
+                return TRUE;
+        curModulePtr = curModulePtr - 12;
+    end;
+    return FALSE;
+end;
+
+
+InsertEntry: procedure(name, len, isAngle, value) public;
+    declare name address, len byte, isAngle bool, value word;
+    declare i byte;
+    declare bArray based curModulePtr (1) byte;
+
+    curModulePtr = highMem - 12; /* size(curModule) */
+
+    do i = 0 to 11;
+        bArray(i) = 0;
+    end; 
+
+    curModule.len = ror(isAngle and 1, 1) or len;
+    call move(len, name, .curModule.name);
+    curModule.value = value; 
+    highMem = curModulePtr;
+    if highMem < limitMem then
+        limitMem = highMem;
+end;
+
+RenameFile: procedure;
+    if iFlag then
+        call move(12, .outIRLFcb, .outRelFcb);
+    call move(12, .savedFName, .outIRLFcb);
+    if outIRLFcb(FCB$EXT) = ' ' then
+        if iFlag then
+            call move(3, .aIrl, .outIRLFcb(FCB$EXT));
+        else
+            call move(3, .aRel, .outIRLFcb(FCB$EXT));
+
+    call Delete(.outIRLFcb);
+    call move(12, .outIRLFcb, .outRelFcb(FCB$REC));
+    call Rename(.outRelFcb);
+end;
+
+
+
+WriteIRLHdr: procedure;
+    declare i byte;
+
+    outIRLIdx = 0;
+    call OpenFile(.outIRLFcb);
+    call WriteIRLByte(firstRecExtent);
+    call WriteIRLByte(firstRecRecNum);
+
+    do i = 0 to 125;
+        call WriteIRLByte(0);
+    end;
+    call WriteFile(.outIRLBuf, 128, .outIRLFcb);
+    call CloseFile(.outIRlFcb);
+end;
+
+
+CopyRel2IRL: procedure;
+    declare resultRecordCnt word;
+
+    if outRelRecCnt > 0 then 
+    do;
+        call OpenFile(.outRelFcb);
+        do while outRelRecCnt <> 0;
+            resultRecordCnt = ReadFile(.in1Buf, in1Len, .outRelFcb);
+            call WriteFile(.in1Buf, resultRecordCnt * 128, .outIRLFcb);
+            outRelRecCnt = outRelRecCnt - resultRecordCnt;
+        end;
+    end;
+    else
+        call WriteFile(.outRelBuf, outRelIdx, .outIRLFcb);
+end;
+
+
+PrepFiles: procedure;
+    declare i byte;
+
+    if topMemory < limitMem then
+        limitMem = topMemory;
+    
+    outRelSize = (limitMem - .MEMORY - 128) and 0ff80h;
+    outRelFcb(FCB$DR), outIRLFcb(FCB$DR) = savedFname(FCB$DR);
+    if iFlag then
+    do;
+        call CreateFile(.outIRLFcb);
+        do i = 1 to 128;
+            call writeIRLByte(0);
+        end;
+    end;
+
+    if assignment then
+        call CreateFile(.outRelFcb);
+end;
+
+
+CloseFiles: procedure;
+    if not (assignment or iFlag) then
+        return;
+
+    if assignment then
+    do;
+        call WriteRelByte(9Eh);
+        do while (outRelIdx and 7fh) <> 0;
+            call WriteRelByte(1Ah);
+        end;
+        if outRelRecCnt > 0 or not iFlag then
+        do;
+            outRelRecCnt = outRelRecCnt + outRelIdx / 128;
+            call WriteFile(.outRelBuf, outRelIdx, .outRelFcb);
+            call CloseFile(.outRelFcb);
+        end;
+    end;
+    if iFlag then
+    do;
+        call IrlERB;
+        call WriteRelOffsetToIRL;
+        call writeIRLByte(0feh);
+        do while (outIRLIdx and 7fh) <> 0;
+            call WriteIRLByte(1Ah);
+        end;
+        call WriteFile(.outIRLBuf, outIRLIdx, .outIRLFcb);
+        firstRecExtent = outIRLFcb(FCB$EX);
+        firstRecRecNum = outIRLFcb(FCB$CR);
+        call CopyRel2IRL;
+        call CloseFile(.outIRLFcb);
+        call WriteIRLHdr;
+        call Delete(.outRelFcb);
+    end;
+    call RenameFile;
+end;
+
+GetEntryState: procedure bool;
+    return (curModule.len and 40h) > 0;
+end;
+
+
+SetEntryState: procedure;
+    curModule.len = curModule.len or 40h;
+end;
+
+
+GetEntryMode: procedure bool;
+    return rol(curModule.len, 1);
+end;
+
+CalcRecordPosition: procedure(ex, crec) word;
+    declare (ex, crec) byte;
+    return ex * 128 + crec;
+end;
+
+
+RdBuf1: procedure public;
+    srcBitPos = in1Fcb(FCB$EX) * 128 + in1Fcb(FCB$CR);
+    srcRecCnt = srcBitPos + ReadFile(.in1Buf, in1Len, .in1Fcb) - 1;
+end;
+
+RdBuf2: procedure public;
+    wordPtr = ReadFile(.in2buf, in2Len, .in2Fcb);
+end;
+
+SeekInBuffer: procedure(rec);
+    declare rec word;
+    declare (ex, crec) byte;
+
+    ex = shr(rec, 7);
+    crec = rec and 7fh; 
+    if in1Fcb(FCB$EX) <> ex then
+    do;
+        in1Fcb(FCB$EX) = ex;
+        if Open(.in1Fcb) = 255 then
+            call Fatal(.('FATAL ERROR$'));
+    end;
+    in1Fcb(FCB$CR) = crec;
+    call RdBuf1;
+end;
+
+Seek: procedure(ex, crec, off);
+    declare (ex, crec, off) byte;
+    declare offset word;
+
+    offset = CalcRecordPosition(ex, crec);
+    if offset < srcBitPos or offset > srcRecCnt then
+
+        call SeekInBuffer(offset);
+
+    in1Idx = (offset - srcBitPos) * 128 + off;
+    in1Cnt = 0;
+end;
+
+SaveFilePos: procedure;
+    call SetEntryState;
+    curModule.ex = srcEx;
+    curModule.crec = srcCr;
+    curModule.off = srcOff;
+end;
+
+
+PositionModule: procedure;
+    declare item byte;
+
+    dumpFlag = TRUE;
+    mStart = TRUE;
+
+    do while (item := RdRelItem) <> 2 and item <> 15;
+    end;
+
+    if item = 15 then
+    do;
+        moduleName(0) = 'l';
+        moduleLen = 1;
+    end;
+    if FindEntry(.moduleName, moduleLen) then
+        call SaveFilePos;
+end;
+
+
+SkipRelModule: procedure public;
+    dumpFlag = TRUE;
+    do while RdRelItem <> 14;
+    end;
+end;
+
+GetFileFromList: procedure;
+    declare params structure(nameP address, fcbP address);
+
+    params.nameP = curModule.value;
+    params.fcbP = .in2Fcb;
+    if ParseFile(.params) >= 0ffffh  then
+        call Fatal(.aSyntaxError); 
+    if in2Fcb(FCB$EXT) = ' ' then
+        call move(3, .aRel, .in2Fcb(FCB$EXT));
+    call OpenFile(.in2Fcb);
+    fileId = 1;
+    dumpFlag = FALSE;
+    in2Cnt = 8;
+    in2Idx = in2Len;
+    IRLAccess = TRUE;
+    do while RdRelItem <> 15;
+    end;
+    fileId = 0;
+end;
+
+
+
+SkipIRLModule: procedure;
+    IRLAccess = TRUE;
+    dumpFlag = FALSE;
+    do while RdRelItem <> 14;
+    end;
+end;
+
+
+UnpackFile: procedure;
+    call move(12, .in1Fcb, .savedFName);
+end;
+
+
+
+
+PrintEntry: procedure;
+    declare i byte;
+    do i = 1 to subItemLen;
+        call CWrite(subItemName(i - 1));
+    end;
+end;
+
+
+FindModuleInFile: procedure;
+    if FindEntry(.subItemName, subItemLen) and GetEntryState then
+        call Seek(curModule.ex, curModule.crec, curModule.off); 
+    else
+    do while 1;
+        call PositionModule;
+        if StrEqu(.moduleLen, .(1, 'l'), 2) then
+        do;
+            call WriteStr(.aNoModule);
+            call PrintEntry;
+            call Fatal(.('$'));
+        end;
+        if StrEqu(.moduleLen, .subItemLen, moduleLen + 1) then
+        do;
+            call Seek(srcEx, srcCr, srcOff);
+            return;
+        end;
+        else
+            call SkipRelModule;
+    end;
+end;
+
+SearchModule: procedure(isInFile);
+    declare isInFile byte;
+
+    if emptyItem then
+    do;
+        call Seek(pos.ex, pos.rec, 0);
+        in1Idx = in1Len;
+        in1Cnt = 8;
+        call SkipIRLModule;
+        emptyItem = FALSE;
+        return;
+    end;
+    if isInFile then
+        call FindModuleInFile;
+    else
+        call PositionModule;
+
+    if StrEqu(.moduleLen, .(1, 'l'), 2) then
+        return;
+    if FindEntry(.moduleName, moduleLen) and GetEntryMode then
+    do;
+        if curModule.value > 0 then
+            call GetFileFromList;
+        call SkipRelModule;
+    end;
+    else
+    do;
+        if not isInFile then
+            call Seek(srcEx, srcCr, srcOff);
+        call SkipIRLModule;
+    end;
+end;
+
+
+FindNameOnList: procedure;
+    do while 1;
+        if StrEqu(.moduleLen, .subItemLen, moduleLen + 1) then
+            return;
+        call SearchModule(FALSE);
+    end;
+end;
+
+PositionSource: procedure;
+    declare isIRL bool;
+
+    pos.ex, pos.rec, pos.off = 0;
+    
+    if in1Fcb(FCB$EXT) = ' ' then
+        call move(3, .aRel, .in1Fcb(FCB$EXT));
+
+    isIRL = StrEqu(.in1Fcb(FCB$EXT), .aIRL, 3);
+    call OpenFile(.in1Fcb);
+    if isIRL then
+    do;
+        if ReadFile(.cmdLine, 128, .in1Fcb) then    /* waste return value */
+            ;
+        pos.ex = cmdLine(0);
+        pos.rec = cmdLine(1);
+        if pos.ex <> in1Fcb(FCB$EX) then
+        do;
+            in1Fcb(FCB$EX) = pos.ex;
+            if Open(.in1Fcb) = 0ffh then
+                call Fatal(.aIndexError);
+        end;
+        in1Fcb(FCB$CR) = pos.rec;
+    end;
+    srcBitPos, srcRecCnt = 0;
+    in1Idx = in1Len;
+    in1Cnt = 8;
+end;
+
+
+ExecuteOne: procedure;
+    declare save address;
+
+    call PositionSource;
+    isEndOfParen = FALSE;
+    if selectionRequested then
+    do;
+        save = cmdBufPtr;
+        cmdBufPtr = cmdLineCopy;
+
+        do while (1);
+            call ProcessSelectionItem;
+            call SearchModule(TRUE);
+            if isRange then
+            do;
+                call ProcessSelectionItem;
+                if subItemLen = 0 then
+                do;
+                    subItemLen = 1;
+                    subItemName(0) = 'l';
+                end;
+                call FindNameOnList;
+            end;
+            if isEndOfParen then
+            do;
+                cmdBufPtr = save;
+                return;
+            end;
+        end;
+    end;
+    else
+    do;
+        subItemName(0) = 'l';
+        subItemLen = 1;
+        moduleLen = 0;
+        call FindNameOnList;
+    end;
+end;
+
+
+Execute: procedure;
+    do while 1;
+        call ExecuteOne;
+        if isEndOfCmdLine then
+            return;
+        call ParseLine(FALSE);
+    end;
+end;
+
+Init: procedure;
+    call WriteStr(.banner);
+    call move(128, .cmdLine, .cmdBuffer);
+    cmdBufPtr = .cmdBuffer;
+    libFcbPtr = .fcb1;
+    wordPtr = 6;
+    topMemory = wmem;
+end;
+
+
+
+main:
+    call Init;
+    call FirstScan;
+    cmdBufPtr = .cmdBuffer;
+    isEndOfCmdLine = FALSE;
+    call parseLine(TRUE);
+    call UnpackFile;
+    if cmdCh = '=' then
+    do;
+        if selectionRequested or angleFlag then
+            call Fatal(.aSyntaxError);
+        assignment = TRUE;
+        call ParseLine(FALSE);
+    end;
+    if not assignment then
+    do;
+        if iFlag then
+        do;
+            if selectionRequested or angleFlag then
+                call Fatal(.aSyntaxError);
+
+                assignment = TRUE;
+        end;
+        else if not (dFlag or pFlag or mFlag) then
+            call Fatal(.aSyntaxError);
+    end;
+    call PrepFiles;
+    call Execute;
+    call CloseFiles;
+    call Os;
+end;
+
+
+
+
+rel.plm
+rel: do;
+$include(rel.ipx)
+
+declare segs(4) word initial(0, 0, 0, 0);
+declare addressMode byte initial(CODEREL);
+declare aApdc(*) byte initial('APDC');
+declare addressType byte initial(0);
+declare addressVal word initial(0);
+declare bFieldLen byte initial(0);          /* consecutive bytes */
+declare bFieldName(7) byte initial(0);
+declare firstPos bool initial(FALSE);
+declare recCnt word initial(0);
+declare aEntrySymbol(*) byte initial('entry symbol $');
+declare aSelectCommonBl(*) byte initial('select common block $');
+declare aProgramName(*) byte initial('program name $');
+declare aRequest(*) byte initial('request $');
+declare aError4(*) byte initial('error 4 $');
+declare aDefineCommonSi(*) byte initial('define common size $');
+declare aChainExternal(*) byte initial('chain external $');
+declare aDefineEntryPoi(*) byte initial('define entry point $');
+declare aError8(*) byte initial('error 8 $');
+declare aExternalOffset(*) byte initial('external + offset $');
+declare aDefineDataSize(*) byte initial('define data size $');
+declare aSetProgramCoun(*) byte initial('set program counter $');
+declare aChainAddress(*) byte initial('chain address $');
+declare aDefineProgramS(*) byte initial('define program size $');
+declare aEndProgram(*) byte initial('end program $');
+declare aEndFile(*) byte initial('end file$');
+
+declare linkDescriptions(*) address initial(
+            .aEntrySymbol, .aSelectCommonBl, .aProgramName, .aRequest,
+            .aError4, .aDefineCommonSi, .aChainExternal, .aDefineEntryPoi,
+            .aError8, .aExternalOffset, .aDefineDataSize, .aSetProgramCoun,
+            .aChainAddress, .aDefineProgramS, .aEndProgram, .aEndFile);
+
+PutHexNibble: procedure(n);
+    declare n byte;
+    
+    if n <= 9 then
+        call CWrite(n + '0');
+    else
+        call Cwrite((n - 10) +  'A');
+end;
+
+PutHexByte: procedure(n);
+    declare n byte;
+
+    call PutHexNibble(shr(n, 4));
+    call PutHexNibble(n and 0fh);
+end;
+
+PutHexWord: procedure(n);
+    declare n word;
+    call PutHexByte(n and 0ffh);
+    call PutHexByte(shr(n, 8));
+end;
+
+Fatal: procedure(str) public;
+    declare str address;
+    call WriteStr(str);
+    call os;
+end;
+
+SwapBytes: procedure(n) word;
+    declare n word;
+
+    return shr(n, 8) or shl(n, 8);
+end;
+
+PutModeAddr: procedure(mode, addr);
+    declare mode byte, addr word;
+
+    call CWrite(aApdc(mode));
+    call PutHexWord(SwapBytes(addr));
+    call CWrite(' ');
+end;
+
+
+CheckNewLine: procedure;
+    
+    if (segs(addressMode) and 0fh) = 0 or firstPos then
+    do;
+        call CWriteCRLF;
+        call CWrite(' ');
+        call putModeAddr(addressMode, segs(addressMode));
+        call CWrite(' ');
+    end;
+end;
+
+
+WriteIRLByte: procedure(val) public;
+    declare val byte;
+
+    outIRLBuf(outIRLIdx) = val;
+    if (outIRLIdx := outIRLIdx + 1) >= outIRLSize then
+    do;
+        call WriteFile(.outIRLBuf, outIRLSize, .outIRLFcb);
+        outIRLIdx = 0;
+    end;
+end;
+
+
+SrcERB: procedure public;
+    recCnt = srcBitPos + in1Idx / 128;
+    srcOff = in1Idx mod 128;
+    srcEx = recCnt / 128;
+    srcCr = recCnt mod 128;
+    mStart = FALSE;
+end;
+
+
+IrlERB: procedure public;
+    recCnt = outRelRecCnt + outRelIdx / 128; 
+    IRLOff = outRelIdx mod 128;
+    IRLEx = recCnt / 128;
+    IRLCr = recCnt mod 128;
+    IRLAccess = FALSE;
+end;
+
+WriteRelOffsetToIRL: procedure public;
+    call WriteIRLByte(IRLEx);
+    call WriteIRLByte(IRLCr);
+    call WriteIRLByte(IRLOff);
+end;
+
+
+Read16Bit: procedure word;
+    return RdBits(8) or shl(double(RdBits(8)), 8);
+end; 
+
+ReadAField: procedure;
+    addressType = RdBits(2);
+    addressVal = Read16Bit;
+end;
+
+
+
+ReadbField: procedure;
+    declare i byte;
+
+    bFieldLen = RdBits(3);
+    do i = 1 to bFieldLen;
+        bFieldName(i - 1) = RdBits(8);
+    end;
+end;
+
+
+
+PrintAField: procedure;
+    call PutModeAddr(addressType, addressVal);
+end;
+
+PrintBField: procedure;
+    declare i byte;
+
+    do i = 1 to bFieldLen;
+        call CWrite(bFieldName(i - 1));
+    end;
+    call CWrite(' ');
+end;
+
+
+WriteRelByte: procedure(val) public;
+    declare val byte;
+
+    outRelBuf(outRelIdx) = val;
+    if (outRelIdx := outRelIdx + 1) >= outRelSize then
+    do;
+        call WriteFile(.outRelBuf, outRelSize, .outRelFcb);
+        outRelRecCnt = outRelRecCnt +  outRelSize / 128;
+        outRelIdx = 0;
+    end;
+end;
+
+WrBits: procedure(val, cnt);
+    declare (val, cnt) byte;
+    declare outBitCnt byte;     /* potentially relies on 0 initialisation by obj2bin */
+
+    WrCurRelByte: procedure;
+        call WriteRelByte(curByte);
+        curByte = 0;
+        bitCnt = 0;
+    end;
+
+    ShiftBit: procedure byte;
+        if (outBitCnt := bitCnt + cnt) = 8 then
+            return val;
+
+        return shl(val, 8 - outBitCnt);
+    end;
+
+    if IRLAccess then
+        call IrlERB;
+    if bitCnt + cnt > 8 then
+    do;
+        cnt = cnt - (8 - bitCnt);
+        curByte = curByte or shr(val, cnt);
+        call WrCurRelByte;
+    end;
+    curByte = curByte or ShiftBit;
+    if (bitCnt := outBitCnt) = 8 then
+        call WrCurRelByte;
+end;
+
+
+
+
+WrRel8: procedure(val);
+    declare val byte;
+    call WrBits(val, 8);
+end;
+
+
+WrRel16: procedure(val);
+    declare val word;
+
+    call WrRel8(low(val));
+    call WrRel8(high(val));
+end;
+
+WrRelAField: procedure;
+    call WrBits(addressType, 2);
+    call WrRel16(addressVal);
+end;
+
+
+WrRelBField: procedure;
+    declare i byte;
+
+    call WrBits(bFieldLen, 3);
+    do i = 1 to bFieldLen;
+        call WrRel8(bFieldName(i - 1));
+    end;
+end;
+
+
+WrIRLSymbol: procedure;
+    declare i byte;
+
+    call WriteRelOffsetToIRL;
+    do i = 1 to bFieldLen;    
+        call WriteIRLByte(bFieldName(i - 1));
+    end;
+    call WriteIRLByte(0feh);
+end;
+
+
+
+ProcessConst: procedure;
+    declare val byte;
+
+    val = RdBits(8);
+    if dumpFlag then
+        return; 
+    if dFlag then
+    do;
+        call CheckNewLine;
+        call PutHexByte(val);
+        call CWrite(' ');
+        segs(addressMode) = segs(addressMode) + 1;
+        firstPos = FALSE;
+    end;
+    if assignment then
+    do;
+        call WrBits(0, 1);
+        call WrRel8(val);
+    end;
+end;
+
+SetAddress: procedure(mode);
+    declare mode byte;
+    declare addr word;
+
+    addr = Read16Bit; 
+    if dumpFlag then
+        return;
+    if dFlag then
+    do;
+        call CheckNewLine;
+        call PutModeAddr(mode, addr);
+        segs(addressMode) = segs(addressMode) + 2;
+        firstPos = (segs(addressMode) and 0fh) = 1;
+    end;
+    if assignment then
+    do;
+        call WrBits(1, 1);
+        call WrBits(mode, 2);
+        call WrRel16(addr);
+    end;
+end;
+
+ProcessExtendedLink: procedure(type);
+    declare type byte;
+
+    if type >= 5 and type <> 15 then
+        call ReadAField;
+
+    if type <= 8 then
+        call ReadbField;
+
+    if type = 14 then
+    do;
+        if fileId then
+            do while in2Cnt <> 8;
+                if RdBits(1) then
+                    ;
+            end;
+        else
+            do while in1Cnt <> 8;
+                if RdBits(1) then
+                    ;
+            end;
+    end;
+    if type = 2 then
+    do;
+        call move(bFieldLen, .bFieldName, .moduleName);
+        moduleLen = bFieldLen;
+    end;
+
+    if dumpFlag then
+        return;
+
+    if dFlag then
+    do;
+        call CWriteCRLF;
+        firstPos = TRUE;
+        call WriteStr(linkDescriptions(type));
+        if type <= 8 then
+            call PrintBField;
+        if type >= 5 and type <> 15 then
+            call PrintAField;
+
+        if type = 11 then
+        do;
+            addressMode = addressType;
+            segs(addressMode) = addressVal;
+        end;
+
+        if type = 14 then
+        do;
+            segs(ABSOLUTE), segs(CODEREL), segs(DATAREL), segs(COMMREL) = 0;
+            addressMode = CODEREL;
+            call CWriteCRLF;
+        end;
+    end;
+
+    if pFlag then
+        if type = 0 then
+        do;
+            call CWriteCRLF;
+            call WriteStr(.('   $'));
+            call PrintBField;
+        end;
+
+    if mFlag or pFlag then
+        if type = 2 then
+        do;
+            call CWriteCRLF;
+            call PrintBField;
+        end;
+
+    if assignment then
+    do;
+        if type < 15 then
+        do;
+            call WrBits(4, 3);
+            call WrBits(type, 4);
+            if type >= 5 then
+                call WrRelAField;
+            if type <= 8 then
+                call WrRelBField;
+        end;
+        if type = 14 then
+            do while bitCnt <> 0;
+                call WrBits(0, 1);
+            end;
+    end;
+    if iFlag then
+        if type = 0 then
+            call WrIRLSymbol;
+end;
+
+RdRelItem: procedure byte public;
+    declare linkItem byte;
+
+    if RdBits(1) = 0 then
+    do;
+        call ProcessConst;
+        return 19;
+    end;
+    else if (linkItem := RdBits(2)) > 0 then
+    do;
+        call SetAddress(linkItem);
+        return linkItem + 15;
+    end;
+    else
+    do;
+        linkItem = RdBits(4);
+        call ProcessExtendedLink(linkItem);
+        return linkItem;
+    end;
+end;
+end;
+find.plm
+find: do;
+$include(find.ipx)
+declare nullStr byte data(0);
+
+AdvNextChar: procedure;
+    cmdBufPtr = cmdBufPtr + 1;
+end;
+
+NotInList: procedure(strP) bool;
+    declare strP address;
+    declare ch based strP byte;
+
+    do while ch <> 0ffh;
+        if cmdCh = ch then
+            return FALSE;
+        strP = strP + 1;
+    end;
+    return TRUE;
+end;
+
+Select: procedure;
+
+    call advNextChar;
+    if cmdCh = '>' or cmdCh = ',' then
+        selectionFlag = TRUE;
+    else
+    do;
+        libFcbPtr = .fcb1;
+        if (cmdBufPtr := ParseFile(.cmdBufPtr)) >= 0fffeh then
+            call Fatal(.aSyntaxError);
+    end;
+end;
+
+
+ProcessSelectionItem: procedure public;
+    isRange = FALSE;
+    subItemLen = 0;
+    call advNextChar;
+
+    do while NotInList(.(',=', 0, '>)-', 0ffh));
+        subItemName(subItemLen) = cmdCh;
+        if (subItemLen := subItemLen + 1) >= 7 then
+            call Fatal(.aSyntaxError); 
+        call advNextChar;
+    end;
+
+    if cmdCh = '-' then
+        isRange = TRUE;
+    if cmdCh = ')' then
+        isEndOfParen = TRUE;
+end;
+
+
+ProcessSelection: procedure;
+    if selectionRequested then
+        call Fatal(.aSyntaxError);
+
+    selectionRequested = TRUE;
+    cmdLineCopy = cmdBufPtr;
+
+    do while cmdCh <> ')';
+        call ProcessSelectionItem;
+        if subItemLen = 0 then
+            emptyItem = TRUE;
+        else if not FindEntry(.subItemName, subItemLen) then
+            call InsertEntry(.subItemName, subItemLen, 0, 0);
+
+        if isRange then
+        do;
+            call ProcessSelectionItem;
+            if subItemLen = 0 then
+            do;
+                subItemLen = 1;
+                subItemName(0) = 'l';
+            end;
+        end;
+        if NotInList(.(',)', 0ffh)) then
+            call Fatal(.aSyntaxError);
+    end;
+end;
+
+
+DelOrReplace: procedure;
+    declare selectionPtr address;
+
+    angleFlag = TRUE;
+
+    do while cmdCh <> '>';
+        selectionPtr = cmdBufPtr + 1;
+        selectionFlag = FALSE;
+        call ProcessSelectionItem;
+        if subItemLen = 0 then
+            call Fatal(.aSyntaxError);
+
+        if cmdCh = '=' then
+        do;
+            hasAssign = TRUE;
+            selectionPtr = cmdBufPtr + 1;
+            call Select;
+            if selectionFlag then
+                selectionPtr = 0;
+        end;
+
+        if FindEntry(.subItemName, subItemLen) then
+        do;
+            curModule.value = selectionPtr;
+            curModule.len = curModule.len or 80h;
+        end;
+        else
+            call InsertEntry(.subItemName, subItemLen, 1, selectionPtr);
+
+        if NotInList(.(',>', 0ffh)) then
+            call Fatal(.aSyntaxError);
+    end;
+end;
+
+
+ProcessOption: procedure;
+    
+    call advNextChar;
+
+    do while cmdCh <> ']';
+        if cmdCh = 'D' then
+            dFlag = TRUE;
+        else if cmdCh = 'I' then
+            iFlag = TRUE;
+        else if cmdCh = 'M' then
+            mFlag = TRUE;
+        else if cmdCh = 'P' then
+            pFlag = TRUE;
+        else
+            call Fatal(.aSyntaxError);
+        call advNextChar;
+    end;
+end;
+
+
+ParseLine: procedure(allowAssign) public;
+    declare allowAssign bool;
+
+    angleFlag = FALSE;
+    selectionRequested = FALSE;
+    highMem = topMemory;
+
+    call advNextChar;
+    libFcbPtr = .in1Fcb;
+
+    if (cmdBufPtr := ParseFile(.cmdBufPtr)) >= 0fffeh then
+        call Fatal(.aSyntaxError);
+
+    if cmdBufPtr = 0 then
+        cmdBufPtr = .nullStr;
+
+    do while NotInList(.(',=', 0, 0ffh));
+        if cmdCh = '(' then
+            call ProcessSelection;
+        else if cmdCh = '<' then
+            call DelOrReplace;
+        else if cmdCh = '[' then
+            call ProcessOption;
+        else
+            call  Fatal(.aSyntaxError);
+        call advNextChar;
+    end;
+
+    if cmdCh = 0 then
+        isEndOfCmdLine = TRUE;
+    else if cmdCh = '=' and not allowAssign then
+        call Fatal(.aSyntaxError);
+end;
+
+FirstScan: procedure public;
+    isEndOfCmdLine = FALSE;
+    call ParseLine(TRUE);
+    do while not isEndOfCmdLine;
+        call ParseLine(FALSE);
+    end;
+end;
+
+end;
+
+parse.plm
+parse: do;
+$include(parse.ipx)
+
+
+ToUpper: procedure(ch) byte;
+    declare ch byte;
+    if ch < ' ' then
+        return CR;
+
+    if 'a' <= ch and ch <= 'z' then
+        ch = ch and 5fh;
+    return ch;
+end;
+
+ParseFile: procedure(ptr) word public;
+    declare ptr address;
+    declare nameFcbPair based ptr structure(nameP address, fcbP address);
+    declare (filenamePtr, fcbAddr) address;
+    declare (curCh, namePtr, fcbPtr) byte;
+    declare fcb based fcbAddr (32) byte;
+    declare filename based filenamePtr (12) byte;
+    declare fcbDelim(*) byte data(CR, ' =.:<>_[],()');
+
+    GetChFromFilename: procedure;
+        curCh = ToUpper(filename(namePtr := namePtr + 1));
+    end;
+
+    TestDelim: procedure bool;
+        declare i byte;
+
+        do i = 0 to 12;
+            if fcbDelim(i) = curCh then
+                return TRUE;
+        end;
+        return FALSE;
+    end;
+
+    PutToFcb: procedure;
+        fcb(fcbPtr := fcbPtr + 1) = curCh;
+    end;
+
+
+    filenamePtr = nameFcbPair.nameP;
+    fcbAddr = nameFcbPair.fcbP;
+
+    curCh = ' ';
+    fcbPtr =0;
+    namePtr = 0ffh; 
+
+    do while fcbPtr < 15;
+        if fcbPtr = 11 then
+            curCh = 0;
+        call PutToFcb;
+    end;
+
+    fcb(0) = 0;
+    do while 1;
+        call GetChFromFilename;
+        do while curCh = ' ';
+            call GetChFromFilename;
+        end;
+
+        if TestDelim then
+            return 0ffffh;
+
+        fcbPtr = 0;
+        do while not TestDelim;
+            if fcbPtr >= 8 then
+                return 0ffffh;
+            call PutToFcb;
+            call GetChFromFilename;
+        end;
+        if curCh = ':' then
+        do;
+            if not (fcb(0) = 0 and fcbPtr = 1) then
+                return 0ffffh;
+            if (fcb(0) := fcb(1) - 'A' + 1) > 26 then
+                return 0ffffh;
+            fcb(fcbPtr) = ' ';
+        end;
+        else
+        do;
+            fcbPtr = 8;
+            if curCh = '.' then
+            do;
+                call GetChFromFilename;
+                do while not TestDelim;
+                    if fcbPtr >= 11 then
+                        return 0ffffh;
+                    call PutToFcb;
+                    call GetChFromFilename;
+                end;
+            end;
+            if curCh = CR then
+                return 0;
+            return fileNamePtr + double(namePtr);
+        end;
+    end;
+end;
+
+end;
+
+util.asm
+    name    util
+    public  RdBits, StrEqu
+    extrn   fileId, srcERB, mStart
+    extrn   in1Len, in1Cnt, in1Idx, in1Buf
+    extrn   in2Len, in2Cnt, in2Idx, in2Buf
+    extrn   RdBuf1, RdBuf2
+
+    DSEG
+inByt1: db  0
+inByt2: db  0
+
+    CSEG
+
+; RdBits: procedure(n) byte public; declare n byte; end;
+RdBits:
+    lda     fileId
+    rar
+    jc      rdAlt
+
+    mvi     b, 0
+
+rd1:
+    lxi     h, in1Cnt
+    inr     m
+    mov     a, m
+    cpi     1               ; first bit
+    jz      rd2
+    cpi     9               ; used all bits
+    jc      rd3
+    mvi     m, 1            ; reset to first bit
+    lhld    in1Idx          ; point to next byte
+    inx     h
+    shld    in1Idx
+    xchg
+    lhld    in1Len          ; check if we need new buffer
+    mov     a, e
+    sub     l
+    mov     a, d
+    sbb     h
+    jc      rd2
+    lxi     h, 0            ; yes to reset pointer
+    shld    in1Idx
+    push    b
+    call    RdBuf1          ; and read buffer
+    pop     b
+
+rd2:
+    lhld    in1Idx          ; get the next byte
+    xchg
+    lxi     h, in1Buf
+    dad     d
+    mov     a, m
+    sta     inByt1
+
+rd3:                        ; merge the bit
+    mov     a, b
+    rlc
+    ani     0FEh
+    mov     b, a
+    lda     inByt1
+    rlc
+    sta     inByt1
+    ani     1
+    ora     b
+    mov     b, a
+    lda     mStart          ; do we need to update the start location
+    rar
+    jnc     rd4
+    push    b
+    call    srcERB          ; slow but clears mStart flag
+    pop     b
+
+rd4:                        ; get all bits
+    dcr     c
+    jnz     rd1
+    mov     a, b
+    ret
+
+; read from alternate stream
+
+rdAlt:
+    mvi     b, 0
+
+rdAlt1:
+    lxi     h, in2Cnt               ; need new byte?
+    inr     m
+    mov     a, m
+    cpi     9
+    jc      rdAlt3
+    mvi     m, 1                    ; reset bit counter
+    lhld    in2Idx
+    inx     h                       ; advance pointer
+    shld    in2Idx
+    xchg
+    lhld    in2Len
+    mov     a, e
+    sub     l
+    mov     a, d
+    sbb     h
+    jc      rdAlt2                  ; do we need a new buffer
+    lxi     h, 0                    ; reset pointer
+    shld    in2Idx
+    push    b
+    call    RdBuf2                  ; load the buffer
+    pop     b
+
+rdAlt2:                             ; get the new byte
+    lhld    in2Idx
+    xchg
+    lxi     h, in2Buf
+    dad     d
+    mov     a, m
+    sta     inByt2
+
+rdAlt3:                             ; merge the bit
+    mov     a, b
+    rlc
+    ani     0FEh
+    mov     b, a
+    lda     inByt2
+    rlc
+    sta     inByt2
+    ani     1
+    ora     b
+    mov     b, a
+    dcr     c                       ; loop till done
+    jnz     rdAlt1
+    mov     a, b
+    ret
+
+
+; StrEqu(str1, str2, len) bool public ; declare (str1, str2) address, len byte; end;
+
+StrEqu:
+    mov     a, e
+    pop     h
+    xthl
+    mov     e, a
+
+str1:
+    ldax    b
+    cmp     m
+    jnz     str2
+    inx     b
+    inx     h
+    dcr     e
+    jnz     str1
+    mvi     a, 1
+    ret
+
+str2:
+    xra     a
+    ret
+
+    end
+
+
+io.plm
+io: do;
+$include(io.ipx)
+
+declare aAborted(*) byte initial('ABORTED$');
+declare aDiskReadError(*) byte initial('DISK READ ERROR$');
+declare aDiskWriteError(*) byte initial('DISK WRITE ERROR$');
+declare aCannotClose(*) byte initial('CANNOT CLOSE$');
+declare aDirectoryFull(*) byte initial('DIRECTORY FULL$');
+declare aNoFile(*) byte initial('NO FILE: $');
+declare rwSectorCnt word;
+
+PrintFileName: procedure(fcbP);
+    declare fcbP address;
+    declare fcb based fcbP (33) byte;
+    declare i byte;
+
+    do i = 1 to 11;
+        if fcb(i) <> ' ' then
+            call CWrite(fcb(i));
+        if i = 8 then
+            call CWrite('.');
+    end;
+end;
+
+IOErr: procedure(msg, fcbP) public;
+    declare (msg, fcbP) address;
+
+    call WriteStr(msg);
+    call PrintFileName(fcbP);
+    call Fatal(.('$'));
+end;
+
+RwFile: procedure(bufP, len, fcbP, isWrite);
+    declare (bufP, fcbP) address, len word, isWrite bool;
+
+    if CStat then
+        call Fatal(.aAborted);
+
+    rwSectorCnt = 0;
+
+    do while (len := len - 128) <> 0ff80h;
+        call SetDMA(bufP);
+        if isWrite = FALSE then
+        do;
+            if Read(fcbP) > 0 then
+                if rwSectorCnt = 0 then
+                    call Fatal(.aDiskReadError);
+                else
+                    return;
+        end;
+        else if Write(fcbP) > 0 then
+            call Fatal(.aDiskWriteError);
+
+        bufP = bufP + 128;
+        rwSectorCnt = rwSectorCnt + 1;
+    end;
+    call SetDMA(.cmdLine);
+end;
+
+
+ReadFile: procedure(bufP, len, fcbP) word public;
+    declare (bufP, fcbP) address, len word;
+
+    call RwFile(bufP, len, fcbP, FALSE);
+    return rwSectorCnt;
+end;
+
+WriteFile: procedure(bufP, len, fcbP) public;
+    declare (bufP, fcbP) address, len word;
+
+    call RwFile(bufP, len, fcbP, TRUE);
+end;
+
+CreateFile: procedure(fcbP) public;
+    declare fcbP address;
+    declare fcb based fcbP (32) byte;
+    declare i byte;
+
+    call Delete(fcbP);
+
+    do i = 12 to 32;
+        fcb(i) = 0;
+    end;
+
+    if Make(fcbP) = 255 then
+        call Fatal(.aDirectoryFull);
+end;
+
+OpenFile: procedure(fcbP) public;
+    declare fcbP address;
+    declare fcb based fcbP (32) byte;
+
+    fcb(FCB$EX), fcb(FCB$CR) = 0;
+    if Open(fcbP) = 255 then
+        call IOErr(.aNoFile, fcbP);
+end;
+
+CloseFile: procedure(fcbP) public;
+    declare fcbP address;
+    
+    if Close(fcbP) = 255 then
+        call Fatal(.aCannotClose);
+end;
+end;
+
+cpm.plm
+cpm: do;
+$include(cpm.ipx)
+
+CWrite: procedure(ch) public;
+    declare ch byte;
+   
+    call mon1(COWR, ch);
+end;
+
+CWriteCRLF: procedure public;
+    call CWrite(CR);
+    call CWrite(LF);
+end;
+
+
+WriteStr: procedure(str) public;
+    declare str address;
+
+    call mon1(COWSTR, str);
+end;
+
+
+
+CStat: procedure byte public;
+    return mon2(COSTAT, 0);
+end;
+
+
+SetDMA: procedure(bufP) public;
+    declare bufP address;
+
+    call mon1(FDMA, bufP);
+end;
+
+Delete: procedure(fcbP) byte public;        /* globally defined as returning nothing */
+    declare fcbP address;
+
+    return mon2(FDEL, fcbP);
+end;
+
+Open: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return mon2(FOPEN, fcbP);
+end;
+
+Read: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return mon2(FREAD, fcbP);
+end;
+
+
+Write: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return mon2(FWRITE, fcbP);
+end;
+
+Make: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return mon2(FMAKE, fcbP);
+end;
+
+Close: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    call SetDMA(.cmdLine);
+    return mon2(FCLOSE, fcbP);
+end;
+
+Rename: procedure(fcbP) byte public;        /* globally defined as returning nothing */
+    declare fcbP address;
+
+    return mon2(FREN, fcbP);
+end;
+
+declare cmdBuffer(128) byte public;
+declare in2Buf(512) byte public;
+declare in1Buf(1024) byte public;
+declare outIRLBuf(1024) byte public;
+declare outRelBuf(1) byte public at(.MEMORY);      /* uses all of remaining memory */
+end;
+
+cpmvec.asm
+    name cpmvec
+    public  mon1, mon2, mon3, Os
+
+    ASEG
+    org 0
+Os:
+    org 5
+cpm: 
+
+    CSEG
+
+mon1:
+    jmp     cpm
+
+mon2: 
+    jmp     cpm
+
+mon3:
+    jmp     cpm
+
+    end
+
+; ---------------------------------------------------------------------------
+; plm80.lib
+    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .db 0, 0, 0, 0, 0, 0, 0, 0
+
