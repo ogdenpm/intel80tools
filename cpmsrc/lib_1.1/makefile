@@ -13,7 +13,7 @@ ASMFLAGS := DEBUG
 LOCATEFLAGS:= PUBLICS SYMBOLS STACKSIZE(76)
 
 
-OBJS = lib.obj rel.obj find.obj parse.obj util.obj io.obj cpm.obj cpmvec.obj
+OBJS = lib.obj rel.obj cmdlin.obj parsef.obj util.obj io.obj cpm.obj cpmvec.obj
 
 .PHONY: all
 all::

@@ -7,18 +7,18 @@ CWrite		    P(B ch)
 CWriteCRLF		P
 Delete          P("pointer" fcbPtr)
 Fatal           P(A msg)
-FindEntry       P(A name,B len)"bool"
+FindModule       P(A name,B len)"bool"
 FirstScan       P
-InsertEntry     P(A name,B len,"bool" isAngle,"word" value)
+InsertModule     P(A name,B len,"bool" isReplace,A replaceP)
 IOErr           P(A msg,A fcbP)
-IrlERB          P
+DstERO          P
 Make            P(A fcbP)B
 Open            P(A fcbP)B
 OpenFile        P("pointer" fcbPtr)
-OS              P
-ParseFile       P(A ptr)"word"
-ParseLine       P("bool" allowAssign)
-ProcessSelectionItem P
+Reboot          P
+ParseFile       P(A ptr)A
+ParseSpec       P("bool" allowEq)
+ParseModuleName P
 Read            P(A fcbP)B
 ReadFile        P(A bufP,"word" len,A fcbP)"word"
 RdRelItem       PB
@@ -26,78 +26,71 @@ RdBits          P(B n)B
 Rename          P("pointer" fcbPtr)
 SetDMA          P(A bufP)
 SkipRelModule   P
-SrcERB          P
+SrcERO          P
 StrEqu          P("pointer" str1,"pointer" str2,B len)"bool"
 Write           P(A fcbP)B
 WriteFile       P(A bufP,"word" len,A fcbP)
 WriteIRLByte    P(B val)
 WriteRelByte    P(B val)
-WriteRelOffsetToIRL P
+WriteF2LocToIrl P
 WriteStr        P(A str)
-mon1            P(B op,A ptr)
-mon2            P(B op,A ptr)B
+Mon1            P(B op,A ptr)
+Mon2            P(B op,A ptr)B
 
-angleFlag       "bool"
+modifyFlag       "bool"
 aSyntaxError    B(13)
-assignment      "bool"
+isNewRel      "bool"
 bitCnt          B
 cmdBuffer       B(128)
-cmdBufPtr       A
-libFcbPtr       A
+spec            "FSPEC$T"
 cmdLine         B(128)
-cmdLineCopy     A
+startSelectionP     A
 curByte         B
-dumpFlag        "bool"
+skipping        "bool"
 dFlag           "bool"
-emptyItem       "bool"
+noName       "bool"
 fcb1            B(33)
 fcb2            B(33)
-fileId          B
+useRep          "bool"
 iFlag           "bool"
-isEndOfParen    "bool"
-isEndOfCmdLine  "bool"
+isEOP    "bool"
+isEOL  "bool"
 isRange         "bool"
 mFlag           "bool"
 pFlag           "bool"
 hasAssign       "bool"
-highMem         A
-topMemory       A
-in2Buf          B(512)
-in1Fcb          B(33)
-in2Fcb          B(33)
-in1Buf          B(1024)
-in1Idx          "word"
-in1Cnt          B
-in2Cnt          B
-IRLAccess       "bool"
-IRLEx           B
-IRLCr           B
-IRLOff          B
-mStart          "bool"
+botP         A
+topP       A
+repBuf          B(512)
+srcFcb          B(33)
+repFcb          B(33)
+srcBuf          B(1024)
+srcIdx          "word"
+srcCnt          B
+repCnt          B
+mrkDst       "bool"
+dstLoc          "CPMLOC$T"
+mrkSrc          "bool"
 moduleLen       B
 moduleName      B(7)
-outIRLSize      "word"
-outIRLBuf       B(1024)
-outIRLFcb       B(33)
-outIRLIdx       "word" 
+outIrlSize      "word"
+outIrlBuf       B(1024)
+outIrlFcb       B(33)
+outIrlIdx       "word" 
 outRelSize      "word"
 outRelBuf       BS 
 outRelFcb       B(33)
 outRelIdx       "word"
-outRelRecCnt    "word"
-segs            "word"(4)
-selectionFlag   "bool"
-selectionRequested  "bool"
-subItemLen      B
-subItemName     B(7)
-srcBitPos       "word"
-srcEx           B
-srcCr           B
-srcOff          B
-curModulePtr    A 
-declare curModule based curModulePtr structure(len byte, ex byte, crec byte, off byte, value word, name(6) byte);
-
-
+outBaseRec    "word"
+locations            "word"(4)
+noReplacement   "bool"
+selectFlag  "bool"
+token           "PSTR$T"
+tokenLen        B
+tokenName       B(7)
+inBaseRec       "word"
+srcLoc          "CPMLOC$T"
+curModuleP    A 
 
 /* fcb offsets */
 FCB$DR      '0'
@@ -139,14 +132,41 @@ word        'address'
 pointer     'address'
 wpointer    'address'
 
+
+/* key REL record types */
+ENTRYSYM    '0'
+SELCOMM     '1'
+PROGNAM     '2'
+UNUSED3     '3'
+UNUSED4     '4'
+SIZCOMM     '5'
+CHAINEXT    '6'
+ENTRYPT     '7'
+UNUSED8     '8'
+EXTPLUS     '9'
+EXTMINUS    '10'
+SETLOC      '11'
+CHAINADDR   '12'
+SIZPROG     '13'
+ENDMOD      '14'
+ENDFILE     '15'
+CREL        '16'
+DREL        '17'
+COMMONREL   '18'
+CONSTBYT    '19'
+
+
 /* lib's version of TRUE/FALSE */
 TRUE        '1'
 FALSE       '0'
 
-MOD$T       'structure(len byte, ex byte, crec byte, off byte, value word, name(6) byte)'
+MOD$T       'structure(len byte, ex byte, crec byte, off byte, replaceP address, name(6) byte)'
+CPMLOC$T    'structure(ex byte, rec byte, off byte)'
+FSPEC$T     'structure(strP address, fcbP address)'
+PSTR$T      'structure(len byte, str(7) byte)'
 
-cmdCh       B..cmdBufPtr
-curModule   "MOD$T"..curModulePtr
+cmdCh       B..spec.strP
+curModule   "MOD$T"..curModuleP
 
 lib.plm
 lib: do;
@@ -167,67 +187,64 @@ declare patch(*) byte data(
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
 declare banner(*) byte initial('LIB 1.1', CR, LF, '$');
-declare firstRecExtent byte initial(0);
-declare firstRecRecNum byte initial(0);
-declare fileId byte public initial(0);
-declare dumpFlag bool public initial(FALSE);
+declare relBaseEx byte initial(0);
+declare relBaseRec byte initial(0);
+declare useRep bool public initial(FALSE);
+declare skipping bool public initial(FALSE);
 declare wordPtr word initial(0);
 declare wMem based wordPtr word;
-declare topMemory address public initial(0);
-declare highMem address public initial(0);
+declare topP address public initial(0);
+declare botP address public initial(0);
 declare limitMem word initial(0ffffh);
-declare savedFName(12) byte;
-declare in1Fcb(33) byte public initial(0);
-declare in2Fcb(33) byte public initial(0);
+declare targetFName(12) byte;
+declare srcFcb(33) byte public initial(0);
+declare repFcb(33) byte public initial(0);
 declare outRelFcb(33) byte public initial(0, 'REL     $$$');
-declare outIRLFcb(33) byte public initial(0, 'IRL     $$$');
-declare in1Len word public initial(1024);
-declare in1Cnt byte public initial(0);
-declare in1Idx word public initial(0);
-declare in2Len word public initial(512);
-declare in2Cnt byte public initial(0);
-declare in2Idx word public initial(0);
+declare outIrlFcb(33) byte public initial(0, 'IRL     $$$');
+declare srcSiz word public initial(1024);
+declare srcCnt byte public initial(0);
+declare srcIdx word public initial(0);
+declare repSiz word public initial(512);
+declare repCnt byte public initial(0);
+declare repIdx word public initial(0);
 declare outRelSize word public initial(0);
 declare outRelIdx word public initial(0);
 declare bitCnt byte public initial(0);
 declare curByte byte public initial(0);
-declare outRelRecCnt word public initial(0);
-declare outIRLSize word public initial(1024);
-declare outIRLIdx word public initial(0);
-declare srcBitPos word public initial(0);
-declare srcRecCnt word initial(0);
-declare cmdBufPtr word public initial(0);      /* relies on being consecutive */
-declare libFcbPtr word public initial(0);      /*             "               */
-declare cmdCh based cmdBufPtr byte;
-declare curModulePtr word public initial(0);
-declare curModule based curModulePtr structure(len byte, ex byte, crec byte, off byte, value word, name(6) byte);
+declare outBaseRec word public initial(0);
+declare outIrlSize word public initial(1024);
+declare outIrlIdx word public initial(0);
+declare inBaseRec word public initial(0);
+declare srcEndRec word initial(0);
+declare spec FSPEC$T public initial(0, 0);
+declare cmdCh based spec.strP byte;
+declare curModuleP word public initial(0);
+declare curModule based curModuleP MOD$T;
 declare dFlag bool public initial(FALSE);
 declare iFlag bool public initial(FALSE);
-declare assignment bool public initial(FALSE);
+declare isNewRel bool public initial(FALSE);
 declare mFlag bool public initial(FALSE);
 declare pFlag bool public initial(FALSE);
 declare hasAssign bool public initial(FALSE);
 declare isRange bool public initial(FALSE);
-declare selectionFlag bool public initial(FALSE);
-declare angleFlag bool public initial(FALSE);
-declare selectionRequested bool public initial(FALSE);
-declare emptyItem bool public initial(0);
-declare cmdLineCopy address public initial(0);
-declare mStart bool public initial(FALSE);
-declare srcEx byte public initial(0);
-declare srcCr byte public initial(0);
-declare srcOff byte public initial(0);
-declare IRLAccess bool public initial(0);
-declare IRLEx byte public initial(0);
-declare IRLCr byte public initial(0);
-declare IRLOff byte public initial(0);
-declare pos structure(ex byte, rec byte, off byte) initial(0,0,0);
-declare isEndOfCmdLine bool public initial(FALSE);
-declare isEndOfParen bool public initial(FALSE);
-declare moduleLen byte public initial(0);      /* relies on consecutive bytes */
-declare moduleName(7) byte public;             /*              "              */
-declare subItemLen byte public initial(0);     /* relies on consecutive bytes */
-declare subItemName(7) byte public;            /*              "              */
+declare noReplacement bool public initial(FALSE);
+declare modifyFlag bool public initial(FALSE);
+declare selectFlag bool public initial(FALSE);
+declare noName bool public initial(0);
+declare startSelectionP address public initial(0);
+declare mrkSrc bool public initial(FALSE);
+declare srcLoc CPMLOC$T public initial(0, 0, 0);
+declare mrkDst bool public initial(0);
+declare dstLoc CPMLOC$T public initial(0,0,0);
+declare pos CPMLOC$T initial(0,0,0);
+declare isEOL bool public initial(FALSE);
+declare isEOP bool public initial(FALSE);
+declare module PSTR$T public initial(0, 0, 0, 0, 0, 0, 0, 0);
+declare moduleLen byte public at(.module.len);
+declare moduleName(7) byte public at(.module.str);
+declare token PSTR$T public initial(0, 0, 0, 0, 0, 0, 0, 0);
+declare tokenLen byte public at(.token.len);
+declare tokenName(7) byte public at(.token.str);
 declare aIndexError(*) byte initial('INDEX ERROR$');
 declare aNoModule(*) byte initial('NO MODULE: $');
 declare aSyntaxError(*) byte public initial('SYNTAX ERROR$');
@@ -236,467 +253,492 @@ declare junk(3) byte initial(0, 0, 1);
 declare aRel(3) byte data('REL');
 declare aIRL(3) byte data('IRL');
 
-
-FindEntry: procedure(name, len) bool public;
+/* search backwards from topP to botP for the symbol */ 
+/*
+   returns TRUE and sets curModuleP to point to the found module
+   or returns FALSE if not found
+*/
+FindModule: procedure(name, len) bool public;
     declare name address, len byte;
 
-    curModulePtr = topMemory - 12;
-    do while curModulePtr >= highMem;
+    curModuleP = topP - 12;
+    do while curModuleP >= botP;
         if (curModule.len and 7) = len then
             if StrEqu(name, .curModule.name, len) then
                 return TRUE;
-        curModulePtr = curModulePtr - 12;
+        curModuleP = curModuleP - 12;
     end;
     return FALSE;
 end;
 
-
-InsertEntry: procedure(name, len, isAngle, value) public;
-    declare name address, len byte, isAngle bool, value word;
+/* insert new module at bottom of existing list */
+InsertModule: procedure(name, len, isReplace, replaceP) public;
+    declare name address, len byte, isReplace bool, replaceP address;
     declare i byte;
-    declare bArray based curModulePtr (1) byte;
+    declare bArray based curModuleP (1) byte;
 
-    curModulePtr = highMem - 12; /* size(curModule) */
+    /* allocate memory from top downwards */
+    curModuleP = botP - 12; /* size(curModule) */
 
-    do i = 0 to 11;
+    do i = 0 to 11;             /* initialise curModule to zeros */
         bArray(i) = 0;
     end; 
 
-    curModule.len = ror(isAngle and 1, 1) or len;
+    curModule.len = ror(isReplace and 1, 1) or len;
     call move(len, name, .curModule.name);
-    curModule.value = value; 
-    highMem = curModulePtr;
-    if highMem < limitMem then
-        limitMem = highMem;
+    curModule.replaceP = replaceP; 
+    botP = curModuleP;
+    if botP < limitMem then  /* set new limit if necessary */
+        limitMem = botP;
 end;
 
+
+/* rename REL.$$$ or IRL.$$$ to the desired target file name */
 RenameFile: procedure;
     if iFlag then
-        call move(12, .outIRLFcb, .outRelFcb);
-    call move(12, .savedFName, .outIRLFcb);
-    if outIRLFcb(FCB$EXT) = ' ' then
-        if iFlag then
-            call move(3, .aIrl, .outIRLFcb(FCB$EXT));
+        call move(12, .outIrlFcb, .outRelFcb);      /* file to rename is the IRL file */
+    call move(12, .targetFName, .outIrlFcb);        /* set the target name */
+    if outIrlFcb(FCB$EXT) = ' ' then                /* make sure it has an extent */
+        if iFlag then                               /* .IRL or .REL */
+            call move(3, .aIrl, .outIrlFcb(FCB$EXT));
         else
-            call move(3, .aRel, .outIRLFcb(FCB$EXT));
+            call move(3, .aRel, .outIrlFcb(FCB$EXT));
 
-    call Delete(.outIRLFcb);
-    call move(12, .outIRLFcb, .outRelFcb(FCB$REC));
+    call Delete(.outIrlFcb);                        /* delete any existing target file */
+    call move(12, .outIrlFcb, .outRelFcb(FCB$REC)); /* rename file to target name */
     call Rename(.outRelFcb);
 end;
 
 
-
+/* update IRL.$$$ with the final header */
 WriteIRLHdr: procedure;
     declare i byte;
 
-    outIRLIdx = 0;
-    call OpenFile(.outIRLFcb);
-    call WriteIRLByte(firstRecExtent);
-    call WriteIRLByte(firstRecRecNum);
+    outIrlIdx = 0;
+    call OpenFile(.outIrlFcb);      /* re-open the file */
+    call WriteIRLByte(relBaseEx);   /* write the header information  to the buffer */
+    call WriteIRLByte(relBaseRec);
 
-    do i = 0 to 125;
+    do i = 0 to 125;                /* pad with 0 to 128 byte boundary */
         call WriteIRLByte(0);
     end;
-    call WriteFile(.outIRLBuf, 128, .outIRLFcb);
-    call CloseFile(.outIRlFcb);
+    call WriteFile(.outIrlBuf, 128, .outIrlFcb);    /* write the header */
+    call CloseFile(.outIRlFcb);     /* finish off */
 end;
 
-
+/* append the rel file to the irl file for indexed output */
 CopyRel2IRL: procedure;
     declare resultRecordCnt word;
 
-    if outRelRecCnt > 0 then 
+    if outBaseRec > 0 then          /* already flushed to disk */
     do;
-        call OpenFile(.outRelFcb);
-        do while outRelRecCnt <> 0;
-            resultRecordCnt = ReadFile(.in1Buf, in1Len, .outRelFcb);
-            call WriteFile(.in1Buf, resultRecordCnt * 128, .outIRLFcb);
-            outRelRecCnt = outRelRecCnt - resultRecordCnt;
+        call OpenFile(.outRelFcb);  /* re-open REL.$$$ file */
+        do while outBaseRec <> 0;   /* copy the sectors in chunks */
+            resultRecordCnt = ReadFile(.srcBuf, srcSiz, .outRelFcb);
+            call WriteFile(.srcBuf, resultRecordCnt * 128, .outIrlFcb);
+            outBaseRec = outBaseRec - resultRecordCnt;  /* update remaining sector cnt */
         end;
     end;
-    else
-        call WriteFile(.outRelBuf, outRelIdx, .outIRLFcb);
+    else                            /* still in memory so just flush */
+        call WriteFile(.outRelBuf, outRelIdx, .outIrlFcb);
 end;
 
-
-PrepFiles: procedure;
+/* initialise the output files and set rel output buffer size */
+PrepOutFiles: procedure;
     declare i byte;
 
-    if topMemory < limitMem then
-        limitMem = topMemory;
-    
+    if topP < limitMem then         /* make sure limitMem is set */
+        limitMem = topP;
+                                    /* size the output file */
     outRelSize = (limitMem - .MEMORY - 128) and 0ff80h;
-    outRelFcb(FCB$DR), outIRLFcb(FCB$DR) = savedFname(FCB$DR);
-    if iFlag then
+    outRelFcb(FCB$DR), outIrlFcb(FCB$DR) = targetFName(FCB$DR); /* set drive */
+    if iFlag then                       /* creating an index file */
     do;
-        call CreateFile(.outIRLFcb);
-        do i = 1 to 128;
+        call CreateFile(.outIrlFcb);    /* create the index file */
+        do i = 1 to 128;                /* write dummy header */
             call writeIRLByte(0);
         end;
     end;
 
-    if assignment then
+    if isNewRel then                   /* create REL.$$$ file if needed */
         call CreateFile(.outRelFcb);
 end;
 
 
-CloseFiles: procedure;
-    if not (assignment or iFlag) then
+/* close the output files and merge IRL and REL if necessary */
+CloseOutputFiles: procedure;
+    if not (isNewRel or iFlag) then         /* done if no output file */
         return;
 
-    if assignment then
+    if isNewRel then                        /* have rel file */
     do;
-        call WriteRelByte(9Eh);
-        do while (outRelIdx and 7fh) <> 0;
+        call WriteRelByte(9Eh);             /* end of module ? should it be end of file 9fh */
+        do while (outRelIdx and 7fh) <> 0;  /* pad to end of record */
             call WriteRelByte(1Ah);
         end;
-        if outRelRecCnt > 0 or not iFlag then
+        if outBaseRec > 0 or not iFlag then /* flush if part already on disk or not index file */
         do;
-            outRelRecCnt = outRelRecCnt + outRelIdx / 128;
+            outBaseRec = outBaseRec + outRelIdx / 128;  /* update to record total number of sectors */
             call WriteFile(.outRelBuf, outRelIdx, .outRelFcb);
             call CloseFile(.outRelFcb);
         end;
     end;
-    if iFlag then
+    if iFlag then                           /* creating an index file */
     do;
-        call IrlERB;
-        call WriteRelOffsetToIRL;
-        call writeIRLByte(0feh);
-        do while (outIRLIdx and 7fh) <> 0;
+        call DstERO;                        /* get rel image size */
+        call WriteF2LocToIrl;               /* write the info at the end of the symbol table */
+        call writeIRLByte(0feh);            /* terminate index */
+        do while (outIrlIdx and 7fh) <> 0;  /* pad to 128 byte boundary */
             call WriteIRLByte(1Ah);
         end;
-        call WriteFile(.outIRLBuf, outIRLIdx, .outIRLFcb);
-        firstRecExtent = outIRLFcb(FCB$EX);
-        firstRecRecNum = outIRLFcb(FCB$CR);
-        call CopyRel2IRL;
-        call CloseFile(.outIRLFcb);
-        call WriteIRLHdr;
-        call Delete(.outRelFcb);
+        call WriteFile(.outIrlBuf, outIrlIdx, .outIrlFcb);  /* flush the file */
+        relBaseEx = outIrlFcb(FCB$EX);      /* record the current location as start of rel file */
+        relBaseRec = outIrlFcb(FCB$CR);
+        call CopyRel2IRL;                   /* copy the rel file */
+        call CloseFile(.outIrlFcb);         /* close the file */
+        call WriteIRLHdr;                   /* re-open to update header */
+        call Delete(.outRelFcb);            /* delete the temporary rel file */
     end;
     call RenameFile;
 end;
 
-GetEntryState: procedure bool;
+/* returns location valid flag */
+GetHasLoc: procedure bool;
     return (curModule.len and 40h) > 0;
 end;
 
-
-SetEntryState: procedure;
+/* sets locatation valid flag */
+SetHasLoc: procedure;
     curModule.len = curModule.len or 40h;
 end;
 
-
-GetEntryMode: procedure bool;
+/* returns replace flag */
+GetReplaceFlag: procedure bool;
     return rol(curModule.len, 1);
 end;
 
-CalcRecordPosition: procedure(ex, crec) word;
-    declare (ex, crec) byte;
-    return ex * 128 + crec;
+/* converts ex and rec into overall record cnt */ 
+CalcRecordPosition: procedure(ex, rec) word;
+    declare (ex, rec) byte;
+    return ex * 128 + rec;
 end;
 
-
-RdBuf1: procedure public;
-    srcBitPos = in1Fcb(FCB$EX) * 128 + in1Fcb(FCB$CR);
-    srcRecCnt = srcBitPos + ReadFile(.in1Buf, in1Len, .in1Fcb) - 1;
+/* fill buffer from file 1, updating src start/end record numbers */
+Rd1Buf: procedure public;
+    inBaseRec = srcFcb(FCB$EX) * 128 + srcFcb(FCB$CR);
+    srcEndRec = inBaseRec + ReadFile(.srcBuf, srcSiz, .srcFcb) - 1;
 end;
 
-RdBuf2: procedure public;
-    wordPtr = ReadFile(.in2buf, in2Len, .in2Fcb);
+/* fill buffer from file 2 */
+Rd2Buf: procedure public;
+    wordPtr = ReadFile(.repBuf, repSiz, .repFcb);
 end;
 
-SeekInBuffer: procedure(rec);
+/* seek to new load buffer */
+SeekLoadBuffer: procedure(rec);
     declare rec word;
     declare (ex, crec) byte;
 
-    ex = shr(rec, 7);
+    ex = shr(rec, 7);               /* calc ex and rec */
     crec = rec and 7fh; 
-    if in1Fcb(FCB$EX) <> ex then
+    if srcFcb(FCB$EX) <> ex then     /* do we have the write extent open */
     do;
-        in1Fcb(FCB$EX) = ex;
-        if Open(.in1Fcb) = 255 then
+        srcFcb(FCB$EX) = ex;         /* load the correct extent */
+        if Open(.srcFcb) = 255 then
             call Fatal(.('FATAL ERROR$'));
     end;
-    in1Fcb(FCB$CR) = crec;
-    call RdBuf1;
+    srcFcb(FCB$CR) = crec;           /* set the record */
+    call Rd1Buf;                    /* and load the buffer */
 end;
 
+
+/* see to new location, load buffer if required */
 Seek: procedure(ex, crec, off);
     declare (ex, crec, off) byte;
     declare offset word;
 
+    /* check if location is already in the buffer */
+
     offset = CalcRecordPosition(ex, crec);
-    if offset < srcBitPos or offset > srcRecCnt then
+    if offset < inBaseRec or offset > srcEndRec then
+        call SeekLoadBuffer(offset);        /* need to load new buffer */
 
-        call SeekInBuffer(offset);
-
-    in1Idx = (offset - srcBitPos) * 128 + off;
-    in1Cnt = 0;
+    srcIdx = (offset - inBaseRec) * 128 + off;   /* update where we are in the buffer */
+    srcCnt = 0;                      /* reset bit stream cnt */
 end;
 
-SaveFilePos: procedure;
-    call SetEntryState;
-    curModule.ex = srcEx;
-    curModule.crec = srcCr;
-    curModule.off = srcOff;
+/* copy srcLoc information into current module info */
+RecordFilePos: procedure;
+    call SetHasLoc;         /* record as location valid */
+    curModule.ex = srcLoc.ex;   /* and save the location */
+    curModule.crec = srcLoc.rec;
+    curModule.off = srcLoc.off;
 end;
 
 
-PositionModule: procedure;
+/* scans the src file until a module name is found or end of file */
+/* sets the moduleName to that found or to 'l' for end of file */
+FindNextModule: procedure;
     declare item byte;
 
-    dumpFlag = TRUE;
-    mStart = TRUE;
+    skipping = TRUE;            /* just looking  */
+    mrkSrc = TRUE;              /* make sure location is recorded */
 
-    do while (item := RdRelItem) <> 2 and item <> 15;
+    do while (item := RdRelItem) <> PROGNAM and item <> ENDFILE;
     end;
 
-    if item = 15 then
+    if item = ENDFILE then
     do;
-        moduleName(0) = 'l';
+        moduleName(0) = 'l';        /* special end module name 'l' */
         moduleLen = 1;
     end;
-    if FindEntry(.moduleName, moduleLen) then
-        call SaveFilePos;
+    /* if module is needed, record it's location */
+    if FindModule(.moduleName, moduleLen) then
+        call RecordFilePos;
 end;
 
 
 SkipRelModule: procedure public;
-    dumpFlag = TRUE;
-    do while RdRelItem <> 14;
+    skipping = TRUE;                /* only looking. Ignore until ENDMOD */
+    do while RdRelItem <> ENDMOD;
     end;
 end;
 
-GetFileFromList: procedure;
-    declare params structure(nameP address, fcbP address);
+/* handle the replacement file modifier */
+ProcessReplacementFile: procedure;
+    declare fspec FSPEC$T;
 
-    params.nameP = curModule.value;
-    params.fcbP = .in2Fcb;
-    if ParseFile(.params) >= 0ffffh  then
+    fspec.strP = curModule.replaceP;    /* parse replacement file into repFcb */
+    fspec.fcbP = .repFcb;
+    if ParseFile(.fspec) >= 0ffffh  then
         call Fatal(.aSyntaxError); 
-    if in2Fcb(FCB$EXT) = ' ' then
-        call move(3, .aRel, .in2Fcb(FCB$EXT));
-    call OpenFile(.in2Fcb);
-    fileId = 1;
-    dumpFlag = FALSE;
-    in2Cnt = 8;
-    in2Idx = in2Len;
-    IRLAccess = TRUE;
-    do while RdRelItem <> 15;
+
+    if repFcb(FCB$EXT) = ' ' then       /* default ext is .REL */
+        call move(3, .aRel, .repFcb(FCB$EXT));
+    call OpenFile(.repFcb);
+    useRep = TRUE;
+    skipping = FALSE;
+    repCnt = 8;                 /* force load */
+    repIdx = repSiz;
+    mrkDst = TRUE;
+    do while RdRelItem <> ENDFILE;  /* process all of the file */
     end;
-    fileId = 0;
+    useRep = FALSE;
 end;
 
 
-
-SkipIRLModule: procedure;
-    IRLAccess = TRUE;
-    dumpFlag = FALSE;
-    do while RdRelItem <> 14;
+/* process one module from the current src file */
+ProcessModule: procedure;
+    mrkDst = TRUE;
+    skipping = FALSE;
+    do while RdRelItem <> ENDMOD;
     end;
 end;
 
-
-UnpackFile: procedure;
-    call move(12, .in1Fcb, .savedFName);
+/* record target file */
+SetTarget: procedure;
+    call move(12, .srcFcb, .targetFName);
 end;
 
 
-
-
-PrintEntry: procedure;
+/* print the token name to the console */
+PrintToken: procedure;
     declare i byte;
-    do i = 1 to subItemLen;
-        call CWrite(subItemName(i - 1));
+    do i = 1 to tokenLen;
+        call CWrite(tokenName(i - 1));
     end;
 end;
 
 
-FindModuleInFile: procedure;
-    if FindEntry(.subItemName, subItemLen) and GetEntryState then
+SeekModule: procedure;
+    /* check if module and its location is known */
+    /* if so seek to the module location */
+    if FindModule(.tokenName, tokenLen) and GetHasLoc then
         call Seek(curModule.ex, curModule.crec, curModule.off); 
     else
     do while 1;
-        call PositionModule;
-        if StrEqu(.moduleLen, .(1, 'l'), 2) then
+        call FindNextModule;
+        if StrEqu(.moduleLen, .(1, 'l'), 2) then    /* no more modules */
         do;
-            call WriteStr(.aNoModule);
-            call PrintEntry;
+            call WriteStr(.aNoModule);              /* module not found */
+            call PrintToken;
             call Fatal(.('$'));
         end;
-        if StrEqu(.moduleLen, .subItemLen, moduleLen + 1) then
+        if StrEqu(.moduleLen, .tokenLen, moduleLen + 1) then    /* the one we want ? */
         do;
-            call Seek(srcEx, srcCr, srcOff);
+            call Seek(srcLoc.ex, srcLoc.rec, srcLoc.off);   /* reseek to start */
             return;
         end;
-        else
+        else                                        /* no so skip rest of module */
             call SkipRelModule;
     end;
 end;
 
-SearchModule: procedure(isInFile);
-    declare isInFile byte;
+DoModule: procedure(isFirst);
+    declare isFirst byte;
 
-    if emptyItem then
+    if noName then                      /* no module name given so do first one */ 
     do;
-        call Seek(pos.ex, pos.rec, 0);
-        in1Idx = in1Len;
-        in1Cnt = 8;
-        call SkipIRLModule;
-        emptyItem = FALSE;
+        call Seek(pos.ex, pos.rec, 0);  /* seek to position */
+        srcIdx = srcSiz;                  /* force reload */
+        srcCnt = 8;
+        call ProcessModule;             /* do the whole module */
+        noName = FALSE;                 /* clear flag */
         return;
     end;
-    if isInFile then
-        call FindModuleInFile;
+    if isFirst then                     /* we need to seek to frist */
+        call SeekModule;
     else
-        call PositionModule;
+        call FindNextModule;            /* else go with next one */
 
-    if StrEqu(.moduleLen, .(1, 'l'), 2) then
+    if StrEqu(.moduleLen, .(1, 'l'), 2) then    /* reached end (marker 'l') */
         return;
-    if FindEntry(.moduleName, moduleLen) and GetEntryMode then
+    if FindModule(.moduleName, moduleLen) and GetReplaceFlag then
     do;
-        if curModule.value > 0 then
-            call GetFileFromList;
-        call SkipRelModule;
+        if curModule.replaceP > 0 then  /* we have a replacement */
+            call ProcessReplacementFile;
+        call SkipRelModule;             /* skip existing module */
     end;
     else
     do;
-        if not isInFile then
-            call Seek(srcEx, srcCr, srcOff);
-        call SkipIRLModule;
+        if not isFirst then             /* if first we already did seek */
+            call Seek(srcLoc.ex, srcLoc.rec, srcLoc.off);   /* else seek */
+        call ProcessModule;             /* process the module */
     end;
 end;
 
 
-FindNameOnList: procedure;
-    do while 1;
-        if StrEqu(.moduleLen, .subItemLen, moduleLen + 1) then
+DoModuleRange: procedure;
+    do while TRUE;
+        if StrEqu(.moduleLen, .tokenLen, moduleLen + 1) then
             return;
-        call SearchModule(FALSE);
+        call DoModule(FALSE);           /* will do next module or first if noName */
     end;
 end;
 
-PositionSource: procedure;
+/* find the start of the rel file. For *.REL it is 0 for IRL it is as recorded in the header */
+SeekStartRel: procedure;
     declare isIRL bool;
 
     pos.ex, pos.rec, pos.off = 0;
-    
-    if in1Fcb(FCB$EXT) = ' ' then
-        call move(3, .aRel, .in1Fcb(FCB$EXT));
 
-    isIRL = StrEqu(.in1Fcb(FCB$EXT), .aIRL, 3);
-    call OpenFile(.in1Fcb);
+    /* add .REL if no extent given */
+    if srcFcb(FCB$EXT) = ' ' then
+        call move(3, .aRel, .srcFcb(FCB$EXT));
+
+    /* record whether IRL / REL */
+    isIRL = StrEqu(.srcFcb(FCB$EXT), .aIRL, 3);
+    call OpenFile(.srcFcb);          /* open the file */
     if isIRL then
     do;
-        if ReadFile(.cmdLine, 128, .in1Fcb) then    /* waste return value */
+        /* for IRL get location of rel file element */
+        if ReadFile(.cmdLine, 128, .srcFcb) then    /* waste return value */
             ;
         pos.ex = cmdLine(0);
         pos.rec = cmdLine(1);
-        if pos.ex <> in1Fcb(FCB$EX) then
+        if pos.ex <> srcFcb(FCB$EX) then     /* move to the right extent */
         do;
-            in1Fcb(FCB$EX) = pos.ex;
-            if Open(.in1Fcb) = 0ffh then
+            srcFcb(FCB$EX) = pos.ex;
+            if Open(.srcFcb) = 0ffh then
                 call Fatal(.aIndexError);
         end;
-        in1Fcb(FCB$CR) = pos.rec;
+        srcFcb(FCB$CR) = pos.rec;            /* and record */
     end;
-    srcBitPos, srcRecCnt = 0;
-    in1Idx = in1Len;
-    in1Cnt = 8;
+    inBaseRec, srcEndRec = 0;               /* force reload */
+    srcIdx = srcSiz;
+    srcCnt = 8;
 end;
 
 
 ExecuteOne: procedure;
     declare save address;
 
-    call PositionSource;
-    isEndOfParen = FALSE;
-    if selectionRequested then
+    call SeekStartRel;                      /* find the rel file */
+    isEOP = FALSE;                          /* not at ) */
+    if selectFlag then                      /* have (..) */
     do;
-        save = cmdBufPtr;
-        cmdBufPtr = cmdLineCopy;
+        save = spec.strP;                   /* save current cmdline position */
+        spec.strP = startSelectionP;        /* reset to start of selection items */
 
         do while (1);
-            call ProcessSelectionItem;
-            call SearchModule(TRUE);
-            if isRange then
+            call ParseModuleName;           /* get the module name, might be none i.e. first */
+            call DoModule(TRUE);            /* process module. It's the first */
+            if isRange then                 /* do we have a range */
             do;
-                call ProcessSelectionItem;
-                if subItemLen = 0 then
+                call ParseModuleName;       /* parse 2nd module name */
+                if tokenLen = 0 then        /* is missing use dummy 'l' */
                 do;
-                    subItemLen = 1;
-                    subItemName(0) = 'l';
+                    tokenLen = 1;           /* this will treat end of range as rest of file */
+                    tokenName(0) = 'l';
                 end;
-                call FindNameOnList;
+                call DoModuleRange;         /* process till end of range */
             end;
-            if isEndOfParen then
+            if isEOP then                   /* at end of list restore cmdline position */
             do;
-                cmdBufPtr = save;
+                spec.strP = save;
                 return;
             end;
         end;
     end;
     else
-    do;
-        subItemName(0) = 'l';
-        subItemLen = 1;
+    do;                                     /* process all modules */
+        tokenName(0) = 'l';
+        tokenLen = 1;
         moduleLen = 0;
-        call FindNameOnList;
+        call DoModuleRange;
     end;
 end;
 
 
 Execute: procedure;
-    do while 1;
-        call ExecuteOne;
-        if isEndOfCmdLine then
+    do while TRUE;
+        call ExecuteOne;        /* process one file */
+        if isEOL then           /* all done */
             return;
-        call ParseLine(FALSE);
+        call ParseSpec(FALSE);  /* get next file */
     end;
 end;
 
 Init: procedure;
-    call WriteStr(.banner);
-    call move(128, .cmdLine, .cmdBuffer);
-    cmdBufPtr = .cmdBuffer;
-    libFcbPtr = .fcb1;
-    wordPtr = 6;
-    topMemory = wmem;
+    call WriteStr(.banner);     /* signon */
+    call move(128, .cmdLine, .cmdBuffer);   /* save the cmdLine */
+    spec.strP = .cmdBuffer;     /* setup spec for parsing */
+    spec.fcbP = .fcb1;
+    wordPtr = 6;                /* get base of CPM */
+    topP = wMem;                /* and use it as top of memory */
 end;
 
 
 
 main:
-    call Init;
-    call FirstScan;
-    cmdBufPtr = .cmdBuffer;
-    isEndOfCmdLine = FALSE;
-    call parseLine(TRUE);
-    call UnpackFile;
-    if cmdCh = '=' then
+    call Init;                  /* signon and setup key variables */
+    call FirstScan;             /* initial scan of cmdline */
+    spec.strP = .cmdBuffer;     /* reset cmdline pointer */
+    isEOL = FALSE;              /* not yet EOL */
+    call ParseSpec(TRUE);       /* parse filespec (allow =) */
+    call SetTarget;             /* record file as target */
+    if cmdCh = '=' then         /* check for assignment */
     do;
-        if selectionRequested or angleFlag then
+        if selectFlag or modifyFlag then  /* only outside select/modify */
             call Fatal(.aSyntaxError);
-        assignment = TRUE;
-        call ParseLine(FALSE);
+        isNewRel = TRUE;       /* record it as new file */
+        call ParseSpec(FALSE);  /* get the source file */
     end;
-    if not assignment then
+    if not isNewRel then
     do;
-        if iFlag then
+        if iFlag then           /* iFlag also creates new file */
         do;
-            if selectionRequested or angleFlag then
+            if selectFlag or modifyFlag then  /* not valid in select/modify */
                 call Fatal(.aSyntaxError);
-
-                assignment = TRUE;
+            isNewRel = TRUE;
         end;
-        else if not (dFlag or pFlag or mFlag) then
+        else if not (dFlag or pFlag or mFlag) then  /* if no iFlag must be one of the others */
             call Fatal(.aSyntaxError);
     end;
-    call PrepFiles;
-    call Execute;
-    call CloseFiles;
-    call Os;
+    call PrepOutFiles;          /* init output files */
+    call Execute;               /* do the hard work */
+    call CloseOutputFiles;      /* finish files */
+    call Reboot;
 end;
 
 
@@ -706,14 +748,14 @@ end;
 rel: do;
 $include(rel.ipx)
 
-declare segs(4) word initial(0, 0, 0, 0);
-declare addressMode byte initial(CODEREL);
+declare locations(4) word initial(0, 0, 0, 0);
+declare curMode byte initial(CODEREL);
 declare aApdc(*) byte initial('APDC');
-declare addressType byte initial(0);
-declare addressVal word initial(0);
+declare aFieldMode byte initial(0);
+declare aFieldVal word initial(0);
 declare bFieldLen byte initial(0);          /* consecutive bytes */
 declare bFieldName(7) byte initial(0);
-declare firstPos bool initial(FALSE);
+declare forceNl bool initial(FALSE);
 declare recCnt word initial(0);
 declare aEntrySymbol(*) byte initial('entry symbol $');
 declare aSelectCommonBl(*) byte initial('select common block $');
@@ -738,7 +780,7 @@ declare linkDescriptions(*) address initial(
             .aError8, .aExternalOffset, .aDefineDataSize, .aSetProgramCoun,
             .aChainAddress, .aDefineProgramS, .aEndProgram, .aEndFile);
 
-PutHexNibble: procedure(n);
+PrintHexNibble: procedure(n);     /* write hex nibble to console */
     declare n byte;
     
     if n <= 9 then
@@ -747,115 +789,117 @@ PutHexNibble: procedure(n);
         call Cwrite((n - 10) +  'A');
 end;
 
-PutHexByte: procedure(n);
+PrintHexByte: procedure(n);       /* write hex byte to console */
     declare n byte;
 
-    call PutHexNibble(shr(n, 4));
-    call PutHexNibble(n and 0fh);
+    call PrintHexNibble(shr(n, 4));
+    call PrintHexNibble(n and 0fh);
 end;
 
-PutHexWord: procedure(n);
+PrintHexAddr: procedure(n);       /* write hex word/address to console */
     declare n word;
-    call PutHexByte(n and 0ffh);
-    call PutHexByte(shr(n, 8));
+    call PrintHexByte(n and 0ffh);
+    call PrintHexByte(shr(n, 8));
 end;
 
-Fatal: procedure(str) public;
+Fatal: procedure(str) public;   /* display msg and exit */
     declare str address;
     call WriteStr(str);
-    call os;
+    call Reboot;
 end;
 
-SwapBytes: procedure(n) word;
+SwapBytes: procedure(n) word;   /* swap high and low bytes */
     declare n word;
 
     return shr(n, 8) or shl(n, 8);
 end;
 
-PutModeAddr: procedure(mode, addr);
+PrintModeAddr: procedure(mode, addr); /* print address mode and value */
     declare mode byte, addr word;
 
-    call CWrite(aApdc(mode));
-    call PutHexWord(SwapBytes(addr));
+    call CWrite(aApdc(mode));           /* convert mode to letter (APDC) */
+    call PrintHexAddr(SwapBytes(addr));   /* print word in user friendly format */
     call CWrite(' ');
 end;
 
-
+/* utility to print new line and address info if required */
 CheckNewLine: procedure;
     
-    if (segs(addressMode) and 0fh) = 0 or firstPos then
+    /* write new new line and location at 16 byte boundary of if forced new line */
+    if (locations(curMode) and 0fh) = 0 or forceNl then
     do;
         call CWriteCRLF;
         call CWrite(' ');
-        call putModeAddr(addressMode, segs(addressMode));
+        call PrintModeAddr(curMode, locations(curMode));  /* write current location */
         call CWrite(' ');
     end;
 end;
 
 
+/* write byte to IRL file, flush if buffer full */
 WriteIRLByte: procedure(val) public;
     declare val byte;
 
-    outIRLBuf(outIRLIdx) = val;
-    if (outIRLIdx := outIRLIdx + 1) >= outIRLSize then
+    outIrlBuf(outIrlIdx) = val;
+    if (outIrlIdx := outIrlIdx + 1) >= outIrlSize then
     do;
-        call WriteFile(.outIRLBuf, outIRLSize, .outIRLFcb);
-        outIRLIdx = 0;
+        call WriteFile(.outIrlBuf, outIrlSize, .outIrlFcb);
+        outIrlIdx = 0;
     end;
 end;
 
 
-SrcERB: procedure public;
-    recCnt = srcBitPos + in1Idx / 128;
-    srcOff = in1Idx mod 128;
-    srcEx = recCnt / 128;
-    srcCr = recCnt mod 128;
-    mStart = FALSE;
+SrcERO: procedure public;           /* record module start of src file */
+    recCnt = inBaseRec + srcIdx / 128;
+    srcLoc.off = srcIdx mod 128;
+    srcLoc.ex = recCnt / 128;
+    srcLoc.rec = recCnt mod 128;
+    mrkSrc = FALSE;
 end;
 
 
-IrlERB: procedure public;
-    recCnt = outRelRecCnt + outRelIdx / 128; 
-    IRLOff = outRelIdx mod 128;
-    IRLEx = recCnt / 128;
-    IRLCr = recCnt mod 128;
-    IRLAccess = FALSE;
+DstERO: procedure public;           /* record module start of dst file */
+    recCnt = outBaseRec + outRelIdx / 128; 
+    dstLoc.off = outRelIdx mod 128;
+    dstLoc.ex = recCnt / 128;
+    dstLoc.rec = recCnt mod 128;
+    mrkDst = FALSE;
 end;
 
-WriteRelOffsetToIRL: procedure public;
-    call WriteIRLByte(IRLEx);
-    call WriteIRLByte(IRLCr);
-    call WriteIRLByte(IRLOff);
+WriteF2LocToIrl: procedure public;  /* write the module location */
+    call WriteIRLByte(dstLoc.ex);
+    call WriteIRLByte(dstLoc.rec);
+    call WriteIRLByte(dstLoc.off);
 end;
 
 
-Read16Bit: procedure word;
+Read16Bit: procedure word;  /* read 16 bit address */
     return RdBits(8) or shl(double(RdBits(8)), 8);
 end; 
 
-ReadAField: procedure;
-    addressType = RdBits(2);
-    addressVal = Read16Bit;
+ReadAField: procedure;      /* read A field */
+    aFieldMode = RdBits(2); /* mode 2 bits */
+    aFieldVal = Read16Bit;  /* 16 bit address */
 end;
 
 
 
-ReadbField: procedure;
+ReadBField: procedure;      /* read B field */
     declare i byte;
 
-    bFieldLen = RdBits(3);
-    do i = 1 to bFieldLen;
+    bFieldLen = RdBits(3);  /* length (3 bits) */
+    do i = 1 to bFieldLen;  /* the name itself */
         bFieldName(i - 1) = RdBits(8);
     end;
 end;
 
 
 
-PrintAField: procedure;
-    call PutModeAddr(addressType, addressVal);
+PrintAField: procedure;     /* print the A field */
+    call PrintModeAddr(aFieldMode, aFieldVal);
 end;
 
-PrintBField: procedure;
+PrintBField: procedure;     /* print the B field */
     declare i byte;
 
     do i = 1 to bFieldLen;
@@ -865,6 +909,7 @@ PrintBField: procedure;
 end;
 
 
+/* write the byte to the rel buffer and flush if full */
 WriteRelByte: procedure(val) public;
     declare val byte;
 
@@ -872,64 +917,64 @@ WriteRelByte: procedure(val) public;
     if (outRelIdx := outRelIdx + 1) >= outRelSize then
     do;
         call WriteFile(.outRelBuf, outRelSize, .outRelFcb);
-        outRelRecCnt = outRelRecCnt +  outRelSize / 128;
+        outBaseRec = outBaseRec +  outRelSize / 128;      /* record new buffer base */
         outRelIdx = 0;
     end;
 end;
 
+/* write cnt low bits from val to the rel file */
 WrBits: procedure(val, cnt);
     declare (val, cnt) byte;
-    declare outBitCnt byte;     /* potentially relies on 0 initialisation by obj2bin */
+    declare bitsToUse byte;
 
-    WrCurRelByte: procedure;
+    WrCurRelByte: procedure;    /* write completed byte */
         call WriteRelByte(curByte);
         curByte = 0;
         bitCnt = 0;
     end;
 
     ShiftBit: procedure byte;
-        if (outBitCnt := bitCnt + cnt) = 8 then
+
+        if (bitsToUse := bitCnt + cnt) = 8 then /* already aligned */
             return val;
 
-        return shl(val, 8 - outBitCnt);
+        return shl(val, 8 - bitsToUse);         /* shift up to correct pos */
     end;
 
-    if IRLAccess then
-        call IrlERB;
-    if bitCnt + cnt > 8 then
-    do;
+    if mrkDst then              /* ? mark the current location */
+        call DstERO;
+    if bitCnt + cnt > 8 then    /* will overflow into next byte */
+    do;                         /* use what we can in existing byte */
         cnt = cnt - (8 - bitCnt);
         curByte = curByte or shr(val, cnt);
-        call WrCurRelByte;
+        call WrCurRelByte;      /* write it out */
     end;
-    curByte = curByte or ShiftBit;
-    if (bitCnt := outBitCnt) = 8 then
-        call WrCurRelByte;
+    curByte = curByte or ShiftBit;  /* merge remaining bits */
+    if (bitCnt := bitsToUse) = 8 then   /* we have a full byte */
+        call WrCurRelByte;          /* so write it out */
 end;
 
 
-
-
-WrRel8: procedure(val);
+WrRel8: procedure(val);     /* write 8 bit value to rel file */
     declare val byte;
     call WrBits(val, 8);
 end;
 
 
-WrRel16: procedure(val);
+WrRel16: procedure(val);    /* write 16 bit address to rel file */
     declare val word;
 
     call WrRel8(low(val));
     call WrRel8(high(val));
 end;
 
-WrRelAField: procedure;
-    call WrBits(addressType, 2);
-    call WrRel16(addressVal);
+WrRelAField: procedure;     /* write A field to rel file */
+    call WrBits(aFieldMode, 2); /* mode is 2 bits */
+    call WrRel16(aFieldVal);    /* value is 16 bits */
 end;
 
 
-WrRelBField: procedure;
+WrRelBField: procedure;     /* write B field to rel file */
     declare i byte;
 
     call WrBits(bFieldLen, 3);
@@ -939,216 +984,236 @@ WrRelBField: procedure;
 end;
 
 
-WrIRLSymbol: procedure;
+WriteSymbolToIrl: procedure;    /* write symbol to index file */
     declare i byte;
 
-    call WriteRelOffsetToIRL;
-    do i = 1 to bFieldLen;    
+    call WriteF2LocToIrl;       /* write current loc */
+    do i = 1 to bFieldLen;      /* the name */
         call WriteIRLByte(bFieldName(i - 1));
     end;
-    call WriteIRLByte(0feh);
+    call WriteIRLByte(0feh);    /* and the end marker */
 end;
 
 
-
+/* process an 8 bit constant */
 ProcessConst: procedure;
     declare val byte;
 
-    val = RdBits(8);
-    if dumpFlag then
+    val = RdBits(8);        /* read a byte */
+    if skipping then
         return; 
-    if dFlag then
+    if dFlag then           /* dump to user */
     do;
-        call CheckNewLine;
-        call PutHexByte(val);
+        call CheckNewLine;  /* check new line required */
+        call PrintHexByte(val);   /* show the value then space */
         call CWrite(' ');
-        segs(addressMode) = segs(addressMode) + 1;
-        firstPos = FALSE;
+        locations(curMode) = locations(curMode) + 1;  /* increment location pointer */
+        forceNl = FALSE;   /* not at first pos on line */
     end;
-    if assignment then
+    if isNewRel then      /* we are generating new file */
     do;
-        call WrBits(0, 1);
+        call WrBits(0, 1);  /* rel format 0 bit, 8 bits data */
         call WrRel8(val);
     end;
 end;
 
-SetAddress: procedure(mode);
+/* process a 16  bit relative item */
+ProcessRelative: procedure(mode);
     declare mode byte;
     declare addr word;
 
-    addr = Read16Bit; 
-    if dumpFlag then
+    addr = Read16Bit;       /* get the 16 bit address */
+    if skipping then
         return;
-    if dFlag then
+    if dFlag then           /* dump to user */
     do;
-        call CheckNewLine;
-        call PutModeAddr(mode, addr);
-        segs(addressMode) = segs(addressMode) + 2;
-        firstPos = (segs(addressMode) and 0fh) = 1;
+        call CheckNewLine;  /* check new line required */
+        call PrintModeAddr(mode, addr);   /* put rel mode and address */
+        locations(curMode) = locations(curMode) + 2;  /* adjust the location pointer */
+        forceNl = (locations(curMode) and 0fh) = 1; /* check if we need to force a new line next time */
     end;
-    if assignment then
+    if isNewRel then      /* we are generating new file */
     do;
-        call WrBits(1, 1);
+        call WrBits(1, 1);  /* 1 bit, 2 mode bits, 16 bit address */
         call WrBits(mode, 2);
         call WrRel16(addr);
     end;
 end;
 
-ProcessExtendedLink: procedure(type);
+/* process a special link item */
+ProcessSpecialLink: procedure(type);
     declare type byte;
 
-    if type >= 5 and type <> 15 then
-        call ReadAField;
+    if type >= SIZCOMM and type <> ENDFILE then
+        call ReadAField;    /* get A field if present */
 
-    if type <= 8 then
-        call ReadbField;
+    if type <= UNUSED8 then /* get B field if present */
+        call ReadBField;
 
-    if type = 14 then
+    if type = ENDMOD then   /* end mod then skip to byte boundary */
     do;
-        if fileId then
-            do while in2Cnt <> 8;
+        if useRep then       /* make sure we use the correct input file */
+            do while repCnt <> 8;
                 if RdBits(1) then
                     ;
             end;
         else
-            do while in1Cnt <> 8;
+            do while srcCnt <> 8;
                 if RdBits(1) then
                     ;
             end;
     end;
-    if type = 2 then
+    if type = PROGNAM then  /* save the module name */
     do;
         call move(bFieldLen, .bFieldName, .moduleName);
         moduleLen = bFieldLen;
     end;
 
-    if dumpFlag then
+    if skipping then        /* all done */
         return;
 
-    if dFlag then
+    if dFlag then           /* dumping to user */
     do;
-        call CWriteCRLF;
-        firstPos = TRUE;
-        call WriteStr(linkDescriptions(type));
-        if type <= 8 then
+        call CWriteCRLF;    /* start new line */
+        forceNl = TRUE;     /* flag forced NL */
+        call WriteStr(linkDescriptions(type));  /* write the special item description */
+        if type <= UNUSED8 then     /* has B field so print it */
             call PrintBField;
-        if type >= 5 and type <> 15 then
-            call PrintAField;
+        if type >= SIZCOMM and type <> ENDFILE then
+            call PrintAField;       /* has A field so print it */
 
-        if type = 11 then
+        if type = SETLOC then       /* set new location address */
         do;
-            addressMode = addressType;
-            segs(addressMode) = addressVal;
+            curMode = aFieldMode;
+            locations(curMode) = aFieldVal;
         end;
 
-        if type = 14 then
+        if type = ENDMOD then       /* end of module so reset */
         do;
-            segs(ABSOLUTE), segs(CODEREL), segs(DATAREL), segs(COMMREL) = 0;
-            addressMode = CODEREL;
+            locations(ABSOLUTE), locations(CODEREL), locations(DATAREL), locations(COMMREL) = 0;
+            curMode = CODEREL;
             call CWriteCRLF;
         end;
     end;
 
-    if pFlag then
-        if type = 0 then
+    if pFlag then                   /* listing publics ? */ 
+        if type = ENTRYSYM then     /* public symbol ? */
         do;
-            call CWriteCRLF;
+            call CWriteCRLF;        /* newline indented symbol name */
             call WriteStr(.('   $'));
             call PrintBField;
         end;
 
-    if mFlag or pFlag then
-        if type = 2 then
+    if mFlag or pFlag then          /* module or public names ? */
+        if type = PROGNAM then      /* module name ? */
         do;
-            call CWriteCRLF;
+            call CWriteCRLF;        /* new line and non indented symbol name */
             call PrintBField;
         end;
 
-    if assignment then
+    if isNewRel then              /* creating new file */
     do;
-        if type < 15 then
+        if type < ENDFILE then      /* not end file */
         do;
-            call WrBits(4, 3);
+            call WrBits(4, 3);      /* write '11' special type and A/B fields are needed */
             call WrBits(type, 4);
-            if type >= 5 then
+            if type >= SIZCOMM then
                 call WrRelAField;
-            if type <= 8 then
+            if type <= UNUSED8 then
                 call WrRelBField;
         end;
-        if type = 14 then
+        if type = ENDMOD then       /* pad to byte boundary if end of  module */
             do while bitCnt <> 0;
                 call WrBits(0, 1);
             end;
     end;
-    if iFlag then
-        if type = 0 then
-            call WrIRLSymbol;
+    if iFlag then                   /* if index then add symbol to index */
+        if type = ENTRYSYM then
+            call WriteSymbolToIrl;
 end;
+
+/*
+    read a rel item from the current input stream and process it
+        returns CONSTBYT if 8 bit const processed
+        returns CREL..COMMREL for relative 16 bit addresses
+        returns linkItem for special link items
+*/
 
 RdRelItem: procedure byte public;
     declare linkItem byte;
 
-    if RdBits(1) = 0 then
+    if RdBits(1) = 0 then       /* absolute */
     do;
-        call ProcessConst;
-        return 19;
+        call ProcessConst;      /* copy the byte */
+        return CONSTBYT;
     end;
-    else if (linkItem := RdBits(2)) > 0 then
+    else if (linkItem := RdBits(2)) > 0 then    /* simple relative 16 bits */
     do;
-        call SetAddress(linkItem);
-        return linkItem + 15;
+        call ProcessRelative(linkItem);
+        return linkItem + ENDFILE; /* CREL..COMMREL */
     end;
-    else
+    else                        /* special item */
     do;
         linkItem = RdBits(4);
-        call ProcessExtendedLink(linkItem);
-        return linkItem;
+        call ProcessSpecialLink(linkItem);
+        return linkItem;        /* return the item type */
     end;
 end;
 end;
-find.plm
-find: do;
-$include(find.ipx)
+cmdlin.plm
+parseCmdLine: do;
+$include(cmdlin.ipx)
 declare nullStr byte data(0);
 
+/* utility to advance cmdline pointer to next char */
 AdvNextChar: procedure;
-    cmdBufPtr = cmdBufPtr + 1;
+    spec.strP = spec.strP + 1;
 end;
 
-NotInList: procedure(strP) bool;
-    declare strP address;
-    declare ch based strP byte;
+/*
+    utility of check if current cmdCh is not a delimiter
+    returns FALSE if in list and TRUE otherwise
+    Note not delimP points to the delimiters terminated with 0ffh
+*/
+IsNotDelim: procedure(delimP) bool;
+    declare delimP address;
+    declare ch based delimP byte;
 
     do while ch <> 0ffh;
         if cmdCh = ch then
             return FALSE;
-        strP = strP + 1;
+        delimP = delimP + 1;
     end;
     return TRUE;
 end;
 
-Select: procedure;
+/* get replacement file name in fcb1. Set noReplacement if missing */
+GetReplacement: procedure;
 
     call advNextChar;
-    if cmdCh = '>' or cmdCh = ',' then
-        selectionFlag = TRUE;
+    if cmdCh = '>' or cmdCh = ',' then  /* no file !! */
+        noReplacement = TRUE;
     else
     do;
-        libFcbPtr = .fcb1;
-        if (cmdBufPtr := ParseFile(.cmdBufPtr)) >= 0fffeh then
+        spec.fcbP = .fcb1;      /* get replacement in fcb1 */
+        if (spec.strP := ParseFile(.spec)) >= 0fffeh then
             call Fatal(.aSyntaxError);
     end;
 end;
 
 
-ProcessSelectionItem: procedure public;
+/*
+    parse module name
+    updates cmdline ptr and sets isRange and isEOP appropriately
+*/
+ParseModuleName: procedure public;
     isRange = FALSE;
-    subItemLen = 0;
+    tokenLen = 0;
     call advNextChar;
 
-    do while NotInList(.(',=', 0, '>)-', 0ffh));
-        subItemName(subItemLen) = cmdCh;
-        if (subItemLen := subItemLen + 1) >= 7 then
+    do while IsNotDelim(.(',=', 0, '>)-', 0ffh));    /* continue until delimiter seen */
+        tokenName(tokenLen) = cmdCh;
+        if (tokenLen := tokenLen + 1) >= 7 then     /* oops too many chars */
             call Fatal(.aSyntaxError); 
         call advNextChar;
     end;
@@ -1156,79 +1221,80 @@ ProcessSelectionItem: procedure public;
     if cmdCh = '-' then
         isRange = TRUE;
     if cmdCh = ')' then
-        isEndOfParen = TRUE;
+        isEOP = TRUE;
 end;
 
 
-ProcessSelection: procedure;
-    if selectionRequested then
+/* parse the (..) modifier i.e. for select */
+ParseSelect: procedure;
+    if selectFlag then                /* nested select not allowed */
         call Fatal(.aSyntaxError);
 
-    selectionRequested = TRUE;
-    cmdLineCopy = cmdBufPtr;
+    selectFlag = TRUE;
+    startSelectionP = spec.strP;    /* save start of selection */
 
-    do while cmdCh <> ')';
-        call ProcessSelectionItem;
-        if subItemLen = 0 then
-            emptyItem = TRUE;
-        else if not FindEntry(.subItemName, subItemLen) then
-            call InsertEntry(.subItemName, subItemLen, 0, 0);
+    do while cmdCh <> ')';          /* continue until end of select modifier */
+        call ParseModuleName;       /* parse a module */
+        if tokenLen = 0 then        /* record if none */
+            noName = TRUE;
+        else if not FindModule(.tokenName, tokenLen) then    /* add any new module */
+            call InsertModule(.tokenName, tokenLen, FALSE, 0);
 
-        if isRange then
+        if isRange then             /* we have a range so get end name */
         do;
-            call ProcessSelectionItem;
-            if subItemLen = 0 then
+            call ParseModuleName;   /* parse end module, but don't save as only syntax check here */
+            if tokenLen = 0 then    /* no name: use dummy name 'l' to signify to end of file */
             do;
-                subItemLen = 1;
-                subItemName(0) = 'l';
+                tokenLen = 1;
+                tokenName(0) = 'l';
             end;
         end;
-        if NotInList(.(',)', 0ffh)) then
+        if IsNotDelim(.(',)', 0ffh)) then    /* should have ',' or ')' */
             call Fatal(.aSyntaxError);
     end;
 end;
 
+/* parse the <..> modifier i.e. for replace / delete */
+ParseModify: procedure;
+    declare replaceP address;       /* -> replace file name */
 
-DelOrReplace: procedure;
-    declare selectionPtr address;
+    modifyFlag = TRUE;              /* note we are in modify group */
 
-    angleFlag = TRUE;
-
-    do while cmdCh <> '>';
-        selectionPtr = cmdBufPtr + 1;
-        selectionFlag = FALSE;
-        call ProcessSelectionItem;
-        if subItemLen = 0 then
+    do while cmdCh <> '>';          /* go till end of modify modifier */
+        replaceP = spec.strP + 1;   /* single name is a short hand for replace */
+        noReplacement = FALSE;      /* so we have a replacement */
+        call ParseModuleName;       /* get the module name */
+        if tokenLen = 0 then        /* check if missing */
             call Fatal(.aSyntaxError);
 
-        if cmdCh = '=' then
+        if cmdCh = '=' then         /* explicit replacement */
         do;
             hasAssign = TRUE;
-            selectionPtr = cmdBufPtr + 1;
-            call Select;
-            if selectionFlag then
-                selectionPtr = 0;
+            replaceP = spec.strP + 1; /* point to start of replacement */
+            call GetReplacement;    /* get replacement file name to fcb1 */
+            if noReplacement then   /* it's a delete so no replacement */
+                replaceP = 0;
         end;
 
-        if FindEntry(.subItemName, subItemLen) then
+        if FindModule(.tokenName, tokenLen) then /* if already known update to record replacement */
         do;
-            curModule.value = selectionPtr;
-            curModule.len = curModule.len or 80h;
+            curModule.replaceP = replaceP;
+            curModule.len = curModule.len or 80h;   /* set replaceFlag */
         end;
-        else
-            call InsertEntry(.subItemName, subItemLen, 1, selectionPtr);
+        else                                    /* or create new if does not exist */
+            call InsertModule(.tokenName, tokenLen, TRUE, replaceP);
 
-        if NotInList(.(',>', 0ffh)) then
+        if IsNotDelim(.(',>', 0ffh)) then    /* need , or > here */
             call Fatal(.aSyntaxError);
     end;
 end;
 
-
-ProcessOption: procedure;
+/* parse the 4 option modifiers */
+ParseOption: procedure;
     
     call advNextChar;
 
-    do while cmdCh <> ']';
+    do while cmdCh <> ']';      /* should end with ] */
         if cmdCh = 'D' then
             dFlag = TRUE;
         else if cmdCh = 'I' then
@@ -1243,55 +1309,58 @@ ProcessOption: procedure;
     end;
 end;
 
+/* parse a file spec and modifiers */
 
-ParseLine: procedure(allowAssign) public;
-    declare allowAssign bool;
+ParseSpec: procedure(allowEq) public;
+    declare allowEq bool;
 
-    angleFlag = FALSE;
-    selectionRequested = FALSE;
-    highMem = topMemory;
+    modifyFlag = FALSE;             /* no < or ( so far */
+    selectFlag = FALSE;
+    botP = topP;                    /* clear module list info */
 
     call advNextChar;
-    libFcbPtr = .in1Fcb;
+    spec.fcbP = .srcFcb;             /* fill srcFcb */
 
-    if (cmdBufPtr := ParseFile(.cmdBufPtr)) >= 0fffeh then
-        call Fatal(.aSyntaxError);
+    if (spec.strP := ParseFile(.spec)) >= 0fffeh then   /* parse the file and update the position in cmdline */
+        call Fatal(.aSyntaxError);                      /* error if bad file */
 
-    if cmdBufPtr = 0 then
-        cmdBufPtr = .nullStr;
+    if spec.strP = 0 then           /* if NULL point to empty string - we are at end of line */
+        spec.strP = .nullStr;
 
-    do while NotInList(.(',=', 0, 0ffh));
-        if cmdCh = '(' then
-            call ProcessSelection;
-        else if cmdCh = '<' then
-            call DelOrReplace;
-        else if cmdCh = '[' then
-            call ProcessOption;
+    do while IsNotDelim(.(',=', 0, 0ffh));   /* until ',' '=' or EOL */
+        if cmdCh = '(' then         /* (....) selection */
+            call ParseSelect;
+        else if cmdCh = '<' then    /* <...> delete/replace */
+            call ParseModify;
+        else if cmdCh = '[' then    /* [...] options */
+            call ParseOption;
         else
             call  Fatal(.aSyntaxError);
         call advNextChar;
     end;
 
-    if cmdCh = 0 then
-        isEndOfCmdLine = TRUE;
-    else if cmdCh = '=' and not allowAssign then
+    if cmdCh = 0 then               /* note if at end of line */
+        isEOL = TRUE;
+    else if cmdCh = '=' and not allowEq then    /* if = then check if allowed here */
         call Fatal(.aSyntaxError);
 end;
 
+/* initial scan of command line, does not build the output file */
 FirstScan: procedure public;
-    isEndOfCmdLine = FALSE;
-    call ParseLine(TRUE);
-    do while not isEndOfCmdLine;
-        call ParseLine(FALSE);
+    isEOL = FALSE;
+    call ParseSpec(TRUE);       /* parse first spec '=' allowed */
+    do while not isEOL;         /* parse remaining specs '=' not allowed at top level */
+        call ParseSpec(FALSE);
     end;
 end;
 
 end;
 
-parse.plm
-parse: do;
-$include(parse.ipx)
+parsef.plm
+parseFile: do;
+$include(parsef.ipx)
 
+/* convert input to upper case or to CR if control character */
 
 ToUpper: procedure(ch) byte;
     declare ch byte;
@@ -1303,88 +1372,92 @@ ToUpper: procedure(ch) byte;
     return ch;
 end;
 
-ParseFile: procedure(ptr) word public;
-    declare ptr address;
-    declare nameFcbPair based ptr structure(nameP address, fcbP address);
-    declare (filenamePtr, fcbAddr) address;
-    declare (curCh, namePtr, fcbPtr) byte;
-    declare fcb based fcbAddr (32) byte;
-    declare filename based filenamePtr (12) byte;
-    declare fcbDelim(*) byte data(CR, ' =.:<>_[],()');
+/* parse a file name to fcb. Input is a pointer to 2 addresses the input string and output fcb */
 
-    GetChFromFilename: procedure;
-        curCh = ToUpper(filename(namePtr := namePtr + 1));
+ParseFile: procedure(ptr) address public;
+    declare ptr address;
+    declare fspec based ptr FSPEC$T;
+    declare (strP, fcbP) address;
+    declare (curCh, nameIdx, fcbIdx) byte;
+    declare fcb based fcbP (32) byte;
+    declare str based strP (12) byte;
+    declare delim(*) byte data(CR, ' =.:<>_[],()');
+
+    ChFromStr: procedure;  /* get next char */
+        curCh = ToUpper(str(nameIdx := nameIdx + 1));
     end;
 
-    TestDelim: procedure bool;
+    /* return TRUE if curCh is a file delimiter */
+    IsFileDelim: procedure bool;
         declare i byte;
 
-        do i = 0 to 12;
-            if fcbDelim(i) = curCh then
+        do i = 0 to last(delim);
+            if delim(i) = curCh then
                 return TRUE;
         end;
         return FALSE;
     end;
 
-    PutToFcb: procedure;
-        fcb(fcbPtr := fcbPtr + 1) = curCh;
+    ChToFcb: procedure;     /* put char to fcb */
+        fcb(fcbIdx := fcbIdx + 1) = curCh;
     end;
 
 
-    filenamePtr = nameFcbPair.nameP;
-    fcbAddr = nameFcbPair.fcbP;
+    strP = fspec.strP;
+    fcbP = fspec.fcbP;
 
     curCh = ' ';
-    fcbPtr =0;
-    namePtr = 0ffh; 
+    fcbIdx =0;
+    nameIdx = 0ffh; 
 
-    do while fcbPtr < 15;
-        if fcbPtr = 11 then
+    do while fcbIdx < 15;       /* init fcb */
+        if fcbIdx = 11 then     /* name is spaces reset is 0 */
             curCh = 0;
-        call PutToFcb;
+        call ChToFcb;
     end;
 
-    fcb(0) = 0;
+    fcb(FCB$DR) = 0;            /* assume default drive */
+
     do while 1;
-        call GetChFromFilename;
-        do while curCh = ' ';
-            call GetChFromFilename;
+        call ChFromStr;
+        do while curCh = ' ';   /* skip leading spaces */
+            call ChFromStr;
         end;
 
-        if TestDelim then
+        if IsFileDelim then         /* no name so return error */
             return 0ffffh;
 
-        fcbPtr = 0;
-        do while not TestDelim;
-            if fcbPtr >= 8 then
+        fcbIdx = 0;
+        do while not IsFileDelim;   /* get filename */
+            if fcbIdx >= 8 then /* more than 8 chars then error */
                 return 0ffffh;
-            call PutToFcb;
-            call GetChFromFilename;
+            call ChToFcb;
+            call ChFromStr;
         end;
-        if curCh = ':' then
+        if curCh = ':' then     /* was it a drive spec ? */
         do;
-            if not (fcb(0) = 0 and fcbPtr = 1) then
+            if not (fcb(0) = 0 and fcbIdx = 1) then     /* error if not x: or more than 1 drive spec */
                 return 0ffffh;
-            if (fcb(0) := fcb(1) - 'A' + 1) > 26 then
+            if (fcb(0) := fcb(1) - 'A' + 1) > 26 then   /* error if not A-Z */
                 return 0ffffh;
-            fcb(fcbPtr) = ' ';
+            fcb(fcbIdx) = ' ';                          /* undo the char save */
         end;
-        else
+        else                    /* get ext if present */
         do;
-            fcbPtr = 8;
-            if curCh = '.' then
+            fcbIdx = 8;         /* update insert point in fcb */
+            if curCh = '.' then /* check for '.' */
             do;
-                call GetChFromFilename;
-                do while not TestDelim;
-                    if fcbPtr >= 11 then
+                call ChFromStr;        /* collect the ext */
+                do while not IsFileDelim;   /* make sure no more than 3 char ext else error */
+                    if fcbIdx >= 11 then
                         return 0ffffh;
-                    call PutToFcb;
-                    call GetChFromFilename;
+                    call ChToFcb;
+                    call ChFromStr;
                 end;
             end;
-            if curCh = CR then
+            if curCh = CR then          /* return 0 for end of line */
                 return 0;
-            return fileNamePtr + double(namePtr);
+            return .str(nameIdx);       /* else return pointer to next char */
         end;
     end;
 end;
@@ -1393,157 +1466,173 @@ end;
 
 util.asm
     name    util
+; assembler routines to extract bits from the rel file and to do string equality check
+
     public  RdBits, StrEqu
-    extrn   fileId, srcERB, mStart
-    extrn   in1Len, in1Cnt, in1Idx, in1Buf
-    extrn   in2Len, in2Cnt, in2Idx, in2Buf
-    extrn   RdBuf1, RdBuf2
+    extrn   useRep, SrcERO, mrkSrc
+    extrn   srcSiz, srcCnt, srcIdx, srcBuf
+    extrn   repSiz, repCnt, repIdx, repBuf
+    extrn   Rd1Buf, Rd2Buf
 
     DSEG
-inByt1: db  0
-inByt2: db  0
+relByt: db  0               ; copy of bytes being processed
+irlByt: db  0
 
     CSEG
 
+; procedure to read the next n bits from the rel/irl data stream
+; note the global useRep determines which file to read from 
 ; RdBits: procedure(n) byte public; declare n byte; end;
 RdBits:
-    lda     fileId
+    lda     useRep          ; is input from replacement file
     rar
-    jc      rdAlt
+    jc      rdRep           ; jmp if yes
 
-    mvi     b, 0
+    mvi     b, 0            ; result byte
 
-rd1:
-    lxi     h, in1Cnt
+rdSrc1:
+    lxi     h, srcCnt       ; bit in current byte
     inr     m
     mov     a, m
-    cpi     1               ; first bit
-    jz      rd2
+    cpi     1               ; srcCnt was 0 so force load byte
+    jz      rdSrc2
     cpi     9               ; used all bits
-    jc      rd3
+    jc      rdSrc3
     mvi     m, 1            ; reset to first bit
-    lhld    in1Idx          ; point to next byte
+    lhld    srcIdx          ; point to next byte
     inx     h
-    shld    in1Idx
+    shld    srcIdx
     xchg
-    lhld    in1Len          ; check if we need new buffer
+    lhld    srcSiz          ; check if we need new buffer
     mov     a, e
     sub     l
     mov     a, d
     sbb     h
-    jc      rd2
-    lxi     h, 0            ; yes to reset pointer
-    shld    in1Idx
+    jc      rdSrc2
+    lxi     h, 0            ; yes so reset pointer
+    shld    srcIdx
     push    b
-    call    RdBuf1          ; and read buffer
+    call    Rd1Buf          ; and read buffer
     pop     b
 
-rd2:
-    lhld    in1Idx          ; get the next byte
-    xchg
-    lxi     h, in1Buf
+rdSrc2:
+    lhld    srcIdx          ; get the next byte
+    xchg                    ; could remove if next instruction is lxi d, srcBuf
+    lxi     h, srcBuf
     dad     d
     mov     a, m
-    sta     inByt1
+    sta     relByt
 
-rd3:                        ; merge the bit
+rdSrc3:                     ; merge the bit
     mov     a, b
-    rlc
+    rlc                     ; shl result
     ani     0FEh
     mov     b, a
-    lda     inByt1
+    lda     relByt          ; get next bit
     rlc
-    sta     inByt1
+    sta     relByt
     ani     1
-    ora     b
+    ora     b               ; merge
     mov     b, a
-    lda     mStart          ; do we need to update the start location
+
+; !PMO! the following code would have been quicker and shorter
+; given that for relByt each bit is only read once
+;   lda     relByt
+;   add     a, a
+;   sta     relByt
+;   mov     a, b
+;   adc     a, a
+;   mov     b, a
+
+    lda     mrkSrc          ; do we need to record the start location
     rar
-    jnc     rd4
+    jnc     rdSrc4
     push    b
-    call    srcERB          ; slow but clears mStart flag
+    call    SrcERO          ; slow but clears mrkSrc flag
     pop     b
 
-rd4:                        ; get all bits
+rdSrc4:                     ; get all bits
     dcr     c
-    jnz     rd1
+    jnz     rdSrc1
     mov     a, b
     ret
 
-; read from alternate stream
+; read from replacement file
 
-rdAlt:
+rdRep:
     mvi     b, 0
 
-rdAlt1:
-    lxi     h, in2Cnt               ; need new byte?
+rdRep1:
+    lxi     h, repCnt       ; need new byte?
     inr     m
     mov     a, m
     cpi     9
-    jc      rdAlt3
-    mvi     m, 1                    ; reset bit counter
-    lhld    in2Idx
-    inx     h                       ; advance pointer
-    shld    in2Idx
+    jc      rdRep3
+    mvi     m, 1            ; reset bit counter
+    lhld    repIdx
+    inx     h               ; advance pointer
+    shld    repIdx
     xchg
-    lhld    in2Len
+    lhld    repSiz
     mov     a, e
     sub     l
     mov     a, d
     sbb     h
-    jc      rdAlt2                  ; do we need a new buffer
-    lxi     h, 0                    ; reset pointer
-    shld    in2Idx
+    jc      rdRep2          ; do we need a new buffer
+    lxi     h, 0            ; reset pointer
+    shld    repIdx
     push    b
-    call    RdBuf2                  ; load the buffer
+    call    Rd2Buf          ; load the buffer
     pop     b
 
-rdAlt2:                             ; get the new byte
-    lhld    in2Idx
+rdRep2:                     ; get the new byte
+    lhld    repIdx
     xchg
-    lxi     h, in2Buf
+    lxi     h, repBuf
     dad     d
     mov     a, m
-    sta     inByt2
+    sta     irlByt
 
-rdAlt3:                             ; merge the bit
+rdRep3:                     ; merge the bit
     mov     a, b
     rlc
     ani     0FEh
     mov     b, a
-    lda     inByt2
+    lda     irlByt
     rlc
-    sta     inByt2
+    sta     irlByt
     ani     1
     ora     b
     mov     b, a
-    dcr     c                       ; loop till done
-    jnz     rdAlt1
+    dcr     c               ; loop till done
+    jnz     rdRep1
     mov     a, b
     ret
 
 
-; StrEqu(str1, str2, len) bool public ; declare (str1, str2) address, len byte; end;
+; asm code to do string compare for equality 
+; StrEqu(str1, str2, len) bool public;
+;     declare (str1, str2) address, len byte; end;
 
 StrEqu:
-    mov     a, e
-    pop     h
-    xthl
-    mov     e, a
+    mov     a, e            ; length
+    pop     h               ; return address
+    xthl                    ; str1
+    mov     e, a            ; !PMO! mov a,e and mov e,a not needed
 
 str1:
     ldax    b
     cmp     m
-    jnz     str2
-    inx     b
+    jnz     str2            ; not the same
+    inx     b               ; try next char
     inx     h
-    dcr     e
+    dcr     e               ; check if all done
     jnz     str1
-    mvi     a, 1
+    mvi     a, 1            ; TRUE
     ret
 
 str2:
-    xra     a
+    xra     a               ; FALSE
     ret
 
     end
@@ -1553,6 +1642,8 @@ str2:
 io: do;
 $include(io.ipx)
 
+/* file operations that wrap the low level CPM calls */
+
 declare aAborted(*) byte initial('ABORTED$');
 declare aDiskReadError(*) byte initial('DISK READ ERROR$');
 declare aDiskWriteError(*) byte initial('DISK WRITE ERROR$');
@@ -1561,6 +1652,7 @@ declare aDirectoryFull(*) byte initial('DIRECTORY FULL$');
 declare aNoFile(*) byte initial('NO FILE: $');
 declare rwSectorCnt word;
 
+/* print the file name stored in an fcb in the format name.ext to the console */
 PrintFileName: procedure(fcbP);
     declare fcbP address;
     declare fcb based fcbP (33) byte;
@@ -1574,6 +1666,7 @@ PrintFileName: procedure(fcbP);
     end;
 end;
 
+/* report file error on the console in the format msg filename. Then exit */
 IOErr: procedure(msg, fcbP) public;
     declare (msg, fcbP) address;
 
@@ -1582,34 +1675,37 @@ IOErr: procedure(msg, fcbP) public;
     call Fatal(.('$'));
 end;
 
+
+/* support procedure to read / write a buffer */
 RwFile: procedure(bufP, len, fcbP, isWrite);
     declare (bufP, fcbP) address, len word, isWrite bool;
 
-    if CStat then
+    if CStat then           /* check if user pressed a key to abort */
         call Fatal(.aAborted);
 
-    rwSectorCnt = 0;
+    rwSectorCnt = 0;        /* count of sectors read/written */
 
-    do while (len := len - 128) <> 0ff80h;
-        call SetDMA(bufP);
-        if isWrite = FALSE then
+    do while (len := len - 128) <> 0ff80h;  /* transfer up to maximum len bytes */
+        call SetDMA(bufP);                  /* set transfer address */
+        if isWrite = FALSE then             /* select read / write operation */
         do;
-            if Read(fcbP) > 0 then
-                if rwSectorCnt = 0 then
+            if Read(fcbP) > 0 then          /* read sector and check ok */
+                if rwSectorCnt = 0 then     /* if not and no sectors then error */
                     call Fatal(.aDiskReadError);
-                else
+                else                        /* else treat as EOF */
                     return;
         end;
-        else if Write(fcbP) > 0 then
+        else if Write(fcbP) > 0 then        /* write and check ok */
             call Fatal(.aDiskWriteError);
 
-        bufP = bufP + 128;
+        bufP = bufP + 128;                  /* update the transfer address and sector cnt */
         rwSectorCnt = rwSectorCnt + 1;
     end;
-    call SetDMA(.cmdLine);
+    call SetDMA(.cmdLine);                  /* revert to default DMA. Note EOF rout doesn't do this */
 end;
 
 
+/* wrapper to read a buffer and return the number of sectors read */
 ReadFile: procedure(bufP, len, fcbP) word public;
     declare (bufP, fcbP) address, len word;
 
@@ -1617,52 +1713,65 @@ ReadFile: procedure(bufP, len, fcbP) word public;
     return rwSectorCnt;
 end;
 
+/* wrapper to write a buffer */
 WriteFile: procedure(bufP, len, fcbP) public;
     declare (bufP, fcbP) address, len word;
 
     call RwFile(bufP, len, fcbP, TRUE);
 end;
 
+
+/* create a new file using the passed in fcb */
 CreateFile: procedure(fcbP) public;
     declare fcbP address;
     declare fcb based fcbP (32) byte;
     declare i byte;
 
-    call Delete(fcbP);
+    call Delete(fcbP);              /* delete any existing file */
 
-    do i = 12 to 32;
+    do i = 12 to 32;                /* clear out the fcb except for the drive and name.ext */
         fcb(i) = 0;
     end;
 
-    if Make(fcbP) = 255 then
+    if Make(fcbP) = 255 then        /* make the new file - error then disk is full */
         call Fatal(.aDirectoryFull);
 end;
 
+/* open existing file as per the passed in fcb */
 OpenFile: procedure(fcbP) public;
     declare fcbP address;
     declare fcb based fcbP (32) byte;
 
-    fcb(FCB$EX), fcb(FCB$CR) = 0;
-    if Open(fcbP) = 255 then
+    fcb(FCB$EX), fcb(FCB$CR) = 0;   /* set ex and cr to 0 to start at beginning */
+    if Open(fcbP) = 255 then        /* open and check ok */
         call IOErr(.aNoFile, fcbP);
 end;
 
+/* close existing file as per passed in fcb */
 CloseFile: procedure(fcbP) public;
     declare fcbP address;
     
-    if Close(fcbP) = 255 then
+    if Close(fcbP) = 255 then       /* close and check ok */
         call Fatal(.aCannotClose);
 end;
 end;
 
 cpm.plm
+/* raw cpm interface procedures */
+/*
+    note although Delete & Rename return a result code
+    the main code assumes they don't hence the procedure
+    definitions don't match.
+    Modifying Delete & Rename to be simple procedures
+    would prevent the call to Mon2
+*/
 cpm: do;
 $include(cpm.ipx)
 
 CWrite: procedure(ch) public;
     declare ch byte;
    
-    call mon1(COWR, ch);
+    call Mon1(COWR, ch);
 end;
 
 CWriteCRLF: procedure public;
@@ -1674,101 +1783,96 @@ end;
 WriteStr: procedure(str) public;
     declare str address;
 
-    call mon1(COWSTR, str);
+    call Mon1(COWSTR, str);
 end;
 
 
 
 CStat: procedure byte public;
-    return mon2(COSTAT, 0);
+    return Mon2(COSTAT, 0);
 end;
 
 
 SetDMA: procedure(bufP) public;
     declare bufP address;
 
-    call mon1(FDMA, bufP);
+    call Mon1(FDMA, bufP);
 end;
 
 Delete: procedure(fcbP) byte public;        /* globally defined as returning nothing */
     declare fcbP address;
 
-    return mon2(FDEL, fcbP);
+    return Mon2(FDEL, fcbP);
 end;
 
 Open: procedure(fcbP) byte public;
     declare fcbP address;
 
-    return mon2(FOPEN, fcbP);
+    return Mon2(FOPEN, fcbP);
 end;
 
 Read: procedure(fcbP) byte public;
     declare fcbP address;
 
-    return mon2(FREAD, fcbP);
+    return Mon2(FREAD, fcbP);
 end;
 
 
 Write: procedure(fcbP) byte public;
     declare fcbP address;
 
-    return mon2(FWRITE, fcbP);
+    return Mon2(FWRITE, fcbP);
 end;
 
 Make: procedure(fcbP) byte public;
     declare fcbP address;
 
-    return mon2(FMAKE, fcbP);
+    return Mon2(FMAKE, fcbP);
 end;
 
 Close: procedure(fcbP) byte public;
     declare fcbP address;
 
     call SetDMA(.cmdLine);
-    return mon2(FCLOSE, fcbP);
+    return Mon2(FCLOSE, fcbP);
 end;
 
 Rename: procedure(fcbP) byte public;        /* globally defined as returning nothing */
     declare fcbP address;
 
-    return mon2(FREN, fcbP);
+    return Mon2(FREN, fcbP);
 end;
 
-declare cmdBuffer(128) byte public;
-declare in2Buf(512) byte public;
-declare in1Buf(1024) byte public;
-declare outIRLBuf(1024) byte public;
-declare outRelBuf(1) byte public at(.MEMORY);      /* uses all of remaining memory */
+/* the core I/O buffer declarations */
+declare cmdBuffer(128) byte public;                 /* copy of command line */
+declare repBuf(512) byte public;                    /* input buffer for replacement file */
+declare srcBuf(1024) byte public;                   /* input buffer for source file */
+declare outIrlBuf(1024) byte public;                /* output buffer for IRL file */
+declare outRelBuf(1) byte public at(.MEMORY);       /* output buffer for REL file - uses all of remaining memory */
 end;
 
 cpmvec.asm
     name cpmvec
-    public  mon1, mon2, mon3, Os
+    public  Mon1, Mon2, Mon3, Reboot
 
+; misc thunks to the underlying CPM call at location 5
+; also provides a convinent place to note address of reboot
     ASEG
     org 0
-Os:
+Reboot:
     org 5
 cpm: 
 
     CSEG
 
-mon1:
+Mon1:               ; cpm no result
     jmp     cpm
 
-mon2: 
+Mon2:               ; cpm byte result
     jmp     cpm
 
-mon3:
+Mon3:               ; guess cpm word result. Not actually called
     jmp     cpm
 
     end
-
-; ---------------------------------------------------------------------------
-; plm80.lib
-    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    .db 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    .db 0, 0, 0, 0, 0, 0, 0, 0
 
