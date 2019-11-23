@@ -13,19 +13,19 @@ Delete          P("pointer" fcbPtr)
 EndFileProcessing	P
 ExistF          P("pointer" fcbPtr)"bool"
 Fatal		    P("pointer" str)
-FindSymbol      P("pointer" namePtr,B nameLen)B
+FindLibRequest      P("pointer" namePtr,B nameLen)"bool"
 FixupChainPath  P
 FixLinkageWriteRecord P
 FixTLinkage     P
 GetChain        PA
-GetCommonLength P"word"
-GetCurSymValue 	P"word"
-GetEntryState   PB
+GetCommonSize P"word"
+GetVal 	P"word"
+GetResolved   PB
 GetFixed        PB
 GetItemLength   PB
 GetNextNonBlankChar	P
 GetSymbolBase   P"pointer"
-GetSymbolControlBits PB
+GetSegment PB
 GetSymLength    PB
 GetTAddress     PA
 GetTB1B0        PB
@@ -36,16 +36,14 @@ GetTStatus      PB
 GetTValue       P"word"
 GetVer          P"word"
 IOErr           P("pointer" msg,"pointer" fname)
-#InsertSymbol    P(A namePtr,B nameLen,"word" nameValue,B controlBits,B entryBit,"bool" isCommon,"word" sizeCommon)
-InsertSymbol     P(ABABBBA)
-IsLibRequest    P"bool"
+InsertSymbol    P(A nameP,B nameLen,"word" val,B seg,B isResolved,"bool" isCommon,"word" sizeCommon)
+GetLibRequest    P"bool"
 LinkSetEntry	P
 LoadByteFromSeg P("word" addr)B
 LoadIRL         P
 LoadOneModule	P
 LWrite		    P(B ch)
-#MkTRecord      P(A addrOrChn,A ChnOrValue,B mode,B solveChn,B index,B offBit,A offset,B offFlg)
-MkTRecord       P(AABBBBAB)
+MkTRecord      P(A addrOrChn,A ChnOrValue,B mode,B solveChn,B index,B offBit,A offset,B offFlg)
 MakeF           P("pointer" fcbPtr)
 MPMSys          PA
 NewLn           P
@@ -72,20 +70,20 @@ SearchSymbol	P("pointer" namePtr,B nameLen, "bool" includeCommon)B
 SeekXTmpFile    P
 SelectTmpFile	P(B n)
 SelectXFile		P("pointer" fPtr)
-SetCurSymValue  P("word" val)
-SetEntryState   P(B state)
+SetVal          P("word" val)
+SetResolved        P("bool" state)
 SetExt$OVLA0	P
 SetExt$OVLAY	P
 SetFixed        P
 SetLibRequest   P
-SetSymbolControlBits P(B n)
+SetSegment P(B n)
 SetTAddress     P(A addr)
 SetTB1B0        P(B n)
 SetTB2          P(B n)
 SetTLink        P(A link)
 SetTValue       P("word" val)
 SetYFile        P("pointer" ptr)
-SolveLibRequest	P
+DoLibRequests	P
 StoreByteInSeg  P("word" addr,B Val)
 StrEqu          P("pointer" str1,"pointer" str2,B len)"bool"
 TellTopModule	P
@@ -96,7 +94,7 @@ WriteSymFile    P
 YRewind         P
 
 additionalMem   "bool"
-aField          "word"
+aFieldAddr          "word"
 aIndexError		B(12)
 aMemoryOverflow B(32)
 aNoFil          B(10)
@@ -105,10 +103,10 @@ b3979           B
 modName         B(8)
 b3A55           B
 b3A5C           B
-b3A5E		    B
+processing		    "bool"
 b3A66           B
 b3A9D           B
-b3A9E           B
+aFieldSeg           B
 isMinus		    B
 baseCr		    B
 baseEx		    B
@@ -130,7 +128,7 @@ hashTable		A(128)
 haveOverlays    B
 haveSpecialSym  B
 i3A51		    B
-i3A5D           B
+curSeg           B
 indexBuf		B(512)
 indexFCB		B(33)
 indexLen		"word"
@@ -144,12 +142,12 @@ IRLWinHigh		"word"
 IRLWinLow		"word"
 isIRL           B
 labelStartAddress	B
-labLen          B
-labName         b(8)
+bFieldLen          B
+bFieldName         b(8)
 lengths         "word"(4)
 libDrive		B
 librarySearch   "bool"
-lname   		B(9)
+bField   		B(9)
 loadAddress		"word"
 modLengths      "word"(4)
 MPMMemSize		"word"
@@ -165,7 +163,7 @@ signature    	B(3)
 starts          "word"(4)
 startSym		B(7)
 symDrive		B
-symPtr		    "word"
+symP		    "word"
 symTable        A
 symTables   	A(4)
 topHeap         A
@@ -211,10 +209,31 @@ FCB$REC     '16'
 FCB$CR      '32'
 
 /* code types */
-ABSOLUTE    '0'
-CODEREL     '1'
-DATAREL     '2'
-COMMREL     '3'
+ASEG        '0'
+CSEG        '1'
+DSEG        '2'
+COMMON      '3'
+
+
+/* key REL record types */
+ENTRYSYM    '0'
+SELCOMM     '1'
+PROGNAM     '2'
+REQUEST     '3'
+UNUSED4     '4'
+SIZCOMM     '5'
+EXTCHAIN    '6'
+ENTRYPT     '7'
+EXTMINUS    '8'
+EXTPLUS     '9'
+SIZDATA     '10'
+SETLOC      '11'
+ADDRCHAIN   '12'
+SIZPROG     '13'
+ENDMOD      '14'
+ENDFILE     '15'
+NOTSPECIAL  '16'
+
 
 /* non printable chars */
 CR          '0dh'
@@ -242,13 +261,13 @@ FALSE       '0'
 XFILE$T 'structure(startAddr word, endAddr word, len word, buf address, hi word, lo word, rd bool, wr bool, fcb(33) byte)' 
 YFILE$T 'structure(buffer word, bufIdx word, len word, wr byte, fcb(33) byte)'
 TABLE$T 'structure(control byte, addr word, value word, link address, offset word)'
-SYM$T   'structure(chain address, item byte, offset word, lenFlags byte, lname(1) byte)'
+SYM$T   'structure(chain address, iInfo byte, val word, sInfo byte, sName(1) byte)'
 PSTR$T  'structure(len byte, str(1) byte)'
 
 /*  based variables */
 wordVal     "word"..wordPtr
 cmdCh       B..cmdLinePtr
-sym         "SYM$T"..symPtr
+sym         "SYM$T"..symP
 table       "TABLE$T"..tPtr
 yBuffer     BS..yBufPtr
 yFile       "YFILE$T"..yFPtr
@@ -305,7 +324,7 @@ declare w398B word public initial(0);
 declare haveOverlays byte public initial(FALSE);
 declare syntaxOnly byte initial(0);
 declare overlayCnt byte initial(   0);
-declare overlayTable(5) structure(loadAddress word, symPtr address);
+declare overlayTable(5) structure(loadAddress word, symP address);
 declare wordPtr word public initial(0);
 declare wordVal based wordPtr word;     /* needw to define after wordPtr */
 declare topMemory word public initial(0);
@@ -350,12 +369,12 @@ declare w3A56 word public initial(0);
 declare w3A58 word public initial(0FFFFh);
 declare w3A5A word public initial(0);
 declare b3A5C byte public initial(0);
-declare i3A5D byte public initial(0);
-declare b3A5E byte public initial(0);
+declare curSeg byte public initial(0);
+declare processing bool public initial(FALSE);
 declare librarySearch bool public initial(0);
 declare topSymTable word public initial(0);
 declare symTable address public initial(0);
-declare symPtr word public initial(0);
+declare symP word public initial(0);
 declare b3A66 byte public initial(0);
 declare curSymValue word public initial(0);
 declare symTables(4) word public initial(0, 0, 0, 0);
@@ -369,11 +388,11 @@ declare modLengths(4) word public initial(0, 0, 0, 0);
 declare starts(4) word public initial(0, 0, 0, 0);
 declare objTable(4) byte public initial(0, 1, 2, 3);
 declare b3A9D byte public initial(0);
-declare b3A9E byte public initial(0);
-declare aField word public initial(0);
-declare lname(9) byte public initial(0, 0, 0, 0, 0, 0, 0, 0, 0);
-declare labLen byte public at(.lname);
-declare labName byte public at(.lname + 1);
+declare aFieldSeg byte public initial(0);
+declare aFieldAddr word public initial(0);
+declare bField(9) byte public initial(0, 0, 0, 0, 0, 0, 0, 0, 0);
+declare bFieldLen byte public at(.bField);
+declare bFieldName byte public at(.bField + 1);
 declare xxabs XFILE$T public initial(0, 0, 0, 0, 1, 0, 0, 0, 0,  'XXABS   $$$', 0, 0, 0, 0, 0, 0);
 declare xxprog XFILE$T public initial(0, 0, 0, 0, 1, 0, 0, 0, 0, 'XXPROG  $$$', 0, 0, 0, 0, 0, 0);
 declare xxdata XFILE$T public initial(0, 0, 0, 0, 1, 0, 0, 0, 0, 'XXDATA  $$$', 0, 0, 0, 0, 0, 0);
@@ -387,7 +406,7 @@ declare yFileTable(4) address public initial(.yyabs, .yyprog, .yydata, .yycomm);
 
 
 
-
+/* print char to console / printer determined by charOutDev */
 OutCh: procedure (ch);
     declare ch byte;
 
@@ -397,6 +416,8 @@ OutCh: procedure (ch);
         call LWrite(ch);
 end;
 
+
+/* print string to console / printer */
 OutStr: procedure(str);
     declare str address;
     declare ch based str byte;
@@ -407,6 +428,7 @@ OutStr: procedure(str);
     end;
 end;
 
+/* if printer then print banner once */
 PrinterBanner: procedure;
     if charOutDev = 'Y' then
     do;
@@ -415,6 +437,7 @@ PrinterBanner: procedure;
     end;
 end;
 
+/* print char, if printer make sure banner has printed */
 PutCh: procedure(ch) public;
     declare ch byte;
 
@@ -423,7 +446,7 @@ PutCh: procedure(ch) public;
     call OutCh(ch);
 end;
 
-
+/* print string, if printer make sure banner has printed */
 PutStr: procedure(str) public;
     declare str address;
 
@@ -441,28 +464,28 @@ SetMemorySpace: procedure;
         yydata.buffer = yyprog.buffer + yyprog.len;
         yycomm.buffer = yydata.buffer + yydata.len;
     end;
-    xxabs.endAddr = bufSizes(ABSOLUTE) - 1;
-    xxabs.len = bufSizes(ABSOLUTE);
+    xxabs.endAddr = bufSizes(ASEG) - 1;
+    xxabs.len = bufSizes(ASEG);
     if additionalMem then
         xxabs.buf = yycomm.buffer + yycomm.len;
     else
         xxabs.buf = cmdLinePtr + 1;
 
-    xxprog.endAddr = bufSizes(CODEREL) - 1;
-    xxprog.len = bufSizes(CODEREL);
-    xxprog.buf = xxabs.buf + bufSizes(ABSOLUTE);
-    xxdata.endAddr = bufSizes(DATAREL) - 1;
-    xxdata.len = bufSizes(DATAREL);
-    xxdata.buf = xxprog.buf + bufSizes(CODEREL);
-    xxcomm.endAddr = bufSizes(COMMREL) - 1;
-    xxcomm.len = bufSizes(COMMREL);
-    xxcomm.buf = xxdata.buf + bufSizes(DATAREL);
+    xxprog.endAddr = bufSizes(CSEG) - 1;
+    xxprog.len = bufSizes(CSEG);
+    xxprog.buf = xxabs.buf + bufSizes(ASEG);
+    xxdata.endAddr = bufSizes(DSEG) - 1;
+    xxdata.len = bufSizes(DSEG);
+    xxdata.buf = xxprog.buf + bufSizes(CSEG);
+    xxcomm.endAddr = bufSizes(COMMON) - 1;
+    xxcomm.len = bufSizes(COMMON);
+    xxcomm.buf = xxdata.buf + bufSizes(DSEG);
 end;
 
 
 InitIntermediateTables: procedure;
-    do i3A5D = 0 to 3;
-        call SelectXFile(xFileTable(i3A5D));
+    do curSeg = ASEG to COMMON;
+        call SelectXFile(xFileTable(curSeg));
         call ClearTmpBuf;
     end;
 end;
@@ -487,15 +510,15 @@ end;
 
 InitOverlayFields: procedure;
 
-    chains(ABSOLUTE), chains(CODEREL), chains(DATAREL), chains(COMMREL), lengths(ABSOLUTE),
-    lengths(CODEREL), lengths(DATAREL), lengths(COMMREL), modLengths(ABSOLUTE), modLengths(CODEREL),
-    modLengths(DATAREL), modLengths(COMMREL), starts(ABSOLUTE), starts(CODEREL), starts(DATAREL),
-    starts(COMMREL), symTables(ABSOLUTE), symTables(CODEREL), symTables(DATAREL), symTables(COMMREL),
-    objTable(ABSOLUTE) = 0;
+    chains(ASEG), chains(CSEG), chains(DSEG), chains(COMMON), lengths(ASEG),
+    lengths(CSEG), lengths(DSEG), lengths(COMMON), modLengths(ASEG), modLengths(CSEG),
+    modLengths(DSEG), modLengths(COMMON), starts(ASEG), starts(CSEG), starts(DSEG),
+    starts(COMMON), symTables(ASEG), symTables(CSEG), symTables(DSEG), symTables(COMMON),
+    objTable(ASEG) = 0;
     
-    objTable(CODEREL) = CODEREL;
-    objTable(DATAREL) = DATAREL;
-    objTable(COMMREL) = COMMREL;
+    objTable(CSEG) = CSEG;
+    objTable(DSEG) = DSEG;
+    objTable(COMMON) = COMMON;
     w3A71 = topMemory;
     progOrgRequest, dataOrgRequest, labelStartAddress, transferFlag = 0;
     w3A58 = 0ffffh;
@@ -504,10 +527,10 @@ InitOverlayFields: procedure;
     topHeap = 0ffffh;
     yyabs.bufIdx, yyprog.bufIdx, yydata.bufIdx, yycomm.bufIdx,
     xxabs.startAddr, xxprog.startAddr, xxdata.startAddr, xxcomm.startAddr = 0;
-    xxabs.endAddr = bufSizes(ABSOLUTE) - 1;
-    xxprog.endAddr = bufSizes(CODEREL) - 1;
-    xxdata.endAddr = bufSizes(DATAREL) - 1;
-    xxcomm.endAddr = bufSizes(COMMREL) - 1;
+    xxabs.endAddr = bufSizes(ASEG) - 1;
+    xxprog.endAddr = bufSizes(CSEG) - 1;
+    xxdata.endAddr = bufSizes(DSEG) - 1;
+    xxcomm.endAddr = bufSizes(COMMON) - 1;
     xxabs.hi, xxprog.hi, xxdata.hi, xxcomm.hi = 1;
     xxabs.lo, xxprog.lo, xxdata.lo, xxcomm.lo = 0;
 end;
@@ -516,7 +539,7 @@ end;
 GetSymbolBase: procedure pointer public;
     if overlayCnt = 0 then
         return symTable;
-    return overlayTable(overlayCnt - 1).symPtr;
+    return overlayTable(overlayCnt - 1).symP;
 end;
 
 FixOverlayTable: procedure(ptr);
@@ -525,7 +548,7 @@ FixOverlayTable: procedure(ptr);
 
     do i = 0 to 127;
         do while hashTable(i) >= ptr;
-            symPtr = hashTable(i);
+            symP = hashTable(i);
             hashTable(i) = GetChain;
         end;
     end;
@@ -534,7 +557,7 @@ end;
 
 
 PutOverlay: procedure;
-    overlayTable(overlayCnt).symPtr = topSymTable;
+    overlayTable(overlayCnt).symP = topSymTable;
     loadAddress, overlayTable(overlayCnt).loadAddress = (curAddr + 127) and 0ff80h;
 end;
 
@@ -549,7 +572,7 @@ GetOverlay: procedure;
     if not syntaxOnly then
         return;
     loadAddress = overlayTable(overlayCnt).loadAddress;
-    topSymTable = overlayTable(overlayCnt).symPtr;
+    topSymTable = overlayTable(overlayCnt).symP;
     call FixOverlayTable(topSymTable);
 end;
 
@@ -584,7 +607,7 @@ SetupOverlay: procedure;
     end;
     if syntaxOnly then
     do;
-        call SolveLibRequest;
+        call DoLibRequests;
         call SetExt$OVLA0;
         outType = OVL$EXT;
         call CloseLoadSession;
@@ -618,7 +641,7 @@ SampleFiles: procedure;
     do;
         if haveOverlays then
             call SetExt$OVLAY;
-        call SolveLibRequest;
+        call DoLibRequests;
         call Process$FPBNX;
         if haveOverlays then
             call SetExt$OVLA0;
@@ -684,8 +707,8 @@ main:
     call InitLinker;
     if additionalMem then
     do;
-        wbufSizes(CODEREL), wbufSizes(DATAREL) = 1024;
-        wbufSizes(ABSOLUTE), wbufSizes(COMMREL) = 256;
+        wbufSizes(CSEG), wbufSizes(DSEG) = 1024;
+        wbufSizes(ASEG), wbufSizes(COMMON) = 256;
     end;
 
     call SetMemorySpace;
@@ -696,7 +719,7 @@ main:
         call SetDrives;
 
     call OsSetup;
-    topSymTable, symTable = xxcomm.buf + bufSizes(COMMREL);
+    topSymTable, symTable = xxcomm.buf + bufSizes(COMMON);
     if symTable >= w3A71 then
         call Fatal(.aInsufficientMemory);
 
@@ -832,7 +855,7 @@ ParseFile: procedure word;
 end;
 
 
-
+/* returns TRUE if curChar is hex char. Also converts curChar to hex value */
 IsHexChar: procedure bool;
     if (curChar - '0') <= 9 then
     do;
@@ -847,7 +870,7 @@ IsHexChar: procedure bool;
     return FALSE;
 end;
 
-
+/* parses a hex value from teh command line. Returns the value */
 ParseHex: procedure word;
     declare result word;
 
@@ -864,10 +887,13 @@ ParseHex: procedure word;
     return result;
 end;
 
+/* returns TRUE curChar is A-P i.e. valid drive letter */
 IsValidDrive: procedure bool;
     return (curChar - 'A') <= 15;
 end;
 
+/* checks for valid drive */
+/* returns drive 1-16 or errors */
 GetDrive: procedure byte;
     call GetNextChar;
     if IsValidDrive then
@@ -875,6 +901,8 @@ GetDrive: procedure byte;
     call CmdLineError;
 end;
 
+/* checks for valid drive or Z (NULL) */
+/* returns drive mapped to 1-16, Z unchanged or errors */
 GetDriveOrZ: procedure byte;
     call GetNextChar;
     if IsValidDrive then
@@ -884,6 +912,8 @@ GetDriveOrZ: procedure byte;
     call CmdLineError;
 end;
 
+/* checks for X, Y or Z drive */
+/* returns the letter or errors */
 GetXYZ: procedure byte;
     call GetNextChar;
     if curChar - 'X' <= 2 then
@@ -1033,11 +1063,11 @@ end;
 
 RdIndexEntry: procedure;
     call RdIndexFileValues;
-    lname(0) = 0;
+    bFieldLen = 0;
     do while (rByte := RdIndexByte) < 254;
-        lname(lname(0) + 1) = rByte;
+        bFieldName(bFieldLen) = rByte;
 x:
-        if (lname(0) := lname(0) + 1) >= 8 then
+        if (bFieldLen := bFieldLen + 1) >= 8 then
             call Fatal(.aIndexError);
     end;
 end;
@@ -1066,10 +1096,10 @@ LoadIRL: procedure public;
     indexPtr = indexLen;
     call RdIndexEntry;
 
-    do while lname(0) > 0;
-        b3A5E = 0;
+    do while bFieldLen > 0;
+        processing = FALSE;
         call LinkSetEntry;
-        if b3A5E then
+        if processing then
         do;
             call SeekIRL;
             call LoadOneModule;
@@ -1334,190 +1364,216 @@ FixLinkageWriteRecord: procedure public;
             tPtr = GetTLink;
         end;
     end;
-    symTables(ABSOLUTE), symTables(CODEREL), symTables(DATAREL), symTables(COMMREL) = 0;
+    symTables(ASEG), symTables(CSEG), symTables(DSEG), symTables(COMMON) = 0;
 end;
 end;
 link1.plm
 link1: do;
 $include(link1.ipx)
 
-MkTRecord: procedure(addrOrChn, ChnOrValue, mode, solveChn, index, offBit, offset, offFlg) external;
-    declare (addrOrChn, ChnOrValue, offset) address;
-    declare (mode, solveChn, index, offBit, offFlg) byte;
-end;
-
 declare commLenPtr address;
 declare commLen based commLenPtr word;
 declare hashTable(128) address public;
-declare hashIndex byte;
+declare hashIdx byte;
 
-ClrItemLen: procedure;
-    sym.item = 0;
-    sym.lenFlags = 0;
+/*
+    symbol information is accessed via sym based symP
+    the data for each symbol is
+    chain       - address of next entry with this same hash
+    iInfo       - RFllllll - R -> Lib request, F -> fixed, llllll length of entry
+    val         - value of the symbol or offset into seg
+    sInfo       - PSSlllll - E -> public, SS -> segment, lllll length of symbol
+    sName(n)    - symbol name, length from sInfo
+    [commSize]  - common size optional - located at offset (iInfo llllll field) - 2
+*/
+
+/* reset the information fields for the symbol */
+ClrInfo: procedure;
+    sym.iInfo = 0;
+    sym.sInfo = 0;
 end;
 
+/* get the chain address for the next symbol */
 GetChain: procedure address public;
     return sym.chain;
 end;
 
+/* set the chain address for the next symbol */
 SetChain: procedure(chain);
     declare chain address;
 
     sym.chain = chain;
 end;
 
+/* get the symbol's length */
 GetSymLength: procedure byte public;
-    return sym.lenFlags and 1fh;
+    return sym.sInfo and 1fh;
 end;
 
+/* set the symbol's length */
 SetSymLength: procedure(len);
     declare len byte;
 
-    sym.lenFlags = sym.lenFlags or len;
+    sym.sInfo = sym.sInfo or len;
 end;
 
+/* get the item length */
 GetItemLength: procedure byte public;
-    return sym.item and 3fh;
+    return sym.iInfo and 3fh;
 end;
 
+/* record the length of this item */
 SetItemLength: procedure(len);
     declare len byte;
 
-    sym.item = sym.item or len;
+    sym.iInfo = sym.iInfo or len;
 end;
 
+/* test is symbol is fixed */
 GetFixed: procedure byte public;
-    return shr(sym.item, 6) and 1;
+    return shr(sym.iInfo, 6) and 1;
 end;
 
+/* set symbol as fixed */
 SetFixed: procedure public;
-    sym.item = sym.item or shl(1, 6);
+    sym.iInfo = sym.iInfo or shl(1, 6);
 end;
 
-IsLibRequest: procedure bool public;
-    return shr(sym.item, 7) and 1;
+/* test if symbol is a lib request */
+GetLibRequest: procedure bool public;
+    return shr(sym.iInfo, 7) and 1;
 end;
 
+/* mark the symbol as a lib request */
 SetLibRequest: procedure public;
-    sym.item = sym.item or shl(1, 7);
+    sym.iInfo = sym.iInfo or shl(1, 7);
 end;
 
 
-GetEntryState: procedure byte public;
-
-    return rol(sym.lenFlags, 1) and 1;
+/* test if symbol is resolved */
+GetResolved: procedure byte public;
+    return rol(sym.sInfo, 1) and 1;
 end;
 
-SetEntryState: procedure(state) public;
+/* mark the symbol as resolved */
+SetResolved: procedure(state) public;
     declare state byte;
 
-    sym.lenFlags = (sym.lenFlags and 7fh) or shl(state, 7);
+    sym.sInfo = (sym.sInfo and 7fh) or shl(state, 7);
 end;
 
-GetCommonLength: procedure word public;
-
-    commLenPtr = symPtr + GetItemLength - 2;
+/* get the symbol common size */
+GetCommonSize: procedure word public;
+    commLenPtr = symP + GetItemLength - 2;  /* last word of item */
     return commLen;
 end;
 
-SetCommonLength: procedure(len);
+/* set the symbol common size */
+SetCommonSize: procedure(len);
     declare len word;
 
-    commLenPtr = symPtr + GetItemLength - 2;
+    commLenPtr = symP + GetItemLength - 2;  /* last word of item */
     commLen = len;
 end;
 
-
-GetCurSymValue: procedure word public;
-    return sym.offset;
+/* get symbol value */
+GetVal: procedure word public;
+    return sym.val;
 end;
 
-
-SetCurSymValue: procedure(value) public;
-    declare value word;
-    sym.offset = value;
+/* set symbol value */
+SetVal: procedure(val) public;
+    declare val word;
+    sym.val = val;
 end;
 
-
-GetSymbolControlBits: procedure byte public;
-    return shr(sym.lenFlags, 5) and 3;
+/* get the current symbol's segment */
+GetSegment: procedure byte public;
+    return shr(sym.sInfo, 5) and 3;
 end;
 
-SetSymbolControlBits: procedure(n) public;
-    declare n byte;
+/* set the segment for the current symbol */
+SetSegment: procedure(seg) public;
+    declare seg byte;
 
-    sym.lenFlags = (sym.lenFlags and 9Fh) or shl(n and 3, 5);
+    sym.sInfo = (sym.sInfo and 9Fh) or shl(seg and 3, 5);
 end;
 
-GetHashTableIndex: procedure(namePtr, nameLen);
+/* calc the hash of the symbol */
+Hash: procedure(namePtr, nameLen);
     declare namePtr address, nameLen byte;
     declare ch based namePtr byte;
 
-    hashIndex = 0;
+    hashIdx = 0;
     do while (nameLen := nameLen - 1) <> 0ffh;
-        hashIndex = hashIndex + ch;
+        hashIdx = hashIdx + ch;
         namePtr = namePtr + 1;
     end;
-    hashIndex = hashIndex and 7fh;
+    hashIdx = hashIdx and 7fh;
 end;
 
-FindSymbol: procedure(namePtr, nameLen) byte public;
+/* see if lib has been requested */
+FindLibRequest: procedure(namePtr, nameLen) bool public;
     declare namePtr address, nameLen byte;
 
-    symPtr = GetSymbolBase;
+    symP = GetSymbolBase;
 
-    do while symPtr < topSymTable;
-        if IsLibRequest then
+    do while symP < topSymTable;
+        if GetLibRequest then
             if GetSymLength = nameLen then
-                if Strequ(namePtr, .sym.lname, nameLen) then
-                    return 1;
-        symPtr = symPtr + GetItemLength;
+                if Strequ(namePtr, .sym.sName, nameLen) then
+                    return TRUE;
+        symP = symP + GetItemLength;    /* next item */
     end;
-    /* missing return - likely to return 0 in a */
+    /* missing return - likely to return FALSE in a */
 end;
 
+/* search for symbol on the chain */
 SearchSymbol: procedure(namePtr, nameLen, includeCommon) bool public;
     declare namePtr address, nameLen byte, includeCommon bool;
 
-    call GetHashTableIndex(namePtr, nameLen);
-    symPtr = hashTable(hashIndex);
+    call Hash(namePtr, nameLen);
+    symP = hashTable(hashIdx);
 
-    do while symPtr <> 0;
+    do while symP <> 0;         /* till end of chain */
         if GetSymLength = nameLen then
-            if Strequ(namePtr, .sym.lname, nameLen) then
-                if not (GetSymbolCOntroLBits = 3 xor includeCommon) then
+            if Strequ(namePtr, .sym.sName, nameLen) then    /* found */
+                /* ignore if COMMON and  not includeCommon */
+                if not (GetSegment = COMMON xor includeCommon) then
                     return TRUE;
-            symPtr = GetChain;
+            symP = GetChain;    /* next item on chain */
     end;
     return FALSE;
 end;
 
-InsertSymbol: procedure(namePtr, nameLen, nameValue, controlBits, entryBit, isCommon, sizeCommon) public;
-    declare namePtr address, nameLen byte, nameValue word,
-            (controlBits, entryBit) byte, isCommon bool, sizeCommon word;
-    declare itemLen byte;
+/* insert a new symbol */
+InsertSymbol: procedure(nameP, nameLen, val, seg, isResolved, isCommon, sizeCommon) public;
+    declare nameP address, nameLen byte, val word,
+            seg byte, isResolved bool, isCommon bool, sizeCommon word;
+    declare len byte;
 
-    itemLen = nameLen + 6;
-    if isCommon then
-        itemLen = itemLen + 2;
-    symPtr = topSymTable;
-    topSymTable = topSymTable + itemLen;
-    if topSymTable > w3A71 then
+    len = nameLen + 6;      /* 6 bytes + symbol itself */
+    if isCommon then        /* common has an extra word */
+        len = len + 2;
+    symP = topSymTable;     /* add to the top of the symbol table */
+
+    topSymTable = topSymTable + len;        /* reserve the space */
+    if topSymTable > w3A71 then             /* check we are ok */
         call Fatal(.aMemoryOverflow);
 
-    call ClrItemLen;
-    call GetHashTableIndex(namePtr, nameLen);
-    call SetChain(hashTable(hashIndex));
-    hashTable(hashIndex) = symPtr;
-    call SetItemLength(itemLen); 
-    call SetCurSymValue(nameValue);
-    call SetEntryState(entryBit);
-    call SetSymLength(nameLen);
-    call SetSymbolControlBits(controlBits);
-    call move(nameLen, namePtr, .sym.lname);
-    if isCommon then
-        call SetCommonLength(sizeCommon);
-    if sym.lname(0) = '#' then
+    call ClrInfo;                           /* reset the info fields */
+    call Hash(nameP, nameLen); /* hash the symbol */
+    call SetChain(hashTable(hashIdx));    /* add to the front of the chain */
+    hashTable(hashIdx) = symP;
+    call SetItemLength(len);                /* mark the length */
+    call SetVal(val);                       /* save the value */
+    call SetResolved(isResolved);           /* record whether resolved */
+    call SetSymLength(nameLen);             /* now the symbol length */
+    call SetSegment(seg);                   /* segment */
+    call move(nameLen, nameP, .sym.sName);  /* the name itself */
+    if isCommon then                        /* add commonSize if valid */
+        call SetCommonSize(sizeCommon);
+    if sym.sName(0) = '#' then              /* note if we have special symbol */
         haveSpecialSym = TRUE;
 end;
 end;
@@ -1525,18 +1581,20 @@ end;
 link2: do;
 $include(link2.ipx)
 declare curCol byte initial(0);
-declare w3D7F word;
+declare fileP word;
 
 declare aModuleTop(*) byte public data(CR, LF, 'MODULE TOP   $');
 declare aUndefinedStart(*) byte public data('UNDEFINED START SYMBOL: $');
 
-
+/* print the char and keep a record of the current column */
 PrintChWithCnt: procedure(ch);
     declare ch byte;
     call PutCh(ch);
     curCol = curCol + 1;
 end;
 
+
+/* print hex nibble */
 PutHexNibble: procedure(n);
     declare n byte;
     if n <= 9 then
@@ -1545,18 +1603,21 @@ PutHexNibble: procedure(n);
         call PutCh((n - 10) + 'A');
 end;
 
+/* print hex byte */
 PutHexByte: procedure(n);
     declare n byte;
     call PutHexNibble(shr(n, 4));
     call PutHexNibble(n and 0fh);
 end;
 
+/* print hex word */
 PutHexWord: procedure(n);
     declare n word;
     call PutHexByte(shr(n, 8));
     call PutHexByte(n and 0ffh);
 end;
 
+/* delete any extension files */
 DeleteYFiles: procedure;
     if yyabs.wr or yyprog.wr or yydata.wr or yycomm.wr then
     do;
@@ -1570,25 +1631,25 @@ DeleteYFiles: procedure;
     end;
 end;
 
-
+/* delete any temp files */
 DeleteXFiles: procedure;
     declare i byte, haveFiles bool;
 
-    declare file based w3D7F XFILE$T;
+    declare file based fileP XFILE$T;
     haveFiles = FALSE;
-    do i = 0 to 3;
-        w3D7F = xFileTable(i);
-        if file.wr then
+    do i = ASEG to COMMON;
+        fileP = xFileTable(i);
+        if file.wr then                 /* is file written */
         do;
-            call CloseF(.file.fcb);
+            call CloseF(.file.fcb);     /* close the file */
             file.wr = FALSE;
-            haveFiles =  TRUE;
+            haveFiles =  TRUE;          /* will need to delete */
         end;
     end;
     if haveFiles then
     do;
-        fcb1(FCB$DR) = xxabs.fcb(FCB$DR);
-        call move(11, .('XX????  $$$'), .fcb1(FCB$NAME));
+        fcb1(FCB$DR) = xxabs.fcb(FCB$DR);                   /* get the drive */
+        call move(11, .('XX????  $$$'), .fcb1(FCB$NAME));   /* copy wildcard for delete */
         call Delete(.fcb1);
     end;
 end;
@@ -1613,25 +1674,25 @@ end;
 
 SetupSegments: procedure;
     if progOrgRequest then
-        starts(CODEREL) = progOrigin;
+        starts(CSEG) = progOrigin;
     else if b3A5C then
-        starts(CODEREL) = loadAddress + 3;
+        starts(CSEG) = loadAddress + 3;
     else
-        starts(CODEREL) = loadAddress;
+        starts(CSEG) = loadAddress;
 
     if dataOrgRequest then
-        starts(COMMREL) = dataOrigin;
+        starts(COMMON) = dataOrigin;
     else
     do;
-        starts(COMMREL) = starts(CODEREL) + lengths(CODEREL);
+        starts(COMMON) = starts(CSEG) + lengths(CSEG);
         if biosLink then
-            starts(COMMREL) = (starts(COMMREL) + 0ffh) and 0ff00h;
+            starts(COMMON) = (starts(COMMON) + 0ffh) and 0ff00h;
     end;
-    starts(DATAREL) =  starts(COMMREL) + lengths(COMMREL);
+    starts(DSEG) =  starts(COMMON) + lengths(COMMON);
     if w3A58 < w3A5A then
-        chains(ABSOLUTE) = w3A5A - w3A58 + 1;
+        chains(ASEG) = w3A5A - w3A58 + 1;
     else
-        chains(ABSOLUTE) =  0;
+        chains(ASEG) =  0;
 end;
 
 
@@ -1658,12 +1719,12 @@ FixAllObjectTables: procedure;
     end;
 
     b3A9D = 0;
-    starts(ABSOLUTE) = w3A58;
+    starts(ASEG) = w3A58;
     do i = 0 to 3;
         if chains(i) > 0 then
             call FixObjectTable;
     end;
-    starts(ABSOLUTE) =  0;
+    starts(ASEG) =  0;
 end;
 
 
@@ -1673,15 +1734,15 @@ declare w3D8D word, b3D8F byte;
 declare b3D90 byte, (w3D91, w3D93, w3D95) word;
 
 FixSymbolValues: procedure;
-    symPtr = symTable;
+    symP = symTable;
 
-    do while symPtr < topSymTable;
-        if not GetFixed and (GetEntryState or haveOverlays) then
+    do while symP < topSymTable;
+        if not GetFixed and (GetResolved or haveOverlays) then
         do;
-            call SetCurSymValue(GetCurSymValue + starts(GetSymbolControlBits));
+            call SetVal(GetVal + starts(GetSegment));
             call SetFixed;
         end;
-        symPtr = symPtr + GetItemLength;
+        symP = symP + GetItemLength;    /* next item */
     end;
 end;
 
@@ -1696,8 +1757,8 @@ CleanYFile: procedure;
 
     GetValueFromTable: procedure(ptr) word;
         declare ptr address;
-        symPtr = ptr;
-        return GetCurSymValue;
+        symP = ptr;
+        return GetVal;
     end;
 
 
@@ -1712,17 +1773,17 @@ CleanYFile: procedure;
 
         if (b3D90 and 8) > 0 then
             if (b3D90 and 10h) > 0 then
-                w3D8D = (w3D8D - w3D95) - starts(GetSymbolControlBits);
+                w3D8D = (w3D8D - w3D95) - starts(GetSegment);
             else
                 w3D8D = w3D8D + w3D95;
         call StorePath(w3D91, w3D8D);
     end;
 
-    do i3A5D = 0 to 3;
-        call SelectXFile(xFileTable(i3A5D));
+    do curSeg = 0 to 3;
+        call SelectXFile(xFileTable(curSeg));
         if additionalMem then
         do;
-            call SetYFile(yFileTable(i3A5D));
+            call SetYFile(yFileTable(curSeg));
             call YRewind;
             b3D90 = ReadYByte;
             do while b3D90 <> 0ffh;
@@ -1737,7 +1798,7 @@ CleanYFile: procedure;
         end;
         else
         do;
-            tPtr = symTables(i3A5D);
+            tPtr = symTables(curSeg);
 
             do while tPtr <> 0;
                 b3D90 = GetTStatus;
@@ -1756,7 +1817,7 @@ end;
 
 
 TestValidSymbol: procedure byte public;
-    return sym.lname(0) <> 0 and not (sym.lname(0) = qMark and noLeadingQ);
+    return sym.sName(0) <> 0 and not (sym.sName(0) = qMark and noLeadingQ);
 end;
 
 ScanAllLabels: procedure;
@@ -1772,39 +1833,39 @@ ScanAllLabels: procedure;
 
     PrintCurSymbol: procedure;
         do b3D9D = 1 to GetSymLength;
-            call PrintChWithCnt(sym.lname(b3D9D - 1));
+            call PrintChWithCnt(sym.sName(b3D9D - 1));
         end;
     end;
 
     cnt =  0;
-    symPtr = GetSymbolBase;
-    do while symPtr < topSymTable;
-        if GetEntryState and TestValidSymbol then
+    symP = GetSymbolBase;
+    do while symP < topSymTable;
+        if GetResolved and TestValidSymbol then
         do;
             if (cnt and 3) = 0 then
             do;
                 call NewLn;
                 curCol = 0;
             end;
-            if GetSymbolControlBits = 3 then
+            if GetSegment = COMMON then
                 call PrintChWithCnt('/');
 
             call PrintCurSymbol;
-            if GetSymbolControlBits = 3 then
+            if GetSegment = COMMON then
                 call PrintChWithCnt('/');
 
             call PositionCursor((cnt and 3) * 12 + 9);
-            if IsLibRequest then
+            if GetLibRequest then
                 call PutStr(.('RQST$'));
             else
-                call PutHexWord(GetCurSymValue);
+                call PutHexWord(GetVal);
 
             call PrintChWithCnt(' ');
             call PrintChWithCnt(' ');
             call PrintChWithCnt(' ');
             cnt = cnt + 1;
         end;
-        symPtr = symPtr + GetItemLength;
+        symP = symP + GetItemLength;    /* next item */
     end;
 
     if cnt > 0 then
@@ -1812,10 +1873,10 @@ ScanAllLabels: procedure;
 
     undefMsg = TRUE;
     cnt, curCol = 0;
-    symPtr = GetSymbolBase;
+    symP = GetSymbolBase;
 
-    do while symPtr < topSymTable;
-        if not GetEntryState then
+    do while symP < topSymTable;
+        if not GetResolved then
         do;
             if undefMsg then
             do;
@@ -1832,7 +1893,7 @@ ScanAllLabels: procedure;
             call PrintCurSymbol;
             call PositionCursor(((cnt := cnt + 1) and 7) * 8);
         end;
-        symPtr = symPtr + GetItemLength;
+        symP = symP + GetItemLength;    /* next item */
     end;
 
     if cnt >  0 then
@@ -1847,7 +1908,7 @@ CalcTransferAddress: procedure;
     if labelStartAddress then
     do;
         if SearchSymbol(.startSym, i3A51, FALSE) then
-            w3A56 = GetCurSymValue;
+            w3A56 = GetVal;
         else
         do;
             w3A56 =  0;
@@ -1860,8 +1921,8 @@ CalcTransferAddress: procedure;
     end;
     else if transferFlag then
         w3A56 = starts(b3A55) + w3A53;
-    else if chains(CODEREL) > 0 then
-        w3A56 = starts(CODEREL);
+    else if chains(CSEG) > 0 then
+        w3A56 = starts(CSEG);
     else if w3A58 <> 0ffffh then
         w3A56 = w3A58;
 end;
@@ -1891,13 +1952,13 @@ PrintStats: procedure;
 
     call NewLn;
     call PutStr(.('CODE SIZE    $'));
-    call PrintHexValues(lengths(CODEREL), starts(CODEREL));
+    call PrintHexValues(lengths(CSEG), starts(CSEG));
     call NewLn;
     call PutStr(.('DATA SIZE    $'));
-    call PrintHexValues(lengths(DATAREL), starts(DATAREL));
+    call PrintHexValues(lengths(DSEG), starts(DSEG));
     call NewLn;
     call PutStr(.('COMMON SIZE  $'));
-    call PrintHexValues(lengths(COMMREL), starts(COMMREL));
+    call PrintHexValues(lengths(COMMON), starts(COMMON));
     call NewLn;
     call PutStr(.('USE FACTOR     $'));
     call PutHexByte((w39A8 - (topHeap - topSymTable)) / (high(w39A8) + 1));
@@ -1958,28 +2019,28 @@ end;
 PrintSymbol: procedure;
     declare i byte;
  
-    if lname(0) > 0 then
-        do i = 1 to lname(0);
-            call PutCh(lname((i-1) + 1));
+    if bFieldLen > 0 then
+        do i = 1 to bFieldLen;
+            call PutCh(bField((i-1) + 1));
         end;
 end;
 
 
-
+/* read A field */
 ReadAField: procedure;
-    b3A9E = RdBits(2);
-    aField = Read16bit;
+    aFieldSeg = RdBits(2);  /* 2 bit segment */
+    aFieldAddr = Read16bit; /* read the address */
 end;
 
-
+/* read B field */
 ReadBField: procedure;
     declare i byte;
-    lname(0) = RdBits(3);
-    if lname(0) = 0 then
-        lname(0) = 8;
+    bFieldLen = RdBits(3);  /* get length */
+    if bFieldLen = 0 then   /* 0 maps to 8 */
+        bFieldLen = 8;
 
-    do i = 1 to lname(0);
-        lname((i-1) + 1) = RdBits(8) and 7fh;
+    do i = 1 to bFieldLen;  /* get the name */
+        bFieldName(i-1) = RdBits(8) and 7fh;
     end;
 end;
 
@@ -1989,26 +2050,26 @@ RdBuf: procedure public;
     IRLWinHigh = IRLWinLow + ReadFR(.IRLBuf, IRLLen, .fcb1) - 1;
 end;
 
-SelectTmpFile: procedure(n) public;
-    declare n byte;
-    i3A5D = n;
-    call SelectXfile(xFileTable(i3A5D));
+SelectTmpFile: procedure(seg) public;
+    declare seg byte;
+    curSeg = seg;
+    call SelectXfile(xFileTable(curSeg));
 end;
 
 SaveConstByte: procedure(n) public;
     declare n byte;
 
-    if i3A5D = 3 and b3A66 then
+    if curSeg = COMMON and b3A66 then
         return;
-    call StoreByteInSeg(chains(i3A5D), n);
-    if i3A5D = 0 then
+    call StoreByteInSeg(chains(curSeg), n);
+    if curSeg = ASEG then
     do;
-        if chains(ABSOLUTE) > w3A5A then
-            w3A5A = chains(ABSOLUTE);
-        if chains(ABSOLUTE) < w3A58 then
-            w3A58 = chains(ABSOLUTE);
+        if chains(ASEG) > w3A5A then
+            w3A5A = chains(ASEG);
+        if chains(ASEG) < w3A58 then
+            w3A58 = chains(ASEG);
     end;
-    chains(i3A5D) = chains(i3A5D) + 1;
+    chains(curSeg) = chains(curSeg) + 1;
 end;
 
 SolveChain: procedure(ptr, chainExt);
@@ -2018,14 +2079,14 @@ SolveChain: procedure(ptr, chainExt);
     LoadWordFromSegment: procedure word;
         declare w3E23 word, b3E25 byte;
 
-        b3E25 = i3A5D;
+        b3E25 = curSeg;
         call SelectTmpFile(tSeg);
         w3E23 = LoadByteFromSeg(tLocation) or shl(double(LoadByteFromSeg(tLocation + 1)), 8);
         call SelectTmpFile(b3E25); 
         return w3E23;
     end;
 
-    tLocation = aField + lengths(tSeg := b3A9E);
+    tLocation = aFieldAddr + lengths(tSeg := aFieldSeg);
 
     do while true;
         do while CntChainLen(tLocation, tSeg); 
@@ -2039,9 +2100,9 @@ SolveChain: procedure(ptr, chainExt);
             call SetTValue(ptr);
             call SetTB2(chainExt);
             if chainExt = 0 then
-                call SetTB1B0(i3A5D);
+                call SetTB1B0(curSeg);
         end;
-        call MkTRecord(tLocation, ptr, i3A5D, chainExt, tSeg, 0, 0, 0);
+        call MkTRecord(tLocation, ptr, curSeg, chainExt, tSeg, 0, 0, 0);
         if b3DA7 then
         do;
             if (tValue :=  LoadWordFromSegment) = 0 then
@@ -2060,79 +2121,79 @@ end;
 
 
 ClearSpecialSymbols: procedure;
-
-    symPtr = symTable;
-    do while symPtr < topSymTable;
-        if sym.lname(0) = '#' then
-            sym.lname(0) = 0;
-        symPtr = symPtr + GetItemLength;
+    symP = symTable;
+    do while symP < topSymTable;
+        if sym.sName(0) = '#' then      /* special symbols start with # */
+            sym.sName(0) = 0;           /* zero out the name */
+        symP = symP + GetItemLength;    /* next item */
     end;
     haveSpecialSym = FALSE;
 end;
 
-declare sName(8) byte at(.lname + 1);
-declare sLen byte at(.lname);
-
 LinkSetEntry: procedure public;
-    if SearchSymbol(.labName, LabLen, FALSE) then
-        if not GetEntryState then
-            b3A5E = TRUE;
+    if SearchSymbol(.bFieldName, bFieldLen, FALSE) then
+        if not GetResolved then
+            processing = TRUE;
 end;
 
 LinkSetCommon: procedure;
-    if SearchSymbol(.labName , labLen, TRUE) then
+    if SearchSymbol(.bFieldName , bFieldLen, TRUE) then
     do;
-        curSymValue = GetCurSymValue;
+        curSymValue = GetVal;
         b3A66 = GetFixed;
     end;
     else
         call Fatal(.aCommonError);
 end;
 
+/* set the module name */
 LinkModuleName: procedure;
-    call move(lname(0), .lname(1), .modName(1));
-    modName(0) = lname(0);
+    call move(bFieldLen, .bFieldName, .modName(1));
+    modName(0) = bFieldLen;
 end;
 
+/* add the lib request if not already present */
 LinkLibRequest: procedure;
-    if not FindSymbol(.labName, labLen) then
+    if not FindLibRequest(.bFieldName, bFieldLen) then
     do;
-        call InsertSymbol(.labName, labLen, 0, 0, 1, 0, 0);
-    call SetLibRequest;
+        call InsertSymbol(.bFieldName, bFieldLen, 0, ASEG, TRUE, FALSE, 0);
+        call SetLibRequest;
     end;
 end;
 
+/* set common size. If already set check new size is not bigger */
+/* if new common add to end of common segment */
 LinkCommonSize: procedure;
-    if SearchSymbol(.labName, labLen, TRUE) then
+    if SearchSymbol(.bFieldName, bFieldLen, TRUE) then
     do;
-        if GetCommonLength < aField then
+        if GetCommonSize < aFieldAddr then
         do;
-            call PutCh('/');
+            call PutCh('/');                /* print a warning */
             call PrintSymbol;
             call PutCh('/');
             call PutCh(' ');
             call PutStr(.aFirstCommonNot);
-            call NewLn;
+            call NewLn;                     /* size does not change */
         end;
     end;
     else
-    do;
-        call InsertSymbol(.labName, labLen, lengths(COMMREL) + modLengths(COMMREL), 3, 1, 1, aField);
-        modLengths(COMMREL) = modLengths(COMMREL) + aField;
+    do;                                     /* new so insert */
+        call InsertSymbol(.bFieldName, bFieldLen, lengths(COMMON) + modLengths(COMMON), COMMON, TRUE, TRUE, aFieldAddr);
+        modLengths(COMMON) = modLengths(COMMON) + aFieldAddr;   /* add to the common area */
     end;
 end;
 
 LinkChainExternal: procedure;
-    if not SearchSymbol(.labName, labLen, FALSE) then
-        call InsertSymbol(.labName, labLen, 0, 0, 0, 0, 0);
-    call SolveChain(symPtr, TRUE);
+    if not SearchSymbol(.bFieldName, bFieldLen, FALSE) then
+        call InsertSymbol(.bFieldName, bFieldLen, 0, ASEG, FALSE, FALSE, 0);
+    call SolveChain(symP, TRUE);
 end;
 
 
 LinkEntryPoint: procedure;
-    if SearchSymbol(.labName, labLen, FALSE) then
+    if SearchSymbol(.bFieldName, bFieldLen, FALSE) then
     do;
-        if GetEntryState then
+        if GetResolved then
         do;
             call PutStr(.aMultipleDefinition);
             call PrintSymbol;
@@ -2140,17 +2201,17 @@ LinkEntryPoint: procedure;
         end;
         else
         do;
-            call SetCurSymValue(lengths(b3A9E) + aField);
-            call SetEntryState(1);
-            call SetSymbolControlBits(b3A9E);
+            call SetVal(lengths(aFieldSeg) + aFieldAddr);
+            call SetResolved(TRUE);
+            call SetSegment(aFieldSeg);
         end;
     end;
     else
-        call InsertSymbol(.labName, labLen, aField + lengths(b3A9E), b3A9E, 1, 0, 0);
+        call InsertSymbol(.bFieldName, bFieldLen, aFieldAddr + lengths(aFieldSeg), aFieldSeg, TRUE, FALSE, 0);
 end;
 
 LinkExternalPlus: procedure;
-    call MkTRecord(chains(i3A5D), 0, 0, 0, i3A5D, 1, aField, 1);
+    call MkTRecord(chains(curSeg), 0, 0, 0, curSeg, 1, aFieldAddr, 1);
 end;
 
 LinkExternalMinus: procedure;
@@ -2160,39 +2221,39 @@ LinkExternalMinus: procedure;
 end;
 
 LinkDsegSize: procedure;
-    modLengths(DATAREL) = aField;
+    modLengths(DSEG) = aFieldAddr;
 end;
 
 
 LinkSetLocationCounter: procedure;
-    call SelectTmpFile(b3A9E);
-    if i3A5D = 3 then
-        chains(COMMREL) = aField + curSymValue;
+    call SelectTmpFile(aFieldSeg);
+    if curSeg = 3 then
+        chains(COMMON) = aFieldAddr + curSymValue;
     else
-        chains(i3A5D)  = aField + lengths(i3A5D);
-    if i3A5D = 0 then
+        chains(curSeg)  = aFieldAddr + lengths(curSeg);
+    if curSeg = 0 then
         b3DA7 = 1;
 end;
 
 LinkChainAddress: procedure;
-    call SolveChain(chains(i3A5D), FALSE);
+    call SolveChain(chains(curSeg), FALSE);
 end;
 
 
 LinkCsegSize: procedure;
-    modLengths(CODEREL) = aField;
+    modLengths(CSEG) = aFieldAddr;
 end;
 
 LinkEndModule: procedure;
     declare i byte;
 
-    if aField > 0 or b3A9E <> 0 then
+    if aFieldAddr > 0 or aFieldSeg <> ASEG then
         if transferFlag then
             call Fatal(.aMainModuleError);
         else
         do;
-            w3A53 = lengths(b3A9E) + aField;
-            b3A55 = b3A9E;
+            w3A53 = lengths(aFieldSeg) + aFieldAddr;
+            b3A55 = aFieldSeg;
             transferFlag = 1;
         end;
 
@@ -2216,7 +2277,7 @@ LinkEndModule: procedure;
     end;
 
     call SelectTmpFile(1);
-    b3A5E = not librarySearch;
+    processing = not librarySearch;
     if haveSpecialSym then
         call ClearSpecialSymbols;
 end;
@@ -2224,22 +2285,22 @@ end;
 Store16BitLength: procedure(val, mode);
     declare val word, mode byte;
 
-    if mode = 3 then
+    if mode = COMMON then
     do;
         val = val + curSymValue;
         if b3A66 then
-            mode = 0;
+            mode = ASEG;
     end;
     else
         val = val + lengths(mode);
 
-    if CntChainLen(chains(i3A5D), i3A5D) then
+    if CntChainLen(chains(curSeg), curSeg) then
     do;
         call SetTValue(val);
         call SetTB1B0(mode);
     end;
     else
-        call MkTRecord(chains(i3A5D), val, mode, 0, i3A5D, 0, 0, 0);
+        call MkTRecord(chains(curSeg), val, mode, 0, curSeg, 0, 0, 0);
 
     call SaveConstByte(0);
     call SaveConstByte(0);
@@ -2249,31 +2310,31 @@ end;
 ReadLinkItem: procedure(item);
     declare item byte;
 
-    if item >= 5 then
+    if item >= SIZCOMM then
         call ReadAField;
-    if item <= 7 then
+    if item <= ENTRYPT then
         call ReadBField;
-    if item = 0 then
+    if item = ENTRYSYM then
         call LinkSetEntry;
-    else if item = 2 then
+    else if item = PROGNAM then
         call LinkModuleName;
-    else if item = 14 then
+    else if item = ENDMOD then
         call LinkEndModule;
-    else if b3A5E then
+    else if processing then
         do case item - 1;
-        call LinkSetCommon;     /* case 0 */
-        ;
-        call LinkLibRequest;    /* case 2 */
-        call PutStr(.aUnrecognizedIt);
-        call LinkCommonSize;
-        call LinkChainExternal;
-        call LinkEntryPoint;
-        call LinkExternalMinus;
-        call LinkExternalPlus;
-        call LinkDsegSize;
-        call LinkSetLocationCounter;
-        call LinkChainAddress;
-        call LinkCsegSize;
+        call LinkSetCommon;     /* SELECOMM */
+        ;                       /* PROGNAM */
+        call LinkLibRequest;    /* REQUEST */
+        call PutStr(.aUnrecognizedIt);  /* UNUSED4 */
+        call LinkCommonSize;    /* SIZCOMM */
+        call LinkChainExternal; /* EXTCHAIN */
+        call LinkEntryPoint;    /* ENTRYPT */
+        call LinkExternalMinus; /* EXTMINUS */
+        call LinkExternalPlus;  /* EXTPLUS */
+        call LinkDsegSize;      /* SIZDATA */
+        call LinkSetLocationCounter;    /* SETLOC */
+        call LinkChainAddress;  /* ADDRCHAIN */
+        call LinkCsegSize;      /* SIZPROG */
         end;
 end;
 
@@ -2281,37 +2342,37 @@ end;
 ReadItem: procedure byte;
     declare (special, rel, val8) byte, val16 word;
 
-    special = 16;
+    special = NOTSPECIAL;
     if RdBits(1) = 0 then
     do;
         val8 = RdBits(8);
-        if b3A5E then
+        if processing then
             call SaveConstByte(val8);
     end;
     else if (rel := RdBits(2)) = 0 then
     do;
         special = RdBits(4);
-        if special < 15 then
+        if special < ENDFILE then
             call ReadLinkItem(special); 
     end;
     else
     do;
         val16 = Read16bit;
-        if b3A5E then
+        if processing then
             call Store16BitLength(val16, rel);
     end;
     return special; 
 end;
 
 LoadRelFile: procedure;
-   do while ReadItem <> 15;
+   do while ReadItem <> ENDFILE;
    end;
 end;
 
 
 LoadOneModule: procedure public;
     bitCnt = 8;
-    do while ReadItem <> 14;
+    do while ReadItem <> ENDMOD;
     end;
 end;
 
@@ -2337,7 +2398,7 @@ ExecRead: procedure;
     end;
 
     call SelectTmpFile(1);
-    b3A5E = not librarySearch;
+    processing = not librarySearch;
     if librarySearch and isIRL then
         call LoadIRL;
     else
@@ -2361,40 +2422,40 @@ declare aOvla0(*) byte data('?OVLA0');
 
 SetExt$OVLAY: procedure  public;
 
-    if not SearchSymbol(.aOvlay, 6, 0) then
-        call InsertSymbol(.aOvlay, 6, 0, 1, 0, 0, 0);
+    if not SearchSymbol(.aOvlay, length(aOvlay), FALSE) then
+        call InsertSymbol(.aOvlay, length(aOvlay), 0, CSEG, FALSE, FALSE, 0);
 end;
 
-SolveLibRequest: procedure public;
+DoLibRequests: procedure public;
     declare i byte, tmpPtr address;
 
-    symPtr = getSymbolBase;
+    symP = GetSymbolBase;                   /* get start of symbols for this overlay/root */
 
-    do while symPtr < topSymTable;
-        if IsLibRequest then
+    do while symP < topSymTable;
+        if GetLibRequest then               /* symbol is a library request */
         do;
-            fcb1(FCB$DR) = libDrive;
+            fcb1(FCB$DR) = libDrive;        /* build fcb1 to reflect library name */
             do i = 1 to 8;
                 if i > GetSymLength then
                     fcb1(i) = ' ';
                 else
-                    fcb1(i) = sym.lname(i - 1);
+                    fcb1(i) = sym.sName(i - 1);
             end;
 
-            isIRL = 1;
+            isIRL = TRUE;                   /* use .IRL if it exists */
             call move(3, .('IRL'), .fcb1(FCB$EXT));
             if not ExistF(.fcb1) then
-            do;
-                isIRL = 0;
+            do;                             /* revert to use .REL */
+                isIRL = FALSE;
                 call move(3, .('REL'), .fcb1(FCB$EXT));
                 call OpenF(.fcb1);
             end;
-            tmpPtr = symPtr;
-            librarySearch = TRUE;
-            call ExecRead;
-            symPtr = tmpPtr;
+            tmpPtr = symP;                  /* save where we are */
+            librarySearch = TRUE;           /* note we are doing library search */
+            call ExecRead;                  /* process the file */
+            symP = tmpPtr;                  /* restore where we were */
         end;
-        symPtr = symPtr + GetItemLength;
+        symP = symP + GetItemLength;    /* next item */
     end;
 end;
 
@@ -2403,42 +2464,42 @@ end;
 SetExt$OVLA0: procedure public;
     declare i byte, tmpPtr address;
 
-    call move(6, .aOvla0, .lname(1));
-    lname(0) = 6;
-    b3A9E = 1;
+    call move(6, .aOvla0, .bFieldName);
+    bFieldLen = 6;
+    aFieldSeg = CSEG;
     call SelectTmpFile(1);
-    symPtr = GetSymbolBase;
+    symP = GetSymbolBase;
 
-    do while symPtr < topSymTable;
-        if not GetEntryState then
+    do while symP < topSymTable;
+        if not GetResolved then
         do;
-            call SetCurSymValue(chains(CODEREL));
-            call SetSymbolControlBits(1);
+            call SetVal(chains(CSEG));
+            call SetSegment(CSEG);
             call SaveConstByte(1);
             call Store16BitLength(6, 1);
             call SaveConstByte(0c3h);   /* jmp */
-            aField= 4;
+            aFieldAddr= 4;
             call SaveConstByte(0);
             call SaveConstByte(0);
-            tmpPtr = symPtr;
+            tmpPtr = symP;
             call LinkChainExternal;
-            symPtr = tmpPtr;
+            symP = tmpPtr;
 
             do i = 1 to 8;
                 if GetSymLength >= i then
-                    call SaveConstByte(sym.lname(i - 1));
+                    call SaveConstByte(sym.sName(i - 1));
                 else 
                     call SaveConstByte(' ');
             end;
 
-            lengths(CODEREL) = lengths(CODEREL) + 14;
+            lengths(CSEG) = lengths(CSEG) + 14;
             if additionalMem then
             do;
                 call FixLinkageWriteRecord;
                 w3A71 = topMemory;
             end;
         end;
-        symPtr = symPtr + GetItemLength;
+        symP = symP + GetItemLength;    /* next item */
     end;
 end;
 end;
@@ -2547,8 +2608,8 @@ clr1:
 link4: do;
 $include(link4.ipx)
 
-declare b3E37 byte initial(0);
-declare b3E38 byte initial(0);
+declare wrBitCnt byte initial(0);
+declare wrByt byte initial(0);
 declare w3E39 word initial(0);
 
 declare extents(5) structure(ext(3) byte) data('COM', 'PRL', 'RSP', 'SPR', 'OVL');
@@ -2565,15 +2626,15 @@ WriteChar: procedure(ch);
     end;
 end;
 
-WriteToBitMap: procedure(n);
+WrSprBit: procedure(n);
     declare n byte;
 
-    b3E38 = rol(b3E38, 1) or n;
-    if (b3E37 := b3E37 + 1) = 8 then
+    wrByt = rol(wrByt, 1) or n;
+    if (wrBitCnt := wrBitCnt + 1) = 8 then
     do;
-        b3E37 = 0;
-        call WriteChar(b3E38);
-        b3E38 = 0;
+        wrBitCnt = 0;
+        call WriteChar(wrByt);
+        wrByt = 0;
     end;
 end;
 
@@ -2653,7 +2714,7 @@ BuildObjectFile: procedure;
 
         call WriteByteWithUpdate(0);
         if biosLink then
-            call WriteWordWithUpdate(lengths(CODEREL));
+            call WriteWordWithUpdate(lengths(CSEG));
         else
             call WriteWordWithUpdate(0);
 
@@ -2670,7 +2731,7 @@ BuildObjectFile: procedure;
         WriteBitToBitMap: procedure(n);
             declare n  byte;
 
-            call WriteToBitMap(n);
+            call WrSprBit(n);
             curAddr = curAddr + 1;
         end;
 
@@ -2744,7 +2805,7 @@ BuildObjectFile: procedure;
         do while curAddr < curOff + loadAddress;
             call WriteBitToBitMap(0);
         end;
-        do while b3E37 <> 0;
+        do while wrBitCnt <> 0;
             call WriteBitToBitMap(0);
         end;
     end;
@@ -2763,7 +2824,7 @@ BuildObjectFile: procedure;
         call WriteWordWithUpdate(w3A56);
     end;
 
-    starts(ABSOLUTE) = w3A58;
+    starts(ASEG) = w3A58;
     do i = 0 to b3A9D - 1;
         if starts(objTable(i)) >= loadAddress then
             call WriteCSeg(objTable(i));
@@ -2797,7 +2858,7 @@ CloseObjFile: procedure public;
     if objFName(FCB$NAME) = ' ' then
         call move(12, .fcb1, .objFName);
 
-    w3A35, b3E38, b3E37 =  0;
+    w3A35, wrByt, wrBitCnt =  0;
     call BuildObjectFile;
     call CloseRelFile;
 end;
@@ -2835,15 +2896,15 @@ WriteSymFile: procedure public;
         fcb1(FCB$DR) = symDrive;
     call CreatF(.fcb1);
     w3A35, cnt = 0;
-    symPtr = GetSymbolBase;
+    symP = GetSymbolBase;
 
-    do while symPtr < topSymTable;
-        if not IsLibRequest and TestValidSymbol then
+    do while symP < topSymTable;
+        if not GetLibRequest and TestValidSymbol then
         do;
-            call WriteHexWordToSymFile(GetCurSymValue);
+            call WriteHexWordToSymFile(GetVal);
             call WriteChar(' ');
             do i = 1 to GetSymLength;
-                call WriteChar(sym.lname(i - 1));
+                call WriteChar(sym.sName(i - 1));
             end;
             if ((cnt := cnt + 1) and 3) = 0 then
             do;
@@ -2853,7 +2914,7 @@ WriteSymFile: procedure public;
             else
                 call WriteChar(TAB);
         end;
-        symPtr = symPtr + GetItemLength;
+        symP = symP + GetItemLength;    /* next item */
     end;
     call WriteChar(CR);
     call WriteChar(LF);
@@ -2879,7 +2940,7 @@ ProcessEndMem: procedure;
     declare recCnt byte;
 
 
-    w3E39 = GetCurSymValue - w398B;
+    w3E39 = GetVal - w398B;
     call move(12, .objFName, .fcb1);
     if baseOutType <> COM$EXT then
         w3E39 = w3E39 + 100h;
@@ -3062,7 +3123,7 @@ end;
 end;
 
 file.asm
-    name util2
+    name file
 
     public Close, CloseF, ClrFCB, CRdStr, CreatF, CStat
     public CWrite, Delete, ExistF, Fatal, getVer, IOErr
@@ -3134,7 +3195,7 @@ CreatF:
     pop     b           ; fall through to make new file
 
 ; MakeF(fcbptr) public;
-MakeF:                                  ; CODE XREF: seekXTmpFile+4F↑p
+MakeF:
     call Make
     inr     a
     rnz
@@ -3142,7 +3203,7 @@ MakeF:                                  ; CODE XREF: seekXTmpFile+4F↑p
     call Fatal
 
 ; ExistF(fcbptr) bool public;
-ExistF:                                ; CODE XREF: solveLibRequest+84↑p
+ExistF:
     push    b
     call ClrFCB
     pop     b
@@ -3466,22 +3527,22 @@ Process$FPBNX: procedure public;
     declare i byte;
 
     do i = 0 to last(invName);
-        lname(i + 1) = not invName(i);
+        bFieldName(i) = not invName(i);
     end;
-    if not SearchSymbol(.lname(1), 6, 1) then
+    if not SearchSymbol(.bFieldName, size(invName), 1) then
         return;
 
-    curSymValue = GetCurSymValue;
+    curSymValue = GetVal;
     call SelectTmpFile(3);
-    bPtr = chains(COMMREL);
-    chains(COMMREL) = curSymValue + 9;
+    bPtr = chains(COMMON);
+    chains(COMMON) = curSymValue + 9;
     call SaveConstByte(signature(0));    /* 0 */
     call SaveConstByte(signature(1));    /* 0 */
     call SaveConstByte(signature(2));    /* 0 */
     call SaveConstByte(mfgCode);  /* mfg code */
     call SaveConstByte(serial2);  /* 2nd byte of serial number (| 80h for mpm) */
     call SaveConstByte(serial3);  /* 3rd byte of serial number */
-    chains(COMMREL) = bPtr;
+    chains(COMMON) = bPtr;
 end;
 
 declare IRLBuf(512) byte public;

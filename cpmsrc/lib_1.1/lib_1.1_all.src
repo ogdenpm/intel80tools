@@ -104,10 +104,10 @@ FCB$REC     '16'
 FCB$CR      '32'
 
 /* code types */
-ABSOLUTE    '0'
-CODEREL     '1'
-DATAREL     '2'
-COMMREL     '3'
+ASEG    '0'
+CSEG     '1'
+DSEG     '2'
+COMMON     '3'
 
 /* non printable chars */
 CR          '0dh'
@@ -137,22 +137,22 @@ wpointer    'address'
 ENTRYSYM    '0'
 SELCOMM     '1'
 PROGNAM     '2'
-UNUSED3     '3'
+REQEUST     '3'
 UNUSED4     '4'
 SIZCOMM     '5'
-CHAINEXT    '6'
+EXTCHAIN    '6'
 ENTRYPT     '7'
-UNUSED8     '8'
+EXTMINUS    '8'
 EXTPLUS     '9'
-EXTMINUS    '10'
+SIZDATA     '10'
 SETLOC      '11'
 CHAINADDR   '12'
 SIZPROG     '13'
 ENDMOD      '14'
 ENDFILE     '15'
-CREL        '16'
-DREL        '17'
-COMMONREL   '18'
+CODEREL     '16'
+DATAREL     '17'
+COMMREL     '18'
 CONSTBYT    '19'
 
 
@@ -372,7 +372,7 @@ CloseOutputFiles: procedure;
 
     if isNewRel then                        /* have rel file */
     do;
-        call WriteRelByte(9Eh);             /* end of module ? should it be end of file 9fh */
+        call WriteRelByte(1$00$1111$0b);    /* end of file */
         do while (outRelIdx and 7fh) <> 0;  /* pad to end of record */
             call WriteRelByte(1Ah);
         end;
@@ -749,7 +749,7 @@ rel: do;
 $include(rel.ipx)
 
 declare locations(4) word initial(0, 0, 0, 0);
-declare curMode byte initial(CODEREL);
+declare curMode byte initial(CSEG);
 declare aApdc(*) byte initial('APDC');
 declare aFieldMode byte initial(0);
 declare aFieldVal word initial(0);
@@ -883,7 +883,10 @@ ReadAField: procedure;      /* read A field */
 end;
 
 
-
+/*
+    read B field name.
+    NOTE this version does not map 0 length to 8 but link does
+*/
 ReadBField: procedure;      /* read B field */
     declare i byte;
 
@@ -1047,7 +1050,7 @@ ProcessSpecialLink: procedure(type);
     if type >= SIZCOMM and type <> ENDFILE then
         call ReadAField;    /* get A field if present */
 
-    if type <= UNUSED8 then /* get B field if present */
+    if type <= EXTMINUS then /* get B field if present */
         call ReadBField;
 
     if type = ENDMOD then   /* end mod then skip to byte boundary */
@@ -1077,7 +1080,7 @@ ProcessSpecialLink: procedure(type);
         call CWriteCRLF;    /* start new line */
         forceNl = TRUE;     /* flag forced NL */
         call WriteStr(linkDescriptions(type));  /* write the special item description */
-        if type <= UNUSED8 then     /* has B field so print it */
+        if type <= EXTMINUS then     /* has B field so print it */
             call PrintBField;
         if type >= SIZCOMM and type <> ENDFILE then
             call PrintAField;       /* has A field so print it */
@@ -1090,8 +1093,8 @@ ProcessSpecialLink: procedure(type);
 
         if type = ENDMOD then       /* end of module so reset */
         do;
-            locations(ABSOLUTE), locations(CODEREL), locations(DATAREL), locations(COMMREL) = 0;
-            curMode = CODEREL;
+            locations(ASEG), locations(CSEG), locations(DSEG), locations(COMMON) = 0;
+            curMode = CSEG;
             call CWriteCRLF;
         end;
     end;
@@ -1119,7 +1122,7 @@ ProcessSpecialLink: procedure(type);
             call WrBits(type, 4);
             if type >= SIZCOMM then
                 call WrRelAField;
-            if type <= UNUSED8 then
+            if type <= EXTMINUS then
                 call WrRelBField;
         end;
         if type = ENDMOD then       /* pad to byte boundary if end of  module */
@@ -1135,7 +1138,7 @@ end;
 /*
     read a rel item from the current input stream and process it
         returns CONSTBYT if 8 bit const processed
-        returns CREL..COMMREL for relative 16 bit addresses
+        returns CODEREL..COMMON for relative 16 bit addresses
         returns linkItem for special link items
 */
 
@@ -1150,7 +1153,7 @@ RdRelItem: procedure byte public;
     else if (linkItem := RdBits(2)) > 0 then    /* simple relative 16 bits */
     do;
         call ProcessRelative(linkItem);
-        return linkItem + ENDFILE; /* CREL..COMMREL */
+        return linkItem + ENDFILE; /* CODEREL..COMMREL */
     end;
     else                        /* special item */
     do;
