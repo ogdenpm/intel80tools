@@ -37,6 +37,7 @@ int oOption;	// ingore overlap errors
 int iOption;	// ignore load errors
 int tOption;    // map tmp files to windows/unix tmp files to allow parallel compiles
 char *depFile;  // used to create dependency file
+char* outputExt = ".obj";   /* default output extent */
 
 
 
@@ -124,6 +125,9 @@ int parseOptions(int argc, char *argv[])
             iOption = 1;
         else if (strcmp(argv[isisProgArg], "-MF") == 0 && isisProgArg + 1 < argc)
             depFile = argv[++isisProgArg];
+        else if (strcmp(argv[isisProgArg], "-ME") == 0 && isisProgArg + 1 < argc) {
+            outputExt = argv[++isisProgArg];
+        }
         else if (strcmp(argv[isisProgArg], "-T") == 0)
             tOption = 1;
         else

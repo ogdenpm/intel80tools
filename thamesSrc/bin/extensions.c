@@ -75,7 +75,10 @@ void genDependencies(char *depFile) {
     }
     for (flist_t *p = &headFList; p->next;) {
         p = p->next;
-        if ((p->flags & 2) && strcasecmp(getExt(p->fname), ".obj") == 0)
+        char* ext = getExt(p->fname);
+        if (*ext == '.' && *outputExt != '.')   /* be flexible in case user has missed off . in the -ME option */
+            ext++;
+        if ((p->flags & 2) && strcasecmp(ext, outputExt) == 0)
             fprintf(fp, "%s ", (p->fname[0] == '.' && p->fname[1] == '/') ? p->fname + 2 : p->fname);
     }
     putc(':', fp);

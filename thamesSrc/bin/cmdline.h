@@ -41,6 +41,7 @@ extern int oOption;
 extern int iOption;
 extern int tOption;
 extern char *depFile;
+extern char* outputExt;
 
 #define UNRESOLVED	1
 #define UNSATISFIED 2
