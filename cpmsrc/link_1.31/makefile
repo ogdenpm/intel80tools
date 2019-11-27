@@ -26,7 +26,7 @@ all::
 
 %.abs: %.rel
 	$(info $@ $^)
-	$(call locate,$@,$^,CODE(100h) purge)
+	$(call locate,$@,$^,CODE(100h))
 
 link.rel: $(OBJS)
 	$(call link,$@,$^ $(plm80.lib))

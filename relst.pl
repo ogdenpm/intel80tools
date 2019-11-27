@@ -114,7 +114,7 @@ sub getOffset {
                         $depth = $1;
                     } elsif ($depth <= 2 && /^ {11}([0-9A-F]{4})/) {
                         close $in;
-                        return (defined($symbols{$label}) ? $symbols{$label} : $symbols{"$mod.$label"}) - hex($1);
+                        return $refloc - hex($1);
                     }
                 }
             }
@@ -146,10 +146,9 @@ while (my $lstwild = shift @ARGV) {
         } else {
             $inCseg = $PLM;
             while (<$in>) {
-                if (/^[^;]+\b([cad])seg/i) {
+                if (/!$PLM && ^[^;]+\b([cad])seg\b/i) {
                     $inCseg = lc($1) eq 'c';
                 }
-
                 if ($inCseg && /^( {2}| {11})([\dA-F]{4})( |  )([\dA-F]{2})(..)(..)(..)(.*)/) {
                     $addr = hex($2) + $offset;
                     $newline = $1. sprintf("%04X", $addr) . $3;
