@@ -65,6 +65,9 @@ distclean: clean
 
 rebuild: distclean all
 
+verify:
+	echo "verify not implemented"
+
 ##################################
 # 8088, 8086 and 80186 build rules
 ##################################
