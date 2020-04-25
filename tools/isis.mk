@@ -66,8 +66,7 @@ _masterfile:=$(firstword $(wildcard *_all.src))
 ## macros used for the build
 # useful make escapes
 comma := ,
-space :=
-space +=
+space := $  
 
 # all but the last word $1
 notlast = $(wordlist 2,$(words $1),dummy $1)
@@ -227,7 +226,8 @@ rebuild: distclean
 # clean target is only defined here if the make command explicitly has
 # clean, distclean or rebuild as a target
 ## housekeeping rules
-ifneq ('$(filter clean distclean rebuild,$(MAKECMDGOALS))','')
+$(info $(MAKECMDGOALS))
+ifneq ('$(filter Clean,$(MAKECMDGOALS))','Clean')
 .PHONY: clean
 CLEANFILES += %.hex %.bin %.obj %.lst %.ipx %.abs %.lin %.map
 clean::

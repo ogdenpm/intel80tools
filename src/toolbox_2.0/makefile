@@ -68,12 +68,6 @@ $(LIB):
 	$(call locate,$@,$^,$(PURGE))
 
 # to avoid conflict with the standard clean target - con make by creating target Clean
-# as make is case sensitive this works
-.INTERMEDIATE: cleanx
-
-Clean: $(OBJ)/clean.rel
-	$(call locate,cleanx,$^,$(PURGE))
-	mv cleanx Clean
 
 lib/cusp2.lib: cusp2/cusp2.lib  | $(LIB) ; cp $^ $@
 lib/cusp5.lib: cusp5/cusp5.lib  | $(LIB) ; cp $^ $@
@@ -192,9 +186,11 @@ $(OBJ)/xlate2.rel: $(OBJ)/xlate2.obj $(util.lib) $(sys.lib) $(system.lib) $(plm8
 	$(call link,$@,$^)
 
 # extensions to default rules
-
+# make sure we don't clash if the user asks for Clean to be built
+ifneq ('$(filter Clean,$(MAKECMDGOALS))','Clean')
 clean::
 	-@for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done;
+endif
 
 # special verify
 # firstly makes sure the latest sources are extracted
