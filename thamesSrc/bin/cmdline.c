@@ -106,7 +106,21 @@ void getDriveMapping()
 }
 
 
-
+void usage() {
+    printf(
+        "usage: thames [-m] [-i] [-o] [-u] [-MF file] [-ME ext] [-T] isisprog isisargs...\n"
+        "Options are:\n"
+        "    -m         map os path names to ISIS drives, isisargs updated to use ISIS drives\n"
+        "    -i         ingnore crc errors in load file\n"
+        "    -o         treat overlap errors as warnings\n"
+        "    -u         treat unresolved/unsatisfied errors as warnings\n"
+        "    -MF file   create make dependency file\n"
+        "    -ME ext    treat files with given ext as targets for dependency file - default .obj\n"
+        "    -T         map application tmp files to os tmp files to allow parallel compiles\n"
+        "Environment variables ISIS_Fx (where x is 0..9) map isis drive to os path\n"
+        "Using -m option dynamically creates the mapping F0 -> . unless  ISIS_F0 specified\n"
+        "Note thames attempts to detect application errors and return an appropriate exit code\n");
+}
 
 /* parse command line options */
 
@@ -127,9 +141,10 @@ int parseOptions(int argc, char *argv[])
             depFile = argv[++isisProgArg];
         else if (strcmp(argv[isisProgArg], "-ME") == 0 && isisProgArg + 1 < argc) {
             outputExt = argv[++isisProgArg];
-        }
-        else if (strcmp(argv[isisProgArg], "-T") == 0)
+        } else if (strcmp(argv[isisProgArg], "-T") == 0)
             tOption = 1;
+        else if (strcmp(argv[isisProgArg], "-h") == 0)
+            usage();
         else
             printf("Unknown option %s\n", argv[isisProgArg]);
     }

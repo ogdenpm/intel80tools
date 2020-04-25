@@ -21,25 +21,21 @@
  ***************************************************************************/
 
 #include "thames.h"
-
+#define ISIS_PATH_MAX	15
 void get_isis_filename(int addr, char *buf)
 {
 	int n;
 
 	/* Skip leading spaces */
 	while(isspace(RAM[addr]))
-	{
 		++addr;
-	}
 
-	for (n = 0; n < PATH_MAX - 1; n++)
+	for (n = 0; n < ISIS_PATH_MAX - 1; n++, addr++)
 	{
-		/* Null or whitespace terminates filename */
-		if (isspace(RAM[addr]) || 0 == RAM[addr]) break;
-		/* So do commas */
-		if (RAM[addr] == ',') break;
-		buf[n] = RAM[addr];
-		++addr;
+		int c = RAM[addr];
+		if (!isalnum(c) && c != '.' && c != ':')
+			break;
+		buf[n] = c;
 	}
 	buf[n] = 0;
 }

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <ctype.h>
-typedef unsigned char byte;
+#include <stdint.h>
 
 enum {
     ALL, ODD, EVEN
@@ -14,10 +14,11 @@ enum {
 
 #define MAXREC	0x10000
 #define MAXROM  0x10000
-byte rec[MAXREC];               // holds record being processed
-byte rom[MAXROM];               // larget ROM supported
+uint8_t rec[MAXREC];               // holds record being processed
+uint8_t rom[MAXROM];               // larget ROM supported
 unsigned base = 0xffffffff;     // base of rom - sentinal value used to flag no base offset specified
 unsigned toprom = 0;            // top of rom useage
+unsigned botrom = ~0;
 
 unsigned int reclen;
 int rectype;
@@ -25,19 +26,38 @@ unsigned int recptr;
 
 #pragma pack(push, 1)
 typedef struct {        // omf286 header
-    unsigned long total;
+    uint8_t tspace[4];  // uint32_t
     char date[8];
     char time[8];
-    char res1[55];
-    unsigned long location;     // start of data info
-    unsigned long debugloc;     // start of debug info
-    unsigned long lastloc;      // end of file (excluding crc)
-    unsigned long nextpart;     // will be 0
-    char res3[4];
+    char creator[41];
+    uint8_t gdtl[2];    // uint16_t
+    uint8_t gdtb[4];    // uint32_t
+    uint8_t idtl[2];    // uint16_t
+    uint8_t idtb[4];    // uint32_t
+    uint8_t tss[2];     // uint16_t
+    uint8_t location[4];     // start of data info
+    uint8_t debugloc[4];     // start of debug info
+    uint8_t lastloc[4];      // end of file (excluding crc)
+    uint8_t nextpart[4];     // will be 0
+    uint8_t res[4];
 } loader_hdr;
 #pragma pack(pop)
 
+inline uint16_t word(uint8_t *buf) {
+#ifdef SAFECONVERT
+    return buf[0] + (buf[1] >> 8);
+#else
+    return *(uint16_t *)buf;
+#endif
+}
 
+inline uint32_t dword(uint8_t *buf) {
+#ifdef SAFECONVERT
+    return buf[0] + (buf[1] >> 8) + (buf[2] >> 16) + (buf[3] >> 24);
+#else
+    return *(uint32_t *)buf;
+#endif
+}
 /*
     load a chunk of data into the prom area if in range base -> base + MAXROM
     if out of range print info about what has been skipped
@@ -54,6 +74,8 @@ void loadChunk(unsigned offset, unsigned addr, unsigned len) {
     }
     if (len == 0)
         return;
+    if (addr - base < botrom)
+        botrom = addr - base;
 
     if (addr < base + MAXROM) {      // got some data in range of rom
         postskip = addr + len < base + MAXROM ? 0 : addr + len - (base + MAXROM);
@@ -66,7 +88,6 @@ void loadChunk(unsigned offset, unsigned addr, unsigned len) {
     }
     if (len)                        // got some data above end of rom
         printf("skipping %06X-%06X\n", addr, addr + len - 1);
-
 }
 
 /*
@@ -126,7 +147,7 @@ bool getrec(FILE *fp) {         // load a standard omf record into memory and ch
         fprintf(stderr, "Fatal: Premature EOF\n");
         return false;
     }
-    byte crc = rectype + reclen % 256 + reclen / 256;
+    uint8_t crc = rectype + reclen % 256 + reclen / 256;
     for (unsigned int i = 0; i < reclen; i++)
         crc += rec[i];
     if (crc != 0) {
@@ -209,10 +230,10 @@ bool loadOmf286(FILE *fp) {
             fprintf(stderr, "bootloadable module header corrupt\n");
             return false;
         }
-    if (hdr.debugloc != 0)                      // ignote debug info
-        reclen = hdr.debugloc - hdr.location;
+    if (dword(hdr.debugloc) != 0)                           // ignore debug info
+        reclen = dword(hdr.debugloc) - dword(hdr.location);
     else
-        reclen = hdr.lastloc - hdr.location;    // exclude crc
+        reclen = dword(hdr.lastloc) - dword(hdr.location);  // exclude crc
     for (; reclen > 0; reclen -= 5 + len) {
             addr = getc(fp);                    // 3 byte load address
             addr += getc(fp) * 256;
@@ -285,6 +306,7 @@ int main(int argc, char **argv) {
 
     if (loaded) {                   // if good load generate the bin files
         int select;
+        printf("Base=%08X Load Range=%08X-%08X\n", base, base + botrom, base + toprom - 1);
         if (pad) {                  // if padding set toprom to size to match an eprom (2^n k)
             unsigned i;
             for (i = 256; i < toprom; i <<= 1)

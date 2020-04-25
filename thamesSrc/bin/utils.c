@@ -22,17 +22,11 @@
 
 #include "thames.h"
 
-/* Remove trailing whitespace from a filename */
+/* Remove trailing spaces */
 void trim(char *s)
 {
-	if (*s) {	// [Mark Ogden] - guard against s == ""
-		char *p = s + strlen(s) - 1;
-		while (*p == ' ' || *p == '\r' || *p == '\n' || *p == '\t')
-		{
-			*p = 0;
-			--p;
-		}
-	}
+    for (char *p = strchr(s, '\0'); p >= s && isspace(*p) ; p--)
+        *p = 0;
 }
 
 
