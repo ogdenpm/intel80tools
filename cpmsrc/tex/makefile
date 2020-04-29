@@ -43,3 +43,6 @@ tex21.rel: tex21.obj cpmio.obj cpm.obj
 
 tex21a.rel: tex21a.obj cpmio.obj cpm.obj
 	$(call link,$@,$^ $(plm80.lib))
+
+clean::
+	rm *.rel
