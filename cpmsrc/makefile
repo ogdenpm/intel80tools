@@ -1,7 +1,7 @@
 ROOT=..
 SHELL= $(ROOT)/unix/bash.exe
 
-DIRS = lib_1.1 link_1.31 tex
+DIRS = lib_1.1 link_1.31 tex ml80
 
 
 all: 

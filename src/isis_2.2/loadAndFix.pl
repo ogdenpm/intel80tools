@@ -6,6 +6,7 @@ open($in, "<isis.hex") or die "can't open isis.hex\n";
 
 my $laddr = 0xffff;
 my $haddr = 0;
+my $entry = 0;
 
 while (<$in>) {
     next unless /^ :/;
@@ -17,6 +18,8 @@ while (<$in>) {
         for my $b (unpack("C*", $data)) {
             $code[$addr++] = $b;
         }
+    } elsif ($type == 1) {
+        $entry = $addr;
     }
 }
 close $in;
@@ -27,5 +30,5 @@ for ($i = 0; $i < $#blks; $i += 2) {
     print $out pack("vvC*", $blks[$i + 1] - $blks[$i], $blks[$i], @code[$blks[$i]..$blks[$i+1] - 1]);
 }
 # write the ending record
-print $out pack("vC2", 0, @code[1..2]); # entry point is at location 1-2
+print $out pack("vv", 0, $entry);   # modified to pick up entry from EOF record
 close $out;
