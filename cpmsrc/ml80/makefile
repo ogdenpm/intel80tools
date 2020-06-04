@@ -1,7 +1,7 @@
 # path to root of build tree
 ROOT := ../..
-TARGETS := m81.com l81.com l82.com l83.com
-PROTECT := loadAndFix.pl comments.txt
+TARGETS := m81.com l81.com l82.com l83.com l82fix.com
+PROTECT := loadAndFix.pl readme.txt m81.patch l81.patch l82.patch l83.patch
 
 include $(ROOT)/tools/isis.mk
 

@@ -17,10 +17,14 @@ sub printCode
 {
     my $addr = $_[0];
 
-    return unless defined($code[$addr]);
+    return unless defined($code[$addr]) || defined($label[$addr]);
     if ($dbcnt == 8 || defined($label[$addr]) || $code[$addr] !~ /^..H$/) {
         print $out "\n" if $dbcnt;
         $dbcnt = 0;
+    }
+    if (!defined($code[$addr])) {
+        printf $out "        %-12s  ; %04X\n", $label[$addr] . ':', $addr;
+        return;
     }
     print $out "        $label[$addr]:\n" if defined($label[$addr]);
     if ($dbcnt) {
