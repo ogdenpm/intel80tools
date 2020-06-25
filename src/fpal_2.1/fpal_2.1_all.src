@@ -1,0 +1,2757 @@
+check.asm
+        name @check
+        public @check
+
+        cseg
+; on entry bc->fpr de->mem
+; returns
+; 0 -> mem number invalid
+; 1 -> FPR invalid
+; 2 -> both numbers not zero
+; 3 -> FPR 0, mem number not zero
+; 4 -> both numbers zero
+; 5 -> FPR not zero, mem number zero
+@check: ldax    b       ; get status byte
+        ani     17H     ; mask off error bits
+        cpi     15H     ; check if invalid
+        jz      retOne  
+                        ; test the rhs
+        lxi     h,2     ; shift e1 into the exponent
+        dad     d
+        mov     a,m
+        ral
+        inx     h
+        mov     a,m
+        ral             ; a = exponent
+        mvi     h,0     ; h = sign -> +ve
+        jnc     chk1
+        mvi     h,80H   ; correct sign to -ve
+
+chk1:   ora     a       ; ? exponent = 0
+        jz      chk7
+        cpi     0FFH    ; ? exponent = 255
+        jz      badNum
+        mov     l,a     ; save sign & exponent
+        push    h
+        mvi     h,1     ; mem number not zero
+
+chk2:   ldax    b       ; status byte 
+        ani     10H     ; z bit
+        mov     a,h
+        jz      chk5
+        ora     a
+        jz      chk4
+        mvi     a,2     ; both numbers not zero
+chk3:
+        pop     h       ; hl = sign / exponent
+        ret             ; a = return code
+chk4:
+        mvi     a,5     ; FPR not zero, mem number 0
+        jmp     chk3
+
+chk5:   ora     a
+        jz      chk6
+        mvi     a,3     ; FPR 0, mem number not zero
+        jmp     chk3
+
+chk6:   mvi     a,4     ; both numbers 0
+        jmp     chk3
+
+chk7:   lxi     h,3     ; rhs exponent was 0 so check if all 0
+        dad     d
+        mvi     a,0
+        cmp     m
+        jnz     badNum
+        dcx     h
+        cmp     m
+        jnz     badNum
+        dcx     h
+        cmp     m
+        jnz     badNum
+        dcx     h
+        cmp     m
+        jnz     badNum
+        mvi     h,0     ; mem number is zero
+        push    h
+        jmp     chk2
+retOne:
+        mvi     a,1
+        ret
+
+badNum: inx     b
+        inx     b
+        inx     b
+        ldax    b       ; get error field
+        ori     80H     ; add IE error
+        stax    b
+        dcx     b
+        dcx     b
+        dcx     b
+        ldax    b       ; set status error to invalid number in memory
+        ani     16H
+        ori     6
+        stax    b
+        sub     a       ; return 0
+        ret
+
+        end
+
+cpyrit.plm
+COPYRIGHTINTELCORPORATION: DO;
+declare copyright(*) byte data('(c) 1977,1978 Intel Corp.');
+end;
+
+fabs.asm
+        name FABS
+        public FABS
+        cseg
+SGNOFF  equ     17      ; offset of sign byte
+
+FABS:
+        push    psw
+        push    h
+        ldax    b
+        ani     17H     ; mask off error code
+        cpi     15H     ; check for invalid number in FAC
+        jz      badnum
+        lxi     h,11H
+        dad     b
+        mvi     m,0
+done:
+        pop     h
+        pop     psw
+        ret
+badnum:
+        push    b       ; save fpr for eventual return
+        push    b       ; fpr for error handler
+        lxi     h,retloc ; return address of call (done via pchl)
+        push    h
+        inx     b       ; hl <- error handler
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,9     ; error code 9 -> FABS  note de = junk
+        pchl
+retloc:
+        pop     b
+        jmp     done
+
+        end
+fadd.asm
+        name fadd
+        extrn   @CHECK
+        extrn   FCLR
+        extrn   FLOAD
+        extrn   FNEG
+        extrn   @NORML
+        extrn   @ROUND
+        extrn   @SHIFT
+        public  fadd, fsub;
+        cseg
+; on entry bc-> FPR and de-> mem
+
+FADD:   push    psw
+        mvi     a,1
+        jmp     addSub
+
+FSUB:   push    psw
+        mvi     a,2
+addSub:
+        push    h
+        push    psw             ; save op
+        call    @CHECK
+        cpi     2
+        jz      L002A          ; both numbers none zero
+        jc      L01B8          ; invalid numbers
+        cpi     3
+        jnz     L00F2          ; fall through is result is +/- mem number
+        call    FLOAD           ; load mem number
+        pop     psw             ; restore op
+        cpi     1
+        jz      L00F3          ; jmp if ADD
+        call    FNEG            ; negate the mem number
+        jmp     L00F3
+L002A:
+        pop     psw             ; get op
+        push    psw             ; save it
+        push    psw
+        push    b               ; save fpr and mem
+        push    d
+        push    b               ; save fpr
+        cpi     1               ; fadd ?
+        mov     a,h
+        jz      L0039
+        adi     80H             ; toggle sign
+        mov     h,a
+L0039:
+        push    h               ; save sign / exponent
+        lxi     h,11H
+        dad     b
+        cmp     m               ; signs match ?
+        mvi     a,0             ; yes a = 0
+        jz      L0046
+        adi     3               ; else a = 3
+L0046:
+        pop     b               ; bc = sign/exponent
+        mov     b,c             ; b = exponent
+        mov     c,a             ; c = 0/3 signs match/don't match
+        mov     a,b
+        dcx     h
+        sub     m
+        jz      L0058          ; exponents match
+        jnc     L0059
+        cma
+        inr     a
+        mov     b,m
+        jmp     L005A
+L0058:
+        inr     c
+L0059:
+        inr     c
+L005A:
+        inr     c
+        push    b
+        push    psw
+        mov     a,c
+        push    psw
+        dcx     h
+        mov     c,m
+        dcx     h
+        mov     b,m
+        dcx     h
+        mov     a,m
+        mov     h,b
+        mov     l,a
+        xchg
+        mov     a,m
+        push    psw
+        inx     h
+        mov     b,m
+        inx     h
+        mov     a,m
+        xchg
+        ori     80H
+        mov     d,b
+        mov     b,a
+        pop     psw
+        mov     e,a
+        pop     psw
+        cpi     4
+        jnc     L00F6
+        cpi     2
+        jz      L008D
+        jc      L0089
+        pop     psw
+        mvi     a,0
+        jmp     L0098
+L0089:
+        xchg
+        mov     a,b
+        mov     b,c
+        mov     c,a
+L008D:
+        pop     psw
+        push    d
+        push    b
+        mvi     b,0
+        call    @SHIFT
+        pop     d
+        mov     b,d
+        pop     d
+L0098:
+        push    psw
+        dad     d
+        mov     a,c
+        adc     b
+        mov     c,a
+        mvi     b,0
+        jnc     L00B9
+        rar
+        mov     c,a
+        mov     a,h
+        rar
+        mov     h,a
+        mov     a,l
+        rar
+        mov     l,a
+        pop     d
+        mov     a,d
+        rar
+        ani     0E0H
+        mov     e,a
+        mov     a,d
+        ani     20H
+        ora     e
+        mvi     b,1
+        jmp     L00BA
+L00B9:
+        pop     psw
+L00BA:
+        call    @ROUND
+        add     b
+        mov     d,a
+        pop     psw
+        add     d
+        mov     d,c
+        pop     b
+        push    h
+        lxi     h,0DH
+        dad     b
+        pop     b
+        mov     m,c
+        inx     h
+        mov     m,b
+        inx     h
+        mov     m,d
+        inx     h
+        pop     d
+        pop     b
+        cpi     0FFH
+        jz      L00DC
+        mov     m,a
+        mvi     a,10H
+        jmp     L00EB
+L00DC:
+        sbi     0BEH
+        mov     m,a
+        inx     b
+        inx     b
+        inx     b
+        ldax    b
+        ori     40H
+        stax    b
+        dcx     b
+        dcx     b
+        dcx     b
+        mvi     a,13H
+L00EB:
+        stax    b
+        cpi     13H
+        jz      L01B7
+        pop     h
+L00F2:
+        pop     h       ; waste op info
+L00F3:
+        pop     h       ; restore entry hl
+        pop     psw     ; restor entry psw
+        ret
+L00F6:
+        jz      L013A
+        cpi     5
+        jz      L0143
+        mov     a,e
+        sub     l
+        mov     l,a
+        mov     a,d
+        sbb     h
+        mov     h,a
+        mov     a,b
+        sbb     c
+        mov     c,a
+        mvi     a,1
+        jnc     L0119
+        sub     a
+        sub     l
+        mov     l,a
+        mvi     a,0
+        sbb     h
+        mov     h,a
+        mvi     a,0
+        sbb     c
+        mov     c,a
+        mvi     a,0
+L0119:
+        push    h
+        lxi     h,0DH
+        dad     sp
+        mov     m,a
+        pop     h
+        sub     a
+        cmp     c
+        jnz     L0169
+        cmp     h
+        jnz     L0169
+        cmp     l
+        jnz     L0169
+        pop     b
+        pop     b
+        pop     b
+        call    FCLR
+        pop     d
+        pop     b
+        pop     h
+        pop     h
+        pop     h
+        pop     psw
+        ret
+L013A:
+        xchg
+        mov     a,b
+        mov     b,c
+        mov     c,a
+        mvi     a,0
+        jmp     L0145
+L0143:
+        mvi     a,1
+L0145:
+        push    h
+        lxi     h,0DH
+        dad     sp
+        mov     m,a
+        pop     h
+        sub     a
+        sub     l
+        mov     l,a
+        mvi     a,0
+        sbb     h
+        mov     h,a
+        mvi     a,0
+        sbb     c
+        mov     c,a
+        pop     psw
+        push    psw
+        push    d
+        push    b
+        mvi     b,0FFH
+        call    @SHIFT
+        pop     d
+        mov     b,d
+        pop     d
+        push    psw
+        dad     d
+        mov     a,c
+        adc     b
+        mov     c,a
+        pop     psw
+L0169:
+        call    @NORML
+        call    @ROUND
+        mov     e,a
+        pop     psw
+        pop     psw
+        add     e
+        sub     b
+        mov     d,c
+        pop     b
+        push    psw
+        push    h
+        lxi     h,0DH
+        dad     b
+        pop     b
+        mov     m,c
+        inx     h
+        mov     m,b
+        inx     h
+        mov     m,d
+        inx     h
+        pop     psw
+        pop     d
+        pop     b
+        jc      L0193
+        ora     a
+        jz      L0193
+        mov     m,a
+        mvi     a,10H
+        jmp     L01A2
+L0193:
+        adi     0BEH
+        mov     m,a
+        inx     b
+        inx     b
+        inx     b
+        ldax    b
+        ori     20H
+        stax    b
+        dcx     b
+        dcx     b
+        dcx     b
+        mvi     a,14H
+L01A2:
+        stax    b
+        pop     psw
+        ora     a
+        jz      L01AD
+        inx     h
+        mov     a,m
+        adi     80H
+        mov     m,a
+L01AD:
+        ldax    b
+        ani     7
+        jnz     L01B8
+        pop     h
+        pop     h
+        pop     psw
+        ret
+L01B7:
+        pop     psw
+L01B8:
+        pop     psw     ; get the op
+        push    b       ; save fpr
+        push    b       ; pass fpr to handler
+        lxi     h,L01CC
+        push    h       ; will return to L01CC
+        lxi     h,1     ; get error handler
+        dad     b
+        mov     c,m
+        inx     h
+        mov     b,m
+        mov     h,b
+        mov     l,c
+        mov     c,a     ; error = op 1->fadd 2->fsub
+        mvi     b,0     ; de = addr
+        pchl
+
+L01CC:  pop     b       ; restore fpr
+        pop     h       ; restore original hl and psw
+        pop     psw
+        ret
+
+        end;
+fclr.asm
+        name    FCLR
+        public  FCLR
+        cseg
+SGNOFF  equ     17      ; offset of sign byte
+FACSIZ  equ     13      ; FAC size
+
+FCLR:
+        push    psw
+        push    h
+        push    d
+        sub     a
+        stax    b       ; clear status field
+        lxi     h,SGNOFF
+        dad     b
+        mov     d,a     
+        mvi     a,FACSIZ ; ??? doesn't clear out the error fields
+clr:                    ; zero out the FAC
+        mov     m,d
+        dcx     h
+        dcr     a
+        jnz     clr
+        pop     d
+        pop     h
+        pop     psw
+        ret
+        end
+
+fcmpr.asm
+        name    FCMPR
+        extrn   @CHECK
+        public  FCMPR
+
+        cseg
+FCMPR:
+        push    h
+        push    d
+        call    @CHECK
+        cpi     2
+        jz      L0023
+        jc      L008D
+        cpi     4
+        jz      L005C
+        lxi     h,0
+        jnc     L0023
+        inx     d
+        inx     d
+        inx     d
+        ldax    d
+        ral
+        jc      L0064
+        jmp     L006C
+L0023:
+        xchg
+        lxi     h,11H
+        dad     b
+        mov     a,d
+        cmp     m
+        jc      L006C
+        jnz     L0064
+        mov     a,e
+        dcx     h
+        cmp     m
+        jc      L0081
+        jnz     L0075
+        dcx     h
+        pop     d
+        push    d
+        inx     d
+        inx     d
+        ldax    d
+        ori     80H
+        cmp     m
+        jc      L0081
+        jnz     L0075
+        dcx     d
+        dcx     h
+        ldax    d
+        cmp     m
+        jc      L0081
+        jnz     L0075
+        dcx     h
+        dcx     d
+        ldax    d
+        cmp     m
+        jc      L0081
+        jnz     L0075
+L005C:
+        ldax    b
+        ani     10H
+        ori     80H
+        jmp     L0071
+L0064:
+        ldax    b
+        ani     10H
+        ori     40H
+        jmp     L0071
+L006C:
+        ldax    b
+        ani     10H
+        ori     20H
+L0071:
+        stax    b
+L0072:
+        pop     d
+        pop     h
+        ret
+L0075:
+        lxi     h,11H
+        dad     b
+        mov     a,m
+        ral
+        jc      L0064
+        jmp     L006C
+L0081:
+        lxi     h,11H
+        dad     b
+        mov     a,m
+        ral
+        jc      L006C
+        jmp     L0064
+L008D:
+        push    b
+        push    b
+        lxi     h,L009D
+        push    h
+        inx     b
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,6
+        pchl
+L009D:
+        pop     b
+        ldax    b
+        jmp     L0072
+
+        end
+
+fdiv.asm
+        name    FDIV
+        extrn   @CHECK
+        extrn   @ROUND
+        public  FDIV
+
+        cseg
+FDIV:   ; public
+        push    psw
+        push    h
+        call    @CHECK
+        cpi     2
+        jz      L0026
+        jc      L0143
+        cpi     3
+        jnz     L0015
+        jmp     L0154
+L0015:
+        ldax    b
+        ori     1
+        ani     0F9H
+        stax    b
+        lxi     h,3
+        dad     b
+        mov     a,m
+        ori     10H
+        mov     m,a
+        jmp     L0143
+L0026:
+        push    d
+        push    b
+        push    h
+        mov     a,h
+        lxi     h,11H
+        dad     b
+        add     m
+        mov     m,a
+        dcx     h
+        mov     a,m
+        push    psw
+        dcx     h
+        mov     a,m
+        dcx     h
+        mov     b,m
+        dcx     h
+        mov     c,m
+        push    h
+        lxi     h,2
+        push    h
+        push    h
+        lxi     h,1
+        push    h
+        xchg
+        mov     e,m
+        inx     h
+        mov     d,m
+        push    psw
+        inx     h
+        mov     a,m
+        ori     80H
+        mov     l,c
+        mov     h,b
+        mov     b,a
+        pop     psw
+        stc
+        cmc
+L0052:
+        push    h
+        push    psw
+        push    psw
+        mov     c,a
+        mov     a,l
+        sub     e
+        mov     l,a
+        mov     a,h
+        sbb     d
+        mov     h,a
+        mov     a,c
+        sbb     b
+        jnc     L0072
+        mov     c,a
+        pop     psw
+        mov     a,c
+        jc      L0074
+        pop     psw
+        pop     h
+        xthl
+        dad     h
+        jc      L0084
+        xthl
+        jmp     L007F
+L0072:
+        inx     sp
+        inx     sp
+L0074:
+        inx     sp
+        inx     sp
+        inx     sp
+        inx     sp
+        xthl
+        dad     h
+        inx     h
+        jc      L0084
+        xthl
+L007F:
+        dad     h
+        adc     a
+        jmp     L0052
+L0084:
+        xthl
+        dcx     sp
+        dcx     sp
+        push    h
+        push    psw
+        lxi     h,0AH
+        dad     sp
+        mov     a,m
+        dcr     a
+        jz      L00A4
+        dcx     h
+        dcx     h
+        mov     m,a
+        dcx     h
+        dcx     h
+        dcx     h
+        mvi     m,0
+        dcx     h
+        mvi     m,7FH
+        pop     psw
+        pop     h
+        dad     h
+        adc     a
+        jmp     L0052
+L00A4:
+        mvi     c,20H
+        pop     psw
+        pop     h
+        ora     a
+        jnz     L00B8
+        mov     a,h
+        ora     a
+        jnz     L00B8
+        mov     a,l
+        ora     a
+        jnz     L00B8
+        mvi     c,0
+L00B8:
+        pop     h
+        pop     h
+        pop     d
+        mvi     b,0
+        dad     h
+        dad     h
+        dad     h
+        dad     h
+        dad     h
+        dad     h
+        mov     a,d
+        ral
+        jc      L00D6
+        mvi     b,1
+        dad     h
+        xchg
+        jc      L00D3
+        dad     h
+        jmp     L00D5
+L00D3:
+        dad     h
+        inx     h
+L00D5:
+        xchg
+L00D6:
+        mov     a,l
+        ora     c
+        mov     l,h
+        mov     h,e
+        mov     c,d
+        call    @ROUND
+        xchg
+        pop     h
+        pop     h
+        pop     h
+        mov     m,e
+        inx     h
+        mov     m,d
+        inx     h
+        mov     m,c
+        inx     h
+        mov     c,a
+        mvi     a,7FH
+        add     c
+        sub     b
+        mov     b,a
+        pop     psw
+        add     b
+        mov     c,a
+        mvi     b,1
+        jc      L00F8
+        mvi     b,0
+L00F8:
+        pop     d
+        mov     a,c
+        sub     e
+        mov     e,a
+        mov     a,b
+        jc      L010C
+        ora     a
+        jnz     L0132
+        mov     a,e
+        ora     a
+        jz      L011F
+        jmp     L0116
+L010C:
+        ora     a
+        jz      L011F
+        mov     a,e
+        cpi     0FFH
+        jz      L0132
+L0116:
+        mov     m,a
+        pop     b
+        mvi     a,10H
+        stax    b
+        pop     d
+        pop     h
+        pop     psw
+        ret
+L011F:
+        mov     a,e
+        adi     0BEH
+        mov     m,a
+        pop     b
+        lxi     h,3
+        dad     b
+        mov     a,m
+        ori     20H
+        mov     m,a
+        mvi     a,14H
+        stax    b
+        jmp     L0142
+L0132:
+        mov     a,e
+        sbi     0BEH
+        mov     m,a
+        pop     b
+        lxi     h,3
+        dad     b
+        mov     a,m
+        ori     40H
+        mov     m,a
+        mvi     a,13H
+        stax    b
+L0142:
+        pop     d
+L0143:
+        push    b
+        push    b
+        lxi     h,L0153
+        push    h
+        inx     b
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,4
+        pchl
+L0153:
+        pop     b
+L0154:
+        pop     h
+        pop     psw
+        ret
+
+        end
+
+ferhnd.asm
+        name    FERHND
+        extrn   FCLR
+        extrn   FLOAD
+        public  FERHND
+
+EXPOFF  equ     16
+SGNOFF  equ     17
+FACOFF  equ     13  ; offset to low byte of FAC in FPR
+        cseg
+FERHND:
+        push    psw     ; save the register contents
+        push    b
+        push    h
+        mov     a,c     ; load error code to A
+        push    d       ; save passed in de
+        lxi     h,8
+        dad     sp
+        mov     e,m     ; return address
+        inx     h
+        mov     d,m
+        inx     h
+        mov     c,m     ; bc = pointer to fpr
+        inx     h
+        mov     b,m
+        mov     m,d     ; replace pointer on stack with return address
+        dcx     h
+        mov     m,e
+        pop     d       ; restore passed in de
+        cpi     1       ; FADD
+        jz      L003A
+        cpi     2       ; FSUB
+        jz      L003A
+        cpi     3       ; FMUL
+        jz      L003A
+        cpi     4       ; FDIV
+        jz      L003A
+        cpi     5       ; FIXSD
+        jz      L0082
+        cpi     6       ; FCMPR
+        jz      L00AE
+        cpi     0AH     ; FSQRT
+        jz      L003A
+        jmp     L00E8   ; FZTST, FNEG, FABS
+
+; ---- FADD, FSUB, FMUL, FDIV, FSQRT ----
+L003A:
+        ldax    b       ; get error code
+        ani     7
+        cpi     1       ; division by zero
+        jz      L0054
+        cpi     2       ; domain error
+        jz      L0054
+        cpi     3       ; overflow
+        jz      L0067
+        cpi     4       ; underflow
+        jz      L007C
+        jmp     L00E8   ; ignore  other errors
+
+L0054:                  ; / 0 or domain error
+        lxi     h,7F80H ; load 3.40282366920938e+038 (invalid number)
+        push    h
+        lxi     h,0
+        push    h
+        dad     sp
+        xchg
+        call    FLOAD
+        xchg
+        pop     h
+        pop     h
+        jmp     L00E8
+
+L0067:                  ; overflow
+        lxi     h,EXPOFF
+        dad     b
+        mvi     m,0FEH  ; max exponent, sign unchanged
+        dcx     h
+        mvi     m,0FFH  ; all 1's for the fraction
+        dcx     h
+        mvi     m,0FFH
+        dcx     h
+        mvi     m,0FFH
+        mvi     a,10H   ; status = non zero
+        stax    b
+        jmp     L00E8
+
+L007C:                  ; underflow
+        call    FCLR    ; set to zero
+        jmp     L00E8
+
+; ---- FIXSD ----
+L0082:
+        ldax    b       ; overflow?
+        ani     7
+        cpi     3
+        jnz     L00E8
+        mvi     a,10H   ; set status to non zero - no  error
+        stax    b
+        lxi     h,SGNOFF
+        dad     b
+        mov     a,m
+        ora     a
+        mvi     a,0
+        jnz     L009A
+        mvi     a,0FFH  ; a = sign ? 0 : 0ffh
+L009A:
+        stax    d       ; -ve fill with 7F000000 +ve fill with FFFFFFFF 
+        inx     d
+        stax    d
+        inx     d
+        stax    d
+        inx     d
+        mov     a,m
+        ora     a
+        jnz     L00A7
+        mvi     a,7FH
+L00A7:
+        stax    d
+        dcx     d
+        dcx     d
+        dcx     d
+        jmp     L00E8
+
+; ---- FCMPR ----
+L00AE:
+        ldax    b       ; mask off EGL bits
+        ani     1FH
+        stax    b
+        ani     7
+        cpi     6       ; Invalid number
+        jz      L00E8   ; all done
+        push    d
+        lxi     h,FACOFF
+        dad     b
+        ldax    d
+        cmp     m       ; check f0-f7 same  
+        jnz     L00E7
+        inx     d
+        inx     h
+        ldax    d
+        cmp     m       ; check f8-f15 same
+        jnz     L00E7
+        inx     d
+        inx     h
+        xchg
+        inx     d       ; get FPR exp e1-e8
+        ldax    d
+        rar             ; e1 to carry
+        dcx     d
+        ldax    d
+        ral             ; e1 to msb, replacing f23
+        rrc
+        cmp     m       ; does it match the external exp/frac byte
+        jnz     L00E7
+        inx     h
+        inx     d
+        inx     d
+        ldax    d       ; sign bit to msb
+        ral
+        dcx     d
+        ldax    d
+        rar
+        cmp     m
+        jnz     L00E7   ; fall through if numbers same
+        mvi     a,95H   ; set to E, non zero, invalid number
+        stax    b
+L00E7:
+        pop     d
+L00E8:
+        pop     h       ; restore registers
+        pop     b
+        pop     psw
+        inx     sp      ; junk now duplicate return address
+        inx     sp
+        ret
+
+        end
+ferror.asm
+        name    FERROR
+        public  FERROR
+        cseg
+; ferror: procdure(fpr) address public ; declare fpr address; end;
+EFLGOF  equ     3       ; offset of error flags
+
+FERROR: 
+        push    d
+        lxi     h,EFLGOF
+        dad     b       ; hl = .fpr.error$flag
+        mov     e,m     ; pick up error$flag
+        inx     h
+        mov     d,m
+        xchg
+        pop     d
+        ret
+        end
+
+fixsd.asm
+        name FIXSD
+        public FIXSD
+
+        cseg
+FIXSD:
+        push    psw
+        push    h
+        push    b
+        push    d
+        ldax    b
+        ani     17H
+        cpi     15H
+        jz      L00A0
+        lxi     h,11H
+        dad     b
+        mov     a,m
+        push    psw
+        dcx     h
+        mov     a,m
+        cpi     7FH
+        jc      L0075
+        dcx     h
+        mov     b,m
+        dcx     h
+        mov     c,m
+        dcx     h
+        mov     d,m
+        mvi     e,0
+        cpi     9EH
+        jz      L0058
+        jnc     L008C
+        sui     7FH
+        mov     l,a
+        mvi     a,1FH
+        sub     l
+        mov     l,a
+L0030:
+        sub     a
+        mov     a,b
+        rar
+        mov     b,a
+        mov     a,c
+        rar
+        mov     c,a
+        mov     a,d
+        rar
+        mov     d,a
+        mov     a,e
+        rar
+        mov     e,a
+        dcr     l
+        jnz     L0030
+        pop     psw
+        ora     a
+        jz      L007C
+        sub     a
+        sub     e
+        mov     e,a
+        mvi     a,0
+        sbb     d
+        mov     d,a
+        mvi     a,0
+        sbb     c
+        mov     c,a
+        mvi     a,0
+        sbb     b
+        mov     b,a
+        jmp     L007C
+L0058:
+        pop     psw
+        ora     a
+        jz      L008D
+        mov     a,b
+        cpi     80H
+        jnz     L008D
+        mov     a,c
+        ora     a
+        jnz     L008D
+        mov     a,d
+        ora     a
+        jnz     L008D
+        mov     a,e
+        ora     a
+        jnz     L008D
+        jmp     L007C
+L0075:
+        lxi     b,0
+        lxi     d,0
+        pop     psw
+L007C:
+        pop     h
+        mov     m,e
+        inx     h
+        mov     m,d
+        inx     h
+        mov     m,c
+        inx     h
+        mov     m,b
+        dcx     h
+        dcx     h
+        dcx     h
+        xchg
+L0088:
+        pop     b
+        pop     h
+        pop     psw
+        ret
+L008C:
+        pop     psw
+L008D:
+        pop     d
+        pop     b
+        push    b
+        push    b
+        mvi     a,13H
+        stax    b
+        inx     b
+        inx     b
+        inx     b
+        ldax    b
+        ori     40H
+        stax    b
+        dcx     b
+        dcx     b
+        jmp     L00A5
+L00A0:
+        pop     d
+        pop     b
+        push    b
+        push    b
+        inx     b
+L00A5:
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,L00B2
+        push    b
+        lxi     b,5
+        pchl
+L00B2:
+        jmp     L0088
+
+        end
+
+fload.asm
+        name FLOAD
+        public FLOAD
+        cseg
+; input bc -> fpr, de -> mem
+; operation FAC <- mem
+ERROFF  equ     3       ; offset to FPR error field
+FACOFF  equ     13      ; offset to FPR FAC
+
+FLOAD:
+        push    h
+        push    psw
+        push    d
+        lxi     h,FACOFF        ; copy F0-F15 to FAC
+        dad     b
+        ldax    d
+        mov     m,a
+        inx     h
+        inx     d
+        ldax    d
+        mov     m,a
+        inx     h
+        inx     d
+        ldax    d
+        ori     80H             ; copy F16-F22 & F23 = 1 to FAC
+        mov     m,a
+        ldax    d               ; carry = E1
+        ral
+        inx     d
+        inx     h
+        ldax    d               ; rotate E1 in and sign out
+        ral                     ; save E1-E8
+        mov     m,a
+        push    psw
+        inx     h
+        ldax    d
+        ani     80H             ; save sign in FAC
+        mov     m,a
+        pop     psw
+        ora     a               ; exponent == 0 ?
+        jz      CHK0
+        cpi     0FFH            ; exponent == 255 ?
+        jz      SERR
+        mvi     a,10H           ; set as non zero
+SSTAT:                          ; set status field
+        stax    b
+        pop     d
+        pop     psw
+        pop     h
+        ret
+CHK0:                           ; check if number is zero
+        dcx     h               ; clear F23, exponent is 0
+        dcx     h
+        mov     a,m
+        ani     7FH
+        mov     m,a
+        inx     h
+        inx     h
+        sub     a
+        cmp     m
+        jnz     SERR            ; sign not 0
+        dcx     h
+        dcx     h
+        cmp     m
+        jnz     SERR            ; F16-F23 not 0
+        dcx     h
+        cmp     m
+        jnz     SERR            ; F8-F15 not 0
+        dcx     h
+        cmp     m
+        jz      SSTAT           ; ok if F0-F7 is 0      - clears non zero status
+SERR:                           ; set error field
+        lxi     h,ERROFF
+        dad     b
+        mov     a,m
+        ori     80H             ; set invalid operand
+        mov     m,a
+        mvi     a,15H           ; status = invalid number in FAC + is non zero
+        jmp     SSTAT
+
+        end
+
+fltds.asm
+        name    FLTDS
+        public  FLTDS
+        extrn   FCLR
+        extrn   @ROUND
+
+        cseg 
+FLTDS: 
+        push    psw
+        push    h
+        push    d
+        push    b
+        lxi     h,11H
+        dad     b
+        push    h
+        xchg
+        mov     e,m
+        inx     h
+        mov     d,m
+        inx     h
+        mov     c,m
+        inx     h
+        mov     b,m
+        mov     a,e
+        ora     a
+        jnz     L003B
+        mov     a,d
+        ora     a
+        jnz     L003B
+        mov     a,c
+        ora     a
+        jnz     L003B
+        mov     a,b
+        cpi     80H
+        jz      L0033
+        ora     a
+        jnz     L003B
+        pop     b
+        pop     b
+        pop     d
+        call    FCLR
+        jmp     L0089
+L0033:
+        mvi     a,80H
+        mov     c,b
+        mvi     b,9EH
+        jmp     L007A
+L003B:
+        mov     a,b
+        ani     80H
+        push    psw
+        jz      L0051
+        sub     a
+        sub     e
+        mov     e,a
+        mvi     a,0
+        sbb     d
+        mov     d,a
+        mvi     a,0
+        sbb     c
+        mov     c,a
+        mvi     a,0
+        sbb     b
+        mov     b,a
+L0051:
+        xchg
+        mvi     e,0
+L0054:
+        dad     h
+        mov     a,c
+        adc     a
+        mov     c,a
+        mov     a,b
+        adc     a
+        mov     b,a
+        inr     e
+        ral
+        jnc     L0054
+        mov     d,l
+        mov     l,h
+        mov     h,c
+        mov     c,b
+        mov     a,d
+        ani     1FH
+        mov     a,d
+        jz      L006F
+        ani     0E0H
+        ori     20H
+L006F:
+        call    @ROUND
+        mov     d,a
+        mvi     a,9EH
+        sub     e
+        add     d
+        xchg
+        mov     b,a
+        pop     psw
+L007A:
+        pop     h
+        mov     m,a
+        dcx     h
+        mov     m,b
+        dcx     h
+        mov     m,c
+        dcx     h
+        mov     m,d
+        dcx     h
+        mov     m,e
+        pop     b
+        mvi     a,10H
+        stax    b
+        pop     d
+L0089:
+        pop     h
+        pop     psw
+        ret
+
+        end
+fmul.asm
+        name    FMUL
+        public  FMUL 
+        extrn   @CHECK
+        extrn   FCLR
+        extrn   @MPLY
+        extrn   @NORML
+        extrn   @ROUND
+
+        cseg
+FMUL:   ; public
+        push    psw
+        push    h
+        call    @CHECK
+        cpi     2
+        jz      L0018
+        jc      L0140
+        cpi     5
+        jnz     L0153
+        call    FCLR
+        jmp     L0153
+L0018:
+        push    d
+        push    b
+        push    h
+        mov     a,h
+        lxi     h,11H
+        dad     b
+        add     m
+        mov     m,a
+        dcx     h
+        mov     c,m
+        mvi     b,0
+        xthl
+        mvi     h,0
+        dad     b
+        inx     h
+        xthl
+        dcx     h
+        mov     b,m
+        dcx     h
+        mov     c,m
+        dcx     h
+        mov     a,m
+        push    h
+        xchg
+        mov     e,a
+        inx     h
+        inx     h
+        mov     a,m
+        ori     80H
+        mov     d,a
+        push    d
+        dcx     h
+        mov     d,m
+        dcx     h
+        mov     e,m
+        lxi     h,0
+        call    @MPLY
+        push    h
+        push    psw
+        lxi     h,0
+        mov     a,d
+        call    @MPLY
+        push    h
+        push    psw
+        lxi     h,0
+        mov     a,e
+        call    @MPLY
+        push    h
+        push    psw
+        lxi     h,0CH
+        dad     sp
+        mov     a,m
+        inx     h
+        mov     b,m
+        mov     c,d
+        mov     d,a
+        lxi     h,0
+        call    @MPLY
+        push    h
+        push    psw
+        lxi     h,0
+        mvi     b,0
+        mov     c,e
+        mov     a,d
+        call    @MPLY
+        mov     a,l
+        mvi     c,80H
+        ora     a
+        jnz     L007E
+        mvi     c,0
+L007E:
+        mov     l,h
+        mvi     h,0
+        pop     psw
+        pop     d
+        dad     d
+        aci     0
+        mov     b,a
+        jnc     L008B
+        inr     c
+L008B:
+        pop     psw
+        pop     d
+        dad     d
+        adc     b
+        jnc     L0093
+        inr     c
+L0093:
+        mov     b,a
+        mov     a,l
+        mov     l,h
+        mov     h,b
+        ora     a
+        jz      L009F
+        mov     a,c
+        ori     80H
+        mov     c,a
+L009F:
+        pop     psw
+        pop     d
+        dad     d
+        aci     0
+        mov     b,a
+        jnc     L00AC
+        mov     a,c
+        ori     40H
+        mov     c,a
+L00AC:
+        pop     psw
+        pop     d
+        push    h
+        mov     l,h
+        mov     h,b
+        dad     d
+        aci     0
+        mov     b,a
+        mov     a,c
+        ani     3FH
+        add     h
+        mov     h,a
+        mov     a,b
+        aci     0
+        pop     d
+        mov     b,c
+        mov     c,a
+        mov     a,b
+        ani     40H
+        jz      L00C7
+        inr     c
+L00C7:
+        mov     a,b
+        rar
+        rar
+        ani     20H
+        ora     e
+        mov     e,a
+        ani     3FH
+        mov     a,e
+        jz      L00D8
+        ani     0E0H
+        ori     20H
+L00D8:
+        mov     e,a
+        mov     a,c
+        ani     80H
+        mov     a,e
+        mvi     b,0
+        jnz     L00E7
+        mvi     b,1
+        call    @NORML
+L00E7:
+        call    @ROUND
+        xchg
+        pop     h
+        pop     h
+        mov     m,e
+        inx     h
+        mov     m,d
+        inx     h
+        mov     m,c
+        inx     h
+        pop     d
+        mov     c,a
+        mvi     a,7FH
+        add     b
+        sub     c
+        mov     b,a
+        mov     a,e
+        sub     b
+        mov     e,a
+        pop     b
+        mvi     a,10H
+        stax    b
+        mov     a,d
+        jc      L0111
+        ora     a
+        jnz     L0130
+        mov     a,e
+        ora     a
+        jz      L011F
+        jmp     L011B
+L0111:
+        ora     a
+        jz      L011F
+        mov     a,e
+        cpi     0FFH
+        jz      L0130
+L011B:
+        mov     m,e
+        jmp     L0152
+L011F:
+        mov     a,e
+        adi     0BEH
+        mov     m,a
+        lxi     h,3
+        dad     b
+        mov     a,m
+        ori     20H
+        mov     m,a
+        mvi     a,14H
+        jmp     L013E
+L0130:
+        mov     a,e
+        sbi     0BEH
+        mov     m,a
+        lxi     h,3
+        dad     b
+        mov     a,m
+        ori     40H
+        mov     m,a
+        mvi     a,13H
+L013E:
+        stax    b
+        pop     d
+L0140:
+        push    d
+        push    b
+        push    b
+        lxi     h,L0151
+        push    h
+        inx     b
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,3
+        pchl
+L0151:
+        pop     b
+L0152:
+        pop     d
+L0153:
+        pop     h
+        pop     psw
+        ret
+        end
+
+fneg.asm
+        name FNEG
+        public FNEG
+        cseg
+; input bc->FPR
+; operation 0 <- 0 otherwise change sign of FAC
+SGNOFF  equ     17      ; offset of sign byte
+
+FNEG:
+        push    psw
+        push    h
+        ldax    b
+        ani     17H     ; mask off error code
+        cpi     15H     ; check for invalid number in FAC
+        jz      badnum
+        ani     10H     ; skip if non zero flag clear
+        jz      done
+        lxi     h,SGNOFF        ; toggle sign bit
+        dad     b
+        mov     a,m
+        adi     80H
+        mov     m,a
+done:
+        pop     h
+        pop     psw
+        ret
+badnum:
+        push    b       ; save fpr for eventual return
+        push    b       ; fpr for error handler
+        lxi     h,retloc ; return address of call (done via pchl)
+        push    h
+        inx     b       ; hl <- error handler
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,8     ; error code 8 -> FNEG  note de = junk
+        pchl
+retloc:
+        pop     b
+        jmp     done
+        end
+fqfb2d.plm
+FQFB2D: DO;
+FADD: procedure(fpr$p, addend$p) external; declare (fpr$p, addend$p) address; end;
+FABS: procedure(fpr$p) external; declare fpr$p address; end;
+FMUL: procedure(fpr$p, multiplier$p) external; declare (fpr$p, multiplier$p) address; end;
+FDIV: procedure(fpr$p, divisor$p) external; declare (fpr$p, divisor$p) address; end;
+FIXSD: procedure(fpr$p, int32$p) external; declare (fpr$p, int32$p) address; end;
+FCMPR: procedure(fpr$p, fnum$p) byte external; declare (fpr$p, fnum$p) address; end;
+FZTST: procedure(fpr$p) byte external; declare fpr$p address; end;
+FSTAT: procedure(fpr$p) byte external; declare fpr$p address; end;
+declare FQFT10(1) byte external;
+
+declare pow2(*) byte data(1, 2, 4, 8, 16, 32),
+    fhalf(*) byte data(0, 0, 0, 3fh),    /* 0.5 */
+    fpow10(*) byte
+       data(0, 0, 80H, 3fh,    /* 1 */
+            0, 0, 20h, 41h,    /* 10 */
+            0, 0, 0C8H, 42h,   /* 100 */
+            0, 0, 7ah, 44h,    /* 1,000 */
+            0, 40H, 1ch, 46h,  /* 10,000 */
+            0, 50h, 0c3h, 47h, /* 100,000 */
+            0, 24h, 74h, 49h,  /* 1,000,000 */
+            80h, 96h, 18h, 4bh,/* 10,000,000 */
+            20h, 0bch, 0beh, 4ch, /* 100,000,000 */
+            28h, 6bh, 6eh, 4eh), /* 1,000,000,000 */
+    ipow10(9) structure(lowWrd address, highWrd address)
+            data(1, 0,        10, 0,            /* 1 10 */
+                 100, 0,      1000, 0,          /* 100 1,000 */
+                 10000, 0,    86a0h, 1,         /* 10,000 100,000 */
+                 4240h, 0fh,  9680h, 98h,       /* 1,000,000 10,000,000 */
+                 0e100h, 5f5h);                 /* 100,000,000 */
+
+
+FQFB2D: procedure(fpr$p, control$p) public reentrant;
+    declare (fpr$p, control$p) address;
+    declare sign$p address,        /* 4 */
+        scale$p address,    /* 6 */
+        string$ptr address,    /* 8 */
+        string$ptr$p address,    /* 0A */
+        slength$p address,    /* 0C */
+        slength byte,        /* 0E */
+        hasLongLen byte,        /* 0F */
+        int32 structure(lowWrd address, highWrd address),
+        fpr(18) byte,        /* 14 */
+        fpr2(18) byte,        /* 2A */
+        borrow byte,
+        tstResult byte,
+        pow10Idx byte,
+        i byte,        /* 3B */
+        digit byte;
+
+    declare scale based scale$p address,
+        slength$v based slength$p byte,
+        str$ptr based string$ptr$p address,
+        sign based sign$p byte,
+        s based string$ptr (1) byte;
+
+    sign$p = control$p;
+    scale$p = control$p + 1;
+    slength$p = control$p + 3;
+    string$ptr$p = control$p + 4;
+    string$ptr = str$ptr;
+    call move(18, fpr$p, .fpr);
+    scale = 0;
+    slength = slength$v;
+    hasLongLen = 0;
+    if 9 < slength then
+    do;
+        slength = 9;
+        hasLongLen = 1;
+    end;
+    if slength = 0 or (fstat(.fpr) and 5) = 5 then /* invalid or undef */
+    do;
+        /* this code looks faulty. See commented out ( ) for suggested correction */
+        /* is looks like the coder did not take into account = binds tighter than and/or */
+        if /* ( */ fpr(13) and fpr(14) and fpr(15) and fpr(16) /* ) */ = 0ffh then
+            if fpr(17) < 80h then
+                s(0) = '+';    /* +inf */
+            else
+                s(0) = '-';    /* -inf */
+        /* again code looks faulty */
+        else if ( /* ( */ fpr(13) or fpr(14) or fpr(15) or fpr(17) /* ) */ = 0) and fpr(16) = 0ffh then
+            s(0) = '?';        /* ind */
+        /* and again */
+        else if ( /* ( */ fpr(13) or fpr(14) or fpr(15) or fpr(16) /* ) */ = 0) and fpr(17) = 080h then
+            s(0) = '0';        /* -0 */
+        else
+            s(0) = '*';        /* other invalid */
+        sign = '*';
+        do i = 1 to slength$v - 1;
+            s(i) = '*';
+        end;
+        return;
+    end;
+    tstResult = FZTST(.fpr);
+    if rol(tstResult, 1) then
+    do;
+        sign = ' ';
+        do i = 0 to slength$v - 1;
+            s(i) = '0';    
+        end;
+        return;
+    end;
+    if rol(tstResult, 2) then
+        sign = '+';
+    else
+        sign = '-';
+        
+    call FABS(.fpr);
+    i = 5;
+    if fpr(16) > 36h then
+        i = 4;
+    if rol(FCMPR(.fpr, .fpow10((slength - 1) * 4)), 3) then
+    do while i <> 0ffh;
+        call move(18, .fpr, .fpr2);
+        call FMUL(.fpr, .fqft10(i * 4));
+        if not rol(FCMPR(.fpr, .fpow10(slength * 4)), 3) then
+            call move(18, .fpr2, .fpr);
+        else
+            scale = scale - pow2(i);
+        i = i - 1;
+    end;
+    i = 5;
+    if fpr(16) < 0E9H then
+        i = 4;
+    if not rol(FCMPR(.fpr, .fpow10(slength * 4)), 3) then
+        do while i <> 0ffh;
+            call move(18, .fpr, .fpr2);
+            call FDIV(.fpr, .fqft10(i * 4));
+            if rol(FCMPR(.fpr, .fpow10((slength - 1) * 4)), 3) then
+                call move(18, .fpr2, .fpr);
+            else
+                scale = scale + pow2(i);
+            i = i - 1;
+        end;
+    call FADD(.fpr, .fhalf);
+    call FIXSD(.fpr, .int32);
+    pow10Idx = slength;
+    do i = 0 to slength - 1;
+        pow10Idx = pow10Idx - 1;
+        digit = '0';
+        do while ipow10(pow10Idx).highWrd < int32.highWrd or
+             int32.highWrd = ipow10(pow10Idx).highWrd and int32.lowWrd >= ipow10(pow10Idx).lowWrd;
+            if int32.lowWrd < ipow10(pow10Idx).lowWrd then
+                borrow = 1;
+            else
+                borrow = 0;
+            int32.lowWrd = int32.lowWrd - ipow10(pow10Idx).lowWrd;
+            int32.highWrd = int32.highWrd - ipow10(pow10Idx).highWrd - borrow;
+
+            digit = digit + 1;
+        end;
+        s(i) = digit;
+    end;
+    if s(0) > '9' then
+    do;
+        s(0) = '1';
+        scale = scale + 1;
+    end;
+    if hasLongLen then
+    do;
+        do i = 9 to slength$v - 1;
+            s(i) = '0';
+        end;
+        scale = scale - (slength$v - 9);
+    end;
+end;
+end;
+fqfd2b.plm
+FQFD2B: do;
+
+FQFX10: procedure(int32$p, digit) external; declare int32$p address, digit byte; end;
+FCLR: procedure(fpr$p) external; declare fpr$p address; end;
+FNEG: procedure(fpr$p) external; declare fpr$p address; end;
+FMUL: procedure(fpr$p, float$p) external; declare (fpr$p, float$p) address; end;
+FDIV: procedure(fpr$p, float$p) external; declare (fpr$p, float$p) address; end;
+FLTDS: procedure(fpr$p, int32$p) external; declare (fpr$p, int32$p) address; end;
+
+declare FQFT10(1) byte external;
+
+FQFD2B: procedure(fpr$p, control$p) public reentrant;
+        declare (fpr$p, control$p) address;
+        declare string$ptr$p address,
+                sign$p address,
+                string$ptr address,
+                slength$p address,
+                scale$p address,
+                scale address,
+                slength byte,
+                b11 byte,
+                b12 byte,
+                int32(4) byte,
+                digits byte,
+                i byte;
+        declare str$ptr based string$ptr$p address;
+        declare scale$val based scale$p address;
+        declare slength$val based slength$p byte;
+        declare s based string$ptr (1) byte;
+        declare sign based sign$p byte;
+
+        sign$p = control$p;
+        scale$p = control$p + 1;
+        slength$p = control$p + 3;
+        string$ptr$p = control$p + 4;
+        scale = scale$val;      
+        slength = slength$val;
+        string$ptr = str$ptr;
+
+        do while s(0) = '0' and slength <> 0;
+                string$ptr = string$ptr + 1;
+                slength = slength - 1;
+        end;
+        do while s(slength - 1) = '0' and slength <> 0;
+                slength = slength - 1;
+                scale = scale + 1;
+        end;
+        if slength = 0 then
+        do;
+                call FCLR(fpr$p);
+                return;
+        end;
+        int32(0) = 0;
+        int32(1) = 0;
+        int32(2) = 0;
+        int32(3) = 0;
+
+        if slength > 9 then
+                digits = 9;
+        else
+                digits = slength;
+        do i = 0 to digits - 1;
+                call FQFX10(.int32, s(i) - '0');
+        end;    
+        call FLTDS(fpr$p, .int32);
+        if (b11 := (scale := scale + slength - digits) > 8000H) then
+                scale = -scale;
+        if scale > 63 then
+                scale = 63;
+        b12 = 0;
+        if b11 then
+                do while scale <> 0;
+                        if scale then
+                                call FDIV(fpr$p, .FQFT10(b12 * 4));
+                        scale = shr(scale, 1);
+                        b12 = b12 + 1;
+                end;
+        else
+                do while scale <> 0;
+                        if scale then
+                                call FMUL(fpr$p, .FQFT10(b12 * 4));
+                        scale = shr(scale, 1);
+                        b12 = b12 + 1;
+                end;
+        if sign = '-' then
+               call FNEG(fpr$p);
+
+end;
+end;
+fqft10.plm
+/* b1=01, b2=31, CODE(18H) byte, DATA(0H) byte, STACK(0H) byte, MEMORY(0H) byte,*/
+FQFT10: DO;
+
+declare FQFT10(*) byte public data(
+        00,   00,  20h, 41h,    /* 10^1 */
+        00,   00, 0c8h, 42h,    /* 10^2 */
+        00,  40h,  1ch, 46h,    /* 10^4 */
+       20h, 0bch, 0beh, 4ch,    /* 10^8 */
+      0cah,  1bh,  0eh, 5ah,    /* 10^16 */
+      0aeh, 0c5h,  9dh, 74h);   /* 10^32 */
+
+end;    
+
+fqfx10.asm
+        name fqfx10
+        public fqfx10
+
+        stkln   6
+        cseg
+FQFX10: ; public
+        mvi     d,0
+        push    b
+        push    d
+        mov     h,b
+        mov     l,c
+        mov     e,m
+        push    h
+        inx     h
+        mov     d,m
+        inx     h
+        mov     c,m
+        inx     h
+        mov     b,m
+        pop     h
+        xchg
+        call    L0052
+        jc      L004D
+        call    L0052
+        jc      L004D
+        ldax    d
+        add     l
+        mov     l,a
+        inx     d
+        ldax    d
+        adc     h
+        mov     h,a
+        inx     d
+        ldax    d
+        adc     c
+        mov     c,a
+        inx     d
+        ldax    d
+        adc     b
+        mov     b,a
+        jc      L004D
+        call    L0052
+        jc      L004D
+        pop     d
+        dad     d
+        mvi     a,0
+        adc     c
+        mov     c,a
+        mvi     a,0
+        adc     b
+        mov     b,a
+        jc      L004E
+        xchg
+        pop     h
+        mov     m,e
+        inx     h
+        mov     m,d
+        inx     h
+        mov     m,c
+        inx     h
+        mov     m,b
+        mvi     a,0
+        ret
+L004D:
+        pop     h
+L004E:
+        pop     d
+        mvi     a,0FFH
+        ret
+L0052:
+        dad     h
+        mov     a,c
+        ral
+        mov     c,a
+        mov     a,b
+        ral
+        mov     b,a
+        ret
+
+
+        end
+freset.asm
+        name    FRESET
+        extrn   FERHND
+        public  FRESET
+        cseg
+; freset(.fpr, error$flag, .error$proc)
+
+FRESET:
+        push    h
+        push    psw     
+        push    d       ; optional handler
+        push    b       ; error$flag
+        lxi     h,8     ; get fpr
+        dad     sp
+        mov     c,m     ; bc = ret address
+        inx     h
+        mov     b,m
+        inx     h
+        mov     e,m     ; de = fpr
+        inx     h
+        mov     d,m
+        mov     m,b     ; replace on stack with ret address
+        dcx     h
+        mov     m,c
+        pop     b       ; get the error$flag
+        xchg
+        pop     d       ; and error handler
+        push    d
+        mov     a,b
+        ani     1       ; if 1 use the given handler
+        jnz     sethnd
+        lxi     d,FERHND ; or use default
+sethnd:
+        inx     h       ; set over the status byte
+        mov     m,e     ; save the handler
+        inx     h
+        mov     m,d
+        inx     h
+        mov     m,c
+        pop     d       ; restore original de
+        pop     psw     ; and psw
+        pop     h       ; and hl
+        inx     sp      ; junk original return address
+        inx     sp      ; a copy was created above
+        ret
+
+        end
+
+fset.asm
+        name    FSET
+        extrn   FERHND
+        public  FSET
+        stkln   40
+        cseg
+; fset(.fpr, error$flag, .error$proc)
+ 
+FACOFF  equ     17      ; offset of sign byte
+FACSIZ  equ     13      ; size of FAC
+
+FSET:
+        push    psw     
+        push    h
+        push    d       ; optional handler
+        push    b       ; error$flag
+        lxi     h,8     ; get fpr
+        dad     sp
+        mov     c,m     ; bc = ret address
+        inx     h
+        mov     b,m
+        inx     h
+        mov     e,m     ; de = fpr
+        inx     h
+        mov     d,m
+        mov     m,b     ; replace on stack with ret address
+        dcx     h
+        mov     m,c
+        pop     b       ; get the error$flag
+        lxi     h,FACOFF
+        dad     d
+        mvi     d,0
+        mvi     a,FACSIZ + 1    ; clear out FAC + top byte of fpr error$flag
+zero:
+        mov     m,d
+        dcx     h
+        dcr     a
+        jnz     zero
+        mov     m,c
+        dcx     h               ; save low byte of fpr error$flag
+        mov     a,b             ; 1 if error handler given
+        ani     1
+        pop     d
+        push    d               ; pick up error handler
+        jnz     sethnd
+        lxi     d,FERHND        ; or use default
+sethnd:
+        mov     m,d             ; save the error handler
+        dcx     h
+        mov     m,e
+        dcx     h
+        mvi     m,0             ; clear out status byte
+        pop     d               ; restore passed in handler
+        pop     h               ; restore original hl
+        pop     psw             ; and psw
+        inx     sp              ; junk the original return address
+        inx     sp              ; it was copied above
+        ret
+        end
+
+fsqrt.asm
+        name    FSQRT
+        public  FSQRT 
+
+        cseg
+FSQRT:  ; public
+        push    psw
+        push    h
+        push    b
+        push    d
+        mov     h,b
+        mov     l,c
+        mov     a,m
+        ani     17H
+        cpi     15H
+        jz      L00CD
+        cpi     0
+        jz      L00B8
+        lxi     d,11H
+        dad     d
+        ora     m
+        ral
+        jc      L00BD
+        dcx     h
+        mov     a,m
+        inr     a
+        rar
+        push    psw
+        dcx     h
+        mov     c,m
+        dcx     h
+        mov     d,m
+        dcx     h
+        push    h
+        mov     e,m
+        mvi     b,0
+        cc      L00DC
+        call    L00DC
+        call    L00DC
+        push    d
+        mov     e,c
+        push    d
+        mvi     c,0
+        push    b
+        mov     b,c
+        push    b
+        lxi     d,2
+        mvi     a,19H
+        push    psw
+        lxi     h,5
+        dad     sp
+        xchg
+        ldax    d
+        jmp     L0057
+L004A:
+        push    psw
+        lxi     h,5
+        dad     sp
+        mov     a,e
+        ani     8
+        xchg
+        ldax    d
+        jz      L0069
+L0057:
+        sub     l
+        stax    d
+        dcx     d
+        ldax    d
+        sbb     h
+        stax    d
+        dcx     d
+        ldax    d
+        sbb     c
+        stax    d
+        dcx     d
+        ldax    d
+        sbb     b
+        stax    d
+        cmc
+        jmp     L0077
+L0069:
+        add     l
+        stax    d
+        dcx     d
+        ldax    d
+        adc     h
+        stax    d
+        dcx     d
+        ldax    d
+        adc     c
+        stax    d
+        dcx     d
+        ldax    d
+        adc     b
+        stax    d
+L0077:
+        xchg
+        mvi     a,0
+        ral
+        inr     a
+        stc
+        ral
+        mov     h,a
+        mov     a,e
+        ani     0F9H
+        ora     h
+        mov     e,a
+        call    L00E6
+        call    L00E6
+        call    L00DC
+        pop     psw
+        dcr     a
+        jnz     L004A
+        call    L00DC
+        call    L00DC
+        call    L00DC
+        call    L00DC
+        pop     h
+        pop     h
+        pop     h
+        pop     h
+        pop     h
+        mov     a,e
+        mvi     e,0
+        adi     80H
+        mov     a,d
+        adc     e
+        mov     m,a
+        mov     a,c
+        adc     e
+        inx     h
+        mov     m,a
+        mov     a,b
+        adc     e
+        inx     h
+        mov     m,a
+        pop     psw
+        adi     3FH
+        inx     h
+        mov     m,a
+L00B8:
+        pop     d
+        pop     b
+        pop     h
+        pop     psw
+        ret
+L00BD:
+        ldax    b
+        ani     0F8H
+        ori     2
+        stax    b
+        inx     b
+        inx     b
+        inx     b
+        ldax    b
+        ori     8
+        stax    b
+        dcx     b
+        dcx     b
+        dcx     b
+L00CD:
+        push    b
+        lxi     h,L00B8
+        push    h
+        inx     b
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,0AH
+        pchl
+L00DC:
+        xchg
+        dad     h
+        xchg
+        mov     a,c
+        adc     a
+        mov     c,a
+        mov     a,b
+        adc     a
+        mov     b,a
+        ret
+L00E6:
+        push    d
+        lxi     h,0CH
+        dad     sp
+        xchg
+        mvi     h,7
+L00EE:
+        ldax    d
+        adc     a
+        stax    d
+        dcx     d
+        dcr     h
+        jnz     L00EE
+        pop     d
+        ret
+
+        end
+
+fstat.asm
+        name FSTAT
+        public FSTAT
+        cseg
+; input bc = FPR
+; return a <- status code
+; status code byte is encoded as EGLNxCCC where
+; E=1   if the FAC = second operand
+; G=1   if the FAC > second operand
+; L=1   if the FAC < second operand
+; and CCC is the error code 
+; 000   No error
+; 001   Attempted division by zero
+; 010   Domain error (e.g. ,v-1)
+; 011   Overflow
+; 100   Underflow
+; 101   Invalid number in FAC
+; 110   Invalid number in memory
+; 111   Currently undefined
+; N seems to be set if not zero
+
+FSTAT:
+        ldax    b   ; status EGLxxCCC   where CCC is the error code
+        ret
+        end
+fstor.asm
+        name FSTOR
+        public FSTOR
+        cseg
+
+; input bc -> FPR, de ->mem
+; operation mem <- FAC
+
+FACOFF  equ     13      ; offset of low byte of FAC in FPR
+
+FSTOR:
+        push    psw
+        push    h
+        push    d
+        lxi     h,FACOFF        ; start at low byte of FAC
+        dad     b
+        mov     a,m             ; copy F0-F7
+        stax    d
+        inx     d
+        inx     h
+        mov     a,m             ; copy F8-F15
+        stax    d
+        inx     d
+        inx     h
+        inx     h               ; hl = address of exponent
+        mov     a,m
+        rar                     ; carry = E1
+        dcx     h
+        mov     a,m             ; get F16-F23
+        ral                     ; replace assumed F23 with E1
+        rrc
+        stax    d               ; save F16-F22 & E1
+        inx     d
+        inx     h
+        inx     h               ; hl = address of sign
+        mov     a,m             ; get sign bit
+        ral
+        dcx     h
+        mov     a,m             ; get E1-E8
+        rar                     ; shift in sign and out E1
+        stax    d               ; save E2-E8 and sign
+        pop     d
+        pop     h
+        pop     psw
+        ret
+        end
+
+fztst.asm
+        name FZTST
+        public FZTST
+        cseg
+
+FACOFF  equ     17      ; offset of sign byte
+
+FZTST:
+        push    h
+        ldax    b
+        ani     17H     ; mask off error code
+        cpi     15H     ; invalid number ?
+        jz      badnum
+        ani     10H     ; Z if number is 0
+        jz      iszero
+        lxi     h,FACOFF    ; test the sign bit
+        dad     b
+        mov     a,m
+        ral
+        jnc     isgt    ; jmp if +ve
+        mvi     a,30H   ; set L = 1 and & non zero = 1
+        jmp     done
+isgt:
+        mvi     a,50H   ; set G = 1 & non zero = 1
+        jmp     done
+iszero:
+        mvi     a,80H   ; set E = 1 & non zero = 0
+done:
+        stax    b
+        pop     h
+        ret
+badnum:
+        push    b       ; save fpr for eventual return
+        push    b       ; fpr for error handler
+        lxi     h,retloc ; return address of call (done via pchl)
+        push    h
+        inx     b       ; hl <- error handler
+        ldax    b
+        mov     l,a
+        inx     b
+        ldax    b
+        mov     h,a
+        lxi     b,7     ; error code 7 -> FZTST  note de = junk
+        pchl
+retloc:
+        pop     b
+        ldax    b       ; pick up status byte
+        jmp     done
+
+        end
+mply.asm
+        name    @MPLY
+        public  @MPLY 
+
+        cseg
+@MPLY:  ; public
+        ral
+        jnc     L0007
+        dad     b
+        aci     0
+L0007:
+        dad     h
+        ral
+        jnc     L000F
+        dad     b
+        aci     0
+L000F:
+        dad     h
+        ral
+        jnc     L0017
+        dad     b
+        aci     0
+L0017:
+        dad     h
+        ral
+        jnc     L001F
+        dad     b
+        aci     0
+L001F:
+        dad     h
+        ral
+        jnc     L0027
+        dad     b
+        aci     0
+L0027:
+        dad     h
+        ral
+        jnc     L002F
+        dad     b
+        aci     0
+L002F:
+        dad     h
+        ral
+        jnc     L0037
+        dad     b
+        aci     0
+L0037:
+        dad     h
+        ral
+        jnc     L003F
+        dad     b
+        aci     0
+L003F:
+        ret
+
+        end
+norml.asm
+        name    @NORML
+        public  @NORML
+
+        cseg
+@NORML: ; public
+        mvi     b,0
+        mov     d,a
+        mov     a,c
+        ral
+        mov     a,d
+        rc
+        ani     0C0H
+        mov     e,a
+L000A:
+        mov     a,e
+        ral
+        mov     e,a
+        mov     a,l
+        ral
+        mov     l,a
+        mov     a,h
+        ral
+        mov     h,a
+        mov     a,c
+        ral
+        mov     c,a
+        inr     b
+        ral
+        jnc     L000A
+        mov     a,d
+        ani     20H
+        ora     e
+        ret
+
+        end
+
+round.asm
+        name @round
+        public @round
+; on entry chla = floating point number
+;
+        cseg
+@ROUND:
+        adi     80H
+        mov     d,a
+        mov     a,l
+        aci     0
+        mov     l,a
+        mov     a,h
+        aci     0
+        mov     h,a
+        mov     a,c
+        aci     0
+        mov     c,a
+        jc      L001D
+        mov     a,d
+        ora     a
+        jnz     L001B
+        mov     a,l
+        ani     0FEH
+        mov     l,a
+L001B:
+        sub     a
+        ret
+L001D:
+        mvi     c,80H
+        mvi     a,1
+        ret
+
+        end
+
+shift.asm
+        name    @SHIFT
+        public  @SHIFT
+        cseg
+; shift 32 number in bchl right by a bits
+@SHIFT: ; public
+        mvi     d,0     ; rounding
+        cpi     20H     ; cap shift at 32 bits
+        jc      L0009
+        mvi     a,20H
+L0009:
+        cpi     8       ; check for >= 8 bits to shift
+        jc      L0028
+        mov     e,a     ; save bits to shift
+        mov     a,l     ; mask off lsb
+        ani     3FH
+        ora     d
+        mvi     d,20H   ; set rounding
+        jnz     L001A
+        mvi     d,0
+L001A:
+        mov     a,l
+        ani     0C0H
+        ora     d
+        mov     d,a     ; final rounding
+        mov     l,h     ; shift bytes along
+        mov     h,c
+        mov     c,b
+        mov     a,e     
+        sui     8
+        jmp     L0009
+L0028:
+        ora     a       ; shift done?
+        jz      L0048
+        mov     e,a     ; rotate bits right
+        mov     a,b
+        rrc
+        mov     b,a
+        mov     a,c
+        rar
+        mov     c,a
+        mov     a,h
+        rar
+        mov     h,a
+        mov     a,l
+        rar
+        mov     l,a
+        mov     a,d
+        rar
+        mov     d,a
+        ral
+        ani     20H
+        ora     d
+        ani     0E0H
+        mov     d,a
+        mov     a,e
+        dcr     a
+        jmp     L0028
+L0048:
+        mov     a,d     ; return rounding info
+        ret
+
+        end
+v2p1.plm
+VERSIONNUMBERV2P1: DO;
+
+declare version(*) byte data('V2.1');
+end;
+
