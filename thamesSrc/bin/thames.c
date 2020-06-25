@@ -310,7 +310,7 @@ int main(int ac, char **av)
     if (n != ERROR_SUCCESS)
     {
         isis_perror(mOption ? isisProg : argv[isisProgArg], n);
-        thames_exit(1);
+        thames_exit (1);
     }    /* Start the Z80 at pc, with stack at 0xFE00 */
     if (pc < 0)
     {
