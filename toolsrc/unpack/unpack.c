@@ -77,7 +77,8 @@ FILE *newFile(char *parent, char *fname) {
     if (fp == NULL) {
         fprintf(stderr, "can't create %s\n", path);
         fp = stdout;
-    }
+    } else
+        printf("%s\n", path);
     return fp;
 }
 
