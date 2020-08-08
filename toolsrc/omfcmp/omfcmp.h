@@ -40,3 +40,4 @@ enum {
 extern int returnCode;
 void diffBinary(omf_t *left, omf_t *right);
 void cmpModule(omf_t *lomf, omf_t *romf);
+void usage(char *fmt, ...);
