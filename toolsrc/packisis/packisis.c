@@ -1,6 +1,12 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+#include <stdarg.h>
+
+void showVersion(FILE *fp, bool full);
+char *invokedBy;
 
 int getword(FILE *fp)
 {
@@ -17,24 +23,41 @@ void putword(int val, FILE *fp)
 	putc((val >> 8) & 0xff, fp);
 }
 
+void usage(char *fmt, ...) {
+
+
+	showVersion(stderr, false);
+	if (fmt) {
+		va_list args;
+		va_start(args, fmt);
+		putc('\n', stderr);
+		vfprintf(stderr, fmt, args);
+		va_end(args);
+	}
+	fprintf(stderr, "\nUsage: %s -v | isis-located-file\n", invokedBy);
+
+	exit(1);
+}
 
 int main(int argc, char **argv)
 {
 	FILE *fpIn;
 	FILE *fpOut;
+	invokedBy = argv[0];
 
-	if (argc != 2) {
-		fprintf(stderr, "usage: %s isis-located-file\n", argv[0]);
-		exit(1);
+	if (argc != 2)
+		usage(NULL);
+
+	if (strcmp(argv[1], "-v") == 0) {
+		showVersion(stdout, true);
+		exit(0);
 	}
-	if ((fpIn = fopen(argv[1], "rb")) == NULL) {
-		fprintf(stderr, "can't open %s\n", argv[1]);
-		exit(2);
-	}
-	if ((fpOut = fopen("isis.bin", "wb")) == NULL) {
-		fprintf(stderr, "can't create isis.bin\n");
-		exit(3);
-	}
+	if ((fpIn = fopen(argv[1], "rb")) == NULL)
+		usage("can't open %s\n", argv[1]);
+
+	if ((fpOut = fopen("isis.bin", "wb")) == NULL)
+		usage("can't create isis.bin\n");
+
 
 	while (! feof(fpIn)) {
 		int type = getc(fpIn);
