@@ -5,6 +5,8 @@
 #include <ctype.h>
 #include <stdint.h>
 
+void showVersion(FILE *fp, bool full);
+
 enum {
     ALL, ODD, EVEN
 };
@@ -252,10 +254,12 @@ bool loadOmf286(FILE *fp) {
 }
 
 void usage() {
-    fprintf(stderr, "usage: aomf2bin option* infile [outfile | -o odd_outfile | -e even_outfile]+\n"
+    showVersion(stderr, false);
+    fprintf(stderr, "\nusage: aomf2bin option* infile [outfile | -o odd_outfile | -e even_outfile]+\n"
             "   supported options are\n"
             "   -b address - sets base address of rom\n"
             "   -p         - pads image to eprom boundary\n"
+            "   -v         - shows detailed version info and exits\n"
             "   -z         - sets uninitialsed data to 0 instead of 0xff\n");
     exit(1);
 
@@ -281,6 +285,10 @@ int main(int argc, char **argv) {
             pad = true;
         else if (strcmp(argv[arg], "-z") == 0)
             fill = 0;
+        else if (strcmp(argv[arg], "-v") == 0) {
+            showVersion(stdout, true);
+            exit(0);
+        }
         else
             break;
     }
