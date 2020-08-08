@@ -2,7 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "version.h"
+#include <string.h>
+#include <stdbool.h>
+#include <stdarg.h>
+
+void showVersion(FILE *fp, bool full);
+__declspec(noreturn) void usage(char *fmt, ...);
+char *invokedBy;
 
 void readRec(FILE *fp);
 void skipRec(FILE *fp, int len);
@@ -17,14 +23,37 @@ void loadfile(char *s);
 void dumpfile(char *s);
 void patchfile(char *s);
 
+
+__declspec(noreturn) void usage(char *fmt, ...) {
+
+
+    showVersion(stderr, false);
+    if (fmt) {
+        va_list args;
+        va_start(args, fmt);
+        putc('\n', stderr);
+        vfprintf(stderr, fmt, args);
+        va_end(args);
+    }
+    fprintf(stderr, "\nUsage: %s -v | outfile infile [patchfile]\n", invokedBy);
+
+    exit(1);
+}
+
+
+
+
 int main(int argc, char **argv)
 {
+    invokedBy = argv[0];
 
-    if (argc < 3 || argc > 4) {
-        puts("obj2bin version " GITVERSION_STR " " COMMITDATE_STR " " COPYRIGHT_STR "\n");
-        fprintf(stderr, "usage: %s outfile infile [patchfile]\n", argv[0]);
+    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
+        showVersion(stdout, true);
         exit(0);
     }
+    if (argc < 3 || argc > 4)
+        usage(NULL);
+
     loadfile(argv[2]);
     if (argc == 4)
         patchfile(argv[3]);
@@ -35,10 +64,9 @@ void loadfile(char *file)
 {
 
     FILE *fp;
-    if ((fp = fopen(file, "rb")) == NULL) {
-        fprintf(stderr, "can't open input file %s\n", file);
-        exit(1);
-    }
+    if ((fp = fopen(file, "rb")) == NULL)
+        usage("can't open input file %s\n", file);
+
     do {
         readRec(fp);
     } while (! feof(fp));
@@ -48,10 +76,9 @@ void loadfile(char *file)
 void dumpfile(char *file)
 {
     FILE *fp;
-    if ((fp = fopen(file, "wb")) == NULL) {
-        fprintf(stderr, "can't create output file %s\n", file);
-        exit(1);
-    }
+    if ((fp = fopen(file, "wb")) == NULL)
+        usage("can't create output file %s\n", file);
+
     if (fwrite(&mem[low], 1, high - low, fp) != high - low) {
         fprintf(stderr, "write failure on %s\n", file);
         fclose(fp);
