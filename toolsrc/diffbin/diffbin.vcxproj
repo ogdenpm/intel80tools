@@ -19,7 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="diffbin.cpp" />
+    <ClCompile Include="diffbin.c" />
+    <ClCompile Include="version.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="version.rc" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{EC4A0DC8-B94C-442A-96F8-E35671654411}</ProjectGuid>
@@ -70,20 +74,32 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
+    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
+    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
+    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
-    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)Build\$(ProjectName)\$(PlatformTarget)-$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)Install\$(PlatformTarget)-$(Configuration)\</OutDir>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
+    <CustomBuildBeforeTargets>BuildGenerateSources</CustomBuildBeforeTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -93,6 +109,20 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Inputs>.force</Inputs>
+    </CustomBuildStep>
+    <PostBuildEvent>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -102,6 +132,20 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Inputs>.force</Inputs>
+    </CustomBuildStep>
+    <PostBuildEvent>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -116,8 +160,19 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y $(TargetPath) $(SolutionDir)..\tools\</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Inputs>.force</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -132,8 +187,19 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y $(TargetPath) $(SolutionDir)..\tools\</Command>
+      <Command>if exist $(SolutionDir)install.cfg call $(SolutionDir)..\tools\install.cmd $(TargetPath) $(SolutionDir)</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+      <Message>
+      </Message>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Command>call $(SolutionDir)..\tools\version.cmd "$(ProjectDir)Generated\" "$(ProjectDir)Generated\version.h"</Command>
+      <Outputs>$(ProjectDir)Generated\version.h;$(ProjectDir)Generated\GIT_VERSION_INFO</Outputs>
+      <Inputs>.force</Inputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

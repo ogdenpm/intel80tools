@@ -1,7 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
 
 void readRec(FILE *fp, int id);
 void skipRec(FILE *fp, int len);
@@ -13,12 +13,17 @@ unsigned int high = 0;
 
 void loadfile(char *s, int id);
 void dumpdiff();
+void showVersion(FILE *fp, bool full);
 
 int main(int argc, char **argv)
 {
-    
+    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
+        showVersion(stdout, true);
+        exit(0);
+    }
     if (argc != 3) {
-        fprintf(stderr, "usage: %s file1 file2\n", argv[0]);
+        showVersion(stderr, false);
+        fprintf(stderr, "\nusage: %s -v | file1 file2\n", argv[0]);
         exit(0);
     }
     loadfile(argv[1], 1);
