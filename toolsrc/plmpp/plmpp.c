@@ -3,6 +3,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdbool.h>
+#include <stdarg.h>
+
+void showVersion(FILE *fp, bool full);
+char *invokedBy;
 
 #ifdef _MSC_VER
 #define strdup  _strdup
@@ -482,7 +487,7 @@ int main(int argc, char **argv)
 
     strcpy(line, "$");			/* initialise the line so that set / reset can reuse common code*/
 
-    while ((c = getopt(argc, argv, "fFo:s:r:")) != -1)
+    while ((c = getopt(argc, argv, "vfFo:s:r:")) != -1)
         switch (c) {
         case 'f':
             if (++flatten >= MAX_INCLUDE)
@@ -512,13 +517,17 @@ int main(int argc, char **argv)
             else
                 fprintf(stderr,	"Unknown option character `\\x%x'.\n", optopt);
             return 1;
+        case 'v':
+            showVersion(stdout, true);
+            exit(0);
         default:
             abort();
 
         }
 
     if (argc - optind != 1) {
-        fprintf(stderr, "usage: plmpp [-f] [-F] [-sVAR[=val]] [-rVAR] [-o outfile] srcfile\n");
+        showVersion(stderr, false);
+        fprintf(stderr, "\nusage: plmpp [-v] [-f] [-F] [-sVAR[=val]] [-rVAR] [-o outfile] srcfile\n");
         return 1;
     }
 
