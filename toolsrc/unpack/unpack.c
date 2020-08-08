@@ -7,6 +7,12 @@
 #include <direct.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <stdbool.h>
+#include <stdarg.h>
+
+void showVersion(FILE *fp, bool full);
+__declspec(noreturn) void usage(char *fmt, ...);
+char *invokedBy;
 
 #define MAX_LINE    512
 
@@ -90,10 +96,9 @@ void unpack(char *fname) {
     FILE *fpin;
     FILE *fpout = stdout;
     *curfile = 0;
-    if ((fpin = fopen(fname, "rt")) == NULL) {
-        fprintf(stderr, "can't open %s\n", fname);
-        return;
-    }
+    if ((fpin = fopen(fname, "rt")) == NULL)
+       usage("can't open %s\n", fname);
+
     while (fgets(line, MAX_LINE, fpin)) {
         if (*line == '\f') {
             if (line[1] == '?') {
@@ -124,23 +129,41 @@ void unpack(char *fname) {
 }
 
 
+__declspec(noreturn) void usage(char *fmt, ...) {
+
+
+    showVersion(stderr, false);
+    if (fmt) {
+        va_list args;
+        va_start(args, fmt);
+        putc('\n', stderr);
+        vfprintf(stderr, fmt, args);
+        va_end(args);
+    }
+    fprintf(stderr, "\nUsage: %s -v | [-r] [file]\n", invokedBy);
+
+    exit(1);
+}
 
 
 
 int main(int argc, char **argv) {
     char *infile;
     bool recurse = false;
+    invokedBy = argv[0];
 
     while (--argc > 0 && **++argv == '-') {
         if (strcmp(*argv, "-r") == 0)
             recurse = true;
-        else
+        else if (strcmp(*argv, "-v") == 0) {
+            showVersion(stdout, true);
+            exit(0);
+        } else
             fprintf(stderr, "ignoring unknown option %s\n", *argv);
     }
-    if (argc > 1) {
-        fprintf(stderr, "usage: unpack [-r] [file]\n");
-        exit(1);
-    }
+    if (argc > 1)
+        usage(NULL);
+
     if (argc == 1)
         infile = *argv;
     else
