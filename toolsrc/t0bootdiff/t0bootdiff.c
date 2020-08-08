@@ -1,7 +1,10 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
 
+void showVersion(FILE *fp, bool full);
 
 void readRec(FILE *fp, int id);
 void skipRec(FILE *fp, int len);
@@ -19,7 +22,12 @@ int main(int argc, char **argv)
 {
 	
 	if (argc != 2) {
-		fprintf(stderr, "usage: %s loadfile\n", argv[0]);
+		showVersion(stderr, false);
+		fprintf(stderr, "\nusage: %s -v | loadfile\n", argv[0]);
+		exit(1);
+	}
+	if (strcmp(argv[1], "-v") == 0) {
+		showVersion(stdout, true);
 		exit(0);
 	}
 	loadt0("isis.t0.ref",1);
