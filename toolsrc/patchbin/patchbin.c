@@ -23,7 +23,7 @@ char *gethex(char *s, unsigned *val)
 }
 
 
-void usage(char *fmt, ...) {
+__declspec(noreturn) void usage(char *fmt, ...) {
 
 
 	showVersion(stderr, false);
