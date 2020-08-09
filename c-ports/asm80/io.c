@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "Generated\version.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -65,6 +66,26 @@ struct {
 	{ "F9", 3 } };										// 28
 
 const int nDevices = (sizeof(deviceMap) / sizeof(deviceMap[0]));
+
+
+void showVersion(char *description) {
+    fputs(description, stdout);
+    fputs(" - " GIT_VERSION, stdout);
+#ifdef _DEBUG
+    fputs(" {debug}", stdout);
+#endif
+    fputs(" (C)" GIT_YEAR " Mark Ogden ", stdout);
+    fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
+    fputs(" Git: " GIT_SHA1 " [" GIT_CTIME " GMT]", stdout);
+#if GIT_BUILDTYPE == 2
+    fputs(" +uncommitted files", stdout);
+#elif GIT_BUILDTYPE == 3
+    fputs(" +untracked files", stdout);
+#endif
+    fputc('\n', stdout);
+    exit(0);
+}
+
 
 
 /* preps the deviceId and filename of an spath info record
@@ -192,6 +213,9 @@ int main(int argc, char **argv)
 
 	len = strlen(_commandLine);
 
+    if (argc == 2 && strcmp(argv[1], "-v") == 0)
+        showVersion("C port of ASM80 v4.1");
+   
 	for (i = 1; i < argc && len + strlen(argv[i]) + 1 < MAXLL - 2; i++) {	// add args if room
 			len += strlen(argv[i]) + 1;
 			strcat(_commandLine, " ");
