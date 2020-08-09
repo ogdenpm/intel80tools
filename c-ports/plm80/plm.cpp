@@ -2,7 +2,7 @@
 #include "plm.hpp"
 #include "common.hpp"
 #include "trace.hpp"
-
+#include "Generated\version.h"
 
 byte *address::memory = new byte[0x10000];
 
@@ -206,13 +206,33 @@ void setMarginAndTabW (byte b1, byte b2);
 //void hlt();
 
 
-
-
-
 void (*fatalError)(byte errcode) = fatalError_main;
+
+
+void showVersion(char *description) {
+    fputs(description, stdout);
+    fputs(" - " GIT_VERSION, stdout);
+#ifdef _DEBUG
+    fputs(" {debug}", stdout);
+#endif
+    fputs(" (C)" GIT_YEAR "\n", stdout);
+    fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
+    fputs(" Git: " GIT_SHA1 " [" GIT_CTIME " GMT]", stdout);
+#if GIT_BUILDTYPE == 2
+    fputs(" +uncommitted files", stdout);
+#elif GIT_BUILDTYPE == 3
+    fputs(" +untracked files", stdout);
+#endif
+    fputc('\n', stdout);
+    exit(0);
+}
+
+
 
 int main(int argc, char **argv) {
     int pass = 0;
+    if (argc == 2 && strcmp(argv[1], "-v") == 0)
+        showVersion("Old C++ port of Intel's PLM80 v4.1 by Mark Ogden");
     gargc = argc;
     gargv = argv;
     state = 10;
