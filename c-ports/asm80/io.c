@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "Generated\version.h"
+#include "Generated/version.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -198,6 +198,8 @@ int main(int argc, char **argv)
 	size_t len;
 	char *s, *progname;
 
+    if (argc == 2 && strcmp(argv[1], "-v") == 0)
+        showVersion("C port of Intel's ASM80 v4.1 by Mark Ogden");
 #ifdef _WIN32
 	(void)_setmode(_fileno(stdin), O_BINARY);
 	(void)_setmode(_fileno(stdout), O_BINARY);
@@ -213,8 +215,7 @@ int main(int argc, char **argv)
 
 	len = strlen(_commandLine);
 
-    if (argc == 2 && strcmp(argv[1], "-v") == 0)
-        showVersion("C port of Intel's ASM80 v4.1 by Mark Ogden");
+
    
 	for (i = 1; i < argc && len + strlen(argv[i]) + 1 < MAXLL - 2; i++) {	// add args if room
 			len += strlen(argv[i]) + 1;
