@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "Generated\version.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -65,6 +66,25 @@ struct {
 	{ "F9", 3 } };										// 28
 
 const int nDevices = (sizeof(deviceMap) / sizeof(deviceMap[0]));
+
+
+void showVersion(char *description) {
+	fputs(description, stdout);
+	fputs(" - " GIT_VERSION, stdout);
+#ifdef _DEBUG
+	fputs(" {debug}", stdout);
+#endif
+	fputs(" (C)" GIT_YEAR "\n", stdout);
+	fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
+	fputs(" Git: " GIT_SHA1 " [" GIT_CTIME " GMT]", stdout);
+#if GIT_BUILDTYPE == 2
+	fputs(" +uncommitted files", stdout);
+#elif GIT_BUILDTYPE == 3
+	fputs(" +untracked files", stdout);
+#endif
+	fputc('\n', stdout);
+	exit(0);
+}
 
 
 /* preps the deviceId and filename of an spath info record
@@ -181,6 +201,8 @@ int main(int argc, char **argv)
 	(void)_setmode(_fileno(stdin), O_BINARY);
 	(void)_setmode(_fileno(stdout), O_BINARY);
 #endif
+	if (argc == 2 && strcmp(argv[1], "-v") == 0)
+		showVersion("C port of Intel's ISIS-II LIB v2.1 by Mark Ogden");
 	/* find program name */
 	for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)
 		;
