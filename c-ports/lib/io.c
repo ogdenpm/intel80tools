@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "Generated\version.h"
+#include "Generated/version.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -197,12 +197,12 @@ int main(int argc, char **argv)
 	size_t len;
 	char *s, *progname;
 
+	if (argc == 2 && strcmp(argv[1], "-v") == 0)
+		showVersion("C port of Intel's ISIS-II LIB v2.1 by Mark Ogden");
 #ifdef _WIN32
 	(void)_setmode(_fileno(stdin), O_BINARY);
 	(void)_setmode(_fileno(stdout), O_BINARY);
 #endif
-	if (argc == 2 && strcmp(argv[1], "-v") == 0)
-		showVersion("C port of Intel's ISIS-II LIB v2.1 by Mark Ogden");
 	/* find program name */
 	for (progname = argv[0]; s = strpbrk(progname, ":/\\"); progname = s + 1)
 		;
