@@ -62,6 +62,11 @@ void GetAsmFile()
     IoErrChk();
     actRead.bp = actRead.w + cmdLineBuf;    /* convert to pointer */
     scanCmdLine = true;        /* scanning command line */
+
+    Write(0, signonMsg, 0x29, &statusIO);
+    Write(0, signonMsg, 2, &statusIO);
+    IoErrChk();
+
     CmdSkipWhite();
     asxref[2] = GetDrive();     /* asxref tmp file defaults to current drive */
 
