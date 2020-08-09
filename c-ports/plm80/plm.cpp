@@ -232,7 +232,7 @@ void showVersion(char *description) {
 int main(int argc, char **argv) {
     int pass = 0;
     if (argc == 2 && strcmp(argv[1], "-v") == 0)
-        showVersion("Old C++ port of Intel's PLM80 v4.1 by Mark Ogden");
+        showVersion("Old C++ port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden");
     gargc = argc;
     gargv = argv;
     state = 10;
