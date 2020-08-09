@@ -74,7 +74,7 @@ void showVersion(char *description) {
 #ifdef _DEBUG
     fputs(" {debug}", stdout);
 #endif
-    fputs(" (C)" GIT_YEAR " Mark Ogden ", stdout);
+    fputs(" (C)" GIT_YEAR "\n", stdout);
     fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
     fputs(" Git: " GIT_SHA1 " [" GIT_CTIME " GMT]", stdout);
 #if GIT_BUILDTYPE == 2
@@ -214,7 +214,7 @@ int main(int argc, char **argv)
 	len = strlen(_commandLine);
 
     if (argc == 2 && strcmp(argv[1], "-v") == 0)
-        showVersion("C port of ASM80 v4.1");
+        showVersion("C port of Intel's ASM80 v4.1 by Mark Ogden");
    
 	for (i = 1; i < argc && len + strlen(argv[i]) + 1 < MAXLL - 2; i++) {	// add args if room
 			len += strlen(argv[i]) + 1;
