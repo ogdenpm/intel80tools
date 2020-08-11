@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include "omf.h"
-#include "version.h"
+void showVersion(FILE *fp, bool full);
 
 #pragma pack(1)
 typedef unsigned char byte;
@@ -24,11 +24,9 @@ enum {
 int omfVer = OMF85;
 
 void usage(char const *s) {
-        fputs("dumpintel v" GITVERSION_STR " " COPYRIGHT_STR "\n\n", stderr);
-
         if (s && *s)
             fputs(s, stderr);
-        fprintf(stderr, "usage: %s binfile objfile [patchfile]\n", invoke);
+        fprintf(stderr, "usage: %s -v | -V | binfile objfile [patchfile]\n", invoke);
         exit(1);
 }
 
@@ -173,6 +171,10 @@ int main(int argc, char **argv) {
     unsigned addr = 0;
 
     invoke = argv[0];
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, argv[1][1] == 'V');
+        exit(0);
+    }
     if (argc < 2 || (fp = fopen(argv[1], "rb")) == NULL)
         usage("can't open input file\n");
 
