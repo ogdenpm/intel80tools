@@ -337,7 +337,7 @@ bool parseFixup86(uint8_t const **ps, var_t *pvar) {
 
             locat += dat << 8;
             uint8_t loc = (locat >> 10) & 0x7;
-            uint8_t offset = locat & 0x3ff;
+            uint16_t offset = locat & 0x3ff;
             uint8_t frame = (fixdat >> 4) & 7;
             uint8_t targt = fixdat & 7;     // include the p bit
 
