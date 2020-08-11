@@ -20,9 +20,9 @@ uint8_t const *rules86[] =
                                                                        IF0("$3&1") "\t53 Adjacent Overlay: $4" END0,
 
     /*78*/  "\f$P ENDREC($R):"                FIXTOK "B"          FIXSTR " " IF0("$0=0") "Overlay" ELSIF0("$0=1") "Block" ELSE0 "Illegal" END0,
-    /*7A*/  "\f$P BLKDEF($R):"                FIXTOK "LNb#bWWB" IF0("$5&0xc0=0x80") "W" ELSIF0("$5&0xc0=0xc0") "D" ELSE0 "#" END0 IF0("$1") "I" END0
+    /*7A*/  "\f$P BLKDEF($R):"                FIXTOK "LNb#bWWB" IF0("$5&0x80") "W" ELSE0 "#" END0 IF0("$1") "I" END0
                                                               FIXSTR " #" WIDE($2, -2) " '$1'  $0  start: $3  Length: $4"
-                                                                    IF0("$5&$80") "  Return Offset: $6" END0
+                                                                    IF0("$5&0x80") IF1("$5&0x40") " FAR PROC" ELSE1 " NEAR PROC" END1 "  Return Offset: $6" END0
                                                                     IF0("$1") " Type: @$7" END0,
     /*7C*/  "\f$P BLKEND($R):"                FIXTOK,
     /*7E*/  "\f$P DEBSYM($R):"                FIXTOK "B" IF0("$0&7=0") "L" END1
