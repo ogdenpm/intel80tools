@@ -8,11 +8,13 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include "omf.h"
+#include "version.h"
 
 #pragma pack(1)
 typedef unsigned char byte;
 typedef unsigned short address;
 FILE *logfp = NULL;
+char *invoke;
 
 enum {
     Ok = 1, NormEof = 0, PremEof = -1, BadCrc = -2, BadType = -3, BadLen = -4, Spurious = -5
@@ -21,6 +23,14 @@ enum {
 
 int omfVer = OMF85;
 
+void usage(char const *s) {
+        fputs("dumpintel v" GITVERSION_STR " " COPYRIGHT_STR "\n\n", stderr);
+
+        if (s && *s)
+            fputs(s, stderr);
+        fprintf(stderr, "usage: %s binfile objfile [patchfile]\n", invoke);
+        exit(1);
+}
 
 void dumprec(FILE *fpout, bool isGood);
 
@@ -162,11 +172,10 @@ int main(int argc, char **argv) {
     int len;
     unsigned addr = 0;
 
+    invoke = argv[0];
+    if (argc < 2 || (fp = fopen(argv[1], "rb")) == NULL)
+        usage("can't open input file\n");
 
-    if (argc < 2 || (fp = fopen(argv[1], "rb")) == NULL) {
-        Log("can't open input file\n");
-        exit(0);
-    }
     if (argc != 3 || (fpout = fopen(argv[2], "w")) == NULL)
         fpout = stdout;
     logfp = fpout;
