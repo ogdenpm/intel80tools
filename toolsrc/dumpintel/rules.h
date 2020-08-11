@@ -24,7 +24,7 @@
 extern uint8_t const **rules;
 extern uint8_t minRecType;
 extern uint8_t maxRecType;
-
+extern uint32_t contentAddr;
 
 extern char const *enumAlign85[5];
 extern char const *enumFixup85[5];

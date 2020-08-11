@@ -314,7 +314,7 @@ bool parseFixup86(uint8_t const **ps, var_t *pvar) {
                 method %= 4;
 
             uint8_t thred = dat & 3;
-            aSprintf(pvar->sval, "%s thread[%d] reference: ", (dat & 0x40) ? "FRAME " : "TARGET", thred);
+            aSprintf(pvar->sval, "%s THREAD[%d] reference: ", (dat & 0x40) ? "frame " : "target", thred);
 
             if (method < 4 && !getIndexOrFrame(method, &indexOrFrame))
                 break;
@@ -351,14 +351,14 @@ bool parseFixup86(uint8_t const **ps, var_t *pvar) {
 
             char *locStr;
             switch (loc) {
-            case 0: locStr = "Lobyte "; break;
-            case 1: locStr = "Offset "; break;
-            case 2: locStr = "Base   "; break;
-            case 3: locStr = "Pointer"; break;
-            case 4: locStr = "Hibyte "; break;
-            default: locStr = "Unknown"; break;
+            case 0: locStr = "LoByt"; break;
+            case 1: locStr = "Off16"; break;
+            case 2: locStr = "Base "; break;
+            case 3: locStr = "Ptr  "; break;
+            case 4: locStr = "HiByt"; break;
+            default: locStr = "???  "; break;
             }
-            aSprintf(pvar->sval, "FIXUP  %04X %s %s FRAME: ", offset, locStr, locat & 0x4000 ? "self" : "seg ");
+            aSprintf(pvar->sval, "FIXUP  %04X %s %s frame=", offset + contentAddr, locStr, locat & 0x4000 ? "self" : "seg ");
             char *s = strchr(pvar->sval, 0);               // mark end of string & use padStr(., 20) rather than appendStrFormat(., 20,...)
             if (fixdat & 0x80)
                 aSprintf(pvar->sval, "thread[%u]", frame & 3);
@@ -374,7 +374,7 @@ bool parseFixup86(uint8_t const **ps, var_t *pvar) {
                 default: aSprintf(pvar->sval, "ERROR"); break;
                 }
             padStr(s, 20);
-            strcat(s, " TARGET: ");
+            strcat(s, " target=");
             if ((fixdat & 8))
                 aSprintf(s, "THREAD[%u]", targt & 3);
             else

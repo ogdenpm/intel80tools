@@ -7,7 +7,7 @@ uint16_t curPos;
 uint16_t cWidth;
 uint16_t curCol;
 uint16_t indent;
-
+uint32_t contentAddr;
 
 void printIData(FILE *fpout, uint32_t addr);
 
@@ -68,7 +68,6 @@ uint8_t const *printRule(FILE *fpout, uint8_t const *s) {
     uint8_t c;
     char *token;
 
-
     while (*s >= DMPDATTAG) {
         switch (c = *s++) {
         case IF0TAG: case IF1TAG:
@@ -80,10 +79,10 @@ uint8_t const *printRule(FILE *fpout, uint8_t const *s) {
         case IF0TAG | ENDIFFLAG: case IF1TAG | ENDIFFLAG:
             break;
         case DMPDATTAG:
-            printData(fpout, parseExpr(&s));
+            printData(fpout, *s ? (contentAddr = parseExpr(&s)) : 0);
             break;
         case DMPIDATTAG:
-            printIData(fpout, parseExpr(&s));
+            printIData(fpout, *s ? (contentAddr = parseExpr(&s)) : 0);
             break;
         case '\b':
             break;
