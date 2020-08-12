@@ -42,6 +42,7 @@ set SCRIPTNAME=%0
 :: Console output only
 IF [%1] == [] GOTO START
 
+if /I [%~1] == [-v] (echo %0: Rev 9 -- git d716973 [2020-08-12]) & goto :eof
 IF "%~1" == "-h" GOTO USAGE
 :optloop
 IF "%~1" == "-q" SET fQUIET=1& SHIFT & goto :optloop
