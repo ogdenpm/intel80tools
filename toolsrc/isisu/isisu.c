@@ -18,17 +18,13 @@ int getword(FILE *fp)
 }
 
 void usage(char *fmt, ...) {
-
-
-	showVersion(stderr, false);
 	if (fmt) {
 		va_list args;
 		va_start(args, fmt);
-		putc('\n', stderr);
 		vfprintf(stderr, fmt, args);
 		va_end(args);
 	}
-	fprintf(stderr, "\nUsage: %s -v | file1 file2\n", invokedBy);
+	fprintf(stderr, "\nUsage: %s -v | -V | file\n", invokedBy);
 
 	exit(1);
 }
@@ -43,8 +39,8 @@ int main(int argc, char **argv)
 
 	if (argc != 2)
 		usage(NULL);
-	if (strcmp(argv[1], "-v") == 0) {
-		showVersion(stdout, true);
+	if (_stricmp(argv[1], "-v") == 0) {
+		showVersion(stdout, argv[1][1] == 'V');
 		exit(0);
 	}
 	if ((fp = fopen(argv[1], "rb")) == NULL)

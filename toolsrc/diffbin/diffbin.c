@@ -17,13 +17,12 @@ void showVersion(FILE *fp, bool full);
 
 int main(int argc, char **argv)
 {
-    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
-        showVersion(stdout, true);
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, argv[1][1] == 'V');
         exit(0);
     }
     if (argc != 3) {
-        showVersion(stderr, false);
-        fprintf(stderr, "\nusage: %s -v | file1 file2\n", argv[0]);
+        fprintf(stderr, "usage: %s -v | -V | file1 file2\n", argv[0]);
         exit(0);
     }
     loadfile(argv[1], 1);

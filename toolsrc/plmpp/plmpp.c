@@ -485,9 +485,14 @@ int main(int argc, char **argv)
     char *outChutfile = NULL;
     int c;
 
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, argv[1][1] == 'V');
+        exit(0);
+    }
+
     strcpy(line, "$");			/* initialise the line so that set / reset can reuse common code*/
 
-    while ((c = getopt(argc, argv, "vfFo:s:r:")) != -1)
+    while ((c = getopt(argc, argv, "fFo:s:r:")) != -1)
         switch (c) {
         case 'f':
             if (++flatten >= MAX_INCLUDE)
@@ -517,9 +522,6 @@ int main(int argc, char **argv)
             else
                 fprintf(stderr,	"Unknown option character `\\x%x'.\n", optopt);
             return 1;
-        case 'v':
-            showVersion(stdout, true);
-            exit(0);
         default:
             abort();
 
@@ -527,7 +529,7 @@ int main(int argc, char **argv)
 
     if (argc - optind != 1) {
         showVersion(stderr, false);
-        fprintf(stderr, "\nusage: plmpp [-v] [-f] [-F] [-sVAR[=val]] [-rVAR] [-o outfile] srcfile\n");
+        fprintf(stderr, "\nusage: plmpp -v | -V |  [-f] [-F] [-sVAR[=val]] [-rVAR] [-o outfile] srcfile\n");
         return 1;
     }
 

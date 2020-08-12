@@ -254,12 +254,11 @@ bool loadOmf286(FILE *fp) {
 }
 
 void usage() {
-    showVersion(stderr, false);
-    fprintf(stderr, "\nusage: aomf2bin option* infile [outfile | -o odd_outfile | -e even_outfile]+\n"
+    fprintf(stderr, "usage: aomf2bin -v | -V | option* infile [outfile | -o odd_outfile | -e even_outfile]+\n"
             "   supported options are\n"
             "   -b address - sets base address of rom\n"
             "   -p         - pads image to eprom boundary\n"
-            "   -v         - shows detailed version info and exits\n"
+            "   -v / -V    - show version info and exit\n"
             "   -z         - sets uninitialsed data to 0 instead of 0xff\n");
     exit(1);
 
@@ -273,6 +272,10 @@ int main(int argc, char **argv) {
     int arg;
     int fill = 0xff;
 
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, argv[1][1] == 'V');
+        exit(0);
+    }
     for (arg = 1; arg < argc; arg++) {
         if (strcmp(argv[arg], "-b") == 0 && arg + 1 < argc) {
             char tailch;
@@ -285,10 +288,6 @@ int main(int argc, char **argv) {
             pad = true;
         else if (strcmp(argv[arg], "-z") == 0)
             fill = 0;
-        else if (strcmp(argv[arg], "-v") == 0) {
-            showVersion(stdout, true);
-            exit(0);
-        }
         else
             break;
     }

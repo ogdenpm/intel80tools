@@ -130,17 +130,13 @@ void unpack(char *fname) {
 
 
 __declspec(noreturn) void usage(char *fmt, ...) {
-
-
-    showVersion(stderr, false);
     if (fmt) {
         va_list args;
         va_start(args, fmt);
-        putc('\n', stderr);
         vfprintf(stderr, fmt, args);
         va_end(args);
     }
-    fprintf(stderr, "\nUsage: %s -v | [-r] [file]\n", invokedBy);
+    fprintf(stderr, "\nUsage: %s -v | -V | [-r] [file]\n", invokedBy);
 
     exit(1);
 }
@@ -152,13 +148,14 @@ int main(int argc, char **argv) {
     bool recurse = false;
     invokedBy = argv[0];
 
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, argv[1][1] == 'V');
+        exit(0);
+    }
     while (--argc > 0 && **++argv == '-') {
         if (strcmp(*argv, "-r") == 0)
             recurse = true;
-        else if (strcmp(*argv, "-v") == 0) {
-            showVersion(stdout, true);
-            exit(0);
-        } else
+        else
             fprintf(stderr, "ignoring unknown option %s\n", *argv);
     }
     if (argc > 1)

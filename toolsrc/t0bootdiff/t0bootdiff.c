@@ -22,12 +22,11 @@ int main(int argc, char **argv)
 {
 	
 	if (argc != 2) {
-		showVersion(stderr, false);
-		fprintf(stderr, "\nusage: %s -v | loadfile\n", argv[0]);
+		fprintf(stderr, "\nusage: %s -v | -V | loadfile\n", argv[0]);
 		exit(1);
 	}
-	if (strcmp(argv[1], "-v") == 0) {
-		showVersion(stdout, true);
+	if (_stricmp(argv[1], "-v") == 0) {
+		showVersion(stdout, argv[1][1] == 'V');
 		exit(0);
 	}
 	loadt0("isis.t0.ref",1);
