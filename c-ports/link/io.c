@@ -67,22 +67,24 @@ struct {
 
 const int nDevices = (sizeof(deviceMap) / sizeof(deviceMap[0]));
 
-void showVersion(char *description) {
-    fputs(description, stdout);
-    fputs(" - " GIT_VERSION, stdout);
+void showVersion(char *description, bool full) {
+	fputs(description, stdout);
+	fputs(" - " GIT_VERSION, stdout);
 #ifdef _DEBUG
-    fputs(" {debug}", stdout);
+	fputs(" {debug}", stdout);
 #endif
-    fputs(" (C)" GIT_YEAR "\n", stdout);
-    fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
-    fputs(" Git: " GIT_SHA1 " [" GIT_CTIME " GMT]", stdout);
+	fputs(" (C)" GIT_YEAR "\n", stdout);
+	if (full) {
+		fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
+		printf("Git: %s [%.10s]", GIT_SHA1, GIT_CTIME);
 #if GIT_BUILDTYPE == 2
-    fputs(" +uncommitted files", stdout);
+		fputs(" +uncommitted files", stdout);
 #elif GIT_BUILDTYPE == 3
-    fputs(" +untracked files", stdout);
+		fputs(" +untracked files", stdout);
 #endif
-    fputc('\n', stdout);
-    exit(0);
+		fputc('\n', stdout);
+	}
+	exit(0);
 }
 
 /* preps the deviceId and filename of an spath info record
@@ -195,8 +197,8 @@ int main(int argc, char **argv)
 	size_t len;
 	char *s, *progname;
 
-    if (argc == 2 && strcmp(argv[1], "-v") == 0)
-        showVersion("C port of Intel's ISIS-II LINK v3.0 by Mark Ogden");
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0)
+        showVersion("C port of Intel's ISIS-II LINK v3.0 by Mark Ogden", argv[1][1] == 'V');
 
 #ifdef _WIN32
 	(void)_setmode(_fileno(stdin), O_BINARY);

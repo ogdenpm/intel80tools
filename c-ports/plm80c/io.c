@@ -67,21 +67,23 @@ struct {
 
 const int nDevices = (sizeof(deviceMap) / sizeof(deviceMap[0]));
 
-void showVersion(char *description) {
+void showVersion(char *description, bool full) {
     fputs(description, stdout);
     fputs(" - " GIT_VERSION, stdout);
 #ifdef _DEBUG
     fputs(" {debug}", stdout);
 #endif
     fputs(" (C)" GIT_YEAR "\n", stdout);
-    fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
-    fputs(" Git: " GIT_SHA1 " [" GIT_CTIME " GMT]", stdout);
+    if (full) {
+        fputs(sizeof(void *) == 4 ? "32bit target" : "64bit target", stdout);
+        printf("Git: %s [%.10s]", GIT_SHA1, GIT_CTIME);
 #if GIT_BUILDTYPE == 2
-    fputs(" +uncommitted files", stdout);
+        fputs(" +uncommitted files", stdout);
 #elif GIT_BUILDTYPE == 3
-    fputs(" +untracked files", stdout);
+        fputs(" +untracked files", stdout);
 #endif
-    fputc('\n', stdout);
+        fputc('\n', stdout);
+    }
     exit(0);
 }
 
@@ -196,8 +198,8 @@ int main(int argc, char **argv)
     char *s, *progname;
     word ovl;
 
-    if (argc == 2 && strcmp(argv[1], "-v") == 0)
-        showVersion("C port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden");
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0)
+        showVersion("C port of Intel's ISIS-II PLM80 v4.0 by Mark Ogden", argv[1][1] == 'V');
 #ifdef _WIN32
     (void)_setmode(_fileno(stdin), O_BINARY);
     (void)_setmode(_fileno(stdout), O_BINARY);
