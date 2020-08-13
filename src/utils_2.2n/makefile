@@ -1,6 +1,6 @@
 # path to root of build tree
 ROOT := ../..
-TARGETS := objhex
+TARGETS := objhex hexobj
 PEXFILE:=utils_2.2n.pex
 
 include $(ROOT)/tools/isis.mk
@@ -12,8 +12,12 @@ LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:=DEBUG CODE
 LINKFLAGS:=
 
-objs =	objhex.obj dblank.obj dlimit.obj filerr.obj forupp.obj numout.obj\
+objhexObj =	objhex.obj dblank.obj dlimit.obj filerr.obj forupp.obj numout.obj\
 	path.obj seq.obj mvasci.obj reperr.obj upcase.obj wdlmt.obj
+
+hexobjObj =	hexobj.obj dblank.obj dlimit.obj filerr.obj forupp.obj\
+	path.obj scanin.obj seq.obj mvasci.obj reperr.obj upcase.obj wdlmt.obj\
+   	numout.obj 
 
 all::
 	$(MAKE) $(TARGETS)
@@ -21,6 +25,13 @@ all::
 objhex: objhex.rel
 	$(call locate,$@,$^,code(3680H) name(objhex) stacksize(86) purge)
 
-.INTERMEDIATE: objhex.rel
-objhex.rel: $(objs)
+hexobj: hexobj.rel
+	$(call locate,$@,$^,code(3680H) name(hexobj) stacksize(94) purge)
+
+.INTERMEDIATE: objhex.rel hexobj.rel
+objhex.rel: $(objhexObj)
 	$(call link,$@,$^ $(system.lib) $(plm80.lib))
+
+hexobj.rel: $(hexobjObj)
+	$(call link,$@,$^ $(system.lib) $(plm80.lib))
+
