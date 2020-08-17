@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <stdbool.h>
 
+void showVersion(FILE *fp, bool full);
+
 #define MAXNAME 31
 #define MODHDR  2
 #define MODEND  4
@@ -96,8 +98,14 @@ int main(int argc, char **argv) {
     FILE *fpin, *fpout;
     uint16_t length, addr;
 
+
+    if (argc == 2 && _stricmp(argv[1], "-v") == 0) {
+        showVersion(stdout, argv[1][1] == 'V');
+        exit(1);
+    }
+
     if (argc != 3) {
-        fprintf(stderr, "usage: %s binfile objfile\n", argv[0]);
+        fprintf(stderr, "usage: %s -v | -V | binfile objfile\n", argv[0]);
         exit(1);
     }
 
@@ -126,7 +134,7 @@ int main(int argc, char **argv) {
     modhdr.name[i++] = 0;   // TRN ID
     modhdr.name[i++] = 0;   // TRN VN
     modhdr.name[i] = -calcCRC((uint8_t *)&modhdr, i + 6);
-    if (fwrite(&modhdr, 1, i + 8, fpout) != i + 8) {
+    if (fwrite(&modhdr, 1, i + 5, fpout) != i + 5) {
         fprintf(stderr, "failed to write obj file header\n");
         exit(1);
     }
@@ -147,7 +155,7 @@ int main(int argc, char **argv) {
         // now we know length and address of bin block
         // create the corresponding content header
         // type & segId initialised already
-        writeWord(contentHeader.length, length + 3);    // data + addr + crc
+        writeWord(contentHeader.length, length + 4);    // data + addr + crc
         writeWord(contentHeader.addr, addr);
         if (fwrite(&contentHeader, 1, 6, fpout) != 6) {
             fprintf(stderr, "failed to write obj file content\n");
