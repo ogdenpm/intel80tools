@@ -77,7 +77,7 @@ uint8_t calcCRC(uint8_t *p, int len) {
 }
 
 // return the trailing filename part of the passed in path
-const char *getFName(const char *path) {
+const char *basename(const char *path) {
     const char *t;
     while (t = strpbrk(path, ":\\/"))       // allow windows & unix separators - will fail for unix if : in filename!!
         path = t + 1;
@@ -104,8 +104,8 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s -v | -V | binfile objfile\n", argv[0]);
+    if (!(argc == 3 || (argc == 4 && stricmp(argv[2], "TO") == 0))) {
+        fprintf(stderr, "usage: %s -v | -V | binfile [to] objfile\n", basename(argv[0]));
         exit(1);
     }
 
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "can't open %s\n", argv[1]);
         exit(1);
     }
-    if ((fpout = fopen(argv[2], "wb")) == NULL) {
+    if ((fpout = fopen(argv[argc - 1], "wb")) == NULL) {
         fprintf(stderr, "can't create %s\n", argv[2]);
         fclose(fpin);
         exit(1);
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
      */
 
     int i = 0;
-    for (const char *name = getFName(argv[1]); *name && *name != '.'; name++)
+    for (const char *name = basename(argv[1]); *name && *name != '.'; name++)
         if (isalnum(*name) && i < MAXNAME)
             modhdr.name[i++] = toupper(*name);
     modhdr.nameLen = i;
