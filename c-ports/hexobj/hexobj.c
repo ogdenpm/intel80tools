@@ -252,7 +252,7 @@ void writeContent(FILE *fpin, FILE *fpout) {
                 while (!isdigit(c = getChar(fpin)))
                     ;
                 char temp[MAXNUMSTR + 1];
-                for (i = 0; c != ' ' && c != ' ' && c != '\n'; c = getChar(fpin))
+                for (i = 0; c != ' ' && c != '$' && c != '\n'; c = getChar(fpin))
                     if (i < MAXNUMSTR)
                         temp[i++] = c;
                 temp[i] = 0;
@@ -332,9 +332,10 @@ int main(int argc, char **argv) {
     }
     // support both a standard command line and the original Intel one
     if (!parseStdOpt(argc, argv) && !parseIntelOpt(argc, argv)) {
-        fprintf(stderr, "Invalid command line\n"
-            "Usage: %s hexfile objfile [startaddr]\n"
-            "Or:    %s hexfile TO objfile [$] [START ( startaddr ) ]\n", inFile, inFile);
+        const char *invoke = basename(argv[0]);
+        fprintf(stderr, "Invalid command line\n\n"
+            "Usage: %s -v | -V | hexfile objfile [startaddr]\n"
+            "Or:    %s hexfile TO objfile [$] [START ( startaddr ) ]\n", invoke, invoke);
         exit(1);
     }
     if ((fpin = fopen(inFile, "rt")) == 0) {
