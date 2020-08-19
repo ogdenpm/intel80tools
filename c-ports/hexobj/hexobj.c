@@ -72,7 +72,7 @@ int ScanInteger(char **pp) {
 
     for (s = p; isxdigit(*s); s++)
         ;
-    *pp = s;
+    *pp = *s ? s + 1 : s;
     if (*s == 'H')
         radix = 16;
     else if (*s == 'O' || *s == 'Q')
@@ -157,16 +157,18 @@ bool parseIntelOpt(int argc, char **argv) {
     if (argc == 4)
         return true;
     // join all the remaining opts into a single string
+    cmdOpts[0] = 0;
     for (int i = 4; i < argc; i++) {
-        if (strlen(cmdOpts) + strlen(argv[i] + 1) < MAXCMDLINE)
+        if (strlen(cmdOpts) + strlen(argv[i] + 1) < MAXCMDLINE) {
             strcat(cmdOpts, argv[i]);
-        strcat(cmdOpts, " ");
+            strcat(cmdOpts, " ");
+        }
     }
 
     char *s = deblank(cmdOpts);
     if (*s == '$')
         s = deblank(s + 1);
-    if (strnicmp(s, "start", 5) != 0) {
+    if (strnicmp(s, "start", 5) == 0) {
         int addr;
         s = deblank(s + 5);
         if (*s != '(')
