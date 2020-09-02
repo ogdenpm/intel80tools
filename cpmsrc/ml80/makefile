@@ -1,6 +1,6 @@
 # path to root of build tree
 ROOT := ../..
-TARGETS := m81.com l81.com l82.com l83.com l82fix.com
+TARGETS := m81.com l81.com l82.com l83.com l82fix.com l82a.com
 PROTECT := loadAndFix.pl readme.txt m81.patch l81.patch l82.patch l83.patch
 
 include $(ROOT)/tools/isis.mk
@@ -12,6 +12,9 @@ all:: $(TARGETS)
 
 %.com: %.hex
 	perl loadAndFix.pl $^ $@
+
+l82a.hex: l82.hex
+	cp l82.hex l82a.hex
 
 %.hex: %.plm
 	@echo "$^:"
@@ -29,3 +32,5 @@ all:: $(TARGETS)
 
 clean::
 	rm -fr *.hex *.prn
+
+.INTERMEDIATE: l82.hex l82a.hex
