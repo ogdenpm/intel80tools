@@ -143,8 +143,10 @@ int parseOptions(int argc, char *argv[])
             outputExt = argv[++isisProgArg];
         } else if (strcmp(argv[isisProgArg], "-T") == 0)
             tOption = 1;
-        else if (strcmp(argv[isisProgArg], "-h") == 0)
+        else if (strcmp(argv[isisProgArg], "-h") == 0) {
             usage();
+            exit(0);
+        }
         else
             printf("Unknown option %s\n", argv[isisProgArg]);
     }

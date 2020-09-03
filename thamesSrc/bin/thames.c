@@ -216,14 +216,15 @@ int main(int ac, char **av)
         thames_exit(1);
     }
 
-    if (argc < 2)
+    /* [Mark Ogden] parse options returning index of isis program name */
+    isisProgArg = parseOptions(argc, argv);
+
+    if (isisProgArg >= argc)
     {
         fprintf(stderr, "%s: No ISIS program name provided.\n", progname);
         thames_exit(1);
     }
 
-    /* [Mark Ogden] parse options returning index of isis program name */
-    isisProgArg = parseOptions(argc, argv);
     /*Build an ISIS command line from our arguments */
     lencmd = 0;
     for (n = isisProgArg; n < argc; n++)
