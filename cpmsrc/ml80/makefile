@@ -6,7 +6,8 @@ PROTECT := loadAndFix.pl readme.txt m81.patch l81.patch l82.patch l83.patch
 include $(ROOT)/tools/isis.mk
 
 REF = ref
-
+# due to the use of various fort.x files, prohibit parallel builds
+.NOTPARALLEL:
 
 all:: $(TARGETS)
 
