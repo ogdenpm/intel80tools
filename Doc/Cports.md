@@ -322,6 +322,14 @@ return c + getc() * 256;
 
 The same type of modification would be needed if the side effects of various calls needed to be done in order.
 
+#### Nested procedures
+
+As C does not support nested procedures, these need to be extracted and raised to file scope. For simple procedures it may be possible to define a macro to replace the code, undefining the macro after it is used. The preferred method however is to create a file level static function, possibly renamed to indicate that it was a nested procedure.
+
+As nested procedures have access to their parent variables, these will need to be passed in either as value parameters if not modified or the addresses of the parameters if they modify their parent's data. The code will need to be changed to accommodate this change.
+
+Potentially a single parameter change could be done via return value unless the nested procedure already returned a value.
+
 #### Public labels
 
 PL/M allows code to jump to known global locations and in doing so resetting the stack pointer. The C equivalent of this is longjmp. In general the modifications to use this are reasonably straight forward, however some careful analysis is required to make sure that longjmp is replicating the functionality of the PL/M label. Some minor code modifications may be needed to make this work correctly.
