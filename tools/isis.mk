@@ -26,13 +26,13 @@ export ISIS_F0 ?= ./
 # the none ISIS build tools
 ISIS:=$(ROOT)/thames -m -T
 PLMPP:=$(ROOT)/tools/plmpp
-ASM80X:=perl $(ROOT)/tools/asmx.pl
+ASM80X:=perl $(ROOT)/tools/asm80x.pl
 NGENPEX:=$(ROOT)/tools/ngenpex
 MKDEPEND:=perl $(ROOT)/tools/makedepend.pl
 
 # macros to create the path & full file names of an isis file
 # usage: $(call ipath,file[,version])
-ipath = $(ROOT)/itools/$(strip $1)$(if $2,_$(strip $2))
+ipath = $(ROOT)/itools/$(strip $1)$(if $2,/$(strip $2))
 # 
 # usage: $(call ifile,file[,version])
 ifile = $(call ipath,$1,$2)/$(strip $1)
@@ -222,19 +222,13 @@ endif
 
 rebuild: distclean
 	$(MAKE) all
-# to allow the toolbox to creat the utility clean
-# clean target is only defined here if the make command explicitly has
-# clean, distclean or rebuild as a target
-## housekeeping rules
-$(info $(MAKECMDGOALS))
-ifneq ('$(filter Clean,$(MAKECMDGOALS))','Clean')
+
 .PHONY: clean
 CLEANFILES += %.hex %.bin %.obj %.lst %.ipx %.abs %.lin %.map
 clean::
 	-rm -fr $(filter-out ., $(OBJ) $(LST))
 	$(eval _cleanup_ =  $(filter-out  $(PROTECT) $(REF) $(TARGETS), $(filter $(CLEANFILES), $(shell ls $(if $(filter-out .,$(SRC)),$(SRC)/*,*)))))
 	-$(if $(_cleanup_), rm -f $(_cleanup_)) 
-endif
 
 distclean:: clean
 ifdef _masterfile

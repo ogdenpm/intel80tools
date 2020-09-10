@@ -1,0 +1,265 @@
+/*
+    THE SOURCE BELOW NEEDS TO BE COMPILED WITH THE FORTRAN CROSS COMPILER
+    UNFORTUNATELY INTEL SEEM TO HAVE USED A LATER VERSION THAT SUPPORTED
+    'AT' AND DID NOT FILL UNINITIALISED DATA WITH ZEROS
+
+*/
+1C00H: DO; 
+    DECLARE BOOLEAN LITERALLY 'BYTE';
+    DECLARE TRUE    LITERALLY '0FFH';
+    DECLARE FALSE   LITERALLY '0';
+    DECLARE CR  LITERALLY '0DH',
+            LF  LITERALLY '0AH';
+
+    DECLARE BTSTRP LITERALLY '8';
+    DECLARE MDSMON LITERALLY '0';
+
+    DECLARE CVER DATA(1, 13H);     /* ISIS.CLI VERSION ? */
+    DECLARE COPYRIGHT DATA('COPYRIGHT (C) INTEL 1975,1976');
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+
+    LOAD: PROCEDURE(PATH$P, LOAD$OFFSET, RETSW, ENTRY$P, STATUS$P);
+        DECLARE (PATH$P, LOAD$OFFSET, RETSW, ENTRY$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(6, .PATH$P);
+    END;
+    
+    RESCAN: PROCEDURE(CONN, STATUS$P);
+        DECLARE (CONN, STATUS$P) ADDRESS;
+
+        CALL ISIS(11, .CONN);
+    END;
+
+    ERROR: PROCEDURE(ERROR$NUM);
+        DECLARE (ERROR$NUM, STATUS) ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(12, .ERROR$NUM);
+    END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+    DEBLANK: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    DELIMIT: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    MEMCK: PROCEDURE ADDRESS;
+        GOTO 0F81BH;
+    END;
+
+
+    SEQ: PROCEDURE(S1, S2, CNT) BYTE;
+        DECLARE (S1,S2) ADDRESS, CNT BYTE;
+        DECLARE S1A BASED S1(1) BYTE;
+        DECLARE S2A BASED S2(1) BYTE;
+        DECLARE I BYTE;
+        CNT = CNT - 1;
+        DO I = 0 TO CNT;
+            IF S1A(I) <> S2A(I) THEN
+                RETURN 0;
+        END;
+        RETURN 0FFH;
+    END;
+
+    /* NOT ACTUALLY USED */
+    NUMOUT: PROCEDURE(VALUE, BASE, LC, BUFADR, WIDTH);
+        DECLARE (VALUE, BUFADR) ADDRESS, (BASE, LC, WIDTH) BYTE; 
+        DECLARE DIGITS DATA('0123456789ABCDEF');
+        DECLARE I BYTE;
+        DECLARE BUF BASED BUFADR (1) BYTE;
+
+        DO I = 1 TO WIDTH;
+            BUF(WIDTH - I) = DIGITS(VALUE MOD BASE);
+            VALUE = VALUE / BASE;   
+        END;
+
+        I = 0;
+        DO WHILE BUF(I) = '0' AND I < WIDTH - 1;
+            BUF(I) = LC;
+            I = I + 1;
+        END;
+    END;
+
+    REPORTERROR: PROCEDURE(ERRNUM);
+        DECLARE ERRNUM ADDRESS;
+        DECLARE NUMBERBUFFER(3) BYTE, I ADDRESS, STATUS ADDRESS;
+     
+
+        DECLARE ERRMSG DATA(0, 0,
+            2, 'ILLEGAL AFTN ARGUMENT', 0,
+            4, 'INCORRECTLY SPECIFIED FILE', 0,
+            5, 'UNRECOGNIZED DEVICE NAME', 0,
+            6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+            8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+            9, 'DIRECTORY FULL', 0,
+            0AH, 'NOT ON SAME DISK', 0,
+            0BH, 'FILE ALREADY EXISTS', 0,
+            0CH, 'FILE IS ALREADY OPEN', 0,
+            0DH, 'NO SUCH FILE', 0,
+            0EH, 'WRITE PROTECTED', 0,
+            0FH, 'LOAD TOO LOW', 0,
+            10H, 'BAD LOAD FORMAT', 0,
+            11H, 'NOT A DISK FILE', 0,
+            12H, 'ILLEGAL ISIS COMMAND', 0,
+            13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+            14H, 'ATTEMPTED BACK SEEK TO FAR', 0,
+            16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+            17H, 'MISSING FILENAME', 0,
+            19H, 'ILLEGAL ECHO FILE', 0,
+            1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+            1BH, 'ILLEGAL SEEK COMMAND', 0,
+            1CH, 'MISSING EXTENSION', 0,
+            1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+            20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+            23H, 'SEEK PAST EOF', 0,
+            0C9H, 'UNRECOGNIZED SWITCH', 0,
+            0CAH, 'UNRECOGNIZED DELIMITER', 0,
+            0CBH, 'INVALID SYNTAX', 0,
+            0CCH, 'PREMATURE EOF', 0,
+            0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+            0D0H, 'CHECKSUM ERROR', 0
+        );
+
+
+
+        IF ERRNUM <> 0 THEN
+        DO;
+            I = 0;
+            DO WHILE I < LENGTH(ERRMSG);
+                IF ERRNUM = ERRMSG(I) AND ERRMSG(I + 1) <> 0 THEN
+                DO;
+                    I = I + 1;
+                    CALL WRITE(0, .(' '), 1, .STATUS);
+                    DO WHILE ERRMSG(I) <> 0;
+                        CALL WRITE(0, .ERRMSG(I), 1, .STATUS);
+                        I = I + 1;
+                    END;
+                    CALL WRITE(0, .(0DH, 0AH), 2, .STATUS);
+                    return;
+                END;
+                ELSE
+                DO;
+                    DO WHILE ERRMSG(I) <> 0;
+                        I = I + 1;
+                    END;
+                    I = I + 1;
+                END;
+            end;
+            CALL ERROR(ERRNUM);
+        END;
+    END;
+
+
+    FILE$ERROR: PROCEDURE(STATUS, PTR, CALLEXIT);
+        DECLARE (STATUS, PTR) ADDRESS, CALLEXIT BYTE;
+        DECLARE ERR$STATUS ADDRESS;
+
+        IF STATUS <> 0 THEN
+        DO;
+            PTR = DEBLANK(PTR);
+            CALL WRITE(0, .(' '), 1, .ERR$STATUS);
+            CALL WRITE(0, PTR, DELIMIT(PTR) - PTR, .ERR$STATUS);
+            CALL WRITE(0, .(','), 1, .ERR$STATUS);
+            CALL REPORTERROR(STATUS);
+            IF CALLEXIT THEN
+                CALL EXIT;
+        END;
+    END;
+
+MAIN:
+
+    DECLARE BUFFER(128) BYTE;
+    DECLARE DEBUG BOOLEAN;
+    DECLARE BUFFER$PTR ADDRESS, CHAR BASED BUFFER$PTR BYTE;
+    DECLARE (PATHNAME$PTR,ACTUAL,STATUS,ENTRY,RETSW) ADDRESS;
+    DECLARE TOPSTACK ADDRESS, STACKWORD BASED TOPSTACK ADDRESS;
+
+
+    STACKPTR = MEMCK;
+    OUTPUT(0FCH) = 0FCH; /* ENABLE CONSOLE INTERRUPTS 0 AHD 1 */
+    ENABLE;
+    OUTPUT(0FDH) = 20H; /* SEND END OF INTERRUPT COMMAND */
+    BUFFER$PTR = .(':CI: ');
+    CALL RESCAN(1,.STATUS);
+    IF STATUS = 0 THEN
+    DO;
+      CALL READ(1,.BUFFER,LENGTH(BUFFER),.ACTUAL,.STATUS);
+      CALL FILE$ERROR(STATUS,BUFFER$PTR,TRUE);
+    END;
+    DO WHILE TRUE;
+      CALL WRITE(0,.('-'),1,.STATUS);
+      CALL REPORTERROR(STATUS);
+      CALL READ(1,.BUFFER,LENGTH(BUFFER),.ACTUAL,.STATUS);
+      CALL FILE$ERROR(STATUS,BUFFER$PTR,TRUE);
+      BUFFER(ACTUAL) = CR;
+      BUFFER$PTR = DEBLANK(.BUFFER);
+      IF CHAR <> CR THEN
+      DO;
+        /* NOW CHECK FDR DEBUG MODE (PATHNAHE PRECEDED BY 'DEBUG' */
+        DEBUG = FALSE; /* ASSUME NORMAL CASE, NOT DEBUGGING */
+        IF SEQ(.('DEBUG'),BUFFER$PTR,5)
+        AND (DELIMIT(BUFFER$PTR)=BUFFER$PTR+5) THEN
+        DO;
+          BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR+5));
+          DEBUG = TRUE;
+          IF CHAR = CR THEN DO;
+            TOPSTACK = STACKPTR;
+            STACKWORD = BTSTRP;
+            GOTO MDSMON;
+          END;
+        END;
+        PATHNAME$PTR = BUFFER$PTR;
+        BUFFER$PTR = DELIMIT(DEBLANK(BUFFER$PTR));
+        CALL RESCAN(1,.STATUS);
+        CALL REPORTERROR(STATUS);
+        CALL READ(1,.BUFFER,BUFFER$PTR-.BUFFER,.ACTUAL,.STATUS);
+        CALL REPORTERROR(STATUS);
+        IF DEBUG THEN RETSW = 2; ELSE RETSW = 1;
+        CALL LOAD(PATHNAME$PTR,0,RETSW,.ENTRY,.STATUS);
+        CALL FILE$ERROR(STATUS,PATHNAME$PTR,FALSE);
+        CALL READ(1,.BUFFER,LENGTH(BUFFER),.ACTUAL,.STATUS);
+        CALL REPORTERROR(STATUS);
+      END;
+    END;
+END;
+EOF

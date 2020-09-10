@@ -25,7 +25,6 @@
 #       db/dw/ds initialisers
 
 # markers
-$tmpComment = ";!! ";                       # comment out line for asm80 processing. unasmx.pl will remove
 $maxName = 6;                               # default name width for symbol table
 my %linemap;                                # saves original line for grundged lines
 my %namemap;                                # saves name map information for long names
@@ -68,7 +67,7 @@ sub include {
     my @inc = <$inc>;
     close $inc;
     splice @prog, $curLine + 1, 0, @inc;         # insert the include file
-    $prog[$curLine] = $tmpComment . $prog[$curLine];   # comment out include
+    $prog[$curLine] = "; " . $prog[$curLine];   # comment out include
 }
 
 # parse a line into the label, opcode and parameters (comments are excluded)

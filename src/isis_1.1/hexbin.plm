@@ -1,0 +1,406 @@
+1C00H:
+DO;
+    DECLARE TRUE    LITERALLY '0FFH',
+            FALSE   LITERALLY '0',
+            CR      LITERALLY '0DH',
+            LF      LITERALLY '0AH';
+
+    DECLARE READMODE    LITERALLY '1',
+            WRITEMODE   LITERALLY '2',
+            UPDATEMODE  LITERALLY '3';
+
+    /* ERROR CODES */
+    DECLARE FILE$EXISTS LITERALLY '0BH',
+            NO$SUCH$FILE LITERALLY '0DH',
+            BAD$SWITCH  LITERALLY '0C9H',
+            BAD$SYNTAX  LITERALLY '0CBH',
+            EARLY$EOF   LITERALLY '0CCH';
+
+    DECLARE VER DATA(1, 16H);
+    DECLARE COPYRIGNT DATA('COPYRIGHT (C) INTEL 1975,1976');
+
+    MEMCHK: PROCEDURE ADDRESS;
+        GOTO 0F81BH;
+    END;
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+    ERROR: PROCEDURE(ERROR$NUM);
+        DECLARE (ERROR$NUM, STATUS) ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(12, .ERROR$NUM);
+    END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+    OPEN: PROCEDURE(CONN$P, PATH$P, ACCESS, ECHO, STATUS$P);
+        DECLARE (CONN$P, PATH$P, ACCESS, ECHO, STATUS$P) ADDRESS;
+
+        CALL ISIS(0, .CONN$P);
+    END;
+
+    CLOSE: PROCEDURE(CONN, STATUS$P);
+        DECLARE (CONN, STATUS$P) ADDRESS;
+
+        CALL ISIS(1, .CONN);
+    END;
+
+    DEBLANK: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    DELIMIT: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    SEQ: PROCEDURE(S1, S2, CNT) BYTE;
+        DECLARE (S1,S2) ADDRESS, CNT BYTE;
+        DECLARE S1A BASED S1(1) BYTE;
+        DECLARE S2A BASED S2(1) BYTE;
+        DECLARE I BYTE;
+        CNT = CNT - 1;
+        DO I = 0 TO CNT;
+            IF S1A(I) <> S2A(I) THEN
+                RETURN 0;
+        END;
+        RETURN 0FFH;
+    END;
+
+
+    SCANINTEGER: PROCEDURE(PTRPTR) ADDRESS;
+        DECLARE PTRPTR ADDRESS;
+        DECLARE PTR BASED PTRPTR ADDRESS;
+        DECLARE (SCANPTR, BINVAL, OCTVAL, DECVAL, HEXVAL) ADDRESS;
+        DECLARE C BASED SCANPTR BYTE;
+        DECLARE (I, CONTINUE) BYTE;
+        DECLARE DIGITS(16) BYTE INITIAL('0123456789ABCDEF');
+
+        BINVAL, OCTVAL, DECVAL, HEXVAL = 0;
+        SCANPTR = PTR;
+
+        DO WHILE C = ' ';
+            SCANPTR = SCANPTR + 1;
+        END;
+
+        CONTINUE = TRUE;
+        DO WHILE CONTINUE;
+            CONTINUE = FALSE;
+            DO I = 0 TO 15;
+                IF C = DIGITS(I) THEN DO;
+                    IF I < 2 THEN
+                        BINVAL = BINVAL + BINVAL + I;
+                    OCTVAL = SHL(OCTVAL, 3) + I;
+                    IF I < 10 THEN
+                        DECVAL = DECVAL * 10 + I;
+                    HEXVAL = SHL(HEXVAL, 4) + I;
+                    SCANPTR = SCANPTR + 1;
+                    CONTINUE = TRUE;
+                END; 
+            END;
+        END;
+        PTR = SCANPTR + 1;
+        IF C = 'H' THEN
+            RETURN HEXVAL;
+        IF C = 'O' OR C = 'Q' THEN
+            RETURN OCTVAL;
+        PTR = SCANPTR;
+        SCANPTR = SCANPTR - 1;
+        IF C = 'B' THEN
+            RETURN BINVAL;
+        RETURN DECVAL;
+
+    END;
+
+
+
+    NUMOUT: PROCEDURE(VALUE, BASE, LC, BUFADR, WIDTH);
+        DECLARE (VALUE, BUFADR) ADDRESS, (BASE, LC, WIDTH) BYTE; 
+        DECLARE DIGITS DATA('0123456789ABCDEF');
+        DECLARE I BYTE;
+        DECLARE BUF BASED BUFADR (1) BYTE;
+
+        DO I = 1 TO WIDTH;
+            BUF(WIDTH - I) = DIGITS(VALUE MOD BASE);
+            VALUE = VALUE / BASE;   
+        END;
+
+        I = 0;
+        DO WHILE BUF(I) = '0' AND I < WIDTH - 1;
+            BUF(I) = LC;
+            I = I + 1;
+        END;
+    END;
+
+    REPORTERROR: PROCEDURE(ERRNUM);
+        DECLARE ERRNUM ADDRESS;
+        DECLARE NUMBERBUFFER(4) BYTE, I ADDRESS, STATUS ADDRESS;
+     
+
+        DECLARE ERRMSG DATA(0, 0,
+            2, 'ILLEGAL AFTN ARGUMENT', 0,
+            4, 'INCORRECTLY SPECIFIED FILE', 0,
+            5, 'UNRECOGNIZED DEVICE NAME', 0,
+            6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+            8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+            9, 'DIRECTORY FULL', 0,
+            0AH, 'NOT ON SAME DISK', 0,
+            0BH, 'FILE ALREADY EXISTS', 0,
+            0CH, 'FILE IS ALREADY OPEN', 0,
+            0DH, 'NO SUCH FILE', 0,
+            0EH, 'WRITE PROTECTED', 0,
+            0FH, 'LOAD TOO LOW', 0,
+            10H, 'BAD LOAD FORMAT', 0,
+            11H, 'NOT A DISK FILE', 0,
+            12H, 'ILLEGAL ISIS COMMAND', 0,
+            13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+            14H, 'ATTEMPTED BACK SEEK TO FAR', 0,
+            16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+            17H, 'MISSING FILENAME', 0,
+            19H, 'ILLEGAL ECHO FILE', 0,
+            1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+            1BH, 'ILLEGAL SEEK COMMAND', 0,
+            1CH, 'MISSING EXTENSION', 0,
+            1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+            20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+            23H, 'SEEK PAST EOF', 0,
+            0C9H, 'UNRECOGNIZED SWITCH', 0,
+            0CAH, 'UNRECOGNIZED DELIMITER', 0,
+            0CBH, 'INVALID SYNTAX', 0,
+            0CCH, 'PREMATURE EOF', 0,
+            0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+            0D0H, 'CHECKSUM ERROR', 0
+        );
+
+        IF ERRNUM <> 0 THEN
+        DO;
+            I = 0;
+            DO WHILE I < LENGTH(ERRMSG);
+                IF ERRNUM = ERRMSG(I) AND ERRMSG(I + 1) <> 0 THEN
+                DO;
+                    I = I + 1;
+                    CALL WRITE(0, .(' '), 1, .STATUS);
+                    DO WHILE ERRMSG(I) <> 0;
+                        CALL WRITE(0, .ERRMSG(I), 1, .STATUS);
+                        I = I + 1;
+                    END;
+                    CALL WRITE(0, .(0DH, 0AH), 2, .STATUS);
+                    return;
+                END;
+                ELSE
+                DO;
+                    DO WHILE ERRMSG(I) <> 0;
+                        I = I + 1;
+                    END;
+                    I = I + 1;
+                END;
+            end;
+            CALL ERROR(ERRNUM);
+        END;
+    END;
+
+    FILE$ERROR: PROCEDURE(STATUS, PTR, CALLEXIT);
+        DECLARE (STATUS, PTR) ADDRESS, CALLEXIT BYTE;
+        DECLARE ERR$STATUS ADDRESS;
+
+        IF STATUS <> 0 THEN
+        DO;
+            PTR = DEBLANK(PTR);
+            CALL WRITE(0, .(' '), 1, .ERR$STATUS);
+            CALL WRITE(0, PTR, DELIMIT(PTR) - PTR, .ERR$STATUS);
+            CALL WRITE(0, .(','), 1, .ERR$STATUS);
+            CALL REPORTERROR(STATUS);
+            IF CALLEXIT THEN
+                CALL EXIT;
+        END;
+    END;
+
+
+    DECLARE BUFFER$SIZE ADDRESS;
+    DECLARE IBUF(128) BYTE, IPTR ADDRESS;
+    DECLARE BUFFER(128) BYTE;
+    DECLARE (BUFFER$PTR, OUTPUT$PTR, INPUT$PTR) ADDRESS;
+    DECLARE (ACTUAL, STATUS) ADDRESS;
+    DECLARE (START, ENDFILE) BYTE;
+    DECLARE (AFT$OUT, AFT$IN) ADDRESS;
+    DECLARE (START$VALUE, RECORD$PTR, CONTENT$PTR, LEN$PTR) ADDRESS;
+    DECLARE (ADDR$PTR, RECORD$ADDR) ADDRESS;
+    DECLARE (RLEN, TMP, I, CHECKSUM) BYTE;
+    DECLARE LEN BASED LEN$PTR ADDRESS;
+    DECLARE ADDR BASED ADDR$PTR ADDRESS;
+    DECLARE CONTENT BASED CONTENT$PTR BYTE;
+    DECLARE CHAR BASED BUFFER$PTR BYTE;
+
+
+    GNC: PROCEDURE BYTE;
+
+        IF IPTR = LENGTH(IBUF) THEN
+        DO;
+            CALL READ(AFT$IN, .IBUF, LENGTH(IBUF), .ACTUAL, .STATUS);
+            CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+            IF ACTUAL = 0 THEN
+            DO;
+                CALL FILEERROR(EARLY$EOF, INPUT$PTR, TRUE);
+                CALL EXIT;
+            END;
+            IPTR = 0;
+        END;
+        IPTR = IPTR + 1;
+        RETURN IBUF(IPTR - 1) AND 7FH;
+    END GNC;
+
+    HEX: PROCEDURE BYTE;
+        DECLARE CHAR BYTE;
+
+        IF (CHAR := GNC) >= '0' AND CHAR <= '9' THEN RETURN CHAR - '0';
+        IF CHAR >= 'A' AND CHAR <= 'F' THEN RETURN CHAR - 37H;
+        RETURN 0FFH;
+    END HEX;
+
+    BYTES: PROCEDURE BYTE;
+        DECLARE CHAR BYTE;
+
+        CHAR = SHL(HEX, 4) + HEX;
+        CHECKSUM = CHECKSUM + CHAR;
+        RETURN CHAR;
+    END BYTES;
+
+
+MAIN:
+    START, ENDFILE = FALSE;
+    INPUT$PTR = .(':CI: ');
+    CALL READ(1, .BUFFER, LENGTH(BUFFER), .ACTUAL, .STATUS);
+    CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+    INPUT$PTR,BUFFER$PTR  = DEBLANK(.BUFFER);
+    CALL OPEN(.AFT$IN, INPUT$PTR, READ$MODE, 0, .STATUS);
+    CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+    BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR));
+    IF SEQ(.('TO '), BUFFER$PTR, 3) THEN
+    DO;
+        OUTPUT$PTR,BUFFER$PTR = DEBLANK(BUFFER$PTR + 2);
+        BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR));
+    END;
+    ELSE DO;
+        CALL REPORTERROR(BAD$SYNTAX);
+        CALL EXIT;
+    END;
+
+    BUFFER$PTR = DELIMIT(DEBLANK(BUFFER$PTR));
+    DO WHILE CHAR = '$';
+        BUFFER$PTR = BUFFER$PTR + 1;
+        IF CHAR = 'S' THEN DO;
+            START = TRUE;
+            BUFFER$PTR = DEBLANK(BUFFER$PTR + 1);
+            IF CHAR <> '=' THEN DO;
+                CALL REPORTERROR(BAD$SYNTAX);
+                CALL EXIT;
+            END;
+            BUFFER$PTR = BUFFER$PTR + 1;
+            START$VALUE = SCANINTEGER(.BUFFER$PTR);
+        END;
+        ELSE DO;
+            CALL REPORTERROR(BAD$SWITCH);
+            CALL EXIT;
+        END;
+        BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR));
+    END;
+
+    IF CHAR <> CR THEN DO;
+        CALL REPORTERROR(BAD$SYNTAX);
+        CALL EXIT;
+    END;
+    CALL OPEN(.AFT$OUT, OUTPUT$PTR, WRITEMODE, 0, .STATUS);
+    CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+    BUFFER$SIZE = MEMCHK - .MEMORY - 64;
+    LEN$PTR = .MEMORY;
+    LEN = 0;
+    ADDR$PTR = .MEMORY + 2;
+    ADDR = 0;
+    CONTENT$PTR = .MEMORY + 4;
+    RECORD$PTR = 0;
+    IPTR = LENGTH(IBUF); 
+    RLEN = 1;
+    DO WHILE RLEN <> 0;
+        DO WHILE GNC <> ':';
+        END;
+        CHECKSUM = 0;
+        IF (RLEN := BYTES) <> 0 THEN DO;
+            RECORD$ADDR = BYTES * 256 + BYTES;
+            IF RECORD$PTR <> RECORD$ADDR OR LEN > BUFFER$SIZE THEN DO;
+                IF LEN <> 0 THEN DO;
+                    CALL WRITE(AFT$OUT, .MEMORY, LEN + 4, .STATUS);
+                    CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+                END;
+                LEN = 0;
+                RECORD$PTR = RECORD$ADDR;
+                CONTENT$PTR = .MEMORY  + 4;
+                ADDR = RECORD$ADDR;
+            END;
+            TMP = BYTES;
+            DO I = 1 TO RLEN;
+                CONTENT = BYTES;
+                CONTENT$PTR = CONTENT$PTR + 1;
+                RECORD$PTR = RECORD$PTR + 1;
+                LEN = LEN + 1;
+            END;
+            TMP = BYTES;
+            IF CHECKSUM <> 0 THEN DO;
+                CALL FILEERROR(0D0H, INPUT$PTR, TRUE);
+                CALL EXIT;
+            END;
+        END;
+        ELSE DO;
+            IF LEN <> 0 THEN DO;
+                CALL WRITE(AFT$OUT, .MEMORY, LEN + 4, .STATUS);
+                CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+            END;
+            LEN = 0;
+            ADDR = BYTES * 256 + BYTES;
+            IF START THEN
+                ADDR = START$VALUE;
+            CALL WRITE(AFT$OUT, .MEMORY, 4, .STATUS);
+            CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+        END;
+    END;
+    CALL CLOSE(AFT$IN, .STATUS);
+    CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+    CALL CLOSE(AFT$OUT, .STATUS);
+    CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+    CALL EXIT;
+
+END;
+EOF

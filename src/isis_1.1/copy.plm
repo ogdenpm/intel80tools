@@ -1,0 +1,378 @@
+1C00H:
+DO;
+    DECLARE TRUE    LITERALLY '0FFH',
+            FALSE   LITERALLY '0',
+            CR      LITERALLY '0DH',
+            LF      LITERALLY '0AH';
+
+    DECLARE READMODE    LITERALLY '1',
+            WRITEMODE   LITERALLY '2',
+            UPDATEMODE  LITERALLY '3';
+
+    /* ERROR CODES */
+    DECLARE FILE$EXISTS LITERALLY '0BH',
+            NO$SUCH$FILE LITERALLY '0DH',
+            BAD$SWITCH  LITERALLY '0C9H',
+            BAD$SYNTAX  LITERALLY '0CBH';
+
+    DECLARE VER DATA(1, 10H);
+    DECLARE COPYRIGNT DATA('COPYRIGHT (C) INTEL 1975,1976');
+
+    MEMCHK: PROCEDURE ADDRESS;
+        GOTO 0F81BH;
+    END;
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    OPEN: PROCEDURE(CONN$P, PATH$P, ACCESS, ECHO, STATUS$P);
+        DECLARE (CONN$P, PATH$P, ACCESS, ECHO, STATUS$P) ADDRESS;
+
+        CALL ISIS(0, .CONN$P);
+    END;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+    CLOSE: PROCEDURE(CONN, STATUS$P);
+        DECLARE (CONN, STATUS$P) ADDRESS;
+
+        CALL ISIS(1, .CONN);
+    END;
+
+    ERROR: PROCEDURE(ERROR$NUM);
+        DECLARE (ERROR$NUM, STATUS) ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(12, .ERROR$NUM);
+    END;
+
+	RENAME: PROCEDURE(OLD$P, NEW$P, STATUS$P);
+    	DECLARE (OLD$P, NEW$P, STATUS$P) ADDRESS;
+    	
+    	CALL ISIS(7, .OLD$P);
+	END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+
+    DEBLANK: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    DELIMIT: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    SEQ: PROCEDURE(S1, S2, CNT) BYTE;
+        DECLARE (S1,S2) ADDRESS, CNT BYTE;
+        DECLARE S1A BASED S1(1) BYTE;
+        DECLARE S2A BASED S2(1) BYTE;
+        DECLARE I BYTE;
+        CNT = CNT - 1;
+        DO I = 0 TO CNT;
+            IF S1A(I) <> S2A(I) THEN
+                RETURN 0;
+        END;
+        RETURN 0FFH;
+    END;
+
+    NUMOUT: PROCEDURE(VALUE, BASE, LC, BUFADR, WIDTH);
+        DECLARE (VALUE, BUFADR) ADDRESS, (BASE, LC, WIDTH) BYTE; 
+        DECLARE DIGITS DATA('0123456789ABCDEF');
+        DECLARE I BYTE;
+        DECLARE BUF BASED BUFADR (1) BYTE;
+
+        DO I = 1 TO WIDTH;
+            BUF(WIDTH - I) = DIGITS(VALUE MOD BASE);
+            VALUE = VALUE / BASE;   
+        END;
+
+        I = 0;
+        DO WHILE BUF(I) = '0' AND I < WIDTH - 1;
+            BUF(I) = LC;
+            I = I + 1;
+        END;
+    END;
+
+    REPORTERROR: PROCEDURE(ERRNUM);
+        DECLARE ERRNUM ADDRESS;
+        DECLARE NUMBERBUFFER(4) BYTE, I ADDRESS, STATUS ADDRESS;
+     
+
+        DECLARE ERRMSG DATA(0, 0,
+            2, 'ILLEGAL AFTN ARGUMENT', 0,
+            4, 'INCORRECTLY SPECIFIED FILE', 0,
+            5, 'UNRECOGNIZED DEVICE NAME', 0,
+            6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+            8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+            9, 'DIRECTORY FULL', 0,
+            0AH, 'NOT ON SAME DISK', 0,
+            0BH, 'FILE ALREADY EXISTS', 0,
+            0CH, 'FILE IS ALREADY OPEN', 0,
+            0DH, 'NO SUCH FILE', 0,
+            0EH, 'WRITE PROTECTED', 0,
+            0FH, 'LOAD TOO LOW', 0,
+            10H, 'BAD LOAD FORMAT', 0,
+            11H, 'NOT A DISK FILE', 0,
+            12H, 'ILLEGAL ISIS COMMAND', 0,
+            13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+            14H, 'ATTEMPTED BACK SEEK TO FAR', 0,
+            16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+            17H, 'MISSING FILENAME', 0,
+            19H, 'ILLEGAL ECHO FILE', 0,
+            1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+            1BH, 'ILLEGAL SEEK COMMAND', 0,
+            1CH, 'MISSING EXTENSION', 0,
+            1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+            20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+            23H, 'SEEK PAST EOF', 0,
+            0C9H, 'UNRECOGNIZED SWITCH', 0,
+            0CAH, 'UNRECOGNIZED DELIMITER', 0,
+            0CBH, 'INVALID SYNTAX', 0,
+            0CCH, 'PREMATURE EOF', 0,
+            0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+            0D0H, 'CHECKSUM ERROR', 0
+        );
+
+
+
+        IF ERRNUM <> 0 THEN
+        DO;
+            I = 0;
+            DO WHILE I < LENGTH(ERRMSG);
+                IF ERRNUM = ERRMSG(I) AND ERRMSG(I + 1) <> 0 THEN
+                DO;
+                    I = I + 1;
+                    CALL WRITE(0, .(' '), 1, .STATUS);
+                    DO WHILE ERRMSG(I) <> 0;
+                        CALL WRITE(0, .ERRMSG(I), 1, .STATUS);
+                        I = I + 1;
+                    END;
+                    CALL WRITE(0, .(0DH, 0AH), 2, .STATUS);
+                    return;
+                END;
+                ELSE
+                DO;
+                    DO WHILE ERRMSG(I) <> 0;
+                        I = I + 1;
+                    END;
+                    I = I + 1;
+                END;
+            end;
+            CALL ERROR(ERRNUM);
+        END;
+    END;
+
+    CHECKERROR: PROCEDURE(ERRCODE);
+        DECLARE ERRCODE ADDRESS;
+        IF ERRCODE <> 0 THEN DO;
+            CALL REPORTERROR(ERRCODE);
+            CALL EXIT;
+        END;
+    END;
+
+    DECLARE DEVICES(21) ADDRESS INITIAL(
+        'F0', 'F1', 'TI', 'TO', 'VI', 'VO', 'I1', 'O1',
+        'TR', 'HR', 'R1', 'R2', 'TP', 'HP', 'P1', 'P2',
+        'LP', 'L1', 'CI', 'CO', 'BB');
+    DECLARE PN(20) BYTE;
+
+    CANON: PROCEDURE(FILENAME, INFO$P) BYTE;
+        DECLARE (FILENAME, INFO$P) ADDRESS;
+        DECLARE PATHCH BASED FILENAME BYTE;
+        DECLARE PATH BASED FILENAME (1) BYTE;
+        DECLARE INFO BASED INFO$P (1) BYTE;
+        DECLARE PAIR(0) ADDRESS, (B1, B2) BYTE;
+        DECLARE JUNK ADDRESS;
+        DECLARE I BYTE;
+
+        ALPHANUM: PROCEDURE BYTE;
+            RETURN (PATHCH >= 'A' AND PATHCH <= 'Z')
+                OR (PATHCH >= '0' AND PATHCH <= '9');
+        END;
+
+        GETFNCHAR: PROCEDURE;
+            IF ALPHANUM THEN DO;
+                INFO(I) = PATHCH;
+                FILENAME = FILENAME + 1;
+                B1 = FALSE;
+            END;
+        END;
+
+        DO I = 0 TO 9;
+            INFO(I) = 0;
+        END;
+
+        DO WHILE PATHCH  = ' ';
+            FILENAME = FILENAME + 1;
+        END;
+        IF PATHCH = ':' THEN DO;
+            INFO(0) = 0FFH;
+            /* DEVICE COMPARISON IS DONE BACKWARDS */
+            /* AS PL/M SWAPS WORD STRINGS */
+            B2 = PATH(1);
+            B1 = PATH(2);
+            IF PATH(3) <> ':' THEN
+                RETURN 4; 
+            DO I = 0 TO LAST(DEVICES);
+                IF DEVICES(I) = PAIR(0) THEN
+                    INFO(0) = I;
+            END;
+            IF INFO(0) = 0FFH THEN
+                RETURN 5;
+            FILENAME = FILENAME + 4;
+        END;
+        B1 = TRUE;
+        DO I = 1 TO 6;
+            CALL GETFNCHAR;
+        END;
+        B2 = B1;
+        B1 = PATHCH = '.';
+        IF B1 THEN DO;
+            FILENAME = FILENAME + 1;
+            DO I = 7 TO 9;
+                CALL GETFNCHAR;
+            END;
+        END;
+        IF INFO(0) <= 1 THEN
+            IF B2 THEN
+                RETURN 17H;
+            ELSE IF B1 THEN
+                RETURN 1CH;
+        IF ALPHANUM OR PATHCH = '.' OR PATHCH = ':' THEN
+            RETURN 4;
+        RETURN 0;
+    END;
+
+    DECLARE MODE BYTE INITIAL(WRITEMODE);
+    DECLARE MEMSIZE ADDRESS;
+    DECLARE BUFFER(128) BYTE;
+    DECLARE (SWITCHPTR, FILEPTR, BUFPTR, ACTUAL, STATUS) ADDRESS;
+    DECLARE SWITCH BASED SWITCHPTR (1) BYTE;
+    DECLARE (AFTOUT, AFTIN) ADDRESS;
+
+
+    FILE$ERROR: PROCEDURE(STATUS, PTR, CALLEXIT);
+        DECLARE (STATUS, PTR) ADDRESS, CALLEXIT BYTE;
+        DECLARE ERR$STATUS ADDRESS;
+
+        IF STATUS <> 0 THEN
+        DO;
+            PTR = DEBLANK(PTR);
+            CALL WRITE(0, .(' '), 1, .ERR$STATUS);
+            CALL WRITE(0, PTR, DELIMIT(PTR) - PTR, .ERR$STATUS);
+            CALL WRITE(0, .(','), 1, .ERR$STATUS);
+            CALL REPORTERROR(STATUS);
+            IF CALLEXIT THEN
+                CALL EXIT;
+        END;
+    END;
+
+
+
+
+
+MAIN:
+    CALL READ(1, .BUFFER, 128, .ACTUAL, .STATUS);
+    CALL CHECKERROR(STATUS);
+    BUFPTR = DEBLANK(DELIMIT(DEBLANK(.BUFFER)));
+    DO WHILE SEQ(BUFPTR, .(','), 1);
+        BUFPTR = DEBLANK(DELIMIT(DEBLANK(BUFPTR + 1)));
+    END;
+    IF NOT SEQ(.('TO '), BUFPTR, 3) THEN
+        CALL CHECKERROR(BAD$SYNTAX);
+    ELSE
+        FILEPTR = DEBLANK(DELIMIT(BUFPTR));
+
+    SWITCHPTR = DEBLANK(DELIMIT(FILEPTR));
+    DO WHILE SWITCH(0) <> CR;
+        IF SWITCH(0) = '$' THEN DO;
+            IF SWITCH(1) = 'U' THEN
+                MODE = UPDATEMODE;
+            ELSE DO;
+                CALL REPORTERROR(BAD$SWITCH);
+                CALL EXIT;
+            END;
+            SWITCHPTR = DEBLANK(SWITCHPTR + 2);
+        END;
+        ELSE DO;
+            CALL REPORTERROR(BAD$SWITCH);
+            CALL EXIT;
+        END;
+    END; 
+    
+    if (STATUS := CANON(FILEPTR, .PN)) <> 0 THEN 
+        CALL FILEERROR(STATUS, FILEPTR, TRUE);
+    IF PN(0) = 0 OR PN(0) = 1 THEN DO;
+        CALL RENAME(FILEPTR, FILEPTR, .STATUS);
+        IF STATUS <> NO$SUCH$FILE THEN
+            IF STATUS <> FILE$EXISTS THEN
+                CALL CHECKERROR(STATUS);
+            ELSE IF MODE <> UPDATEMODE THEN DO;
+                CALL FILEERROR(STATUS, FILEPTR, FALSE);
+                /* NOTE ORIGINAL USES ACTUAL VS. STATUS */
+                CALL WRITE(0, .(' DELETE', 3FH, ' '), 9, .ACTUAL);
+                CALL READ(1, .MEMORY, 128, .ACTUAL, .STATUS);
+                CALL CHECKERROR(STATUS);
+                IF (MEMORY(0) = 'Y' OR MEMORY = 'Y' + 20H) THEN
+                    ;
+                ELSE
+                    CALL EXIT;
+            END;
+    END;
+    CALL OPEN(.AFTOUT, FILEPTR, MODE, 0, .STATUS);
+    CALL FILEERROR(STATUS, FILEPTR, TRUE);
+    MEMSIZE = (MEMCHK - .MEMORY) AND 0FF80H;
+    IF PN(0) > 1 THEN
+        MEMSIZE = 128;      /* NONE FILE DEVICE */
+    FILEPTR = DEBLANK(.BUFFER);
+    DO WHILE BUFPTR >= FILEPTR;  /* TILL WE HAVE PROCESSED ALL SOURCE */
+        STATUS = CANON(FILEPTR, .PN);
+        IF PN(0) > 1 THEN
+            MEMSIZE = 128;
+        CALL OPEN(.AFTIN, FILEPTR, READMODE, 0, .STATUS);
+        CALL FILEERROR(STATUS, FILEPTR, TRUE);
+        ACTUAL = 1;
+        DO WHILE ACTUAL <> 0;
+            CALL READ(AFTIN, .MEMORY, MEMSIZE, .ACTUAL, .STATUS);
+            CALL WRITE(AFTOUT, .MEMORY, ACTUAL, .STATUS);
+        END;
+        CALL CLOSE(AFTIN, .STATUS);
+        FILEPTR = DEBLANK(DEBLANK(DELIMIT(FILEPTR)) + 1);
+    END;
+    CALL CLOSE(AFTOUT, .STATUS);
+    CALL EXIT;
+
+END;
+EOF

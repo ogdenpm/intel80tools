@@ -96,6 +96,8 @@ do {
                     $inst .= ",a";
                 } elsif ($inst =~ /(ADD|ADC|SUB|SBC|ANA|ORA|XRA) I/) {
                     $inst = substr($inst,0,2) . "I b";
+                } elsif ($inst =~ /^(IN|OUT)$/) {
+                    $inst .= " b";
                 } elsif ($inst =~ /SBC/) {
                     $inst =~ s/SBC/SBB/;
                 } elsif ($inst =~ /^(LDA|STA|LHLD|SHLD|JMP|CALL|[JC]N?[CZSP])$/) {
@@ -134,7 +136,21 @@ for ($i = 1; $i < $#prog; $i++) {
    print $out $prog[$i];
 }
 
-while ($addr < $#code) {
+while ($addr <= $#code) {
     printCode($addr++);
 }
+
 print $out "\n" if ($dbcnt);
+
+while ($addr < $#label) {
+    my $laddr = $addr;
+    next unless defined($label[$addr++]);
+    while ($addr < $#label && !defined($label[$addr])) {
+        $addr++;
+    }
+    if ($addr < $#label) {
+        printf $out "        %-11s ds %-4d ; %04XH\n", $label[$laddr] . ":", $addr - $laddr, $laddr;
+    } else {
+        printf $out "        %-11s         ; %04XH\n", $label[$laddr] . ":", $laddr;
+    }
+}

@@ -1,0 +1,392 @@
+1C00H:
+DO;
+    DECLARE TRUE    LITERALLY '0FFH',
+            FALSE   LITERALLY '0',
+            CR      LITERALLY '0DH',
+            LF      LITERALLY '0AH';
+
+    DECLARE VER DATA(1, 13H);
+    DECLARE COPYRIGNT DATA('COPYRIGHT (C) INTEL 1975,1976');
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    OPEN: PROCEDURE(CONN$P, PATH$P, ACCESS, ECHO, STATUS$P);
+        DECLARE (CONN$P, PATH$P, ACCESS, ECHO, STATUS$P) ADDRESS;
+
+        CALL ISIS(0, .CONN$P);
+    END;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+    CLOSE: PROCEDURE(CONN, STATUS$P);
+        DECLARE (CONN, STATUS$P) ADDRESS;
+
+        CALL ISIS(1, .CONN);
+    END;
+
+    ERROR: PROCEDURE(ERROR$NUM);
+        DECLARE (ERROR$NUM, STATUS) ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(12, .ERROR$NUM);
+    END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+    DEBLANK: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    DELIMIT: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    NUMOUT: PROCEDURE(VALUE, BASE, LC, BUFADR, WIDTH);
+        DECLARE (VALUE, BUFADR) ADDRESS, (BASE, LC, WIDTH) BYTE; 
+        DECLARE DIGITS DATA('0123456789ABCDEF');
+        DECLARE I BYTE;
+        DECLARE BUF BASED BUFADR (1) BYTE;
+
+        DO I = 1 TO WIDTH;
+            BUF(WIDTH - I) = DIGITS(VALUE MOD BASE);
+            VALUE = VALUE / BASE;   
+        END;
+
+        I = 0;
+        DO WHILE BUF(I) = '0' AND I < WIDTH - 1;
+            BUF(I) = LC;
+            I = I + 1;
+        END;
+    END;
+
+    REPORTERROR: PROCEDURE(ERRNUM);
+        DECLARE ERRNUM ADDRESS;
+        DECLARE NUMBERBUFFER(4) BYTE, I ADDRESS, STATUS ADDRESS;
+     
+
+        DECLARE ERRMSG DATA(0, 0,
+            2, 'ILLEGAL AFTN ARGUMENT', 0,
+            4, 'INCORRECTLY SPECIFIED FILE', 0,
+            5, 'UNRECOGNIZED DEVICE NAME', 0,
+            6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+            8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+            9, 'DIRECTORY FULL', 0,
+            0AH, 'NOT ON SAME DISK', 0,
+            0BH, 'FILE ALREADY EXISTS', 0,
+            0CH, 'FILE IS ALREADY OPEN', 0,
+            0DH, 'NO SUCH FILE', 0,
+            0EH, 'WRITE PROTECTED', 0,
+            0FH, 'LOAD TOO LOW', 0,
+            10H, 'BAD LOAD FORMAT', 0,
+            11H, 'NOT A DISK FILE', 0,
+            12H, 'ILLEGAL ISIS COMMAND', 0,
+            13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+            14H, 'ATTEMPTED BACK SEEK TO FAR', 0,
+            16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+            17H, 'MISSING FILENAME', 0,
+            19H, 'ILLEGAL ECHO FILE', 0,
+            1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+            1BH, 'ILLEGAL SEEK COMMAND', 0,
+            1CH, 'MISSING EXTENSION', 0,
+            1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+            20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+            23H, 'SEEK PAST EOF', 0,
+            0C9H, 'UNRECOGNIZED SWITCH', 0,
+            0CAH, 'UNRECOGNIZED DELIMITER', 0,
+            0CBH, 'INVALID SYNTAX', 0,
+            0CCH, 'PREMATURE EOF', 0,
+            0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+            0D0H, 'CHECKSUM ERROR', 0
+        );
+
+
+
+        IF ERRNUM <> 0 THEN
+        DO;
+            I = 0;
+            DO WHILE I < LENGTH(ERRMSG);
+                IF ERRNUM = ERRMSG(I) AND ERRMSG(I + 1) <> 0 THEN
+                DO;
+                    I = I + 1;
+                    CALL WRITE(0, .(' '), 1, .STATUS);
+                    DO WHILE ERRMSG(I) <> 0;
+                        CALL WRITE(0, .ERRMSG(I), 1, .STATUS);
+                        I = I + 1;
+                    END;
+                    CALL WRITE(0, .(0DH, 0AH), 2, .STATUS);
+                    return;
+                END;
+                ELSE
+                DO;
+                    DO WHILE ERRMSG(I) <> 0;
+                        I = I + 1;
+                    END;
+                    I = I + 1;
+                END;
+            end;
+            CALL ERROR(ERRNUM);
+        END;
+    END;
+
+    UNPATH: PROCEDURE(DIR$P, FILENAME$P);
+        DECLARE (DIR$P, FILENAME$p) ADDRESS;
+        DECLARE FILENAME BASED FILENAME$P (1) BYTE;
+        DECLARE DIR BASED DIR$P (1) BYTE;
+        DECLARE I BYTE;
+
+        FILENAME(0) = ':';
+        FILENAME(1) = 'F';
+        FILENAME(3) = ':';
+        IF DIR(0) = 0 THEN
+            FILENAME(2) = '0';
+        ELSE
+            FILENAME(2) = '1';
+        FILENAME$P = FILENAME$P + 4;
+        DO I = 0 TO 5;
+            if (FILENAME(0) := DIR(I + 1)) <> 0 THEN
+                FILENAME$P = FILENAME$P + 1;
+        END;
+        IF DIR(7) <> 0 THEN DO;
+            FILENAME(0) = '.';
+            FILENAME$P = FILENAME$P + 1;
+        END; 
+        DO I = 0 TO 2;
+            if (FILENAME(0) := DIR(I + 7)) <> 0 THEN
+                FILENAME$P = FILENAME$P + 1;
+        END;
+        FILENAME(0) = ' ';
+    END; 
+
+
+    /* READ IN DIRECTORY ENTRY */
+    DECLARE DIRECT$STATUS BYTE,
+            DIRECT$NAME(6) BYTE,
+            DIRECT$EXT(3) BYTE,
+            DIRECT$ATTRIB BYTE,
+            DIRECT$EOF$CNT BYTE,
+            DIRECT$BLKCNT ADDRESS,
+            DIRECT$HDRBLK ADDRESS;
+    DECLARE PADDING(4) BYTE;
+    
+
+    LISTDIR: PROCEDURE(DRIVE, AFTOUT, FASTOUTPUT, LISTINVISIBLE);
+        DECLARE (DRIVE, AFTOUT, FASTOUTPUT, LISTINVISIBLE) BYTE;
+        DECLARE (AFT, STATUS, ACTUAL, PAD, USED) ADDRESS;
+
+        DECLARE (HIFSIZE, LOFSIZE, BLKTOTAL) ADDRESS;
+        DECLARE BUF(15) BYTE;
+        DECLARE ISISLAB(13) BYTE INITIAL(':F :ISIS.LAB ');
+        DECLARE ISISDIR(13) BYTE INITIAL(':F :ISIS.DIR ');
+        DECLARE CRLF(2) BYTE INITIAL(CR, LF);
+        DECLARE NAME(15) BYTE, I BYTE, NAMEPART BYTE;
+
+        ADDTOTAL: PROCEDURE(DELTA);
+            DECLARE DELTA ADDRESS;
+            IF (LOFSIZE := LOFSIZE + DELTA) > 9999 THEN DO;
+                LOFSIZE = LOFSIZE - 10000;
+                HIFSIZE = HIFSIZE + 1;
+            END;
+            
+        END;
+
+        BLKTOTAL = 0;
+        ISISLAB(2), ISISDIR(2) = DRIVE + '0';
+        CALL OPEN(.AFT, .ISISLAB, 1, 0, .STATUS);
+        BUF(0) = DRIVE;
+        CALL READ(AFT, .BUF + 1, 9, .ACTUAL, .STATUS);
+        CALL WRITE(AFTOUT, .('DIRECTORY OF '), 13, .STATUS);
+        CALL UNPATH(.BUF, .NAME);
+        I = DELIMIT(.NAME) - .NAME;
+        CALL WRITE(AFTOUT, .NAME, I, .STATUS);
+        CALL WRITE(AFTOUT, .(CR, LF), 2, .STATUS);
+        CALL CLOSE(AFT, .STATUS);
+
+        IF NOT FASTOUTPUT THEN
+            CALL WRITE(AFTOUT, .('NAME  .EXT BLKS   LENGTH ATTR', CR, LF),
+                                                                    31, .STATUS);
+     
+        
+        CALL OPEN(.AFT, .ISISDIR, 1, 0, .STATUS);
+        ACTUAL = 16;
+        DIRECT$STATUS = 10H;
+       
+        DO WHILE ACTUAL = 16 AND DIRECT$STATUS <> 7FH;
+            CALL READ(AFT, .DIRECT$STATUS, 16, .ACTUAL, .STATUS);
+            IF ACTUAL = 16 AND NOT DIRECT$STATUS  
+              AND ((DIRECT$ATTRIB AND 1) = 0 OR LISTINVISIBLE) THEN DO;
+                DO I = 0 TO 8;
+                    IF DIRECT$NAME(I) = 0 THEN
+                        DIRECT$NAME(I) = ' ';
+                END;
+                I = 9;
+                IF FASTOUTPUT THEN
+                    DO WHILE DIRECT$NAME(I - 1) = ' ';
+                        I = I - 1;
+                    END;
+                IF NOT FASTOUTPUT OR I > 6 THEN
+                    NAMEPART = 6;
+                ELSE
+                    NAMEPART = I; 
+                CALL WRITE(AFTOUT, .DIRECT$NAME, NAMEPART, .STATUS);
+                IF FASTOUTPUT THEN DO;
+                    IF I > 6 THEN DO;
+                        CALL WRITE(AFTOUT, .('.'), 1, .STATUS);
+                        CALL WRITE(AFTOUT, .DIRECT$EXT, I - 6, .STATUS);
+                    END;
+                END;
+                ELSE DO;
+                    IF DIRECT$EXT(0) <> ' ' THEN
+                        CALL WRITE(AFTOUT, .('.'), 1, .STATUS);
+                    CALL WRITE(AFTOUT, .DIRECT$EXT, 3, .STATUS);
+                    IF DIRECT$EXT(0) = ' ' THEN
+                        CALL WRITE(AFTOUT, .(' '), 1, .STATUS);
+
+                    USED = DIRECT$BLKCNT;
+                    IF USED > 0 THEN
+                        USED = USED + (USED + 61) / 62;
+                    ELSE
+                        USED = 1;
+                    BLKTOTAL = BLKTOTAL + USED;
+                    CALL NUMOUT(USED, 10, ' ', .BUF, 5);
+                    CALL WRITE(AFTOUT, .BUF, 5, .STATUS);
+                    
+                    USED = DIRECT$BLKCNT;
+                    LOFSIZE = 0;
+                    HIFSIZE = 0;
+                    IF USED > 0 THEN DO;
+                        USED = USED - 1;
+                        CALL ADDTOTAL(DIRECT$EOF$CNT);
+                        DO WHILE USED > 0;
+                            USED = USED - 1;
+                            CALL ADDTOTAL(128);
+                        END;
+                    END;
+                    IF HIFSIZE <> 0 THEN DO;
+                        CALL NUMOUT(HIFSIZE, 10, ' ', .BUF, 5);
+                        CALL NUMOUT(LOFSIZE, 10, '0', .BUF(5), 4);
+                    END;
+                    ELSE
+                        CALL NUMOUT(LOFSIZE, 10, ' ', .BUF, 9);
+                    CALL WRITE(AFTOUT, .BUF, 9, .STATUS);
+
+                    IF DIRECT$ATTRIB <> 0 THEN DO;
+                        DO I = 0 TO 4;
+                            BUF(I) = ' ';
+                        END;
+                        IF (DIRECT$ATTRIB AND 4) <> 0 THEN
+                            BUF(1) = 'W';
+                        IF (DIRECT$ATTRIB AND 2) <> 0 THEN
+                            BUF(2) = 'S';
+                        IF (DIRECT$ATTRIB AND 1) <> 0 THEN
+                            BUF(3) = 'I';
+                        IF (DIRECT$ATTRIB AND 80H) <> 0 THEN
+                            BUF(4) = 'F';
+                        CALL WRITE(AFTOUT, .BUF, 5, .STATUS);
+                    END; 
+                END;
+                CALL WRITE(AFTOUT, .CRLF, 2, .STATUS);
+            END;
+        END;
+        IF NOT FASTOUTPUT THEN DO;
+            CALL NUMOUT(BLKTOTAL, 10, ' ', .BUF, 15);
+            CALL WRITE(AFTOUT, .BUF, 15, .STATUS);
+            CALL WRITE(AFTOUT, .CRLF, 2, .STATUS);
+        END;
+        CALL CLOSE(AFTOUT, .STATUS);
+    END;
+
+
+    SEQ: PROCEDURE(S1, S2, CNT) BYTE;
+        DECLARE (S1,S2) ADDRESS, CNT BYTE;
+        DECLARE S1A BASED S1(1) BYTE;
+        DECLARE S2A BASED S2(1) BYTE;
+        DECLARE I BYTE;
+        CNT = CNT - 1;
+        DO I = 0 TO CNT;
+            IF S1A(I) <> S2A(I) THEN
+                RETURN 0;
+        END;
+        RETURN 0FFH;
+    END;
+
+
+
+
+
+    DECLARE (AFTOUT, ACTUAL, STATUS) ADDRESS;
+    DECLARE PAD BYTE,
+            DRIVE BYTE INITIAL(0),
+            LISTINVISIBLE BYTE INITIAL(FALSE),
+            FASTOUTPUT BYTE INITIAL(FALSE);
+    DECLARE BUFPTR ADDRESS, CH BASED BUFPTR BYTE;
+    DECLARE BUFFER(128) BYTE;
+
+MAIN:
+    CALL READ(1, .BUFFER, 128, .ACTUAL, .STATUS);
+    BUFPTR = DEBLANK(.BUFFER);
+    AFTOUT = 0;
+    IF SEQ(.('TO'), BUFPTR, 2) THEN DO;
+        BUFPTR = DEBLANK(BUFPTR + 2);
+        CALL OPEN(.AFTOUT, BUFPTR, 2, 0, .STATUS);
+        IF STATUS <> 0 THEN DO;
+            CALL REPORTERROR(STATUS);
+            CALL EXIT;
+        END;
+        BUFPTR = DEBLANK(DELIMIT(BUFPTR));
+    END;
+    DO WHILE CH = '$';
+        BUFPTR = BUFPTR + 1;
+        IF CH = '1' THEN
+            DRIVE = 1;
+        ELSE IF CH = 'I' THEN
+            LISTINVISIBLE = TRUE;
+        ELSE IF CH = 'F' THEN
+            FASTOUTPUT = TRUE;
+        ELSE DO;
+            CALL REPORTERROR(0C9H);
+            CALL EXIT;
+        END;
+        BUFPTR = DEBLANK(DELIMIT(BUFPTR));
+    END;
+    IF CH <> CR THEN DO;
+        CALL REPORTERROR(0C9H);
+        CALL EXIT;
+    END;
+    CALL LISTDIR(DRIVE, AFTOUT, FASTOUTPUT, LISTINVISIBLE);
+    CALL EXIT; 
+         
+
+END;
+EOF
