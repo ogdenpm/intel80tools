@@ -88,10 +88,6 @@ $(LIB):
 
 # to avoid conflict with the standard clean target - con make by creating target Clean
 # as make is case sensitive this works
-#ifneq ('$(filter clean rebuild distclean,$(MAKECMDGOALS))','')
-#Clean: $(OBJ)/clean.rel
-#	$(call locate,$@,$^,$(PURGE))
-#endif
 
 lib/cusp1.lib: cusp1/cusp1.lib  | $(LIB) ; cp $^ $@
 lib/cusp2.lib: cusp2/cusp2.lib  | $(LIB) ; cp $^ $@
@@ -228,11 +224,13 @@ $(OBJ)/xlate2.rel: $(OBJ)/xlate2.obj $(util2.lib) $(sys2.lib) $(isis3.lib) $(plm
 	$(call link,$@,$^)
 
 # extensions to default rules
-# this is special so that clean and Clean don't clash
-ifneq ('$(filter Clean,$(MAKECMDGOALS))','Clean')
 clean::
 	-@for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done;
-endif
+
+# as the clean name clashes, use an upper case letter to map the file
+Clean: $(OBJ)/clean.rel
+	$(call locate,$@,$^,$(PURGE))
+
 
 # special verify
 # firstly makes sure the latest sources are extracted

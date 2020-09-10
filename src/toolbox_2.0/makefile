@@ -186,11 +186,12 @@ $(OBJ)/xlate2.rel: $(OBJ)/xlate2.obj $(util.lib) $(sys.lib) $(system.lib) $(plm8
 	$(call link,$@,$^)
 
 # extensions to default rules
-# make sure we don't clash if the user asks for Clean to be built
-ifneq ('$(filter Clean,$(MAKECMDGOALS))','Clean')
 clean::
 	-@for d in $(SUBDIRS); do $(MAKE) -C $$d clean; done;
-endif
+
+# as the clean name clashes use an upper case first letter to map the file
+Clean: $(OBJ)/clean.rel
+	$(call locate,$@,$^,$(PURGE))
 
 # special verify
 # firstly makes sure the latest sources are extracted

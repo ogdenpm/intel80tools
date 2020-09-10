@@ -1,7 +1,10 @@
 ROOT:= ../..
 TARGETS = isis.bin
 PEXFILE := isis42.pex
-PROTECT = junk42.bin
+
+PATCH = isis.bin_4.2.patch
+
+PROTECT = $(PATCH)
 
 include $(ROOT)/tools/isis.mk
 
@@ -20,9 +23,8 @@ objs =	loc62.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis
-	$(ROOT)/tools/packisis isis
-	cat junk42.bin >>isis.bin
+isis.bin: isis $(PATCH)
+	$(ROOT)/tools/obj2bin -i $^ $@
 	
 
 isis: isis.rel

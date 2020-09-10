@@ -3,11 +3,11 @@ TARGETS = isis.t0
 PEXFILE := isist0.pex
 
 include $(ROOT)/tools/isis.mk
-# comment out below to omit junk filling - note verify will fail
 
 REF=$(call ipath,isis,4.1)
 
-JUNKFILE := junk.obj
+PATCH = isis.t0_4.1.patch
+PROTECT = $(PATCH)
 
 LINKFLAGS := 
 PLMFLAGS += DEBUG
@@ -19,20 +19,13 @@ objs = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj
 all::
 	$(MAKE) $(TARGETS)
 
-isis.t0: isist0.abs
-	$(ROOT)/tools/obj2bin $@ $<
+isis.t0: isist0.abs $(PATCH)
+	$(ROOT)/tools/obj2bin $^ $@
 
 isist0.abs: isist0.rel
-	$(call locate-overlaps,$@,$^,name(isist0) stacksize(42) code(3000h))
-ifdef JUNKFILE
-	@echo "##################################################################"
-	@echo "#### Memory overlaps are expected for address ranges:         ####"
-	@echo "####    3A81H-3AAAH, 3AC7H-3ACAH, 3AD4H-3AD7H, 3AE1H-3AE4H,   ####"
-	@echo "####    3AEAH-3AEAH, 3B0EH-3B0EH and 3B1FH-3B7FH              ####"
-	@echo "##################################################################"
-endif
+	$(call locate,$@,$^,name(isist0) stacksize(42) code(3000h))
 
 .INTERMEDIATE: isist0.rel
-isist0.rel: $(objs) $(JUNKFILE)
+isist0.rel: $(objs)
 	$(call link,$@,$^ $(plm80.lib))
 

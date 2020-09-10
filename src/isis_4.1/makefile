@@ -1,11 +1,12 @@
 ROOT:= ../..
 TARGETS = isis.bin
 PEXFILE := isis41.pex
-COMPARE := $(ROOT)/tools/isisc
+PATCH = isis_4.1.patch
 
 include $(ROOT)/tools/isis.mk
 
 REF = $(call ipath,isis,4.1)
+PROTECT = $(PATCH)
 
 LOCATEFLAGS := PUBLICS SYMBOLS
 
@@ -19,8 +20,8 @@ objs =	loc62.obj isis.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis
-	$(ROOT)/tools/packisis isis
+isis.bin: isis $(PATCH)
+	$(ROOT)/tools/obj2bin -i $^ $@
 
 isis: isis.rel
 	$(call locate,$@,$^,code(3eh) name(isis) stacksize(0) memory(3000h) purge)
