@@ -26,7 +26,7 @@ int omfVer = OMF85;
 void usage(char const *s) {
         if (s && *s)
             fputs(s, stderr);
-        fprintf(stderr, "usage: %s -v | -V | binfile objfile [patchfile]\n", invoke);
+        fprintf(stderr, "usage: %s -v | -V | objfile [outputfile]\n", invoke);
         exit(1);
 }
 
