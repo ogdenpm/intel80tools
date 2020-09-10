@@ -3,7 +3,8 @@ ROOT := ..\..
 TARGETS = lib.com
 PEXFILE := lib.pex
 REF=ref
-PROTECT = patch.txt
+PATCH = lib_1.1.patch
+PROTECT = $(PATCH)
 
 include $(ROOT)/tools/isis.mk
 
@@ -19,8 +20,8 @@ OBJS = lib.obj rel.obj cmdlin.obj parsef.obj util.obj io.obj cpm.obj cpmvec.obj
 all::
 	$(MAKE) $(TARGETS)
 
-%.com: %.abs patch.txt
-	$(ROOT)/tools/obj2bin $@ $^
+%.com: %.abs $(PATCH)
+	$(ROOT)/tools/obj2bin $^ $@
 
 %.abs: %.rel
 	$(info $@ $^)
