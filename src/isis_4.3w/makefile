@@ -1,8 +1,8 @@
 ROOT:= ../..
 TARGETS = isis.bin
 PEXFILE := isis43w.pex
-COMPARE := $(ROOT)/tools/isisc
-KEEP=T
+PATCH = isis.bin_4.3w.patch
+PROTECT = $(PATCH)
 
 include $(ROOT)/tools/isis.mk
 
@@ -10,7 +10,6 @@ REF = $(call ipath,isis,4.3w)
 LOCATEFLAGS := SYMBOLS PUBLICS
 PLMFLAGS	:= DEBUG OPTIMIZE CODE
 ASMFLAGS	:= DEBUG
-COMPARE := $(ROOT)/tools/isisc
 
 objs =	loc62.obj aft.obj attrib.obj\
 	close.obj consol.obj delete.obj diskio.obj\
@@ -22,13 +21,12 @@ objs =	loc62.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis
-	$(ROOT)/tools/packisis isis
+isis.bin: isis.abs $(PATCH)
+	obj2bin -i $^ $@
 
-isis: isis.rel
+isis.abs: isis.rel
 	$(call locate,$@,$^,code(0) name(isis) stacksize(0) memory(3000h))
 
-.INTERMEDIATE: isis.rel
 isis.rel: $(objs)
 	$(call link,$@,$^ $(plm80.lib))
 

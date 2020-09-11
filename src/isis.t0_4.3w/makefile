@@ -22,7 +22,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.t0: isist0.abs $(PATCH)
-	$(ROOT)/tools/obj2bin $^ $@
+	obj2bin $^ $@
 
 
 isist0.abs: isist0.rel

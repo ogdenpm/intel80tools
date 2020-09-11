@@ -24,7 +24,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.bin: isis $(PATCH)
-	$(ROOT)/tools/obj2bin -i $^ $@
+	obj2bin -i $^ $@
 	
 
 isis: isis.rel

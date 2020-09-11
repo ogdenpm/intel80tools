@@ -5,7 +5,6 @@ include $(ROOT)/tools/isis.mk
 
 REF = $(call ipath,isis,3.4)
 PLM80 := 3.1
-COMPARE := $(ROOT)/tools/isisc
 LOCATEFLAGS := PUBLICS SYMBOLS
 PLMFLAGS := DEBUG
 
@@ -19,10 +18,10 @@ objs =	loc62.obj isis.obj load.obj open.obj path.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis
-	$(ROOT)/tools/packisis isis
+isis.bin: isis.abs
+	obj2bin -i $^ $@
 
-isis: isis.rel
+isis.abs: isis.rel
 	$(call locate,$@,$^,code(3eh) name(isis) stacksize(0) memory(3000h))
 
 .INTERMEDIATE: isis.rel

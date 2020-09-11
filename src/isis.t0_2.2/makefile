@@ -12,24 +12,17 @@ REF = $(call ipath,isis,2.2)
 all:: $(TARGETS)
 
 %.omf: %.hex
-	hexobj $^ $@
+	$(HEXOBJ) $^ $@
 	
 isis.t0: isis.t0.omf $(PATCH)
 	obj2bin $^ $@
 
 
 %.hex %.lst %.prn: %.plm
-	echo >fort.1
-	cp $^ fort.2
-	$(ROOT)/tools/plm81
-	mv fort.16 fort.4
-	mv fort.17 fort.7
-	mv fort.12 $*.lst
-	$(ROOT)/tools/plm82
-	mv fort.17 $*.hex
-	cat fort.12 >>$*.lst
+	$(PLM81) $^
+	$(PLM82) $^
 	perl $(ROOT)/pretty.pl $*.lst $*.prn
-	rm -fr fort.*
+	@rm -fr $*.pol $*.sym $*.lst
 
 clean::
 	rm -fr *.hex *.lst *.prn *.omf

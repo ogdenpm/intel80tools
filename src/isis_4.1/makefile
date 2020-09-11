@@ -21,7 +21,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.bin: isis $(PATCH)
-	$(ROOT)/tools/obj2bin -i $^ $@
+	obj2bin -i $^ $@
 
 isis: isis.rel
 	$(call locate,$@,$^,code(3eh) name(isis) stacksize(0) memory(3000h) purge)
