@@ -205,7 +205,7 @@ ifdef _masterfile
 all:: .extract
 
 .extract: $(_masterfile) | $(OBJ) $(LST)
-	perl $(ROOT)/unpack.pl
+	perl $(ROOT)/tools/unpack.pl
 	touch .extract
 else
 all::
