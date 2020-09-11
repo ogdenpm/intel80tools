@@ -22,7 +22,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 %.com: %.abs
-	$(ROOT)/tools/obj2bin $^ $@
+	$(OBJBIN) $^ $@
 
 %.abs: %.rel
 	$(info $@ $^)

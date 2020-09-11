@@ -10,21 +10,14 @@ ASMFLAGS=
 all::
 	$(MAKE) $(TARGETS)
 
-tex10.com: tex10.abs tex10.patch
-	$(ROOT)/tools/obj2bin $^ $@
+%.com: %.abs %.patch
+	$(OBJBIN) $^ $@
 
-tex12.com: tex12.abs tex12.patch
-	$(ROOT)/tools/obj2bin $^ $@
-
-
-tex21.com: tex21.abs tex21.patch
-	$(ROOT)/tools/obj2bin $^ $@
-
-tex21a.com: tex21a.abs
-	$(ROOT)/tools/obj2bin $^ $@
+tex21a.patch:
+	@echo "; not needed" >$@
 
 # intermediate files
-.INTERMEDIATE: $(TARGETS:.com=.rel) $(TARGETS:.com=.abs)
+.INTERMEDIATE: $(TARGETS:.com=.rel) $(TARGETS:.com=.abs) tex21a.patch
        	       
 STACK=100
 tex10.abs: STACK=60

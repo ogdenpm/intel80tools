@@ -21,7 +21,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 %.com: %.abs $(PATCH)
-	$(ROOT)/tools/obj2bin $^ $@
+	$(OBJBIN) $^ $@
 
 %.abs: %.rel
 	$(info $@ $^)
