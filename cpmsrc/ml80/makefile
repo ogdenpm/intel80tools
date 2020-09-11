@@ -11,10 +11,14 @@ REF = ref
 
 all:: $(TARGETS)
 
-%.com: %.hex
-	hexobj $^ $*.obj
-	obj2bin $*.obj $*.patch $@
-	@rm $*.obj
+%.omf: %.hex
+	hexobj $^ $@
+
+%.com: %.omf %.patch
+	obj2bin $^ $@
+
+l82fix.patch:
+	echo "; not needed" >$@
 
 l82a.hex: l82.hex
 	cp l82.hex l82a.hex
@@ -34,6 +38,6 @@ l82a.hex: l82.hex
 	@rm -fr fort.* $*.lst
 
 clean::
-	rm -fr *.hex *.prn
+	rm -fr *.hex *.prn *.omf
 
-.INTERMEDIATE: l82.hex l82a.hex
+.INTERMEDIATE: l82.hex l82a.hex l82fix.patch
