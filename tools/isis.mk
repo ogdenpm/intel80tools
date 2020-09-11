@@ -29,6 +29,10 @@ PLMPP:=$(ROOT)/tools/plmpp
 ASM80X:=perl $(ROOT)/tools/asm80x.pl
 NGENPEX:=$(ROOT)/tools/ngenpex
 MKDEPEND:=perl $(ROOT)/tools/makedepend.pl
+OBJBIN:=$(ROOT)/tools/obj2bin
+HEXOBJ:=$(ROOT)/tools/hexobj
+PLM81:=$(ROOT)/tools/plm81
+PLM82:=$(ROOT)/tools/plm82
 
 # macros to create the path & full file names of an isis file
 # usage: $(call ipath,file[,version])
@@ -104,7 +108,10 @@ define asm80
 endef
 
 # $(call asm80x,objfile,srcfile[,target specific options])
-# under the covers only asm80 v4.1 is used and a .lstx file is created
+# asm80x.pl is a wrapper around asm80 to provide support for long variable
+# names, the lst file and the obj file are also modified to make sure the
+# long variable names are reflected in these..
+# under the covers only asm80 v4.1 is used
 define asm80x
   @$(ASM80X) $2 "object($1)" $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
