@@ -28,7 +28,7 @@ isis.bin: isis.obj
 %.hex %.lst %.prn: %.plm
 	$(PLM81) $^
 	$(PLM82) $^
-	@perl $(ROOT)/pretty.pl $*.lst $*.prn
+	@perl $(ROOT)/tools/pretty.pl $*.lst $*.prn
 	@rm -fr $*.pol $*.sym
 
 clean::
