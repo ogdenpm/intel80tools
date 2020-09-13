@@ -340,6 +340,8 @@ As memory is no longer a major issue, I usually merge all overlays into a single
 
 In addition to avoiding overlays this also allows for code sharing to be done, however it does involve extra work to make sure that functions and variable names are not in conflict and make sure that variables are initialised appropriately at the start of each pseudo overlay.
 
-#### Mark Ogden
+------
 
-#### 4-Sep-2020
+```
+Updated by Mark Ogden 12-Sep-2020
+```

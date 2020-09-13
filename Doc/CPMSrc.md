@@ -29,7 +29,7 @@ From various CPM archives I have identified two variants of the m81.com file and
 
 For  l82.com one of the patches was a significant manual patch. I have included details, but also added a new plm source file l82fix.plm that creates a clean PL/M 80 file with the same functional changes.
 
-Note the files were compiled with the Fortran based PL/M 80 compiler, however the version used  appears to one somewhere between the V2 & V4 versions available on the internet. In particular patches from V4 needed to be added to the V2 variant to make it work. The plm81 & plm82 files in the top level tools directory have the appropriate patches.
+Note the files were compiled with the Fortran based PL/M 80 compiler, however the version used  appears to one somewhere between the V2 & V4 versions available on the internet. In particular patches from V4 needed to be added to the V2 variant to make it work. The plm81 & plm82 files in the tools directory have the appropriate patches applied.
 
 ### tex
 
@@ -39,6 +39,8 @@ The readme.txt file in the directory provides more details on the various versio
 
 Note in addition to the  usual makefile, the directory also build.ninja to allow the ninja build tool to be used. This was largely an experiment to see whether moving to ninja would be better than using makefiles.
 
-#### Mark Ogden
+------
 
-#### 2-Sep-2020
+```
+Updated by Mark Ogden 12-Sep-2020
+```
