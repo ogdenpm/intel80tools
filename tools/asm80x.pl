@@ -62,9 +62,14 @@ foreach (grep(/^include\s*\(/i, @ARGV)) {
 # but note only the first case insensitive name is stored in its original form
 # so on post processing all the same mapped names will have the same case as the first
 #
+# the following global is used to make sure that if one of the macro related
+# identifiers is seen then the rest of the line is passed through unprocessed
+my %reserved = (macro => 1, irp => 1, irpc => 1);
+my $nosub = 0;
 sub mapname {
     my $origName = $_[0];
-    return $origName if $origName eq '_' || (length($origName) <= 6 && $origName !~ /[_\$]/ && $origName !~ /^\@\d{5}$/);
+    $nosub = 1 if defined($reserved{lc($origName)});
+    return $origName if $nosub || $origName eq '_' || (length($origName) <= 6 && $origName !~ /[_\$]/ && $origName !~ /^\@\d{5}$/);
 
     my $name = uc($origName);           # make upper case
     $name =~ tr/?0-9\@A-Z//cd;          # remove illegal chars
@@ -92,6 +97,7 @@ for ($curLine = 0; $curLine <= $#prog; $curLine++) {
     my ($fixup, $expand);
 
     my @parts = split /('.*?')/, $line;            # split into string fragments and other
+    $nosub = 0;                                    # allow substitution
     for my $p (@parts) {
         next if $p =~ /^'/;                        # don't convert string fragments
         $p =~ s/([\w\?\@][\w\?\@\$]*)/ mapname($1) /ieg;   # see if names need mapping
