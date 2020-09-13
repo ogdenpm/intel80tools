@@ -34,4 +34,4 @@ link.rel: $(OBJS)
 $(OBJS): link.pex
 
 print: all link.abs
-	perl $(ROOT)/relst.pl link.abs link.map $(OBJS:.obj=.lst)
+	perl $(ROOT)/tools/relst.pl link.abs link.map $(OBJS:.obj=.lst)

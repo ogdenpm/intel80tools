@@ -33,4 +33,4 @@ lib.rel: $(OBJS)
 $(OBJS): lib.pex
 
 print: all lib.abs
-	perl $(ROOT)/relst.pl lib.abs lib.map $(OBJS:.obj=.lst)
+	perl $(ROOT)/tools/relst.pl lib.abs lib.map $(OBJS:.obj=.lst)

@@ -24,7 +24,7 @@ l82a.hex: l82.hex
 %.hex: %.plm
 	$(PLM81) $^
 	$(PLM82) $*
-	perl $(ROOT)/pretty.pl $*.lst $*.prn
+	@perl $(ROOT)/tools/pretty.pl $*.lst $*.prn
 	@rm -fr $*.pol $*.sym $*.lst
 
 clean::
