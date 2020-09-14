@@ -167,7 +167,7 @@ Note ISIS.OV0 itself supports local and remote disks, but ISIS II does not have 
 
 ### Version 4.2w
 
-To be confirmed as I haven't decompiled it, suspect as per version 4.2 with a new hard disk type and possibly using the directory hashing used in version 4.3w.
+To be confirmed as I haven't decompiled it, suspect as per version 4.2 with a new hard disk type and possibly using the directory hashing used in version 4.3w. The isis.t0 boot is basically the same as for 4.3, with the exception of different locations for tables in isis.bin, junk data file and a different compiler version / optimisation settings for some modules.
 
 ### **Version 4.3**
 

@@ -67,7 +67,7 @@ These directories contain the decompiled source for isis.ov0 which provides dire
 
 ### isis.t0_X.Y
 
-These directories contain the reverse engineered source to the ISIS boot file isis.t0, for ISIS versions 2.2, 3.4, 4.0, 4.1, 4.2, 4.3 and 4.3w. Where needed appropriate patch files are provided to pad out the files to sector boundaries
+These directories contain the reverse engineered source to the ISIS boot file isis.t0, for ISIS versions 2.2, 3.4, 4.0, 4.1, 4.2, 4.2w, 4.3 and 4.3w. Where needed appropriate patch files are provided to pad out the files to sector boundaries
 
 The isis.t0 for ISIS v1.1 is located under the isis_1.1 directory.
 
@@ -146,5 +146,5 @@ Some examples of differences are
 ------
 
 ```
-Updated by Mark Ogden 12-Sep-2020
+Updated by Mark Ogden 14-Sep-2020
 ```
