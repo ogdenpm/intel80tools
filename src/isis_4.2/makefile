@@ -24,7 +24,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.bin: isis $(PATCH)
-	obj2bin -i $^ $@
+	$(OBJBIN) -i $^ $@
 	
 
 isis: isis.rel

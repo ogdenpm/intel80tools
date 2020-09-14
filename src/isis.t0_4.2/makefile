@@ -21,7 +21,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.t0: isist0.abs $(PATCH)
-	obj2bin $^ $@
+	$(OBJBIN) $^ $@
 
 
 isist0.abs: isist0.rel

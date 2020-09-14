@@ -15,7 +15,7 @@ all:: $(TARGETS)
 	$(HEXOBJ) $^ $@
 	
 isis.t0: isis.t0.omf $(PATCH)
-	obj2bin $^ $@
+	$(OBJBIN) $^ $@
 
 
 %.hex %.lst %.prn: %.plm

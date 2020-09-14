@@ -19,7 +19,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.bin: isis.abs
-	obj2bin -i $^ $@
+	$(OBJBIN) -i $^ $@
 
 isis.abs: isis.rel
 	$(call locate,$@,$^,code(3eh) name(isis) stacksize(0) memory(3000h))

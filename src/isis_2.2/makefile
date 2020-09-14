@@ -15,7 +15,7 @@ all::
 	$(HEXOBJ) $^ $@
 
 %: %.omf
-	obj2bin -i $^ $@
+	$(OBJBIN) -i $^ $@
 
 %.hex: %.plm
 	$(PLM81) $^

@@ -15,14 +15,14 @@ all:: $(TARGETS)
 	$(HEXOBJ) $^ $@
 
 % : %.omf
-	obj2bin -i $^ $@
+	$(OBJBIN) -i $^ $@
 
 isis.t0: isis.t0.omf $(PATCH)
-	obj2bin $^ $@
+	$(OBJBIN) $^ $@
 
 # isis.bin is in assembler, creating the standard .obj output
 isis.bin: isis.obj
-	obj2bin -i $^ $@
+	$(OBJBIN) -i $^ $@
 
 
 %.hex %.lst %.prn: %.plm
