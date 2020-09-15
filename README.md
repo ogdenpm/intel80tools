@@ -8,11 +8,11 @@ In addition to my reverse engineering efforts, the repository contains the devel
 
 The core documentation for the work is now located in the doc directory, where you will find an overview document along with more targeted documentation for various parts of the repository.
 
-A recent addition to the repository is ISIS v1.1 (16k ISIS). I am not aware of this being elsewhere on the internet. It was uncovered in early September 2020 by Jon Hales a volunteer at the Cambridge Centre for Computing History, who found it in the centre's archives. In addition to the binary images for this rare version of ISIS, I have also reversed engineered all of the OS and applications, except for the assembler as80 and the editor edit, both of which remain a work in progress.
+A recent addition to the repository is ISIS v1.1 (16k ISIS). I am not aware of this being elsewhere on the internet. It was uncovered in early September 2020 by Jon Hales a volunteer at the Cambridge Centre for Computing History, who found it in the centre's archives. In addition to the binary images for this rare version of ISIS, I have also reversed engineered all of the OS and applications, except for the assembler as80 which remains a work in progress.
 
 ------
 
 ```
-Updated by Mark Ogden 13-Sep-2020
+Updated by Mark Ogden 15-Sep-2020
 ```
 
