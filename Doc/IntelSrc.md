@@ -80,12 +80,14 @@ These directories contain the decompiled source for main ISIS OS file isis.bin, 
 In addition the ISIS_1.1 directory contains decompiled source for
 
 ```
-isis.t0, isis.cli, attrib, copy, dir, delete, format, hexbin and rename
+isis.t0, isis.cli, attrib, copy, dir, delete, edit, format, hexbin and rename
 ```
 
 Note isis.bin for ISIS v1.1 appears to have been written initially in PL/M but hand modified, hence it is presented here in assembler. All other v1.1 code and isis.bin v2.2 use the fortran based PL/M compiler.
 
 Later versions of the core isis.bin code increasingly used hand modified PL/M code, presumably to keep the size down.
+
+ISIS 1.1 EDIT v1.2, appears to have been compiled by a different variant of the Fortran based PL/M compiler than I have access to. I manged to get the compiler to generated a binary match with some unstructured gotos and four bytes of patching. The four bytes are due to the fact that edit uses a GOTO from a nested procedure which re-initialised the stack as per more recent PL/M  compilers. The versions I have do not do this stack initialisation, so I put two consecutive GOTO statements in two places, then patched the first of each pair to do the LXI SP, ....
 
 ### isisUtil_X.Y and utils_2.2n
 

@@ -1,13 +1,14 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := format delete isis.cli attrib dir rename copy hexbin\
-   		   isis.t0 isis.bin
+   		   isis.t0 isis.bin edit
 
 include $(ROOT)/tools/isis.mk
 
 REF = $(call ipath,isis,1.1)
-PATCH = isis.t0_1.1.patch
-PROTECT = $(PATCH)
+ISIST0PATCH = isis.t0_1.1.patch
+EDITPATCH = edit_1.2.patch
+PROTECT = $(ISIST0PATCH) $(EDITPATCH)
 
 all:: $(TARGETS)
 
@@ -17,8 +18,11 @@ all:: $(TARGETS)
 % : %.omf
 	$(OBJBIN) -i $^ $@
 
-isis.t0: isis.t0.omf $(PATCH)
+isis.t0: isis.t0.omf $(ISIST0PATCH)
 	$(OBJBIN) $^ $@
+
+edit: edit.omf $(EDITPATCH)
+	$(OBJBIN) -i $^ $@
 
 # isis.bin is in assembler, creating the standard .obj output
 isis.bin: isis.obj

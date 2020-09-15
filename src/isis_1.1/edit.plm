@@ -1,0 +1,952 @@
+1C00H: DO;
+
+DECLARE LIT LITERALLY 'LITERALLY';
+DECLARE BELL LIT '7',
+        BS  LIT '8',
+        TAB LIT '9',
+        LF  LIT '0AH',
+        VT  LIT '0BH',
+        FF  LIT '0CH',
+        CR  LIT '0DH',
+        ESC LIT '1BH',
+        DQUOTE LIT '22H',
+        HASH LIT '23H';
+
+DECLARE CTRLC   LIT '3',
+        CTRLR   LIT '12h',
+        CTRLX   LIT '18h',
+        CTRLZ   LIT '1Ah',
+        RUBOUT  LIT '7FH';
+
+DECLARE ISALPHA LIT '0',
+        ISNUMBER   LIT '1',
+        ISOTHER lIT '2';
+
+DECLARE TRUE    LIT '0FFH',
+        FALSE   LIT '0',
+        BOOL    LIT 'BYTE';
+
+DECLARE VERS DATA(1, 9),
+        COPYRIGHT DATA('COPYRIGHT (C) INTEL 1975,1976');
+
+DECLARE SIGNON DATA(CR, LF, '16K ISIS TEXT EDITOR, V1.2', CR, LF);
+
+DECLARE ILLEGAL DATA(DQUOTE, ' ILLEGAL IN THIS CONTEXT', CR, LF);
+DECLARE NOTFOUND DATA(CR, LF, 'CANNOT FIND ');
+DECLARE DQCHAR DATA(DQUOTE);    /* NOT ACTUALLY USED */
+/* ONLY THE FIRST CHAR OF BEGIN PUNCH IS EVER USED */
+DECLARE BEGINPUNCH DATA(CR, LF, CR, LF, 'START PUNCH, TYPE CHAR', CR, LF);
+DECLARE ITERFAULT DATA(CR, LF, 'ITERATION STACK FAULT');
+
+DECLARE USRBREAK DATA(CR, LF, '*BREAK*', CR, LF);
+DECLARE NEWFILE DATA('NEW FILE', CR, LF);
+
+DECLARE W37CA ADDRESS,
+        (TEXTPTR, ENDPTR) ADDRESS,
+        (W37D0, W37D2) ADDRESS,
+        (CMDCNT, W37D6, W37D8) ADDRESS,
+        MEMSIZE ADDRESS,
+        (CHAR, CHTYPE, BACKWARDS, CURCOL) BYTE,
+        (ITER$SP, B37E1, B37E2) BYTE,
+        FINDLEN BYTE;
+DECLARE INBUF(128) BYTE,
+        INACTUAL ADDRESS,
+        INPTR ADDRESS,
+        ACTUAL ADDRESS,
+        STATUS ADDRESS,
+        (AFTIN, AFTOUT) ADDRESS,
+        PAD3870(3) BYTE,
+        MODE BYTE,
+        (INPUT$PTR, BUFFER$PTR, OUTPUT$PTR) ADDRESS,
+        W387A ADDRESS,
+        PAD37C BYTE,
+        BUFFER(128) BYTE,
+        BA38FD(16) BYTE,
+        FINDBUF(17) BYTE,
+        ITER$STACK(8) ADDRESS,
+        WA392E(8) ADDRESS;
+
+
+DECLARE BREAK LABEL;
+
+    CI: PROCEDURE BYTE;
+        GOTO 0F803H;
+    END;
+
+    CO: PROCEDURE(C);
+        DECLARE C BYTE;
+        GOTO 0F809H;
+    END;
+
+	CSTS: PROCEDURE BYTE;
+		GOTO 0F812H;
+	END;
+
+    IOCHK: PROCEDURE BYTE;
+        GOTO 0F815H;
+    END;
+
+    MEMCHK: PROCEDURE ADDRESS;
+        GOTO 0F81BH;
+    END;
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+    OPEN: PROCEDURE(CONN$P, PATH$P, ACCESS, ECHO, STATUS$P);
+        DECLARE (CONN$P, PATH$P, ACCESS, ECHO, STATUS$P) ADDRESS;
+
+        CALL ISIS(0, .CONN$P);
+    END;
+
+    CLOSE: PROCEDURE(CONN, STATUS$P);
+        DECLARE (CONN, STATUS$P) ADDRESS;
+
+        CALL ISIS(1, .CONN);
+    END;
+
+    DELETE: PROCEDURE (PATH$P, STATUS$P);
+        DECLARE (PATH$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(2, .PATH$P);
+    END DELETE;
+
+	RENAME: PROCEDURE(OLD$P, NEW$P, STATUS$P);
+    	DECLARE (OLD$P, NEW$P, STATUS$P) ADDRESS;
+    	
+    	CALL ISIS(7, .OLD$P);
+	END;
+
+    ERROR: PROCEDURE(ERROR$NUM);
+        DECLARE (ERROR$NUM, STATUS) ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(12, .ERROR$NUM);
+    END;
+
+    SEQ: PROCEDURE(S1, S2, CNT) BYTE;
+        DECLARE (S1,S2) ADDRESS, CNT BYTE;
+        DECLARE S1A BASED S1(1) BYTE;
+        DECLARE S2A BASED S2(1) BYTE;
+        DECLARE I BYTE;
+        CNT = CNT - 1;
+        DO I = 0 TO CNT;
+            IF S1A(I) <> S2A(I) THEN
+                RETURN 0;
+        END;
+        RETURN 0FFH;
+    END;
+
+    NUMOUT: PROCEDURE(VALUE, BASE, LC, BUFADR, WIDTH);
+        DECLARE (VALUE, BUFADR) ADDRESS, (BASE, LC, WIDTH) BYTE; 
+        DECLARE DIGITS DATA('0123456789ABCDEF');
+        DECLARE I BYTE;
+        DECLARE BUF BASED BUFADR (1) BYTE;
+
+        DO I = 1 TO WIDTH;
+            BUF(WIDTH - I) = DIGITS(VALUE MOD BASE);
+            VALUE = VALUE / BASE;   
+        END;
+
+        I = 0;
+        DO WHILE BUF(I) = '0' AND I < WIDTH - 1;
+            BUF(I) = LC;
+            I = I + 1;
+        END;
+    END;
+
+    REPORTERROR: PROCEDURE(ERRNUM);
+        DECLARE ERRNUM ADDRESS;
+        DECLARE NUMBERBUFFER(4) BYTE, I ADDRESS, STATUS ADDRESS;
+     
+
+        DECLARE ERRMSG DATA(0, 0,
+            2, 'ILLEGAL AFTN ARGUMENT', 0,
+            4, 'INCORRECTLY SPECIFIED FILE', 0,
+            5, 'UNRECOGNIZED DEVICE NAME', 0,
+            6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+            8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+            9, 'DIRECTORY FULL', 0,
+            0AH, 'NOT ON SAME DISK', 0,
+            0BH, 'FILE ALREADY EXISTS', 0,
+            0CH, 'FILE IS ALREADY OPEN', 0,
+            0DH, 'NO SUCH FILE', 0,
+            0EH, 'WRITE PROTECTED', 0,
+            0FH, 'LOAD TOO LOW', 0,
+            10H, 'BAD LOAD FORMAT', 0,
+            11H, 'NOT A DISK FILE', 0,
+            12H, 'ILLEGAL ISIS COMMAND', 0,
+            13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+            14H, 'ATTEMPTED BACK SEEK TO FAR', 0,
+            16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+            17H, 'MISSING FILENAME', 0,
+            19H, 'ILLEGAL ECHO FILE', 0,
+            1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+            1BH, 'ILLEGAL SEEK COMMAND', 0,
+            1CH, 'MISSING EXTENSION', 0,
+            1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+            20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+            23H, 'SEEK PAST EOF', 0,
+            0C9H, 'UNRECOGNIZED SWITCH', 0,
+            0CAH, 'UNRECOGNIZED DELIMITER', 0,
+            0CBH, 'INVALID SYNTAX', 0,
+            0CCH, 'PREMATURE EOF', 0,
+            0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+            0D0H, 'CHECKSUM ERROR', 0
+        );
+
+
+
+        IF ERRNUM <> 0 THEN
+        DO;
+            I = 0;
+            DO WHILE I < LENGTH(ERRMSG);
+                IF ERRNUM = ERRMSG(I) AND ERRMSG(I + 1) <> 0 THEN
+                DO;
+                    I = I + 1;
+                    CALL WRITE(0, .(' '), 1, .STATUS);
+                    DO WHILE ERRMSG(I) <> 0;
+                        CALL WRITE(0, .ERRMSG(I), 1, .STATUS);
+                        I = I + 1;
+                    END;
+                    CALL WRITE(0, .(0DH, 0AH), 2, .STATUS);
+                    return;
+                END;
+                ELSE
+                DO;
+                    DO WHILE ERRMSG(I) <> 0;
+                        I = I + 1;
+                    END;
+                    I = I + 1;
+                END;
+            end;
+            CALL ERROR(ERRNUM);
+        END;
+    END;
+
+    DEBLANK: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    DELIMIT: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    FILE$ERROR: PROCEDURE(STATUS, PTR, CALLEXIT);
+        DECLARE (STATUS, PTR) ADDRESS, CALLEXIT BYTE;
+        DECLARE ERR$STATUS ADDRESS;
+
+        IF STATUS <> 0 THEN
+        DO;
+            PTR = DEBLANK(PTR);
+            CALL WRITE(0, .(' '), 1, .ERR$STATUS);
+            CALL WRITE(0, PTR, DELIMIT(PTR) - PTR, .ERR$STATUS);
+            CALL WRITE(0, .(','), 1, .ERR$STATUS);
+            CALL REPORTERROR(STATUS);
+            IF CALLEXIT THEN
+                CALL EXIT;
+        END;
+    END;
+
+    /* POSSIBLY PAD BYTE NEEDED HERE */
+
+    DECLARE DEVICES(21) ADDRESS INITIAL(
+        'F0', 'F1', 'TI', 'TO', 'VI', 'VO', 'I1', 'O1',
+        'TR', 'HR', 'R1', 'R2', 'TP', 'HP', 'P1', 'P2',
+        'LP', 'L1', 'CI', 'CO', 'BB');
+    DECLARE PN(20) BYTE;
+
+    CANON: PROCEDURE(FILENAME, INFO$P) BYTE;
+        DECLARE (FILENAME, INFO$P) ADDRESS;
+        DECLARE PATHCH BASED FILENAME BYTE;
+        DECLARE PATH BASED FILENAME (1) BYTE;
+        DECLARE INFO BASED INFO$P (1) BYTE;
+        DECLARE PAIR(0) ADDRESS, (B1, B2) BYTE;
+        DECLARE (JUNK, I) BYTE;
+
+        ALPHANUM: PROCEDURE BYTE;
+            RETURN (PATHCH >= 'A' AND PATHCH <= 'Z')
+                OR (PATHCH >= '0' AND PATHCH <= '9');
+        END;
+
+        GETFNCHAR: PROCEDURE;
+            IF ALPHANUM THEN DO;
+                INFO(I) = PATHCH;
+                FILENAME = FILENAME + 1;
+                B1 = FALSE;
+            END;
+        END;
+
+        DO I = 0 TO 9;
+            INFO(I) = 0;
+        END;
+
+        DO WHILE PATHCH  = ' ';
+            FILENAME = FILENAME + 1;
+        END;
+        IF PATHCH = ':' THEN DO;
+            INFO(0) = 0FFH;
+            /* DEVICE COMPARISON IS DONE BACKWARDS */
+            /* AS PL/M SWAPS WORD STRINGS */
+            B2 = PATH(1);
+            B1 = PATH(2);
+            IF PATH(3) <> ':' THEN
+                RETURN 4; 
+            DO I = 0 TO LAST(DEVICES);
+                IF DEVICES(I) = PAIR(0) THEN
+                    INFO(0) = I;
+            END;
+            IF INFO(0) = 0FFH THEN
+                RETURN 5;
+            FILENAME = FILENAME + 4;
+        END;
+        B1 = TRUE;
+        DO I = 1 TO 6;
+            CALL GETFNCHAR;
+        END;
+        B2 = B1;
+        B1 = PATHCH = '.';
+        IF B1 THEN DO;
+            FILENAME = FILENAME + 1;
+            DO I = 7 TO 9;
+                CALL GETFNCHAR;
+            END;
+        END;
+        IF INFO(0) <= 1 THEN
+            IF B2 THEN
+                RETURN 17H;
+            ELSE IF B1 THEN
+                RETURN 1CH;
+        IF ALPHANUM OR PATHCH = '.' OR PATHCH = ':' THEN
+            RETURN 4;
+        RETURN 0;
+    END;
+
+    UNPATH: PROCEDURE(DIR$P, FILENAME$P);
+        DECLARE (DIR$P, FILENAME$p) ADDRESS;
+        DECLARE FILENAME BASED FILENAME$P (1) BYTE;
+        DECLARE DIR BASED DIR$P (1) BYTE;
+        DECLARE I BYTE;
+
+        FILENAME(0) = ':';
+        FILENAME(1) = 'F';
+        FILENAME(3) = ':';
+        IF DIR(0) = 0 THEN
+            FILENAME(2) = '0';
+        ELSE
+            FILENAME(2) = '1';
+        FILENAME$P = FILENAME$P + 4;
+        DO I = 0 TO 5;
+            if (FILENAME(0) := DIR(I + 1)) <> 0 THEN
+                FILENAME$P = FILENAME$P + 1;
+        END;
+        IF DIR(7) <> 0 THEN DO;
+            FILENAME(0) = '.';
+            FILENAME$P = FILENAME$P + 1;
+        END; 
+        DO I = 0 TO 2;
+            if (FILENAME(0) := DIR(I + 7)) <> 0 THEN
+                FILENAME$P = FILENAME$P + 1;
+        END;
+        FILENAME(0) = ' ';
+    END;
+
+
+    GETCHAR: PROCEDURE BYTE;
+        RETURN CI AND 7FH;
+    END;
+
+    DISPLAYCHAR: PROCEDURE(CH);
+        DECLARE (CH, SPACES, I) BYTE;
+
+        SPACES = CH = TAB AND (7 - (CURCOL AND 7));
+        IF CH = TAB THEN
+            CH = ' ';
+        DO I = 0 TO SPACES;
+            IF CH = CR THEN
+                CURCOL = 0;
+            IF CH = FF THEN
+                CH = 21H;  /* EXCLAMATION MARK */
+            IF CH = ESC OR CH = 07DH THEN
+                CH = '$';
+            IF CH >= ' ' THEN
+                CURCOL = CURCOL + 1;
+            CALL CO(CH);
+        END;
+    END;
+
+
+    DISPLAYTEXT: PROCEDURE(STR$P,  LEN);
+        DECLARE (STR$P, LEN, I) ADDRESS;
+        DECLARE STR BASED STR$P (1) BYTE;
+
+        DO I = 0 TO LEN;
+            CALL DISPLAYCHAR(STR(I));
+            IF CSTS AND (IOCHK AND 0FCH) <> 2 THEN
+                IF GETCHAR = 3 THEN DO;
+                    GOTO BREAK;
+                    GOTO BREAK;
+                END;
+        END;
+    END;
+                
+    GETC: PROCEDURE BYTE;
+        IF INPTR >= INACTUAL THEN DO;
+            CALL READ(AFTIN, .INBUF, 128, .INACTUAL, .STATUS);
+            CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+            IF INACTUAL < 128 THEN
+                INBUF(INACTUAL) = CTRLZ;
+            INPTR = 0;
+        END;
+        INPTR = INPTR + 1;
+        RETURN INBUF(INPTR - 1) AND 7FH;
+    END;
+
+    MOVEUP: PROCEDURE;
+        DECLARE DSTIDX ADDRESS;
+
+        IF ITER$SP <> 0 THEN
+            RETURN;
+        DSTIDX = MEMSIZE - 1;
+
+        DO WHILE W37D8 >= W37CA;
+            MEMORY(DSTIDX) = MEMORY(W37D8);
+            DSTIDX = DSTIDX - 1;
+            W37D8 = W37D8 - 1;
+        END;
+        W37CA = DSTIDX + 1;
+        W37D8 = MEMSIZE - 1;
+    END;
+
+
+    ISMARKER: PROCEDURE(CHAR) BOOL;
+        DECLARE (CHAR, I) BYTE;
+        DECLARE MARKERS DATA(LF, VT, FF);
+        DO I = 0 TO 2;
+            IF MARKERS(I) = CHAR THEN
+                RETURN TRUE;
+        END;
+        RETURN FALSE;
+    END;
+
+    /* GET TEXT INTO MEMORY UNTIL ESC ESC */
+    /* NOTE TEXT IS COLLECTED BACKWARDS FROM TOP OF MEMORY */
+    GETTEXT: PROCEDURE;
+        DECLARE (INCH, PREVINCH) BYTE;
+        DECLARE IDX ADDRESS;
+
+        DO WHILE 1;
+            B37E1 = FALSE;
+            W37CA = MEMSIZE;
+            W37D8 = MEMSIZE - 1;
+            PREVINCH = FALSE;
+            ITER$SP = 0;
+            CALL DISPLAYCHAR('*');
+            INCH = GETCHAR;
+
+            DO WHILE INCH <> CTRLC;    /* 27B2 */
+                DO WHILE INCH = RUBOUT;
+                    IF W37CA <> MEMSIZE THEN DO;
+                        IF (INCH := MEMORY(W37CA)) = ESC THEN
+                            INCH = '$';
+                        CALL DISPLAYCHAR(INCH);
+                        W37CA = W37CA + 1;
+                        INCH = GETCHAR;
+                        PREVINCH = 0;
+                    END;
+                    ELSE DO;
+                        INCH = 3;
+                        CALL DISPLAYCHAR(BELL);
+                    END;
+                END;
+                IF INCH = CTRLX THEN DO;
+                    CALL DISPLAYCHAR(HASH);
+                    CALL DISPLAYTEXT(.BEGINPUNCH, 1);
+                    DO WHILE W37CA <> MEMSIZE AND NOT ISMARKER(MEMORY(W37CA));
+                        W37CA = W37CA + 1;
+                    END;
+                    INCH = GETCHAR;
+                END;
+                ELSE IF INCH = CTRLR THEN DO;
+                    CALL DISPLAYTEXT(.BEGINPUNCH, 1);
+                    IDX = W37CA;
+                    DO WHILE IDX < MEMSIZE AND NOT ISMARKER(MEMORY(IDX));
+                        IDX = IDX + 1;
+                    END;
+                    DO WHILE IDX <> W37CA;
+                        CALL DISPLAYCHAR(MEMORY(IDX := IDX - 1));
+                    END;
+                    INCH = GETCHAR;
+                END;
+                ELSE IF ENDPTR >= W37CA - 10 THEN DO;
+                    INCH = GETCHAR;
+                    CALL DISPLAYCHAR(BELL);
+                END;
+                ELSE DO;
+                    IF INCH = CR THEN DO;
+                        MEMORY(W37CA := W37CA - 1) = CR;
+                        CALL DISPLAYCHAR(CR);
+                        INCH = LF;
+                    END;
+                    IF INCH  <> 3 THEN DO;
+                        IF INCH = 7DH THEN
+                            INCH = ESC;
+                        IF INCH = ESC THEN
+                            CALL DISPLAYCHAR('$');
+                        ELSE
+                            CALL DISPLAYCHAR(INCH);
+                        MEMORY(W37CA := W37CA - 1) = INCH;
+                        IF INCH = ESC and PREVINCH = ESC THEN DO;
+                            CALL DISPLAYTEXT(.BEGINPUNCH, 1);
+                            RETURN;
+                        END;
+                        PREVINCH = INCH;
+                        INCH = GETCHAR;                   
+                    END;
+                END; /* 2982 */
+            END;
+            CALL  DISPLAYTEXT(.BEGINPUNCH, 1);
+        END;    /* WHILE 1 */
+    END;
+
+    GETCMDCH: PROCEDURE BYTE;
+        DECLARE CH BYTE;
+
+        IF W37D8 < W37CA THEN
+            CALL GETTEXT;
+        IF CSTS AND (IOCHK AND 0FCH) <> 2 THEN
+            IF GETCHAR = 3 THEN
+                CALL GETTEXT;
+        CHTYPE = ISOTHER;
+        CH = MEMORY(W37D8); 
+        IF CH >= 'A' AND CH <= 'Z' THEN
+            CHTYPE = ISALPHA;
+        IF (CH >= '0' AND CH <= '9') OR CH = '+' OR CH = '-' THEN
+            CHTYPE = ISNUMBER;
+        W37D8 = W37D8 - 1;
+        RETURN CH;
+     END;
+
+    GETCMDNUM: PROCEDURE ADDRESS;
+        DECLARE VAL ADDRESS;
+        IF CHAR = '-' THEN DO;
+            BACKWARDS = TRUE;
+            CHAR = GETCMDCH;
+        END;
+        ELSE IF CHAR = '+' THEN
+            CHAR = GETCMDCH;
+        VAL =  0;
+        DO WHILE CHTYPE = ISNUMBER;
+            /* VAL = VAL * 10 + CHAR - '0' */
+            VAL = SHL(SHL(VAL, 2) + VAL, 1) + CHAR - '0';
+            CHAR = GETCMDCH;
+        END;
+        IF VAL = 0 AND BACKWARDS THEN
+            RETURN 1;
+        RETURN VAL;
+    END;
+
+    FINDREL: PROCEDURE ADDRESS;
+        DECLARE START ADDRESS, (I, CH) BYTE;
+
+        START = 0;
+        DO WHILE MEMORY(TEXTPTR + START) <> 0FFH;
+            I = 0;
+            DO WHILE (CH := MEMORY(TEXTPTR + START + I)) = FINDBUF(I);
+                IF FINDBUF(I + 1) = ESC THEN
+                    RETURN START;
+                I = I + 1;
+            END;
+            IF CH = 0FFH THEN
+                RETURN 0FFFFH;
+            START = START + 1;
+        END;
+        RETURN 0FFFFH;
+    END;
+
+
+
+    SEEKLINE: PROCEDURE ADDRESS;
+        DECLARE STARTLINE ADDRESS, (JUNK, CH) BYTE;
+
+        STARTLINE = TEXTPTR;
+        IF CMDCNT = 0 OR BACKWARDS THEN DO;
+            IF TEXTPTR = ENDPTR AND TEXTPTR <> 1 THEN
+                STARTLINE = STARTLINE - 1;
+            CMDCNT = CMDCNT + 1;
+            DO WHILE CMDCNT <> 0 and TEXTPTR <> 1;
+                IF (CH := MEMORY(STARTLINE)) = 0FFH THEN
+                    RETURN STARTLINE + 1;
+                IF (ISMARKER(CH)) THEN
+                    CMDCNT = CMDCNT - 1;
+                STARTLINE = STARTLINE - 1;
+            END;
+            RETURN STARTLINE + 2;   /* AFTER THE MARKER */
+        END;
+        DO WHILE CMDCNT <> 0;
+            IF (CH := MEMORY(STARTLINE)) = 0FFH THEN
+                RETURN STARTLINE;
+            IF (ISMARKER(CH)) THEN
+                CMDCNT = CMDCNT - 1;
+            STARTLINE = STARTLINE + 1;
+        END;
+        RETURN STARTLINE;
+    END;
+
+
+    FINDLOC: PROCEDURE ADDRESS;
+        DECLARE RELOFFSET ADDRESS;
+ 
+        FINDLEN = 0;
+        DO WHILE (FINDBUF(FINDLEN) := GETCMDCH) <> ESC;
+            IF FINDLEN < 16 THEN
+                FINDLEN = FINDLEN + 1;
+        END;
+        if (RELOFFSET := FINDREL) = 0FFFFH THEN DO;
+            CALL DISPLAYTEXT(.NOTFOUND, 14);
+            IF FINDLEN <> 0 THEN
+                CALL DISPLAYTEXT(.FINDBUF, FINDLEN - 1);
+            CALL CO(DQUOTE);
+            CALL DISPLAYTEXT(.BEGINPUNCH, 1);
+            GOTO BREAK;
+            GOTO BREAK;
+        END;
+        ELSE
+            RETURN RELOFFSET + TEXTPTR;
+    END;
+
+    MOVEDOWN: PROCEDURE;
+        ENDPTR = TEXTPTR;
+        DO WHILE W37D2 >= W37D0;
+            MEMORY(ENDPTR) = MEMORY(W37D0);
+            W37D0 = W37D0 + 1;
+            ENDPTR = ENDPTR + 1;
+        END;
+        MEMORY(ENDPTR := ENDPTR - 1) = 0FFH;
+        CALL MOVEUP;
+    END;
+
+MAIN:
+
+    INPUT$PTR = .(':CI:');
+    CALL READ(1, .BUFFER, 128, .ACTUAL, .STATUS);
+    CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+    BUFFER(ACTUAL) = CR;
+    INPUT$PTR = DEBLANK(.BUFFER);
+    BUFFER$PTR = DEBLANK(DELIMIT(INPUT$PTR));
+    CALL DISPLAYTEXT(.SIGNON, 29);
+    IF SEQ(BUFFER$PTR, .('TO'), 2) THEN DO;
+        OUTPUT$PTR = DEBLANK(BUFFER$PTR + 2 );
+        MODE = 2;
+    END;
+    ELSE DO;
+        OUTPUT$PTR = INPUT$PTR;
+        MODE = 1;
+    END;
+
+    STATUS = CANON(OUTPUT$PTR, .PN);
+    IF STATUS <> 0 THEN
+        CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+    IF PN(0) > 1 THEN DO;
+        IF MODE <> 2 THEN
+            CALL FILEERROR(11H, OUTPUT$PTR, TRUE);
+        BUFFER$PTR = OUTPUT$PTR;
+    END;
+    ELSE DO;
+        IF PN(0) = 0 THEN
+            BUFFER$PTR = .('EDIT.TMP ');
+        ELSE
+            BUFFER$PTR = .(':F1:EDIT.TMP ');
+        IF MODE = 1 THEN DO;
+            CALL RENAME(INPUT$PTR, INPUT$PTR, .STATUS);
+            IF STATUS = 0BH THEN DO;
+                PN(7) = 'B';
+                PN(8) = 'A';
+                PN(9) = 'K';
+                CALL UNPATH(.PN, .BA38FD);
+                W387A = .BA38FD;
+            END;
+            ELSE IF STATUS = 0DH THEN DO;
+                MODE = 3;
+                CALL DISPLAYTEXT(.NEWFILE, 9);
+                INPUT$PTR = .(':BB: ');
+            END;
+            ELSE
+                CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+        END;
+    END; /* 2F0E */
+
+    CALL OPEN(.AFTIN, INPUT$PTR, 1, 0, .STATUS);
+    CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+    INPTR = INACTUAL;
+    CALL OPEN(.AFTOUT, BUFFER$PTR, 2, 0, .STATUS);
+    CALL FILEERROR(STATUS, BUFFER$PTR, TRUE);
+    MEMSIZE = MEMCHK - .MEMORY;
+    MEMORY(0) = 0FFH;
+    MEMORY(1) = 0FFH;
+    TEXTPTR = 1;
+    ENDPTR = 1;
+    CALL GETTEXT;
+
+CMDLOOP:
+    DO WHILE 1;
+        W37D0 = TEXTPTR;
+        W37D2 = ENDPTR;
+        BACKWARDS = FALSE;
+        CMDCNT = 1;
+        CHAR = GETCMDCH;
+        IF CHTYPE = ISNUMBER THEN
+            CMDCNT = GETCMDNUM;
+        IF CHAR = '<' THEN DO;
+                IF (ITER$SP := ITER$SP + 1) > 8 THEN DO;
+                    CALL DISPLAYTEXT(.ITERFAULT, 22);
+                    GOTO BREAK;
+                END;
+                ITER$STACK(ITER$SP) = W37D8;
+                WA392E(ITER$SP) = CMDCNT;
+        END;
+        ELSE IF CHAR = '>' AND ITER$SP <> 0 THEN DO;
+            IF (WA392E(ITER$SP) := WA392E(ITER$SP) - 1) <> 0 THEN
+                W37D8 = ITER$STACK(ITER$SP);
+            ELSE
+                ITER$SP = ITER$SP - 1;
+            GOTO CMDLOOP;
+        END;
+        ELSE IF CHTYPE = ISALPHA THEN DO;
+            DO CASE CHAR - 'A';
+                DO;             /* 'A' APPEND */
+                    B37E2 = TRUE;
+                    CMDCNT = 0;
+                    DO WHILE B37E2;
+                        if ENDPTR >= W37CA - 10 OR B37E1 THEN
+                            B37E2 = 0;
+                        ELSE IF (CHAR := GETC) <> CTRLZ THEN DO; 
+                            IF CHAR <> 0 AND CHAR <> 7FH THEN DO;
+                                IF CHAR = FF THEN
+                                    B37E2 = 0;
+                                MEMORY(ENDPTR) = CHAR;
+                                ENDPTR = ENDPTR + 1;
+                                IF CHAR = LF THEN
+                                    IF (CMDCNT := CMDCNT + 1) = 50 THEN
+                                        B37E2 = 0;
+                            END;
+                        END;
+                        ELSE DO;
+                            B37E1 = 0FFH;
+                            B37E2 = 0;
+                        END;
+                    END;
+                    MEMORY(ENDPTR) = 0FFH;
+                    GOTO CMDLOOP;
+                END;
+                DO;                 /* 'B' TEXT POINTER TO BEGINNING */
+                    TEXTPTR = 1;
+                    GOTO CMDLOOP;
+                END;
+                DO;                 /* 'C' TEXT POINTER CHARACTER */
+                    IF BACKWARDS THEN DO;
+                        IF TEXTPTR - 1 < CMDCNT THEN DO;
+                            TEXTPTR = 1;
+                            GOTO CMDLOOP;
+                        END;
+                        ELSE
+                            TEXTPTR = TEXTPTR - CMDCNT;
+                        GOTO CMDLOOP;
+                    END;
+                    ELSE IF (W37D6 := TEXTPTR + CMDCNT) > ENDPTR THEN
+                        TEXTPTR = ENDPTR;
+                    ELSE
+                        TEXTPTR = W37D6;
+                    GOTO CMDLOOP;
+                END;
+                DO;             /* 'D' DELETE */
+                    IF BACKWARDS THEN DO;
+                        IF TEXTPTR < CMDCNT THEN
+                            TEXTPTR = 1;
+                        ELSE
+                            TEXTPTR = TEXTPTR - CMDCNT;
+                    END;
+                    ELSE IF (W37D6 := TEXTPTR + CMDCNT) > ENDPTR THEN
+                        W37D0 = ENDPTR;
+                    ELSE
+                        W37D0 = W37D6;
+                    CALL MOVEDOWN;
+                    GOTO CMDLOOP;
+                END;
+                DO;         /* 'E' EXIT */
+                    CALL WRITE(AFTOUT, .MEMORY + 1, ENDPTR - 1, .STATUS);
+                    CALL FILEERROR(STATUS, BUFFER$PTR, TRUE);
+                    DO WHILE INPTR < INACTUAL;
+                        IF (CHAR := GETC) = CTRLZ THEN
+                            INPTR = 128;
+                        ELSE DO;
+                            CALL WRITE(AFTOUT, .CHAR, 1, .STATUS);
+                            CALL FILEERROR(STATUS, BUFFER$PTR, TRUE);
+                        END;
+                    END;
+
+                    ACTUAL = MEMSIZE;
+                    DO WHILE ACTUAL <> 0;
+                        CALL READ(AFTIN, .MEMORY, MEMSIZE, .ACTUAL, .STATUS);
+                        CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+                        CALL WRITE(AFTOUT, .MEMORY, ACTUAL, .STATUS);
+                        CALL FILEERROR(STATUS, BUFFER$PTR, TRUE);
+                        IF ACTUAL < MEMSIZE THEN
+                            ACTUAL = 0;
+                    END;
+                
+                    CALL CLOSE(AFTOUT, .STATUS);
+                    CALL FILEERROR(STATUS, BUFFER$PTR, TRUE);
+                    CALL CLOSE(AFTIN, .STATUS);
+                    CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+                    IF PN(0) <= 1 THEN DO;  /* FILE BASED */
+                        IF MODE = 1 THEN DO; 
+                            CALL DELETE(W387A, .STATUS);
+                            IF STATUS = 0EH THEN
+                                CALL FILEERROR(STATUS, W387A, TRUE);
+                            CALL RENAME(INPUT$PTR, W387A, .STATUS);
+                            CALL FILEERROR(STATUS, INPUT$PTR, TRUE);
+                        END;
+                        CALL DELETE(OUTPUT$PTR, .STATUS);
+                        IF STATUS = 0EH THEN
+                            CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+                        CALL RENAME(BUFFER$PTR, OUTPUT$PTR, .STATUS);
+                        CALL FILEERROR(STATUS, OUTPUT$PTR, TRUE);
+                    END;
+                    CALL EXIT;
+                    GOTO CMDLOOP;
+                END;
+                DO;             /* 'F' FIND */
+                    TEXTPTR = FINDLOC + FINDLEN;
+                    GOTO CMDLOOP;
+                END;
+                GOTO BADCMD; /* 'G' */
+                GOTO BADCMD; /* 'H' */
+    CASE$I:     DO;             /* 'I' INSERT */
+                    DO WHILE (CHAR := GETCMDCH) <> ESC;
+                        IF TEXTPTR = W37D0 THEN DO; 
+                            CALL MOVEUP;
+                            IF W37CA - 11 < W37D2 THEN
+                                GOTO BREAK;
+                            W37D6 = W37D2;
+                            W37D2, W37D0 = W37CA - 10;
+                            DO WHILE W37D6 >= TEXTPTR;
+                                MEMORY(W37D0) = MEMORY(W37D6);
+                                W37D6 = W37D6 - 1;
+                                W37D0 = W37D0 - 1;
+                            END;
+                            W37D0 = W37D0 + 1;
+                        END;
+                        MEMORY(TEXTPTR) = CHAR;
+                        TEXTPTR = TEXTPTR + 1; 
+                    END; 
+                    CALL MOVEDOWN;
+                    GOTO CMDLOOP;
+                END;
+                GOTO BADCMD;            /* 'J' */
+                DO;                     /* 'K' KILL */
+                    IF (W37D0 := SEEKLINE) < TEXTPTR THEN DO;
+                        W37D6 = TEXTPTR;
+                        TEXTPTR = W37D0;
+                        W37D0 = W37D6;
+                    END;
+                    CALL MOVEDOWN;
+                    GOTO CMDLOOP;
+                END;
+                DO;
+                    TEXTPTR = SEEKLINE;      /* 'L' TEXT POINTER LINE*/
+                    GOTO CMDLOOP;
+                END;
+                GOTO BADCMD;            /* 'M' */
+                GOTO BADCMD;            /* 'N' */
+                GOTO BADCMD;            /* 'O' */
+                GOTO BADCMD;            /* 'P' */
+                DO;                     /* 'Q' QUIT */
+                    CALL CLOSE(AFTOUT, .STATUS);
+                    CALL DELETE(BUFFER$PTR, .STATUS);
+                    CALL EXIT;
+                    GOTO CMDLOOP;
+                END;
+                GOTO BADCMD;            /* 'R' */
+                DO;                     /* 'S' SUBSTITUTE */
+                    W37D0 = (TEXTPTR := FINDLOC) + FINDLEN;
+                    GOTO CASE$I;
+                END;
+                DO;                     /* 'T' TYPE */
+                    IF (W37D6 := SEEKLINE) = TEXTPTR THEN
+                        GOTO CMDLOOP;
+                    IF TEXTPTR < W37D6 THEN
+                        CALL DISPLAYTEXT(.MEMORY + TEXTPTR, W37D6 - TEXTPTR - 1);
+                    ELSE
+                        CALL DISPLAYTEXT(.MEMORY + W37D6, TEXTPTR - W37D6 - 1);
+                    GOTO CMDLOOP;
+                END;
+                GOTO BADCMD;            /* 'U' */
+                GOTO BADCMD;            /* 'V' */
+                DO;                     /* 'W' WRITE */
+                    BACKWARDS = 0;
+                    TEXTPTR = 1;
+                    W37D0 = SEEKLINE;
+                    CALL WRITE(AFTOUT, .MEMORY + 1, W37D0 - 1, .STATUS);
+                    CALL FILEERROR(STATUS, BUFFER$PTR, TRUE);
+                    CALL MOVEDOWN;
+                    GOTO CMDLOOP;
+                END;
+                GOTO BADCMD;            /* 'X' */
+                GOTO BADCMD;            /* 'Y' */
+                DO;                     /* 'Z' TEXT POINTER END*/
+                    TEXTPTR = ENDPTR;
+                    GOTO CMDLOOP;
+                END;
+            END;    /* OF CASE */
+        END;        /* OF IF */
+        ELSE
+BADCMD: IF CHAR > ' ' THEN DO;
+            CALL DISPLAYTEXT(.BEGINPUNCH, 1);
+            CALL CO(DQUOTE);
+            CALL DISPLAYCHAR(CHAR);
+            CALL DISPLAYTEXT(.ILLEGAL, 26);
+            CALL GETTEXT;
+        END;
+    END; /* OF CMDLOOP */
+BREAK:
+    CALL DISPLAYTEXT(.USRBREAK, 10);
+    CALL GETTEXT;
+    GOTO CMDLOOP;
+END;
+EOF
