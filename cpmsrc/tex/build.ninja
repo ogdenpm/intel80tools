@@ -1,7 +1,7 @@
 root = ..\..
 itools = $root\itools
 tools = $root\tools
-thames = thames
+thames = $root\thames
 plmVer = 4.0
 plmFlags = CODE
 asmFlags =  
@@ -14,26 +14,26 @@ asmVer = 4.1
 rule plm80
     depfile = $out.d
     deps = gcc
-    command = $thames -m -T -MF $depfile $itools\plm80_$plmVer\plm80 $in $plmFlags
+    command = $thames -m -T -MF $depfile $itools\plm80\$plmVer\plm80 $in $plmFlags
     description = Compiling $in
 
 rule asm80
     depfile = $out.d
     deps = gcc
-    command = $thames -m -T -MF $depfile $itools\asm80_$asmVer\asm80 $in $asmFlags
+    command = $thames -m -T -MF $depfile $itools\asm80\$asmVer\asm80 $in $asmFlags
     description = Assembling $in
 
 
 rule link80
-    command = $thames -m -T $itools\link_$linkVer\link $inlist to $out
+    command = $thames -m -T $itools\link\$linkVer\link $inlist to $out
     description = Linking to $out
 
 rule locate80
-    command = cmd /c "$thames -m -T $itools\locate_$locateVer\locate $in to $out code(0100h) stacksize($stack) purge"
+    command = cmd /c "$thames -m -T $itools\locate\$locateVer\locate $in to $out code(0100h) stacksize($stack) purge"
     description = Locating to $out
 
 rule obj2bin
-    command = $tools\obj2bin $out $in
+    command = $tools\obj2bin $in $out
     description = Creating com file
 
 rule verify
@@ -78,11 +78,11 @@ build tex21.abs: locate80 tex21.rel
 build tex21a.abs: locate80 tex21a.rel
     stack = 100
 
-build tex10.com: obj2bin tex10.abs patch10.txt
+build tex10.com: obj2bin tex10.abs tex10.patch
 
-build tex12.com: obj2bin tex12.abs patch12.txt
+build tex12.com: obj2bin tex12.abs tex12.patch
 
-build tex21.com: obj2bin tex21.abs patch21.txt
+build tex21.com: obj2bin tex21.abs tex21.patch
 
 build tex21a.com: obj2bin tex21a.abs
 
