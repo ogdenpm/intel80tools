@@ -167,23 +167,11 @@ Note ISIS.OV0 itself supports local and remote disks, but ISIS II does not have 
 
 ### Version 4.2w
 
-To be confirmed as I haven't decompiled it, suspect as per version 4.2 with a new hard disk type and possibly using the directory hashing used in version 4.3w. The isis.t0 boot is basically the same as for 4.3, with the exception of different locations for tables in isis.bin, junk data file and a different compiler version / optimisation settings for some modules.
+**Hardware:** as version 4.2 but supports Winchester Disk (type 9) rather than the standard HD
 
-### **Version 4.3**
+**Syscalls:** as version 4.2
 
-**Hardware:** as version 4.2
-
-**Syscalls:** as version 4.2 plus the undocumented GETCLIBUF(28) which get the internal buffer used to keep CLI information across applications runs and to support command line editing. Note the real syscall name is unknown
-
- ISIS.CLI supports command line editing
-
-### **Version 4.3w**
-
-**Hardware:** as version 4.3 but supports Winchester Disk (type 9) rather than the standard HD
-
-**Syscalls:** as version 4.3
-
-**Devices:** as version 4.3
+**Devices:** as version 4.2
 
 WD is sized as 525 cylinders, 5 heads, 70 sectors per track, 128 byte sectors, 13 alternate cylinders
 
@@ -195,9 +183,29 @@ ISIS.T0 also initialises the WD and sets up the control blocks in memory startin
 
 For the WD the directory name is hashed to spread the names across the ISIS.DIR and help to locate directory entries quicker. Files prefixed with ISIS are always in bucket 0 to support normal location of key ISIS files. 
 
+### **Version 4.3**
+
+**Hardware:** as version 4.2
+
+**Syscalls:** as version 4.2 plus the undocumented GETCLIBUF(28) which get the internal buffer used to keep CLI information across applications runs and to support command line editing. Note the real syscall name is unknown
+
+ ISIS.CLI supports command line editing
+
+### **Version 4.3w**
+
+**Hardware:** as version 4.2w
+
+**Syscalls:** as version 4.3
+
+**Devices:** as version 4.3
+
+isis.t0 is basically identical to 4.2w with the exception of the references to the internal tables in ISIS.BIN and different compiler versions and optimisation settings used.
+
+Directory hashing is as per 4.2w
+
 ------
 
 ```
-Updated by Mark Ogden 12-Sep-2020
+Updated by Mark Ogden 17-Sep-2020
 ```
 
