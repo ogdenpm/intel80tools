@@ -7,8 +7,7 @@ include $(ROOT)/tools/isis.mk
 
 REF = $(call ipath,isis,1.1)
 ISIST0PATCH = isis.t0_1.1.patch
-EDITPATCH = edit_1.2.patch
-PROTECT = $(ISIST0PATCH) $(EDITPATCH)
+PROTECT = $(ISIST0PATCH)
 
 all:: $(TARGETS)
 
@@ -20,9 +19,6 @@ all:: $(TARGETS)
 
 isis.t0: isis.t0.omf $(ISIST0PATCH)
 	$(OBJBIN) $^ $@
-
-edit: edit.omf $(EDITPATCH)
-	$(OBJBIN) -i $^ $@
 
 # isis.bin is in assembler, creating the standard .obj output
 isis.bin: isis.obj
