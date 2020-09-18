@@ -309,7 +309,7 @@ both address and value are in hex and the filetopatch is assumed to be load ax 1
 The file is extended if necessary
 ```
 
-### plm81.exe, plm82.exe (source currently private)
+### plm81.exe, plm82.exe
 
 These two programs are my port of the Fortran based PL/M compiler to C. Although based on the V2 compiler, some of the patches from V4 have been incorporated to fix invalid code generation.
 
@@ -331,6 +331,8 @@ Usage: 	 plm81 file.plm					or	[mv | move] file.plm fort.2
 										    [cat fort.12a fort.12 >file.lst |
 										     copy /Y fort.12a+fort.12 file.lst]
 cleanup: [del|rm] file.pol file.sum 		[rm | del] fort.*
+
+Note plm81 and plm82 also support -v & -V which show version information and provide simple help
 ```
 
 ### plmpp.exe
@@ -425,5 +427,11 @@ usage: version [-h] | [-q] [-f] [-a appid] [CACHE_PATH OUT_FILE]
 
  Example pre-build event:
  CALL $(SolutionDir)scripts\version.cmd "Generated" "Generated\version.h"
+```
+
+------
+
+```
+Updated by Mark Ogden 18-Sep-2020 
 ```
 
