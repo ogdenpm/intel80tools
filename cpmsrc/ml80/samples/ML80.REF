@@ -1,0 +1,224 @@
+This is documentation of ML80 extracted from L. R. B. Pedroso's thesis,
+"ML80:  A structured machine-oriented microcomputer programming language."
+The thesis is available from the National Technical Information Service as
+order number AD/A-020 055 for $7.75 (on the last price list I saw).  It
+includes complete PL/M source code listings as well as the formal grammars
+and fairly complete discussion and examples.  The source code is available
+from the Intel Users' Library for $70.  What follows is on the order
+of a quick reference guide to ML80.
+
+	ML80 is actually two language processors, M80 and L80.  M80 is a
+general macro processor which can be used independently of L80 for any
+macro processing.  L80 is a structured assembly language for the 8080
+microprocessor, and almost all of the operations allowed directly
+reflect one or two 8080 instructions.
+
+
+			SUMMARY OF M80 SYNTAX
+
+[INT id1 id2 ...]		Declare integer macros, initial value zero
+
+[id := expr]			Assign new value to integer macro
+
+[DEC expr]			Substitute decimal value of expr in text
+[OCT expr]			Substitute octal value
+[HEX expr]			Substitute hexidecimal value
+[CHAR expr]			Substitute ASCII character, 0=NUL,
+				32 = SPACE, 65= A, etc.  Note that this is
+				the only way to get [, ], and ' in the result.
+[id]				Substitute the (decimal) value of id
+				Note on all of the above that no characters
+				bracket the final substitution.  Thus the
+				string 'XX[DEC 23H]YY' becomes 'XX35YY'
+
+[MACRO mname fp1 fp2 ... fpn 'string']	Define new macro with name mname and
+				formal parameters fp1 ... fpn and body string
+
+[mname 'str1' 'str2' ... 'strn']	Replace by result of substituting str1
+				... strn for the formal parameters of mname in
+				the macro body.  The quotes ARE needed.
+
+[IF expr THEN 'string']		Replace by string if the least significant
+				bit of expr (in binary) is 1.
+[IF expr THEN 'str1' ELSE 'str2']	Replace by one of the strings
+				depending on expr.
+
+Of the above, INT, assignment, MACRO and a false THEN-only IF are replaced
+by the empty string.
+Comments may be embedded in macro bodies by /* comment */ device.
+Expressions are composed of (in order of increasing priority):
+
+\   for OR	\\   for XOR
+&   for AND
+!   for NOT
+=   <   >   <=   >=   <>   for comparisons
++   -
+*   /           % for MOD
+integer-id   number   -number    (expr)    (id := expr)
+
+The value of expressions are limited to integers +/- 32767
+Numbers may be written in hex, decimal, octal or binary by using the suffix
+H, D, Q and B respectively.  Hex numbers must start with a decimal digit.
+Identifiers within an expression are NOT bracketed.
+
+In strings, use two consecutive quotes '' to represent a single quote.
+Macro calls are recognized even within strings.
+
+M81 processor errors:
+M81 writes all error messages embedded in the output text being processed.
+These messages may be found by searching for
+*** LINE nnnn: ERROR nn
+in column 1.  From ED, use     F^L*** LINE^Z0TT    to find and
+print the next message.
+
+Error	Meaning
+ 1	Unexpected EOF.  Probably mismatched ' or [.
+ 2	Mispelled number
+ 3	Number too large, -32768 to 32767 only
+ 7	Syntax error
+11	Undefined macro, probably misspelled or wrong number of parms
+12	Numeric macro has parms
+13	More actual parms than formal parms
+14	Nonnumeric assignment
+15	Nonnumeric expression
+
+	The following errors abort processing
+F1	Too many macros
+F2	Too much nesting of macro calls
+F3	Strings too long
+F5	M81 error
+F7	unrecoverable syntax error
+
+L80.
+L80 is implemented as three modules, L81 -- the parser, L82 -- code generator,
+and L83 -- linker.  Note that if you write a program without macros
+you don't need M81.
+L81 and L82 each process a single program file, but L83 can combine several
+if it is given a file which declares  external procedures.
+For each external procedure, it will also load the file of the same name.
+
+Capsule summary of L80 syntax
+
+Program ::=     stmt; stmt; ... EOF
+Stmt    ::=	ident:stmt		defines ordinary label here
+		number:stmt		puts stmt at absolute location
+		IF cond THEN stmt {ELSE stmt}		note else optional
+		DECLARE     id       {(length)}BYTE	variables
+			(id1, id2,..) LABEL		for forward GOTOs
+				      EXTERNAL		external proc
+				      COMMON		external data
+				      DATA(const, const, ...)  a constant variable
+			BYTE may be followed by
+				INITIAL(const, const, ...) initialize ONCE
+		DO; stmts; END ident		grouping for IF etc.
+		DO assign {BY assign} WHILE cond; stmts; END
+			Note that you must be sure to set flags for while
+		DO CASE HL; c0stmt; c1stmt; ...; END	do one alternative
+			Note that this changes HL, uses array of labels(fast)
+		ident:PROCEDURE{(id, id,...)}; stmts; END
+		RETURN
+		IF simple-cond RETURN		Note no THEN, generates RC etc
+		CALL ident{(const, const,...)}	Note parms are constants
+		CALL number			No parms, CALL 0 gives RST 0, etc
+		IF simple-cond CALL id/number	No parms, uses CC, etc
+		GOTO M(HL)
+		GOTO ident/number
+		IF simple-cond GOTO id/number	Uses JZ etc
+		REPEAT; stmts...; UNTIL cond	Always done at least once.
+		HALT
+		NOP
+		DISABLE				Interrupts of course
+		ENABLE				Ditto
+		A::expr			CMP or CPI
+		HL==reg-exp		XCHG or XTHL
+		var=reg-exp		Watch possible registers
+		reg=expr
+
+The following are builtin, reserved variables:
+M(BC)   M(HL)  M(DE)   M(const)   IN(number)   OUT(number)
+A, B, C, D, E, H, L, BC, DE, HL, PSW, SP, STACK (meaning top), CY.
+All assignments and expressions must have an 8080 op code (except
+that HL=BC (etc) work).  Thus BC=BC+5 is illegal.
+
+simple-cond ::= {(stmts)} flag		Optional stmts can be used to set
+				PSW for flag test
+flag ::=  ZERO |  ! ZERO  |  CY  |  ! CY  | PY EVEN  |  PY ODD  | PLUS | MINUS
+COND ::=  simple-cond  & simple-cond & ...		Several anded tests
+	  simple-cond \ simple-cond \ ...	or several ored tests.
+			And and or can't be mixed in one cond.
+CONSTANT ::=  .'string'  |  'string'  |  number  |  -number
+	      .ident  |  .ident(number)
+. denotes address of, gives a two byte constant.
+Expressions are evaluated left to right, except a parenthesized register
+expression within an axpression is done just before needed.  E.g.
+A=M(7)+(B=8),-2; compiles as LDA 7!  MVI B,8!  ADD B!  SUI 2
+Unary operations always follow an assignment =, but nested
+expressions to the right are still possible.  All operators are equal
+priority and ldft to right.  Operators are:
++	add		-	sub
+++	adc		--	sbb
+&	and		\	or		\\	xor
+<	ral		<<	rlc
+>	rar		>>	rrc
+!	cma/cmc		#	daa
+
+!, #, >, >>, <, << are unary operations.
+Following the first operator in an expression, all subsequent operators are
+delimited with a comma. +/- 1 is recognized as incr/decr-ement.
+Beacause of 8080 instruction limitations, most occurances of non-register
+variables are limited to assignment to and from A and HL.  Generally,
+most places a variable or register may occur on the right side of an
+operation, a parenthsized assignment to that variable is allowed (as the
+(B=8) in the example above.
+
+			ERRORS
+L81 prints all its error messages to the console in plain text (giving
+line number and error message).  If you use no CR/LF sequences inside
+macros, these line numbers will be the same as the M80 macro source.
+CR/LF in a macro body will put extra lines in while CR/LF inside macro
+calls will remove a line.
+
+L82 errors.	Also given in terms of line number.
+Error	Meaning
+00	INITIAL data too long, truncated on left.
+01	Identifier redeclared in same block.
+02	Identifier redeclared (ignored).
+03	Invalid procedure name.
+04	Reference to undeclared identifier.  Usually either mispelled,
+	lost in some earlier error or forgot to declare label for forward
+	branch.
+05	Wrong number of parms in procedure call.
+06	Invalid call (not a procedure or undefined)
+07	Not a machine operation (no 8080 instruction does this)
+	This often follows 04 as 04 is fixed up by substituting M(0).
+08	Feature not implemented.	(E.g. CASE DE in DO)
+0A	Invalid constant
+0B	Invalid GOTO destination, not a label or number
+0E	Reference to undefined address
+		TERMINAL ERRORS
+F1	Too many nested statements
+F2	Too many symbols in one block
+F3	Too many nested blocks
+F4	Too many unresolved cases
+F5	Parser actions file (.80P) contains error
+F6	Symbol list overflow, too many symbols and strings
+
+
+L83 errors  (all terminal)
+1	Too many modules (file groups)
+2	Memory overflow (segment too big)
+3	Bad relocation record (in .80R)
+
+
+Files used in ML80
+x.M80	macro source input
+x.L80	macro expansion output, L81 input source
+x.80S	Symbol table, out from L81, into L82 and L83
+x.80P	Parser actions, from L81 to L82
+x.80C	L82 output of code and constants, to L83
+x.80D	L82 output of initializing data for variables, to L83
+x.80R	L82 output of relocation information, to L83
+x.COM	CP/M command file after linking
+
+L83 doesn't do it, but all material from x.80C could by put in PROM,
+with material from 80D loaded to initialize the program (after relocation).
