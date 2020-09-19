@@ -1,0 +1,858 @@
+ [MACRO IM '1']  [MACRO EN'5']   [MACRO CJ '3']
+ [MACRO BRA '2'] [MACRO PSU '4']         /* 0 RESERVED FOR ERROR */
+ [MACRO RERROR '80H']
+ [MACRO RGO OPPLUS ENTRY '81H,[OPPLUS]H,.[ENTRY]']
+ [MACRO RENTRY ARGS OPPLUS TYPE '''[ARGS]'',0,[OPPLUS]H,[TYPE]']
+ [MACRO RNULL OPPLUS TYPE '0,[OPPLUS]H,[TYPE]']
+
+ DECLARE RR1 DATA([RENTRY 'P1,#' '49' '[IM]'],   /* ANL, ORL */
+                 [RENTRY 'P2,#' '4A' '[IM]'],
+                 [RENTRY 'BUS,#' '48' '[IM]'],
+ [MACRO RR2 'RR1(22)']   /* XRL + AN,OR,MOV */
+                 [RENTRY 'A,#' '3' '[IM]'],
+ [MACRO RR3 'RR1(28)']   /* XCH + ANL,ORL,XRL,MOV,ADD,ADDC */
+                 [RENTRY 'A,@R0' '0' '[EN]'],
+                 [RENTRY 'A,@R1' '1' '[EN]'],
+                 [RENTRY 'A,R0' '08' '[EN]'],
+                 [RENTRY 'A,R1' '09' '[EN]'],
+                 [RENTRY 'A,R2' '0A' '[EN]'],
+                 [RENTRY 'A,R3' '0B' '[EN]'],
+                 [RENTRY 'A,R4' '0C' '[EN]'],
+                 [RENTRY 'A,R5' '0D' '[EN]'],
+                 [RENTRY 'A,R6' '0E' '[EN]'],
+                 [RENTRY 'A,R7' '0F' '[EN]'],
+                 [RERROR]);
+ DECLARE RR4 DATA([RENTRY 'A,#' '3' '[IM]'],     /* ADD, ADDC */
+                 [RGO '60' '[RR3]']);
+ DECLARE RR5 DATA([RENTRY 'A,P4' '4' '[EN]'],    /* MOVD */
+                 [RENTRY 'A,P5' '5' '[EN]'],
+                 [RENTRY 'A,P6' '6' '[EN]'],
+                 [RENTRY 'A,P7' '7' '[EN]'],
+ [MACRO RR5A 'RR5(28)']  /* ANLD, ORLD + MOVD */
+                 [RENTRY 'P4,A' '34' '[EN]'],
+                 [RENTRY 'P5,A' '35' '[EN]'],
+                 [RENTRY 'P6,A' '36' '[EN]'],
+                 [RENTRY 'P7,A' '37' '[EN]'],
+                 [RERROR]);
+ DECLARE RR6 DATA([RNULL '0' '[CJ]']);  /* CALL, JMP */
+ DECLARE RR7 DATA([RENTRY 'F1' '0A5' '[EN]'],    /* CLR, CPL */
+                 [RENTRY 'C' '97' '[EN]'],
+                 [RENTRY 'F0' '85' '[EN]'],
+ [MACRO RR8 'RR7(14)']   /* DA, RL, RLC, RR, RRC + CLR, CPL */
+                 [RENTRY 'A' '27' '[EN]'],
+                 [RERROR]);
+ DECLARE RR9 DATA([RNULL '0' '[EN]']);  /* NOP,  BBT */
+ DECLARE RR10 DATA([RENTRY 'DBB,A' '0' '[EN]'], /* OUT */
+                 [RERROR]);
+ DECLARE RR11 DATA([RENTRY 'P1,A' '1' '[EN]'],   /* OUTL */
+                 [RENTRY 'P2,A' '2' '[EN]'],
+                 [RENTRY 'BUS,A' '0CA' '[EN]'],
+                 [RERROR]);
+DECLARE  RR12 DATA([RENTRY 'RB0' '0' '[EN]'],    /* SEL */
+                 [RENTRY 'RB1' '10' '[EN]'],
+                 [RENTRY 'MB0' '20' '[EN]'],
+                 [RENTRY 'MB1' '30' '[EN]'],
+                 [RERROR]);
+DECLARE  RR13 DATA([RENTRY 'TCNT' '5' '[EN]'],   /* STOP */
+                 [RERROR]);
+DECLARE  RR14 DATA([RENTRY 'CNT' '0' '[EN]'],    /* STRT */
+                [RENTRY  'T' '10' '[EN]'],
+                [RERROR]);
+DECLARE RR15 DATA([RENTRY 'A,@R0' '0' '[EN]'],   /* XCHD */
+                [RENTRY  'A,@R1' '1' '[EN]'],
+                [RERROR]);
+DECLARE RR16 DATA([RNULL '0' '[BRA]']); /* CONDITIONAL JUMPS */
+DECLARE RR17 DATA([RENTRY '@A' '0' '[EN]'],     /* JMPP */
+                [RERROR]);
+DECLARE RR18 DATA([RENTRY 'A,#' '23' '[IM]'],   /* MOV */
+                [RENTRY  'A,PSH' '0C7' '[EN]'],
+                 [RENTRY 'A,T'  '42' '[EN]'],
+                 [RENTRY 'STS,A' '90' '[EN]'],
+                 [RENTRY 'PSW,A' '0D7' '[EN]'],
+                 [RENTRY 'R0,A' '0A8' '[EN]'],
+                 [RENTRY 'R1,A' '0A9' '[EN]'],
+                 [RENTRY 'R2,A' '0AA' '[EN]'],
+                 [RENTRY 'R3,A' '0AB' '[EN]'],
+                 [RENTRY 'R4,A' '0AC' '[EN]'],
+                 [RENTRY 'R5,A' '0AD' '[EN]'],
+                 [RENTRY 'R6,A' '0AE' '[EN]'],
+                 [RENTRY 'R7,A' '0AF' '[EN]'],
+                 [RENTRY 'R0,#' '0B8' '[IM]'],
+                 [RENTRY 'R1,#' '0B9' '[IM]'],
+                 [RENTRY 'R2,#' '0BA' '[IM]'],
+                 [RENTRY 'R3,#' '0BB' '[IM]'],
+                 [RENTRY 'B4,#' '0BC' '[IM]'],
+                 [RENTRY 'R5,#' '0BD' '[IM]'],
+                 [RENTRY 'R6,#' '0BE' '[IM]'],
+                 [RENTRY 'R7,#' '0BF' '[IM]'],
+                 [RENTRY '@R0,A' '0A0' '[EN]'],
+                 [RENTRY '@R1,A' '0A1' '[EN]'],
+                 [RENTRY '@R0,#' '0B0' '[IM]'],
+                 [RENTRY '@R1,#' '0B1' '[IM]'],
+                 [RENTRY 'T,A' '62' '[EN]'],
+                 [RGO '0F0' '[RR2]']);
+ DECLARE RR19 DATA([RENTRY 'A,@A' '0' '[EN]'],   /* MOVP, MOVP3 */
+ [MACRO RRXX 'RR19(7)']  /* UNDEFINED OPCODES */
+                 [RERROR]);
+ DECLARE RR20 DATA([RENTRY '@R0' '0' '[EN]'],    /* INC */
+                 [RENTRY '@R1' '1' '[EN]'],
+                 [RENTRY 'A' '7' '[EN]'],
+ [MACRO RR21 'RR20(16)'] /* +INC, DEC */
+                 [RENTRY 'R0' '8' '[EN]'],
+                 [RENTRY 'R1' '9' '[EN]'],
+                 [RENTRY 'R2' '0A' '[EN]'],
+                 [RENTRY 'R3' '0B' '[EN]'],
+                 [RENTRY 'R4' '0C' '[EN]'],
+                 [RENTRY 'R5' '0D' '[EN]'],
+                 [RENTRY 'R6' '0E' '[EN]'],
+                 [RENTRY 'R7' '0F' '[EN]'],
+                 [RERROR]);
+ DECLARE RR22 DATA([RENTRY 'A' '7' '[EN]'],      /* DEC */
+                 [RGO '0C0' '[RR21]']);
+ DECLARE RR23 DATA([RENTRY 'DMA' '0E5' '[EN]'],  /* EN */
+                 [RENTRY 'FLAGS' '0F5' '[EN]'],
+ [MACRO RR24 'RR23(14)'] /* DIS + EN */
+                 [RENTRY 'I' '5' '[EN]'],
+                 [RENTRY 'TCNTI' '25' '[EN]'],
+                 [RERROR]);
+ DECLARE RR25 DATA([RENTRY 'R0,' '8' '[BRA]'],   /* DJNZ */
+                 [RENTRY 'R1,' '9' '[BRA]'], 
+                 [RENTRY 'R2,' '0A' '[BRA]'],
+                 [RENTRY 'R3,' '0B' '[BRA]'],
+                 [RENTRY 'R4,' '0C' '[BRA]'],
+                 [RENTRY 'R5,' '0D' '[BRA]'],
+                 [RENTRY 'R6,' '0E' '[BRA]'],
+                 [RENTRY 'R7,' '0F' '[BRA]'],
+                 [RERROR]);
+ DECLARE RR26 DATA([RENTRY 'A,DBB' '22' '[EN]'], /* IN */
+                 [RENTRY 'A,P1' '9' '[EN]'],
+                 [RENTRY 'A,P2' '0A' '[EN]'],
+                 [RERROR]);
+ DECLARE RR27 DATA([RENTRY 'CLK' '75' '[EN]'],   /* ENT0 */
+                 [RERROR]);
+DECLARE  RR28 DATA([RENTRY 'A,BUS' '8' '[EN]'],  /* IMS */
+                 [RERROR]);
+DECLARE  RR29 DATA([RENTRY 'A,@R0' '80' '[EN]'], /* MOVX */
+                 [RENTRY 'A,@R1' '81' '[EN]'],
+                 [RENTRY '@R0,A' '90' '[EN]'],
+                 [RENTRY '@R1,A' '91' '[EN]'],
+                 [RERROR]);
+DECLARE  RR30 DATA([RNULL '0' '[PSU]']);
+DECLARE  RR31 DATA([RENTRY 'ON' '0' '[PSU]'],
+                 [RENTRY 'OFF' '1' '[PSU]'],
+                 [RERROR]);
+[MACRO OENTRY OP OPVAL OPERANDS '''[OP]'',0,[OPVAL]H,.[OPERANDS]']
+
+ DECLARE OTAB DATA(
+ [OENTRY 'ORG' '0' 'RR30'],
+ [OENTRY 'EQU' '1' 'RR30'],
+ [OENTRY 'DS' '2'  'RR30'],
+ [OENTRY 'DB' '3'  'RR30'],
+ [OENTRY 'ANL' '50' 'RR1'],
+ [OENTRY 'ORL' '40' 'RR1'],
+ [OENTRY 'XRL' '0D0' '[RR2]'],
+ [OENTRY 'XCH' '20' '[RR3]'],
+ [OENTRY 'ADD' '0' 'RR4'],
+ [OENTRY 'ADDC' '10' 'RR4'],
+ [OENTRY 'MOVD' '8' 'RR5'],
+ [OENTRY 'ANLD' '68' '[RR5A]'],
+ [OENTRY 'ORLD' '58' '[RR5A]'],
+ [OENTRY 'CALL' '14' 'RR6'],
+ [OENTRY 'JMP' '4' 'RR6'],
+ [OENTRY 'CLR' '0' 'RR7'],
+ [OENTRY 'CPL' '10' 'RR7'],
+ [OENTRY 'DA' '30' '[RR8]'],
+ [OENTRY 'NOP' '0' 'RR9'],
+ [OENTRY 'RET' '83' 'RR9'],
+ [OENTRY 'RETR' '93' 'RR9'],
+ [OENTRY 'OUT' '2' 'RR10'],
+ [OENTRY 'OUTL' '38' 'RR11'],
+ [OENTRY 'RL' '0C0' '[RR8]'],
+ [OENTRY 'RLC' '0D0' '[RR8]'],
+ [OENTRY 'RR' '50' '[RR8]'],
+ [OENTRY 'RRC' '40' '[RR8]'],
+ [OENTRY 'SWAP' '20' '[RR8]'],
+ [OENTRY 'SEL' '0C5' 'RR12'],
+ [OENTRY 'STOP' '60' 'RR13'],
+ [OENTRY 'STRT' '45' 'RR14'],
+ [OENTRY 'XCHD' '30' 'RR15'],
+ [OENTRY 'JMPP' '0B3' 'RR17'],
+ [OENTRY 'JB0' '12' 'RR16'],
+ [OENTRY 'JB1' '32' 'RR16'],
+ [OENTRY 'JB2' '52' 'RR16'],
+ [OENTRY 'JB3' '72' 'RR16'],
+ [OENTRY 'JB4' '92' 'RR16'],
+ [OENTRY 'JB5' '0B2' 'RR16'],
+ [OENTRY 'JB6' '0D2' 'RR16'],
+ [OENTRY 'JB7' '0F2' 'RR16'],
+ [OENTRY 'JC' '0F6' 'RR16'],
+ [OENTRY 'JF0' '0B6' 'RR16'],
+ [OENTRY 'JF1' '76' 'RR16'],
+ [OENTRY 'JNC' '0E6' 'RR16'],
+ [OENTRY 'JNIBF' '0D6' 'RR16'],
+ [OENTRY 'JNI' '86' 'RR16'],
+ [OENTRY 'JNT0' '26' 'RR16'],
+ [OENTRY 'JNT1' '46' 'RR16'],
+ [OENTRY 'JNZ' '96' 'RR16'],
+ [OENTRY 'JOBF' '86' 'RR16'],
+ [OENTRY 'JTF' '16' 'RR16'],
+ [OENTRY 'JT0' '36' 'RR16'],
+ [OENTRY 'JT1' '56' 'RR16'],
+ [OENTRY 'JZ' '0C6' 'RR16'],
+ [OENTRY 'MOV' '0' 'RR18'],
+ [OENTRY 'MOVP' '0A3' 'RR19'],
+ [OENTRY 'MOVP3' '0E3' 'RR19'],
+ [OENTRY 'INC' '10' 'RR20'],
+ [OENTRY 'DEC' '0' 'RR22'],
+ [OENTRY 'EN' '0' 'RR23'],
+ [OENTRY 'DIS' '10' '[RR24]'],
+ [OENTRY 'DJNZ' '0B0' 'RR25'],
+ [OENTRY 'IN' '0' 'RR26'],
+ [OENTRY 'ENT0' '0' 'RR27'],
+ [OENTRY 'INS' '0' 'RR28'],
+ [OENTRY 'MOVX' '0' 'RR29'],
+ [OENTRY 'PRINT' '4' 'RR31'],
+0,.[RRXX]);
+DECLARE  PRNTLIN(120)BYTE;
+DECLARE  RANDLOC(2) BYTE,
+         OP(6) BYTE,
+         LABELL(7) BYTE;
+DECLARE  OPCODE BYTE,
+         RANDLIST(2) BYTE;
+
+ [MACRO LF '0AH']        [MACRO EOF '1AH']       [MACRO BDOS '5']
+ [MACRO CR '0DH']        [MACRO TAB '9']
+ DECLARE IBUFP BYTE;
+ [MACRO DBUF '80H']      [MACRO IFCB '5CH']      [MACRO READNEXT '20']
+ [MACRO OPENF '15']      [MACRO CLOSEF '16']
+ DECLARE LISTOPT BYTE INITIAL(1);
+ DECLARE ERRPF BYTE, PASS BYTE INITIAL(0);
+
+GETFC:PROCEDURE;
+        STACK=HL;
+        IF  (A=IBUFP; A::128)ZERO THEN DO;
+                IBUFP=(A=A-A);
+                C=[READNEXT];
+                DE=[IFCB];      CALL  [BDOS];
+                IF  (A=A\A) !ZERO THEN DO;
+                        HL=STACK;
+                        A=[EOF];
+                        RETURN;
+                END;
+        END;
+        HL=.IBUFP;
+        E=M(HL);
+        M(HL)=M(HL)+1;
+        D=0;    HL=[DBUF]+DE;
+        A=M(HL);
+        HL=STACK;
+END;
+
+[MACRO PUTC  '2']
+PRINTALINE:PROCEDURE;
+        IF (A=ERRPF\A) ZERO & (HL=.PASS; A=LISTOPT & M(HL)) ZERO THEN RETURN;
+        HL=.PRNTLIN;
+        DO WHILE(A=M(HL); A::[LF])  !ZERO;
+                STACK=HL;
+                C=[PUTC];       E=A;    CALL  [BDOS];
+                HL=STACK+1;
+        END;
+        C=[PUTC];       E=A;    CALL [BDOS];
+END;
+
+GETLINE:PROCEDURE;
+        HL=.PRNTLIN;    C=24;
+        REPEAT;
+                M(HL)=20H;      HL=HL+1;
+        UNTIL (C=C-1)  ZERO;
+        REPEAT;
+                CALL GETFC;
+                M(HL)=A;
+                HL=HL+1;
+        UNTIL (A::[LF]) ZERO \ (A::[EOF])ZERO;
+END;
+
+[MACRO CONSTRING '9']
+PRMSG:PROCEDURE;
+        C=[CONSTRING];  CALL [BDOS];
+        C=[PUTC];       E=[CR]; CALL [BDOS];
+        C=[PUTC];       E=[LF]; CALL [BDOS];
+END;
+
+AERROR:PROCEDURE;
+        STACK=PSW;      STACK=HL;        STACK=BC;
+        CALL PRMSG;
+        ERRPF=(A=1);
+        BC=STACK;       HL=STACK;        PSW=STACK;
+END;
+
+SYNERR:PROCEDURE;
+        DE=.'SYNTAX ERROR IN:$';
+        CALL AERROR;
+END;
+
+PARSELINE:PROCEDURE;
+        ERRPF=(A=A-A);  /* RESET FOR NEW LINE */
+        REPEAT;
+                CALL GETLINE;
+
+                IF (A::[EOF]) ZERO RETURN;
+                IF  (A=PRNTLIN(24)-3BH) ZERO CALL PRINTALINE/* COMMENT */;
+         UNTIL (A=PRNTLIN(24);A::3BH) !ZERO;
+         C=6;   HL=.OP;
+         REPEAT; M(HL)=0;        HL=HL+1;        UNTIL (C=C-1) ZERO;
+         C=7;   HL=.LABELL;
+         REPEAT; M(HL)=0;        HL=HL+1;        UNTIL (C=C-1) ZERO;
+         HL=.PRNTLIN(24);        DE=.LABELL;     C=8;
+         DO WHILE (A=M(HL); A::21H) !CY
+                &  (A::3AH) !ZERO
+                &  (C=C-1) !ZERO;
+                /*  IE WHILE NOT CONTROL CHAR, BLANK, COLON OR TOO LONG*/
+                M(DE)=A;
+                HL=HL+1;         DE=DE+1;
+         END;
+         IF (A::3AH)!ZERO & (A::20H) !ZERO & (A::[TAB]) !ZERO THEN DO;
+                /*  LABEL TOO LONG OR IMPROPER TERMINATION */
+                CALL SYNERR;
+                DO  WHILE(A=M(HL);A::21H) !CY & (A::3AH)!ZERO;
+                        HL=HL+1;         /* SCAN TO BREAK */
+                END;
+         END;
+         IF (A::3AH)ZERO THEN HL=HL+1;   /* IGNORE COLON */
+         DO WHILE(A=M(HL);A::20H) ZERO \ (A::[TAB]) ZERO;        HL=HL+1;        END;
+         DE=.OP; C=7;
+         DO WHILE(A=M(HL); A::21H) !CY & (C=C-1) !ZERO;
+                M(DE)=A;
+                HL=HL+1;         DE=DE+1;
+         END;
+         IF(A::20H)!ZERO & (A::[TAB])!ZERO &(A::[CR])!ZERO THEN DO;
+                CALL SYNERR;
+                DO  WHILE(A=M(HL);A::21H)!CY;    HL=HL+1;        END;
+         END;
+         DO WHILE(A=M(HL);A::20H) ZERO \ (A::[TAB]) ZERO;        HL=HL+1;        END;
+         RANDLOC=HL;    /*  SAVE ADDRESS OF OPERANDS */
+END;
+
+FINDOP:PROCEDURE;
+        /* EACH ENTRY IN OTAB HAS FORMAT
+        CHARS, 0, OPVALUE(1),OPERAND-TABLE-ADDRESS(2)            */
+        DECLARE FOUND LABEL;
+        HL=.OTAB;
+        REPEAT;
+                DE=.OP;
+                DECLARE NEQ LABEL;
+                REPEAT;
+                        IF(A=M(DE) - M(HL))  !ZERO GOTO NEQ;
+                        A=M(HL)\A;
+                        HL=HL+1;        DE=DE+1;
+                UNTIL /* A */ ZERO;
+                GOTO FOUND;
+        NEQ:    DO WHILE (A=M(HL)\A) !ZERO;     HL=HL+1;         END;
+                HL=HL+(DE=4);
+        UNTIL (A=M(HL)\A) ZERO;
+FOUND:  /* HL -> CODE BYTE */
+        OPCODE=(A=M(HL));
+        HL=HL+1;        E=M(HL);
+        HL=HL+1;        D=M(HL);
+        HL==DE; RANDLIST=HL;
+END;
+
+DECLARE OPCLASS BYTE;
+FINDRAND:PROCEDURE;
+        HL=RANDLIST;    HL==DE;
+        /* ENTRY IN OPERANT TABLES
+        STRING,0,ADDED-VALUE,TYPE       */
+        DO WHILE (A=M(DE); A::[RERROR])!ZERO;
+                IF  (A::81H /* RGO */)ZERO THEN DO;
+                        DE=DE+1;        L=(A=M(DE));
+                        OPCODE=(A=OPCODE+L);
+                        DE=DE+1;        L=(A=M(DE));
+                        DE=DE+1;        H=(A=M(DE));
+                        HL==DE;
+                END
+                ELSE DO;         /* SEE IF MATCHES ENTRY */
+                        DECLARE  NEQ LABEL;
+
+                         HL=RANDLOC;
+                         DO WHILE (A=M(DE)\A) !ZERO;
+                                 IF(A::M(HL))!ZERO GOTO NEQ;
+                                 HL=HL+1;        DE=DE+1;
+                         END;
+                         RANDLOC=HL;     /* RESUME FROM HERE LATER */
+                         DE=DE+1;        L=(A=M(DE));
+                         OPCODE=(A=OPCODE+L);
+                         DE=DE+1;        OPCLASS=(A=M(DE));
+                         RETURN;
+                 NEQ:    REPEAT; DE=DE+1;        UNTIL(A=M(DE)\A)ZERO;
+                         DE=DE+1,+1,+1;
+                 END;
+         END;
+         OPCLASS=(A=A-A);        /* ERROR CLASS */
+ END;
+
+ ASCTOHEX:PROCEDURE;     /*BC-> CHAR STRING, NUL TERMINATED */
+ ASCHX1:PROCEDURE;
+        A=A-30H;
+        IF(A::10) CY RETURN;
+        A=A-7;
+  END;
+        HL=0;
+        DO  WHILE (A=M(BC)\A) !ZERO;
+                HL=HL+HL,+HL,+HL,+HL;/* TIMES  16 */
+                CALL ASCHX1;
+                IF  (A::16; CY= !CY) CY RETURN;
+                L=(A=A+L);
+                BC=BC+1;
+        END;
+ END;
+
+ ASCTODEC:PROCEDURE;
+         HL=0;
+         DO WHILE (A=M(BC)\A) !ZERO;
+                 DE=HL; 
+                 HL=HL+HL,+HL,+DE,+HL;   /* TIMES 10 */
+                 A=A-30H;
+                 IF(A::10; CY=!CY) CY RETURN;
+                 E=A;    D=0;
+                 HL=HL+DE;
+                 BC=BC+1;
+         END;
+ END;
+
+ASCTOOCT:PROCEDURE;
+        HL=0;
+        DO WHILE(A=M(BC)\A)  !ZERO;
+                HL=HL+HL,+HL,+HL;       /* TIHES 6 */
+                A=A-30H;
+                IF(A::8; CY=!CY) CY RETURN;
+                L=(A=A+L);
+                BC=BC+1;
+        END;
+END;
+
+ASCTOBIN:PROCEDURE;
+        HL=0;
+        DO WHILE (A=M(BC)\A) !ZERO;
+                HL=HL+HL;       /* TIMES 2 */
+                A=A-30H;
+                IF(A::2; CY=!CY) CY RETURN;
+                L=(A=A+L);
+                BC=BC+1;
+        END;
+END;
+
+DECLARE LABELTAB([DEC 255*8]) BYTE INITIAL(0);
+DECLARE THISLABAD(2) BYTE;
+
+FINDLABEL:PROCEDURE;
+        DECLARE FOUND LABEL;
+        HL=.LABELTAB;
+        DO WHILE (A=M(HL)\A) !ZERO;
+                DECLARE NEQ LABEL;
+
+                 DE=.LABELL;
+                 C=6;    /* # CHARS IN LABEL */
+                 REPEAT;
+                         IF (A=M(DE)-M(HL))!ZERO GOTO NEQ;
+                         HL=HL+1;        DE=DE+1;
+                 UNTIL (C=C-1) ZERO;
+                 GOTO FOUND;
+         NEQ:    REPEAT; HL=HL+1;        UNTIL (C=C-1) ZERO;
+                 HL=HL+1,+1;
+         END;
+         /* NOT W  LABEL TABLE, INSERT HERE "/
+         DS=.LABELL;
+         C=6;
+         REPEAT;
+                 M(HL)=(A=M(DE));
+                 HL=HL+1;        DE=DE+1;
+         UNTIL (C=C-1) ZERO;
+         THISLABAD=HL;
+         M(HL)=81H;      HL=HL+1;        M(HL)=81H; ,   /* 8181H=UNINIALIZED */
+         HL=HL+1;        M(HL)=(A=A-A);  /*A=O, NOT FOUND */
+         RETURN;
+ FOUND:  THISLABAD=HL;
+         A=A\1;  /* A!= ZERO, FOUND */
+ END;
+
+ DECLARE ASMPC(2) BYTE INITIAL(0,0);
+ DECLARE COREIM(1024) BYTE;
+
+ GETNUMBER:PROCEDURE;
+         DECLARE NUMSTR(18) BYTE;
+         DECLARE EXIT LABEL;
+         HL=RANDLOC;     DE=.NUMSTR;     C=18;
+         DO WHILE (C=C-1) !ZERO
+                 & (A=M(HL); A::30H) !CY /* A >= '0' */
+                 & (A::50H) CY;  /* A < P */
+                 IF (A :: 3AH) !CY & (A :: 41H) CY THEN GOTO EXIT;
+                 M(DE)=A;
+                 HL=HL+1;        DE=DE+1;
+         END;
+ EXIT:
+         M(DE)=(A=A-A);
+         RANDLOC=HL;     DE=DE-1;        /* LAST CHAR */
+         IF (A=C; A::17) ZERO CALL SYNERR;       /* NO NUMBER */
+         A=M(DE);        BC=.NUMSTR;
+         IF (A::48H) ZERO THEN DO;
+                 M(DE)=(A=A-A);  CALL ASCTOHEX;  END
+         ELSE IF (A::4FH)ZERO THEN DO;
+                 M(DE)=(A=A-A);  CALL ASCTOOCT;  END
+         ELSE IF (A::42H) ZERO THEN DO;
+                 M(DE)=(A=A-A);  CALL ASCTOBIN;  END
+         ELSE CALL ASCTODEC;
+         /* HL = VALUE */
+END;
+
+GETNAMEVAL:PROCEDURE;
+        DECLARE EXIT LABEL;
+ERRUNDEF:PROCEDURE;
+        DE=.'UNDEFINED NAME IN EXPRESSION$';
+        CALL AERROR;
+END;
+        A=A-A;  C=6;    DE=.LABELL(6);
+                                              REPEAT;
+                DE=DE-1;        M(DE)=A;
+        UNTIL (C=C-1) ZERO;
+        HL=RANDLOC;     C=7;
+        DO WHILE (C=C-1)  !ZERO
+                & (A=M(HL); A::30H) !CY
+                & (A::5BH) CY;
+                IF (A::3AH) !CY & (A::41H) CY THEN GOTO EXIT;
+                M(DE)=A;
+                DE=DE+1;        HL=HL+1;
+        END;
+EXIT:   IF (A=C-6) ZERO THEN /* NO LEGAL IDENT FORCE ADVANCE */ HL=HL+1;
+        RANDLOC=HL; 
+        CALL FINDLABEL;
+        HL=THISLABAD;
+
+        IF (A=M(HL);    A::81H) ZERO
+                & (HL=HL+1; A::M(HL); HL=HL-1) ZERO THEN CALL ERRUNDEF;
+        A=M(HL);        HL=HL+1;
+        H=M(HL);        L=A;
+END;
+
+GETEXPR:PROCEDURE;
+        DECLARE OPERAND(2) BYTE,        OPIND BYTE,     SIGN BYTE;
+ASMERR:PROCEDURE;
+        DE=.'ASM874X ERROR CAUSED IN:$';
+        CALL AERROR;
+END;
+        OPERAND=(HL=0);
+        OPIND=(A=1);
+        SIGN=(A=2BH /* + */);
+        DO WHILE (HL=RANDLOC;   A=M(HL);        A::21H) !CY
+                & (A::2CH /* , */) !ZERO;
+                IF (A :: 2BH /* + */) ZERO \ (A::3EH /* > */) ZERO
+                        \(A::3CH /* < */)ZERO \(A::2DH /* - */) ZERO THEN DO;
+                        SIGN=A;
+                        A=OPIND;
+                        IF (A::2) ZERO THEN CALL SYNERR
+                        ELSE OPIND=(A=2);
+                        RANDLOC=(HL=HL+1);
+                END
+                ELSE DO;
+                        C=A;
+                        IF(A=OPIND \ A) ZERO CALL SYNERR;
+                        A=C;
+                        IF (A::24H /* $ */)ZERO THEN DO;
+                                RANDLOC=(HL=HL+1);       /* RESUME POINT */
+                                HL=ASMPC;
+                        END
+                        ELSE IF (A::27H /* ' */) ZERO THEN DO;
+                                HL=HL+1;        D=0;
+                                IF (A=M(HL);    E=A;    A::27H) !ZERO THEN DO;
+                                        HL=HL+1;
+                                        IF(A=M(HL);     A::27H) !ZERO CALL SYNERR;
+                                        RANDLOC=(HL=HL+1);
+                                END
+                                ELSE IF (HL=HL+1;       A=M(HL) -27H)!ZERO
+                                        \(HL=HL+1;      A=M(HL)-27H)!ZERO
+                                        THEN CALL SYNERR
+                                ELSE RANDLOC=(HL=HL+1);
+                                HL==DE;
+                        END
+                        ELSE IF (A::30H) CY THEN DO;
+                                RANDLOC=(HL=HL+1);      /* ENSURE SCAN ADVANCES*/
+                                CALL SYNERR;
+                        END
+                        ELSE IF (A::3AH) CY THEN DO;    /* A NUMBER */
+                                IF (CALL GETNUMBER) CY CALL SYNERR;
+                        END
+                        ELSE DO;
+                                CALL GETNAMEVAL;
+                        END;
+                        HL==DE;
+                        HL=OPERAND;
+                        OPIND=(A=A-A);
+                        A=SIGN;
+                        IF (A::2BH /* + */) ZERO THEN HL=HL+DE
+                        ELSE IF(A::2DH /* - */)ZERO THEN DO;
+                                L=(A=L-E);      H=(A=H--D);
+                        END
+                        ELSE IF (A::3EH /* > */) ZERO THEN DO;
+                                L=E;    H=0;
+                        END
+                        ELSE IF (A::3CH /* < */)ZERO THEN DO;
+                                L=D;    H=0;
+                        END
+                        ELSE CALL ASMERR;
+                        OPERAND=HL;
+               END;
+
+        END /* WHILE */;
+        IF (A=OPIND\A) !ZERO CALL SYNERR;
+                HL=OPERAND;     /* RETURN VALUE */
+
+                 A=H\A;  /* SET FLAGS */
+ END;
+
+ DECLARE OHEXPTR(2) BYTE;
+
+ PLANTCH:PROCEDURE;
+         STACK=HL;
+         HL=OHEXPTR;
+         M(HL)=A;
+         OHEXPTR=(HL=HL+1);
+         HL=STACK;
+ END;
+
+ BYTETOHEX:PROCEDURE;
+
+ RHEX:PROCEDURE;
+         A=#(A=#(A=A & 0FH, + 90H), ++40H);
+ END;
+
+ LHEX:PROCEDURE;
+         A=>(A=>(A=>(A=>A)));
+         CALL RHEX;
+
+ END;
+
+         STACK=PSW;
+         CALL LHEX;      CALL PLANTCH;
+         PSW=STACK;
+         CALL RHEX;      CALL PLANTCH;
+END;
+
+ ADDRTOHEX:PROCEDURE;
+         A=H;    CALL BYTETOHEX;
+         A=L;    CALL BYTETOHEX;
+         A=20H;  CALL PLANTCH;
+ END;
+
+EMIT1:PROCEDURE;         /* PUT A AT ASHPC IN COREIM */
+        HL=ASMPC+(DE=.COREIM);
+        M(HL)=A;
+        ASMPC=(HL=ASMPC+1);
+        CALL BYTETOHEX;
+        A=20H;  CALL  PLANTCH;
+END;
+
+ [MACRO SETDMA '26']     [MACRO WRITEF '21']
+ [INT TFCB]      [TFCB := 5CH]
+ PUTHEX:PROCEDURE;
+        HL=.COREIM;      D=8;   /* WRITE 8 SECTORS FROM COREIM */
+        REPEAT;
+                STACK=DE;       STACK=HL;
+                HL==DE;  C=[SETDMA];    CALL [BDOS];
+                DE=[TFCB];      C=[WRITEF];     CALL  [BDOS];
+                HL=STACK+(DE=80H);
+                DE=STACK;
+        UNTIL  (D=D-1) ZERO;
+ END;
+
+CLOSEHEX:PROCEDURE;
+        DE=[TFCB];      C=[CLOSEF];     CALL [BDOS];
+END;
+
+PASS1:PROCEDURE;
+
+INSERTLABEL:PROCEDURE;
+        CALL FINDLABEL;
+        IF ZERO THEN DO;        /* NEW LABEL */
+                HL=ASMPC;       HL==DE;
+                HL=THISLABAD;
+                M(HL)=E;        HL=HL+1;
+                M(HL)=D;
+        END
+        ELSE DO;
+                DE=.'DUPLICATED LABEL IN:$';
+                CALL AERROR;
+        END;
+END;
+
+ NERROR:PROCEDURE;
+         DE=.'UNRECOGNIZED OPERATION IN:$';
+         CALL AERROR;
+
+ END;
+
+ EQUSYNERR:PROCEDURE;
+         DE=.'EQUATE HAS NO LABEL$';
+         CALL AERROR;
+ END;
+         DECLARE TEMP(2) BYTE;
+ NXL:    CALL PARSELINE;
+         IF (A=PRNTLIN(24); A::[EOF]) ZERO RETURN;
+         IF (A=LABELL\A) !ZERO CALL INSERTLABEL;
+         CALL FINDOP;
+         CALL FINDRAND;
+         L=(A=OPCLASS);  H=0;
+         DO CASE HL;
+                 /*  O */ CALL NERROR;
+                 /*  1 IMMEDIATE */ ASMPC=(HL=ASMPC+1,+1);
+                 /*  2 BRANCH */  ASMPC=(HL=ASMPC+1,+1);
+                 /*  3 CALL/JUMP */       ASMPC=(HL=ASMPC+1,+1);
+                 /*  4 PSEUDO OPS */      DO;
+                         L=(A=OPCODE);   H=0;
+                         DO CASE HL;
+                                 /* O ORG */     DO;
+                                         CALL GETEXPR;
+                                         ASMPC=HL;
+                                 END;
+                                 /* 1 EQU */     DO;
+                                         TEMP=(HL=THISLABAD);
+                                         IF (A=LABELL\A) ZERO CALL EQUSYNERR;
+                                         CALL GETEXPR;   HL==DE;
+                                         HL=TEMP;
+                                         M(HL)=E;        HL=HL+1;
+                                         M(HL)=D;
+                                 END;
+                                 /* 2 DS */      DO;
+                                         CALL GETEXPR;   HL==DE;
+                                         ASMPC=(HL=ASMPC+DE);
+                                 END;
+                                 /* 3 DB */     ASMPC=(HL=ASMPC+1);
+                                 /* 4 PRINT ON */       NOP;
+                                 /* 5 PRINT OFF */      NOP;
+                         END;/* CASE */
+                END;
+                /* 5 SIMPLE OP  */       ASMPC=(HL=ASMPC+1);
+        END CASECLASS;
+        CALL PRINTALINE;
+        GOTO NXL;
+END PASS1;
+
+PASS2:PROCEDURE;
+        DECLARE TEMP(2) BYTE;
+
+MAGNITUDEERROR:PROCEDURE;
+        DE=.'VALUE TOO LARGE FOR FIELD (TRUNCATED):$';
+        CALL AERROR;
+END;
+
+PAGEERROR:PROCEDURE;
+        DE=.'JUMP DESTINATION NOT ON SAME PAGE:$';
+        CALL AERROR;
+END;
+
+        PASS=(A=1);
+NXL:    CALL PARSELINE;
+        OHEXPTR= (HL=.PRNTLIN);
+        HL=ASMPC;       CALL ADDRTOHEX;
+        IF (A=PRNTLIN(24); A::[EOF]) ZERO RETURN;
+        CALL FINDOP;
+        CALL FINDRAND;
+        L=(A=OPCLASS);  H=0;
+        DO CASE HL;
+                /* O ERROR */   NOP;    /* MESSAGE IN PASS 1 */
+                /* 1 IMMEDIATE */       DO;
+                        A=OPCODE;       CALL EMIT1;
+
+                         CALL GETEXPR;
+                         IF (A=H\A) !ZERO & (A=A+1) !ZERO THEN CALL MAGNITUDEERROR;
+                         A=L;    CALL EMIT1;
+                 END;
+                 /* 2 BRANCH ON CURRENT PAGE */  DO;
+                         A=OPCODE;       CALL EMIT1;
+                         CALL GETEXPR;
+                         IF (A=ASMPC(1)-H)  !ZERO CALL PAGEERROR;
+                         A=L;    CALL EMIT1;
+                 END;
+                 /* 3 CALL/JUMP */       DO;
+                         CALL GETEXPR;   STACK=HL;
+                         IF (A=H & 0F8H) !ZERO CALL MAGNITUDEERROR;
+                         D=(A=OPCODE);
+                         A=>>(A=>>(A=>>(A=H & 7))), +D;  CALL EMIT1;
+                         HL=STACK;       A=L;    CALL EMIT1;
+                 END;
+                 /* 4 PSUEDO OPS */      DO;
+                         L=(A=OPCODE);   H=0; 
+                         DO CASE HL;
+                                 /* O ORG */     DO;
+                                         CALL GETEXPR;   ASMPC=HL;
+                                         CALL ADDRTOHEX;
+                                 END;
+                                 /* 1 EQU */     NOP;
+                                 /* 2 DS */      DO;
+                                         CALL GETEXPR;   HL==DE;
+                                         ASMPC=(HL=ASMPC+DE);
+                                 END;
+                                 /* 3 DB */      DO;
+                                         CALL GETEXPR;
+                                         IF (A=H\A) !ZERO & (A=A+1) !ZERO THEN CALL MAGNITUDEERROR;
+                                         A=L;    CALL EMIT1;
+                                 END;
+                                 /* 4 PRINT ON */        LISTOPT= (A= 1);
+                                 /* 5 PRINT OFF */       LISTOPT=(A=A-A);
+                         END;
+                 END;
+                 /* 5 SIMPLE OP */       DO;
+                         A=OPCODE;       CALL EMIT1;
+                 END;
+        END  CASECLASS;
+        CALL PRINTALINE;
+        GOTO NXL;
+END;
+
+ZTFCB:PROCEDURE;
+        M([TFCB])=(A=A\\A);
+        M([HEX TFCB+12])=A;
+        M([HEX TFCB+15])=A;
+        M([HEX TFCB+32])=A;
+END;
+
+[MACRO CPM '0']
+
+OPENR:PROCEDURE;
+NOFILEERR:PROCEDURE;
+        DE=.'FILE DOES NOT EXIST, ASSEMBLY ABORTED$';
+        CALL PRMSG;
+GOTO [CPM];
+END;
+        CALL ZTFCB;
+        C=15;   DE=[TFCB];      CALL [BDOS];
+        IF (A=A+1) ZERO CALL NOFILEERR;
+        IBUFP=(A=128);
+        ASMPC=(HL=0);
+END;
+
+OPENHEX:PROCEDURE;
+CANTCREATEERR:PROCEDURE;
+        DE=.'UNABLE TO CREATE ,SCC FILE; ABORTING RUN$';
+        CALL PRMSG;
+GOTO [CPM];
+END;
+
+        CALL ZTFCB;
+
+        HL=[HEX TFCB+9];        DE=.'SCC';      /* NEW EXTENSION */
+        C=3;
+        REPEAT;
+                M(HL)=(A=M(DE));          HL=HL+1;        DE=DE+1;
+        UNTIL  (C=C-1) ZERO;
+        C=19;   DE=[TFCB];      CALL [BDOS];
+        C=22;   DE=[TFCB];      CALL [BDOS];
+        IF (A=A+1) ZERO CALL CANTCREATEERR;
+END;
+
+DECLARE LCLSTK(50) BYTE;
+SP=.LCLSTK(50);
+CALL OPENR;     CALL PASS1;
+CALL OPENR;     CALL PASS2;
+CALL OPENHEX;   CALL PUTHEX;    CALL CLOSEHEX;
+GOTO [CPM];
+EOF
+
