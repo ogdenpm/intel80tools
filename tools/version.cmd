@@ -42,7 +42,7 @@ set SCRIPTNAME=%0
 :: Console output only
 IF [%1] == [] GOTO START
 
-if /I [%~1] == [-v] (echo %0: Rev 10 -- git 128c157 [2020-09-20]) & goto :eof
+if /I [%~1] == [-v] (echo %0: Rev 11 -- git 77ddd0f [2020-09-20]) & goto :eof
 IF "%~1" == "-h" GOTO USAGE
 :optloop
 IF "%~1" == "-q" SET fQUIET=1& SHIFT & goto :optloop
@@ -249,7 +249,7 @@ ECHO #define GIT_YEAR        "%GIT_CTIME:~,4%">>"%HEADER_OUT_FILE%"
 ECHO #endif>>"%HEADER_OUT_FILE%"
 ) ELSE (
 ECHO namespace GitVersionInfo {>>"%HEADER_OUT_FILE%"
-ECHO   public class VersionInfo {>>"%HEADER_OUT_FILE%"
+ECHO   public partial class VersionInfo {>>"%HEADER_OUT_FILE%"
 ECHO     public const string GIT_APPNAME    = "%GIT_APPNAME%";>>"%HEADER_OUT_FILE%"
 ECHO     public const string GIT_VERSION    = "%GIT_VERSION%";>>"%HEADER_OUT_FILE%"
 ECHO     public const string GIT_VERSION_RC = "%GIT_VERSION_RC:,=.%";>>"%HEADER_OUT_FILE%"

@@ -118,7 +118,8 @@ usage: install.cmd file_with_path installRoot [configFile]
        configFile defaults to installRoot\install.cfg
 
 install.cfg contains lines of the form type,dir[,suffix]
-  Where type immediate parent directory name of the file to copy
+  Where type is the closest parent directory ending in debug or release on the path
+  to the name of the file to copy. The test is case insenitive.
   dir is the directory to install to; a leading + is replaced by installRoot
   suffix is inserted into the installed filename just before the .exe extension
   In both dir & suffix a $d is replaced by the current local date string in format yyyymmdd
@@ -396,6 +397,12 @@ Updated the packed source file (*directory*_all.src) in the current directory wi
 repack.pl
 ```
 
+### revisions.cmd
+
+Shows revisions of not executable files with respect to the current repository.
+
+Note external tools copies in from other repositories are likely to have different revisions numbers e.g. revisions.cmd, install.cmd and version.cmd come from the versionTools repository
+
 ### unpack.exe, unpack.pl
 
 These two files support extracting files form a packed source file. The perl variant will not extract the file if the contents are unchanged, this helps with makefiles as it reduces the number of rebuilds.
@@ -427,11 +434,14 @@ usage: version [-h] | [-q] [-f] [-a appid] [CACHE_PATH OUT_FILE]
 
  Example pre-build event:
  CALL $(SolutionDir)scripts\version.cmd "Generated" "Generated\version.h"
+ 
+ Note if the OUT_FILE ends in .cs an C# version information file is created otherwise
+ a C/C++ header file is generated.
 ```
 
 ------
 
 ```
-Updated by Mark Ogden 18-Sep-2020 
+Updated by Mark Ogden 20-Sep-2020 
 ```
 
