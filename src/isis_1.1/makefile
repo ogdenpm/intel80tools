@@ -1,7 +1,7 @@
 # path to root of build tree
 ROOT := ../..
 TARGETS := format delete isis.cli attrib dir rename copy hexbin\
-   		   isis.t0 isis.bin edit
+   		   isis.t0 isis.bin edit as80
 
 include $(ROOT)/tools/isis.mk
 
