@@ -1210,7 +1210,7 @@ int main(int argc, char **argv)
     C_PRINT = 1;
     C_RIGHTMARG = 80;
     C_SYMBOLS = 0;
-    C_TERMINAL = 0;    /* changed from original 1 */
+    C_TERMINAL = 1; 
     C_USYMBOL = 7;
     C_VWIDTH = 72;
     C_WIDTH = 132;    /* changed from original 132 */
