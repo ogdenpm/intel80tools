@@ -1208,7 +1208,7 @@ int main(int argc, char **argv)
     C_MEMORY = 1;
     C_OUTPUT = 2;    /* changed from original 1 */
     C_PRINT = 1;
-    C_RIGHTMARG = 80;
+    C_RIGHTMARG = 120;
     C_SYMBOLS = 0;
     C_TERMINAL = 1; 
     C_USYMBOL = 7;
