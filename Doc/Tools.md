@@ -310,32 +310,6 @@ both address and value are in hex and the filetopatch is assumed to be load ax 1
 The file is extended if necessary
 ```
 
-### plm81.exe, plm82.exe
-
-These two programs are my port of the Fortran based PL/M compiler to C. Although based on the V2 compiler, some of the patches from V4 have been incorporated to fix invalid code generation.
-
-In addition both compilers now accept the name.plm as a file to compile, the old way of using fort.n is also still supported. This change allows for parallel compilation. If plm82 requires $ config information this will be read from name.cfg is present or fort.1. It is no longer an error for neither file to exist.
-Note name is not restricted to the ISIS 6 character alphanumeric limit.
-
-When name.plm is specified, the intermediate files from plm81 are name.pol and name.sym, the file name.lst also contains the concatenation of the two listing files from plm81 and plm82, hence both should use the same name parameter or both omit it. Hex output is stored in name.hex.
-
-The other change is that the message previously written to fort.1 by plm82 is now written to the console. This is message re-errors.
-
-```
-Usage: 	 plm81 file.plm					or	[mv | move] file.plm fort.2
-										    plm81
-										   	[mv | move] fort.16 fort.4
-										    [mv | move] fort.17 fort.7
-										    [mv | move] fort.12 fort.12a
-		plm82 file.plm					    plm82
-										    [mv | move] fort.17 file.hex
-										    [cat fort.12a fort.12 >file.lst |
-										     copy /Y fort.12a+fort.12 file.lst]
-cleanup: [del|rm] file.pol file.sum 		[rm | del] fort.*
-
-Note plm81 and plm82 also support -v & -V which show version information and provide simple help
-```
-
 ### plmpp.exe
 
 Only PL/M v4 supports a pre-processor. This utility provides a pre-processor for older versions of PL/M.
@@ -442,6 +416,6 @@ usage: version [-h] | [-q] [-f] [-a appid] [CACHE_PATH OUT_FILE]
 ------
 
 ```
-Updated by Mark Ogden 20-Sep-2020 
+Updated by Mark Ogden 26-Sep-2020 
 ```
 
