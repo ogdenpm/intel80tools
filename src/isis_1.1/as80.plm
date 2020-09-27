@@ -38,7 +38,7 @@
             LOWWD BASED LOW$P ADDRESS,
             HIGHWD BASED HIGH$P ADDRESS;
     DECLARE (B3808, B3809) BYTE, B380A BYTE, B380B(7) BYTE;
-    DECLARE (W3812, W3814) ADDRESS, PAD3816 BYTE;
+    DECLARE (PC, W3814) ADDRESS, PAD3816 BYTE;
     DECLARE (B3817, ACTION, B3819) BYTE,
             (TOKID, B381B, RADIX, B381D) BYTE,
             (LINECOL, LINEEND, PAGEWIDTH, ROWCNT) BYTE,
@@ -696,12 +696,12 @@
         TOKEN$TYPE = 0;
         B380A = 0;
         B380B(0) = 0;
-        W3812 = 0;
+        PC = 0;
         RECADDR = 0;
         B381B = CR;
         B37E9 = 16;
         CALL PUSHCODE(2);
-        W3812 = 0;
+        PC = 0;
         RECADDR = 0;
         w3912 = (TOKEN$P(0) := .B3972) + 66;
         B3817 = 1;
@@ -731,7 +731,7 @@ LOOP:
                         CALL POP$TOKEN;
                 END;
                 ELSE DO;
-                    W396C = W3812;
+                    W396C = PC;
                     CALL SUB27EE(2, 1);
                 END;
                 GOTO LOOP;
@@ -746,8 +746,8 @@ LOOP:
             END;
             DO;                         /* CASE 6 $ */
                 CALL PUSH$TOKEN(7);
-                CALL ADDCH$TOKEN(LOW(W3812));
-                CALL ADDCH$TOKEN(HIGH(W3812));
+                CALL ADDCH$TOKEN(LOW(PC));
+                CALL ADDCH$TOKEN(HIGH(PC));
                 GOTO COLLECTLOOP;
             END;
             DO;                         /* CASE 7 QUOTE */
@@ -877,10 +877,10 @@ DOLINE:
             END;    /* PASS 3 */
             IF PASS = 2 THEN DO;
                 MID$P = .B3972;
-                IF RECADDR + RECLEN <> W3812 OR B37EC THEN DO;
+                IF RECADDR + RECLEN <> PC OR B37EC THEN DO;
                     IF RECLEN > 0 THEN
                         CALL WRITEHEXREC$HEX(0);
-                    RECADDR = W3812;
+                    RECADDR = PC;
                 END;
                 DO WHILE MID$P < REF$P; 
                     IF RECLEN = B37E9 THEN DO;
@@ -893,7 +893,7 @@ DOLINE:
                 IF B37EC THEN
                     CALL WRITEHEXREC$HEX(1);
             END;     /* PASS 2 */
-            W3814, W3812 = W3812 + REF$P - .B3972;
+            W3814, PC = PC + REF$P - .B3972;
             B381D = 0;
             B37C7 = 0;
             ERRORCH = ' ';
@@ -948,15 +948,15 @@ CASE$3: DO;                     /* CASE 3 */
         END;
         DO;                         /* CASE 19 */
             B381D = 1;
-            W3812 = W3812 + VALUE2(0);
+            PC = PC + VALUE2(0);
             GOTO DOLINE;
         END;
         B3819 = 6;                  /* CASE 20 */
         DO;                         /* CASE 21 */
-            W3812 = 0;
+            PC = 0;
             VALUE1(0) = 0;
             IF TOKENCNT > 0 THEN
-                W3812 = SUB2992;
+                PC = SUB2992;
             B381D = 1;
             B37EC = 1;
             B37D4 = 0;
@@ -978,7 +978,7 @@ CASE$3: DO;                     /* CASE 3 */
         ;                           /* CASE 28 */
         DO;                         /* CASE 29 */
             B381D = 1;
-            W3812 = VALUE1(0);
+            PC = VALUE1(0);
         END;
         DO;                         /* CASE 30 */
             IF LOOKUP(1) <> 4 AND TOKEN$TYPE <> 0 THEN
