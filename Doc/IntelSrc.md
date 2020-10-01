@@ -39,6 +39,14 @@ asm80.ov5 	is the large memory version without macro support
 asxref	  	is the asm cross reference utility
 ```
 
+### edasm_1.1
+
+Decompilation of Intel's ROM based editor/assembler for 8085.
+
+Note there are a couple of patches to work around code generation differences between the compiler used for the original build and the compilers I have available. The source code has the comments to the changes.
+
+In one case the original compiler had a slightly better optimisation and in the other the compilers I have were better. The code was equivalent in both cases, but I used patching to prevent all the other code shifting.
+
 ### fpal_2.1
 
 This is version 2.1 of intels fpal.lib file. This has so far only been partially documented
@@ -148,5 +156,5 @@ Some examples of differences are
 ------
 
 ```
-Updated by Mark Ogden 15-Sep-2020
+Updated by Mark Ogden 1-Oct-2020
 ```
