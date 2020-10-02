@@ -14,8 +14,8 @@
                              CR, LF, '0 BLOCK');
     DECLARE PAGEHEADER DATA(0, LF, '16K ISIS 8080 ASSEMBLER, V1.0',
                             TAB, TAB, TAB, 'PAGE ', CR, LF, LF, LF, TAB, TAB, 0);
-    DECLARE VALUE1(0) ADDRESS, VAL1B(0) BYTE, (VAL1LOW, VAL1HIGH) BYTE,
-            VALUE2(0) ADDRESS, (VAL2LOW, VAL2HIGH) BYTE, PAD3760 BYTE;
+    DECLARE ACCUM1(0) ADDRESS, ACC1B(0) BYTE, (ACC1LOW, ACC1HIGH) BYTE,
+            ACCUM2(0) ADDRESS, (ACC2LOW, ACC2HIGH) BYTE, PAD3760 BYTE;
     DECLARE BUFFER(80) BYTE,
             ERRCNT BYTE,
             STATUS ADDRESS,
@@ -23,12 +23,13 @@
             (IN$NAME, LST$NAME) ADDRESS,
             (AFTIN, AFTHEX, AFTLST) ADDRESS,
             (BUFFER$PTR, MEMORY$P, ITABLE$P) ADDRESS;
-    DECLARE (B37C6, B37C7, B37C8, B37C9, B37CA, B37CB) BYTE,
-            (B37CC, B37D4)(8) BYTE,
+            /* B37C8 IS REFERENCED BUT NOT SET - TREAT AS ZERO */
+    DECLARE (NUMTMP, WORDOPERAND, B37C8, HAVETITLE, CUR$OP$FLAGS, IFDEPTH) BYTE,
+            (IFSTATE, SKIPIF)(8) BYTE,
             (SYMTAB$END, SYMTAB)(2) ADDRESS,
-            (W37E4, W37E6) ADDRESS,
-            (PASS, B37E9) BYTE,
-            (RECLEN, CHECKSUM, B37EC) BYTE,
+            (ENDRAM, SYMHIGHMARK) ADDRESS,
+            (PASS, MAXRECLEN) BYTE,
+            (RECLEN, CHECKSUM, ENDSEEN) BYTE,
             RECBUF(17) BYTE,
             RECADDR ADDRESS;
     DECLARE (REF$P, MID$P, HIGH$P, LOW$P) ADDRESS,
@@ -37,20 +38,20 @@
             MIDSYM BASED MID$P (8) BYTE,
             LOWWD BASED LOW$P ADDRESS,
             HIGHWD BASED HIGH$P ADDRESS;
-    DECLARE (B3808, B3809) BYTE, B380A BYTE, B380B(7) BYTE;
-    DECLARE (PC, W3814) ADDRESS, PAD3816 BYTE;
-    DECLARE (B3817, ACTION, B3819) BYTE,
-            (TOKID, B381B, RADIX, B381D) BYTE,
+    DECLARE (II, JJ) BYTE, OPSP BYTE, OPSTACK(7) BYTE;
+    DECLARE (PC, ADDR) ADDRESS, PAD3816 BYTE;
+    DECLARE (NEWACTION, ACTION, NEXT$TOK$TYPE) BYTE,
+            (TOKID, LASTCHREAD, RADIX, SHOWADDR) BYTE,
             (LINECOL, LINEEND, PAGEWIDTH, ROWCNT) BYTE,
             PAGENO ADDRESS,
             LINEBUF(120) BYTE, TITLE(66) BYTE,  TITLELEN BYTE;
-    DECLARE (B38DF, ERRORCH, TOKENCNT) BYTE,
+    DECLARE (GETNEW, ERRORCH, TOKENCNT) BYTE,
             (TOKEN$P, SYM$P)(8) ADDRESS,
             TOKEN BASED TOKEN$P (8) BYTE,
             SYM BASED SYM$P (8) BYTE,
             SYMWD BASED SYM$P (4) ADDRESS,
             (TOKEN$TYPE, TOKEN$LEN)(8) BYTE,
-            W3912 ADDRESS;
+            END$WORKBUF$P ADDRESS;
 
 
     ISIS: PROCEDURE(CMD, PARAM$P);
@@ -135,8 +136,8 @@
         OFFSET = 0;
         IF N = 4 THEN
             OFFSET = 2;
-        DO B3808 = 0 TO N - 1;
-            IF BUF(B3808) <> KEYWORDS(B3808 + OFFSET) THEN DO;
+        DO II = 0 TO N - 1;
+            IF BUF(II) <> KEYWORDS(II + OFFSET) THEN DO;
                 STATUS = 0CBH;
                 CALL CHECKSTATUS;
             END;
@@ -270,10 +271,10 @@
     END;
 
 
-    SUB2115: PROCEDURE;
+    DOPASS: PROCEDURE;
         RECORDERROR: PROCEDURE(CH);
             DECLARE CH BYTE;
-            IF NOT ROR(B37D4,1) AND ERRORCH = ' ' THEN DO;
+            IF NOT ROR(SKIPIF(0),1) AND ERRORCH = ' ' THEN DO;
                 ERRORCH = CH;
                 IF PASS = 3 OR PASS = 2 THEN
                     ERRCNT = ERRCNT + 1;
@@ -321,66 +322,66 @@
             CALL WRITECH$HEX(LF);
             CHECKSUM = 0;
             RECLEN = 0;
-            B37E9 = 16;
+            MAXRECLEN = 16;
         END; 
                 
 
-        SUB2233: PROCEDURE(CODE);
+        MKCODE: PROCEDURE(CODE);
             DECLARE CODE BYTE;
             
             IF (CODE AND 3) <> 0 THEN DO;
-                IF VAL2HIGH <> 0 OR VAL2LOW > 7 OR (CODE AND VAL2LOW)
-                   OR ((CODE AND 3) = 3 AND VAL2LOW > 2) THEN DO;
-                    VAL2LOW = 0;
+                IF ACC2HIGH <> 0 OR ACC2LOW > 7 OR (CODE AND ACC2LOW)
+                   OR ((CODE AND 3) = 3 AND ACC2LOW > 2) THEN DO;
+                    ACC2LOW = 0;
                     CALL RECORDERROR('R');
                 END;
 
                 IF ROR(CODE, 2) THEN
-                    VAL2LOW = ROL(VAL2LOW, 3);
+                    ACC2LOW = ROL(ACC2LOW, 3);
 
-                VAL1LOW = VAL1LOW OR VAL2LOW;
+                ACC1LOW = ACC1LOW OR ACC2LOW;
             END;
             IF SHR(CODE, 3) THEN
-                IF VAL2HIGH + 1 > 1 THEN
+                IF ACC2HIGH + 1 > 1 THEN
                     CALL RECORDERROR('V');
 
             IF (ACTION := SHR(CODE, 4) + 22H) = 22H THEN DO;
-                IF VAL1HIGH > 0 THEN
+                IF ACC1HIGH > 0 THEN
                     CALL RECORDERROR('V');
-                B3819 = 6;
+                NEXT$TOK$TYPE = 6;
             END;
         END;
 
-        /* PUSH / POP ROUTINES */
-        /* LOCATION 0 HOLDS THE CURRENT VALUE1(0) */
+        /* NESTIF / UNNESTIF ROUTINES */
+        /* LOCATION 0 HOLDS THE CURRENT ACCUM1(0) */
         /* PUSH COPIES CURRENT TO END OF LIST */
         /* POP COPIES END OF LIST TO CURRENT */
-        POPCODE: PROCEDURE(CODE);
-            DECLARE CODE BYTE;
+        UNNESTIF: PROCEDURE(STATE);
+            DECLARE STATE BYTE;
 
-            IF CODE <> B37CC THEN DO;
-                CALL RECORDERROR((CODE = 0FFH AND 5) + 'N');
-                IF B37CB > 1 THEN
-                    B37CB = 2;
+            IF STATE <> IFSTATE(0) THEN DO;
+                CALL RECORDERROR((STATE = 0FFH AND 5) + 'N');
+                IF IFDEPTH > 1 THEN
+                    IFDEPTH = 2;
             END;
-            IF B37CB > 1 THEN DO;
-                B37D4(0) = B37D4(B37CB);
-                B37CC(0) = B37CC(B37CB);
-                B37CB = B37CB - 1;
+            IF IFDEPTH > 1 THEN DO;
+                SKIPIF(0) = SKIPIF(IFDEPTH);
+                IFSTATE(0) = IFSTATE(IFDEPTH);
+                IFDEPTH = IFDEPTH - 1;
             END;
         END;
 
 
-        PUSHCODE: PROCEDURE(CODE);
-            DECLARE CODE BYTE;
-            IF B37EC THEN
+        NESTIF: PROCEDURE(STATE);
+            DECLARE STATE BYTE;
+            IF ENDSEEN THEN
                 RETURN;
-            IF (B37CB := B37CB + 1) >= 8 THEN
-                CALL POPCODE(0FFH);
+            IF (IFDEPTH := IFDEPTH + 1) >= 8 THEN
+                CALL UNNESTIF(0FFH);
             ELSE DO;
-                B37D4(B37CB) = B37D4(0);
-                B37CC(B37CB) = B37CC(0);
-                B37CC(0) = CODE;
+                SKIPIF(IFDEPTH) = SKIPIF(0);
+                IFSTATE(IFDEPTH) = IFSTATE(0);
+                IFSTATE(0) = STATE;
             END;
         END;
 
@@ -392,12 +393,12 @@
             MID$P = SYMTAB(1);
             DO WHILE MID$P < SYMTAB$END(1);
                 IF PASS = 3 THEN DO;
-                    IF (B3808 := (B3808 + 1) AND 3) = 1 THEN DO;
+                    IF (II := (II + 1) AND 3) = 1 THEN DO;
                         CALL PUTCH$LST(CR);
                         CALL PUTCH$LST(LF);
                     END;
-                    DO B3809 = 0 TO 4;
-                        CALL PUTCH$LST(MIDSYM(B3809));
+                    DO JJ = 0 TO 4;
+                        CALL PUTCH$LST(MIDSYM(JJ));
                     END;
 
                     CALL PUTCH$LST(' ');
@@ -410,8 +411,8 @@
                 ELSE DO;
                     CALL WRITECH$HEX('0');
                     CALL WRITECH$HEX(' ');
-                    DO B3809 = 0 TO 4;
-                        CALL WRITECH$HEX(MIDSYM(B3809));
+                    DO JJ = 0 TO 4;
+                        CALL WRITECH$HEX(MIDSYM(JJ));
                     END;
                     CALL WRITECH$HEX(' ');
                     CALL WRITECH$HEX('0');
@@ -433,15 +434,15 @@
             END;
         END;
 
-        SUB24A2:  PROCEDURE BYTE;
-            IF B38DF <> 0 THEN DO;
-                DO WHILE (B381B := READCH) = 0 OR B381B = 07FH;
+        GETCH:  PROCEDURE BYTE;
+            IF GETNEW <> 0 THEN DO;
+                DO WHILE (LASTCHREAD := READCH) = 0 OR LASTCHREAD = 07FH;
                 END;
                 IF PASS = 3 THEN
-                    CALL PUTCH$LST(B381B);
+                    CALL PUTCH$LST(LASTCHREAD);
             END;
-            B38DF = 1;
-            RETURN TOKID := B381B;
+            GETNEW = 1;
+            RETURN TOKID := LASTCHREAD;
         END; 
 
         /* CLASSIFY CHARACTER READ */
@@ -461,13 +462,13 @@
                                  0,   0,   0,   0,   0,   0,   0,   0,
                                  1,   0,   6, 70h, 55h, 55h, 55h, 50h,
                                88h, 88h, 88h, 88h, 88h, 23h,   0,   0);
-            IF SUB24A2 > 7AH THEN
+            IF GETCH > 7AH THEN       /* LOWER Z */
                 RETURN 0;
-            IF TOKID > 60H THEN
+            IF TOKID > 60H THEN         /* LOWER A - Z */
                 RETURN 9;
-            IF TOKID > 5AH THEN
+            IF TOKID > 5AH THEN         /* > Z */
                 RETURN 0;
-            IF TOKID > 3EH THEN
+            IF TOKID > 3EH THEN         /* @ - Z */
                 RETURN 9;
             RETURN GETNIBBLEAT(.TABLE, TOKID);
         END; 
@@ -492,7 +493,7 @@
 
         ADDCH$TOKEN: PROCEDURE(CH);
             DECLARE CH BYTE;
-            IF TOKEN$P(0) + TOKEN$LEN(0) < W3912 THEN DO;
+            IF TOKEN$P(0) + TOKEN$LEN(0) < END$WORKBUF$P THEN DO;
                 TOKEN(TOKEN$LEN) = CH;
                 TOKEN$LEN = TOKEN$LEN + 1;
             END;
@@ -510,18 +511,18 @@
         END;
 
 
-        SUB262A: PROCEDURE(NEW$TOKEN$TYPE);
+        GETID: PROCEDURE(NEW$TOKEN$TYPE);
             DECLARE NEW$TOKEN$TYPE BYTE;
 
             CALL PUSH$TOKEN(NEW$TOKEN$TYPE);
-            B38DF = B38DF - 1;
+            GETNEW = GETNEW - 1;
 
             DO WHILE CLASSIFY > 7;
                 IF TOKID > 40H THEN
                     TOKID = TOKID AND 0DFH;
                 CALL ADDCH$TOKEN(TOKID);
             END;
-            B38DF = B38DF - 1;
+            GETNEW = GETNEW - 1;
         END;
 
         PRECEDENCE: PROCEDURE(N) BYTE;
@@ -537,7 +538,7 @@
         /* SYMBOLS ARE STORED AS 8 BYTE ENTRIES
            NAME(5) BYTE,
            TYPE BYTE,
-           VALUE1(0) ADDRESS
+           ACCUM1(0) ADDRESS
         */
         LOOKUP: PROCEDURE(TABLEID) BYTE;
             DECLARE TABLEID BYTE;
@@ -558,11 +559,11 @@
                         IF TOKEN$LEN = 5 OR MIDCH = ' ' THEN DO;
                             SYM$P(0) = MID$P - TOKEN$LEN;
                             TOKEN$TYPE = SYM(5);
-                            IF TOKEN$TYPE = 2AH OR TOKEN$TYPE = 22H OR
-                               TOKEN$TYPE = 13H OR TOKEN$TYPE = 14H OR
-                               TOKEN$TYPE = 18H OR TOKEN$TYPE = 1DH OR
-                               TOKEN$TYPE = 1EH THEN
-                                B37C7 = 1;
+                            IF TOKEN$TYPE = 2AH OR TOKEN$TYPE = 22H OR  /* IMM16, LXI */
+                               TOKEN$TYPE = 13H OR TOKEN$TYPE = 14H OR  /* DS DW */
+                               TOKEN$TYPE = 18H OR TOKEN$TYPE = 1DH OR  /* EQU ORT */
+                               TOKEN$TYPE = 1EH THEN                    /* SET */
+                                WORDOPERAND = 1;
                             RETURN TOKEN$TYPE;
                         END;
                         ELSE GOTO BREAK;
@@ -582,18 +583,18 @@
 
         DECLARE W396C ADDRESS;
 
-        SUB27EE: PROCEDURE(NEWTYPE, N);
+        INSERTSYM: PROCEDURE(NEWTYPE, N);
             DECLARE (NEWTYPE, N) BYTE, I BYTE;
             IF TOKENCNT <> 1 THEN
                 CALL RECORDERROR('F');
             ELSE DO;
                 IF TOKEN$TYPE = 0 THEN DO;
-                    IF (HIGH$P := (LOW$P := W37E6) + 8) >= W37E4 THEN DO;
+                    IF (HIGH$P := (LOW$P := SYMHIGHMARK) + 8) >= ENDRAM THEN DO;
                         CALL RECORDERROR('T'); 
                         GOTO DONE;
                     END;
                     ELSE DO;
-                        W37E6 = HIGH$P;
+                        SYMHIGHMARK = HIGH$P;
                         SYMTAB$END(N) = SYMTAB$END(N) + 8;
                         DO WHILE LOW$P >= SYM$P;
                             HIGHWD = LOWWD;
@@ -624,8 +625,8 @@
             END;
         END;
 
-        SUB2992: PROCEDURE ADDRESS;
-            VALUE1 = 0;
+        GETNUMVAL: PROCEDURE ADDRESS;
+            ACCUM1 = 0;
             IF TOKENCNT < 1 THEN
                 CALL RECORDERROR('F');
             ELSE DO;
@@ -642,38 +643,38 @@
                     END;
                     ELSE IF TOKEN$LEN > 2 THEN
                         CALL RECORDERROR('V');
-                    VAL1LOW = TOKEN(0);
+                    ACC1LOW = TOKEN(0);
                     IF TOKEN$LEN > 1 THEN
-                        VAL1HIGH = TOKEN(1);
+                        ACC1HIGH = TOKEN(1);
                     /* SEE IF NEED TO SWAP HIGH AND LOW BYTES */
-                    IF TOKEN$TYPE = 5 AND B37C7 AND TOKEN$LEN = 2 THEN DO;
-                        B37C6 = VAL1LOW;
-                        VAL1LOW = VAL1HIGH;
-                        VAL1HIGH = B37C6;
+                    IF TOKEN$TYPE = 5 AND WORDOPERAND AND TOKEN$LEN = 2 THEN DO;
+                        NUMTMP = ACC1LOW;
+                        ACC1LOW = ACC1HIGH;
+                        ACC1HIGH = NUMTMP;
                     END;
                 END;
             CALL POP$TOKEN;
             END;
-            RETURN VALUE1(0);
+            RETURN ACCUM1(0);
         END;
 
-        DECLARE B3972(66) BYTE;
+        DECLARE WORKBUF(66) BYTE;
                 
 
         IF PASS = 2 THEN
             CALL WRITESYM$HEX;
-        B37C7 = 0;
-        B37C9 = 0;
-        B37D4 = 0;
-        W3814 = 0;
-        B381D = 0;
+        WORDOPERAND = 0;
+        HAVETITLE = 0;
+        SKIPIF(0) = 0;
+        ADDR = 0;
+        SHOWADDR = 0;
         ERRCNT = 0;
         SYMTAB(0) = ITABLE$P;
         SYMTAB$END(0) = MEMORY$P;
         IF PASS = 1 THEN DO;
-            W37E4 = MEMCHK + 250;
+            ENDRAM = MEMCHK + 250;          /* USE THE MONITOR RAM ASWELL */
             SYMTAB(1), SYMTAB$END(1) = MEMORY$P + 2;
-            W37E6 = SYMTAB$END(0);
+            SYMHIGHMARK = SYMTAB$END(0);    /* NO SYMBOLS YET */
             TITLELEN = 0;
         END;
         IF PASS = 3 THEN DO;
@@ -688,30 +689,30 @@
         ERRORCH = ' ';
         RECLEN = 0;
         CHECKSUM = 0;
-        B37EC = 0;
-        B38DF = 0;
+        ENDSEEN = 0;
+        GETNEW = 0;
         TOKENCNT = 0;
-        B37CB = 0;
+        IFDEPTH = 0;
         TOKEN$LEN = 0;
         TOKEN$TYPE = 0;
-        B380A = 0;
-        B380B(0) = 0;
+        OPSP = 0;
+        OPSTACK(0) = 0;
         PC = 0;
         RECADDR = 0;
-        B381B = CR;
-        B37E9 = 16;
-        CALL PUSHCODE(2);
+        LASTCHREAD = CR;
+        MAXRECLEN = 16;
+        CALL NESTIF(2);
         PC = 0;
         RECADDR = 0;
-        w3912 = (TOKEN$P(0) := .B3972) + 66;
-        B3817 = 1;
+        END$WORKBUF$P = (TOKEN$P(0) := .WORKBUF) + 66;
+        NEWACTION = 1;
 
 
 COLLECTLOOP:
-        IF B3817 = 0 THEN
+        IF NEWACTION = 0 THEN
             CALL RECORDERROR('E');
 
-        B3817 = 0;
+        NEWACTION = 0;
 LOOP:
         DO CASE CLASSIFY;
             DO;                         /* CASE 0 ILLEGAL */
@@ -725,14 +726,14 @@ LOOP:
                 TOKID = 1;
             END;
             DO;                         /* CASE 3 COLON */
-                B3817 = 1;
-                IF B37D4 THEN DO;
+                NEWACTION = 1;
+                IF SKIPIF(0) THEN DO;
                     IF NOT B37C8 THEN
                         CALL POP$TOKEN;
                 END;
                 ELSE DO;
                     W396C = PC;
-                    CALL SUB27EE(2, 1);
+                    CALL INSERTSYM(2, 1);
                 END;
                 GOTO LOOP;
             END;
@@ -740,7 +741,7 @@ LOOP:
                 TOKID = 1;
             END;
             DO;                         /* CASE 5 ( ) *, - / */
-                IF (TOKID = '+' OR TOKID = '-') AND B3817 <> 0 AND B3817 <> 3 THEN
+                IF (TOKID = '+' OR TOKID = '-') AND NEWACTION <> 0 AND NEWACTION <> 3 THEN
                     TOKID = TOKID + 3;
                 TOKID = TOKID - '(' + 2;
             END;
@@ -752,19 +753,19 @@ LOOP:
             END;
             DO;                         /* CASE 7 QUOTE */
                 CALL PUSH$TOKEN(5);
-                DO WHILE SUB24A2 <> CR;
+                DO WHILE GETCH <> CR;
                     IF TOKID = '''' THEN
-                        IF SUB24A2 <> '''' THEN
+                        IF GETCH <> '''' THEN
                             GOTO GOTSTRING;
                     CALL ADDCH$TOKEN(TOKID);
                 END;
                 CALL RECORDERROR('B');
     GOTSTRING:
-                B38DF = B38DF - 1; 
+                GETNEW = GETNEW - 1; 
                 GOTO COLLECTLOOP;
             END;
             DO;                         /* CASE 8 NUMBER */
-                CALL SUB262A(7); 
+                CALL GETID(7); 
                 IF (RADIX := TOKEN(TOKEN$LEN := TOKEN$LEN - 1)) = 'H' THEN
                     RADIX = 16;
                 IF RADIX = 'O' THEN
@@ -779,23 +780,23 @@ LOOP:
                     RADIX = 10;
                 ELSE
                     TOKEN$LEN = TOKEN$LEN - 1;
-                VALUE1(0) = 0;
-                DO B3808 = 0 TO TOKEN$LEN;
-                    IF (TOKID := TOKEN(B3808) - '0') > 9 THEN
+                ACCUM1(0) = 0;
+                DO II = 0 TO TOKEN$LEN;
+                    IF (TOKID := TOKEN(II) - '0') > 9 THEN
                         TOKID = TOKID - 7;
                     IF TOKID >= RADIX THEN DO;
                         TOKID = 0;
                         CALL RECORDERROR('I');
                     END;
-                    VALUE1(0) = VALUE1(0) * RADIX + TOKID;
+                    ACCUM1(0) = ACCUM1(0) * RADIX + TOKID;
                 END;
                 TOKEN$LEN = 0;
-                CALL ADDCH$TOKEN(LOW(VALUE1(0)));
-                CALL ADDCH$TOKEN(HIGH(VALUE1(0)));
+                CALL ADDCH$TOKEN(LOW(ACCUM1(0)));
+                CALL ADDCH$TOKEN(HIGH(ACCUM1(0)));
                 GOTO COLLECTLOOP;
             END;
             DO;                     /* CASE 9 LETTER */
-                CALL SUB262A(0);
+                CALL GETID(0);
                 IF TOKEN$LEN > 5 THEN
                     TOKEN$LEN = 5;
                 IF  LOOKUP(0) = 0 THEN
@@ -805,7 +806,7 @@ LOOP:
                 IF TOKEN$TYPE > 10 THEN
                     CALL POP$TOKEN;
                 IF TOKID > 4 THEN
-                    GOTO DOLINE;
+                    GOTO HANDLEOP;
                 GOTO COLLECTLOOP;
             END;
         END;    /* OF CASE */
@@ -818,183 +819,183 @@ DECLARE BA2DA2 DATA(  0, 80h,   0,   0, 0Fh, 0Fh,   0, 0Fh,
                     40h, 40h, 47h,   7,   7,   7, 17h, 47h,
                       7, 47h, 37h,   5);
 
-DOLINE:
-        IF BA2DA2(TOKID) < 80H AND B37D4 THEN
+HANDLEOP:
+        IF BA2DA2(TOKID) < 80H AND SKIPIF(0) THEN
             GOTO LOOP;
-        IF PRECEDENCE(B3817 := TOKID) > PRECEDENCE(ACTION := B380B(B380A)) OR B3817 = 2 THEN DO;
-            B380B(B380A := B380A + 1) = B3817;
+        IF PRECEDENCE(NEWACTION := TOKID) > PRECEDENCE(ACTION := OPSTACK(OPSP)) OR NEWACTION = 2 THEN DO;
+            OPSTACK(OPSP := OPSP + 1) = NEWACTION;
             GOTO LOOP;
         END;
         IF ACTION = 0 THEN
-            ACTION = B3817;
+            ACTION = NEWACTION;
         ELSE
-            B380A = B380A - 1;
-        IF (B37CA := BA2DA2(ACTION)) THEN
-            VALUE2(0) = SUB2992;
-        IF (B37CA := ROR(B37CA, 1)) THEN
-            VALUE1(0) = SUB2992;
-        B3819 = 7;
+            OPSP = OPSP - 1;
+        IF (CUR$OP$FLAGS := BA2DA2(ACTION)) THEN
+            ACCUM2(0) = GETNUMVAL;
+        IF (CUR$OP$FLAGS := ROR(CUR$OP$FLAGS, 1)) THEN
+            ACCUM1(0) = GETNUMVAL;
+        NEXT$TOK$TYPE = 7;
         DO CASE ACTION;
         ;               /* CASE 0 */
         DO;             /* CASE 1 */
             REF$P = TOKEN$P(0) + TOKEN$LEN;
-            IF B37D4 THEN
-                REF$P = .B3972;
+            IF SKIPIF(0) THEN
+                REF$P = .WORKBUF;
             DO WHILE TOKENCNT > 0;
                 IF TOKEN$TYPE <> 6 THEN
                     CALL RECORDERROR('Q');
                 CALL POP$TOKEN;
             END;
-            MID$P = .B3972;
-            B3808 = 1;
+            MID$P = .WORKBUF;
+            II = 1;
             IF PASS = 3 THEN DO;
-                DO WHILE B3808;
+                DO WHILE II;
                     CALL PUTCH$LST(0Dh);
                     CALL PUTCH$LST(0);
                     CALL PUTCH$LST(ERRORCH); 
                     CALL PUTCH$LST(20h);
-                    IF (B381D := MID$P <> REF$P OR B381D) THEN DO;
-                        CALL PUTHEX2$LST(HIGH(W3814));
-                        CALL PUTHEX2$LST(LOW(W3814));
+                    IF (SHOWADDR := MID$P <> REF$P OR SHOWADDR) THEN DO;
+                        CALL PUTHEX2$LST(HIGH(ADDR));
+                        CALL PUTHEX2$LST(LOW(ADDR));
                     END;
-                    B381D = SHL(NOT B381D AND 1, 2);
-                    DO B3809 = 0 TO B381D;
+                    SHOWADDR = SHL(NOT SHOWADDR AND 1, 2);
+                    DO JJ = 0 TO SHOWADDR;
                         CALL PUTCH$LST(' ');
                     END;
-                    DO B3809 = 1 TO 4;
+                    DO JJ = 1 TO 4;
                         IF MID$P < REF$P THEN
                             CALL PUTHEX2$LST(MIDCH);
                         ELSE DO;
                             CALL PUTCH$LST(' ');
                             CALL PUTCH$LST(' ');
                         END;
-                        B3808 = (MID$P := MID$P + 1) < REF$P;
+                        II = (MID$P := MID$P + 1) < REF$P;
                     END;
-                    IF B3808 THEN
+                    IF II THEN
                         CALL PUTCH$LST(LF);
-                    W3814 = W3814 + 4;
+                    ADDR = ADDR + 4;
                 END;
             END;    /* PASS 3 */
             IF PASS = 2 THEN DO;
-                MID$P = .B3972;
-                IF RECADDR + RECLEN <> PC OR B37EC THEN DO;
+                MID$P = .WORKBUF;
+                IF RECADDR + RECLEN <> PC OR ENDSEEN THEN DO;
                     IF RECLEN > 0 THEN
                         CALL WRITEHEXREC$HEX(0);
                     RECADDR = PC;
                 END;
                 DO WHILE MID$P < REF$P; 
-                    IF RECLEN = B37E9 THEN DO;
+                    IF RECLEN = MAXRECLEN THEN DO;
                         CALL WRITEHEXREC$HEX(0);
                         RECADDR = RECADDR + 16;
                     END;
                     CHECKSUM = CHECKSUM - (RECBUF(RECLEN := RECLEN + 1) := MIDCH);
                     MID$P = MID$P + 1;
                 END; 
-                IF B37EC THEN
+                IF ENDSEEN THEN
                     CALL WRITEHEXREC$HEX(1);
             END;     /* PASS 2 */
-            W3814, PC = PC + REF$P - .B3972;
-            B381D = 0;
-            B37C7 = 0;
+            ADDR, PC = PC + REF$P - .WORKBUF;
+            SHOWADDR = 0;
+            WORDOPERAND = 0;
             ERRORCH = ' ';
-            B380A = 0;
-            B37D4 = B37D4 > 0;
-            IF B37EC THEN DO;
-                B37EC = 0;
+            OPSP = 0;
+            SKIPIF(0) = SKIPIF(0) > 0;
+            IF ENDSEEN THEN DO;
+                ENDSEEN = 0;
                 IF PASS = 3 THEN
                     CALL WRITESYM$HEX;
                 RETURN;
             END; 
             GOTO LOOP;
         END;
-        GOTO CASE$3;            /* CASE 2 */
-CASE$3: DO;                     /* CASE 3 */
-            IF NOT (ACTION = 2 AND B3817 = 3) THEN
+        GOTO CASE$3;            /* CASE 2 ) */
+CASE$3: DO;                     /* CASE 3 ( */
+            IF NOT (ACTION = 2 AND NEWACTION = 3) THEN
                 CALL RECORDERROR('B');
             IF TOKEN$TYPE  = 6 THEN
                 TOKEN$LEN = 1;
-            IF B3817 = 3 THEN
+            IF NEWACTION = 3 THEN
                 GOTO LOOP; 
         END;
-        VALUE1(0) = VALUE1(0) * VALUE2(0);   /* CASE 4 */
-        VALUE1(0) = VALUE1(0) + VALUE2(0);   /* CASE 5 */
-        CALL RECORDERROR('F');      /* CASE 6 */
-        VALUE1(0) = VALUE1(0) - VALUE2(0);   /* CASE 7 */
-        ;
-        VALUE1(0) = VALUE1(0) / VALUE2(0);   /* CASE 9 */
-        VALUE1(0) = -VALUE1(0);           /* CASE 10 */
-        VALUE1(0) = NOT VALUE1(0);        /* CASE 11 */
-        VALUE1(0) = VALUE1(0) AND VALUE2(0); /* CASE 12 */
-        VALUE1(0) = VALUE1(0) OR VALUE2(0);  /* CASE 13 */
-        VALUE1(0) = VALUE1(0) XOR VALUE2(0); /* CASE 14 */
-        VALUE1(0) = VALUE1(0) MOD VALUE2(0); /* CASE 15 */
-        DO;                                  /* CASE 16 */
-            IF VAL2LOW <> 0 THEN
-            VALUE1(0) = SHL(VALUE1(0), VAL2LOW);
+        ACCUM1(0) = ACCUM1(0) * ACCUM2(0);  /* CASE 4 * */
+        ACCUM1(0) = ACCUM1(0) + ACCUM2(0);  /* CASE 5 + */ 
+        CALL RECORDERROR('F');              /* CASE 6 , */
+        ACCUM1(0) = ACCUM1(0) - ACCUM2(0);  /* CASE 7 - */
+        ;                                   /* CASE 8 UNARY + */
+        ACCUM1(0) = ACCUM1(0) / ACCUM2(0);  /* CASE 9  / */
+        ACCUM1(0) = -ACCUM1(0);             /* CASE 10 UNARY - */
+        ACCUM1(0) = NOT ACCUM1(0);          /* CASE 11 NOT */
+        ACCUM1(0) = ACCUM1(0) AND ACCUM2(0); /* CASE 12 AND */
+        ACCUM1(0) = ACCUM1(0) OR ACCUM2(0);  /* CASE 13 OR */
+        ACCUM1(0) = ACCUM1(0) XOR ACCUM2(0); /* CASE 14 XOR */
+        ACCUM1(0) = ACCUM1(0) MOD ACCUM2(0); /* CASE 15 MOD */
+        DO;                                  /* CASE 16 SHL */
+            IF ACC2LOW <> 0 THEN
+            ACCUM1(0) = SHL(ACCUM1(0), ACC2LOW);
         END;
-        DO;                                  /* CASE 17 */
-            IF VAL2LOW <> 0 THEN
-            VALUE1(0) = SHR(VALUE1(0), VAL2LOW);
+        DO;                                  /* CASE 17 SHR */
+            IF ACC2LOW <> 0 THEN
+            ACCUM1(0) = SHR(ACCUM1(0), ACC2LOW);
         END;
-        DO;                         /* CASE 18 */
+        DO;                                 /* CASE 18 DB */
             IF TOKEN$TYPE <> 5 AND TOKEN$TYPE <> 6 THEN DO;
-                VALUE1(0) = SUB2992;
-                IF VAL1HIGH -1  < 0FEH THEN 
+                ACCUM1(0) = GETNUMVAL;
+                IF ACC1HIGH -1  < 0FEH THEN 
                     CALL RECORDERROR('V');
-                B37CA = 22H;
+                CUR$OP$FLAGS = 22H;
             END;
             TOKEN$TYPE = 6;
-            B3819 = 6;
+            NEXT$TOK$TYPE = 6;
         END;
-        DO;                         /* CASE 19 */
-            B381D = 1;
-            PC = PC + VALUE2(0);
-            GOTO DOLINE;
+        DO;                                 /* CASE 19 DS */
+            SHOWADDR = 1;
+            PC = PC + ACCUM2(0);            /* EXPECTED ACCUM1 */
+            GOTO HANDLEOP;
         END;
-        B3819 = 6;                  /* CASE 20 */
-        DO;                         /* CASE 21 */
+        NEXT$TOK$TYPE = 6;                          /* CASE 20 DW */
+        DO;                                 /* CASE 21 END */
             PC = 0;
-            VALUE1(0) = 0;
+            ACCUM1(0) = 0;
             IF TOKENCNT > 0 THEN
-                PC = SUB2992;
-            B381D = 1;
-            B37EC = 1;
-            B37D4 = 0;
-            CALL POPCODE(2);
+                PC = GETNUMVAL;
+            SHOWADDR = 1;
+            ENDSEEN = 1;
+            SKIPIF(0) = 0;
+            CALL UNNESTIF(2);
         END;
-        CALL POPCODE(0);            /* CASE 22 */
-        ;                           /* CASE 23 */
-        DO;                         /* CASE 24 */
-            B381D = 1;
-            W396C = VALUE1(0);
-            CALL SUB27EE(2, 1);
+        CALL UNNESTIF(0);                   /* CASE 22 ENDIF */
+        ;                                   /* CASE 23 */
+        DO;                                 /* CASE 24 EQU */
+            SHOWADDR = 1;
+            W396C = ACCUM1(0);
+            CALL INSERTSYM(2, 1);
         END;
-        DO;                         /* CASE 25 */
-            CALL PUSHCODE(0);
-            B37D4 = B37CB > 1 AND (((VALUE1(0) = 0) AND 1) OR B37D4);
+        DO;                                 /* CASE 25 IF */
+            CALL NESTIF(0);
+            SKIPIF(0) = IFDEPTH > 1 AND (((ACCUM1(0) = 0) AND 1) OR SKIPIF(0));
         END;
         ;                           /* CASE 26 */
         ;                           /* CASE 27 */
         ;                           /* CASE 28 */
-        DO;                         /* CASE 29 */
-            B381D = 1;
-            PC = VALUE1(0);
+        DO;                         /* CASE 29 ORG */
+            SHOWADDR = 1;
+            PC = ACCUM1(0);
         END;
-        DO;                         /* CASE 30 */
+        DO;                         /* CASE 30 SET */
             IF LOOKUP(1) <> 4 AND TOKEN$TYPE <> 0 THEN
                 CALL RECORDERROR('M');
-            B381D = 1;
-            W396C = VALUE1(0);
-            CALL SUB27EE(4, 1);
+            SHOWADDR = 1;
+            W396C = ACCUM1(0);
+            CALL INSERTSYM(4, 1);
         END;
-        DO;                         /* CASE 31 */
-            IF B3817 = 1 THEN DO;
-                IF PASS <> 1 OR NOT B37C9 THEN DO;
-                    REF$P = .B3972 + 5;
+        DO;                         /* CASE 31 TITLE */
+            IF NEWACTION = 1 THEN DO;
+                IF PASS <> 1 OR NOT HAVETITLE THEN DO;
+                    REF$P = .WORKBUF + 5;
                     TITLELEN = 0;
                     DO WHILE TOKEN$P(0) + TOKEN$LEN > REF$P;
-                        IF TITLELEN < 66 AND (B3808 := REFCH) <> FF THEN
-                            TITLE(TITLELEN := TITLELEN + 1) = B3808;
+                        IF TITLELEN < 66 AND (II := REFCH) <> FF THEN
+                            TITLE(TITLELEN := TITLELEN + 1) = II;
                         REF$P = REF$P + 1;
                     END;
                 END; 
@@ -1002,34 +1003,34 @@ CASE$3: DO;                     /* CASE 3 */
                     CALL POP$TOKEN;
                 END;
                 IF PASS = 1 THEN
-                    B37C9 = 1;
+                    HAVETITLE = 1;
             END;
         END;
-        ;                           /* CASE 32 */
-        ;                           /* CASE 33 */
-        CALL SUB2233(85h);          /* CASE 34 */
-        CALL SUB2233(5);            /* CASE 35 */
-        CALL SUB2233(7);            /* CASE 36 */
-        CALL SUB2233(2);            /* CASE 37 */
-        CALL SUB2233(8);            /* CASE 38 */
-        CALL SUB2233(46h);          /* CASE 39 */
-        CALL SUB2233(6);            /* CASE 40 */
-        CALL SUB2233(36h);          /* CASE 41 */
-        CALL SUB2233(0);            /* CASE 42 */
-        CALL SUB2233(0);            /* CASE 43 */
+        ;                          /* CASE 32 */
+        ;                          /* CASE 33 */
+        CALL MKCODE(85h);          /* CASE 34 */
+        CALL MKCODE(5);            /* CASE 35 */
+        CALL MKCODE(7);            /* CASE 36 */
+        CALL MKCODE(2);            /* CASE 37 */
+        CALL MKCODE(8);            /* CASE 38 */
+        CALL MKCODE(46h);          /* CASE 39 */
+        CALL MKCODE(6);            /* CASE 40 */
+        CALL MKCODE(36h);          /* CASE 41 */
+        CALL MKCODE(0);            /* CASE 42 */
+        CALL MKCODE(0);            /* CASE 43 */
         END; /* END OF CASE */
-        IF B381D THEN
-            W3814 = VALUE1(0);
-        IF (B37CA AND 1EH) <> 0 THEN
-            CALL PUSH$TOKEN(B3819);
-        DO B3808 = 0 TO 3;
-            IF (B37CA := ROR(B37CA, 1)) THEN
-                CALL ADDCH$TOKEN(VAL1B(B3808));
+        IF SHOWADDR THEN
+            ADDR = ACCUM1(0);
+        IF (CUR$OP$FLAGS AND 1EH) <> 0 THEN
+            CALL PUSH$TOKEN(NEXT$TOK$TYPE);
+        DO II = 0 TO 3;
+            IF (CUR$OP$FLAGS := ROR(CUR$OP$FLAGS, 1)) THEN
+                CALL ADDCH$TOKEN(ACC1B(II));
         END;
-        IF ROR(B37CA, 1) THEN
-            IF B3817 = 6 THEN
+        IF ROR(CUR$OP$FLAGS, 1) THEN
+            IF NEWACTION = 6 THEN
                 TOKID = ACTION;
-        GOTO DOLINE;
+        GOTO HANDLEOP;
     END;
     
 
@@ -1149,9 +1150,9 @@ MAIN:
     ITABLE$P = .ITABLE;
     MEMORY$P = .LASTADDRESS;
     CALL WRITECH$CO(CR);
-    B3808 = 0;
-    DO WHILE (B3809 := PAGEHEADER(B3808 := B3808 + 1)) <> TAB;
-        CALL WRITECH$CO(B3809);
+    II = 0;
+    DO WHILE (JJ := PAGEHEADER(II := II + 1)) <> TAB;
+        CALL WRITECH$CO(JJ);
     END; 
     DO PASS = 1 TO 3;
         DO CASE PASS; 
@@ -1182,7 +1183,7 @@ MAIN:
             AFTIN = OPENFILE(1);
             BUFFER$PTR = LST$NAME;
         END;
-        CALL SUB2115;
+        CALL DOPASS;
 CONTINUE:
     END;
 
