@@ -31,3 +31,4 @@ clean::
 	rm -fr *.hex *.prn *.omf
 
 .INTERMEDIATE: l82.hex l82a.hex l82fix.patch
+.PRECIOUS:	%.hex
