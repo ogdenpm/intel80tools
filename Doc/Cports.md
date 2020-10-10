@@ -27,7 +27,7 @@ As noted the comments and variable naming are more up to date than the PL/M vers
 
 The ports of lib v2.1, link v3.0 and locate v3.0
 
-### plm80c
+### plm80 (source in plm80c)
 
 This is the C port of PL/M 80 v4.0 and is the preferred port, rather than the much older C++ port plm80 noted below. This is the one I am  adding commentary to as I understand the compiler internals.
 
@@ -37,7 +37,11 @@ Note I kept the old directory naming to avoid messing up the git history.
 
 ## Other ports
 
-### plm80
+### ml80, l81, l82, l83
+
+Recently updated C ports of the ml80 assembler chain found under cpmsrc. The original port was done in July 2007. It has been updated to reflect the more recent comments added to the plm source.
+
+### oldplm80 (source in plm80)
 
 This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but no consider it obsolete.
 If you compile the source it will now generate an executable oldplm80.exe
@@ -369,5 +373,5 @@ In addition to avoiding overlays this also allows for code sharing to be done, h
 ------
 
 ```
-Updated by Mark Ogden 26-Sep-2020
+Updated by Mark Ogden 10-Oct-2020
 ```
