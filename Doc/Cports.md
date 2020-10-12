@@ -1,6 +1,6 @@
 # C ports of Intel ISIS applications
 
-The c-ports directory tree contains my ports of some of the ISIS development chain to C so that they run under modern processors.
+The c-ports source code now has it's own repository [c-ports](https://github.com/ogdenpm/c-ports). There you will find my ports of some of the ISIS development chain to C so that they run under modern processors.
 
 Below are details of what is available, followed by some notes on my approach to porting the applications.
 
@@ -12,20 +12,25 @@ Note I have currently not added the auto drive mapping and other features I buil
 
 Environment variables ISIS_F*n* are used to specify the directory associated with drive :F*n*:. :F0: defaults to the current directory.
 
+Also, unless noted, file names must meet the requirement of the original applications i.e. for ISIS-II applications the format is 6.3 alphanumeric characters and CP/M is 8.3 characters. In these cases saved filenames are converted to lowercase.
+
 ### asm80
 
-The port of asm80 v4.1 and is based on asm80.ov4 which is the macro version of
-the assembler. I have seen this distributed as asm80 without
-the other overlays, as the main asm80 just determines whether
-to run asm80.ov4 (macro support), asm80.ov5 (large memory
-support no macros) or to use overlays asm80.ov1, asm80.ov2 and
-asm80.ov3 for small memory support.
+The port of asm80 v4.1 and is based on asm80.ov4 which is the macro version of the assembler. I have seen this distributed as asm80 without the other overlays, as the main asm80 just determines whether to run asm80.ov4 (macro support), asm80.ov5 (large memory support no macros) or to use overlays asm80.ov1, asm80.ov2 and asm80.ov3 for small memory support.
 
 As noted the comments and variable naming are more up to date than the PL/M version.
+
+```
+Usage is as per Intel documentation, noting the :Fn: mapping mentioned above
+```
 
 ### lib, link & locate
 
 The ports of lib v2.1, link v3.0 and locate v3.0
+
+```
+Usage is as per Intel documentation, noting the :Fn: mapping mentioned above
+```
 
 ### plm80 (source in plm80c)
 
@@ -35,20 +40,40 @@ When compiled it generates an executable plm80.exe
 
 Note I kept the old directory naming to avoid messing up the git history.
 
+```
+Usage is as per Intel documentation, noting the :Fn: mapping mentioned above
+```
+
 ## Other ports
 
-### ml80, l81, l82, l83
+Recently updated C ports of the ml80 assembler chain found under cpmsrc in the [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository. The original port was done in July 2007. It has been updated to reflect the more recent comments added to the plm source.
 
-Recently updated C ports of the ml80 assembler chain found under cpmsrc. The original port was done in July 2007. It has been updated to reflect the more recent comments added to the plm source.
+```
+Usage:	ml80 [-v|V] | file[.m80]	produces file.l80
+		l81	 [-v|V] | file			uses file.l80, creates file.80p & file.80s
+		l82  [-v|V] | file			uses file.(80p & 80s), creates file.(80c, 80d, 80r) 
+	    l83  [-v|V] | [-s] [-l addr] file	uses file.(80c, 80d, 80r), creates file.com
+The l83 options are
+	-s			create symbol listing in file.prn
+	-l addr		set load start address, defaults to 100H for CP/M
+If the applications are built with the #define _TRACE then additional trace features are enabled, please see the source code.
+
+The base filename is any valid valid OS filename (allowing for any .xxx extent) and can contain a directory prefix. All files will be read/written from the same directory, including any externally linked files identified in the source. Additonally externally linked files are limited to 29 characters (excluding the directory prefix).
+For cases sensitive file systems, note the filename part is converted to lower case before usage.
+```
 
 ### oldplm80 (source in plm80)
 
-This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but no consider it obsolete.
+This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but now consider it to be obsolete. The  original port was done in 2007.
+
 If you compile the source it will now generate an executable oldplm80.exe
 
-This old version uses a different drive to directory mapping approach.  :F1: maps to the current directory,  other :Fn: map to subdirectories named fn.
+```
+Usage is as per Intel documentation, however this old version uses a different drive to directory mapping approach.
+:F1: maps to the current directory,  other :Fn: map to subdirectories named fn.
+```
 
-### plm81.exe, plm82.exe
+### plm81, plm82
 
 These two programs are my port of the Fortran based PL/M compiler to C. Although based on the V2 compiler, some of the patches from V4 have been incorporated to fix invalid code generation.
 
@@ -71,7 +96,9 @@ Usage: 	 plm81 file.plm					or	[mv | move] file.plm fort.2
 										     copy /Y fort.12a+fort.12 file.lst]
 cleanup: [del|rm] file.pol file.sum 		[rm | del] fort.*
 
-Note plm81 and plm82 also support -v & -V which show version information and provide simple help
+Note that file can be any valid OS filename prefix and a directory path is supported
+
+plm81 and plm82 also support -v & -V which show version information and provide simple help
 ```
 
 ### binobj, hexobj & objhex
@@ -81,6 +108,15 @@ Note plm81 and plm82 also support -v & -V which show version information and pro
 Unlike the other tools these do not support ISIS drives, but do support unix/windows file path names.
 
 Note due to memory constraints the ISIS binobj and hexobj would split very long content records. The ports do not need to do this.
+
+```
+Usage:	binobj [-v|V] | binfile [to] objfile
+		hexobj [-v|V] | hexfile objfile [startaddr]
+					  | hexfile to objfile [$] [start(startaddr)]
+		objhex [-v|V] | objfile [to] hexfile
+
+filenames can be any valid OS filename
+```
 
 ## Notes on porting
 
@@ -373,5 +409,5 @@ In addition to avoiding overlays this also allows for code sharing to be done, h
 ------
 
 ```
-Updated by Mark Ogden 10-Oct-2020
+Updated by Mark Ogden 12-Oct-2020
 ```

@@ -2,13 +2,13 @@
 
 The notes below document the tools I have developed for reverse engineering.
 
-Note with the exception of disintelLib, ngenpex, plm81 and plm82 all of the source code is also included in the repository.
+All script (perl & windows cmd) is available in the tools directory and except for ngenpex all of the application source code is available in the [c-ports](https://github.com/ogdenpm/c-ports) or [tool-src](https://github.com/ogdenpm/tool-src) repositories. The relevant repository is noted in the individual headings below.
 
-These tools are located in the tools directory and for non script files, the source is in toolsrc unless otherwise noted in parenthesis.
+The version management scripts (fileVer.cmd, install.cmd, revisions.cmd & version.cmd) are mastered in the [versionTools](https://github.com/ogdenpm/versionTools) repository which also contains details on how they work.
 
 Note most tools now support being invoked with -v and -V. The lower case version shows simple version information, the uppercase version provides additional git information to help identify the version. Both of these should be the only option on the command line.
 
-### aomf2bin.exe
+### aomf2bin.exe (tool-src)
 
 This utility take an absolute omf85, omf86 or omf286 file and creates binary images suitable for a prom programmer. There is an ability to set the base address of the prom and, whether to pad to a prom boundary, with 0 or 0xff. Optionally separate files can be created for odd and even bytes
 
@@ -61,7 +61,7 @@ Simple perl script to extract the contents of an Intel OMF85 or OMF86 library fi
 usage: delib.pl library targetdir
 ```
 
-### disIntelLib.exe (source currently private)
+### disIntelLib.exe (tool-src)
 
 A homegrown utility to auto disassemble an Intel omf85 library into individual files. During the disassembly, whether the original code was PL/M or ASM is noted and the extension named accordingly.
 
@@ -69,12 +69,22 @@ A homegrown utility to auto disassemble an Intel omf85 library into individual f
 Usage: disIntelLib infile
 ```
 
-### dumpintel.exe
+### dumpintel.exe (tool-src)
 
 Dumps the detail of the content of omf85, omf51, omf96 and omf86 files. omf96 currently only shows the record types as I have no samples to verify. The others decode as per the intel specifications with some of the none Intel additions for omf86
 
 ```
 usage: dumpintel -v | -V | objfile [outputfile]
+```
+
+### filever.cmd
+
+This shows the revision of an individual file with respect to the current repository. It is primarily of use to show how many revisions there have been to script files.
+
+```
+usage: filever [-v] | [-q] file
+where -v shows version information filever itself
+	  -q supresss output if the file is not in git
 ```
 
 ### fixomf.pl
@@ -86,7 +96,7 @@ usage: fixomf.pl [-p] infile [outfile]
 where  -p removes @Pnnnn publics
 ```
 
-### genpatch.exe
+### genpatch.exe (tool-src)
 
 This is used to auto generate the patch files for obj2bin. They take as input the generated omf85 object file and the target binary file and generates the specified patchfile
 
@@ -109,7 +119,7 @@ startaddr replaces the start address specified in the hexfile.
 Intel style address formats are supported
 ```
 
-### install.cmd
+### install.cmd (master in versionTools)
 
 This is a windows batch file that is mainly used as part of the visual studio build process to auto copy compiled code to target directories. The master repository for this tool is my github repository [versionTools](https://github.com/ogdenpm/versionTools)
 
@@ -141,7 +151,7 @@ a file name of * matches all files so +* renables processing for all files
 -* stops all processing until the next control line (of limited use)
 ```
 
-### isisc.exe [depreciated]
+### isisc.exe (tool-src) [depreciated]
 
 Compares files using Intel's BIN format. This is now depreciated and the equivalent capability can be achieved in one of two ways
 
@@ -152,7 +162,7 @@ Compares files using Intel's BIN format. This is now depreciated and the equival
 Usage: isisc -v | -V | file1 file2
 ```
 
-### isisu.exe
+### isisu.exe (tool-src)
 
 This utility dumps the block ranges and start address from an Intel BIN format file. This is now of limited use as I tend to convert the BIN files to OMF and load directly into my disassembler, preserving the uninitialised data information.
 
@@ -229,7 +239,7 @@ See the genpex.txt file in the itools directory for the main details. My changes
    where the -p is optional and generates the .pub file noted above
    ```
 
-### obj2bin.exe
+### obj2bin.exe (tool-src)
 
 This utility is designed to support the creation of .COM, .T0 and .BIN files and includes the ability to patch the resultant file. Patching is potentially needed for two reasons.
 
@@ -276,7 +286,7 @@ A port of Intel's objhex utility. This one supports windows/unix filenames and d
 usage: objhex -v | -V | objfile [to] hexfile
 ```
 
-### omfcmp.exe
+### omfcmp.exe (tool-src)
 
 This tool is designed to intelligently compare intel OMF85 files, however it will revert to comparing binary files.
 
@@ -309,7 +319,7 @@ where -h            prints simple help and exits
 
 ```
 
-### patchbin.exe [depreciated]
+### patchbin.exe (tool-src) [depreciated]
 
 Patch a binary .COM file. The original reason for creating this is now manageable with obj2bin
 
@@ -321,7 +331,7 @@ both address and value are in hex and the filetopatch is assumed to be load ax 1
 The file is extended if necessary
 ```
 
-### plmpp.exe
+### plmpp.exe (tool-src)
 
 Only PL/M v4 supports a pre-processor. This utility provides a pre-processor for older versions of PL/M.
 
@@ -384,9 +394,17 @@ repack.pl
 
 ### revisions.cmd
 
-Shows revisions of not executable files with respect to the current repository.
+Shows revisions of non .exe files in the current directory with respect to the current repository.
 
 Note external tools copies in from other repositories are likely to have different revisions numbers e.g. revisions.cmd, install.cmd and version.cmd come from the versionTools repository
+
+```
+usage: revisions [-v] | [-s] [-q]
+where -v	shows revision information on revisions.cmd itself
+	  -s    also shows files in immediate sub-directories
+	  		Note, directories beginning . are skipped
+      -q	skips files not in git
+```
 
 ### unpack.exe, unpack.pl
 
@@ -427,6 +445,6 @@ usage: version [-h] | [-q] [-f] [-a appid] [CACHE_PATH OUT_FILE]
 ------
 
 ```
-Updated by Mark Ogden 10-Oct-2020 
+Updated by Mark Ogden 12-Oct-2020 
 ```
 
