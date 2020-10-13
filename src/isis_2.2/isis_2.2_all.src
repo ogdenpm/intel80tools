@@ -1,3 +1,155 @@
+isis.pex
+TRUE		'0FFH'
+FALSE		'0'
+CR		'0DH'
+BOOLEAN		'byte'
+FOREVER		'while(1)'
+
+deblank		p(a str)a
+delimit		p(a ptr)a
+error		p(a error$num)
+exit		p
+file$error	p(a satatus,a ptr,b callExit)
+force$upper	p(a bufferPtr)
+load		p(a path$p,a load$offset,a switch,a entry$p,a status$p)
+memck		pa
+Monitor		p
+read		p(a conn,a buff$p,a count,a actual$p,a status$p)
+reportError	p(a status)
+rescan		p(a conn,a status$p)
+seek		p(a conn,a mode,a block$p,a byte$p,a status$p)
+seq		p(a s1,a s2,b cnt)b
+uppercase	p(b ch)b
+scanblank	p(a ptr)a
+write		p(a conn,a buff$p,a count,a status$p)
+
+cli.plm
+CLI:
+DO;
+declare version(2) byte data(2, 10h);
+declare cpyrite(*) byte data('(C) 1975,1976 INTEL CORP');
+$include(cli.ipx)
+$LIST
+DECLARE BUFFER(128) BYTE;
+DECLARE DEBUG BOOLEAN;
+DECLARE BUFFER$PTR ADDRESS, CHAR BASED BUFFER$PTR BYTE;
+DECLARE (PATHNAME$PTR,ACTUAL,STATUS,ENTRY,RETSW) ADDRESS;
+
+/* *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+
+   BEGINNING OF PROGRAM.
+
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+   *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-* */
+
+STACKPTR = MEMCK;
+OUTPUT(0FCH) = 0FCH; /* ENABLE CONSOLE INTERRUPTS 0 AHD 1 */
+ENABLE;
+OUTPUT(0FDH) = 20H; /* SEND END OF INTERRUPT COMMAND */
+BUFFER$PTR = .(':CI: ');
+CALL RESCAN(1,.STATUS);
+IF STATUS = 0 THEN
+DO;
+  CALL READ(1,.BUFFER,LENGTH(BUFFER),.ACTUAL,.STATUS);
+  CALL FILE$ERROR(STATUS,BUFFER$PTR,TRUE);
+END;
+DO FOREVER;
+  CALL WRITE(0,.('-'),1,.STATUS);
+  CALL READ(1,.BUFFER,LENGTH(BUFFER),.ACTUAL,.STATUS);
+  CALL FILE$ERROR(STATUS,BUFFER$PTR,TRUE);
+  BUFFER(ACTUAL) = CR;
+  CALL FORCE$UPPER(.BUFFER);
+  BUFFER$PTR = DEBLANK(.BUFFER);
+  IF CHAR <> CR THEN
+  DO;
+    /* NOW CHECK FDR DEBUG MODE (PATHNAHE PRECEDED BY 'DEBUG' */
+    DEBUG = FALSE; /* ASSUME NORMAL CASE, NOT DEBUGGING */
+    IF SEQ(.('DEBUG'),BUFFER$PTR,5)
+    AND (DELIMIT(BUFFER$PTR)=BUFFER$PTR+5) THEN
+    DO;
+      BUFFER$PTR = DEBLANK(DELIMIT(BUFFER$PTR+5));
+      DEBUG = TRUE;
+      IF CHAR = CR THEN CALL MONITOR;
+    END;
+    PATHNAME$PTR = BUFFER$PTR;
+    BUFFER$PTR = DELIMIT(DEBLANK(BUFFER$PTR));
+    CALL RESCAN(1,.STATUS);
+    CALL READ(1,.BUFFER,BUFFER$PTR-.BUFFER,.ACTUAL,.STATUS);
+    CALL FORCE$UPPER(PATHNAME$PTR);
+    IF DEBUG THEN RETSW = 2; ELSE RETSW = 1;
+    CALL LOAD(PATHNAME$PTR,0,RETSW,.ENTRY,.STATUS);
+    CALL FILE$ERROR(STATUS,PATHNAME$PTR,FALSE);
+    CALL READ(1,.BUFFER,LENGTH(BUFFER),.ACTUAL,.STATUS);
+  END;
+END;
+END;
+EOF
+dblank.plm
+DEBLANK: DO;
+
+deblank: procedure(ptr) address public;
+	declare ptr address;
+	declare c based ptr byte;
+
+	do while (c = ' ');
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+
+end;
+dlimit.plm
+DELIMIT: DO;
+
+delimit: procedure(ptr) address public;
+	declare ptr address;
+	declare c based ptr byte;
+
+	do while (c = ':' or c = '.' or ('0' <= c and c <= '9') or ('A' <= c and c <= 'Z'));
+		ptr = ptr + 1;
+	end;
+	return ptr;
+end;
+end;
+filerr.plm
+FILEERROR: DO;
+$include(filerr.ipx)
+
+file$error: procedure(status, ptr, callExit) public;
+	declare (status, ptr) address, callExit byte;
+	declare actual address;
+
+	if status <> 0 then
+	do;
+		ptr = deblank(ptr);
+		call write(0, .(' '), 1, .actual);
+		call write(0, ptr, scanblank(ptr) - ptr, .actual);
+		call write(0, .(','), 1, .actual);
+		call reportError(status);
+		if callExit then
+			call exit;
+	end;
+end;
+end;
+forupp.plm
+FORCEUPPER: DO;
+$include(forupp.ipx)
+
+
+forceupper: procedure(bufferPtr) public;
+	declare bufferPtr address, ch based bufferPtr byte;
+
+	do while ch <> CR;
+		ch = uppercase(ch);
+		bufferPtr = bufferPtr + 1;
+	end;
+end;
+end;
+isis.bin.cfg
+$*=1 A=2 N=1 H=8
+
+isis.bin.plm
 3BH: DO;
     DECLARE VER DATA(2,2);
 
@@ -1960,4 +2112,830 @@ ISIS: PROCEDURE(COMMAND, PARAMETER$BLOCK);
 END;
 END;
 EOF
+
+isis.t0.plm
+/*
+    THE SOURCE BELOW NEEDS TO BE COMPILED WITH THE FORTRAN CROSS COMPILER
+    UNFORTUNATELY INTEL SEEM TO HAVE USED A LATER VERSION THAT SUPPORTED
+    'AT' AND DID NOT FILL UNINITIALISED DATA WITH ZEROS
+
+    THE PERL ROUTINE LOADANDFIX.PL LOADS THE HEX FILE CREATED, 
+    AND REPLACES UNITIALISED AND DATA PAST MEMORY WITH THE
+    BYTES IN THE ORIGINAL ISIS.T0 FILE
+*/
+3000H: DO; 
+
+    DECLARE BOOLEAN LITERALLY 'BYTE';
+    DECLARE TRUE    LITERALLY '0FFH';
+    DECLARE CMSK    LITERALLY '0FCH';
+    DECLARE CR  LITERALLY '0DH',
+            LF  LITERALLY '0AH';
+
+    DECLARE T0VER DATA(2, 20H);     /* ISIS.T0 VERSION ? */
+    DECLARE (USER$STATUS, USER$STACKPTR, START$ADDR) ADDRESS;
+    DECLARE A$DEVICE BYTE;
+    DECLARE MEMBASE ADDRESS INITIAL(0);
+    DECLARE BYTE$AT BASED MEMBASE (1) BYTE;
+    DECLARE VERSION$LEVEL   LITERALLY   'BYTE$AT(3EH)',
+            EDIT$LEVEL      LITERALLY   'BYTE$AT(3FH)';
+    DECLARE TEMP BYTE;
+    DECLARE ISIS$SIGNON(12) BYTE INITIAL(CR, LF, 'ISIS-II, V'),
+            SIGN$V(2) BYTE, /* VERSION NUMBER */
+            SIGN$DOT(1) BYTE INITIAL('.'),
+            SIGN$E(2) BYTE,  /* EDIT NUMBER */
+            SIGN$CRLF(2) BYTE INITIAL (CR, LF);
+3200H:
+    DECLARE COPYRIGHT DATA('(C) 1975,1976 INTEL CORP');
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+    CONSOL: PROCEDURE(CI$P, CO$P, STATUS$P);
+        DECLARE (CI$P, CO$P, STATUS$P) ADDRESS;
+        CALL ISIS(8, .CI$P);
+    END;
+
+    NUMOUT: PROCEDURE(VALUE, BASE, LC, BUFADR, WIDTH);
+        DECLARE (VALUE, BUFADR) ADDRESS, (BASE, LC, WIDTH) BYTE; 
+        DECLARE DIGITS DATA('0123456789ABCDEF');
+        DECLARE I BYTE;
+        DECLARE BUF BASED BUFADR (1) BYTE;
+
+        DO I = 1 TO WIDTH;
+            BUF(WIDTH - I) = DIGITS(VALUE MOD BASE);
+            VALUE = VALUE / BASE;   
+        END;
+
+        I = 0;
+        DO WHILE BUF(I) = '0' AND I < WIDTH - 1;
+            BUF(I) = LC;
+            I = I + 1;
+        END;
+    END;
+
+
+
+    /* THE FOLLOWING FOUR VARIABLES ARE USED IN THE ERR PROCEDURE */
+    DECLARE STATUS ADDRESS;     /* ERROR NUMBERS ARE PLACED HERE */
+    DECLARE DEBUG$TOGGLE BOOLEAN;   /* GOVERNES ACTION WHEN ERROR OCCURS */
+    DECLARE GLOBAL$SEVERITY BYTE;   /* OVERRIDES NORMAL ERROR SEVERITY */
+    DECLARE FDCC$ERROR$TYPE ADDRESS;    /* HAS DATA ON DISK I/O ERRORS */
+
+    /* USEFUL LITERALS */
+    DECLARE WARNING LITERALLY '0',
+            MESSAGE LITERALLY '1',
+            ABORT   LITERALLY '2';
+
+    DECLARE DISK$IO$ERROR   LITERALLY   '18H',
+            DRIVE$NOT$READY LITERALLY   '1EH';
+
+    DECLARE ISIS$HDR$BLK LITERALLY   '204H';
+
+
+    DECLARE RTC LITERALLY '0FFH';   /* REAL TIME CLOCK */
+    DECLARE BOOT LITERALLY '2';
+    /* INPUT FROM RTC IS A BYTE. THE SECOND BIT FROM THE RIGHT
+       CORRESPONDS TO THE BOOT SWITCH. IF THIS BIT IS 1 THE SWITCH IS
+       ON, AND IF IT IS 0 THE  SWITCH IS OFF.
+    */
+
+    DECLARE MDSMON  LITERALLY   '0',
+            BTSTRP  LITERALLY   '8';
+
+
+    CI: PROCEDURE BYTE;
+        GOTO 0F803H;
+    END;
+
+    RI: PROCEDURE BYTE;
+        GOTO 0F806H;
+    END;
+
+    CO: PROCEDURE(C);
+        DECLARE C BYTE;
+        GOTO 0F809H;
+    END;
+
+    PO: PROCEDURE(C);
+        DECLARE C BYTE;
+        GOTO 0F80CH;
+    END;
+
+    LO: PROCEDURE(C);
+        DECLARE C BYTE;
+        GOTO 0F80FH;
+    END;
+
+    IOCHK: PROCEDURE BYTE;
+        GOTO 0F815H;
+    END;
+
+    IOSET: PROCEDURE(C);
+        DECLARE C BYTE;
+        GOTO 0F818H;
+    END;
+
+    CSTS: PROCEDURE BYTE;
+        GOTO 0F812H;
+    END;
+
+
+    
+    DECLARE INITIO$BASE ADDRESS INITIAL(6), INITIO BASED INITIO$BASE BYTE;
+
+    /*
+       THE ERR PROCEDURE IS USED TO HANDLE ERROR CONDIITONS.
+           AN ERROR MESSAGE IS ISSUED TO THE CONSOLE, WHICH FOR
+           DISK ERRORS HAS EXTENDED CONTENT
+       CONTROL THEN PASSES TO THE MDS MONITOR
+
+       ERROR$TYPE IS THE ERROR NUMBER WHICH IDENTIFIES THE PARTICUALAR
+              TYPE OF ERROR, SUCH AS DISK I/O ERROR
+    */
+
+    ERR: PROCEDURE(SEVERITY, ERROR$TYPE);
+        DECLARE (SEVERITY, ERROR$TYPE, I, IMAX) BYTE;
+        DECLARE PC BASED USER$STACK$PTR ADDRESS;
+    DECLARE MSG1(8) BYTE INITIAL(CR, LF, 'ERROR '),
+        MSG2(3) BYTE, /* ERROR NUMBER GOES HERE */
+        MSG3(9) BYTE INITIAL(' USER PC '),
+        MSG4(4) BYTE, /* USER PC IN HEX GOES HERE */
+        MSG5(2) BYTE INITIAL(CR, LF),
+        MSG6(5) BYTE INITIAL('FDCC='),
+        MSG7(4) BYTE, /* FDCC ERROR DATA GOES HERE */
+        MSG8(2) BYTE INITIAL(CR, LF);
+
+        IF (SEVERITY := SEVERITY OR GLOBAL$SEVERITY) <> WARNING THEN
+        DO;
+            CALL NUMOUT(ERROR$TYPE, 10, 0, .MSG2, 3);
+            CALL NUMOUT(PC,16,'0',.MSG4,4);
+            CALL IOSET((IOCHK AND CMSK) OR (INITIO AND 3));
+            IMAX = 25;  /* NUMBER OF CHARACTERS IN NORMAL ERROR MESSAGE */
+            IF ERROR$TYPE = DISK$IO$ERROR THEN
+            DO;
+                IMAX = 36;
+                CALL NUMOUT(FDCC$ERROR$TYPE, 16, '0', .MSG7, 4);
+            END;
+            DO I = 0 TO IMAX;
+                CALL CO(MSG1(I));
+            END;
+        END;
+        ELSE
+        DO;
+            USER$STATUS = ERROR$TYPE;
+            STACKPTR = USER$STACK$PTR;
+        END;
+        IF SEVERITY >= ABORT THEN
+        DO;
+            IF DEBUG$TOGGLE THEN
+                GOTO MDSMON;    /* EXIT VIA MONITOR */
+            GOTO BTSTRP;        /* EXIT VAI SOFTWARE BOOTSTRAP */
+        END;
+    END;
+
+
+
+    /*
+       DISKIO PROVIDES ACCESS TO THE FDCC
+       CONTROLLER 1 = BASE ADDRESS 78H (DRIVES 0, 1 FOR SD)
+       CONTROLLER 2 = BASE ADDRESS 88H (DRIVES 2, 3 FOR SD)
+
+       DRIVE: AN INTEGER 0-3, SPECIFYING THE DISK TO BE ACCESSED
+       IOPB:  THE ADDRESS OF A PARAMETER BLOCK TO BE SENT TO THE
+          FDCC CONTROLLER. THIS PARAMETER MUST BE SET UP
+          AS IF IT WERE FOR DRIVE 0; IF 'DRIVE' SELECTS
+          ANOTHER DRIVE, 'DISKIO' WILL SET ALL THE NECESSARY
+          BITS
+
+       THE CALLER PROVIDES A PARAMETER BLOCK SPECIFYING SOME
+       VALID DISK OPERATION ON DRIVE 0 AND AN INTEGER DRIVE SELECT VALUE
+       IN THIS BOOT CODE ONLY READ AND RECAL ARE USED
+       THE PROCEDURE WAITS FOR THE CONTROLLER TO GO UNBUSY, THEN
+       PERFORMS THE DESIRED ACTION. IN CASE OF A CONTROLLER ERROR,
+       THE DISK DRIVE IS RECALIBRATED AND THE ACTION IS TRIED AGAIN.
+       IF SUCCESSFUL COMPLETION CANNOT BE OBTAINED AFTER 'MAX$RETRIES'
+       ATTEMPTS, A FATAL ERROR OCCURS, OTHERWISE A NORMAL RETURN IS MADE
+
+    */
+        DECLARE FDCC$STATUS$0   LITERALLY   '78H',
+                FDCC$STATUS$1   LITERALLY   '88H',
+                RESULT$TYPE$0   LITERALLY   '79H',
+                RESULT$TYPE$1   LITERALLY   '89H',
+                RESULT$BYTE$0   LITERALLY   '7BH',
+                RESULT$BYTE$1   LITERALLY   '8BH',
+                LOW$ADDRESS$0   LITERALLY   '79H',
+                LOW$ADDRESS$1   LITERALLY   '89H',
+                HIGH$ADDRESS$0  LITERALLY   '7AH',
+                HIGH$ADDRESS$1  LITERALLY   '8AH';
+
+        DECLARE MAX$RETRIES     LITERALLY   '10',
+                DISK$DONE       LITERALLY   '4',
+                READ$COMMAND    LITERALLY   '4',
+                WRITE$COMMAND   LITERALLY   '6',
+                RECALIBRATE     LITERALLY   '3';
+
+        DECLARE IOCW    LITERALLY '0',
+                IOINS   LITERALLY '1',
+                NSEC    LITERALLY '2',
+                TADR    LITERALLY '3',
+                SADR    LITERALLY '4',
+                BUFLO   LITERALLY '5',
+                BUFHI   LITERALLY '6';
+
+
+    DISKIO: PROCEDURE(DRIVE, IOPB);
+        /* THIS PROCEDURE ISSUES THE IOPB TO THE DISK CONTROLLER, IN THE */
+        /* CASE OF THE 8271 IT ALSO TRANSFERS THE DATA ON A BYTE BY BYTE BASIS */
+        DECLARE DRIVE BYTE; /* DRIVE NUMBER: ASSUMES VALUE 0,1,2,3 */
+        DECLARE IOPB ADDRESS;   /* POINTER TO THE PARAMATER BLOCK NAMED DCB */
+        DECLARE DCB BASED IOPB (7) BYTE; 
+
+        DECLARE TEMPA(0) ADDRESS, (TEMP2, TEMP1, JUNK) BYTE;
+
+        /* RECALIBRATE COMMAND */
+        DECLARE RECAL$PB(5) BYTE INITIAL(80H, RECALIBRATE, 0, 0, 0);
+
+        DECLARE I BYTE;     /* INDEX VARIABLE IN FOR STATEMENTS */
+        DECLARE IVAL BYTE;  /* INTERRUPT MASK VALUE */
+
+        DISK$STAT: PROCEDURE BYTE; /* RETURN THE DISK DRIVE STATUS */
+            IF ROR(DRIVE, 1) THEN    /* DRIVE 1 */
+                RETURN INPUT(FDCC$STATUS$1);
+            RETURN INPUT(FDCC$STATUS$0);
+        END;
+
+
+        R$TYPE: PROCEDURE BYTE; /* RETURN THE RESULT TYPE OF A DISK OPERATION */
+            IF ROR(DRIVE, 1) THEN
+                RETURN INPUT(RESULT$TYPE$1);
+            RETURN INPUT(RESULT$TYPE$0);
+        END;
+
+        
+        R$BYTE: PROCEDURE BYTE; /* RETURN THE REULT BYTE OF A DISK OPERATION */
+            IF ROR(DRIVE, 1) THEN
+                RETURN INPUT(RESULT$BYTE$1);
+            RETURN INPUT(RESULT$BYTE$0);
+        END;
+
+        /*
+           START$IO OUTPUTS THE ADDRESS OF THE IOPB TO THE DISK CONTROLLER
+        */
+        START$IO: PROCEDURE(IOPB);
+            DECLARE IOPB ADDRESS;
+
+            IF ROR(DRIVE, 1) THEN
+            DO;
+                OUTPUT(LOW$ADDRESS$1) = LOW(IOPB);
+                OUTPUT(HIGH$ADDRESS$1) = HIGH(IOPB);
+            END;
+            ELSE
+            DO;
+                OUTPUT(LOW$ADDRESS$0) = LOW(IOPB);
+                OUTPUT(HIGH$ADDRESS$0) = HIGH(IOPB);
+            END;
+        END;
+
+
+
+        IVAL = INPUT(0FCH);
+        OUTPUT(0FCH) = IVAL OR 2; /* PREVENT  REENTRANCY */
+
+        RECAL$PB(IOINS) = RECALIBRATE;
+        RECAL$PB(SADR) = 0;
+        IF DRIVE THEN
+        DO;
+            DCB(IOINS) = DCB(IOINS) OR 30H;
+            DCB(SADR) = DCB(SADR) OR 20H;
+            RECAL$PB(IOINS) = RECALIBRATE OR 30H; 
+            RECAL$PB(SADR) = 20H;
+        END;
+        
+        DO I = 0 TO MAX$RETRIES;
+
+            DO WHILE (DISK$STAT AND DISK$DONE) <> 0;
+                TEMP1 = R$TYPE;
+                TEMP1 = R$BYTE;
+            END;
+            /* IF DISK DRIVE NOT READY, GIVE FATAL ERROR */
+            IF (DISK$STAT AND ((DRIVE AND 1) + 1)) = 0 THEN
+                CALL ERR(ABORT, DRIVE$NOT$READY);
+
+            CALL START$IO(IOPB);
+            DO WHILE (DISK$STAT AND DISK$DONE) = 0; 
+                ;
+            END;
+            TEMP1 = R$TYPE;
+            IF (TEMP2 := R$BYTE) = 0 THEN
+            DO;
+                OUTPUT(0FCH) = IVAL;    /* RESTORE INTERRUPT 1 */
+                RETURN;
+            END;
+            CALL START$IO(.RECAL$PB);
+            DO WHILE (DISK$STAT AND DISK$DONE) = 0;
+                ;
+            END;
+        END;
+        FDCC$ERROR$TYPE = TEMPA;
+        CALL ERR(ABORT, DISK$IO$ERROR);
+    END;
+
+
+    /*
+     ASBIO: ACCOMPLISHES THE TRANSFER OF 128 BYTES OF DATA FROM THE DISK 
+       COMMAND  MUST BE THE NUMERIC VALUE OF THE FDCC COMMAND
+                DESIRED. (LITERALS 'READ$COMMAND' AND 'WRITE$COMMAND'
+                EXIST FOR THE COMMON OPERATIONS.)
+       DISK     THE DRIVE FROM WHICH TO READ
+       BLOCK    DISKETTE BLOCK NUMBER, A TRACK NUMBER (0-76)
+                IN THE HIGH ORDER 8 BITS AND A SECTORE NUMBER (1-26)
+                IN THE LOW ORDER 8 BITS
+       BUFFER$PTR   THE ADDRESS OF A 128 BYTE BUFFER IN RAM
+    */
+    ABSIO: PROCEDURE (COMMAND, DISK, BLOCK, BUFFER$PTR);
+        DECLARE (COMMAND, DISK) BYTE, (BLOCK, BUFFER$PTR) ADDRESS;
+        /* VALUE OF 'DISK'  MUST BE 0 - 1 */
+        DECLARE DCB(10) BYTE INITIAL(80H);
+
+        DCB(IOINS) = COMMAND;
+        DCB(NSEC) = 1;   /* IF THIS VALUE CHANGES IN THE FUTURE, */
+                /* THE 8271 DRIVER MUST BE CHANGED */
+        DCB(TADR) = HIGH(BLOCK);
+        DCB(SADR) = LOW(BLOCK);
+        DCB(BUFLO) = LOW(BUFFER$PTR);
+        DCB(BUFHI) = HIGH(BUFFER$PTR);
+        CALL DISKIO(DISK, .DCB);
+    END;
+
+    ABS$READ: PROCEDURE(BLOCK, BUFFER);
+        DECLARE (BLOCK, BUFFER) ADDRESS;
+
+        CALL ABSIO(READ$COMMAND, A$DEVICE, BLOCK, BUFFER);
+    END;
+
+    ABS$WRITE: PROCEDURE(BLOCK, BUFFER);
+        DECLARE (BLOCK, BUFFER) ADDRESS;
+
+       CALL ABSIO(WRITE$COMMAND, A$DEVICE, BLOCK, BUFFER);
+    END;
+
+    /*
+
+        ALDADR LOADS THE ABSOLUTE ISIS FILE INTO MEMORY
+        HDRBLK - LOCATION OF ISIS FILE
+
+        RETURNS - ADDRESS WHERE FILE IS LOADED
+        THE FORMAT OF THE FILE IS BASICALLY THE CONTENT RECORDS
+        FROM AN NORMAL ISIS EXECUTABLE WITH THE RECORD TYPE, SEGMENT ID AND CRC REMOVED
+    */
+
+    ALDADR: PROCEDURE(HDRBLK) ADDRESS;
+        /* LOAD INTO MEMORY THE ABS LOAD FILE AT 'HDRBLK' */
+        DECLARE HDRBLK ADDRESS;
+        DECLARE BUF(128) BYTE, BUFPTR BYTE;
+        DECLARE POINTERS(64) ADDRESS, PTRPTR BYTE;
+        DECLARE LOADADR ADDRESS, TARGET BASED LOADADR BYTE;
+        DECLARE LENGTH ADDRESS;
+
+        DECLARE FLINK   LITERALLY   '1';    /* INDEXES INTO THE POINTERS ARRAY */
+
+        L1B: PROCEDURE; /* LOAD 1 BYTE FROM BUFFER INTO MEMORY */
+            TARGET = BUF(BUFPTR);   
+            BUFPTR = BUFPTR + 1;
+            LENGTH = LENGTH - 1;
+            LOADADR = LOADADR + 1;
+        END;
+
+        G128B: PROCEDURE(BUFADR); /* GET 128 BYTES INTO BUFFER AT BUFADR */
+            DECLARE BUFADR ADDRESS;
+
+            IF (PTRPTR := PTRPTR + 1) = 64 THEN
+            DO;
+                IF POINTERS(FLINK) = 0 THEN
+                    GOTO MDSMON;
+                CALL ABSIO(READ$COMMAND, 0, POINTERS(FLINK), .POINTERS);
+                PTRPTR = 2;
+            END;
+            IF POINTERS(PTRPTR) = 0 THEN
+                GOTO MDSMON;
+            CALL ABSIO(READ$COMMAND, 0, POINTERS(PTRPTR), BUFADR);
+        END;
+
+        G1B: PROCEDURE BYTE;    /* GET 1 BYTE */
+            IF (BUFPTR AND 7FH) = 0 THEN
+            DO;
+                CALL G128B(.BUF);
+                BUFPTR = 0;
+            END;    
+            BUFPTR = BUFPTR + 1;
+            RETURN BUF(BUFPTR - 1);
+        END;
+
+        G2B: PROCEDURE ADDRESS; /* GET 2 BYTES */
+            RETURN G1B + (256 * G1B);
+        END;
+
+
+
+
+        POINTERS(FLINK) = HDRBLK;   /* INITIALISZE G128B */
+        PTRPTR = 63;
+        BUFPTR = 0;
+
+    START$LOADING$NEXT$RECORD:
+        DO WHILE TRUE;
+            LENGTH = G2B;
+            LOADADR = G2B;
+            IF LENGTH = 0 THEN
+                RETURN LOADADR;
+            DO WHILE BUFPTR <> 128;
+                IF LENGTH > 0 THEN
+                    CALL L1B;
+                ELSE
+                    GOTO START$LOADING$NEXT$RECORD;
+            END;
+            DO WHILE LENGTH >= 128;
+                CALL G128B(LOADADR);
+                LOADADR = LOADADR + 128;
+                LENGTH = LENGTH - 128;
+            END;
+            
+            BUFPTR = 0;
+            IF LENGTH <> 0 THEN
+            DO;
+                CALL G128B(.BUF);
+                DO WHILE LENGTH > 0;
+                    CALL L1B;
+                END;
+            END;
+        END;
+        /* CANNOT REACH HERE !! */
+    END; 
+
+
+    T0BOOT:
+    TEMP = INPUT(RESULT$TYPE$0);
+    TEMP = INPUT(RESULT$BYTE$0);
+    ENABLE;
+    DO WHILE (INPUT(RTC) AND BOOT) <> 0;
+        ;
+    END;
+    GLOBAL$SEVERITY = WARNING;
+    DEBUG$TOGGLE = TRUE;
+    START$ADDR = ALDADR(ISIS$HDR$BLK);
+    CALL CONSOL(.MEMORY, .MEMORY, .USER$STATUS);
+    CALL NUMOUT(VERSION$LEVEL, 16, 0, .SIGN$V, 2);
+    CALL NUMOUT(EDIT$LEVEL, 16, 0, .SIGN$E, 2);
+    CALL WRITE(0, .ISIS$SIGNON, 19, .USERSTATUS);
+    CALL EXIT;
+
+
+END;
+EOF;
+isis.t0_2.2.patch
+388E 32 31 45 44 37 33 37 31 32 34 32 45 37 30 34 45 32 43 34
+38A1 36 32 35 32 45 x 03 37 31 32 33 37 30 32 31 32 39 0D 0A 7F
+38B5 20 3A 31 44 35 45 46 31 30 x 04 37 31 34 45 32 43 34 36 32
+38CA 35 32 45 45 37 35 45 43 44 42 35 34 44 43 33 30 39 35 46
+38DD 32 31 37 30 37 34 34 45 32 43 34 36 43 44 37 42 34 45 30
+38F0 45 32 43 43 44 32 38 34 42 46 43 0D 0A 7F 20 3A 31 44 35
+3903 46 30 45 30 30 34 46 43 35 30 45 30 44 43 44 32 38 34 42
+3916 44 31 42 33 32 46 30 46 44 32 32 31 35 46 30 45 30 31 43
+3929 44 33 30 34 32 32 41 37 30 37 34 32 33 32 32 37 30 37 34
+393C 43 33 42 44 35 45 39 30 0D 0A 7F 20 3A 31 44 35 46 32 42
+394F 30 30 43 39 32 31 38 34 37 34 37 31 32
+APPEND
+32 46 34 46 37 38 32 46 32 44 37 31 32 33 37 37 32 45 38 31 37
+45 30 46 44 32 37 45 35 46 32 43 34 45 32 43 34 36 43 44 30 46
+34 45 43 33 39 39 35 46 32 43 34 45 32 43 34 36 31 41 0D 0A 7F
+20 3A 31 44 35 46 38 32 30 30 32 35 32 45 45 34 37 31 32 33 37
+30 32 34 32 45 37 45 34 45 32 43 34 36 32 31 45 37 37 30 35 45
+43 44 39 34 34 44 32 31 44 46 37 30 37 37 32 31 38 38 37 34 34
+45 32 43 34 36 45 46 0D 0A 7F 20 3A 31 44 35 46 39 46 30 30 32
+31 45 37 37 30 35 45 43 44 42 33 34 33 32 34 32 45 38 38 37 37
+32 33 37 30 32 31 44 46 37 30 39 36 34 46 37 38 44 45 30 30 42
+31 43 41 44 33 35 46 32 31 38 36 37 34 34 45 41 37 0D 0A 7F 20
+3A 31 44 35 46 42 43 30 30 32 43 34 36 32 35 32 45 42 32 37 31
+32 33 37 30 32 31 44 46 37 30 34 45 30 36 30 30 32 31 38 38 37
+34 35 45 32 43 35 36 43 44 36 45 34 37 32 41 38 36 37 34 32 33
+32 32 38 36 31 42 0D 0A 7F 20 3A 31 44 35 46 44 39 30 30 37 34
+32 41 38 32 37 34 32 33 32 32 38 32 37 34 45 42 37 42 44 36 30
+30 35 46 37 41 44 45 30 30 42 33 43 38 43 33 33 36 35 46 43 39
+30 31 38 41 37 34 43 44 38 33 35 31 43 44 45 30 0D 0A 7F 20 3A
+31 44 35 46 46 36 30 30 35 39 34 36 43 44 42 44 35 44 32 46 30
+46 44 32 30 35 36 30 30 45 30 39 43 44 33 30 34 32 32 31 44 44
+37 30 37 45 44 36 30 30 44 36 30 31 39 46
+makefile
+# path to root of build tree
+ROOT := ../..
+TARGETS := isis.bin
+PROTECT := isis.bin.cfg
+
+include $(ROOT)/tools/isis.mk
+
+REF = $(call ipath,isis,2.2)
+
+
+all::
+	$(MAKE) $(TARGETS)
+
+%.omf: %.hex
+	$(HEXOBJ) $^ $@
+
+%: %.omf
+	$(OBJBIN) -i $^ $@
+
+%.hex: %.plm
+	$(PLM81) $^
+	$(PLM82) $^
+	@perl $(ROOT)/tools/pretty.pl $*.lst $*.prn
+	rm -fr $*.pol $*.sym $*.lst
+
+clean::
+	rm -fr *.hex *.prn *.omf
+meq.plm
+MEQ: DO;
+
+meq: procedure(mPtr, fptr) byte public;
+	declare (mPtr, fptr) address;
+	declare m based mPtr (10) byte;
+	declare f based fptr (10) byte;
+	declare i byte;
+
+	do i = 0 to 9;
+		if m(i) = '?' then
+		do;
+			if f(i) = 0 then
+				return 0;
+		end;
+		else if m(i) <> '*' then
+		do;
+			if m(i) <> f(i) then
+				return 0;
+		end;
+	end;
+	return 0ffh;
+end;
+end;
+
+monitr.plm
+
+MONITOR: DO;
+Monitor: procedure public;
+  declare sp address;
+  declare wrd based sp address;
+  sp = stackptr;
+  wrd = 8;
+  stackptr = stackptr - 2;
+  sp = stackptr;
+  wrd = 0;
+end;
+end;
+numout.plm
+numout: do;
+declare digits(*) byte data('0123456789ABCDEF');
+
+NumOut: procedure(value, base, lc, bufAdr, width) public;
+	declare (value, bufAdr) address, (base, lc, width) byte;
+	declare i byte;
+	declare buf based bufAdr (1) byte;
+
+	do i = 1 to width;
+		buf(width - i) = digits(value mod base);
+		value = value / base;
+	end;
+
+	i = 0;
+	do while buf(i) = '0' and i < width - 1;
+		buf(i) = lc;
+		i = i + 1;
+	end;
+end;
+end;
+p0029.asm
+	name	@P0029
+	public	@P0029, @P0030
+	cseg
+
+@P0029:			; de = de / hl, hl = de % hl
+	mov	b,h
+	mov	c,l
+@P0030:			; de = de / bc, hl = de % bc
+	lxi	h,0
+	mvi	a,10H
+L0007:
+	push	psw
+	dad	h
+	xchg
+	sub	a
+	dad	h
+	xchg
+	adc	l
+	sub	c
+	mov	l,a
+	mov	a,h
+	sbb	b
+	mov	h,a
+	inx	d
+	jnc	L0019
+	dad	b
+	dcx	d
+L0019:
+	pop	psw
+	dcr	a
+	jnz	L0007
+	ret
+	end
+p0095.asm
+	name	@P0095
+	public	@P0095
+	cseg
+
+@P0095:			; hl = de - hl
+	mov	a,e
+	sub	l
+	mov	l,a
+	mov	a,d
+	sbb	h
+	mov	h,a
+	ret
+	end
+p0100.asm
+	name	@P0100
+	public	@P0100
+	cseg
+
+@P0100:			; hl = w[de] - bc
+	ldax	d
+	sub	c
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	b
+	mov	h,a
+	ret
+	end
+p0101.asm
+	name	@P0101
+	public	@P0101, @P0102
+	cseg
+
+@P0101:			; hl = w[de] - a
+	mov	l,a
+	mvi	h,0
+@P0102:			; hl = w[de] - hl
+	ldax	d
+	sub	l
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	h
+	mov	h,a
+	ret
+	end
+reperr.plm
+REPORTERROR: DO;
+$include(reperr.ipx)
+
+declare msg(*) byte DATA(0, 0,
+	2, 'ILLEGAL AFTN ARGUMENT', 0,
+	4, 'INCORRECTLY SPECIFIED FILE', 0,
+	5, 'UNRECOGNIZED DEVICE NAME', 0,
+	6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+	8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+	0AH, 'NOT ON SAME DISK', 0,
+	0BH, 'FILE ALREADY EXISTS', 0,
+	0CH, 'FILE IS ALREADY OPEN', 0,
+	0DH, 'NO SUCH FILE', 0,
+	0EH, 'WRITE PROTECTED', 0,
+	11H, 'NOT A DISK FILE', 0,
+	12H, 'ILLEGAL ISIS COMMAND', 0,
+	13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+	14H, 'ATTEMPTED BACK SEEK TOO FAR', 0,
+	15H, 'CAN', 27H, 'T RESCAN', 0,
+	16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+	17H, 'MISSING FILENAME', 0,
+	19H, 'ILLEGAL ECHO FILE', 0,
+	1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+	1BH, 'ILLEGAL SEEK COMMAND', 0,
+	1CH, 'MISSING EXTENSION', 0,
+	1FH, 'CAN', 27H, 'T SEEK ON WRITE ONLY FILE', 0,
+	20H, 'CAN', 27H, 'T DELETE OPEN FILE', 0,
+	23H, 'SEEK PAST EOF', 0,
+	0C9H, 'UNRECOGNIZED SWITCH', 0,
+	0CAH, 'UNRECOGNIZED DELIMITER', 0,
+	0CBH, 'INVALID SYNTAX', 0,
+	0CCH, 'PREMATURE EOF', 0,
+	0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+	0D0H, 'CHECKSUM ERROR', 0,
+	0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+	0D2H, 'INSUFFICIENT MEMORY', 0,
+	0D3H, 'RECORD TOO LONG', 0,
+	0D4H, 'ILLEGAL RELO RECORD', 0,
+	0D5H, 'FIXUP BOUNDS ERROR', 0,
+	0D6H, 'ILLEGAL SUBMIT PARAMETER', 0,
+	0D7H, 'ARGUMENT TOO LONG', 0,
+	0D8H, 'TOO MANY PARAMETERS', 0,
+	0D9H, 'OBJECT RECORD TOO SHORT', 0,
+	0DAH, 'ILLEGAL RECORD FORMAT', 0,
+	0DBH, 'PHASE ERROR', 0
+	);
+
+reportError: procedure(errNum) public;
+	declare errNum address;
+	declare numberBuffer(3) byte, i address, status address;
+ 
+
+	if errNum <> 0 then
+	do;
+		i = 0;
+		do while i < size(msg);
+			if errNum = msg(i) and msg(i + 1) <> 0 then
+			do;
+				i = i + 1;
+				call write(0, .(' '), 1, .status);
+				do while msg(i) <> 0;
+					call write(0, .msg(i), 1, .status);
+					i = i + 1;
+				end;
+				call write(0, .(0dh, 0ah), 2, .status);
+				return;
+			end;
+			else
+			do;
+				do while msg(i) <> 0;
+					i = i + 1;
+				end;
+				i = i + 1;
+			end;
+		end;
+	call error(errNum);
+	end;
+end;
+end;
+
+scnblk.plm
+SCANBLANK: DO;
+$include(scnblk.ipx)
+
+Scanblank: procedure(ptr) address public;
+	declare ptr address, ch based ptr byte;
+
+	do while (1);
+		ptr = delimit(ptr);
+		if ch = '*' or ch = '?' then
+			ptr = ptr + 1;
+		else
+			return ptr;
+	end;
+end;
+end;
+seq.plm
+SEQ: DO;
+seq: procedure(s1, s2, cnt) byte public;
+	declare (s1,s2) address, cnt byte;
+	declare s1a based s1(1) byte;
+	declare s2a based s2(1) byte;
+	declare i byte;
+	cnt = cnt - 1;
+	do i = 0 to cnt;
+		if s1a(i) <> s2a(i) then
+			return 0;
+	end;
+	return 0ffh;
+end;
+end;
+
+upcase.plm
+UPPERCASE: DO;
+uppercase: procedure(char) byte public;
+	declare char byte;
+	if char < 'a' then
+		return char;
+	if char > 'z' then
+		return char;
+	return char and 0dfh;
+end;
+end;
 
