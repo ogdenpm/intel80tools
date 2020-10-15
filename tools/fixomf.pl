@@ -4,15 +4,22 @@
 # that added some of the library routines inline
 
 my $rmpub = 0;
+my $rmmain = 0;
 if ($#ARGV > 0) {
-    my $param = shift @ARGV;
-    if ($param eq "-p") {
-        $rmpub++;
-    } else {
-        unshift @ARGV, $param;
+    while (my $param = shift @ARGV) {
+        if ($param eq "-p") {
+            $rmpub++;
+        } elsif ($param eq "-m") {
+            $rmmain++;
+        } else {
+            unshift @ARGV, $param;
+            last;
+        }
     }
 }
-die "usage: fixomf.pl [-p] infile [outfile]\n\t-p removes @Pnnnn publics\n" unless $#ARGV <= 1;
+die "usage: fixomf.pl [-p] [-m] infile [outfile]\n" .
+    "\t-p removes @Pnnnn publics\n" .
+    "\t-m removed main flag\n" unless $#ARGV <= 1;
 my $file = shift @ARGV;
 my $ofile = ($#ARGV == 0 ? shift @ARGV : $file);
 my $overwrite = 0;
@@ -25,7 +32,7 @@ if ($ofile eq $file) {
 sub mkRecord {
     my($type, $rec) = @_;
     $rec = pack("Cva*", $type, length($rec) + 1, $rec);
-    return $rec . chr(256 - unpack("%8C*", $rec));
+    return $rec . chr((-unpack("%8C*", $rec)) & 0xff);
 }
 
 sub stripPublic {
@@ -71,6 +78,8 @@ while (1) {
     if ($rmpub && $type == 0x16) {   # strip @Pnnnn publics if -p option
         $rec = mkRecord($type, stripPublic($data));
         next if length($rec) <= 5;      # no symbols left
+    } elsif ($type == 4 && $rmmain) {   # remove main module flag
+        $rec = mkRecord($type, pack("CCv", 0, 0, 0));
     } else {
         $rec = mkRecord($type, $data);  # recreate the original record
     }
