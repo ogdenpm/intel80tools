@@ -6,6 +6,10 @@ Note there are additional CPM applications, specifically the Whitesmith's develo
 
 Specific subdirectories are noted below. Both the lib_1.1 and link_1.31 directories use my packed source format. See [misc.md](misc.md) for details.
 
+### basice
+
+Although not a decompilation, this directory contains the source for basic-e v2.1 and the runtime interpreter v2.3. It also contains a document that describes the challenge on getting this to compile to byte level matching, despite having access to the source
+
 ### lib_1.1
 
 This is a decompilation of Digital Research's LIB tool version 1.1 back to plm source.
@@ -42,5 +46,5 @@ Note in addition to the  usual makefile, the directory also build.ninja to allow
 ------
 
 ```
-Updated by Mark Ogden 12-Sep-2020
+Updated by Mark Ogden 16-Sep-2020
 ```
