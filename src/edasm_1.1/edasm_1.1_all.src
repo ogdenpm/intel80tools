@@ -844,83 +844,12 @@ eof;
 
 
 
-pcktok.asm
-    public PckTok
-    extrn toksiz
-    extrn tokst;
-
-; pckTok - packs the token pointed by tokst, with length toksiz into 4 bytes
-; packed version replaces original and toksize set to 4 bytes
-
-    CSEG
-PckTok:
-    lhld    tokst       ; pointer to the token to pack
-    xchg
-    lxi     h, toksiz
-    mov     c, m        ; unpacked length
-    mvi     m, 4        ; new packed length is 4 bytes
-    call    pack3       ; pack 3 chars into hl
-    push    h
-    call    pack3
-    pop     b
-    xchg                ; put the packed data into the first 4 bytes
-    dcx     h
-    dcx     h
-    dcx     h
-    mov     m, d
-    dcx     h
-    mov     m, e
-    dcx     h
-    mov     m, b
-    dcx     h
-    mov     m, c
-    ret
-
-pack3:
-    lxi     h, 0        ; get 3 chars packed into 2 bytes
-    mvi     b, 3
-
-@1:
-    push    d           ; pointer to next char
-    mov     d, h        ; hl x 40
-    mov     e, l
-    dad     h
-    dad     h
-    dad     d
-    dad     h
-    dad     h
-    dad     h
-    pop     d    
-    call    pack1       ; add in next char
-    add     l
-    mov     l, a
-    mvi     a, 0
-    adc     h
-    mov     h, a
-    dcr     b           ; get the 3 chars
-    jnz     @1
-    ret
-
-pack1:
-    ldax    d           ; pick up next character
-    inx     d           ; advance for next time
-    dcr     c           ; check it is valid
-    jm      @2
-    sui     2Fh         ; /012345678  (0-9)
-                        ; 9?@ABCDEFG  (10-19)
-                        ; HIJKLMNOPQ  (20-29)
-                        ; RSTUVWXYZ[  (30-39)
-    cpi     10h         ; digit so return
-    rc
-    sui     5           ; exclude : ; < = >
-    ret
-
-@2:
-    sub     a           ; 0 no char
-    ret
-
-    end
-
+as80_1.1.patch
+; patch to fix sub-optimal code in original - see source GetCh
+D795 2F 1F D2 1E D8
+; padding to end of rom
+APPEND
+FF x 2FD
 as81.plm
 token: do;
 $include(as81.ipx)
@@ -2731,131 +2660,32 @@ $include(as88.ipx)
         call PrintErrorLocChain;
     end;
 end;
-keywrd.plm
-keywords: do;
-$include(keywrd.ipx)
-    declare keywords(116) TOKENSYM$T public data(
-             5140h,      0,    7,    7,     0,  /* A      */
-             53ADh,      0, 0CEh,  34h,     0,  /* ACI    */
-             53CFh,      0,  88h,  33h,     0,  /* ADC    */
-             53D0h,      0,  80h,  33h,     0,  /* ADD    */
-             53D5h,      0, 0C6h,  34h,     0,  /* ADI    */
-             555Dh,      0, 0A0h,  33h,     0,  /* ANA    */
-             5560h,      0,    0,  12h,     0,  /* AND    */
-             5565h,      0, 0E6h,  34h,     0,  /* ANI    */
-             5780h,      0,    0,    7,     0,  /* B      */
-             5DC0h,      0,    1,    7,     0,  /* C      */
-             5FE0h,  9600h, 0CDh,  38h,     0,  /* CALL   */
-             6018h,      0, 0DCh,  38h,     0,  /* CC     */
-             61A8h,      0, 0FCh,  38h,     0,  /* CM     */
-             61B5h,      0,  2Fh,  39h,     0,  /* CMA    */
-             61B7h,      0,  3Fh,  39h,     0,  /* CMC    */
-             61C4h,      0, 0B8h,  33h,     0,  /* CMP    */
-             61DFh,      0, 0D4h,  38h,     0,  /* CNC    */
-             61F6h,      0, 0C4h,  38h,     0,  /* CNZ    */
-             6220h,      0, 0F4h,  38h,     0,  /* CP     */
-             6231h,      0, 0ECh,  38h,     0,  /* CPE    */
-             6235h,      0, 0FEh,  34h,     0,  /* CPI    */
-             623Bh,      0, 0E4h,  38h,     0,  /* CPO    */
-             63B0h,      0, 0CCh,  38h,     0,  /* CZ     */
-             6400h,      0,    2,    7,     0,  /* D      */
-             6615h,      0,  27h,  39h,     0,  /* DAA    */
-             6618h,      0,    9,  31h,     0,  /* DAD    */
-             6630h,      0,    0,  1Ah,     0,  /* DB     */
-             6676h,      0,    5,  36h,     0,  /* DCR    */
-             667Ch,      0,  0Bh,  31h,     0,  /* DCX    */
-             6748h,      0, 0F3h,  39h,     0,  /* DI     */
-             68D8h,      0,    0,  1Ch,     0,  /* DS     */
-             6978h,      0,    0,  1Bh,     0,  /* DW     */
-             6A40h,      0,    3,    7,     0,  /* E      */
-             6D88h,      0, 0FBh,  39h,     0,  /* EI     */
-             6E1Fh,  6A40h,    0,  22h,     0,  /* ELSE   */
-             6E60h,      0,    0,  20h,     0,  /* END    */
-             6E60h,  8610h,    0,  23h,     0,  /* ENDIF  */
-             6E98h,      0,    0,  3Bh,     0,  /* EOT    */
-             6EC8h,      0,    0,  0Bh,     0,  /* EQ     */
-             6EE9h,      0,    0,  1Dh,     0,  /* EQU    */
-             7968h,      0,    0,  0Fh,     0,  /* GE     */
-             7BC0h,      0,    0,  0Eh,     0,  /* GT     */
-             7D00h,      0,    4,    7,     0,  /* H      */
-             805Bh,  7D00h,    0,  18h,     0,  /* HIGH   */
-             80E0h,      0,  76h,  39h,     0,  /* HLT    */
-             8610h,      0,    0,  21h,     0,  /* IF     */
-             8750h,      0, 0DBh,  34h,     0,  /* IN     */
-             876Eh,      0,    4,  36h,     0,  /* INR    */
-             8774h,      0,    3,  31h,     0,  /* INX    */
-             8BD8h,      0, 0DAh,  38h,     0,  /* JC     */
-             8D68h,      0, 0FAh,  38h,     0,  /* JM     */
-             8D84h,      0, 0C3h,  38h,     0,  /* JMP    */
-             8D9Fh,      0, 0D2h,  38h,     0,  /* JNC    */
-             8DB6h,      0, 0C2h,  38h,     0,  /* JNZ    */
-             8DE0h,      0, 0F2h,  38h,     0,  /* JP     */
-             8DF1h,      0, 0EAh,  38h,     0,  /* JPE    */
-             8DFBh,      0, 0E2h,  38h,     0,  /* JPO    */
-             8F70h,      0, 0CAh,  38h,     0,  /* JZ     */
-             9600h,      0,    5,    7,     0,  /* L      */
-             988Dh,      0,  3Ah,  38h,     0,  /* LDA    */
-             988Dh, 0E100h,  0Ah,  32h,     0,  /* LDAX   */
-             98A8h,      0,    0,  0Dh,     0,  /* LE     */
-             9938h,  6400h,  2Ah,  38h,     0,  /* LHLD   */
-             9A5Bh,      0,    0,  19h,     0,  /* LOW    */
-             9B00h,      0,    0,  0Ch,     0,  /* LT     */
-             9BB5h,      0,    1,  30h,     0,  /* LXI    */
-             9C40h,      0,    6,    7,     0,  /* M      */
-            0A088h,      0,    0,  15h,     0,  /* MOD    */
-            0A09Ah,      0,  40h,  37h,     0,  /* MOV    */
-            0A1A5h,      0,    6,  35h,     0,  /* MVI    */
-            0A528h,      0,    0,  10h,     0,  /* NE     */
-            0A6D4h,      0,    0,  39h,     0,  /* NOP    */
-            0A6D8h,      0,    0,  11h,     0,  /* NOT    */
-            0AD70h,      0,    0,  13h,     0,  /* OR     */
-            0AD7Dh,      0, 0B0h,  33h,     0,  /* ORA    */
-            0AD83h,      0,    0,  1Fh,     0,  /* ORG    */
-            0AD85h,      0, 0F6h,  34h,     0,  /* ORI    */
-            0AE08h,      0, 0D3h,  34h,     0,  /* OUT    */
-            0B16Ch,  9600h, 0E9h,  39h,     0,  /* PCHL   */
-            0B354h,      0, 0C1h,  31h,     0,  /* POP    */
-            0B3FBh,      0,    6,    7,     0,  /* PSW    */
-            0B447h,  7D00h, 0C5h,  31h,     0,  /* PUSH   */
-            0BDA0h,      0,  17h,  39h,     0,  /* RAL    */
-            0BDA6h,      0,  1Fh,  39h,     0,  /* RAR    */
-            0BDD8h,      0, 0D8h,  39h,     0,  /* RC     */
-            0BE48h,      0, 0C9h,  39h,     0,  /* RET    */
-            0BEE1h,      0,  20h,  39h,     2,  /* RIM    */
-            0BF4Fh,      0,    7,  39h,     0,  /* RLC    */
-            0BF68h,      0, 0F8h,  39h,     0,  /* RM     */
-            0BF9Fh,      0, 0D0h,  39h,     0,  /* RNC    */
-            0BFB6h,      0, 0C0h,  39h,     0,  /* RNZ    */
-            0BFE0h,      0, 0F0h,  39h,     0,  /* RP     */
-            0BFF1h,      0, 0E8h,  39h,     0,  /* RPE    */
-            0BFFBh,      0, 0E0h,  39h,     0,  /* RPO    */
-            0C03Fh,      0,  0Fh,  39h,     0,  /* RRC    */
-            0C078h,      0, 0C7h,  3Ah,     0,  /* RST    */
-            0C170h,      0, 0C8h,  39h,     0,  /* RZ     */
-            0C3FEh,      0,  98h,  33h,     0,  /* SBB    */
-            0C405h,      0, 0DEh,  34h,     0,  /* SBI    */
-            0C488h,      0,    0,  1Eh,     0,  /* SET    */
-            0C4F8h,      0,    0,  16h,     0,  /* SHL    */
-            0C4F8h,  6400h,  22h,  38h,     0,  /* SHLD   */
-            0C4FEh,      0,    0,  17h,     0,  /* SHR    */
-            0C521h,      0,  30h,  39h,     2,  /* SIM    */
-            0C620h,      0,    6,    7,     0,  /* SP     */
-            0C634h,  9600h, 0F9h,  39h,     0,  /* SPHL   */
-            0C6CDh,      0,  32h,  38h,     0,  /* STA    */
-            0C6CDh, 0E100h,    2,  32h,     0,  /* STAX   */
-            0C6CFh,      0,  37h,  39h,     0,  /* STC    */
-            0C6F6h,      0,  90h,  33h,     0,  /* SUB    */
-            0C6FDh,      0, 0D6h,  34h,     0,  /* SUI    */
-            0E36Ch,  76C0h, 0EBh,  39h,     0,  /* XCHG   */
-            0E556h,      0,    0,  14h,     0,  /* XOR    */
-            0E5BDh,      0, 0A8h,  33h,     0,  /* XRA    */
-            0E5C5h,      0, 0EEh,  34h,     0,  /* XRI    */
-            0E614h,  9600h, 0E3h,  39h,     0   /* XTHL   */
-    );
+dblank.plm
+deblank: do;
 
-    EndKeywords: procedure address public;
-        return .EndKeywords;
-    end; 
+    DEBLANK: PROCEDURE(PTR) ADDRESS public;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+end;
+dlimit.plm
+delimit: do;
+    DELIMIT: PROCEDURE(PTR) ADDRESS public;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
 end;
 editor.plm
 editor: do;
@@ -3497,33 +3327,15 @@ BREAK:
 
 end;
 eof;
-dblank.plm
-deblank: do;
-
-    DEBLANK: PROCEDURE(PTR) ADDRESS public;
-        DECLARE PTR ADDRESS;
-        DECLARE C BASED PTR BYTE;
-
-        DO WHILE (C = ' ');
-            PTR = PTR + 1;
-        END;
-        RETURN PTR;
-    END;
-end;
-dlimit.plm
-delimit: do;
-    DELIMIT: PROCEDURE(PTR) ADDRESS public;
-        DECLARE PTR ADDRESS;
-        DECLARE C BASED PTR BYTE;
-
-        DO WHILE (C = ':' OR C = '.' OR
-                 ('0' <= C AND C <= '9') OR
-                 ('A' <= C AND C <= 'Z'));
-            PTR = PTR + 1;
-        END;
-        RETURN PTR;
-    END;
-end;
+editor_1.1.patch
+# patch to jump to reenter from system monitor
+A804 DE AB
+# patch to replace code that cound not be replicated
+# see source for why
+AEB5 21 1F 20 36 00 23
+# pad to end of rom
+APPEND
+FF x 1C 47
 fupper.plm
 forceUpper: do;
 declare CR LITERALLY '0dh';
@@ -3537,6 +3349,132 @@ uppercase: procedure(char) byte external; declare char byte; end;
             bufferPtr = bufferPtr + 1;
         end;
     end;
+end;
+keywrd.plm
+keywords: do;
+$include(keywrd.ipx)
+    declare keywords(116) TOKENSYM$T public data(
+             5140h,      0,    7,    7,     0,  /* A      */
+             53ADh,      0, 0CEh,  34h,     0,  /* ACI    */
+             53CFh,      0,  88h,  33h,     0,  /* ADC    */
+             53D0h,      0,  80h,  33h,     0,  /* ADD    */
+             53D5h,      0, 0C6h,  34h,     0,  /* ADI    */
+             555Dh,      0, 0A0h,  33h,     0,  /* ANA    */
+             5560h,      0,    0,  12h,     0,  /* AND    */
+             5565h,      0, 0E6h,  34h,     0,  /* ANI    */
+             5780h,      0,    0,    7,     0,  /* B      */
+             5DC0h,      0,    1,    7,     0,  /* C      */
+             5FE0h,  9600h, 0CDh,  38h,     0,  /* CALL   */
+             6018h,      0, 0DCh,  38h,     0,  /* CC     */
+             61A8h,      0, 0FCh,  38h,     0,  /* CM     */
+             61B5h,      0,  2Fh,  39h,     0,  /* CMA    */
+             61B7h,      0,  3Fh,  39h,     0,  /* CMC    */
+             61C4h,      0, 0B8h,  33h,     0,  /* CMP    */
+             61DFh,      0, 0D4h,  38h,     0,  /* CNC    */
+             61F6h,      0, 0C4h,  38h,     0,  /* CNZ    */
+             6220h,      0, 0F4h,  38h,     0,  /* CP     */
+             6231h,      0, 0ECh,  38h,     0,  /* CPE    */
+             6235h,      0, 0FEh,  34h,     0,  /* CPI    */
+             623Bh,      0, 0E4h,  38h,     0,  /* CPO    */
+             63B0h,      0, 0CCh,  38h,     0,  /* CZ     */
+             6400h,      0,    2,    7,     0,  /* D      */
+             6615h,      0,  27h,  39h,     0,  /* DAA    */
+             6618h,      0,    9,  31h,     0,  /* DAD    */
+             6630h,      0,    0,  1Ah,     0,  /* DB     */
+             6676h,      0,    5,  36h,     0,  /* DCR    */
+             667Ch,      0,  0Bh,  31h,     0,  /* DCX    */
+             6748h,      0, 0F3h,  39h,     0,  /* DI     */
+             68D8h,      0,    0,  1Ch,     0,  /* DS     */
+             6978h,      0,    0,  1Bh,     0,  /* DW     */
+             6A40h,      0,    3,    7,     0,  /* E      */
+             6D88h,      0, 0FBh,  39h,     0,  /* EI     */
+             6E1Fh,  6A40h,    0,  22h,     0,  /* ELSE   */
+             6E60h,      0,    0,  20h,     0,  /* END    */
+             6E60h,  8610h,    0,  23h,     0,  /* ENDIF  */
+             6E98h,      0,    0,  3Bh,     0,  /* EOT    */
+             6EC8h,      0,    0,  0Bh,     0,  /* EQ     */
+             6EE9h,      0,    0,  1Dh,     0,  /* EQU    */
+             7968h,      0,    0,  0Fh,     0,  /* GE     */
+             7BC0h,      0,    0,  0Eh,     0,  /* GT     */
+             7D00h,      0,    4,    7,     0,  /* H      */
+             805Bh,  7D00h,    0,  18h,     0,  /* HIGH   */
+             80E0h,      0,  76h,  39h,     0,  /* HLT    */
+             8610h,      0,    0,  21h,     0,  /* IF     */
+             8750h,      0, 0DBh,  34h,     0,  /* IN     */
+             876Eh,      0,    4,  36h,     0,  /* INR    */
+             8774h,      0,    3,  31h,     0,  /* INX    */
+             8BD8h,      0, 0DAh,  38h,     0,  /* JC     */
+             8D68h,      0, 0FAh,  38h,     0,  /* JM     */
+             8D84h,      0, 0C3h,  38h,     0,  /* JMP    */
+             8D9Fh,      0, 0D2h,  38h,     0,  /* JNC    */
+             8DB6h,      0, 0C2h,  38h,     0,  /* JNZ    */
+             8DE0h,      0, 0F2h,  38h,     0,  /* JP     */
+             8DF1h,      0, 0EAh,  38h,     0,  /* JPE    */
+             8DFBh,      0, 0E2h,  38h,     0,  /* JPO    */
+             8F70h,      0, 0CAh,  38h,     0,  /* JZ     */
+             9600h,      0,    5,    7,     0,  /* L      */
+             988Dh,      0,  3Ah,  38h,     0,  /* LDA    */
+             988Dh, 0E100h,  0Ah,  32h,     0,  /* LDAX   */
+             98A8h,      0,    0,  0Dh,     0,  /* LE     */
+             9938h,  6400h,  2Ah,  38h,     0,  /* LHLD   */
+             9A5Bh,      0,    0,  19h,     0,  /* LOW    */
+             9B00h,      0,    0,  0Ch,     0,  /* LT     */
+             9BB5h,      0,    1,  30h,     0,  /* LXI    */
+             9C40h,      0,    6,    7,     0,  /* M      */
+            0A088h,      0,    0,  15h,     0,  /* MOD    */
+            0A09Ah,      0,  40h,  37h,     0,  /* MOV    */
+            0A1A5h,      0,    6,  35h,     0,  /* MVI    */
+            0A528h,      0,    0,  10h,     0,  /* NE     */
+            0A6D4h,      0,    0,  39h,     0,  /* NOP    */
+            0A6D8h,      0,    0,  11h,     0,  /* NOT    */
+            0AD70h,      0,    0,  13h,     0,  /* OR     */
+            0AD7Dh,      0, 0B0h,  33h,     0,  /* ORA    */
+            0AD83h,      0,    0,  1Fh,     0,  /* ORG    */
+            0AD85h,      0, 0F6h,  34h,     0,  /* ORI    */
+            0AE08h,      0, 0D3h,  34h,     0,  /* OUT    */
+            0B16Ch,  9600h, 0E9h,  39h,     0,  /* PCHL   */
+            0B354h,      0, 0C1h,  31h,     0,  /* POP    */
+            0B3FBh,      0,    6,    7,     0,  /* PSW    */
+            0B447h,  7D00h, 0C5h,  31h,     0,  /* PUSH   */
+            0BDA0h,      0,  17h,  39h,     0,  /* RAL    */
+            0BDA6h,      0,  1Fh,  39h,     0,  /* RAR    */
+            0BDD8h,      0, 0D8h,  39h,     0,  /* RC     */
+            0BE48h,      0, 0C9h,  39h,     0,  /* RET    */
+            0BEE1h,      0,  20h,  39h,     2,  /* RIM    */
+            0BF4Fh,      0,    7,  39h,     0,  /* RLC    */
+            0BF68h,      0, 0F8h,  39h,     0,  /* RM     */
+            0BF9Fh,      0, 0D0h,  39h,     0,  /* RNC    */
+            0BFB6h,      0, 0C0h,  39h,     0,  /* RNZ    */
+            0BFE0h,      0, 0F0h,  39h,     0,  /* RP     */
+            0BFF1h,      0, 0E8h,  39h,     0,  /* RPE    */
+            0BFFBh,      0, 0E0h,  39h,     0,  /* RPO    */
+            0C03Fh,      0,  0Fh,  39h,     0,  /* RRC    */
+            0C078h,      0, 0C7h,  3Ah,     0,  /* RST    */
+            0C170h,      0, 0C8h,  39h,     0,  /* RZ     */
+            0C3FEh,      0,  98h,  33h,     0,  /* SBB    */
+            0C405h,      0, 0DEh,  34h,     0,  /* SBI    */
+            0C488h,      0,    0,  1Eh,     0,  /* SET    */
+            0C4F8h,      0,    0,  16h,     0,  /* SHL    */
+            0C4F8h,  6400h,  22h,  38h,     0,  /* SHLD   */
+            0C4FEh,      0,    0,  17h,     0,  /* SHR    */
+            0C521h,      0,  30h,  39h,     2,  /* SIM    */
+            0C620h,      0,    6,    7,     0,  /* SP     */
+            0C634h,  9600h, 0F9h,  39h,     0,  /* SPHL   */
+            0C6CDh,      0,  32h,  38h,     0,  /* STA    */
+            0C6CDh, 0E100h,    2,  32h,     0,  /* STAX   */
+            0C6CFh,      0,  37h,  39h,     0,  /* STC    */
+            0C6F6h,      0,  90h,  33h,     0,  /* SUB    */
+            0C6FDh,      0, 0D6h,  34h,     0,  /* SUI    */
+            0E36Ch,  76C0h, 0EBh,  39h,     0,  /* XCHG   */
+            0E556h,      0,    0,  14h,     0,  /* XOR    */
+            0E5BDh,      0, 0A8h,  33h,     0,  /* XRA    */
+            0E5C5h,      0, 0EEh,  34h,     0,  /* XRI    */
+            0E614h,  9600h, 0E3h,  39h,     0   /* XTHL   */
+    );
+
+    EndKeywords: procedure address public;
+        return .EndKeywords;
+    end; 
 end;
 numout.plm
 numout: do;
@@ -3558,6 +3496,83 @@ numout: do;
         END;
     END;
 end;
+pcktok.asm
+    public PckTok
+    extrn toksiz
+    extrn tokst;
+
+; pckTok - packs the token pointed by tokst, with length toksiz into 4 bytes
+; packed version replaces original and toksize set to 4 bytes
+
+    CSEG
+PckTok:
+    lhld    tokst       ; pointer to the token to pack
+    xchg
+    lxi     h, toksiz
+    mov     c, m        ; unpacked length
+    mvi     m, 4        ; new packed length is 4 bytes
+    call    pack3       ; pack 3 chars into hl
+    push    h
+    call    pack3
+    pop     b
+    xchg                ; put the packed data into the first 4 bytes
+    dcx     h
+    dcx     h
+    dcx     h
+    mov     m, d
+    dcx     h
+    mov     m, e
+    dcx     h
+    mov     m, b
+    dcx     h
+    mov     m, c
+    ret
+
+pack3:
+    lxi     h, 0        ; get 3 chars packed into 2 bytes
+    mvi     b, 3
+
+@1:
+    push    d           ; pointer to next char
+    mov     d, h        ; hl x 40
+    mov     e, l
+    dad     h
+    dad     h
+    dad     d
+    dad     h
+    dad     h
+    dad     h
+    pop     d    
+    call    pack1       ; add in next char
+    add     l
+    mov     l, a
+    mvi     a, 0
+    adc     h
+    mov     h, a
+    dcr     b           ; get the 3 chars
+    jnz     @1
+    ret
+
+pack1:
+    ldax    d           ; pick up next character
+    inx     d           ; advance for next time
+    dcr     c           ; check it is valid
+    jm      @2
+    sui     2Fh         ; /012345678  (0-9)
+                        ; 9?@ABCDEFG  (10-19)
+                        ; HIJKLMNOPQ  (20-29)
+                        ; RSTUVWXYZ[  (30-39)
+    cpi     10h         ; digit so return
+    rc
+    sui     5           ; exclude : ; < = >
+    ret
+
+@2:
+    sub     a           ; 0 no char
+    ret
+
+    end
+
 seq.plm
 seq: do;
 

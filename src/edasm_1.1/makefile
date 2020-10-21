@@ -12,7 +12,6 @@ PLMFLAGS:= DEBUG CODE
 LINKFLAGS:=
 ASPATCH=as80_1.1.patch
 EDPATCH=editor_1.1.patch
-PROTECT=$(ASPATCH) $(EDPATCH)
 
 ASobjs = as80.obj pcktok.obj as81.obj as82.obj as83.obj\
 	     as84.obj as85.obj as86.obj as87.obj as88.obj keywrd.obj
@@ -42,3 +41,11 @@ editor.rel: $(EDobjs)
 
 editor.bin: editor.abs $(EDPATCH)
 	$(OBJBIN) $^ $@
+
+
+printedit: all
+	perl $(ROOT)/tools/relst.pl editor.abs editor.map $(EDobjs:.obj=.lst)
+
+
+printasm: all 
+	perl $(ROOT)/tools/relst.pl as80.abs as80.map $(ASobjs:.obj=.lst)
