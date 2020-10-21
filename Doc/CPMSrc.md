@@ -1,8 +1,8 @@
-# CPM Applications
+# CP/M Applications
 
-The cpmsrc directory tree contains my decompilation work for a number of CPM applications. At the top of the tree is a makefile that can be used to build all of the applications.
+The cpmsrc directory tree contains my decompilation work for a number of CP/M applications. At the top of the tree is a makefile that can be used to build all of the applications.
 
-Note there are additional CPM applications, specifically the Whitesmith's development tools, in my github repository [ws21](https://github.com/ogdenpm/ws21).
+Note there are additional CP/M applications, specifically the Whitesmith's development tools, in my github repository [ws21](https://github.com/ogdenpm/ws21).
 
 Specific subdirectories are noted below. Both the lib_1.1 and link_1.31 directories use my packed source format. See [misc.md](misc.md) for details.
 
@@ -29,11 +29,11 @@ This is my reconstruction of the ml81 high level assembler, which has four separ
 
 Historically I decompiled this many years ago, but I subsequently found a copy of the original thesis that described the assembler. I used the thesis to update my decompilation to reflect variable names etc. Note the thesis version varies slightly from the published versions.
 
-From various CPM archives I have identified two variants of the m81.com file and two variants of the l82.com file. The files in the patchFiles subdirectory allow the variants to be created. Each contains descriptive information on what the patches do.
+From various CP/M archives I have identified two variants of the m81.com file and two variants of the l82.com file. The files in the patchFiles subdirectory allow the variants to be created. Each contains descriptive information on what the patches do.
 
 For  l82.com one of the patches was a significant manual patch. I have included details, but also added a new plm source file l82fix.plm that creates a clean PL/M 80 file with the same functional changes.
 
-Note the files were compiled with the Fortran based PL/M 80 compiler, however the version used  appears to one somewhere between the V2 & V4 versions available on the internet. In particular patches from V4 needed to be added to the V2 variant to make it work. The plm81 & plm82 files in the tools directory have the appropriate patches applied.
+Note the files were compiled with the Fortran based PL/M 80 compiler, however the version used  appears to be one between the V2 & V4 versions available on the internet. In particular patches from V4 needed to be added to the V2 variant to make it work. The plm81 & plm82 files in the tools directory have the appropriate patches applied.
 
 ### tex
 
@@ -46,5 +46,5 @@ Note in addition to the  usual makefile, the directory also build.ninja to allow
 ------
 
 ```
-Updated by Mark Ogden 16-Sep-2020
+Updated by Mark Ogden 21-Oct-2020
 ```
