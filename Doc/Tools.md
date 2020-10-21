@@ -300,27 +300,31 @@ Usage: omfcmp -v | -V | file1 file2
 
 ### pack.pl
 
-Manage a packed source file
+Manage a packed source file.
+
+Note by default the top level makefile is excluded, as this is usually used to extract the files automatically. Makefiles in sub-directories are included when pattern matched.
 
 ```
-usage: pack.pl [-h] [-a pattern | -c pattern | -d pattern | -l | -u] [-f] [file]
+usage: pack.pl [-h] [-a pattern | -c pattern | -d pattern | -l | -u] [-f] [-m] [file]
 
 where -h            prints simple help and exits
       -a pattern    add text files matching pattern - also updates changed files
+      -A            as -a with implied pattern of *
       -c pattern    create new packed file from text files matching pattern
+      -C            as -c with implied pattern of *
       -d pattern    remove text files matching pattern
       -l            list names of included files
       -u            update files in existing packed file 
       -f            files only no directories
+      -m            for -a and -c include makefile in top level directory
       file          an optional target file - default is {curdir}_all.src
 
-      default operation is -c "*"
+      default operation is -h
 
       patterns are case insensitive ? matches any char * matches any number of chars
       multiple patterns are separated by |
       [..] matches ranges of chars and spaces should not be escaped
       e.g. to match a file name with a space use "* *"
-
 ```
 
 ### patchbin.exe (tool-src) [depreciated]
@@ -449,6 +453,6 @@ usage: version [-h] | [-q] [-f] [-a appid] [CACHE_PATH OUT_FILE]
 ------
 
 ```
-Updated by Mark Ogden 16-Oct-2020 
+Updated by Mark Ogden 21-Oct-2020 
 ```
 

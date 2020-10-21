@@ -5,23 +5,26 @@ sub usage {
     print <<"END";
 create a packed text file
 
-usage: pack.pl [-h] [-a pattern | -c pattern | -d pattern | -l | -u] [-f] [file]
+usage: pack.pl [-h] [-a pattern | -c pattern | -d pattern | -l | -u] [-f] [-m] [file]
 
 where -h            prints simple help and exits
       -a pattern    add text files matching pattern - also updates changed files
+      -A            as -a with implied pattern of "*"
       -c pattern    create new packed file from text files matching pattern
+      -C            as -c with implied pattern of "*"
       -d pattern    remove text files matching pattern
       -l            list names of included files
       -u            update files in existing packed file 
       -f            files only no directories
+      -m            for -a and -c include makefile in top level directory
       file          an optional target file - default is {curdir}_all.src
 
-      default operation is -c "*"
+      default operation is -h
 
       patterns are case insensitive ? matches any char * matches any number of chars
       multiple patterns are separated by |
-      [..] matches ranges of chars and spaces should not be escaped
-      e.g. to match a file name with a space use "* *"
+      [..] matches ranges of chars
+      to match a file name with a space use "* *"
 
 END
     exit();
@@ -30,6 +33,7 @@ END
 my $dst;
 my $recurse = 1;
 my $pattern = "*";
+my $makefile = 0;
 my %fileList;
 my %fileStatus;
 my $operation;
@@ -55,7 +59,8 @@ sub getExisting {
 }
 
 sub getFiles {
-    my $ndir = $_[0] || "";
+    my $makefile = $_[0];
+    my $ndir = $_[1] || "";
 	opendir my $dir, ($ndir || '.');
 
     while (my $file = readdir $dir) {
@@ -63,12 +68,16 @@ sub getFiles {
         $file = $ndir eq "" ? $file : "$ndir/$file";
 		if (-d $file) {
             if ($recurse) {
-                getFiles($file);
+                getFiles(1, $file);
             } else {
                 print "skipping directory $file\n";
             }
 		} else {
             next unless $file =~ /^$pattern$/xi;            # match those to include
+            if ($file =~ /^makefile$/i && $makefile == 0) {
+                print "skipping $file\n";
+                next;
+            }
             next if lc($file) eq $target;                   # avoid add of target
             if (-f $file && -T $file) {
                 next if $operation == $UPDATE && !defined($fileStatus{$file});
@@ -118,9 +127,17 @@ while ($opt = shift @ARGV) {
     } elsif ($opt eq "-a") {
         usage() unless ($pattern = shift @ARGV) && !$operation;
         $operation = $ADD;
+    } elsif ($opt eq "-C") {
+        usage() unless !$operation;
+        $operation = $ADD;
+        $pattern = "*";
     } elsif ($opt eq "-c") {
         usage() unless ($pattern = shift @ARGV) && !$operation;
         $operation = $CREATE;
+    } elsif ($opt eq "-C") {
+        usage() unless !$operation;
+        $operation = $CREATE;
+        $pattern = "*";
     } elsif ($opt eq "-d") {
         usage() unless ($pattern = shift @ARGV) && !$operation;
         $operation = $DELETE;
@@ -132,14 +149,21 @@ while ($opt = shift @ARGV) {
         $operation = $UPDATE;
     } elsif ($opt eq "-f") {
         $recurse = 0;
+    } elsif ($opt eq "-m") {
+        $makefile = 1;
     } else {
         usage();
     }
 }
 
-$operation = $CREATE unless $operation;
+usage() unless $operation;
 
 $target = $opt if $opt ne "";
+if (-f $target && $operation == $CREATE) {
+    print "Overwrite existing packed file $opt (y/N)? :";
+    my $key = getc(STDIN);
+    exit(0) if (lc($key) ne 'y');
+}
 
 $pattern =~ s/([\{\}\$ \.\@])/\\\1/g;       # escape perl pattern chars [] are allowed
 $pattern =~ s/([\*\?])/\.\1/g;              # convert * and ? to perl .* .?
@@ -148,7 +172,7 @@ $pattern = "(.*\/)?$pattern" if $recurse;
 
 getExisting() unless $operation == $CREATE;
 if ($operation != $DELETE) {
-    getFiles() if $operation != $LIST;
+    getFiles($makefile) if $operation != $LIST;
 } else {
     deleteFiles();
 }
