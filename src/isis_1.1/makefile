@@ -8,8 +8,7 @@ include $(ROOT)/tools/isis.mk
 REF = $(call ipath,isis,1.1)
 ISIST0PATCH = isis.t0_1.1.patch
 
-all::
-	$(MAKE) $(TARGETS)
+all:: $(TARGETS)
 
 %.omf: %.hex
 	$(HEXOBJ) $^ $@
