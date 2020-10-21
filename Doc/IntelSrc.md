@@ -1,8 +1,8 @@
 # Reverse engineered Intel code
 
-The src directory tree contains the key results of my reverse engineering of the Intel code. With few exceptions the code can be rebuilt from the provided sources to match at a byte level the original Intel binary images.
+The src directory tree contains the key results of my reverse engineering of the Intel code. With few exceptions the code can be rebuilt, from the provided sources, to match at a byte level the original Intel binary images.
 
-Each sub directory contains a makefile to allow the code to be rebuilt and additionally there is a makefile in the src directory that will recursively build all of the code. For all the make files there are several key targets namely
+Each sub directory contains a makefile to allow the code to be rebuilt and additionally there is a makefile in the src directory, that will recursively build all of the code. For all the make files there are several key targets namely
 
 ```
 all			the default target
@@ -12,9 +12,9 @@ rebuild		does distclean followed by all
 verify		verifies the build against the reference binary image
 ```
 
-Note the -j option for make can be used. Projects where this would cause a problem have a suitable makefile to protect  against problems. In general this option will greatly speed up the builds.
+Note the -j option for make can be used. Projects where this would cause a problem have a suitable makefile to protect  against it. In general this option will greatly speed up the builds.
 
-In many of the sub directories, the source code is stored in a single packed file, ending with the extension _all.src. This makes finding and replacing globally across a project simpler as I do not have a fully fledged IDE for plm source. The format of this packed file is documented in [misc.md](misc.md) and tools unpack.exe or unpack.pl can be used to unpack the files, although make will do this automatically.
+In many of the sub directories, the source code is stored in a single packed file, ending with the extension _all.src. This makes finding and replacing globally across a project simpler, as I do not have a fully fledged IDE for plm source. The format of this packed file is documented in [misc.md](misc.md) and tools unpack.exe or unpack.pl can be used to unpack the files. Note make will use unpack.pl automatically.
 
 Additionally many of the projects use an automatically generated include file using the ngenpex tool. This uses a database of definitions and will expand these into the include file based on identified references. By using this approach various changes e.g. parameter or literal renaming, are processed automatically across all the include files.
 
@@ -27,7 +27,7 @@ e.g. isis.cli_4.1 is isis.cli for isis version 4.1
 
 ### asm80_v4.1
 
-This is one of the most complex builds and the comments and variable names in the corresponding  C port are more up to date. The main source of the complexity is due to managing the various overlays and to auto generated different code variants for the various build models from a largely common code set.
+This is one of the most complex builds and the comments and variable names in the corresponding  C port are more up to date. The main source of the complexity is due to managing the various overlays and to auto generated different code variants for the various build models, from a largely common code set.
 
 To note, the files created
 
@@ -43,7 +43,7 @@ asxref	  	is the asm cross reference utility
 
 Decompilation of Intel's ROM based editor/assembler for 8085.
 
-Note there are a couple of patches to work around code generation differences between the compiler used for the original build and the compilers I have available. The source code has the comments to the changes.
+Note there are a couple of patches to work around compiler code generation differences. The source code has the comments reflecting the changes.
 
 In one case the original compiler had a slightly better optimisation and in the other the compilers I have were better. The code was equivalent in both cases, but I used patching to prevent all the other code shifting.
 
@@ -91,11 +91,11 @@ In addition the ISIS_1.1 directory contains decompiled source for
 isis.t0, isis.cli, attrib, copy, dir, delete, edit, format, hexbin and rename
 ```
 
-Note isis.bin for ISIS v1.1 appears to have been written initially in PL/M but hand modified, hence it is presented here in assembler. All other v1.1 code and isis.bin v2.2 use the fortran based PL/M compiler.
+Note isis.bin for ISIS v1.1 appears to have been written initially in PL/M but hand modified, hence it is presented here in assembler. All other v1.1 code and isis.bin v2.2, use the fortran based PL/M compiler.
 
 Later versions of the core isis.bin code increasingly used hand modified PL/M code, presumably to keep the size down.
 
-ISIS 1.1 EDIT v1.2, appears to have been compiled by a different variant of the Fortran based PL/M compiler than I have access to. I manged to get the compiler to generated a binary match with some unstructured gotos and four bytes of patching. The four bytes are due to the fact that edit uses a GOTO from a nested procedure which re-initialised the stack as per more recent PL/M  compilers. The versions I have do not do this stack initialisation, so I put two consecutive GOTO statements in two places, then patched the first of each pair to do the LXI SP, ....
+A initially faced a challenge with EDIT v1.2 in that the compiler did not seem to generate the necessary lxi sp, instructions for a GOTO out of a procedure. I eventually found the reason for this, is that the older dialect of PL/M 80 did not require an enclosing DO; END; around all of code as more recent versions do. Out of habit I had put the surrounding block, by removing it, the code generation issue was resolved.
 
 ### isisUtil_X.Y and utils_2.2n
 
@@ -127,11 +127,11 @@ Decompiled source of Intel's LIB 2.1, LINK 3.0 and LOCATE3.0. C ports of these u
 
 One of the more complex decomplications due to the overlays and the large number of shared object files.
 
-The C port of this tool is available under c-ports and is likely to have more up to date comments and variable naming as it easier to debug the code to see what is actually happening.
+The C port of this tool is available under c-ports and has more up to date comments and variable naming.
 
 ### plm80.lib
 
-The assembler source for the plm80 support functions e.g. multiply, divide and word based arithmetic. I am only aware of one version of this library.
+The assembler source for the plm80 support functions, e.g. multiply, divide and word based arithmetic. I am only aware of one version of this library.
 
 ### system.lib_4.0
 
@@ -145,16 +145,14 @@ The core for two Intel toolbox releases. Although the utility code was supplied 
 
 A key issue with the libraries is that some of them were build using compilers that are not in the public domain. Indeed some may have been built using internal pre-release compilers. As a result is not possible to build all of the libraries exactly, although in principle equivalent versions could be built in assembler, using the asm80x wrapper to enable long variable names.
 
-When originally reverse engineered some of tools I now have were not available, so some of the verification reports and ignores the differences. 
+Note, some of the verification reports ignore differences. This because I had not developed the tools to work around the issues, when I originally undertook the reverse engineering.
 
-Some examples of differences are
-
-- cusp2.lib, was compiled with plm80 v1.0 which inlines some of the plm80 library functions and generates different code.
-- For module MONITOR, the compiler despite claiming to be V3.1, generated sub-optimal code, so I suspect was compiled using an internal version. 
+- cusp2.lib, was compiled with plm80 v1.0 which in-lines some of the plm80 library functions and generates different code.
+- For module MONITOR, the compiler despite claiming to be V3.1, generated sub-optimal code, so I suspect it was compiled using an internal version. 
 - Several of the libraries are not identical despite all of the object modules in them being so. This appears to be due to a bug in the Intel librarian used, in that the dictionary locations are not all normalised e.g. block:sector 24H:00 is 23H:80H.
 
 ------
 
 ```
-Updated by Mark Ogden 1-Oct-2020
+Updated by Mark Ogden 21-Oct-2020
 ```

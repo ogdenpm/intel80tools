@@ -2,7 +2,7 @@
 
 The itools directory and sub-directories contain the binary images of the Intel ISIS tools. This is a subset of a much larger collection of applications that I have.
 
-The tools serve two purposes, firstly some of them are invoked via the thames emulator to perform compilations etc. Secondly they are used as reference binaries for the decompilations to check for byte level matching, or at least equivalence.
+The tools serve two purposes, firstly some of them are invoked via the thames emulator to perform compilations etc. Secondly they are used as reference binaries for the decompilations, to check for byte level matching, or at least equivalence.
 
 With the exception of plm80.lib, all directories have a subdirectory for each available version. plm80.lib is the exception as there is only one known version.
 
@@ -10,13 +10,13 @@ At the end of this document is a summary of the differences in the known ISIS-I 
 
 ### isis & pds
 
-These directories contain the versions of ISIS that I have, the difference between each version is summarised at the end of this document.
+These directories contain the versions of ISIS that I have. The differences between the versions are summarised at the end of this document.
 
-The oldest verison if ISIS v1.1 which is a 16k version of ISIS. This repository is the only known copy of this on the internet and was found by  Jon Hales a volunteer for the Cambridge Centre for Computing History who located it in their archive.
+The oldest verison is ISIS v1.1, which is a 16k version of ISIS. This repository is the only known copy of this on the internet and was found by  Jon Hales a volunteer for the Cambridge Centre for Computing History who located it in their archive.
 
 Decompilation of the ISIS v1.1 tools has identified that ISIS.BIN appears to have been originally written in PL/M but then hand optimised. It also omits the SEEK and CONSOLE system calls.
 
-Note, the ISIS v1.1 applications will not run under thames or any ISIS-II system as they have a start address at 1C00H which is in the OS itself on ISIS-II and the load format is not OMF85 but the same format as used by ISIS.BIN. As I have decompiled the applications, other  than as80 and edit, it would be possible to modify the source to locate at the ISIS-II based address and change the makefile to build and OMF85 file.
+Note, the ISIS v1.1 applications will not run under thames or any ISIS-II system as they have a start address at 1C00H, which is in the OS itself on ISIS-II and the load format is the same as ISIS.BIN and not OMF85. As I have decompiled the applications, it would be possible to modify the source to locate at the ISIS-II based address and change the makefile to build and OMF85 file.
 
 The versions 1.1 & 2.2 were  compiled with the fortran cross compiler, or rather a version somewhere between the published v2 and v4 versions of the cross compiler. The plm81 & plm82 versions shared in the tools directory are patched with the appropriate fixes from v4.
 
@@ -24,7 +24,7 @@ The versions 1.1 & 2.2 were  compiled with the fortran cross compiler, or rather
 
 These directories contain the Intel toolbox software, published source and libraries. The decompilation of the libraries can be  found under the src directory, see IntelSrc.md for details.
 
-Note I have added pause which was missing from the original v1.0 release
+Note I have added pause, which was missing from the original v1.0 release
 
 ### plm80.lib & fpal.lib
 
@@ -206,6 +206,6 @@ Directory hashing is as per 4.2w
 ------
 
 ```
-Updated by Mark Ogden 17-Sep-2020
+Updated by Mark Ogden 21-Oct-2020
 ```
 
