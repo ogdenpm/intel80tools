@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-if /I "%~1" == "-v" (echo %0: Rev 3+ -- git d9362bd [2020-10-10]) & goto :EOF
+if /I "%~1" == "-v" (echo %0: Rev 4 -- git 947b939 [2020-10-12]) & goto :EOF
 
 :doOpt
 if [%1] == [] goto execute
@@ -22,7 +22,7 @@ for %%I in (*) do if /I [%%~xI] neq [.exe] call filever %QUIET% "%%I"
 
 if not defined SUBDIR goto :eof
 
-for /D %%D in (*.*) do (
+for /D %%D in (*) do (
     if [%%~nD] neq [] (
         echo %%D\
         for %%I in (%%D\*) do if /I [%%~xI] neq [.exe] call filever %QUIET% "%%I"
