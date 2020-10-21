@@ -1,5 +1,5 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := link link.ovl
 PEXFILE:=link.pex
 
@@ -9,7 +9,7 @@ PLMFLAGS:=DEBUG CODE
 LINKFLAGS:=
 PURGE:= purge
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,link,3.0)
 

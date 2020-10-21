@@ -126,10 +126,11 @@ my @objargs = grep(/object\(/i, @ARGV);
 $objfile = $1 if $objargs[0] =~ /\(\s*([^\s\)]*)/;
 unlink $objfile;
 
-my $ROOT = $ENV{ROOT} || $ENV{ITOOLS};
+my $ROOT = $ENV{ITOOLS} || $ENV{_ITOOLS};
 my @args = ("-m", "$ROOT/itools/asm80/4.1/asm80", "$ofile.$oext", @ARGV);
 my $result = system("$ROOT/thames.exe", @args);
 
+unlink "$ofile.$oext";      # remove the temporary asm file
 
 # convert translated names back to original names
 # for the symbols use the safe name and re-layout the table for wider symbols

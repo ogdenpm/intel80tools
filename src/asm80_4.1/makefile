@@ -1,5 +1,5 @@
 # path to root of build tree
-ROOT:=../..
+ITOOLS ?=../..
 # path to build directories
 SRC:=src
 LST:=lst
@@ -9,7 +9,7 @@ PEXFILE:=$(SRC)/asm80.pex
 
 PROTECT := notes.txt
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,asm80,4.1)
 

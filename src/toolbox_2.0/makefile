@@ -1,4 +1,4 @@
-ROOT = ../..
+ITOOLS ?= ../..
 OBJ = obj
 LST = lst
 SRC = src
@@ -19,7 +19,7 @@ TARGETS := chklod Clean compar consol dcopy dsort else endif errs exit ganef\
 # note pause was not precompiled in the original toolbox so a copy
 # has been added
 # also source for bltsym.asm was missing so recreated
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,toolbox,2.0)
 

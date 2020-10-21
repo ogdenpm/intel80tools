@@ -11,13 +11,13 @@ of make and makefiles. Some [examples](#Examples) of the use of isis.mk are also
 
 The basic structure of the makefile is
 
-    # path to the top of the build tree. Not needed if ITOOLS is defined
-    ROOT := ../
+    # path to the top of the build tree. Provides a default if ITOOLS not provided
+    # if ITOOLS is defined it can be omitted
+    ITOOLS ?= ../
     #
     # optional pre include variables
     # ...
-    include $(ROOT)/tools/isis.mk
-    # use include $(ITOOLS)/tools/isis.mk   if ITOOLS is defined
+    include $(ITOOLS)/tools/isis.mk
     #
     # variable definitions and rules
     # note target all:: must be defined
@@ -26,9 +26,10 @@ The basic structure of the makefile is
 
 ### Variables defined pre inclusion of isis.mk
 
-* **ROOT** - this is set to the location of the top of the tools tree. Normally it would be a relative path
+* **ITOOLS** - this is an optional environment variable which should point to the top of the tools tree. If defined then it makes it easier to support developments outside the intel tools tree, with out hard coding the tools tree location. The makefiles in the repository provide a default relative reference if **ITOOLS** isn't defined.
+     **Note ITOOLS must use / path separators i.e. unix style.**
 
-* **ITOOLS** - this is an optional environment variable which should point to the top of the tools tree. If defined then it will make it easier to support developments outside the intel tools tree, with out hard coding the tools tree location in the ROOT variable.
+* **_ITOOLS** - this is set to the location of the top of the tools tree and exported. It is of primary use for external programs such as asm80x.pl, which invoke some of the tools. Environment defined ITOOLS should take precedence.
 
 * **LST** - this is set to the location of the listing file directory. It can be omitted if the current directory is used.
 
@@ -54,10 +55,11 @@ The basic structure of the makefile is
 
 ## Variables modified or defined in isis.mk
 
-* **ROOT** - the directory path is converted to unix format and any trailing / is removed. Note when the **ITOOLS** environment variable then this is used to set **ROOT** if it has not been set explicitly.
+* **ITOOLS** is normalised using fixpath
+* **_ROOT** - is set to ITOOLS and exported. This is for external tools that require to know the location of the tools.
 * **PATH** - environment variable updated to add the path to the unix tools
 * **SHELL** - set to bash.exe
-* **COMPARE** - set to $(ROOT)/tools/omfcmp if not defined
+* **COMPARE** - set to $(ITOOLS)/tools/omfcmp if not defined
 * **OBJ,LST,SRC** - set to current directory if not defined, paths converted to unix format and any trailing / removed.
 * **ISIS\_F0** - set to current directory if not defined
 * **ISIS** - set to the thames program with the -m option set
@@ -274,10 +276,10 @@ elsewhere, especially fixpath, ipath and ifile
 
   ```text
   Usage: $(call ipath,tool[,version])
-  Example: (Assuming ROOT is ../..)
+  Example: (Assuming ITOOLS is ../..)
       $(call ipath,plm80,3.1)
   returns
-      ../../itools/plm80/v3.1
+      ../../itools/plm80/3.1
   Example:
       $(call ipath,plm80.lib)
   returns
@@ -288,7 +290,7 @@ elsewhere, especially fixpath, ipath and ifile
 
    ```text
    Usage: $(call ifile,tool[,version])
-   Example: (Assuming ROOT is ../..)
+   Example: (Assuming ITOOLS is ../..)
        $(call ifile,link,2.1)
    returns
        ../../itools/link/2.1/link
@@ -398,11 +400,11 @@ how to write their own makefiles. Commentary preceeded by ~~
 ### lib_2.1 makefile
 
     # path to root of build tree
-    ROOT := ../..                       ~~ Points to top of build tree
+    ITOOLS ?= ../..                     ~~ Points to top of build tree
     TARGETS := lib                      ~~ what we are building
     PEXFILE:=lib.pex                    ~~ mandatory variable as lib uses ngenpex
     
-    include $(ROOT)/tools/isis.mk
+    include $(ITOOLS)/tools/isis.mk
     
     # build options
     LOCATEFLAGS:=SYMBOLS LINES          ~~ map file will show local symbols & debug info
@@ -439,11 +441,11 @@ how to write their own makefiles. Commentary preceeded by ~~
 ### Part of tex makefile
 
 ```
-ROOT=../..
+ITOOLS ?= ../..
 REF=ref
 TARGETS=tex10.com tex12.com tex21.com tex21a.com
 PROTECT = build.ninja tex10.patch tex12.patch tex21.patch	~~ avoid clean/distclean from removing patch files
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 PLMFLAGS=code optimize 
 ASMFLAGS=
@@ -452,7 +454,7 @@ all::
 	$(MAKE) $(TARGETS)					~~ for consistency, but could be all:: $(TARGETS) with no rule in this case
 
 %.com: %.abs %.patch					~~ generic rule to make .com from the relocatable & a patch file
-	$(ROOT)/tools/obj2bin $^ $@
+	$(ITOOLS)/tools/obj2bin $^ $@
 
 tex21a.patch:							~~ tex21a.com doesn't need a patch, so generate a dummy one on the fly
 	@echo "; not needed" >$@
@@ -478,14 +480,14 @@ tex10.rel: tex10.obj x0100.obj 			~~ the rules for each relocatable
 ### Partial makefile from plm80_4.0
 
 ```make
-ROOT := ../..
+ITOOLS ?= ../..
 SHARED := shared            ~~ plm has a shared source directory
 PEXFILE :=$(SHARED)/plm.pex ~~ where the pex file is also kept
 SRC := src                  ~~ define directories for src, lst and obj
 LST := lst
 OBJ := obj
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 # force shared folder to be on isis drive :f3:
 
@@ -537,7 +539,7 @@ clean::                         ~~ extra rule over the default clean
 ### Partial asm80_4.1 makefile
 
     # path to root of build tree
-    ROOT:=../..
+    ITOOLS ?=../..
     # path to build directories
     SRC:=src
     LST:=lst
@@ -547,7 +549,7 @@ clean::                         ~~ extra rule over the default clean
     
     PROTECT := notes.txt            ~~ notes.txt will be treated as part of distribution
     
-    include $(ROOT)/tools/isis.mk
+    include $(ITOOLS)/tools/isis.mk
     
     # override default tools
     PLM80 = 3.1                     ~~ asm80 built using plm v3.1
@@ -601,12 +603,12 @@ clean::                         ~~ extra rule over the default clean
 ```make
 # path to root of build tree
 
-ROOT := ..
+ITOOLS ?= ..
 
 PLMOPT := DEBUG OPTIMIZE
 ASMOPT :=
 LOCATEOPT:= PUBLICS SYMBOLS
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 ~~ method of compiling with the toolset specified on the command line
 ~~ e.g. make V31 file.obj - would set tools to v3.1 and then compile the file
@@ -638,11 +640,15 @@ V30:
      $(call link,$*.rel,$^ $(plm80.lib))
      $(call locate,$*.abs,$*.rel,CODE(100h) purge)
      @rm $*.rel                          ~~ can't use .INTERMEDIATE so rm manually
-     $(ROOT)/tools/obj2bin $@ $*.abs
+     $(ITOOLS)/tools/obj2bin $@ $*.abs
      @rm $*.abs                          ~~ can't use .INTERMEDIATE so rm manually
 ```
 
 ## Change log
+
+### 21-Oct-2020
+
+Converted all makefiles to use ITOOLS and removed ROOT. Isis.mk exports _ITOOLS for external applications to get the root directory of the tools when ITOOLS isn't defined.
 
 ### 13-Sep-2020
 
@@ -696,5 +702,5 @@ V30:
 ------
 
 ```
-Updated by Mark Ogden 13-Sep-2020
+Updated by Mark Ogden 21-Oct-2020
 ```

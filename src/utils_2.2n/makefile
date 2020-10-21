@@ -1,9 +1,9 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := objhex hexobj
 PEXFILE:=utils_2.2n.pex
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,utils,2.2n)
 

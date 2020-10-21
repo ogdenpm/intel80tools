@@ -1,9 +1,9 @@
 # path to root of build tree
-ROOT := ..\..
+ITOOLS ?= ..\..
 TARGETS = link.com
 PEXFILE := link.pex
 REF=ref
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 PLMFLAGS := OPTIMIZE CODE DEBUG
 PLM80:=3.1
@@ -34,4 +34,4 @@ link.rel: $(OBJS)
 $(OBJS): link.pex
 
 print: all link.abs
-	perl $(ROOT)/tools/relst.pl link.abs link.map $(OBJS:.obj=.lst)
+	perl $(ITOOLS)/tools/relst.pl link.abs link.map $(OBJS:.obj=.lst)

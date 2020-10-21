@@ -1,9 +1,9 @@
 # common makefile info
-ROOT=../..
+ITOOLS ?=../..
 TARGETS=fpal.lib
 PLMFLAGS=code optimize
 ASMFLAGS=
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,fpal.lib,2.1)
 PLM80=3.1

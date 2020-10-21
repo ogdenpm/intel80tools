@@ -1,9 +1,9 @@
-ROOT=../..
+ITOOLS ?=../..
 TARGETS=system.lib
 PLMFLAGS=code optimize debug
 ASMFLAGS=debug
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,utils,2.2n)
 

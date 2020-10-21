@@ -1,9 +1,9 @@
 # common makefile info
-ROOT=../..
+ITOOLS ?=../..
 TARGETS=plm80.lib
 PLMFLAGS=code optimize
 ASMFLAGS=
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,plm80.lib)
 ASM80=2.0

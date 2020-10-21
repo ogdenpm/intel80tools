@@ -1,9 +1,9 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := as80.bin editor.bin
 PEXFILE:=as80.pex
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = ref
 # build options
@@ -44,8 +44,8 @@ editor.bin: editor.abs $(EDPATCH)
 
 
 printedit: all
-	perl $(ROOT)/tools/relst.pl editor.abs editor.map $(EDobjs:.obj=.lst)
+	perl $(ITOOLS)/tools/relst.pl editor.abs editor.map $(EDobjs:.obj=.lst)
 
 
 printasm: all 
-	perl $(ROOT)/tools/relst.pl as80.abs as80.map $(ASobjs:.obj=.lst)
+	perl $(ITOOLS)/tools/relst.pl as80.abs as80.map $(ASobjs:.obj=.lst)

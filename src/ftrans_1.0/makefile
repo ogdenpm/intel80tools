@@ -1,9 +1,9 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := ftrans
 PEXFILE:=ftrans.pex
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,ftrans,1.0)
 PROTECT := protocol.txt

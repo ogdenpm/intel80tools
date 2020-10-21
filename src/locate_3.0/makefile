@@ -1,5 +1,5 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := locate
 PEXFILE:=locate.pex
 
@@ -8,7 +8,7 @@ LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:=DEBUG
 LINKFLAGS:=
 PURGE=purge
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,locate,3.0)
 LOWOBJ=loc1.obj loc2a.obj memmov.obj loc2b.obj loc3.obj loc4.obj loc4a.obj loc5a.obj loc5b.obj isis.obj

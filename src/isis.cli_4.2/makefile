@@ -1,7 +1,7 @@
-ROOT = ../..
+ITOOLS ?= ../..
 TARGETS = isis.cli
 PEXFILE=cli.pex
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,4.2)
 

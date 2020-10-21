@@ -1,6 +1,6 @@
-ROOT = ../..
+ITOOLS ?= ../..
 TARGETS = isis.cli
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,4.3)
 PLMFLAGS := DEBUG

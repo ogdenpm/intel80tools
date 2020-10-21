@@ -1,8 +1,8 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := isis.ov0
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,isis,4.2)
 PLMFLAGS := DEBUG OPTIMIZE CODE

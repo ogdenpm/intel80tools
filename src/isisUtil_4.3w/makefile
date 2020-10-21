@@ -1,8 +1,8 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 PEXFILE:=isisUtil_4.3w.pex
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 # build options
 LOCATEFLAGS:=SYMBOLS PUBLICS

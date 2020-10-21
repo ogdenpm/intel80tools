@@ -1,5 +1,5 @@
 # path to root of build tree
-ROOT := ..\..
+ITOOLS ?= ..\..
 TARGETS = run2-3.com basic.com
 REF=ref
 
@@ -9,7 +9,7 @@ BYTEMATCH=Y
 
 
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 
 # core floating point library
@@ -64,12 +64,12 @@ all::
 
 b%.lob: b%.obj x%.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	perl $(ROOT)/tools/fixomf.pl -p $@
+	perl $(ITOOLS)/tools/fixomf.pl -p $@
 
 # run requires special handling as it doesn't start with a b
 run.lob: run.obj xun.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	perl $(ROOT)/tools/fixomf.pl -p $@
+	perl $(ITOOLS)/tools/fixomf.pl -p $@
 
 # create basic.com, if BYTEMATCH is set then it will use lob files
 # else use standard compile and shared libraries
@@ -86,7 +86,7 @@ basic.com: basic.abs $(BASICPATCH)
 # need to be built and have the @Pnnnn references and the main module flag removed
 fprun.rel: $(FPOBJ) $(RUNFILES)
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	perl $(ROOT)/tools/fixomf.pl -m $@
+	perl $(ITOOLS)/tools/fixomf.pl -m $@
 
 fprun.abs: fprun.rel
 	$(call locate-nocheck,$@,$^,CODE(100h))
@@ -102,7 +102,7 @@ run2-3.com: run23.abs $(RUNPATCH)
 
 
 print: all
-	perl $(ROOT)/tools/relst.pl run.abs run.map $(FPOBJ:.obj=.lst) $(RUNOBJ:.obj=.lst) $(BUILDOBJ:.obj=.lst)
+	perl $(ITOOLS)/tools/relst.pl run.abs run.map $(FPOBJ:.obj=.lst) $(RUNOBJ:.obj=.lst) $(BUILDOBJ:.obj=.lst)
 
 #  rule for src -> obj
 $(OBJ)/%.obj: %.src  | $(OBJ) $(LST)

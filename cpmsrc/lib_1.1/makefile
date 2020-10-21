@@ -1,12 +1,12 @@
 # path to root of build tree
-ROOT := ..\..
+ITOOLS ?= ..\..
 TARGETS = lib.com
 PEXFILE := lib.pex
 REF=ref
 PATCH = lib_1.1.patch
 PROTECT = $(PATCH)
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 PLMFLAGS := OPTIMIZE CODE DEBUG
 PLM80:=3.1
@@ -33,4 +33,4 @@ lib.rel: $(OBJS)
 $(OBJS): lib.pex
 
 print: all lib.abs
-	perl $(ROOT)/tools/relst.pl lib.abs lib.map $(OBJS:.obj=.lst)
+	perl $(ITOOLS)/tools/relst.pl lib.abs lib.map $(OBJS:.obj=.lst)

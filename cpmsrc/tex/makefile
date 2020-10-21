@@ -1,8 +1,8 @@
-ROOT=../..
+ITOOLS ?=../..
 REF=ref
 TARGETS=tex10.com tex12.com tex21.com tex21a.com
 PROTECT = build.ninja tex10.patch tex12.patch tex21.patch
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 PLMFLAGS=code optimize 
 ASMFLAGS=

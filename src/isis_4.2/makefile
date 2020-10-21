@@ -1,4 +1,4 @@
-ROOT:= ../..
+ITOOLS ?= ../..
 TARGETS = isis.bin
 PEXFILE := isis42.pex
 
@@ -6,7 +6,7 @@ PATCH = isis.bin_4.2.patch
 
 PROTECT = $(PATCH)
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,4.2)
 LOCATEFLAGS := SYMBOLS PUBLICS

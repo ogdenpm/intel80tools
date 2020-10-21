@@ -1,8 +1,8 @@
-ROOT:=../..
+ITOOLS ?=../..
 TARGETS = kermit
 REF = ref
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 objs =	md2ker.obj md2con.obj md2sen.obj md2rec.obj
 

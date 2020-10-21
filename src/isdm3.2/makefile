@@ -1,7 +1,7 @@
 # path to root of build tree
-ROOT := ..\..
+ITOOLS ?= ..\..
 # location of the msdos build tools
-MSDOS := $(ROOT)\msdos
+MSDOS := $(ITOOLS)\msdos
 
 # the raw built binaries
 TARGETS_88 = 8825 8840 8845
@@ -26,7 +26,7 @@ LOC86 = $(MSDOS)\loc86
 ASM286 = $(MSDOS)\asm286
 BND286 = $(MSDOS)\bnd286
 BLD286 = $(MSDOS)\bld286
-AOMF2BIN = $(ROOT)\tools\aomf2bin
+AOMF2BIN = $(ITOOLS)\tools\aomf2bin
 
 # defaults for locate
 START=reset_8086

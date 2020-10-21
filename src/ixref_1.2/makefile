@@ -1,5 +1,5 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := ixref
 PEXFILE:=ixref.pex
 
@@ -8,7 +8,7 @@ LOCATEFLAGS:=SYMBOLS LINES
 PLMFLAGS:=OPTIMIZE IXREF
 LINKFLAGS:=
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 # set default tools
 REF:=$(call ipath,ixref,1.2)
@@ -30,5 +30,5 @@ ixref.rel: $(objs)
 # invokes ixref on itself. Note the library functions are shown as unresolved as
 # their source is not included
 ixref.ixo: all
-	perl $(ROOT)/tools/mkisisdir.pl
+	perl $(ITOOLS)/tools/mkisisdir.pl
 	$(ISIS) -m -E ixref $(call mklist,$(IXIS)) "print($@)"

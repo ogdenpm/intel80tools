@@ -1,10 +1,10 @@
-ROOT:= ../..
+ITOOLS ?= ../..
 TARGETS = isis.bin
 PEXFILE := isis42w.pex
 PATCH = isis.bin_4.2w.patch
 PROTECT = $(PATCH)
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,4.2w)
 LOCATEFLAGS := SYMBOLS PUBLICS
@@ -31,4 +31,4 @@ isis.rel: $(objs)
 	$(call link,$@,$^ $(plm80.lib))
 
 print: all
-	perl $(ROOT)/tools/relst.pl isis.abs isis.map $(objs:.obj=.lst)
+	perl $(ITOOLS)/tools/relst.pl isis.abs isis.map $(objs:.obj=.lst)

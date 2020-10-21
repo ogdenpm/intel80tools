@@ -1,5 +1,5 @@
 # path to root of build tree
-ROOT := ../..
+ITOOLS ?= ../..
 TARGETS := ixref
 PEXFILE:=ixref.pex
 
@@ -9,7 +9,7 @@ PLMFLAGS:= DEBUG IXREF
 LINKFLAGS:=
 PROTECT:= isis.ov0
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 # set default tools
 REF:=$(call ipath,ixref,1.3)
@@ -32,5 +32,5 @@ ixref.rel: $(objs)
 # their source is not included
 # note this needs a copy of isis.ov0 to work
 ixref.ixo: all
-	perl $(ROOT)/tools/mkisisdir.pl
+	perl $(ITOOLS)/tools/mkisisdir.pl
 	$(ISIS) -m -E ixref $(call mklist,$(IXIS)) "print($@)"

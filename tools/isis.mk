@@ -4,16 +4,14 @@
 # $(call fixpath,path)
 fixpath = $(if $1,$(subst |,,$(subst /|,,$(subst \,/,$(strip $1))|)),.)
 
-# if user hasn't provided an explicit ROOT use the ITOOLS environment variable
-# going forward using ITOOLS is the prefered approach
-ROOT ?= $(ITOOLS)
-# normalise ROOT path
-export ROOT := $(call fixpath,$(ROOT))
+# normalise ITOOLS path
+ITOOLS := $(call fixpath,$(ITOOLS))
+export _ITOOLS=$(ITOOLS)
 #
 # make sure bash and other unix tools are on the path
-PATH := $(ROOT)/unix;$(PATH)
+PATH := $(ITOOLS)/unix;$(PATH)
 SHELL := bash.exe
-COMPARE ?= $(ROOT)/tools/omfcmp
+COMPARE ?= $(ITOOLS)/tools/omfcmp
 
 # default directories to . if not set
 SRC := $(call fixpath,$(SRC))
@@ -24,19 +22,19 @@ OBJ := $(call fixpath,$(OBJ))
 export ISIS_F0 ?= ./
 
 # the none ISIS build tools
-ISIS:=$(ROOT)/thames -m -T
-PLMPP:=$(ROOT)/tools/plmpp
-ASM80X:=perl $(ROOT)/tools/asm80x.pl
-NGENPEX:=$(ROOT)/tools/ngenpex
-MKDEPEND:=perl $(ROOT)/tools/makedepend.pl
-OBJBIN:=$(ROOT)/tools/obj2bin
-HEXOBJ:=$(ROOT)/tools/hexobj
-PLM81:=$(ROOT)/tools/plm81
-PLM82:=$(ROOT)/tools/plm82
+ISIS:=$(ITOOLS)/thames -m -T
+PLMPP:=$(ITOOLS)/tools/plmpp
+ASM80X:=perl $(ITOOLS)/tools/asm80x.pl
+NGENPEX:=$(ITOOLS)/tools/ngenpex
+MKDEPEND:=perl $(ITOOLS)/tools/makedepend.pl
+OBJBIN:=$(ITOOLS)/tools/obj2bin
+HEXOBJ:=$(ITOOLS)/tools/hexobj
+PLM81:=$(ITOOLS)/tools/plm81
+PLM82:=$(ITOOLS)/tools/plm82
 
 # macros to create the path & full file names of an isis file
 # usage: $(call ipath,file[,version])
-ipath = $(ROOT)/itools/$(strip $1)$(if $2,/$(strip $2))
+ipath = $(ITOOLS)/itools/$(strip $1)$(if $2,/$(strip $2))
 # 
 # usage: $(call ifile,file[,version])
 ifile = $(call ipath,$1,$2)/$(strip $1)
@@ -205,7 +203,7 @@ ifdef _masterfile
 all:: .extract
 
 .extract: $(_masterfile) | $(OBJ) $(LST)
-	perl $(ROOT)/tools/unpack.pl
+	perl $(ITOOLS)/tools/unpack.pl
 	touch .extract
 else
 all::

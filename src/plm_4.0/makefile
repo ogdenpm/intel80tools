@@ -1,4 +1,4 @@
-ROOT := ../..
+ITOOLS ?= ../..
 SHARED := shared
 PEXFILE :=$(SHARED)/plm.pex
 SRC := src
@@ -6,7 +6,7 @@ LST := lst
 OBJ := obj
 
 
-include $(ROOT)/tools/isis.mk
+include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,plm80,4.0)
 
