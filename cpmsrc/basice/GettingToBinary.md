@@ -1,14 +1,14 @@
 ## Recreating Basic-E v2.1 & Run v2.3 from published source
 
-When I originally decided to recreate the binary for Basic-E I expected it to be relatively simple, especially as the source has been readily available for many years. However it turned out to be more of a challenge than I expected and the notes below are are record of the issues I encountered and my solutions. 
+When I originally decided to recreate the binary for Basic-E I expected it to be relatively simple, especially as the source has been readily available for many years. However it turned out to be more of a challenge than I expected and the notes below record the issues I encountered and my solutions. 
 
 ### The PL/M compiler
 
-Although the original source compiled with out error using the resident PL/M 80 compiler, looking at the code generated for the individual files it was clear that the compiler used was not one of those I have access to (v3.0, v3.1 and v4.0). Fortunately, with the exceptions noted below it did generate the same code, so I was able to use the v4.0 compiler and handle the exceptions as noted
+Although the original source compiled without error using the resident PL/M 80 compiler, looking at the code generated for the individual files it was clear that the compiler used was not one of those I have access to (v3.0, v3.1 and v4.0). Fortunately, with the exceptions noted below it did generate the same code, so I was able to use the v4.0 compiler and handle the exceptions as noted
 
 #### Un-optimised code
 
-There are several places in the source code where the original compiler generated sub-optimal code c.f. the ones I have.
+There are several places in the source code where the original compiler generated sub-optimal code cf. the ones I have.
 
 ##### Un-optimised tests
 
@@ -105,7 +105,7 @@ As an observation, the newer PL/M compilers should have been able to generate th
 
 ### Linking the code
 
-Once I had compiled code, linking the code together was unfortunately not straight forward, even excluding the address fixups noted later.
+Once I had compiled code, linking the code together was unfortunately not straightforward, even excluding the address fixups noted later.
 
 There were three main issues with the linking, two common to both basic.com and run.com, the other just applicable to run.com.
 
@@ -117,11 +117,11 @@ In the original compiler, there are instances where the helper functions have no
 
 #### Library helper functions binding
 
-With the newer compiler any helper functions are shared and even with overlays the helper functions in the root module are shared with the overlays.
+With the newer compiler any helper functions are shared across modules and where overlays are used, existing functions in a root module are reused.
 
-In the original compiler, the helper functions appear to be included as part of the PL/M object file and as such there can be duplicate instances of the helper functions in the overall program.
+In the original compiler, the helper functions appear to be included as part of the PL/M object file and, as such there can be duplicate instances of the helper functions in the overall program.
 
-It is simple to synthesise original compiler linking  a new PL/M object file with the helper functions, either using plm80.lib or the bespoke functions noted above. What is a problem however is that the link will not link multiple modules together as it complains of duplicate definitions.
+It is simple to synthesise original compiler linking  a new PL/M object file with the helper functions, either using plm80.lib or the bespoke functions noted above. Unfortunately linking the files fails, due to duplicate definitions.
 
 As I have seen this issue  before, I already had a utility (fixomf.pl) that allows me to remove the helper function public definitions from the synthesised object file, thereby eliminating the error.
 
@@ -145,7 +145,7 @@ To get around this issue, I modified my fixomf.pl utility to optionally clear th
 
 When analysing the differences in the generated code vs. the original, I spotted a small number of differences in the floating point code. On deeper inspection, I discovered that the Basic-E version has a small modification in that the displayed precision is one digit less than the floating point code used.
 
-I modified the source code to support an equate BASICE, which if set to 1, will generate the modified precision version.
+I modified the source code to support an equate, BASICE, which if set to 1, will generate the modified precision version.
 
 ### Address fixups
 
@@ -155,7 +155,7 @@ At the start of basic.com there is a jmp instruction to the main code in the bas
 
 As I wanted to automate the build I would normally aim to use the technique described below for run.com, however in this case this wasn't possible, so I updated my obj2bin utility to write a jmp start instruction at the beginning of the program, using the start information stored in the object file.
 
-The other fixup was around the MON1 & MON2 procedures, which again noted manual fixup. To get around this I replaced the GOTO's in the two procedures with a GOTO CPM and declaring CPM as an external label. In addition I created a simple asm file that defines CPM as a absolute location at 5h. By adding the  cpm.obj file to the link, the GOTO CPMs are automatically resolved
+The other annotated manual fixups were in the MON1 & MON2 procedures. To get around this I replaced the GOTO's in the two procedures with a GOTO CPM and declaring CPM as an external label. In addition I created a simple asm file that defines CPM as a absolute location at 5h. By adding the  cpm.obj file to the link, the GOTO CPMs are automatically resolved
 
 #### Run.com
 
@@ -191,19 +191,23 @@ The resultant modifications to fpinit.src
 
 ### Patching
 
-As noted above there are a small number of cases where I have to apply patches post build to work around the compiler differences. In addition as the compiled code has uninitialsed data and the com file is padded to a sector boundary. When the Intel omf file is converted the a com file, these additional areas get loaded with what ever data was in the computer memory at the time.
+There are two reasons the final file needs to be patched to align with the original
 
-To create the final com files, I apply patch files to the generated omf file that provide the required binary image. There is some annotation in the patch file that describes whether the changes are real patches, random date for uninitialsed areas or random padding to the sector boundary.
+1. As noted above there are a small number of cases where post build fixup is required to work around compiler differences.
+2. When the Intel omf file is converted to a CP/M executable, random data is used for uninitialised data and padding to the end of the last sector. 
+
+To create the final com files, I use my obj2bin utility that converts the omf file, together with a patch file, into a CP/M executable.
+
+There is some annotation in the patch file that describes whether the changes are real patches, random date for uninitialised areas or random padding to the sector boundary.
 
 ### Makefile
 
-With the modifications as noted above I now have a source set that compiles to match the original basic 2.1 and run 2.3 com files. The corresponding makefile allows make to automatically build the code and there is the option of building without byte matching by undefining the BYTEMATCH macro definition.
+With the modifications as noted above I now have a source set that compiles to match the original basic 2.1 and run 2.3 com files. The corresponding makefile can be used to automatically build the code. If byte level matching is not required, by undefining the BYTEMATCH macro in the makefile,  a normal build can be created .
 
-To change the Floating point precision you will need to modify the *.src files to set BASICE to 0.
+To change the Floating point precision to 7 digits rather than 6, you will need to modify the *.src files to set BASICE to 0.
 
 Note, if you do modify the code and in particular if you move the floating point library, the fpdata.src file declare data using INPAGE, which the rest of the floating point library relies on.
 
 ```
-Updated by Mark Ogden 16-Oct-2020
+Updated by Mark Ogden 22-Oct-2020
 ```
-
