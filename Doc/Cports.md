@@ -64,7 +64,7 @@ For cases sensitive file systems, note the filename part is converted to lower c
 
 ### oldplm80 (source in plm80)
 
-This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but now consider it to be obsolete. The  original port was done in 2007.
+This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but now consider it to be obsolete. The  original port was done in 2003.
 
 If you compile the source it will now generate an executable oldplm80.exe
 
@@ -409,5 +409,5 @@ In addition to avoiding overlays this also allows for code sharing to be done, h
 ------
 
 ```
-Updated by Mark Ogden 12-Oct-2020
+Updated by Mark Ogden 22-Oct-2020
 ```
