@@ -37,6 +37,8 @@ IF NOT NUMERIC THEN			is modified to 			IF NOT NUMERIC THEN do;
 Note the additional do;...end; is only needed for single statement IF 
 ```
 
+
+
 ##### Un-optimised loads
 
 ```
