@@ -6,8 +6,6 @@ include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,2.2)
 
-isis.t0: CONFIG=isis.bin.cfg
-
 all::
 	$(MAKE) $(TARGETS)
 
