@@ -1,27 +1,19 @@
-isis.pex
-TRUE		'0FFH'
-FALSE		'0'
-CR		'0DH'
-BOOLEAN		'byte'
-FOREVER		'while(1)'
+absio.plm
+Absio: do;
+$include(absio.ipx)
+Absio: procedure(cmd, disk, block, buffer) public;
+	declare (cmd, disk) byte, (block, buffer) address;
+	declare dcb DCB$T;
 
-deblank		p(a str)a
-delimit		p(a ptr)a
-error		p(a error$num)
-exit		p
-file$error	p(a satatus,a ptr,b callExit)
-force$upper	p(a bufferPtr)
-load		p(a path$p,a load$offset,a switch,a entry$p,a status$p)
-memck		pa
-Monitor		p
-read		p(a conn,a buff$p,a count,a actual$p,a status$p)
-reportError	p(a status)
-rescan		p(a conn,a status$p)
-seek		p(a conn,a mode,a block$p,a byte$p,a status$p)
-seq		p(a s1,a s2,b cnt)b
-uppercase	p(b ch)b
-scanblank	p(a ptr)a
-write		p(a conn,a buff$p,a count,a status$p)
+	dcb.iocw = 80H;
+	dcb.ioins = cmd;
+	dcb.nsec = 1;
+	dcb.tadr = high(block);
+	dcb.sadr = low(block);
+	dcb.buf = buffer;
+	call Diskio(disk, .dcb);
+end;
+end;
 
 cli.plm
 CLI:
@@ -85,6 +77,19 @@ DO FOREVER;
 END;
 END;
 EOF
+clrbuf.plm
+clrbuf: do;
+
+clearBuf: procedure(bufp) public;
+    declare bufp address;
+    declare buf based bufp (1) byte;
+    declare i byte;
+
+    do i = 0 to 127;
+        buf(i) = 0;
+    end;
+end;
+end;
 dblank.plm
 DEBLANK: DO;
 
@@ -98,6 +103,19 @@ deblank: procedure(ptr) address public;
 	return ptr;
 end;
 
+end;
+diskio.plm
+diskio: do;
+$include(diskio.ipx)
+
+diskio: procedure(drive, iopb) public;
+    declare (drive, iopb) address;
+    declare params(2) address;
+
+    params(0) = drive;
+    params(1) = iopb;
+    call isis(44h, .params);
+end;
 end;
 dlimit.plm
 DELIMIT: DO;
@@ -131,6 +149,279 @@ file$error: procedure(status, ptr, callExit) public;
 			call exit;
 	end;
 end;
+end;
+fmttrk.plm
+formatTrack: do;
+$include(fmttrk.ipx)
+
+FormatTrack: procedure(disk,sTrack,eTrack,interleave) public;
+	declare (disk,sTrack,eTrack,interleave) byte;
+    declare (i, j, curTrack) byte;
+	declare trackBuf(52) byte,
+    dcb DCB$T;
+
+	dcb.iocw = 0c0h;
+    dcb.ioins = 2;
+
+    do i = 1 to 51 by 2;
+            trackbuf(i) = 0c7h;
+    end; 
+    j = 0;
+
+	do curTrack = sTrack to eTrack;
+		do i = 0 to 51 by 2;
+			trackBuf(i) = 0;
+		end;
+		do i = 1 to 26;
+			j = (j + interleave) mod 26;
+			do while trackBuf(j + j) <> 0;
+				j = (j + 1) mod 26;
+			end;
+			trackBuf(j + j) = i;
+		end;
+        dcb.tadr = curTrack;
+		dcb.buf = .trackBuf;
+		call Diskio(disk, .dcb);
+	end;
+end;
+end;
+format.patch
+p 3B5B 2F 1F D2 F0 3C   # patch due to cma ! jnc -> jc
+p 3B7E 7e               # patch due to unneeded mov a,m
+p 47e2 4e 06            # patch due to different register usage
+p 47e8 09
+s 42c8
+format.plm
+format: do;
+$include(format.ipx)
+    declare ver(2) byte data(2, 16h);
+    declare copyright(*) byte data('(C) 1975,1976 INTEL CORP');
+/*
+	THE CODE BLOCK BELOW IS LOADED INTO ISIS.T0 ON NON SYSTEM DISKS TO PRINT A MESSAGE
+	THE CORRESPONDING ASM CODE IS
+
+		ASEG
+		org 3000h
+
+		IN	79H
+		IN	7BH
+	L3004:	IN	0FFH
+		ANI	2
+		JNZ	L3004
+		LXI	H, MSG
+		MVI	B, 32
+	L3010:	MOV	C, M
+		CALL	0F809H	; CO
+		INX	H
+		DCR	B
+		JNZ	L3010
+		RST	0
+	MSG:	DB	0DH, 0AH
+		DB	'NON-SYSTEM DISK, TRY ANOTHER'
+		DB	0DH, 0AH
+		END
+*/
+declare codeblock(*) byte data(0dbh, 79h, 0dbh, 7bh, 0dbh, 0ffh, 0e6h, 2,
+			       0c2h, 4, 30h, 21h, 1ah, 30h, 6, 20h, 4eh,
+			       0cdh, 9, 0f8h, 23h, 5, 0c2h, 10h, 30h, 0c7h,
+			       CR, LF, 'NON-SYSTEM DISK, TRY ANOTHER', CR, LF);
+declare attribMap(*) byte data(INVISIBLE$A, SYSTEM$A, WRITEP$A);
+declare crlf(2) byte data(CR, LF);
+
+declare buffer(128) byte,
+        memSize address, actual address,
+        pn(10) byte, bufferPtr address, (i, j, k) address,
+        (system, copyall, copy) byte; 
+declare (aftin, aftout, dirAft, status) address;
+declare srcName(16) byte, dstName(16) byte;
+
+/* the following is in the data segment and newer compilers
+   complain if a write attempt is made
+   a kludge work around is to defined standard arrays at the same
+   locations, these can be modified
+*/
+declare	xt0File(*) byte data(':FX:ISIS.T0 '),
+        xbinFile(*) byte data(':FX:ISIS.BIN '),
+        xmapFile(*) byte data(':FX:ISIS.MAP '),
+        xlabFile(*) byte data(':FX:ISIS.LAB '),
+        xdirFile(*) byte data(':FX:ISIS.DIR ');
+
+declare	t0File(11) byte at(.xt0File),
+        binFile(12) byte at(.xbinFile),
+        mapFile(12) byte at(.xmapFile),
+        labFile(12) byte at(.xlabFile),
+        dirFile(12) byte at(.xdirFile);
+
+declare bitmap(256) byte public;
+declare currentBitmap byte public initial(0ffh),
+        mapChange byte initial(FALSE),
+        (baseSector, baseTrack) byte,
+        bitmapIndex address,
+        mapDCB DCB$T initial(80h, 0, 2, 2, 2, 0);
+
+
+
+declare direct DIRECT$T, pad byte;
+
+
+declare ch based bufferPtr byte;
+
+    copyall, system = FALSE;
+    call Read(1, .buffer, 128, .actual, .status);
+	buffer(actual) = CR;
+	call ForceUpper(.buffer);
+	bufferPtr = Deblank(.buffer);
+	status = Path(bufferPtr, .pn);
+    call FileError(status, bufferPtr, TRUE);
+    if pn(0) > 3 then
+        call FileError(0CEh, bufferPtr, TRUE);
+    if pn(0) = 0 then
+        pn(0) = 1;
+	t0File(2), binFile(2), mapFile(2), labFile(2), dirFile(2) = pn(0) + '0';
+    bufferPtr = deblank(delimit(bufferPtr));
+
+    do while ch <> CR;
+        if ch = '$' then
+            bufferPtr = deblank(bufferPtr + 1);
+        if ch = 'S' then do;
+            bufferPtr = deblank(bufferPtr + 1);
+            system = TRUE;
+        end;
+        else if ch = 'A' then do;
+            bufferPtr = deblank(bufferPtr + 1);
+            copyAll = TRUE;
+        end;
+        else 
+            call FileError(0C9h, bufferPtr, TRUE);
+    end;
+    labFile(2) = '0';
+    call Open(.aftin, .labFile, 1, 0, .status);
+    call FileError(status, .labFile, TRUE);
+    call Read(aftin, .buffer, 128, .actual, .status);
+    call FileError(status, .labFile, TRUE);
+    call Close(aftin, .status);
+    call FileError(status, .labFile, TRUE);
+
+    labFile(2) = pn(0) + '0';
+
+    do i = 0 to 76;
+        call FormatTrack(pn(0), i, i, buffer(33h + i) - '0');
+    end;
+
+    call WriteDirectory(pn(0));
+    call Open(.aftout, .labFile, 3, 0, .status);
+    call FileError(status, .labFile, TRUE);
+
+    call Write(aftout, .pn(1), 9, .status);
+    do i = 1 to 40;
+        call Write(aftout, .(0), 1, .status);
+    end;
+    call Write(aftout, .(CR, LF), 2, .status);
+    call Write(aftout, .buffer(33h), 77, .status);
+    call Close(aftout, .status); 
+    call FileError(status, .labFile, TRUE);
+
+	if system or copyAll then
+	do;
+		if copyAll then
+			call Write(0, .('COPYING ALL FILES', CR, LF), 19, .status);
+		else
+			call Write(0, .('COPYING SYSTEM FILES', CR, LF), 22, .status);
+
+		memSize = (Memck - .Memory) and 0ff80h;
+        call Open(.aftout, .t0File, 3, 0, .status);
+        call FileError(status, .t0File, TRUE);
+        call Open(.aftin, .('ISIS.T0 '), 1, 0, .status);
+        call FileError(status, .('ISIS.T0 '), TRUE);
+
+        actual = 1;
+        do while actual <> 0;
+            call Read(aftin, .memory, memSize, .actual, .status);
+            call FileError(status, .('ISIS.T0 '), TRUE);
+            call Write(aftout, .memory, actual, .status);
+            if actual < memSize then
+                actual = 0;
+        end;
+        call Close(aftout, .status);
+        call FileError(status, .t0File, TRUE);
+        call Close(aftin, .status);
+        call FileError(status, .('ISIS.T0 '), TRUE);
+
+		call Open(.dirAFT, .('ISIS.DIR '), READ$MODE, 0, .status);
+		call FileError(status, .('ISIS.DIR '), TRUE);
+		direct.empty = 0;
+		do while direct.empty <> 7fh;
+			call Read(dirAft, .direct, size(direct), .actual, .status);
+			call FileError(status, .('ISIS.DIR '), TRUE);
+			if actual < size(direct) then
+				direct.empty = 7fh;
+			else if not direct.empty then
+			do;
+/* PATCH: Newer compilers optimise cma ! jnc to jc
+   add an enable here to keep code length and patch later
+*/
+                ENABLE;
+                copy = ((direct.attrib and SYSTEM$A) <> 0 or copyall)
+                       and  (direct.attrib AND FORMAT$A) = 0;
+/* PATCH: New compilers optimise mov m,a ! mov a,m to just mov m,a
+   add an enable here to keep code length and patch later
+*/
+                ENABLE;
+                if copy then do;
+                    direct.empty = 0;
+                    call UnPath(.direct, .srcName);
+                    direct.empty = pn(0);
+                    call UnPath(.direct, .dstName);
+
+					call Open(.aftOut, .dstName, UPDATE$MODE, 0, .status);
+					call FileError(status, .dstName, TRUE);
+					call Open(.aftIn, .srcName, READ$MODE, 0, .status);
+					call FileError(status, .srcName, TRUE);
+					actual = 1;
+					do while actual <> 0;
+						call Read(aftIn, .MEMORY, memSize, .actual, .status);
+						call FileError(status, .srcName, TRUE);
+						call Write(aftOut, .MEMORY, actual, .status);
+                        if actual < memSize then
+                            actual = 0;
+					end;
+
+					call Close(aftOut, .status);
+					call FileError(status, .dstName, TRUE);
+					call Close(aftIn, .status);
+					call FileError(status, .srcName, TRUE);
+					do i = 0 to 2;
+						if (attribMap(i) and direct.attrib) <> 0 then
+						do;
+							call Attrib(.dstName, i, TRUE, .status);
+							call FileError(status, .dstName, TRUE);
+						end;
+					end;
+					/* find end of file name skipping :Fx: */
+					k = Delimit(.srcName + 4) - .srcName - 4;
+					call Write(0, .srcName + 4, k, .status);
+					call Write(0, .crlf, 2, .status);
+				end;
+			end;
+		end;
+		call Close(dirAft, .status);
+        call Attrib(.t0File, 3, 0ffh, .status);
+        call Attrib(.binFile, 2, 0ffh, .status);
+	end;
+	else
+	do;
+		call Write(0, .('NON-SYSTEM DISKETTE', CR, LF), 21, .status);
+		call Open(.aftOut, .t0File, UPDATE$MODE, 0, .status);
+		call Write(aftOut, .codeBlock, 58, .status);
+		call Close(aftOut, .status);
+        call Attrib(.t0File, 3, 0ffh, .status);
+		call Delete(.binFile, .status);
+	end;
+
+	call Attrib(.dirFile, 3, 0ffh, .status);
+	call Attrib(.labFile, 3, 0ffh, .status);
+	call Attrib(.mapFile, 3, 0ffh, .status);
+	call Exit;
 end;
 forupp.plm
 FORCEUPPER: DO;
@@ -2113,6 +2404,71 @@ END;
 END;
 EOF
 
+isis.pex
+TRUE		'0FFH'
+FALSE		'0'
+CR		'0DH'
+LF      '0AH'
+BOOLEAN		'byte'
+FOREVER		'while(1)'
+
+
+# my user types
+pointer     'address'
+bool        'byte'
+apointer    'address'
+word        'address'
+DCB$T	'STRUCTURE (iocw BYTE, ioins BYTE, nsec BYTE, tadr BYTE, sadr BYTE, buf ADDRESS)'
+DIRECT$T 'structure(empty byte, file(9) byte, attrib byte, eof$count byte, blk address, hdrBlk address)'
+
+CMD$WRITE   '6'
+INVISIBLE$A '1'
+SYSTEM$A    '2'
+WRITEP$A    '4'
+FORMAT$A    '80H'
+
+Attrib		P("pointer" path$p,"word" attrib,"word" on$off,"apointer" status$p)
+Absio       P(B cmd,B disk,"word" block,"pointer" buffer)
+ClearBuf     P(A buf$ptr)
+Close           P("word" conn,"apointer" status$p)
+Delete      P("pointer" file,"apointer" status$p)
+deblank		p(a str)a
+delimit		p(a ptr)a
+Diskio      P(A disk,A dcb$p)
+FormatTrack P(B disk,B sTrack,B eTrack,B interleave)
+MoveAscii   P("pointer" dst,"pointer" src,B cnt)
+error		p(a error$num)
+exit		p
+file$error	p(a satatus,a ptr,b callExit)
+force$upper	p(a bufferPtr)
+load		p(a path$p,a load$offset,a switch,a entry$p,a status$p)
+Isis            P(B type,A parameter$ptr)
+Open            P("apointer" conn$p,"pointer" path$p,"word" access,"word" echo,"apointer" status$p)
+memck		pa
+Monitor		p
+NumOut      P("word" val,B base,B lc,"pointer" buf,B width)
+Path        P("pointer" filename,"pointer" pn)B
+read		p(a conn,a buff$p,a count,a actual$p,a status$p)
+reportError	p(a status)
+rescan		p(a conn,a status$p)
+seek		p(a conn,a mode,a block$p,a byte$p,a status$p)
+seq		p(a s1,a s2,b cnt)b
+SetBlock    P(A adr)
+uppercase	p(b ch)b
+scanblank	p(a ptr)a
+Unpath      P(A int,A ext)
+write		p(a conn,a buff$p,a count,a status$p)
+WriteDirectory P(B disk)
+
+# file access modes
+READ$MODE   '1'
+WRITE$MODE  '2'
+UPDATE$MODE '3'
+
+# public data
+bitMap  BS(256)
+maskArray   BS(8)
+
 isis.t0.plm
 /*
     THE SOURCE BELOW NEEDS TO BE COMPILED WITH THE FORTRAN CROSS COMPILER
@@ -2646,6 +3002,10 @@ APPEND
 31 44 35 46 46 36 30 30 35 39 34 36 43 44 42 44 35 44 32 46 30
 46 44 32 30 35 36 30 30 45 30 39 43 44 33 30 34 32 32 31 44 44
 37 30 37 45 44 36 30 30 44 36 30 31 39 46
+mask.plm
+mask: do;
+declare maskArray(*) byte public data(80h,40h,20h,10h,8,4,2,1);
+end;
 meq.plm
 MEQ: DO;
 
@@ -2684,6 +3044,17 @@ Monitor: procedure public;
   wrd = 0;
 end;
 end;
+mvasci.plm
+MOVEASCII: DO;
+MoveAscii: procedure(dst, src, cnt) public;
+    declare (dst, src) address, cnt byte, i byte;
+    declare dch based dst (1) byte, sch based src (1) byte;
+
+    do i = 0 to cnt - 1;
+        dch(i) = sch(i);
+    end;
+end;
+end;
 numout.plm
 numout: do;
 declare digits(*) byte data('0123456789ABCDEF');
@@ -2705,6 +3076,21 @@ NumOut: procedure(value, base, lc, bufAdr, width) public;
 	end;
 end;
 end;
+p0019.asm
+	name	@P0019
+	public	@P0019
+	cseg
+
+@P0019:			; hl = hl & de
+	mov	a,e
+	ana	l
+	mov	l,a
+	mov	a,d
+	ana	h
+	mov	h,a
+	ret
+	end
+
 p0029.asm
 	name	@P0029
 	public	@P0029, @P0030
@@ -2768,24 +3154,101 @@ L0019:
 	mov	h,a
 	ret
 	end
-p0101.asm
-	name	@P0101
-	public	@P0101, @P0102
-	cseg
+path.plm
+path: do;
+$include(path.ipx)
 
-@P0101:			; hl = w[de] - a
-	mov	l,a
-	mvi	h,0
-@P0102:			; hl = w[de] - hl
-	ldax	d
-	sub	l
-	mov	l,a
-	inx	d
-	ldax	d
-	sbb	h
-	mov	h,a
-	ret
-	end
+declare devTab(*) byte data('F0F1F2F3TITOVIVOI1O1TRHRR1R2TPHPP1P2LPL1BBCICO');
+declare lastpath(15) byte;
+
+declare TRUE	literally '0ffh',
+	FALSE	literally '0';
+
+PATH: procedure(filename, pn) byte public;
+	declare (filename, pn) address;
+	declare pathPtr address, devPair address, (loByte, hiByte) byte at (.devPair),
+		devPtr address, (noName, pl, i) byte;
+	declare pnByte based pn (10) byte;
+	declare fileChar based filename (1) byte, pathChar based pathPtr (1) byte;
+	declare devTabPair based devPtr address;
+
+	isFileNameChar: procedure byte;
+		return 'A' <= fileChar(0) and fileChar(0) <= 'Z' or
+		   '0' <= fileChar(0) and fileChar(0) <= '9' or
+		   'a' <= fileChar(0) and fileChar(0) <= 'z';
+	end;
+
+
+	devPtr = .devTab;
+	do i = 0 to 9;
+		pnByte(i) = 0;
+	end;
+	do while fileChar(0) = ' ';
+		filename = filename + 1;
+	end;
+
+	pathptr = filename;
+	if pathChar(0) = ':' then
+	do;
+		pnByte(0) = 255;
+		if fileChar(3) <> ':' then
+			return 4;
+		filename = filename + 1;
+		loByte = uppercase(fileChar(0));
+		filename = filename + 1;
+		hiByte = uppercase(fileChar(0));
+		filename = filename + 2;
+		i = 0;
+		do while i < last(devTab);
+			if devTabPair =  devPair then
+				pnByte(0) = shr(i, 1);
+			i = i + 2;
+			devPtr = devPtr + 2;
+		end;
+		if pnByte(0) = 255 then
+			return 5;
+	end;
+	noName = TRUE;
+	i = 1;
+	do while i < 7;
+		if isFileNameChar then
+		do;
+			pnByte(i) = uppercase(fileChar(0));
+			filename = filename + 1;
+			noName = FALSE;
+		end;
+		i = i + 1;
+	end;
+	if fileChar(0) = '.' then
+	do;
+		filename = filename + 1;
+		i = 7;
+		do while i < 10;
+			if isFileNameChar then
+			do;
+				pnByte(i) = uppercase(fileChar(0));
+				filename = filename + 1;
+			end;
+			i = i + 1;
+		end;
+	end;
+	if pnByte(0) <= 3 and noName then
+		return 17h;
+	
+	pl = 255;
+	do while pathPtr < filename;
+		lastpath(pl := pl + 1) = pathChar(0);
+		pathPtr = pathPtr + 1;
+	end;
+	if lastpath(pl) = '.' then
+		return 1ch;
+	lastpath(pl + 1) = ' ';
+	if isFileNameChar or fileChar(0) = '.' or fileChar(0) = ':' then
+		return 4;
+	return 0;
+end;
+end;
+
 reperr.plm
 REPORTERROR: DO;
 $include(reperr.ipx)
@@ -2899,6 +3362,60 @@ seq: procedure(s1, s2, cnt) byte public;
 end;
 end;
 
+setblk.plm
+SetBlock: do;
+$include(setblk.ipx)
+SetBlock: procedure(adr) public;
+	declare adr address;
+	declare byt byte;
+
+	adr = high(adr) * 26 + low(adr) - 1;
+x:  /* de optmise */
+	byt = shr(adr, 3);
+/* newer compilers use de rather than bc to index into bitmap,
+   older code was mov c,m ! mvi b,0 ! lxi h,bitmap ! dad b
+   newer code is  mvi d,0 ! lxi h,bitmap ! dad b
+   use an enable to pad out code to align, fix with patch later
+*/
+    ENABLE;
+	bitmap(byt) = bitmap(byt) or maskArray(low(adr) and 7);
+end;
+end;
+unpath.plm
+unpath: do;
+
+declare devTab(*) byte data('F0F1F2F3TITO',
+			     'VIVOI1O1TRHRR1R2',
+			     'TPHPP1P2LPL1BBCICO');
+
+Unpath:	procedure(int, ext) public;
+	declare (int, ext) address;
+	declare i byte;
+	declare intName based int (1) byte;
+	declare extName based ext (1) byte;
+
+	extName(0) = ':';
+	extName(1) = devTab(intName(0) + intName(0));
+	extName(2) = devTab(intName(0) + intName(0) + 1);
+	extName(3) = ':';	
+	ext = ext + 4;
+	do i = 0 to 5;
+		if (extName(0) := intName(i + 1)) <> 0 then
+			ext = ext + 1; 
+	end;
+	if intName(7) <> 0 then
+	do;
+		extName(0) = '.';
+		ext = ext + 1;
+	end;
+	do i = 0 to 2;
+		if (extName(0) := intName(i + 7)) <> 0 then
+			ext = ext + 1; 
+	end;
+	extName(0) = ' ';
+end;
+end;
+
 upcase.plm
 UPPERCASE: DO;
 uppercase: procedure(char) byte public;
@@ -2911,3 +3428,146 @@ uppercase: procedure(char) byte public;
 end;
 end;
 
+wrdir.plm
+WriteDirectory: do;
+$include(wrdir.ipx)
+
+declare file(5) structure(name(9) byte) data(
+                         'ISIS',0,0,'DIR',
+					     'ISIS',0,0,'MAP',
+					     'ISIS',0,0,'T0',0,
+					     'ISIS',0,0,'BIN',
+					     'ISIS',0,0,'LAB');
+
+WriteDirectory: procedure(drive) public;
+	declare	drive byte, i byte, jj address, dirBuf(64) address,
+		direct(8) DIRECT$T;
+
+   
+    do i = 0 to 255;
+        bitmap(i) = 0;
+    end;
+    call clearBuf(.dirBuf);
+    dirBuf(2) = 1;
+    do i = 2 to 23;
+        dirbuf(i + 1) = dirbuf(i) + 1;
+    end;
+    call absio(CMD$WRITE, drive, 18h, .dirbuf);
+    call clearBuf(.dirbuf);
+
+    dirbuf(2) = 1ah;
+    do i = 2 to 1;
+        dirbuf(i + 1) = dirbuf(i) + 1;
+    end;
+
+    call absio(CMD$WRITE, drive, 19h, .dirbuf);
+    call clearBuf(.dirbuf);
+
+    dirbuf(2) = 102h;
+    do i = 2 to 25;
+        dirbuf(i + 1) = dirbuf(i) + 1;
+    end;
+    call absio(CMD$WRITE, drive, 101h, .dirbuf);
+    call clearBuf(.dirbuf);
+
+    dirbuf(2) = 202h;
+    do i = 2 to 2;
+        dirbuf(i + 1) = dirbuf(i) + 1;
+    end;
+    call absio(CMD$WRITE, drive, 201h, .dirbuf);
+    call clearBuf(.dirbuf);
+
+    call absio(CMD$WRITE, drive, 204h, .dirbuf);
+
+    call clearBuf(.direct);	
+
+	/* isis.dir */
+	call moveascii(.direct(0).file, .file(0), 9);
+    direct(0).blk = 25;
+
+	direct(0).hdrblk = 101h;	/* linkage at t1 s1 */
+    direct(0).empty = 0;
+	direct(0).attrib = 1;
+	direct(0).eof$count = 128;
+
+	/* isis.map */
+	call moveascii(.direct(1).file, .file(1), 9);
+	direct(1).blk = 2;
+	direct(1).hdrblk = 201h;	/* linkage at t2 s1 */
+    direct(1).empty = 0;
+	direct(1).attrib = 1;
+	direct(1).eof$count = 128;
+
+	/* isis.t0 */
+	call moveascii(.direct(2).file, .file(2), 9);
+	direct(2).blk = 17h;
+	direct(2).hdrblk = 18h;		/* linkage at t0 s24 */
+    direct(2).empty = 0;
+	direct(2).attrib = 1;
+	direct(2).eof$count = 128;
+
+	/* isis.lab */
+	call moveascii(.direct(3).file, .file(4), 9);
+    direct(3).blk = 1;
+	direct(3).hdrblk = 19h;		/* linkage at t0 s25 */
+    direct(3).empty = 0;
+	direct(3).attrib = 1;
+	direct(3).eof$count = 128;
+
+	/* isis.bin */
+	call moveascii(.direct(4).file, .file(3), 9);
+    direct(4).blk = 0;
+	direct(4).hdrblk = 204h;
+    direct(4).empty = 0;
+	direct(4).attrib = 3;
+	direct(4).eof$count = 128;
+
+	/* flag as no further entries */
+	do i = 5 to 7;
+		direct(i).empty = 7fh;
+	end;
+
+    call absio(CMD$WRITE, drive, 102h, .direct);
+    call clearBuf(.direct);
+
+	do i = 0 to 7;
+		direct(i).empty = 7fh;
+	end;
+
+	do i = 2 to 25;
+		call absio(6, drive, 101h + i, .direct);
+	end;
+    call SetBlock(101h);
+    
+	do jj = 102h to 11Ah;
+        call SetBlock(jj);
+    end;
+
+    call SetBlock(201h);
+	do jj = 202h to 203h;
+        call SetBlock(jj);
+    end;
+
+    call SetBlock(18h);
+    do jj = 1 to 17h;
+        call SetBlock(jj);
+    end;
+
+    call SetBlock(19h);
+    do jj = 1Ah to 1Ah;
+        call SetBlock(jj);
+    end;
+
+    call SetBlock(204h);
+    call Absio(CMD$WRITE, drive, 202h, .bitmap);
+    call Absio(CMD$WRITE, drive, 203h, .bitmap + 128);
+
+end;
+end;
+fake.asm
+; the binary has a random external for mapDCB even though it is not used
+;   the hack here is to create a reference to the external
+;   at build link & locate need to ignore the missing reference
+;   Note the real mapDCB is not made public to avoid this being resolved
+    extrn mapDCB
+    end
