@@ -38,7 +38,7 @@ else
 	BASICFILES = $(BASICOBJ)
 endif
 
-PROTECT = $(RUNPATCH) $(BASICPATCH)
+PROTECT = $(RUNPATCH) $(BASICPATCH) GettingToBinary.md GettingToBinary.pdf
 
 PLMFLAGS := OPTIMIZE CODE DEBUG $(EXACT)
 PLM80 := 4.0
@@ -64,12 +64,12 @@ all::
 
 b%.lob: b%.obj x%.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	perl $(ITOOLS)/tools/fixomf.pl -p $@
+	$(ITOOLS)/tools/fixobj -l $@
 
 # run requires special handling as it doesn't start with a b
 run.lob: run.obj xun.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	perl $(ITOOLS)/tools/fixomf.pl -p $@
+	$(ITOOLS)/tools/fixobj -l $@
 
 # create basic.com, if BYTEMATCH is set then it will use lob files
 # else use standard compile and shared libraries
@@ -86,7 +86,7 @@ basic.com: basic.abs $(BASICPATCH)
 # need to be built and have the @Pnnnn references and the main module flag removed
 fprun.rel: $(FPOBJ) $(RUNFILES)
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	perl $(ITOOLS)/tools/fixomf.pl -m $@
+	$(ITOOLS)/tools/fixobj -m $@
 
 fprun.abs: fprun.rel
 	$(call locate-nocheck,$@,$^,CODE(100h))
