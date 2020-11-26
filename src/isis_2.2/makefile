@@ -60,7 +60,7 @@ format.abs: format.rel
 
 %: %.abs fake.obj %.patch
 	$(call link-nocheck,$@,$*.abs fake.obj)
-	$(ITOOLS)/tools/fixobj -p $*.patch $@
+	$(ITOOLS)/tools/fixobj -p $*.patch $@ $@
 
 
 monitr.obj: PLMFLAGS=code nooptimize debug
@@ -82,41 +82,25 @@ format.rel: $(formatobjs)
 # using it.
 # It is possible that the code was originally compiled
 # using an older, possibly pre-release version of the PL/M compiler.
+%.obx: %.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(ITOOLS)/tools/fixobj -l $@ $@
+
 cli.obx: cli.obj p0095.obj p0100.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
+	$(ITOOLS)/tools/fixobj -l $@ $@
 
 filerr.obx: filerr.obj p0095.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
+	$(ITOOLS)/tools/fixobj -l $@ $@
 
 reperr.obx: reperr.obj p0100.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
-
-numout.obx: numout.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
+	$(ITOOLS)/tools/fixobj -l $@ $@
 
 format.obx: format.obj p0019.obj p0095.obj
 	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
-
-fmttrk.obx: fmttrk.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
-
-path.obx: path.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
-
-setblk.obx: setblk.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
-
-wrdir.obx: wrdir.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
-	$(ITOOLS)/tools/fixobj -l $@
+	$(ITOOLS)/tools/fixobj -l $@ $@
 
 clean::
 	rm -fr *.hex *.prn *.omf *.pol *.sym *.obx tmp0000*

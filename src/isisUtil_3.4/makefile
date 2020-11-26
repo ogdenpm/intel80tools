@@ -27,6 +27,7 @@ all::
 
 binobj: binobj.rel
 	$(call locate,$@,$^,code(3680H) name(binobj) stacksize(84) purge)
+	$(ITOOLS)/tools/fixobj -p binobj.patch $@ $@
 
 format: format.rel
 	$(call locate,$@,$^,code(3680H) name(format) stacksize(102) purge )

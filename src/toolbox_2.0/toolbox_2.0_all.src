@@ -1008,7 +1008,7 @@ meq: procedure(mPtr, fptr) byte public;
 	do i = 0 to 9;
 		if m(i) <> '?' then
 		do;
-			if f(i) <> m(i) then
+			if m(i) <> f(i) then
 				return 0;
 		end;
 	end;
@@ -1376,8 +1376,7 @@ end;
 ?setblk.plm
 SETBLOCK: DO;
 /* b1=01, b2=10, CODE(6AH) byte, DATA(3H) byte, STACK(2H) byte, MEMORY(0H) byte,*/
-declare bitmap(1) byte external,
-	maskArray(1) byte external; /* 80h, 40h, 20h, 10h, 8, 4, 2, 1 */
+declare bitmap(1) byte external;
 
 declare	currentBitMap byte external,
 	mapChange byte external,
@@ -1385,7 +1384,8 @@ declare	currentBitMap byte external,
 	lastSector byte external,
 	lastTrack byte external,
 	lastCounter byte external,
-	mapDcb(1) byte external;
+	mapDcb(1) byte external,
+	maskArray(1) byte external; /* 80h, 40h, 20h, 10h, 8, 4, 2, 1 */
 
 setblock: procedure(blk) public;
 	declare blk address;
@@ -1401,7 +1401,9 @@ x:	idx = shr(blk, 3);
 	mvi b,0		mvi d,0
 	lxi h,BITMAP	lxi h,BITMAP
 	dad b		dad d
+    insert ENABLE to force realign and then post compile patch
 */
+    ENABLE;
 	bitmap(idx) = bitmap(idx) or maskArray(low(blk) and 7);
 
 end;
@@ -1729,10 +1731,90 @@ writeDirectory: procedure(disk) public;
 end;
 /* native plm80 v1.0 inlines @P0103 and @P0104 here */
 end;
+?p0029.asm
+	name	@P0029
+	public	@P0029, @P0030
+	cseg
+
+@P0029:			; de = de / hl, hl = de % hl
+	mov	b,h
+	mov	c,l
+@P0030:			; de = de / bc, hl = de % bc
+	lxi	h,0
+	mvi	a,10H
+L0007:
+	push	psw
+	dad	h
+	xchg
+	sub	a
+	dad	h
+	xchg
+	adc	l
+	sub	c
+	mov	l,a
+	mov	a,h
+	sbb	b
+	mov	h,a
+	inx	d
+	jnc	L0019
+	dad	b
+	dcx	d
+L0019:
+	pop	psw
+	dcr	a
+	jnz	L0007
+	ret
+	end
+?p0095.asm
+	name	@P0095
+	public	@P0095
+	cseg
+
+@P0095:			; hl = de - hl
+	mov	a,e
+	sub	l
+	mov	l,a
+	mov	a,d
+	sbb	h
+	mov	h,a
+	ret
+	end
+?p0100.asm
+	name	@P0100
+	public	@P0100
+	cseg
+
+@P0100:			; hl = w[de] - bc
+	ldax	d
+	sub	c
+	mov	l,a
+	inx	d
+	ldax	d
+	sbb	b
+	mov	h,a
+	ret
+	end
+?setblk.patch
+h                   # force MEMORY to exist
+l                   # remove library references
+tp                  # mark as PLM
+v 10                # version 1.0
+n c 0               # write non conformant entry location
+p 002C 4E 06        # source for patch reason
+p 0032 09
+?plmv1.patch
+h                   # force MEMORY to exist
+l                   # remove library references
+tp                  # mark as PLM
+v 10                # version 1.0
+n c 0               # write non conformant entry location
 cusp2/makefile
 # common makefile info
 ITOOLS ?=../../..
-TARGETS=cusp2.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)cusp2.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -1745,22 +1827,63 @@ PLMFLAGS=code
 ASMFLAGS=
 
 
-OBJS= alloc.obj direct.obj absio.obj clrbuf.obj d.obj dblank.obj \
-	diskio.obj dlimit.obj dmeq.obj filerr.obj fmttrk.obj \
-	forupp.obj mvasci.obj monitr.obj meq.obj numout.obj path.obj \
-	popula.obj reperr.obj scnblk.obj scanin.obj seq.obj setblk.obj \
-	tabwrt.obj upcase.obj unpath.obj wrtdir.obj wpath.obj
+OBJS= alloc.ob1 direct.ob1 absio.ob1 clrbuf.ob1 d.obx dblank.ob1 \
+	diskio.ob1 dlimit.ob1 dmeq.obx filerr.obx fmttrk.obx \
+	forupp.ob1 mvasci.ob1 monitr.ob1 meq.ob1 numout.obx path.obx \
+	popula.ob1 reperr.obx scnblk.ob1 scanin.obx seq.ob1 setblk.obx \
+	tabwrt.obx upcase.ob1 unpath.ob1 wrtdir.obx wpath.obx
+#
+# pretend to be PLM v1.0
+%.ob1: %.plm
+	$(call plm80,$@,$<)
+	$(ITOOLS)/tools/fixobj -v 10 $@ $@
 
-# verify will throw up errors due to different behaviour with plm v1.0
-# see source code for known differences
-.IGNORE: verify
+
 
 all::
 	$(MAKE) $(TARGETS)
 
-cusp2.lib: $(OBJS)
+$(TARGETDIR)cusp2.lib: $(OBJS)
 	$(call lib,$@, $^)
 
+# special builds requiring inline library files
+%.obx: %.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+d.obx: d.obj p0029.obj p0095.obj p0100.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+
+filerr.obx: filerr.obj p0095.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib),name(FILEERROR))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+fmttrk.obx: fmttrk.obj p0029.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib),name(FORMATTRACK))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+numout.obx: numout.obj p0029.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+
+reperr.obx: reperr.obj p0100.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib),name(REPORTERROR))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+setblk.obx: setblk.obj setblk.patch
+	$(call link-nocheck,$@,setblk.obj $(plm80.lib),name(SETBLOCK))
+	$(ITOOLS)/tools/fixobj -p setblk.patch $@ $@
+
+tabwrt.obx: tabwrt.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib),name(TABWRITE))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
+
+wrtdir.obx: wrtdir.obj
+	$(call link-nocheck,$@,$^ $(plm80.lib),name(WRITEDIRECTORY))
+	$(ITOOLS)/tools/fixobj -p plmv1.patch $@ $@
 cusp5/cusp5_all.src
 ?absio.plm
 ABSIO: DO;
@@ -2339,7 +2462,12 @@ MONITOR: procedure public;
 
 	sp = STACKPTR;
 	wrd = 8;	
-	STACKPTR = STACKPTR - 2;
+/*
+    code below should be -2, but the compilers optimised this to
+    dcx x2. Using -3 forces the code sequence and a post build
+    patch fixes the 3 back to a 2
+*/
+	STACKPTR = STACKPTR - 3;
 	sp = STACKPTR;
 	wrd = 0;
 end;
@@ -3034,9 +3162,14 @@ writeDirectory: procedure(disk) public;
 	end;
 end;
 end;
+?monitr.patch
+p 0013 02       # source for details
 cusp5/makefile
 ITOOLS ?= ../../..
-TARGETS := cusp5.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)cusp5.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -3045,7 +3178,7 @@ PLMFLAGS = code
 
 OBJS = alloc.obj direct.obj absio.obj clrbuf.obj chklab.obj d.obj dblank.obj\
        diskio.obj dlimit.obj dmeq.obj ferror.obj fmttrk.obj forupp.obj\
-       getdsk.obj getlab.obj mvasci.obj monitr.obj meq.obj numout.obj path.obj\
+       getdsk.obj getlab.obj mvasci.obj monitr.obx meq.obj numout.obj path.obj\
        popula.obj reperr.obj scanin.obj serror.obj seq.obj setblk.obj\
        tabwrt.obj upcase.obj unpath.obj wrtdir.obj wdlmt.obj wpath.obj\
        cpyrit.obj
@@ -3058,12 +3191,11 @@ PLM80 = 3.1
 all::
 	$(MAKE) $(TARGETS)
 
-# verify will fail due to module MONITOR
-.IGNORE: verify
-
-cusp5.lib: $(OBJS)
+$(TARGETDIR)cusp5.lib: $(OBJS)
 	$(call lib,$@,$^)
 
+%.obx: %.obj %.patch
+	$(ITOOLS)/tools/fixobj -p $*.patch $*.obj $@
 cusp6/cusp6_all.src
 ?absio.plm
 ABSIO: DO;
@@ -3753,7 +3885,12 @@ MONITOR: procedure public;
 
 	sp = STACKPTR;
 	wrd = 8;	
-	STACKPTR = STACKPTR - 2;
+/*
+    code below should be -2 but compiler optimises this to
+    dcx x2. using -3 generates the expected code sequence
+    and a post build patch changes the 3 to a 2
+*/
+	STACKPTR = STACKPTR - 3;
 	sp = STACKPTR;
 	wrd = 0;
 end;
@@ -4835,11 +4972,15 @@ ypath: procedure(int$p, ext$p) public;
 	extName(0) = ' ';
 end;
 end;
-
+?monitr.patch
+p 0013 02       # see source for reason
 cusp6/makefile
 # common makefile info
 ITOOLS ?=../../..
-TARGETS=cusp6.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)cusp6.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -4850,7 +4991,7 @@ REF = $(call ipath,toolbox,1.0)
 OBJS =	alloc.obj direct.obj absio.obj clrbuf.obj chklab.obj d.obj\
 	dblank.obj diskio.obj dlimit.obj dmeq.obj dtype.obj ferror.obj\
 	fmttrk.obj forupp.obj getdsk.obj getlab.obj mvasci.obj\
-	monitr.obj meq.obj numout.obj path.obj popula.obj reperr.obj\
+	monitr.obx meq.obj numout.obj path.obj popula.obj reperr.obj\
 	scanin.obj serror.obj seq.obj setblk.obj setmap.obj\
 	tabwrt.obj trange.obj upcase.obj unpath.obj wrtdir.obj\
 	wdlmt.obj wpath.obj ypath.obj cpyrit.obj
@@ -4858,12 +4999,11 @@ OBJS =	alloc.obj direct.obj absio.obj clrbuf.obj chklab.obj d.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-# verify will fail due to module MONITOR
-
-.IGNORE: verify
-cusp6.lib: $(OBJS)
+$(TARGETDIR)cusp6.lib: $(OBJS)
 	$(call lib,$@,$^)
 
+%.obx: %.obj %.patch
+	$(ITOOLS)/tools/fixobj -p $*.patch $*.obj $@
 cusp8/cusp8_all.src
 ?cpyrit.plm
 COPYRIGHT: DO;
@@ -5502,7 +5642,10 @@ end;
 end;
 cusp8/makefile
 ITOOLS ?=../../..
-TARGETS = cusp8.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)cusp8.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -5518,7 +5661,7 @@ OBJS = dblank.obj dlimit.obj dmeq.obj ferror.obj forupp.obj meq.obj numout.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-cusp8.lib: $(OBJS)
+$(TARGETDIR)cusp8.lib: $(OBJS)
 	$(call lib,$@,$^)
 
 unpath.obj: PLM80=4.0
@@ -5744,7 +5887,10 @@ end;
 fnames/makefile
 # common makefile info
 ITOOLS ?=../../..
-TARGETS = fnames.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)fnames.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -5758,7 +5904,7 @@ OBJS = ver10.obj driven.obj exroot.obj cons5.obj scan4.obj newext.obj scan8.obj 
 all::
 	$(MAKE) $(TARGETS)
 
-fnames.lib: $(OBJS)
+$(TARGETDIR)fnames.lib: $(OBJS)
 	$(call lib,$@,$^)
 src/bltsym.asm
         NAME BLTSYM
@@ -25012,7 +25158,10 @@ END XLATE2$MOD;
 sys/makefile
 # common makefile info
 ITOOLS ?=../../..
-TARGETS = sys.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)sys.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -25030,7 +25179,7 @@ OBJS =	ver10.obj ci.obj co.obj csts.obj iochk.obj iodef.obj ioset.obj lo.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-sys.lib: $(OBJS)
+$(TARGETDIR)sys.lib: $(OBJS)
 	$(call lib,$@,$^)
 
 
@@ -25938,7 +26087,10 @@ WHOCO:	mvi	a,0DH
 	end
 unixio/makefile
 ITOOLS ?= ../../..
-TARGETS = unixio.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)unixio.lib
 unexport ISIS_F1
 
 include $(ITOOLS)/tools/isis.mk
@@ -25953,7 +26105,7 @@ OBJS = getcp.obj fopenp.obj getchr.obj putcp.obj fflush.obj putchr.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-unixio.lib: $(OBJS)
+$(TARGETDIR)unixio.lib: $(OBJS)
 	$(call lib,$@,$^)
 
 unixio/unixio_all.src
@@ -26173,7 +26325,10 @@ end;
 # common makefile info
 ITOOLS ?=../../..
 unexport ISIS_F1
-TARGETS=util.lib
+ifdef LIB
+	TARGETDIR = ../$(LIB)/
+endif
+TARGETS=$(TARGETDIR)util.lib
 
 include $(ITOOLS)/tools/isis.mk
 
@@ -26190,7 +26345,7 @@ OBJS = 	ver10.obj bit.obj bmove.obj comp1.obj comp2.obj comp3.obj comp4.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-util.lib: $(OBJS)
+$(TARGETDIR)util.lib: $(OBJS)
 	$(call lib,$@,$^)
 
 util/util_all.src

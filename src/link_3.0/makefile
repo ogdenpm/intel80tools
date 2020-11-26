@@ -31,15 +31,16 @@ all::
 # link build rules
 .INTERMEDIATE: link.rel linkov.rel link0.rel link1.rel link2.rel
 
-link: link.rel
-	$(call locate,$@,$^,STACKSIZE(0) COLUMNS(3) NAME(LINK) $(PURGE))
+link: link.rel link.patch
+	$(call locate,$@,link.rel,STACKSIZE(0) COLUMNS(3) NAME(LINK) $(PURGE))
+	$(ITOOLS)/tools/fixobj -p link.patch $@ $@
 
 link.rel: $(LINKOBJ) $(LINKPUB)
 	$(call link,$@,$(LINKOBJ) publics($(LINKPUB)))
 
-
-link.ovl: linkov.rel
-	$(call locate,$@,$^,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
+link.ovl: linkov.rel linkovl.patch
+	$(call locate,$@,linkov.rel,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
+	$(ITOOLS)/tools/fixobj -p linkovl.patch $@ $@
 
 linkov.rel: $(LINKOVOBJ) $(LINKOVPUB)
 	$(call link,$@,$(LINKOVOBJ) publics($(LINKOVPUB)) $(system.lib) $(plm80.lib))
