@@ -42,9 +42,9 @@ ifile = $(call ipath,$1,$2)/$(strip $1)
 # set default tool versions if none given
 PLM80 ?= 4.0
 ASM80 ?= 4.1
-LIB ?= 2.1
-LINK ?= 3.0
-LOCATE ?= 3.0
+LIB80 ?= 2.1
+LINK80 ?= 3.0
+LOCATE80 ?= 3.0
 FORT80 ?= 2.1
 ASM48 ?= 4.2
 
@@ -130,48 +130,48 @@ endef
 # standard link
 # $(call link,relocfile,objs[,target specific options])
 define link
-  @$(ISIS) $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map\
+  @$(ISIS) $(call ifile,link,$(LINK80)) "$(call mklist,$2)" to $1 map\
 	  "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # link with no check for unresolved
 # $(call link-nocheck,relocfile,objs[,target specific options])
 define link-nocheck
-  @$(ISIS) -u $(call ifile,link,$(LINK)) "$(call mklist,$2)" to $1 map\
+  @$(ISIS) -u $(call ifile,link,$(LINK80)) "$(call mklist,$2)" to $1 map\
 	  "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # standard locate
 # $(call locate,target,relocfile[,target specific options])
 define locate
-  @$(ISIS) $(call ifile,locate,$(LOCATE)) $2 to $1\
+  @$(ISIS) $(call ifile,locate,$(LOCATE80)) $2 to $1\
 	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate with no check for unsatisfied
 # $(call locate-nocheck,target,relocfile[,target specific options])
 define locate-nocheck
-  @$(ISIS) -u $(call ifile,locate,$(LOCATE)) $2 to $1\
+  @$(ISIS) -u $(call ifile,locate,$(LOCATE80)) $2 to $1\
 	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate allowing overlaps
 # $(call locate-overlaps,target,relocfile[,target specific options])
 define locate-overlaps
-  @$(ISIS) -o $(call ifile,locate,$(LOCATE)) $2 to $1\
+  @$(ISIS) -o $(call ifile,locate,$(LOCATE80)) $2 to $1\
 	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # limited version of locate to remove symbols - does not produce map file
 # $(call rm-symbols,target,source)
 define rm-symbols
-  @$(ISIS) $(call ifile,locate,$(LOCATE)) $2 to $1 PURGE
+  @$(ISIS) $(call ifile,locate,$(LOCATE80)) $2 to $1 PURGE
 endef
 
 # $(call lib,target,objects)
 define lib
   rm -fr $1
-  @$(ISIS) $(call ifile,lib,$(LIB)) "&&"\
+  @$(ISIS) $(call ifile,lib,$(LIB80)) "&&"\
   create $1 "&&"\
   add $(if $(filter-out 0 1,$(words $2)),$(call mklist,$(call notlast,$2))$(comma)"&")\
   $(lastword $2) to $1 "&&"\
@@ -220,8 +220,8 @@ verify: all
 	$(if $(_verify),\
 	  $(if $(REF),\
 	    $(if $(filter 1,$(words $(_verify))),\
-	      @$(COMPARE) $(_verify) $(REF)/$(_verify),\
-	      @for f in $(_verify) ; do $(COMPARE) $$f $(REF)/$$f || exit 1; done),\
+	      @$(COMPARE) $(_verify) $(REF)/$(notdir $(_verify)),\
+	      @for f in $(_verify) ; do $(COMPARE) $$f $(REF)/`basename $$f` || exit 1; done),\
 	    $(info verify failed - REF variable not set) exit 1))
 endif
 
