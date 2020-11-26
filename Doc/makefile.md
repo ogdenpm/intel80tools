@@ -75,9 +75,9 @@ The basic structure of the makefile is
 * **ASM48** - the version of ASM48 to be used. Set to 4.2 if not previously specified
 * **ASM80X** - set to the asm80x.pl program, which is a wrapper around asm80 to support long variable names.
   Note this previously was set to asmx.pl which is a more experimental wrapper with struct support.
-* **LIB** - the version of the LIB to be used. Set to 2.1 if not previously specified
-* **LINK** - the version of the LINK to be used. Set to 3.0 if not previously specified
-* **LOCATE** - the version of the LOCATE to be used. Set to 3.0 if not previously specified
+* **LIB80** - the version of the LIB to be used. Set to 2.1 if not previously specified
+* **LINK80** - the version of the LINK to be used. Set to 3.0 if not previously specified
+* **LOCATE80** - the version of the LOCATE to be used. Set to 3.0 if not previously specified
 * **FORT80** - the version of the FORT80 compiler to be used. Set to 2.1 if not previously specified
 * **plm80.lib** - simple variable to reference plm80.lib
 * **system.lib** - simple variable to reference system.lib associated with specified PLM80 version
@@ -646,6 +646,10 @@ V30:
 
 ## Change log
 
+### 26-Nov-2020
+
+Changed LIB, LINK, LOCATE macros to LIB80, LINK80, LOCATE80
+
 ### 21-Oct-2020
 
 Converted all makefiles to use ITOOLS and removed ROOT. Isis.mk exports _ITOOLS for external applications to get the root directory of the tools when ITOOLS isn't defined.
@@ -702,5 +706,5 @@ Converted all makefiles to use ITOOLS and removed ROOT. Isis.mk exports _ITOOLS 
 ------
 
 ```
-Updated by Mark Ogden 21-Oct-2020
+Updated by Mark Ogden 26-Nov-2020
 ```
