@@ -39,6 +39,7 @@ my %fileStatus;
 my $operation;
 my ($ADD, $CREATE, $DELETE, $UPDATE, $LIST, $COPY) = (1, 2, 3, 4, 5, 6);
 my @status = ("", "Added", "", "Deleted", "Updated", "List", "Copy");
+my $operation = 0;
 
 my $target = (split /\/|\\/, getcwd)[-1] . "_all.src";
 $target =~ tr/A-Z/a-z/;
@@ -118,7 +119,6 @@ sub deleteFiles {
 
 # use current directory as a prefix for the generated file
 my $opt;
-my $operation = 0;
 
 while ($opt = shift @ARGV) {
     last unless $opt =~ /^-/;
