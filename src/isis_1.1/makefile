@@ -7,7 +7,6 @@ include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,1.1)
 ISIST0PATCH = isis.t0_1.1.patch
-PROTECT = $(ISIST0PATCH)
 
 all::
 	$(MAKE)	$(TARGETS)
@@ -34,4 +33,4 @@ isis.bin: isis.obj
 	@rm -fr $*.pol $*.sym
 
 clean::
-	rm -fr *.hex *.prn *.lst *.obj *.omf *.patch
+	rm -fr *.hex *.prn *.lst *.obj *.omf
