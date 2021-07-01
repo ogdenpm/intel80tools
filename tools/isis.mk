@@ -47,8 +47,13 @@ LINK80 ?= 3.0
 LOCATE80 ?= 3.0
 FORT80 ?= 2.1
 ASM48 ?= 4.2
+PLM86 ?= 2.1
+ASM86 ?= 2.1
+LINK86 ?= 1.3
+LOC86 ?= 1.3
 
 PLMFLAGS ?= code
+PLM86FLAGS ?= code
 
 # the standard libraries
 plm80.lib := $(call ifile,plm80.lib)
@@ -178,6 +183,20 @@ define lib
   exit
 endef
 
+# $(call plm86,objfile,srcfile[,target specific options])
+define plm86
+  $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2)
+  @$(ISIS) $(if $(PEXFILE),,-MF .deps/$1.d) $(call ifile,plm86,$(PLM86)) $2 "object($1)"\
+	  $(if $(PLM86FLAGS), "$(PLM86FLAGS)")$(if $3, "$3")
+endef
+
+# $(call asm86,objfile,srcfile[,target specific options])
+#
+define asm86
+  @$(ISIS) $(call ifile,asm86,$(ASM86)) $2 \
+	  "object($1)"$(if $(ASM86FLAGS), "$(ASM86FLAGS)")$(if $3, "$3")
+endef
+
 # predefined rules
 $(OBJ)/%.obj: %.plm  | $(OBJ) $(LST)
 	$(call plm80,$@,$<)
@@ -193,6 +212,13 @@ $(OBJ)/%.obj: %.asmx | $(OBJ) $(LST)
 
 $(OBJ)/%.hex: %.a48 | $(OBJ) $(LST)
 	$(call asm48,$@,$<)
+
+$(OBJ)/%.o86: %.plm | $(OBJ) $(LST)
+	$(call plm86,$@,$<)
+
+$(OBJ)/%.o86: %.asm  | $(OBJ) $(LST)
+	$(call asm86,$@,$<)
+
 
 # common targets
 .PHONY: all rebuild distclean

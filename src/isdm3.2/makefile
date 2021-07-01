@@ -84,6 +84,7 @@ verify:
 		restart(0fff80h))) &$(\n)\
 		start($(START)) bootstrap print($*.mp2) $(INIT))
 	-$(LOC86) $< ^& <loc.in
+	copy loc.in %*.in
 	@del loc.in
 
 ###################
