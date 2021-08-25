@@ -5,7 +5,7 @@ REM  since creation.
 REM  Limitation is that it does not track moves or renames (except case change)
 ::
 :: Console output only
-if /I "%~1" == "-v" (echo %0: Rev 6 -- git 72ca9af [2020-10-12]) & goto :EOF
+if /I "%~1" == "-v" (echo %0: Rev  8  -- b73f0eb [2021-08-25]) & goto :EOF
 if "%~1" == "-q" (
     set QUIET=1
     SHIFT /1
@@ -19,21 +19,19 @@ set PATHTO=%~p1
 for %%I in ("%PATHTO:~,-1%") do set PARENT=%%~nxI
 set FILE=%~1
 if "%~1" neq "%~nx1" set HASDIR=YES
-
+set FILE="%~1"
 
 REM ===================
 REM Entry Point
 REM ===================
 :START
 CALL :GET_VERSION_STRING
-if [%GIT_SHA1%] == [] (
-        if not defined QUIET echo Cannot find Git information for %1
-        exit /b 1
-)
 
 :: pretty print the information on a single line
 set FILE=%~nx1
 call :pad FILE 20
+if [%GIT_SHA1%] == [] echo %FILE% Rev: untracked & goto :eof
+
 set REVISION=%GIT_COMMITS%%GIT_QUALIFIER%
 
 if [%GIT_BRANCH%] neq [master] if [%GIT_BRAHCN%] neq [main] set REVISION=%REVISION% {%GIT_BRANCH%}
@@ -59,6 +57,8 @@ REM ====================
 :GET_VERSION_STRING
 :: --------------------
 
+for /f %%C in ('git ls-files HEAD -- "%FILE%" ^| find /v "" /c') do set COUNT=%%C
+if [%COUNT%] == [0] goto :eof
 
 :: Get which branch we are on and whether any outstanding commits in current tree
 for /f "tokens=1,2 delims=. " %%A in ('git status -s -b -uno -- ":(icase)%FILE%" 2^>NUL') do (
@@ -92,6 +92,8 @@ for /f "tokens=1,2" %%A in ('git log -1 "--format=%%h %%ct" -- "%FILE%"') do (
 :: initially try the whole repository to see if only file with this name
 set SCOPE=:(icase,top)*%FILE%
 
+
+
 for /f %%C in ('git ls-files HEAD -- "%SCOPE%" ^| find /v "" /c') do set COUNT=%%C
 if [%COUNT%] == [1] goto :gotScope
 
@@ -102,7 +104,7 @@ for /f %%C in ('git ls-files HEAD -- "%SCOPE%" ^| find /v "" /c') do set COUNT=%
 if [%COUNT%] == [1] goto :gotScope
 
 :forceScope
-set SCOPE=:(icase)%FILE%
+set SCOPE=:(icase)*%FILE%
 :gotscope
 ::
 

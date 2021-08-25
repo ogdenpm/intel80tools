@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-if /I "%~1" == "-v" (echo %0: Rev 4 -- git 947b939 [2020-10-12]) & goto :EOF
+if /I "%~1" == "-v" (echo %0: Rev  5  -- 827b3c9 [2021-08-10]) & goto :EOF
 
 :doOpt
 if [%1] == [] goto execute
@@ -10,7 +10,7 @@ SHIFT /1
 goto doOpt
 
 :usage
-echo usage: %0 [-v] ^| [-r] [-q]
+echo usage: %0 [-v] ^| [-s] [-q]
 echo where -v shows version info
 echo       -s also shows files in immediate sub-directories
 echo       -q supresses no Git info for file message
