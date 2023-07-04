@@ -5,7 +5,7 @@ PEXFILE:=locate.pex
 
 # build options
 LOCATEFLAGS:=SYMBOLS LINES
-PLMFLAGS:=DEBUG
+PLMFLAGS:=DEBUG CODE
 LINKFLAGS:=
 PURGE=purge
 include $(ITOOLS)/tools/isis.mk

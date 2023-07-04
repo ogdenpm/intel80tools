@@ -73,35 +73,35 @@ asm80: $(OBJ)/asm80.rel
 	$(call locate,$@,$^,NAME(ASM80) STACKSIZE(0) $(PURGE))
 
 $(OBJ)/asm80.rel: $(call objdir,$(ASMOBJ) $(ASMPUB))
-	$(call link,$@,$(call objdir,$(ASMOBJ)) publics($(call objdir,$(ASMPUB))))
+	$(call link,$@,$(call objdir,$(ASMOBJ)) "publics($(call objdir,$(ASMPUB)))")
 
 ##
 $(OBJ)/asm80.ov0: $(OBJ)/asm800.rel
 	$(call locate,$@,$^,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm800.rel: $(call objdir,$(OV0OBJ) $(OV0PUB))
-	$(call link,$@,$(call objdir,$(OV0OBJ)) publics($(call objdir,$(OV0PUB))))
+	$(call link,$@,$(call objdir,$(OV0OBJ)) "publics($(call objdir,$(OV0PUB)))")
 
 ##
 $(OBJ)/asm80.ov1: $(OBJ)/asm801.rel
 	$(call locate,$@,$^,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm801.rel: $(call objdir,$(OV1OBJ) $(OV1PUB))
-	$(call link,$@,$(call objdir,$(OV1OBJ)) publics($(call objdir,$(OV1PUB))) $(plm80.lib))
+	$(call link,$@,$(call objdir,$(OV1OBJ)) "publics($(call objdir,$(OV1PUB)))" $(plm80.lib))
 
 ##	
 $(OBJ)/asm80.ov2: $(OBJ)/asm802.rel
 	$(call locate,$@,$^,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm802.rel: $(call objdir,$(OV2OBJ) $(OV2PUB))
-	$(call link,$@,$(call objdir,$(OV2OBJ)) publics($(call objdir,$(OV2PUB))))
+	$(call link,$@,$(call objdir,$(OV2OBJ)) "publics($(call objdir,$(OV2PUB)))")
 
 ##
 $(OBJ)/asm80.ov3: $(OBJ)/asm803.rel
 	$(call locate,$@,$^,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm803.rel: $(call objdir,$(OV3OBJ) $(OV3PUB))
-	$(call link,$@,$(call objdir,$(OV3OBJ)) publics($(call objdir,$(OV3PUB))))
+	$(call link,$@,$(call objdir,$(OV3OBJ)) "publics($(call objdir,$(OV3PUB)))")
 
 ##
 asm80.ov4: $(OBJ)/asm804.rel

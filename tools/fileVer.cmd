@@ -5,7 +5,7 @@ REM  since creation.
 REM  Limitation is that it does not track moves or renames (except case change)
 ::
 :: Console output only
-if /I "%~1" == "-v" (echo %0: Rev  8  -- b73f0eb [2021-08-25]) & goto :EOF
+if /I "%~1" == "-v" (echo %0: Rev 2021.8.25.8 [b7d37a2]) & goto :EOF
 if "%~1" == "-q" (
     set QUIET=1
     SHIFT /1

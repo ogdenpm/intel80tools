@@ -1,0 +1,1358 @@
+
+;***********************************************************************
+;
+;             TINY BASIC FOR THE 8088 - 21021 DEMO
+;       MPD APPLICATIONS LAB VERSION 2.1 MARCH 20, 1981
+;
+;BASIC INTERPRETER BY JOHN BARTLETT INTEL SALES OFFICE. CHELSFORT MASS.
+;
+;CURRENT VERSION BY BILL RIGHTER MPD APPLICATIONS LAB INTEL OR.
+;ALLOWS INTERPRETER SOFTWARE TO RESIDE IN HADWARE ENVIRONMENT OF THE
+;VEST POCKET COMPUTER DEMOP.
+;***********************************************************************
+
+CGROUP  GROUP   ABS_0,MEMORY,DATA,STACK,DATA4,CODE,CONST2
+DGROUP  GROUP   ABS_0,MEMORY,DATA,STACK,DATA4,CODE,CONST2
+        ASSUME  CS:CGROUP,DS:DGROUP,ES:DGROUP,SS:STACK
+ABS_0   SEGMENT AT 0
+DZO DW ?
+DZS DW ?
+ABS_0  ENDS
+
+PUBLIC  START
+
+CODE SEGMENT WORD
+        INPORT  EQU 0FFF0H              ;8755 INPUT PORT A - USING  BIT 7
+        OUTPORT EQU 0FFF0H              ;8755 OUTPUT PORT A BIT 0
+        DDR_A   EQU 0FFF2H              ;DATA DIRECTION REG PORT A
+        DDR_B   EQU 0FFF3H              ;DATA DIRECTION REG PORT B
+        BITS    EQU 7                   ;NUMBER OF BITS TO TRANSMIT
+        CR      EQU 0DH
+        LF      EQU 0AH
+
+INIT:   MOV     AX,DGROUP
+        MOV     DS,AX                   ;INIT REGISTERS
+        MOV     ES,AX
+        MOV     AX,STACK
+        MOV     SS,AX
+        MOV     SP,OFFSET(STK)
+        LEA     AX,ZERO                 ;CLEAR ALL VARIALBE LOCATINS
+        MOV     DI,AX
+        MOV     CX,25
+        XOR     AL,AL
+   REP  STOS    POLO
+;MOV    AX,REF                  ;GET ADRS OF BURST REF ROUTING
+;MOV    NMI+2,AX
+        DEC     M1                      ;SET M1 TO 0FFFFH
+        MOV     AX,OFFSET (CGROUP:START);INITALIZE RND POINTER
+        MOV     RANPNT,AX
+        MOV     CGROUP:DZO, OFFSET QHOW ;SET UP DIV. BY ZERO VECTOR
+        MOV     CGROUP:DZS,CGROUP
+        MOV     DX,DDR_A                ;INITIALIZE I/O PORTS
+        MOV     AL,01H                  ;SET8755A PORT A BITS 1 ->7 INPUT
+        OUT     DX,AL
+;MOV     DX,DDRB                ;SET 8755A PORT B TO OUTPUT MODE
+;       MOV     AL,0FFH
+;OUT     DX,AL
+        MOV     DX,OUTPORT
+        MOV     AL,0FFH         ;SET OUTPUT TO STOP BITS
+        OUT     DX,AL
+
+SCALE   EQU 03H
+OFFST   EQU 0002H
+
+;FIND OUT THE BAUD RATE AND SET IT
+
+ADAPT:  XOR     CX,CX                   ;CLEAR COUNT REGISTER
+        MOV     DX,INPORT
+AD1:    IN      AL,DX                   ;READ INPUT PORT
+        AND     AL,80H
+        JNZ     AD1                     ;WAIT FOR A START BIT
+AD2:    IN      AL,DX                   ;CONTINUOUSLY CHECK FOR HIGH BIT
+                                        ;IN SPACE CHARACTER (20H)
+        AND     AL,80H
+        LOOPZ   AD2
+        NEG     CX                      ;INVERT COUNT REG FOR ACTUAL COUNT
+        MOV     AX,CX
+        XOR     DX,DX                   ;SET UP FOR SCALING
+        MOV     BX,SCALE
+        DIV     BX
+        SUB     AX,OFFST                ;SUBTRACT OFFSET
+        MOV     COUNT,AX                ;SAVE AS THE COUNT VARIABLE
+
+;****************************************************************
+;
+;                         *** MAIN ***
+;
+; THIS IS THE MAIN LOOP THAT COLLECTS THE TINY BASIC PROGRAM
+; AND STORES IT IN MEMORY.
+;
+; AT 'START', IT PRINTS OUT "<CR>OK<CR><LF>", AND INITIALIZES
+; THE STACK AND OTHER INTERNAL VARIABLES.  IT THEN PROMPTS
+; ">" AND READS A LINE.  IF THE LINE STARTS WITH A NON-ZERO NUMBER,
+; IT REPRESENTS A LINE NUMBER.  THE LINE NUMBER (16-BIT BINARY)
+; AND THE REST OF THE LINE (INCLUDING <CR>) IS STORED IN MEMORY.
+; IF A LINE WITH THE SAME LINE NUMBER IS ALREADY THERE, IT IS
+; REPLACED BY THE NEW ONE.  IF THE REST OF THE LINE CONSISTS
+; IF  A <CR> ONLY, IT IS NOT STORED AND ANY EXISTING LINE
+; WITH THE SAME LINE NUMBER IS DELETED.
+;
+; AFTER A LINE IS INSERTED, REPLACED OR DELETED, THE PROGRAM
+; LOOPS BACK AND ASKS FOR ANOTHER LINE.  THIS LOOP WILL BE
+; TERMINATED WHEN IT READS A LINE WITH ZERO OR NO LINE NUMBER AND
+; CONTROL IS THEN PASSED TO 'DIRECT'.
+;
+; THE PROGRAM SAVE AREA STARTS AT 'TXTBGN' AND ENDS AT 'TXTEND'.  WE
+; ALWAYS FILL THIS AREA STARTING AT 'TXTBGN'.  THE UNFILLED PORTION
+; IS POINTED TO BY THE CONTENTS OF 'TXTUNF'.
+;
+; MEMORY LOCATION 'CURRNT' POINTS TO THE LINE NUMBER THAT IS
+; CURRENTLY BEING INTERPRETED.  WHILE WE ARE IN THIS LOOP OR
+; WHILE WE ARE INTERPRETING A DIRECT COMMAND (SEE NEXT SECTION),
+; 'CURRNT' SHOULD POINT TO A ZERO.
+;
+;*******************************************************************
+
+START:  MOV     SP,OFFSET(STK)
+        MOV     POLO,0
+        MOV     RICI,0
+ST1:    CALL    CRLF            ;OUTPUT <CR><LF>
+        LEA     SI,OK
+        SUB     AL,AL
+        CALL    PRTSTG          ;OUTPUT OK MESSAGE
+        LEA     AX,ZERO
+        MOV     CURRNT,AX       ;INIT LINE #
+ST2:    MOV     AX,0
+        MOV     LOPVAR,AX
+        MOV     STKGOS,AX       ;INIT LOOP VALUES
+ST3:    MOV     AL,'>'
+        CALL    GETLN           ;GET A LINE
+        PUSH    SI              ;SAVE POINTER TO EMPTY BUFFER
+        LEA     SI,BUFFER       ;POINT TO BUFFER START
+        CALL    TSTNUM          ;GET LINE NUMBER
+        CALL    IGBLK           ;SKIP BLANKS
+        OR      BX,BX           ;SET FLAGS
+        POP     CX              ;CX= END OF LINE
+        JNZ     SHORT STCONT    ;LINE NUMBER EXISTS?
+        CMP     RICI,0          ;NO.  FLAG SET?
+        JZ      DRCT            ;NO. DO DIRECT CALL
+        RET                     ;YES. JUST RETURN
+DRCT:   JMP     DIRECT
+
+STCONT: DEC     SI              ;NOT A DIRECT CALL
+        DEC     SI
+        MOV     [SI],BX         ;PUT LINE # BEFORE LINE
+        PUSH    CX              ;END OF LINE ON STACK
+        PUSH    SI              ;START OF LINE ON STACK
+        SUB     CX,SI
+        PUSH    CX              ;LENGTH ON STACK
+        CALL    FNDLN           ;GET POINTER TO TEXT AREA
+        PUSH    SI              ;SAVE IT ON STACK
+        JNZ     SHORT ST4       ;LINE ALREADY EXISTS?
+                                ;YES. WIPE OUT OLD LINE
+        CALL    FNDNXT          ;GET POINTER TO NEXT LINE
+        POP     DI
+        PUSH    DI
+        MOV     CX,TXTUNF
+        SUB     CX,SI           ;CX=COUNT
+        REP     MOVS BYTE PTR ES:[DI],BYTE PTR [SI]
+        MOV     TXTUNF,DI
+
+; CREATE SPACE IN BUFFER AND MOVE NEW LINE INTO SPACE
+
+ST4:    POP     BX              ;BX= POINTER INTO TEXT AREA
+        MOV     SI,TXTUNF
+        MOV     CX,SI
+        SUB     CX,BX           ;CX= COUNT
+        POP     DI              ;DI= LEN
+        ADD     DI,SI           ;DEST= SOURCE+LEN
+        DEC     SI              ;SOURCE= LAST CHAR IN BUFFER
+        CMP     DI,OFFSET(DGROUP:TXTEND)        ;ENOUGH SPACE?
+        JAE     QSORRZ          ;NO. ERROR
+        MOV     TXTUNF,DI       ;SET NEW END OF TEXT
+        DEC     DI
+        JCXZ    ST5
+        STD
+        REP     MOVS BYTE PTR ES:[DI],BYTE PTR [SI]     ;MAKE SPACE
+        CLD
+ST5:    MOV     DI,SI
+        INC     DI              ;DEST= CLEARED SPACE
+        POP     SI              ;SOURCE= START OF NEW LINE
+        POP     CX              ;CX= END OF NEW LINE
+        SUB     CX,SI           ;COUNT= LEN OF NEW LINE
+        REP     MOVS BYTE PTR ES:[DI],BYTE PTR [SI]     ;MOVE NEW LINE
+        JMP     ST3
+
+QSORRZ: JMP     QSORRY
+
+FEND:   POP     AX              ;THROW AWAY RETURN ADDRESS
+        CALL    FIN             ;LOOK FOR END OF LINE
+        JMP     QWHAT           ;ERROR IF NOT END OF LINE
+
+TSTC:   CALL    IGBLK           ;SKIP BLANKS
+        POP     BP                      ;BP= RETURN ADDR
+        MOV     AL,CS:[BP]              ;GET BYTE AFTER CALL
+        CMP     AL,[SI]                 ;COMPARE TO NEXT BYTE OF TEXT
+        JZ      SHORT TC2               ;YES.
+        INC     BP                      ;NO. POINT TO NEXT BYTE
+        MOV     BP,CS:[BP]              ;GET JUMP ADDRESS
+        JMP     BP
+
+TC2:    INC     SI                      ;POINT TO NEXT CHAR
+        ADD     BP,3                    ;RETURN AFTER TSTC CALL
+        JMP     BP
+
+; IGBLK- SKIP BLANKS
+; RETURNS 1ST NON-BLANK CHAR IN AL
+IGBLK:  MOV     AL,[SI]
+        INC     SI
+        CMP     AL,' '
+        JZ      IGBLK
+        DEC     SI
+        RET
+
+; TSTV- TEST FOR A VARIABLE
+;  RETURNS: BX= ADDR OF VARIABLE
+;  C FLAG SET-> VARIABLE NOT FOUND
+TSTV:   CALL    IGBLK           ;SKIP BLANKS
+        INC     SI              ;POINT TO NEXT CHAR
+        SUB     AL,'@'          ;@ ARRAY?
+        JZ      SHORT ATARY     ;YES
+        JA      TV1             ;NO. VARIABLE NAME
+R0:     DEC     SI
+        RET                     ;NO. ILLEGAL CHAR
+ATARY:  CALL    PARN            ;EVALUATE ARRAY INDEX
+        ADD     BX,BX           ;INDEX TOO BIG?
+        JB      QHOW            ;YES. ERROR
+        LEA     AX,DGROUP:TXTEND        ;ADDR OF ARRAY ELEMENT=
+        SUB     AX,BX           ;TXTEND- 2*(ARRAY INDEX)
+        CMP     AX,TXTUNF       ;ADDR< END OF TEXT?
+        JB      QSORRX          ;YES. ERROR
+        MOV     BX,AX           ;BX= ADDR OF @(EXPR)
+        RET
+
+TV1:    CMP     AL,27           ;CHAR<= Z ?
+        CMC
+        JB      R0              ;NO. RETURN
+        LEA     BX,VARBGN
+        CBW
+        ADD     BX,AX
+        ADD     BX,AX           ;BX= VARIBLE ADDR= VARBGN + 2*(CHAR-A)
+R1:     RET
+
+; TSTNUM- LOOK FOR A (DECIMAL) NUMBER
+;    RETURNS:   BX= NUMBER
+;               CH= # OF DIGITS
+TSTNUM: CALL    IGBLK           ;SKIP BLANKS
+        MOV     BX,0            ;INIT NUMBER
+        MOV     CH,BH           ;INIT COUNT
+TN1:    SUB     AL,'0'
+        JB      R1              ;NOT A VALID DIGIT
+        CMP     AL,9
+        JA      R1              ;NOT A VALID DIGIT
+        CMP     BH,0F0H         ;NUMBER IS TOO BIG?
+        JAE     QHOW            ;YES. ERROR
+        INC     CH              ;COUNT 1 MORE DIGIT
+        MOV     DX,BX
+        ADD     BX,BX
+        ADD     BX,BX
+        ADD     BX,DX
+        ADD     BX,BX           ;BX= 10*BX
+        AND     AX,0FH
+        ADD     BX,AX           ;ADD NEW DIGIT
+        INC     SI
+        MOV     AL,[SI]         ;GET NEXT CHAR
+        JMP     TN1
+
+QSORRX: JMP     QSORRY
+
+QHOW:   PUSH    SI
+AHOW:   LEA     SI,HOW
+        JMP     ERROR
+
+;******************************************************************
+;
+; *** TABLES *** DIRECT *** & EXEC ***
+;
+; THIS SECTION OF THE CODE TESTS A STRING AGAINST A TABLE.
+; WHEN A MATCH IS FOUND, CONTROL IS TRANSFERRED TO THE SECTION
+; OF CODE ACCORDING TO THE TABLE.
+;
+; AT 'EXEC', D-E SHOULD POINT TO THE STRING AND H-L SHOULD POINT
+; TO THE TABLE.  AT 'DIRECT', D-E SHOULD POINT TO THE STRING,
+; H-L WILL BE SET UP TO POINT TO TAB1-1, WHICH IS THE TABLE OF
+; ALL DIRECT AND STATEMENT COMMANDS.
+;
+; A '.' IN THE STRING WILL TERMINATE THE TEST AND THE PARTIAL
+; MATCH WILL BE CONSIDERED AS A MATCH.  (E.G.  'P.', 'PR.',
+; 'PRI.', 'PRIN.' OR 'PRINT' WILL ALL MATCH 'PRINT'.
+;
+; THE TABLE CONSISTS OF ANY NUMBER OF ITEMS.  EACH ITEM
+; IS A STRING OF CHARACTERS WITH BIT 7 SET TO 0 AND
+; A JUMP ADDRESS STORED HIGH-LOW WITH BIT 7 OF THE HIGH
+; ORDER BYTE SET TO 1.
+;
+; END OF TABLE IS AN ITEM WITH A JUMP ADDRESS ONLY.  IF THE
+; STRING DOES NOT MATCH ANY OF THE OTHER ITEMS, IT WILL
+; MATCH THIS NULL ITEM AS DEFAULT.
+;
+;********************************************************************
+
+
+TAB1    DB      'LIST'
+        DB      HIGH(CGROUP:LIST) ,LOW(CGROUP:LIST)
+        DB      'RUN'
+        DB      HIGH(CGROUP:RUN),LOW(CGROUP:RUN)
+        DB      'NEW'
+        DB      HIGH(CGROUP:NEW),LOW(CGROUP:NEW)
+
+TAB2    DB      'NEXT'
+        DB      HIGH(CGROUP:NEXT),LOW(CGROUP:NEXT)
+        DB      'LET'
+        DB      HIGH(CGROUP:LET),LOW(CGROUP:LET)
+        DB      'IF'
+        DB      HIGH(CGROUP:IFF),LOW(CGROUP:IFF)
+        DB      'GOTO'
+        DB      HIGH(CGROUP:GOTO),LOW(CGROUP:GOTO)
+        DB      'GOSUB'
+        DB      HIGH(CGROUP:GOSUB),LOW(CGROUP:GOSUB)
+        DB      'RETURN'
+        DB      HIGH(CGROUP:RETURN),LOW(CGROUP:RETURN)
+        DB      'REM'
+        DB      HIGH(CGROUP:REM),LOW(CGROUP:REM)
+        DB      'FOR'
+        DB      HIGH(CGROUP:FOR),LOW(CGROUP:FOR)
+        DB      'INPUT'
+        DB      HIGH(CGROUP:INPUT),LOW(CGROUP:INPUT)
+        DB      'PRINT'
+        DB      HIGH(CGROUP:PRINT),LOW(CGROUP:PRINT)
+        DB      'STOP'
+        DB      HIGH(CGROUP:STOP),LOW(CGROUP:STOP)
+        DB      HIGH(CGROUP:DEFLT),LOW(CGROUP:DEFLT)
+;******************************************************
+;       DB      'YOU MAY INSERT MORE COMMANDS.'        *
+;******************************************************
+TAB4    DB      'RND'
+        DB      HIGH(CGROUP:RND),LOW(CGROUP:RND)
+        DB      'ABS'
+        DB      HIGH(CGROUP:ABS_),LOW(CGROUP:ABS_)
+        DB      'SIZE'
+        DB      HIGH(CGROUP:SIZE_),LOW(CGROUP:SIZE_)
+        DB      HIGH(CGROUP:XP40),LOW(CGROUP:XP40)
+
+TAB5    DB      'TO'
+        DB      HIGH(CGROUP:FR1),LOW(CGROUP:FR1)
+        DB      HIGH(CGROUP:QWHAT),LOW(CGROUP:QWHAT)
+
+TAB6    DB      'STEP'
+        DB      HIGH(CGROUP:FR2),LOW(CGROUP:FR2)
+        DB      HIGH(CGROUP:FR3),LOW(CGROUP:FR3)
+
+TAB8    DB      '>='
+        DB      HIGH(CGROUP:XP11),LOW(CGROUP:XP11)
+        DB      '#'
+        DB      HIGH(CGROUP:XP12),LOW(CGROUP:XP12)
+        DB      '>'
+        DB      HIGH(CGROUP:XP13),LOW(CGROUP:XP13)
+        DB      '='
+        DB      HIGH(CGROUP:XP15),LOW(CGROUP:XP15)
+        DB      '<='
+        DB      HIGH(CGROUP:XP14),LOW(CGROUP:XP14)
+        DB      '<'
+        DB      HIGH(CGROUP:XP16),LOW(CGROUP:XP16)
+        DB      HIGH(CGROUP:XP17),LOW(CGROUP:XP17)
+
+
+DIRECT: MOV     DI,OFFSET(CGROUP:TAB1)
+EXEC:   CALL    IGBLK           ;SKIP BLANKS
+        PUSH    CX              ;SAVE CX
+EX0:    PUSH    SI              ;SAVE POINTER
+        MOV     CL,0FFH
+EX1:    REPZ    CMPS BYTE PTR [SI],BYTE PTR ES:[DI]
+        MOV     AL,7FH
+        CMP     BYTE PTR [SI-1],'.'     ;PERIOD?
+        JZ      EX3             ;YES. MATCH
+        DEC     SI                      ;POINT AT 1ST UNMATCHED BYTE
+        CMP     AL,ES:[DI-1]
+        JB      EX5             ;JMP ADDRESS?
+EX2:    SCAS    BYTE PTR ES:[DI]        ;NO. SCAN FOR IT
+        JAE     EX2
+        INC     DI              ;POINT PAST IT
+        POP     SI              ;
+        JMP     EX0             ;TRY NEXT TABLE ENTRY
+
+EX3:    SCAS    BYTE PTR ES:[DI]        ;SCAN FOR JUMP ADDR
+        JAE     EX3
+EX5:    DEC     DI              ;POINT TO 1ST BYTE OF JUMP ADDR
+        MOV     BX,ES:[DI]
+        XCHG    BH,BL
+                ;LOCATION OF AND BH,AL IF RUNNING IN LOW ROM
+        POP     AX
+        POP     CX              ;CLEAR STACK
+        JMP     BX              ;JMP TO DIRECT ROUTINE
+
+;*****************************************************************
+;
+; WHAT FOLLOWS IS THE CODE TO EXECUTE DIRECT AND STATEMENT
+; COMMANDS.  CONTROL IS TRANSFERED TO THESE POINTS VIA THE
+; COMMAND TABLE LOOKUP CODE OF 'DIRECT' AND 'EXEC' IN THE
+; LAST SECTION.  AFTER THE COMMAND IS EXECUTED, CONTROL IS
+; TRANSFERED TO OTHER SECTIONS AS FOLLOWS:
+;
+; FOR 'LIST', 'NEW' AND 'STOP':  GO BACK TO 'START'
+; FOR 'RUN':  GO EXECUTE THE FIRST STORED LINE IF ANY, ELSE
+; GO BACK TO 'START'.
+; FOR 'GOTO' AND 'GOSUB':  GO EXECUTE THE TARGET LINE.
+; FOR 'RETURN' AND 'NEXT':  GO BACK TO SAVED RETURN LINE.
+; FOR ALL OTHERS:  IF 'CURRNT' IS 0, GO TO 'START', ELSE
+; GO EXECUTE NEXT COMMAND.  (THIS IS DONE IN 'FINISH'.)
+;
+;******************************************************************
+;
+; *** NEW *** STOP *** RUN  (AND FRIENDS) *** GOTO ***
+;
+; 'NEW<CR>' SETS 'TXTUNF' TO POINT TO 'TXTBGN'.
+;
+; 'STOP<CR>' GOES BACK TO 'START'.
+;
+; 'RUN<CR>' FINDS THE FIRST STORED LINE, STORES ITS ADDRESS
+; (IN 'CURRNT') AND EXECUTES IT.  NOTE THAT ONLY THOSE
+; COMMANDS IN TAB2 ARE LEGAL FOR STORED PROGRAMS.
+;
+; THERE ARE THREE MORE ENTRIES IN 'RUN':
+;
+; 'RUNNXL' FINDS NEXT LINE, STORES ITS ADDRESS AND EXECUTES IT.
+; 'RUNTSL' STORES THE ADDRESS OF THIS LINE AND EXECUTES IT.
+; 'RUNSML' CONTINUES THE EXECUTION ON THE SAME LINE.
+;
+; 'GOTO <EXPR>' EVALUATES THE EXPRESSION, FINDS THE TARGET
+; LINE AND JUMPS TO 'RUNTSL' TO DO IT.
+;
+;******************************************************************
+
+
+NEW:    CALL    ENDCHK
+        LEA     AX,DGROUP:TXTBGN
+        MOV     TXTUNF,AX               ;RESET FREE SPACE POINTER
+
+STOP:   CALL    ENDCHK
+STAR1:  JMP     START
+
+RUN:    CALL    ENDCHK
+        LEA     SI,DGROUP:TXTBGN
+
+RUNNXL: MOV     BX,0
+        CALL    FNDLNP
+        JB      STAR1
+
+RUNTSL: MOV     CURRNT,SI               ;SAVE PTR TO RUNNING LINE
+        INC     SI
+        INC     SI                      ;SKIP LINE #
+
+RUNSML: MOV     DI,OFFSET(CGROUP:TAB2)
+        JMP     EXEC
+
+GOTO:   CALL    EXPR                    ;EVALUATE THE EXPRESSION
+        PUSH    SI                      ;SAVE THE PTR
+        CALL    ENDCHK
+        CALL    FNDLN                   ;FIND LINE <EXPR>
+        JNZ     AHOW1           ;LINE DOESN'T EXIST
+        POP     AX
+        JMP     RUNTSL
+
+AHOW1:  JMP     AHOW
+
+;******************************************************************
+;
+; *** LIST *** PRINT ***
+;
+; LIST HAS TWO FORMS:
+;
+; 'LIST<CR>' LISTS ALL SAVED LINES.
+; 'LIST #<CR>' STARTS LISTING AT LINE '#'.
+; CONTROL/C STOPS THE LISTING.
+;
+; PRINT COMMAND IS 'PRINT....:' OR 'PRINT....<CR>'
+; WHERE '....' IS A LIST OF EXPRESSIONS, FORMATS,
+; BACKARROWS AND/OR STRINGS.  THESE ITEMS ARE SEPARATED
+; BY COMMAS.
+;
+; A FORMAT IS A POUND SIGN (#) FOLLOWED BY A NUMBER.  IT CONTROLS
+; THE NUMBER OF SPACES THE VALUE OF AN EXPRESSION IS GOING TO
+; BE PRINTED IN.  IT STAYS EFFECTIVE FOR THE REST OF THE PRINT
+; COMMAND UNLESS CHANGED BY ANOTHER FORMAT.  IF NO FORMAT IS
+; SPECIFIED, 6 POSITIONS WILL BE USED.
+;
+; A STRING IS QUOTED IN A PAIR OF SINGLE QUOTES OR A PAIR OF
+; DOUBLE QUOTES.
+;
+; A BACKARROW MEANS GENERATE A <CR> WITHOUT <LF>
+;
+; A <CR><LF> IS GENERATED AFTER THE ENTIRE LIST HAS BEEN
+; PRINTED OR IF THE LIST IS A NULL LIST.  HOWEVER, IF THE LIST
+; ENDED WITH A COMMA, NO <CR><LF> IS GENERATED.
+;
+;************************************************************************
+
+
+LIST:   CALL    TSTNUM          ;LINE # ?
+        CALL    ENDCHK
+        CALL    FNDLN           ;FIND LINE
+LS1:    JB      STAR1           ;LINE FOUND?
+        CALL    PRTLN           ;YES. PRINT IT
+        CALL    FNDLNP          ;FIND NEXT LINE
+        JMP     LS1
+
+PRINT:  MOV     CL,6            ;DEFAULT FIELD WIDTH=6
+        CALL    TSTC            ;IS IT A ; ?
+        DB      ';'
+        DW      CGROUP:PR2
+        CALL    CRLF            ;YES. JUST OUTPUT <CR><LF>
+        JMP     RUNSML
+
+PR2:    CALL    TSTC            ;IS IT A <CR> ?
+        DB      CR
+        DW      CGROUP:PR0
+        CALL    CRLF            ;YES. JUST OUTPUT <CR><LF>
+        JMP     RUNNXL
+
+PR0:    CALL    TSTC            ;IS IT A #  ?
+        DB      '#'
+        DW      CGROUP:PR1
+        CALL    EXPR            ;YES. EVALUATE EXPRESSION
+        MOV     CL,BL           ;SET FIELD WIDTH
+        JMP     SHORT PR3       ;CONTINUE
+
+PR1:    CALL    QTSTG           ;LOOK FOR QUOTED STRING
+        JMP     SHORT PR8
+
+PR3:    CALL    TSTC            ;IS THERE A , ?
+        DB      ','
+        DW      CGROUP:PR6
+        CALL    FIN             ;YES. LOOK FOR END OF LINE
+        JMP     PR0             ;KEEP ON PRINTIN'
+
+PR6:    CALL    CRLF            ;OUTPUT <CR><LF>
+        CALL    FEND            ;MUST BE END OF LINE
+
+PR8:    CALL    EXPR            ;EVALUATE <EXPR>
+        PUSH    CX              ;SAVE FIELD WIDTH
+        CALL    PRTNUM          ;PRINT THE FIELD
+        POP     CX              ;RESTORE FIELD WIDTH
+        JMP     PR3             ;LOOK FOR ANOTHER FIELD
+
+;*******************************************************************************;
+;
+; *** GOSUB *** RETURN ***
+;
+; 'GOSUB <EXPR>;' OR 'GOSUB <CR>' IS LIKE THE 'GOTO'
+; COMMAND, EXCEPT THAT THE CURRENT TEXT POINTER, STACK
+; POINTER, ETC., ARE SAVED SO THAT EXECUTION CAN BE
+; CONTINUED AFTER THE SUBROUTINE 'RETURN'.  IN ORDER THAT
+; 'GOSUB' CAN BE NEXTED ( AND EVEN RECURSIVE ), THE SAVE AREA
+; MUST BE STACKED.  THE STACK POINTER IS SAVED IN 'STKGOS'.
+; THE OLD 'STKGOS' IS SAVED IN THE STACK.  IF WE ARE IN THE
+; MAIN ROUTINE, 'STKGOS' IS ZERO (DONE IN THE MAIN CODE SECTION):
+; BUT WE STILL SAVE IT AS A FLAG FOR NO FURTHER 'RETURNS'
+;
+; 'RETURN <CR>' UNDOES EVERYTHING THAT 'GOSUB' DID, AND THUS
+; RETURNS CONTROL TO THE COMMAND AFTER THE MOST RECENT
+; 'GOSUB'.  IF 'STKGOS' IS ZERO, IT INDICATES THAT WE NEVER
+; HAD A 'GOSUB' AND IS AN ERROR CONDITION.
+;
+;*******************************************************************************
+
+GOSUB:  CALL    PUSHA           ;SAVE CURRENT STATE
+        CALL    EXPR            ;EVALUATE <EXPR>
+        PUSH    SI              ;SAVE THE TEXT POINTER
+        CALL    FNDLN           ;FIND THE LINE TO GOTO
+        JNZ     AHOW1           ;LINE DOESN'T EXIST, <ERROR>
+        PUSH    CURRNT          ;SAVE VARIABLES
+        PUSH    STKGOS
+        MOV     STKGOS,SP       ;SET GOSUB FRAME POINTER
+        MOV     LOPVAR,0        ;CLEAR LOOP VARIABLE
+        JMP     RUNTSL          ;GO EXECUTE THE FIRST LINE OF THE ROUTINE
+
+RETURN: CALL    ENDCHK
+        MOV     AX,STKGOS
+        OR      AX,AX           ;IS THERE A FRAME SAVED?
+        JZ      QWHAX           ;NO, <ERROR>
+        MOV     SP,AX           ;SET STACK POINTER
+        POP     STKGOS          ;RESTORE VARIABLES
+        POP     CURRNT
+        POP     SI              ;RESTORE TEXT POINTER
+        CALL    POPA            ;RESTORE STATE
+        CALL    FEND
+
+;***************************************************************
+;
+; *** FOR *** NEXT ***
+;
+; 'FOR' HAS TWO FORMS:
+;
+; 'FOR VAR=EXP1 TO EXP2 STEP EXP3' AND 'FOR VAR=EXP1 TO EXP2'
+;
+; THE SECOND FORM MEANS THE SAME THING AS THE FIRST FORM WITH
+; EXP1=1.  (I.E. WITH A STEP OF +1)
+;
+; BASIC WILL FIND THE VARIABLE 'VAR' AND SET ITS VALUE TO THE
+; CURRENT VALUE OF EXP1.  IT ALSO EVALUATES EXP2 AND EXP1 AND
+; SAVES THEM TOGETHER WITH THE TEXT POINTER ETC. IN THE
+; 'FOR' SAVE AREA WHICH CONSISTS OF 'LOPVAR', 'LOPINC',
+; 'LOPLMT', 'LOPLN' AND 'LOPPT'.  IF THERE IS ALREADY
+; SOMETHING IN THE SAVE AREA (INDICATED BY NON-ZERO 'LOPVAR'),
+; THE OLD SAVE AREA IS SAVED IN THE STACK BEFORE THE NEW ONE
+; OVERWRITES IT.
+;
+; BASIC THEN DIGS IN THE STACK TO FIND OUT IF THIS SAME
+; VARIABLE WAS USED IN ANOTHER CURRENTLY ACTIVE 'FOR' LOOP.
+; IF SO, THEN THE OLD 'FOR' LOOP IS DEACTIVATED  (I.E.
+; PURGED FROM THE STACK).
+;
+; 'NEXT <VARB>' SERVES AS THE LOGICAL (NOT NECESSARILY
+; PHYSICAL) END OF THE 'FOR' LOOP.  THE CONTROL
+; VARIABLE <VARB> IS CHECKED AGAINST 'LOPVAR'.  IF THEY ARE NOT
+; THE SAME, BASIC THEN SHUFFLES THRU THE STACK TO FIND THE
+; RIGHT ONE AND PURGES ALL THOSE THAT DID NOT MATCH.  EITHER
+; WAY, BASIC THEN ADDS THE 'STEP' TO THAT VARIABLE AND CHECKS
+; THE RESULT WITH THE LIMIT.  IF IT IS WITHIN LIMITS, CONTROL
+; LOOPS BACK TO THE COMMAND FOLLOWING THE 'FOR'.  IF OUTSIDE
+; THE LIMIT, THE SAVE AREA IS PURGED AND EXECUTION CONTINUES.
+;
+;***************************************************************
+
+FOR:    CALL    PUSHA           ;SAVE STATE
+        CALL    SETVAL          ;SET LOOP VARIABLE TO INITIAL VALUE
+        MOV     LOPVAR,BX       ;SAVE LOOP VARIABLE ADDR
+        MOV     DI,OFFSET(CGROUP:TAB5)  ;LOOK FOR 'TO'
+        JMP     EXEC
+
+FR1:    CALL    EXPR            ;EVALUATE <EXPR>
+        MOV     LOPLMT,BX       ;SET LIMIT VALUE
+        MOV     DI,OFFSET(CGROUP:TAB6)  ;LOOK FOR 'STEP'
+        JMP     EXEC
+
+FR2:    CALL    EXPR            ;EVALUATE EXPRESSION
+        JMP     SHORT FR4
+
+FR3:    MOV     BX,1            ;STEP NOT FOUND. USE 1
+
+FR4:    MOV     LOPINC,BX       ;SET STEP VALUE
+FR5:    MOV     AX,CURRNT
+        MOV     LOPLN,AX        ;SAVE LINE POINTER
+        MOV     LOPPT,SI        ;SAVE TEXT POINTER
+        MOV     CX,10
+        MOV     DX,LOPVAR       ;LOOK FOR LOPVAR IN STACK
+        MOV     BP,SP
+FR7:    MOV     AX,[BP]         ;GET WORD FROM STACK
+        OR      AX,AX           ;PAST END OF STACK?
+        JZ      SHORT FR8       ;YES. DON'T PURGE A STACK FRAME
+        CMP     AX,DX           ;WORD= LOPVAR?
+        JZ      FR10            ;YES.
+        ADD     BP,CX
+        JMP     FR7             ;NO. KEEP LOOKING
+
+FR9:    DEC     BP
+        DEC     BP
+        MOV     AX,[BP]
+FR10:   MOV     [BP+10],AX      ;PURGE 1 STACK FRAME
+        CMP     BP,SP
+        JNZ     FR9
+        ADD     SP,CX
+FR8:    CALL    FEND
+
+QWHAX:  JMP     QWHAT
+
+NEXT:   CALL    TSTV            ;LOOK FOR A VARIABLE
+        JB      QWHAX           ;ERROR. NOT A VARIABLE
+        MOV     VARNXT,BX       ;SAVE VARIABLE ADDR
+NX0:    MOV     AX,LOPVAR       ;GET 'FOR' VARIABLE ADDR
+        OR      AX,AX           ;ANY?
+        JZ      QWHAX           ;NO. ERROR
+        CMP     AX,BX           ;'FOR' VARIABLE='NEXT' VARIABLE?
+        JZ      SHORT NX3
+        CALL    POPA            ;NO. PEEL OFF A FRAME
+        MOV     BX,VARNXT
+        JMP     NX0             ;TRY AGAIN
+
+NX3:    MOV     CX,LOPINC
+        MOV     AX,[BX]         ;GET LOOP VARIABLE
+        ADD     AX,LOPINC       ;ADD STEP VALUE
+        MOV     [BX],AX         ;SAVE NEW LOOP VARIABLE
+        OR      CX,CX
+        JS      SHORT NX4
+        CMP     AX,LOPLMT       ;NEW VALUE> LIMIT?
+        JA      SHORT NX2       ;YES. GO TO NEXT LINE
+        JMP     SHORT NX5
+NX4:    CMP     LOPLMT,AX
+        JB      SHORT NX2
+NX5:    MOV     BX,LOPLN        ;NO. GO TO TOP OF LOOP
+        MOV     CURRNT,BX       ;SET LINE POINTER
+        MOV     SI,LOPPT        ;SET TEXT POINTER
+        CALL    FEND
+
+NX2:    CALL    POPA            ;PURGE 1 FRAME
+        CALL    FEND
+;*************************************************************
+;
+; *** REM *** IF *** INPUT *** LET *** DEFAULT ***
+;
+;*************************************************************
+
+REM:    MOV     BX,0
+        JMP     SHORT IFF1
+
+IFF:    CALL    EXPR            ;EVALUATE <EXPR>
+IFF1:   OR      BX,BX           ;TRUE?
+        JZ      SHORT L_20      ;NO. SKIP REMAINDER OF LINE
+        JMP     RUNSML
+L_20:   CALL    FNDSKP          ;FIND NEXT LINE
+        JB      STARX           ;NO MORE LINES. RE-START
+        JMP     RUNTSL          ;RUN NEXT LINE
+STARX:  JMP     START
+
+INPERR: MOV     SP,STKINP       ;RESTORE STACK POINTER
+        POP     CURRNT          ;RESTORE LINE POINTER
+        POP     SI
+        POP     SI              ;RESTORE TEXT POINTER
+
+INPUT:  PUSH    SI              ;SAVE TEXT POINTER
+        CALL    QTSTG           ;PRINT USER PROMPT, IF ANY
+        JMP     SHORT IP2       ;NO USER PROMPT
+        CALL    TSTV            ;LOOK FOR VARIABLE
+        JB      SHORT IP4       ;NOT FOUND. LOOK FOR ,
+        JMP     SHORT IP3       ;GO INPUT INTO THE VARIABLE
+
+; USE VARIABLE NAME AS PROMPT
+
+IP2:    PUSH    SI              ;SAVE TEXT POINTER
+        CALL    TSTV            ;LOOK FOR VARIABLE
+        JB      QWHAY           ;NOT FOUND. ERROR
+        MOV     CL,[SI]         ;SAVE CHAR IN CL
+        MOV     AL,0
+        MOV     [SI],AL         ;PUT A NULL IN
+        MOV     DI,SI
+        POP     SI              ;GET POINTER TO VARIABLE NAME
+        PUSH    DI              ;SAVE NULL POINTER
+        CALL    PRTSTG          ;PRINT VARIABLE NAME
+        POP     SI              ;GET NULL POINTER
+        MOV     [SI],CL         ;REPLACE ORIGINAL CHAR
+IP3:    PUSH    SI              ;SAVE TEXT POINTER
+        PUSH    CURRNT          ;SAVE LINE POINTER
+        MOV     STKINP,SP       ;SAVE STACK POINTER
+        PUSH    BX              ;SAVE VARIABLE ADDR
+        LEA     AX,M1
+        MOV     CURRNT,AX       ;SET FLAG
+        MOV     AL,':'
+        CALL    GETLN           ;GET THE INPUT
+        LEA     SI,BUFFER
+        CALL    EXPR            ;EVALUATE <EXPR>
+        MOV     AX,BX           ;VALUE IN AX
+        POP     BX              ;RESTORE VARIABLE ADDR
+        MOV     [BX],AX         ;STORE VALUE IN VARIABLE
+        POP     CURRNT          ;RESTORE LINE POINTER
+        POP     SI              ;RESTORE TEXT POINTER
+IP4:    POP     AX              ;CLEAR STACK
+        CALL    TSTC            ;LOOK FOR A ,
+        DB      ','
+        DW      CGROUP:IP5
+        JMP     INPUT           ;FOUND. DO IT AGAIN
+IP5:    CALL    FEND            ;NOT FOUND. DONE
+
+DEFLT:  CMP     BYTE PTR [SI],CR        ;EMPTY LINE?
+        JZ      SHORT LT1       ;YES. GO TO NEXT LINE
+
+LET:    CALL    SETVAL          ;ASSIGN VALUE TO VARIABLE
+        CALL    TSTC            ;LOOK FOR A ,
+        DB      ','
+        DW      CGROUP:LT1
+        JMP     LET             ;FOUND. DO IT AGAIN
+LT1:    CALL    FEND            ;NOT FOUND. DONE
+
+QWHAY:  JMP     QWHAT
+
+;*****************************************************************
+;
+; *** EXPR ***
+;
+;*****************************************************************
+
+EXPR:   CALL    EXPR2           ;EVALUATE THE 1ST OPERAND
+        PUSH    BX              ;SAVE IT
+EXPR1:  MOV     DI,OFFSET(CGROUP:TAB8)
+        JMP     EXEC            ;LOOK FOR RELATIONAL OPERATORS
+
+;  >=
+
+XP11:   CALL    XP18
+        JL      SHORT XRTN      ;RETURN FALSE
+GRTN:   MOV     BL,AL           ;RETURN TRUE
+XRTN:   RET
+
+;  <>
+
+XP12:   CALL    XP18
+        JZ      XRTN            ;FALSE
+        JMP     GRTN            ;TRUE
+
+;   >
+
+XP13:   CALL    XP18
+        JLE     XRTN            ;FALSE
+        JMP     GRTN            ;TRUE
+
+XP14:   CALL    XP18            ; <=
+        JG      XRTN            ;FALSE
+        JMP     GRTN            ; TRUE
+
+;   =
+
+XP15:   CALL    XP18
+        JNZ     XRTN            ;FALSE
+        JMP     GRTN            ;TRUE
+
+;   <
+
+XP16:   CALL    XP18
+        JGE     XRTN            ;FALSE
+        JMP     GRTN            ;TRUE
+
+;  NOT FOUND
+
+XP17:   POP     BX              ;CLEAR STACK
+        RET
+
+;  COMMON EXPR SUBROUTINE
+
+XP18:   CALL    EXPR2           ;EVALUATE 2ND OPERAND
+        MOV     CX,BX           ;PUT IT IN CX
+        POP     BX              ;GET RETURN ADDR
+        POP     AX              ;GET 1ST OPERAND
+        PUSH    BX              ;PUT RETURN ADDR BACK
+        SUB     BX,BX
+        CMP     AX,CX           ;COMPARE THE OPERANDS
+        MOV     AL,1            ;SET UP RETURN VALUES
+        RET
+
+;  ROUTINE 'EXPR2' EVALUATES TERMS
+
+EXPR2:  CALL    TSTC            ;LOOK FOR A LEADING -
+        DB      '-'
+        DW      CGROUP:XP21
+        SUB     BX,BX           ;FOUND. MAKE 1ST OPERAND 0
+        JMP     SHORT XP27
+
+XP21:   CALL    TSTC            ;IGNORE LEADING +
+        DB      '+'
+        DW      CGROUP:XP22
+
+XP22:   CALL    EXPR3           ;EVALUATE 1ST OPERAND
+XP23:   CALL    TSTC            ;LOOK FOR +
+        DB      '+'
+        DW      CGROUP:XP25
+
+XP24:   PUSH    BX              ;SAVE 1ST OPERAND
+        CALL    EXPR3           ;EVALUATE 2ND OPERAND
+
+XP26:   POP     AX              ;GET 1ST OPERAND
+        ADD     BX,AX           ;PERFORM OPERATION
+        JO      QHOW1           ;OVERFLOW ERROR
+        JMP     XP23            ;GO LOOK FOR MORE TERMS
+
+XP25:   CALL    TSTC            ;LOOK FOR -
+        DB      '-'
+        DW      CGROUP:XP42
+XP27:   PUSH    BX              ;SAVE 1ST OPERAND
+        CALL    EXPR3           ;EVALUATE 2ND OPERAND
+        NEG     BX              ;NEGATE 2ND OPERAND
+        JMP     XP26            ;GO ADD THEM
+
+;  ROUTINE 'EXPR3' EVALUATES FACTORS
+
+EXPR3:  CALL    EXPR4           ;EVALUATE 1ST OPERAND
+XP31:   CALL    TSTC            ;LOOK FOR *
+        DB      '*'
+        DW      CGROUP:XP34
+        PUSH    BX              ;SAVE 1ST OPERAND
+        CALL    EXPR4           ;EVALUATE 2ND OPERAND
+        POP     AX              ;GET 1ST OPERAND
+        IMUL    BX              ;AX= 1ST* 2ND
+        JO      QHOW1           ;OVERFLOW
+XP35:   MOV     BX,AX           ;PUT RESULT IN BX
+        JMP     XP31            ;LOOK FOR MORE FACTORS
+
+XP34:   CALL    TSTC            ;LOOK FOR /
+        DB      '/'
+        DW      CGROUP:XP42
+        PUSH    BX              ;SAVE 1ST OPERAND
+        CALL    EXPR4           ;EVALUATE 2ND OPERAND
+        POP     AX              ;GET 1ST OPERAND
+        CWD                     ;EXTEND IT
+        IDIV    BX              ;AX= 1ST/2ND
+        JMP     XP35            ;CONTINUE
+
+;  ROUTINE 'EXPR4' EVALUATE SINGLE OPERANDS
+;  BEWARE!!! EXPR4 CALLS EXPR IN SOME CASES. EXPRESSION EVALUATION IS RECURSIVE.
+
+EXPR4:  MOV     DI,OFFSET(CGROUP:TAB4)
+        JMP     EXEC            ;LOOK FOR BUILT-IN FUNCTIONS
+
+XP40:   CALL    TSTV            ;LOOK FOR A VARIABLE
+        JB      SHORT XP41      ;NOT FOUND
+        MOV     BX,[BX]         ;GET VARIABLE CONTENTS
+        RET
+
+XP41:   CALL    TSTNUM          ;LOOK FOR A NUMBER
+        OR      CH,CH           ;IS IT A NUMBER?
+        JNZ     SHORT XP42              ;YES.
+
+;  ROUTINE 'PARN' EVALUATE EXPRESSIONS IN PARENDS
+
+PARN:   CALL    TSTC            ;LOOK FOR (
+        DB      '('
+        DW      CGROUP:QWHAT
+        CALL    EXPR            ;EVALUATE THE EXPRESSION
+        CALL    TSTC            ;LOOK FOR )
+        DB      ')'
+        DW      CGROUP:QWHAT
+XP42:   RET
+
+QHOW1:  JMP     QHOW
+
+; RANDOM NUMBER BUILT-IN FUNCTION
+
+RND:    CALL    PARN            ;EVALUATE THE OPERAND
+        OR      BX,BX
+        JS      QHOW1           ;MUST BE POSITIVE AND
+        JZ      QHOW1           ;GREATER THAN 0
+        PUSH    BX              ;SAVE THE OPERAND
+        MOV     BX,RANPNT
+        CMP     BX,OFFSET(CGROUP:LSTROM)
+        JB      SHORT RA1
+        MOV     BX,OFFSET(CGROUP:START)
+RA1:    MOV     AX,CS:[BX]
+        INC     BX
+        MOV     RANPNT,BX
+        POP     BX
+        SUB     DX,DX           ;ZERO OUT THE DX REGISTER
+        DIV     BX              ;GET THE MODULO VALUE
+        MOV     BX,DX
+        INC     BX
+ARTN:   RET                     ;RETURN FROM BUILT IN FUNCTION
+
+; ABSOLUTE VALUE BUILT-IN FUNCTION
+
+ABS_:   CALL    PARN            ;EVALUATE THE OPERAND
+        OR      BX,BX           ;SEE IF POSITIVE
+        JNS     ARTN            ;IF >= 0 THEN ARTH
+        NEG     BX              ;ELSE MAKE IT POSITIVE
+        JNO     ARTN            ;AND RETURN IF NO OVERFLOW
+        JMP     QHOW            ;ELSE PRINT ERROR.
+
+;  ROUTINE TO GET SIZE OF @ ARRAY
+
+SIZE_:  LEA     BX,DGROUP:TXTEND
+        SUB     BX,TXTUNF
+        RET
+
+;******************************************************************
+;
+; *** SETVAL *** FIN *** ENDCHK *** ERROR (AND FRIENDS) ***
+;
+;******************************************************************
+
+SETVAL: CALL    TSTV            ;LOOK FOR A VARIABLE
+        JB      SHORT QWHAT
+        PUSH    BX              ;SAVE VARIABLE ADDR
+        CALL    TSTC            ;LOOK FOR =
+        DB      '='
+        DW      CGROUP:QWHAT
+        CALL    EXPR            ;EVALUATE THE EXPRESSION
+        MOV     AX,BX           ;PUT VALUE IN AX
+        POP     BX
+        MOV     [BX],AX         ;PUT VALUE IN VARIABLE
+        RET
+
+FIN:    CALL    TSTC            ;LOOK FOR ;
+        DB      ';'
+        DW      CGROUP:FI1
+        POP     AX              ;CLEAR STACK
+        JMP     RUNSML          ;RUN ON SAME LINE
+
+FI1:    CALL    TSTC            ;LOOK FOR <CR>
+        DB      CR
+        DW      CGROUP:FI2
+        POP     AX              ;CLEAR STACK
+        JMP     RUNNXL          ;RUN NEXT LINE
+
+FI2:    RET
+
+ENDCHK: CALL    IGBLK           ;SKIP BLANKS
+        CMP     AL,CR
+        JZ      FI2
+
+QWHAT:  PUSH    SI
+AWHAT:  LEA     SI,WHAT
+ERROR:  SUB     AL,AL
+        CALL    PRTSTG          ;PRINT MESSAGE
+        POP     SI
+        MOV     AL,[SI]         ;GET NEXT CHAR IN LINE
+        PUSH    AX              ;SAVE IT
+        MOV     BYTE PTR [SI],0 ;REPLACE IT WITH NULL
+        MOV     SI,CURRNT       ;GET LINE POINTER
+        MOV     AX,[SI]         ;GET LINE NUMBER
+        OR      AX,AX           ;TEST IT
+        JZ      SHORT STAR2     ;IT'S 0. RE-START
+        JNS     SHORT L_43
+        JMP     INPERR          ;IT'S <0. INPUT ERROR
+L_43:   CALL    PRTLN           ;PRINT THE LINE UP TO THE NULL
+        DEC     SI
+        POP     AX
+        MOV     [SI],AL         ;REPLACE THE ORIGINAL CHAR
+        MOV     AL,'?'
+        CALL    OUTC            ;PRINT A ?
+        SUB     AL,AL
+        CALL    PRTSTG          ;PRINT THE REMAINDER OF THE LINE
+STAR2:  JMP     START
+
+QSORRY: PUSH    SI
+ASORRY: LEA     SI,SORRY
+        JMP     ERROR
+
+;***************************************************************
+;
+; *** GETLN *** FNDLN (AND FRIENDS) ***
+;
+;***************************************************************
+
+GETLN:  CALL    OUTC
+GL0:    LEA     SI,BUFFER
+GL1:    cmp RICI,0              ;READ FROM PAPER TAPE?
+        JZ      CALLCI                  ;NO. FROM CONSOLE
+        CALL    RI
+        JMP     SHORT GL2
+
+CALLCI: CALL    CI
+GL2:    AND     AL,7FH
+        CMP     AL,1AH                  ; CONTROL-Z
+        JZ      STAR2
+        CMP     AL,LF
+        JZ      GL1
+        CALL    OUTC
+        OR      AL,AL
+        JZ      GL1
+        CMP     AL,7FH                  ;RUBOUT
+        JZ      SHORT GL3
+        CMP     AL,18H                  ; CONTROL-X
+        JZ      SHORT GL4
+        MOV     [SI],AL
+        INC     SI
+        CMP     AL,CR
+        JZ      SHORT LRTN
+        CMP     SI,OFFSET(DGROUP:BUFEND)
+        JNZ     GL1
+
+;  DO A RUBOUT
+
+GL3:    CMP     SI,OFFSET(DGROUP:BUFFER)                ;AT START OF BUFFER?
+        JZ      SHORT GL4               ;YES. JUST OUTPUT <CR><LF>
+        DEC     SI
+        MOV     AL,[SI]
+        CALL    OUTC
+        JMP     GL1
+
+GL4:    CALL    CRLF
+        JMP     GL0
+
+LRTN:   RET
+
+QHOW2:  JMP     QHOW
+
+; FIND 1ST LINE WITH LINE # >= BX
+
+FNDLN:  OR      BX,BX           ;MUST BE POSITIVE
+        JS      QHOW2
+        LEA     SI,DGROUP:TXTBGN        ;LOOK FROM START OF TEXT BUFFER
+
+FNDLNP: LEA     AX,BUFEND
+        INC     AX
+        CMP     SI,AX           ;BELOW BUFEND?
+        JB      LRTN            ;YES - MUST BE A DIRECT
+        MOV     AX,TXTUNF
+        DEC     AX
+        CMP     AX,SI           ;PAST END OF TEXT BUFFER?
+        JB      LRTN            ;YES. DONE
+        CMP     [SI],BX         ;LINE#>= BX?
+        JAE     LRTN            ;YES. DONE
+FNDNXT: INC     SI
+        INC     SI              ;POINT PAST LINE #
+FNDSKP: MOV     DI,SI           ;SCAN FOR <CR>
+        MOV     AL,CR
+        MOV     CX,-1
+        REPNZ   SCAS BYTE PTR ES:[DI]
+        MOV     SI,DI
+        JMP     FNDLNP
+
+;*******************************************************************
+;
+; *** PRTSTG *** QTSTG *** PRTNUM *** PRTLN ***
+;
+;*******************************************************************
+
+;  PRINT A STRING, PTR IN SI, DELIMITER IN AL
+
+PRTSTG: MOV     CH,AL
+PS1:    LODS    BYTE PTR ES:[SI]
+        CMP     AL,CH
+        JZ      SHORT L_48
+        CALL    OUTC
+        CMP     AL,CR
+        JNZ     PS1
+L_48:   RET
+
+;  SCAN AND PRINT A QUOTED STRING
+
+QTSTG:  CALL    TSTC            ;LOOK FOR "
+        DB      '"'
+        DW      CGROUP:QT3
+        MOV     AL,'"'
+QT1:    CALL    PRTSTG          ;PRINT STRING
+        CMP     AL,CR           ;STRING TERMED BY <CR>?
+        POP     BX
+        JNZ     SHORT QT2
+        JMP     RUNNXL          ;YES. RUN NEXT LINE
+QT2:    INC     BX              ;NO. RETURN 2 BYTES PAST CALL
+
+        INC     BX
+        JMP     BX
+
+QT3:    CALL    TSTC            ;LOOK FOR '
+        DB      27H                     ; SINGLE QUOTE
+        DW      CGROUP:QT4
+        MOV     AL,27H
+        JMP     QT1
+
+QT4:    CALL    TSTC
+        DB      5FH                     ; BACK-ARROW
+        DW      CGROUP:LRTN
+        MOV     AL,8DH                  ; YES, <CR> WITHOUT <LF>
+        CALL    OUTC
+        POP     BX
+        JMP     QT2
+
+; PRINT A NUMBER IN BX, FIELD WIDTH IN CH
+
+PRTNUM: MOV     AX,BX           ;NUMBER IN AX
+        MOV     BX,10           ;DIVISOR IN BX
+        PUSH    BX              ;PUT MARKER ON STACK
+        SUB     CH,CH           ;CLEAR SIGN
+        OR      AX,AX           ;NEGATIVE NUMBER?
+        JNS     SHORT PN1       ;NO.
+        MOV     CH,'-'          ;YES.
+        NEG     AX
+        DEC     CL
+PN1:    DEC     CL              ;COUNT OFF 1 SPACE
+        CWD                     ;EXTEND AX INTO DX
+        DIV     BX              ;DIVIDE
+        OR      AX,AX           ;RESULT 0?
+        JZ      SHORT PN3       ;YES. DONE DIVIDING
+        PUSH    DX              ;NO. SAVE REMAINDER
+        JMP     PN1
+
+PN3:    OR      CL,CL           ;FIELD FULL?
+PN4:    JLE     SHORT PN5       ;YES. GO ON
+        MOV     AL,' '
+        CALL    OUTC            ;PRINT LEADING BLANK
+        DEC     CL              ;COUNT 1 MORE SPACE
+        JMP     PN4
+
+PN5:    MOV     AL,CH           ;PRINT SIGN
+        CALL    OUTC
+        MOV     AX,DX           ;PUT 1ST DIGIT IN AX
+
+;  PRINT THE NUMBER. 1ST DIGIT IN AX, OTHERS ON STACK.
+
+PN6:    ADD     AL,'0'          ;MAKE IT ASCII
+        CALL    OUTC            ;PRINT THE DIGIT
+        POP     AX              ;GET NEXT DIGIT
+        CMP     AX,10           ;10 MARKS END OF DIGITS
+        JNZ     PN6
+        RET                     ;DONE
+
+;  PRINT A LINE. SI=PTR
+
+PRTLN:  MOV     BX,[SI]         ;GET LINE #
+        PUSH    BX
+        INC     SI
+        INC     SI              ;POINT PAST LINE #
+        MOV     CL,4
+        CALL    PRTNUM          ;PRINT LINE #
+        MOV     AL,' '
+        CALL    OUTC            ;PRINT SPACE
+        SUB     AL,AL
+        CALL    PRTSTG          ;PRINT LINE
+        POP     BX
+        RET
+
+;********************************************************************
+;
+; *** POPA *** PUSHA ***
+;
+;********************************************************************
+
+POPA:   POP     BX              ;RETURN ADDR IN BX
+        POP     LOPVAR          ;RESTORE LOPVAR
+        CMP     LOPVAR,0
+        JZ      SHORT PP1
+        POP     LOPINC          ;RESTORE OTHER VARIABLES
+        POP     LOPLMT
+        POP     LOPLN
+        POP     LOPPT
+PP1:    PUSH    BX
+        RET
+
+QSORRQ: JMP     QSORRY
+
+PUSHA:  CMP     SP,OFFSET(STKLMT)       ;STACK OVERFLOW?
+        JBE     QSORRQ                  ;YES
+        POP     CX                      ;RETURN ADDR IN CX
+        MOV     BX,LOPVAR
+        OR      BX,BX
+        JZ      SHORT PU1
+        PUSH    LOPPT                   ;NO. SAVE OTHER VARIABLES
+        PUSH    LOPLN
+        PUSH    LOPLMT
+        PUSH    LOPINC
+PU1:    PUSH    BX                      ;SAVE LOPVAR
+        PUSH    CX
+        RET
+
+;*****************************************************************
+;
+; *** OUTC ***
+;
+;*****************************************************************
+
+CRLF:   MOV     AL,CR
+
+OUTC:   CMP     POLO,0          ;OUTPUT to :PO: ?
+        JZ      SHORT CALLCO    ;NO
+        CALL    PO              ;YES
+        JMP     SHORT OC4
+
+CALLCO: OR      AL,AL
+        JZ      SHORT OC4       ;DON'T PRINT NULLS
+        CALL    CO
+OC4:    CMP     AL,CR           ;WAS IT A <CR> ?
+        JZ      SHORT OCR
+        RET
+
+OCR:    MOV     AL,LF
+        CALL    OUTC            ;OUTPUT A <LF>
+        MOV     AL,CR
+        RET
+
+DATA4   SEGMENT
+TXTBGN DB 3BFFH DUP (?)         ;15K of 21821 RAM FOR  USER PGMS
+TXTEND LABEL WORD
+DATA4 ENDS
+
+
+CI:     PUSH    DX                      ;CONSOLE IN ROUTINE
+        PUSH    SI
+        PUSH    CX
+        PUSH    BX
+        MOV     DX,INPORT
+        MOV     SI,COUNT                ;LOAD BAUD RATE DELAY
+IN0:    IN      AL,DX                   ;LOOK FOR A START BIT
+        AND     AL,80H
+        JNZ     IN0
+        MOV     CX,SI                   ;PUT BAUD RATE DELAY IN CX
+        SAR     CX,1                    ;DIVIDE BY 2 FOR 1/2 BIT TIME
+IN3:    LOOP    IN3                     ;DELAY
+        IN      AL,DX
+        AND     AL,80H                  ;CHECK FOR LOW (START BIT)
+        JNZ     IN0
+        MOV     CX,SI                   ;RELOAD COUNT
+        MOV     BL,BITS                 ;NUMBER OF BITS TO INPUT
+IN6:    SHR     AH,1
+IN5:    LOOP    IN5                     ;DELAY ONE BIT TIME
+        IN      AL,DX                   ;READ IN ONE BIT
+        AND     AL,80H
+        OR      AH,AL
+        MOV     CX,SI                   ;RELOAD DELAY COUNT
+        DEC     BL                      ;DECREMENT BIT COUNT
+        JNZ     IN6
+        MOV     AL,AH
+        SHR     AL,1                    ;SHIFT ONE MORE TO ALIGH NEW BYTE
+        POP     BX
+        POP     CX
+        POP     SI
+        POP     DX                      ;RESTORE REGISTERS
+        RET
+
+CO:     PUSH    BX
+        PUSH    AX
+        PUSH    DX
+        PUSH    CX
+        MOV     DX,OUTPORT              ;INITIALIZE DX TO OUTPUT PORT
+        SAL     AX,1                    ;MOVE OVER TO ALLOW START BIT
+        OR      AX,0F00H                ;SET START BIT AND STOP BITS
+        MOV     BX,10                   ;OUTPUT 10 BITS
+
+LOOP1:  OUT     DX,AL                   ;OUTPUT ONE BIT
+        MOV     CX,COUNT                ;LOAD BIT DELAY TIME
+LOOP2:  LOOP    LOOP2                   ;DELAY
+        SAR     AX,1                    ;SHIFT NEXT BIT INTO PLACE
+        DEC     BX                      ;DECREMENT BIT COUNT
+        JNZ     LOOP1
+        POP     CX
+        POP     DX
+        POP     AX
+        POP     BX                      ;RESTORE REGISTERS
+        RET
+
+PO:     RET
+RI:     RET
+
+HOW     DB      'HOW?',CR
+OK      DB      'OK',CR
+WHAT    DB      'WHAT?',CR
+SORRY   DB      'SORRY',CR
+LSTROM LABEL BYTE
+CODE ENDS
+
+CONST2 SEGMENT PUBLIC 'CONST'
+JMP     FAR PTR CGROUP:INIT
+CONST2 ENDS
+
+DATA    SEGMENT WORD PUBLIC 'DATA'
+ZERO    DW      0
+M1      DW      -1
+POLO    DB      0
+RICI    DB      0
+COUNT   DW      0
+CURRNT  DW      0
+Z       DB      0
+STKGOS  DW      0
+VARNXT  LABEL   WORD
+STKINP  DW      0
+LOPVAR  DW      0
+LOPINC  DW      0
+LOPLMT  DW      0
+LOPLN   DW      0
+LOPPT   DW      0
+RANPNT  DW      CGROUP:START
+TXTUNF  DW      DGROUP:TXTBGN
+VARBGN  DB      2*27 DUP (?)
+        DB      1 DUP (?)
+BUFFER  DB      80 DUP (?)
+BUFEND  LABEL   BYTE
+DATA ENDS
+
+STACK   SEGMENT WORD STACK
+STKLMT  LABEL   BYTE
+        DB      340 DUP (?)
+STK     LABEL   WORD
+STACK   ENDS
+END     INIT

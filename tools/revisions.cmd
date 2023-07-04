@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-if /I "%~1" == "-v" (echo %0: Rev  5  -- 827b3c9 [2021-08-10]) & goto :EOF
+if /I "%~1" == "-v" (echo %0: Rev 2021.8.10.5 [827b3c9]) & goto :EOF
 
 :doOpt
 if [%1] == [] goto execute

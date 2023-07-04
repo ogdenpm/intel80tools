@@ -141,25 +141,25 @@ $(OBJ)/plm80.rel: $(call objdir,data.abs $(objs))
 	$(call link,$@,$^ $(plm80.lib))
 
 $(OBJ)/plm800.rel: $(call objdir,data.abs $(objs0))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs0)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs0)) $(plm80.lib))
 
 $(OBJ)/plm801.rel: $(call objdir,data.abs $(objs1))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs1)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs1)) $(plm80.lib))
 
 $(OBJ)/plm802.rel: $(call objdir,data.abs $(objs2))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs2)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs2)) $(plm80.lib))
 
 $(OBJ)/plm803.rel: $(call objdir,data.abs $(objs3))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs3)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs3)) $(plm80.lib))
 
 $(OBJ)/plm804.rel: $(call objdir,data.abs $(objs4))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs4)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs4)) $(plm80.lib))
 
 $(OBJ)/plm805.rel: $(call objdir,data.abs $(objs5))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs5)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs5)) $(plm80.lib))
 
 $(OBJ)/plm806.rel: $(call objdir,data.abs $(objs6))
-	$(call link,$@,publics($(OBJ)/data.abs) $(call objdir,$(objs6)) $(plm80.lib))
+	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs6)) $(plm80.lib))
 
 $(OBJ)/data.abs: $(OBJ)/data.obj
 	$(call locate,$@,$<,DATA(3800H))

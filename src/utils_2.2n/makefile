@@ -2,7 +2,7 @@
 ITOOLS ?= ../..
 TARGETS := objhex hexobj
 PEXFILE:=utils_2.2n.pex
-
+.PRECIOUS: hexobj.rel
 include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,utils,2.2n)
@@ -26,7 +26,7 @@ objhex: objhex.rel
 	$(call locate,$@,$^,code(3680H) name(objhex) stacksize(86) purge)
 
 hexobj: hexobj.rel
-	$(call locate,$@,$^,code(3680H) name(hexobj) stacksize(94) purge)
+	$(call locate,$@,$^,code(3680H) MAP name(hexobj) stacksize(94) purge)
 
 .INTERMEDIATE: objhex.rel hexobj.rel
 objhex.rel: $(objhexObj)

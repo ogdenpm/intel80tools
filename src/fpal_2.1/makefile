@@ -15,7 +15,8 @@ OBJS= cpyrit.obj v2p1.obj check.obj fabs.obj fadd.obj fqfb2d.obj fclr.obj \
 	  fstor.obj fztst.obj mply.obj norml.obj fqft10.obj fqfx10.obj \
 	  round.obj shift.obj
 
-all:: $(TARGETS)
+all::
+	$(MAKE) $(TARGETS)
 
 fpal.lib: $(OBJS)
 	$(call lib,$@,$^)

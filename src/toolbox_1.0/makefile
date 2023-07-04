@@ -37,7 +37,7 @@ LIBS = cusp1.lib cusp2.lib cusp3.lib cusp4.lib cusp5.lib\
 SUBDIRS := $(basename $(LIBS))
 
 PLM80 = 3.1
-PLMFLAGS = CODE
+PLMFLAGS = CODE 
 LOCATEFLAGS = SYMBOLS PUBLICS
 PURGE = purge
 

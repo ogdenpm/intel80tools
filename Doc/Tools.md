@@ -172,38 +172,6 @@ startaddr replaces the start address specified in the hexfile.
 Intel style address formats are supported
 ```
 
-### install.cmd (master in versionTools)
-
-This is a windows batch file that is mainly used as part of the visual studio build process to auto copy compiled code to target directories. The master repository for this tool is my github repository [versionTools](https://github.com/ogdenpm/versionTools)
-
-```
-usage: install.cmd file_with_path installRoot [configFile]
-       configFile defaults to installRoot\install.cfg
-
-install.cfg contains lines of the form type,dir[,suffix]
-  Where type is the closest parent directory ending in debug or release on the path
-  to the name of the file to copy. The test is case insenitive.
-  dir is the directory to install to; a leading + is replaced by installRoot
-  suffix is inserted into the installed filename just before the .exe extension
-  In both dir & suffix a $d is replaced by the current local date string in format yyyymmdd
-  and a $t is replaced by the current local time string in format hhmmss
-  All lines where type matches the input file's directory name are processed
-
-Example with install.cfg in the current directory containing the line
-x86-Release,+prebuilt
-x86-Release,d:\bin,_32
-
-install . path\x86-Release\myfile.exe
-copies myfile to .\prebuilt\myfile.exe and d:\bin\myfile_32.exe
-
-Control lines are also supported and they change what files the control lines apply to
-Each control line's impact continue until the next control line
-A control line starting with a + enables processing only for the list of files after the +
-One starting  with a - only enables processing for files not in the list
-a file name of * matches all files so +* renables processing for all files
--* stops all processing until the next control line (of limited use)
-```
-
 ### isisc.exe (tool-src) [depreciated]
 
 Compares files using Intel's BIN format. This is now depreciated and the equivalent capability can be achieved in one of two ways
@@ -480,31 +448,9 @@ where directory is current directory name
 -r does a recursive unpack
 ```
 
-### version.cmd (master in versionTools)
-
-This is used to generate version information from a git repository for visual studio builds. The master repository for this tool is my github repository [versionTools](https://github.com/ogdenpm/versionTools)
-
-```
-usage: version [-h] | [-q] [-f] [-a appid] [CACHE_PATH OUT_FILE]
-
- When called without arguments version information writes to console
- -h          - displays this output
- -q          - Suppress console output
- -f          - Ignore cached version information
- -a appid    - set appid. An appid of . is replaced by parent directory name
- CACHE_PATH  - Path for non-tracked file to store git version info used
- OUT_FILE    - Path to writable file where the generated information is saved
-
- Example pre-build event:
- CALL $(SolutionDir)scripts\version.cmd "Generated" "Generated\version.h"
- 
- Note if the OUT_FILE ends in .cs an C# version information file is created
- otherwise a C/C++ header file is generated.
-```
-
 ------
 
 ```
-Updated by Mark Ogden 11-Mar-2021
+Updated by Mark Ogden 25-Aug-2021
 ```
 

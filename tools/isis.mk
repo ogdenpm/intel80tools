@@ -9,7 +9,7 @@ ITOOLS := $(call fixpath,$(ITOOLS))
 export _ITOOLS=$(ITOOLS)
 #
 # make sure bash and other unix tools are on the path
-PATH := $(ITOOLS)/unix;$(PATH)
+PATH := $(ITOOLS)/tools;$(ITOOLS)/unix;$(PATH)
 SHELL := bash.exe
 COMPARE ?= $(ITOOLS)/tools/omfcmp
 
@@ -23,21 +23,23 @@ export ISIS_F0 ?= ./
 
 # the none ISIS build tools
 ISIS:=$(ITOOLS)/thames -m -T
-PLMPP:=$(ITOOLS)/tools/plmpp
+PLMPP:=plmpp
 ASM80X:=perl $(ITOOLS)/tools/asm80x.pl
-NGENPEX:=$(ITOOLS)/tools/ngenpex
+NGENPEX:=ngenpex
 MKDEPEND:=perl $(ITOOLS)/tools/makedepend.pl
-OBJBIN:=$(ITOOLS)/tools/obj2bin
-HEXOBJ:=$(ITOOLS)/tools/hexobj
-PLM81:=$(ITOOLS)/tools/plm81
-PLM82:=$(ITOOLS)/tools/plm82
-
+OBJBIN:=obj2bin
+HEXOBJ:=hexobj
+PLM81:=plm81
+PLM82:=plm82
 # macros to create the path & full file names of an isis file
 # usage: $(call ipath,file[,version])
 ipath = $(ITOOLS)/itools/$(strip $1)$(if $2,/$(strip $2))
 # 
 # usage: $(call ifile,file[,version])
 ifile = $(call ipath,$1,$2)/$(strip $1)
+#
+# usage: $(call prog,progname,progver[,cver])
+prog = $(if $(filter-out $3,$2),@$(ISIS) $(call ifile,$1,$2), $1)
 
 # set default tool versions if none given
 PLM80 ?= 4.0
@@ -105,9 +107,9 @@ endef
 #	  $(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 
 # $(call asm80,objfile,srcfile[,target specific options])
+#  
 define asm80
-  @$(ISIS) $(call ifile,asm80,$(ASM80)) $2 "object($1)"\
-	  $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+  $(call prog,asm80,$(ASM80),4.1) $2 "object($1)" $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call asm80x,objfile,srcfile[,target specific options])
@@ -135,52 +137,42 @@ endef
 # standard link
 # $(call link,relocfile,objs[,target specific options])
 define link
-  @$(ISIS) $(call ifile,link,$(LINK80)) "$(call mklist,$2)" to $1 map\
-	  "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+ $(call prog,link,$(LINK80),3.0) ! $2 ! to $1 NOWARN map "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
-
+#
 # link with no check for unresolved
 # $(call link-nocheck,relocfile,objs[,target specific options])
 define link-nocheck
-  @$(ISIS) -u $(call ifile,link,$(LINK80)) "$(call mklist,$2)" to $1 map\
-	  "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+ $(call prog,link,$(LINK80),3.0) ! $2 ! to $1 map "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
 # standard locate
 # $(call locate,target,relocfile[,target specific options])
 define locate
-  @$(ISIS) $(call ifile,locate,$(LOCATE80)) $2 to $1\
-	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  $(call prog,locate,$(LOCATE80),3.0) $2 to $1 NOEXTERN NOOVERLAP "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate with no check for unsatisfied
 # $(call locate-nocheck,target,relocfile[,target specific options])
 define locate-nocheck
-  @$(ISIS) -u $(call ifile,locate,$(LOCATE80)) $2 to $1\
-	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+   $(call prog,locate,$(LOCATE80),3.0) $2 to $1 NOOVERLAP "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate allowing overlaps
 # $(call locate-overlaps,target,relocfile[,target specific options])
 define locate-overlaps
-  @$(ISIS) -o $(call ifile,locate,$(LOCATE80)) $2 to $1\
-	  "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
+  $(call prog,locate,$(LOCATE80),3.0) $2 to $1 NOEXTERN "print($(call map,$2))"$(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # limited version of locate to remove symbols - does not produce map file
 # $(call rm-symbols,target,source)
 define rm-symbols
-  @$(ISIS) $(call ifile,locate,$(LOCATE80)) $2 to $1 PURGE
+   $(call prog,locate,$(LOCATE80),3.0) $2 to $1 PURGE
 endef
 
 # $(call lib,target,objects)
 define lib
-  rm -fr $1
-  @$(ISIS) $(call ifile,lib,$(LIB80)) "&&"\
-  create $1 "&&"\
-  add $(if $(filter-out 0 1,$(words $2)),$(call mklist,$(call notlast,$2))$(comma)"&")\
-  $(lastword $2) to $1 "&&"\
-  exit
+  lib c '$1' with ! $2
 endef
 
 # $(call plm86,objfile,srcfile[,target specific options])
@@ -246,8 +238,8 @@ verify: all
 	$(if $(_verify),\
 	  $(if $(REF),\
 	    $(if $(filter 1,$(words $(_verify))),\
-	      @$(COMPARE) $(_verify) $(REF)/$(notdir $(_verify)),\
-	      @for f in $(_verify) ; do $(COMPARE) $$f $(REF)/`basename $$f` || exit 1; done),\
+	      $(COMPARE) $(_verify) $(REF)/$(notdir $(_verify)),\
+	      for f in $(_verify) ; do $(COMPARE) $$f $(REF)/$$f || exit 1; done),\
 	    $(info verify failed - REF variable not set) exit 1))
 endif
 
