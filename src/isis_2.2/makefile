@@ -59,7 +59,7 @@ format.abs: format.rel
 	$(call locate,$@,$^,code(3680h) name(FORMAT) stacksize(102) purge)
 
 %: %.abs fake.obj %.patch
-	$(call link-nocheck,$@,$*.abs fake.obj)
+	-$(call link,$@,$*.abs fake.obj)
 	$(ITOOLS)/tools/fixobj -p $*.patch $@ $@
 
 
@@ -71,7 +71,7 @@ cli.rel: $(cliobjs)
 	$(call link,$@,$^ $(system.lib,3.1))
 
 format.rel: $(formatobjs)
-	$(call link-nocheck,$@,$^ $(system.lib,3.1))
+	-$(call link,$@,$^ $(system.lib,3.1))
 
 
 # note the several object files need special treatment
@@ -83,23 +83,23 @@ format.rel: $(formatobjs)
 # It is possible that the code was originally compiled
 # using an older, possibly pre-release version of the PL/M compiler.
 %.obx: %.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	-$(call link,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 cli.obx: cli.obj p0095.obj p0100.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	-$(call link,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 filerr.obx: filerr.obj p0095.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	-$(call link,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 reperr.obx: reperr.obj p0100.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	-$(call link,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 format.obx: format.obj p0019.obj p0095.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	-$(call link,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 clean::

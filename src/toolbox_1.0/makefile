@@ -3,11 +3,12 @@ OBJ = obj
 LST = lst
 SRC = src
 export LIB = lib
-
+.PHONY: clean
 
 # map src for the pex include files
 # lower level makefiles need to unexport ISIS_F1
-export ISIS_F1=$(SRC)
+export ISIS_F1= $(SRC)
+#
 # we used a customised verify here
 NOVERIFY = T
 

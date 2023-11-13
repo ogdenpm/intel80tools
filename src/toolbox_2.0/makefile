@@ -6,7 +6,7 @@ export LIB = lib
 
 
 # map src for the pex include files
-# lower level makefiles need to unexport ISIS_F1
+# lower level makefiles need to unexport :F1:
 export ISIS_F1=$(SRC)
 # we used a customised verify here
 NOVERIFY = T

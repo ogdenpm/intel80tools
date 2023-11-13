@@ -11,8 +11,8 @@ include $(ITOOLS)/tools/isis.mk
 REF=$(call ipath,plm80,4.0)
 
 # force shared folder to be on isis drive :f3:
-export ISIS_F3 := $(SHARED)/
-export ISIS_F2 := $(SRC)/
+export ISIS_F3=$(SHARED)/
+export ISIS_F2=$(SRC)/
 
 PURGE := purge
 
@@ -20,7 +20,7 @@ TARGETS = plm80 plm80.ov0 plm80.ov1 plm80.ov2 plm80.ov3 plm80.ov4 plm80.ov5 plm8
 
 
 LOCATEFLAGS:=SYMBOLS PUBLICS
-PLMFLAGS:= DEBUG CODE
+PLMFLAGS:= DEBUG CODE XREF
 ASMFLAGS:=
 
 objs = main.obj plma.obj plmb.obj memchk.obj movmem.obj fill.obj plmc.obj\
@@ -141,25 +141,25 @@ $(OBJ)/plm80.rel: $(call objdir,data.abs $(objs))
 	$(call link,$@,$^ $(plm80.lib))
 
 $(OBJ)/plm800.rel: $(call objdir,data.abs $(objs0))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs0)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs0)) $(plm80.lib))
 
 $(OBJ)/plm801.rel: $(call objdir,data.abs $(objs1))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs1)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs1)) $(plm80.lib))
 
 $(OBJ)/plm802.rel: $(call objdir,data.abs $(objs2))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs2)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs2)) $(plm80.lib))
 
 $(OBJ)/plm803.rel: $(call objdir,data.abs $(objs3))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs3)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs3)) $(plm80.lib))
 
 $(OBJ)/plm804.rel: $(call objdir,data.abs $(objs4))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs4)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs4)) $(plm80.lib))
 
 $(OBJ)/plm805.rel: $(call objdir,data.abs $(objs5))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs5)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs5)) $(plm80.lib))
 
 $(OBJ)/plm806.rel: $(call objdir,data.abs $(objs6))
-	$(call link,$@,"publics($(OBJ)/data.abs)" $(call objdir,$(objs6)) $(plm80.lib))
+	$(call link,$@,"PUBLICS($(OBJ)/data.abs)" $(call objdir,$(objs6)) $(plm80.lib))
 
 $(OBJ)/data.abs: $(OBJ)/data.obj
 	$(call locate,$@,$<,DATA(3800H))

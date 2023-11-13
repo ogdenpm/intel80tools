@@ -13113,14 +13113,31 @@ Sub$6BD6: procedure public;
 
 
 		Sub$7055: procedure;
-			Bsub$70BC: procedure(arg1b) byte;
-			    declare arg1b byte;
-			    call Sub$6EE1(tx2op1(arg1b));
+			Bsub$70BC: procedure(nodeLoc) byte;
+			    declare nodeLoc byte;
+			    call Sub$6EE1(tx2op1(nodeLoc));
 			    if boC25D then
 				return TRUE;
-			    if tx2op1(arg1b) = 0ach then
+                /* the code below appears to be wrong
+                   a more appropriate test would be
+
+                   tx2opc(tx2op1(nodeLoc)) == T2$VARIABLE
+
+                   as is the condition should be false except
+                   for complex statements with more than
+                   172 nodes at which point the behaviour
+                   is likely to be indeterminate and may
+                   access out of bound locations
+
+                   Note: The code only impacts re-entrant procs
+                   In the C-Port this is modified and in certain
+                   cases leads to better code, otherwise the code
+                   is the same
+                */
+
+			    if tx2op1(nodeLoc) = 0ach then
 			    do;
-				curInfo$p = tx2op1(tx2op1(arg1b));
+				curInfo$p = tx2op1(tx2op1(nodeLoc));
 				if TestInfoFlag(F$AUTOMATIC) then
 				    return TRUE;
 			    end;

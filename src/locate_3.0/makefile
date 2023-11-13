@@ -30,9 +30,9 @@ locate.rel: loclow.abs $(HIGHOBJ)
 
 # intermediate target - note will have unsatisfied externals see also HICODE above
 loclow.abs: loclow.rel
-	$(call locate-nocheck,$@,$^,STACKSIZE(6Ch))
+	$(call locate-externok,$@,$^,STACKSIZE(6Ch))
 
 loclow.rel: $(LOWOBJ)
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(call link-warnok,$@,$^ $(plm80.lib))
 
 

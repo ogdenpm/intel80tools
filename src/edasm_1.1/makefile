@@ -28,13 +28,13 @@ as80.bin: as80.abs $(ASPATCH)
 	$(OBJBIN) $^ $@
 
 as80.abs: as80.rel
-	$(call locate-overlaps,$@,$^,data(40h) code(0B800h) stacksize(82))
+	$(call locate,$@,$^,data(40h) code(0B800h) stacksize(82))
 
 as80.rel: $(ASobjs)
 	$(call link,$@,$^ $(plm80.lib) $(system.lib))
 
 editor.abs: editor.rel
-	$(call locate-overlaps,$@,$^,DATA(2000h) CODE(0a800h))
+	$(call locate,$@,$^,DATA(2000h) CODE(0a800h))
 
 editor.rel: $(EDobjs) 
 	$(call link,$@,$^ $(system.lib) $(plm80.lib))

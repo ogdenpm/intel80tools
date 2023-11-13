@@ -8,14 +8,13 @@ OBJ:=obj
 PEXFILE:=$(SRC)/asm80.pex
 
 PROTECT := notes.txt
-
 include $(ITOOLS)/tools/isis.mk
-
-REF = $(call ipath,asm80,4.1)
-
+#
 # override default tools
 PLM80 := 3.1
-export ISIS_F3 = $(SRC)
+export ISIS_F3 = $(SRC)/
+
+REF = $(call ipath,asm80,4.1)
 
 TARGETS := asm80 asm80.ov0 asm80.ov1 asm80.ov2 asm80.ov3 asm80.ov4 asm80.ov5 asxref
 
@@ -73,35 +72,35 @@ asm80: $(OBJ)/asm80.rel
 	$(call locate,$@,$^,NAME(ASM80) STACKSIZE(0) $(PURGE))
 
 $(OBJ)/asm80.rel: $(call objdir,$(ASMOBJ) $(ASMPUB))
-	$(call link,$@,$(call objdir,$(ASMOBJ)) "publics($(call objdir,$(ASMPUB)))")
+	$(call link,$@,$(call objdir,$(ASMOBJ)) $(call publics,$(ASMPUB)))
 
 ##
 $(OBJ)/asm80.ov0: $(OBJ)/asm800.rel
 	$(call locate,$@,$^,NAME(A80O0) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm800.rel: $(call objdir,$(OV0OBJ) $(OV0PUB))
-	$(call link,$@,$(call objdir,$(OV0OBJ)) "publics($(call objdir,$(OV0PUB)))")
+	$(call link,$@,$(call objdir,$(OV0OBJ)) $(call publics,$(OV0PUB)))
 
 ##
 $(OBJ)/asm80.ov1: $(OBJ)/asm801.rel
 	$(call locate,$@,$^,NAME(A80O1) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm801.rel: $(call objdir,$(OV1OBJ) $(OV1PUB))
-	$(call link,$@,$(call objdir,$(OV1OBJ)) "publics($(call objdir,$(OV1PUB)))" $(plm80.lib))
+	$(call link,$@,$(call objdir,$(OV1OBJ)) $(call publics,$(OV1PUB)) $(plm80.lib))
 
 ##	
 $(OBJ)/asm80.ov2: $(OBJ)/asm802.rel
 	$(call locate,$@,$^,NAME(A80O2) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm802.rel: $(call objdir,$(OV2OBJ) $(OV2PUB))
-	$(call link,$@,$(call objdir,$(OV2OBJ)) "publics($(call objdir,$(OV2PUB)))")
+	$(call link,$@,$(call objdir,$(OV2OBJ)) $(call publics,$(OV2PUB)))
 
 ##
 $(OBJ)/asm80.ov3: $(OBJ)/asm803.rel
 	$(call locate,$@,$^,NAME(A80O3) STACKSIZE(0) CODE($(SMALLOVL)))
 
 $(OBJ)/asm803.rel: $(call objdir,$(OV3OBJ) $(OV3PUB))
-	$(call link,$@,$(call objdir,$(OV3OBJ)) "publics($(call objdir,$(OV3PUB)))")
+	$(call link,$@,$(call objdir,$(OV3OBJ)) $(call publics,$(OV3PUB)))
 
 ##
 asm80.ov4: $(OBJ)/asm804.rel
@@ -126,16 +125,16 @@ asxref: $(OBJ)/asxref.obj
 .INTERMEDIATE:: $(call objdir,root.rel keyn.rel)
 
 $(OBJ)/root.abs: $(OBJ)/root.rel
-	$(call locate-nocheck,$@,$^,STACKSIZE(120)) 
+	$(call locate-externok,$@,$^,STACKSIZE(120)) 
 
 $(OBJ)/root.rel: $(call objdir,$(ROOTOBJS))
-	$(call link-nocheck,$@,$^ $(system.lib,3.1) $(plm80.lib))
+	$(call link-warnok,$@,$^ $(system.lib,3.1) $(plm80.lib))
 
 $(OBJ)/keyn.abs: $(OBJ)/keyn.rel
-	$(call locate-nocheck,$@,$^,CODE($(KEYCODE)) STACKSIZE(0))
+	$(call locate-externok,$@,$^,CODE($(KEYCODE)) STACKSIZE(0))
 
 $(OBJ)/keyn.rel: $(call objdir,$(KEYOBJS))
-	$(call link-nocheck,$@,$^)
+	$(call link-warnok,$@,$^)
 
 
 # these are special build rules to process the plx files

@@ -5,7 +5,7 @@ TARGETS := isis.ov0
 include $(ITOOLS)/tools/isis.mk
 
 REF=$(call ipath,isis,4.3)
-PLMFLAGS := DEBUG OPTIMIZE
+PLMFLAGS := DEBUG OPTIMIZE CODE
 ASMFLAGS :=
 LOCATEFLAGS:= PUBLICS SYMBOLS
 

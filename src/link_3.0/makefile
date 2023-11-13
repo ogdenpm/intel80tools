@@ -36,34 +36,34 @@ link: link.rel link.patch
 	$(ITOOLS)/tools/fixobj -p link.patch $@ $@
 
 link.rel: $(LINKOBJ) $(LINKPUB)
-	$(call link,$@,$(LINKOBJ) "publics($(LINKPUB))")
+	$(call link,$@,$(LINKOBJ) $(call publics,$(LINKPUB)))
 
 link.ovl: linkov.rel linkovl.patch
 	$(call locate,$@,linkov.rel,code(48DEH) stacksize(0) name(LINKOVL) $(PURGE))
 	$(ITOOLS)/tools/fixobj -p linkovl.patch $@ $@
 
 linkov.rel: $(LINKOVOBJ) $(LINKOVPUB)
-	$(call link,$@,$(LINKOVOBJ) "publics($(LINKOVPUB))" $(system.lib) $(plm80.lib))
+	$(call link,$@,$(LINKOVOBJ) $(call publics,$(LINKOVPUB)) $(system.lib) $(plm80.lib))
 
 link0.abs: link0.rel
-	$(call locate-nocheck,$@,$^,STACKSIZE(84) COLUMNS(3))
+	$(call locate-externok,$@,$^,STACKSIZE(84) COLUMNS(3))
 
 link0.rel: $(OBJ0)
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(call link-warnok,$@,$^ $(plm80.lib))
 
 link1.abs: link1.rel
-	$(call locate-nocheck,$@,$^,CODE(48DEH) STACKSIZE(0))
+	$(call locate-externok,$@,$^,CODE(48DEH) STACKSIZE(0))
 
 link1.rel: $(OBJ1) $(PUB1)
-	$(call link-nocheck,$@,$(OBJ1) "publics($(PUB1))" $(plm80.lib))
+	$(call link-warnok,$@,$(OBJ1) $(call publics,$(PUB1)) $(plm80.lib))
 
 link2.abs: link2.rel
-	$(call locate-nocheck,$@,$^,CODE(629DH) STACKSIZE(0))
+	$(call locate-externok,$@,$^,CODE(629DH) STACKSIZE(0))
 
 link2.rel: $(OBJ2) $(PUB2)
-	$(call link-nocheck,$@,$(OBJ2) "publics($(PUB2))" "$(system.lib)(delete)" $(system.lib))
+	$(call link-warnok,$@,$(OBJ2) $(call publics,$(PUB2)) "$(system.lib)(delete)" $(system.lib))
 
 linkov.abs: $(OBJOVL)
-	$(call locate-nocheck,$@,$<,CODE(48DEH) STACKSIZE(0))
+	$(call locate-externok,$@,$<,CODE(48DEH) STACKSIZE(0))
 
 
