@@ -2,10 +2,9 @@
 
 **(Original - John Elliott, 17 November 2012, enhancements by Mark Ogden)**
 
- *thames* emulates enough of the ISIS-II environment to be able to run the following
- programs (used in the CP/M 3 build process):
+ *thames* emulates enough of the ISIS-II environment to be able to run may of the ISIS II build tools as used in the CP/M 3 build process:
 
- * asm80: ISIS-II 8080/8085 macro assembler, v1.1
+ * asm80: ISIS-II 8080/8085 macro assembler, v4.1
  * plm80: ISIS-II PL/M-80 Compiler v4.0
  * link: ISIS-II object linker v3.0
  * locate: ISIS-II object locater v3.0
@@ -13,21 +12,60 @@
 
 See [Enhancements](#Enhancements) for information on more recent changes.
 
+### Recent changes
 
-### Installing
+#### 14-Nov-2023
 
-   Installation should just be a matter of the usual sequence of commands:
+Some limited support has been added for ISIS.LAB and ISIS.DIR, which allows PL/M 3.1 to use IXREF and for the ISIS version of IXREF to work.
+Note the ported version of IXREF is recommended rather than the ISIS version.
+
+If ISIS.LAB is opened for reading then a temporary file is created with the contents
+
 ```
-./configure
-make
-make install
+THAMESFn 42
+where n is the drive number
 ```
-A solution file for Visual Studio under windows is also provided for windows builds.
 
+If ISIS.DIR is opened for reading then a temporary file is created from contents of the specified drive/path. Only files that match an ISIS file name i.e. 6.3 alphanumeric characters are included. Additionally only the name and status byte are populated with other than zeros.
+
+#### 10-Oct-2023
+
+- The file handling has been reworked and and the emulator now correctly reports an error when trying to open an already open file. This caused problems with asm48 v2.0.
+
+- Support for device mapping has been added back in.
+
+  Note the applications asm80 v4.1, plm80 v4.0, link v3.0, locate v3.0, ixref v1.4 and binobj, hexobj, objhex, have now all been ported to modern C and work with long file names under windows and Linux and would be the recommended tools to use rather than emulation. Additional enhancements
+
+  1) All the command lines can now be very long lines. Although & is supported is shouldn't be needed. Additionally applications now allow empty command line, taking the command line from stdin. If stdin is redirected from a file, then implicit & at the end of each line is assumed, if not explicitly provided. An end of file terminates this.
+  2) asm80 the label limit is now 31 characters and like PLM80, $ in a name is ignored.
+  3) The tools now allow an _ to be included in a name. It is ignored if present in numbers
+  4) Most commands now no longer require comma separators, making it much easier to work with make.
+  5) lib now supports a non interactive option including a new single create operation adding a new set of files.
+  6) Intermediate files are no longer needed, so parallel builds are straightforward
+  7) All I/O uses stdio buffering, removing significant chunks of original code.
+  8) In listings line endings use the native os format, the I/O does however handle /r on input.
+  9) ixref supports file name globbing. Additional in co-ordination with plm80, the redundant label element which plm80 v4.0 no longer used, is used to allow longer file names in the cross  reference.
+  10) plm80 has additional functionality added similar to thames. Including options to ignore warnings and generate dependency files.
+  11) asm80, plm80 now support the current date in listings.
+
+
+### Installing (Updated)
+
+Installation has been modified to use cmake or the Visual Studio solution file thames.sln. For cmake the following commands are needed
+```
+mkdir {your chosen build directory}
+cd {your choosen build directory}
+cmake ..
+cmake --build  .
+```
 ### In use
 
-You will need to set up environment variables to map Unix/Windows directories
-to ISIS-II drives. For example, in a Bourne-style shell:
+Thames now supports a level of auto mapping from windows/linux directories to ISIS file devices, see enhancements. You can however control the mapping explicitly, by setting up environment variables to ISIS devices to Unix/Windows paths.
+
+The environment variable names are of the form ISIS_XX, where XX is the device name. When an application uses a device file device the value of ISIS_XX is used to map to a suitable directory.
+
+For example, in a Bourne-style shell:
+
 ```
 ISIS_F0=/home/me/isis
 ISIS_F1=/home/me/isis/plm80
@@ -56,6 +94,7 @@ leading disk names e.g. E:
 It's also possible to set up character devices this way. For example,
 if the program you want to run needs to use the printer device :LP:,
 then you can set up a file to receive printer output:
+
 ```
 ISIS_LP=/home/me/isis/lp.txt export ISIS_LP
 
@@ -75,11 +114,10 @@ Notes:
   trying to parse them.
 * Filenames without a :Fn: drive specifier are assumed to be on drive
   :F0:.
-* thames forces all filenames to lowercase. For maximum ISIS
-  compatibility, you should ensure that they are also in 6.3 format -
-  no more than six characters, followed optionally by a dot and up to
-  three further characters. This is not enforced, but ISIS programs
-  may not support longer filenames.
+* thames maps all ISIS filenames to lower case and since most applications validate for the 6.3 alphanumeric format, you should ensure that they are also in 6.3 format i.e.
+  no more than six alphanumeric characters, followed optionally by a dot and up to
+  three further alphanumeric characters.
+* Environment variable values are not modified and can support the native files system characters
 
 This sequence of commands should build PUT.COM from CP/M 3:
 ```
@@ -91,10 +129,8 @@ thames :F3:objhex put to put.hex
 ```
 ### Implementation notes
 
-Areas of functionality not used by the CP/M 3 build tools are untested.
-These include the system calls RENAME, CONSOLE, ATTRIB, ERROR and
-WHOCON, and the ability to open files other than the console in line
-mode.
+Some areas of functionality are rarely used in practice and have had less testing.
+These include the system calls CONSOLE and WHOCON, and the ability to open files other than the console in line mode.
 
 ### Debugging
 
@@ -107,11 +143,11 @@ set to an integer between 0 and 4:
 2. Logs all ISIS-II calls.
 3. As 2, but also displays contents of buffers loaded/saved for
    READ, WRITE and EXEC calls.
-4. All of the above, and also traces Z80 execution.
+4. All of the above, and also traces instruction execution.
 
 ### Acknowledgements
 
-* The Z80 emulation engine was written by Ian Collier.
+* The Z80 emulation engine was written by Ian Collier. Other than the BIOS intercept calls, the instruction set has been reduced to support the 8080/8085 only. This avoids the occasional different behaviour of Z80 instructions
 
 * The [ISX documentation](http://p112.sourceforge.net/index.php?isx) on the P112 pages, and the documentation of ISIS internals at [bitsavers.org](http://www.bitsavers.org/pdf/intel/ISIS_II/), were both invaluable to me in the course of writing thames.
 
@@ -122,11 +158,13 @@ A number of enhancements have been made to the original thames emulator mainly t
 Additionally other programs known to work now include
 
  * asm80 versions 3.0, 3.1 & 4.1
- * plm80 versions 3.0, 3.1 & 4.0
+ * asm48 versions 2.0, 3.0, 4.0, 4.2
+ * plm80 versions 3.0, 3.1 - note to use XREF on these versions, a dummy ISIS.LAB file is needed.
  * lib v2.1
  * Fort80 v2.1
  * Pasc80 v2.2 
  * Basic v1.0, v1.1, vx021 f2 - note limitation on kbd hit which is sensed but needs cr to continue
+ * IXREF versions 1.1, 1.2, 1.3 - note using wildcards requires and ISIS.DIR file to be created.
 
 ### Emulator changes
 
@@ -140,9 +178,13 @@ Several minor bug fixes e.g. closing of :CO: and :CI:.
 
 The latest thames command line syntax is
 
-`thames [-h] [-m] [-i] [-o] [-u] [-MF file] [-ME ext] [-T] isisprog isisargs...`
+`thames [-v|-V] | [-h] [-m] [-i] [-o] [-u] [-MF file] [-ME ext] [-T] isisprog isisargs...`
 
 The options are
+
+#### -v -- show basic version info
+
+#### -V -- show additional git related info
 
 #### -h -- show usage
 
@@ -158,10 +200,8 @@ This option pre-processes the isisprog and isisargs as follows
   This is the common approach taken in many ISIS tools to support long lists of arguments.
   Note although this is done for all command lines, asm80 in particular does not handle this, but requires the options to be put into an included file.
 * The automatic line split can be overridden as follows:
-  * A single & forces a line split and is replaced by & CR LF and is useful for the LIB tool which requires the
-    last file name in an ADD operation to be on the same line as the TO target.lib options.
-  * A double & also forces a line split but is replaced by CR LF and is again useful for the LIB tool to support
-    multiple commands.
+  * A single & forces a line split and is replaced by & CR LF and is useful for the LIB tool which requires the last file name in an ADD operation to be on the same line as the TO target.lib options.
+  * A double & also forces a line split but is replaced by CR LF and is again useful for the LIB tool to support multiple commands.
 * The pre-processed command is echoed to stdout
 
 ##### Examples:
@@ -217,8 +257,6 @@ There are additionally three options that are used to modify the error processin
 2. -o this causes OVERLAPS (locate) to be ignored; useful when adding object files to synthesise
    the junk data present in memory when Intel create the isis.t0 files.
    Note the obj2bin application now handles patch files and is now the preferred way of adding "Junk" data.
-3. -i this allows applications with invalid checksums to load. This is needed for cobol80. Normally
-   you would not need this
 
 #### -MF file & -ME ext
 
@@ -230,11 +268,7 @@ Note transient files are handled and not recorded in the dependency file.
 
 Many ISIS applications use tmp files. Unfortunately as these file names are fixed, trying to run parallel builds results in applications reading/writing to the same files. If the -T option is specified thames maps any *.tmp, asm86.nam and asm86.ent files to unique temporary files, thereby allowing parallel  builds.
 
-### Build
-
-thames now has a visual studio solution file and also has the option of building with cmake.
-
 __________________________________________________________________
 
 
-    Updated by Mark Ogden 3-Sep-2020
+    Updated by Mark Ogden 14-Nov-2023

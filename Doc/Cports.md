@@ -1,36 +1,107 @@
-# C ports of Intel ISIS applications
+# C ports of PL/M 80 & Fortran applications
 
-The c-ports source code now has it's own repository [c-ports](https://github.com/ogdenpm/c-ports). There you will find my ports of some of the ISIS development chain to C so that they run under modern processors.
+The c-ports directory tree contains my ports of a number of PL/M 80 applications to C and my port of the old Fortran based PL/M 80 compiler.
 
 Below are details of what is available, followed by some notes on my approach to porting the applications.
 
-## Direct ports from PL/M source
+## Direct ports from PL/M source (Intel tool chain)
 
-These applications closely follow the decompiled PL/M source. For the most part it should be reasonably simple to identify the ports of most of the functions. As I have IDE support for C, I have focused on the C code for asm80 and plm80c, to identify how the applications work. As a result the variable naming and comments are more up  to date than the decompiled PL/M source.
+Earlier ports closely follow the decompiled PL/M source, however to make the tools more usable under Windows and Linux, major chunks of code have recently been rewritten. Additionally variable and function name changes and comments have not been reflected in the original decompiled code. This makes it a little harder to match the C port to the decompiled code.
 
-Note I have currently not added the auto drive mapping and other features I built into thames.
+Except where noted below, the tool usage is as per the Intel documentation, but as many of the Intel command options include parentheses, ampersands and single quotes, it may be necessary to escape them, e.g. using double quotes, to avoid interpretation by your OS shell.
 
-Environment variables ISIS_F*n* are used to specify the directory associated with drive :F*n*:. :F0: defaults to the current directory.
+### Common changes
 
-Also, unless noted, file names must meet the requirement of the original applications i.e. for ISIS-II applications the format is 6.3 alphanumeric characters and CP/M is 8.3 characters. In these cases saved filenames are converted to lowercase.
+#### Native filenames
 
-### asm80
+All the tools now support native filenames including directory paths. There are however some minor restrictions noted below.
 
-The port of asm80 v4.1 and is based on asm80.ov4 which is the macro version of the assembler. I have seen this distributed as asm80 without the other overlays, as the main asm80 just determines whether to run asm80.ov4 (macro support), asm80.ov5 (large memory support no macros) or to use overlays asm80.ov1, asm80.ov2 and asm80.ov3 for small memory support.
+- Control characters cannot be included in a filename, even if quoted.
+- Unless quoted a file name cannot contain a space, comma or a left or right parentheses.
+- A quoted file name cannot contain an embedded quote. Only single quote is supported.
+- Filenames can contain an optional :Fx: or :fx: prefix where x is a digit. If there is a corresponding environment variable ISIS_Fx then its value is used as a path prefix for the filename. The environment variable can contain any character as it is not checked.
+- File name errors are now detected when the file is accessed and not when the name is parsed. Also the error message use the OS error descriptions and write to stderr.
+- Although long file names are supported it is recommended to keep names reasonably short for readability. Likewise it is recommended to avoid spaces in file names, as these often cause problems with build tools.
 
-As noted the comments and variable naming are more up to date than the PL/M version.
+Note ISIS devices e.g. :CO:, :CI: and :BB: are no longer supported, use the OS equivalents.
+
+#### Command line
+
+Command lines can now be as long as the OS supports. The ampersand (&) continuation is still supported if necessary and has been added to asm80.
+
+Additionally commands invoked without arguments will take the arguments from stdin, allowing for command line redirection from a file e.g.
 
 ```
-Usage is as per Intel documentation, noting the :Fn: mapping mentioned above
+link <responsefile
+```
+
+Within the file, & can be used for continuation and an end of file will add an implicit end of line if needed. For lib an end of file will also cause an implicit exit.
+
+Several of the Intel commands echo the command line in the listing file. To support longer file names, the break in long lines is now done slightly differently from the original code, to avoid splitting file names. This does however mean that file names longer than the page width will spill over the line boundary.
+
+All the tools support three common standalone options
+
+```
+-v	print simple version information
+-V	print extended version information
+-h	print usage
+```
+
+#### Internal work files
+
+All internal work files used with multi pass tools, have been eliminated. This change also allows parallel compilation. A temporary file is still used for building new libraries with lib, but it has the process id appended to it, to make it unique.
+
+The change means that WORKFILE options are no longer needed and are ignored. The optional drive specifier for MACROFILE is also ignored.
+
+#### Identifiers & Numbers
+
+- The underbar (_) , is now a valid character in identifiers, aligning with later versions of PL/M. This includes identifiers used for module names.
+- ASM80: The dollar ($) is now treated as a visual separator in identifiers
+- ASM80 & PL/M80:  Both dollar and underbar are treated as visual separators for numbers.
+
+### Application specific changes
+
+#### asm80
+
+The port of asm80 v4.1 and is based on asm80.ov4 which is the macro version of the assembler. I have seen this distributed as asm80 without the other overlays.
+
+Note, for the ISIS assembler. the main asm80 just determines whether to run asm80.ov4 (macro support), asm80.ov5 (large memory support no macros) or to use overlays asm80.ov1, asm80.ov2 and asm80.ov3 for small memory support.
+
+The following additional behaviour changes have been made to asm80
+
+- MACROFILE and MOD85 are now the default. NOMACROFILE and NOMOD85 have been added to remove the reserved words if needed
+- Labels and module name can now be up to 31 characters to align with PL/M-80.
+  Note, as the assembler truncates identifiers, you may see errors reported for older code with identifiers longer than the six character limit, these will need to be fixed manually.
+- The header lines have been modified to reflect that they are no longer ISIS-II and to enable long module names to be centred in the available space. Additionally, if there is room, the date and time of the assembly in the format [yyyy-mm-dd hh:mm] will also be included. The default header width is now 80 unless the page width is smaller.
+- The Symbol Cross Reference now uses the common new page functionality so page numbers don't restart from 1
+- Symbol and Cross Reference information that cross page boundaries how add a sub heading to indicate that the information is continued.
+- Limits on the source line length have been removed, however for listing purposes very long lines are truncated.
+- The maximum number of tokens on a line has been increased to 20. This allows longer db/dw statements.
+- The combined length of nested macro arguments has been increased to 4096.
+- PAGELENGTH and PAGEWIDTH can now be set up to a value of 65535, with 0 an alias for 65535. Existing lower limits still apply.
+- For the auto generated default .lst and .obj files a check is made on whether the file name part is upper case only. If it is, then uppercase extensions .LST and .OBJ are used instead.
+- The XREF processing is now built in and does not require temporary files.
+- A new option MAKEDEPEND has been added to generate dependency information for use by make
+
+```
+MAKEDEPEND [(file)]
+		   file defaults to .deps/{src}.d, where {src} is input name without extent
 ```
 
 ### lib, link & locate
 
-The ports of lib v2.1, link v3.0 and locate v3.0
+Ports of lib v2.1, link v3.0 and locate v3.0
 
-```
-Usage is as per Intel documentation, noting the :Fn: mapping mentioned above
-```
+- Commas in lists that are enclosed in parentheses, are now optional
+- Commas in file name lists are also optional with the list terminating with an option keyword. In the rare case that a file has the same name, add a ./ prefix.
+  Note in LINK, PUBLICS does not break the list, however it is possible to include a file called publics by using ./publics
+- LINK & LOCATE: New option EXTERNOK. This will treat unresolved externals as warnings and not delete the output file. The primary use of this is when building overlays.
+- LOCATE: If the MEMORY segment is not the last segment, its size is truncated to avoid the overlap. 
+- LOCATE: New option OVERLAPOK. This will treat overlapping memory segments as warnings and will not delete the output file. This option has been provided to replicate similar functionality provided by the thames emulator. Its use it not recommended. Historically it was used in two scenarios:
+  - When using an absolute object file to patch code. It is now recommended to use the fixobj utility which is one of the tools found at https://github.com/ogdenpm/tool-src
+  - To work around the segment size problem when MEMORY was not the last segment. This is now addressed, see above.
+- LIB: Now optionally supports a single command line operation after which it will exit
+- LIB: A new option INIT, which is like ADD, but ignores any existing library content. It is designed to provide a single command to rebuild a library file, rather than deleting an existing file, creating a new library and adding modules.
 
 ### plm80 (source in plm80c)
 
@@ -40,11 +111,39 @@ When compiled it generates an executable plm80.exe
 
 Note I kept the old directory naming to avoid messing up the git history.
 
-```
-Usage is as per Intel documentation, noting the :Fn: mapping mentioned above
-```
+- Limits have been increased, specifically
+  - Max String length, including literals - 4096
+  - Max Identifier strings - 2500 - unique identifier names
+  - Max Identifier definition - 3000 - allows for identifiers reused in different scopes
+  - Max Identifier references - 4000
+  - Max Cases - 1000
+  - Max Structure members - 33
+  - Max Factored names in definition - 33
+  - Max Unique Includes 40
+- The DATE option now allows 10 characters, also if the (string) is omitted then todays date/time is used.
+  For some reason the original date string entry allows nesting using  ( and ), given that the original maximum length was 9 characters, this does seem bizarre. The nesting is still supported.
+- A new option MAKEDEPEND has been added to generate dependency information for use by make.
+- XREF option, sorts the labels, alphabetically and unlike the ISIS PL/M80 implementation, where labels of the same name occur, these are sorted by earliest location seen.
+- IXREF option, modified to support longer file names, specifically
+  - Any directory component is ignored, this is consistent with the drive being skipped under ISIS.
+  - For file names <= 10 chars, the format is as per PL/M80 V4.0, i.e. 10 character file name, padded with trailing spaces if required, followed by 9 dashes.
+  - For longer file names, the file name is 16 characters; truncated or padded with spaces as required, followed by a 0 and two spaces. With ISIS IXREF, this will show the first 10 characters, two spaces and the remaining characters under the diskette name. The 0 prevents the diskette name dot being shown.
+  - Additionally for longer names a new record is written at the end of the IXI file containing the full name. ISIS IXREF will report this as a bad record and ignore it, the new IXREF will use this as the full filename.
+- INTVECTOR, RESET, SET and WORKFILES, still require commas as per Intel documentation. WORKFILES is however redundant.
+
+### ixref
+
+This is a port of ixref 1.3. Internally it is a major rewrite, to use an in memory sort, rather than merge file sort. It has also been modified to accept an additional record as noted in the PL/M80 comments above.
+
+Simple wildcard file matching is supported to allow its use in response files and continuation lines. On the command line these may need quoting to avoid normal shell expansion.
+
+As of 14-Nov-2023, the thames emulator auto generates an ISIS.LAB and ISIS.DIR file so that PL/M3.1 can use IXREF and the emulated versions of IXREF work, although the C port is preferred.
+
+Note PL/M3.0 does not support IXREF.
 
 ## Other ports
+
+### ml80, l81, l82, l83
 
 Recently updated C ports of the ml80 assembler chain found under cpmsrc in the [Intel80Tools](https://github.com/ogdenpm/intel80tools) repository. The original port was done in July 2007. It has been updated to reflect the more recent comments added to the plm source.
 
@@ -64,7 +163,7 @@ For cases sensitive file systems, note the filename part is converted to lower c
 
 ### oldplm80 (source in plm80)
 
-This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but now consider it to be obsolete. The  original port was done in 2003.
+This was a very early translation from the plm v4.0 binaries to C++. It was done before I decompiled the source to PL/M. It is written in an old version of C++ and is very clunky. I have left it for historical reasons but now consider it to be obsolete. The  original port was done in 2007
 
 If you compile the source it will now generate an executable oldplm80.exe
 
@@ -119,6 +218,44 @@ filenames can be any valid OS filename
 ```
 
 ## Notes on porting
+
+The notes below were written several years ago and whilst they capture the approach I used and some  are still relevant, I have since made changes to improve the quality of the port. The key ones are
+
+- I/O now uses stdio which makes the original application buffering code redundant.
+
+- Command line handling has been improved to allow very long lines.
+
+- Most tools now support native OS filenames and allow spaces instead of commas in lists.
+
+- Heap management is now handled with native memory management, although there are some cases where indexed arrays are pre allocated, especially where the indexes are passed via external files.
+
+- Data types are now better handled wrt. big/little endian support.
+
+- Some unions of structures have been unwound into a single structure. For the original code these unions saved precious memory, however they added complexity and potentially  leaves memory unaligned. With modern systems memory is usually readily available, so such savings are not needed.
+
+- For  memory saving reasons, global variables were quite common in the original code. Where I can determine the genuine scope of the variables, I prefer to convert the variables into locals and or pass as parameters.
+
+- If possible I remove internal work files between overlays. This is done by writing directly to the final data structures or by using a virtual file internally. By doing this the applications can be invoked in parallel if needed.
+
+- Occasionally I have had to split code due to C sequence point constraints. Common ones being
+
+  - Parameter evaluation, which C allows in any order.
+
+  - lhs and rhs evaluation order for binary operands.
+
+
+```
+For example
+call func(i, i := i + 2);
+will excute differently dependent on which parameter is evaluated first
+likewise
+a = b(i) xor b(i := i + 1);
+will generate different results depending on whether the  lhs or rhs is evaluated first
+```
+
+
+
+#### Original Notes
 
 Prior to porting it is helpful to make sure that the source code follows a  number of conventions as this makes it easier to spot variables vs. functions and helps with semi automation of the conversion. In particular
 
@@ -409,5 +546,5 @@ In addition to avoiding overlays this also allows for code sharing to be done, h
 ------
 
 ```
-Updated by Mark Ogden 22-Oct-2020
+Updated by Mark Ogden 13-Nov-2023
 ```

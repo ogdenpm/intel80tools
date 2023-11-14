@@ -70,14 +70,18 @@ The basic structure of the makefile is
 * **OBJBIN** - set to the obj2bin program
 * **PLM81 & PLM82** - set the the first and second pass of the old PL/M compiler - my port from the Fortran version.
 * **PLM80** - the version of the PLM80 compiler to be used. Set to 4.0 if not previously specified
+* **PLM86** - version of PLM86 compiler to use. Set to 2.1 if not previously specified
 * **PLMFLAGS** - set to code if not defined
 * **ASM80** - the version of ASM80 to be used. Set to 4.1 if not previously specified
 * **ASM48** - the version of ASM48 to be used. Set to 4.2 if not previously specified
 * **ASM80X** - set to the asm80x.pl program, which is a wrapper around asm80 to support long variable names.
-  Note this previously was set to asmx.pl which is a more experimental wrapper with struct support.
+  Note is set to asmx.pl which is a more experimental wrapper with struct support. With the latest port of ASM80 to C, the ASM80 v4.1 assembler now supports long variable names directly.
+* **ASM86** - the version of ASM86 to use. Set to 2.1 if not previously specified
 * **LIB80** - the version of the LIB to be used. Set to 2.1 if not previously specified
 * **LINK80** - the version of the LINK to be used. Set to 3.0 if not previously specified
+* **LINK86** - the version of the LINK86to be used. Set to 1.3 if not previously specified
 * **LOCATE80** - the version of the LOCATE to be used. Set to 3.0 if not previously specified
+* **LOC86** - the version of the LOC86 to be used. Set to 1.3 if not previously specified
 * **FORT80** - the version of the FORT80 compiler to be used. Set to 2.1 if not previously specified
 * **plm80.lib** - simple variable to reference plm80.lib
 * **system.lib** - simple variable to reference system.lib associated with specified PLM80 version
@@ -206,9 +210,9 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
   *Note. Unlike other macros the listing file does not use the input filename as the basis of its name.*
    `Usage: $(call link,relocfile,object files[,target specific options])`
 
-* **link-nocheck** - this is the same as link with the exception that unresolved names are not treated as an error. It is designed to support building overlay files.
+* **link-externok** - this is the same as link with the exception that unresolved names are not treated as an error. It is designed to support building overlay files.
 
-     ``Usage: $(call link-nocheck,relocfile,object files[,target specific options])``
+     ``Usage: $(call link-externok,relocfile,object files[,target specific options])``
 
 * **locate** - locates a file producing the specified file and a listing file in the $(LST) directory. The listing file has the same name as the relocatable file but with the extension .map.
 
@@ -216,9 +220,9 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
 
   ``Usage: $(call locate,target,relocfile[,target specific options])``
 
-* **locate-nocheck** - this is the same as locate with the exception that unsatisfied names are not treated as an error. It is designed to support building overlay files.
+* **locate-externok** - this is the same as locate with the exception that unsatisfied names are not treated as an error. It is designed to support building overlay files.
 
-     ``Usage: $(call locate-nocheck,target,relocfile files[,target specific options])``
+     ``Usage: $(call locate-externok,target,relocfile files[,target specific options])``
 
 * **locate-overlaps** - this is the same as locate with the exception that overlaps names are not treated as an error. *Depreciated*
 
@@ -312,6 +316,14 @@ elsewhere, especially fixpath, ipath and ifile
         returns
             a,b,c
 
+* **prog** - create a path to the program. If the version required matches the C port (cver) use it, otherwise emulate using the version in itools
+
+    ```
+    Usage: $(call prog,progname,progver[,cver])
+    ```
+
+    
+
 ### Rules defined in isis.mk
 
 As with normal make usage a number of predefined rules are added by isis.mk.
@@ -345,6 +357,12 @@ Only five implicit build rules are defined, one to generate a hex file from an a
     
     $(OBJ)/%.hex: %.a48 | $(OBJ) $(LST)
     	$(call asm48,$@,$<)
+    	
+    $(OBJ)/%.o86: %.plm | $(OBJ) $(LST)
+    	$(call plm86,$@,$<)
+    
+    $(OBJ)/%.o86: %.asm  | $(OBJ) $(LST)
+    	$(call asm86,$@,$<)
 
 The **| \$(OBJ) \$(LST)** is used to auto create directories
 
@@ -646,6 +664,10 @@ V30:
 
 ## Change log
 
+### 14-Nov-2023
+
+Updated to reflect recent changes
+
 ### 26-Nov-2020
 
 Changed LIB, LINK, LOCATE macros to LIB80, LINK80, LOCATE80
@@ -706,5 +728,5 @@ Converted all makefiles to use ITOOLS and removed ROOT. Isis.mk exports _ITOOLS 
 ------
 
 ```
-Updated by Mark Ogden 26-Nov-2020
+Updated by Mark Ogden 14-Nov-2023
 ```

@@ -128,13 +128,13 @@ $(OBJ)/root.abs: $(OBJ)/root.rel
 	$(call locate-externok,$@,$^,STACKSIZE(120)) 
 
 $(OBJ)/root.rel: $(call objdir,$(ROOTOBJS))
-	$(call link-warnok,$@,$^ $(system.lib,3.1) $(plm80.lib))
+	$(call link-externok,$@,$^ $(system.lib,3.1) $(plm80.lib))
 
 $(OBJ)/keyn.abs: $(OBJ)/keyn.rel
 	$(call locate-externok,$@,$^,CODE($(KEYCODE)) STACKSIZE(0))
 
 $(OBJ)/keyn.rel: $(call objdir,$(KEYOBJS))
-	$(call link-warnok,$@,$^)
+	$(call link-externok,$@,$^)
 
 
 # these are special build rules to process the plx files

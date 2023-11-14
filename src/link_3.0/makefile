@@ -49,19 +49,19 @@ link0.abs: link0.rel
 	$(call locate-externok,$@,$^,STACKSIZE(84) COLUMNS(3))
 
 link0.rel: $(OBJ0)
-	$(call link-warnok,$@,$^ $(plm80.lib))
+	$(call link-externok,$@,$^ $(plm80.lib))
 
 link1.abs: link1.rel
 	$(call locate-externok,$@,$^,CODE(48DEH) STACKSIZE(0))
 
 link1.rel: $(OBJ1) $(PUB1)
-	$(call link-warnok,$@,$(OBJ1) $(call publics,$(PUB1)) $(plm80.lib))
+	$(call link-externok,$@,$(OBJ1) $(call publics,$(PUB1)) $(plm80.lib))
 
 link2.abs: link2.rel
 	$(call locate-externok,$@,$^,CODE(629DH) STACKSIZE(0))
 
 link2.rel: $(OBJ2) $(PUB2)
-	$(call link-warnok,$@,$(OBJ2) $(call publics,$(PUB2)) "$(system.lib)(delete)" $(system.lib))
+	$(call link-externok,$@,$(OBJ2) $(call publics,$(PUB2)) "$(system.lib)(delete)" $(system.lib))
 
 linkov.abs: $(OBJOVL)
 	$(call locate-externok,$@,$<,CODE(48DEH) STACKSIZE(0))

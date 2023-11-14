@@ -33,6 +33,6 @@ loclow.abs: loclow.rel
 	$(call locate-externok,$@,$^,STACKSIZE(6Ch))
 
 loclow.rel: $(LOWOBJ)
-	$(call link-warnok,$@,$^ $(plm80.lib))
+	$(call link-externok,$@,$^ $(plm80.lib))
 
 
