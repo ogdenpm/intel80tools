@@ -22,7 +22,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 %.com: %.abs
-	$(OBJBIN) $^ $@
+	$(ABSBIN) $^ $@
 
 %.abs: %.rel
 	$(info $@ $^)
