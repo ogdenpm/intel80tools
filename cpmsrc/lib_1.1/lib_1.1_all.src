@@ -1,3 +1,440 @@
+cmdlin.plm
+parseCmdLine: do;
+$include(cmdlin.ipx)
+declare nullStr byte data(0);
+
+/* utility to advance cmdline pointer to next char */
+AdvNextChar: procedure;
+    spec.strP = spec.strP + 1;
+end;
+
+/*
+    utility of check if current cmdCh is not a delimiter
+    returns FALSE if in list and TRUE otherwise
+    Note not delimP points to the delimiters terminated with 0ffh
+*/
+IsNotDelim: procedure(delimP) bool;
+    declare delimP address;
+    declare ch based delimP byte;
+
+    do while ch <> 0ffh;
+        if cmdCh = ch then
+            return FALSE;
+        delimP = delimP + 1;
+    end;
+    return TRUE;
+end;
+
+/* get replacement file name in fcb1. Set noReplacement if missing */
+GetReplacement: procedure;
+
+    call advNextChar;
+    if cmdCh = '>' or cmdCh = ',' then  /* no file !! */
+        noReplacement = TRUE;
+    else
+    do;
+        spec.fcbP = .fcb1;      /* get replacement in fcb1 */
+        if (spec.strP := ParseFile(.spec)) >= 0fffeh then
+            call Fatal(.aSyntaxError);
+    end;
+end;
+
+
+/*
+    parse module name
+    updates cmdline ptr and sets isRange and isEOP appropriately
+*/
+ParseModuleName: procedure public;
+    isRange = FALSE;
+    tokenLen = 0;
+    call advNextChar;
+
+    do while IsNotDelim(.(',=', 0, '>)-', 0ffh));    /* continue until delimiter seen */
+        tokenName(tokenLen) = cmdCh;
+        if (tokenLen := tokenLen + 1) >= 7 then     /* oops too many chars */
+            call Fatal(.aSyntaxError); 
+        call advNextChar;
+    end;
+
+    if cmdCh = '-' then
+        isRange = TRUE;
+    if cmdCh = ')' then
+        isEOP = TRUE;
+end;
+
+
+/* parse the (..) modifier i.e. for select */
+ParseSelect: procedure;
+    if selectFlag then                /* nested select not allowed */
+        call Fatal(.aSyntaxError);
+
+    selectFlag = TRUE;
+    startSelectionP = spec.strP;    /* save start of selection */
+
+    do while cmdCh <> ')';          /* continue until end of select modifier */
+        call ParseModuleName;       /* parse a module */
+        if tokenLen = 0 then        /* record if none */
+            noName = TRUE;
+        else if not FindModule(.tokenName, tokenLen) then    /* add any new module */
+            call InsertModule(.tokenName, tokenLen, FALSE, 0);
+
+        if isRange then             /* we have a range so get end name */
+        do;
+            call ParseModuleName;   /* parse end module, but don't save as only syntax check here */
+            if tokenLen = 0 then    /* no name: use dummy name 'l' to signify to end of file */
+            do;
+                tokenLen = 1;
+                tokenName(0) = 'l';
+            end;
+        end;
+        if IsNotDelim(.(',)', 0ffh)) then    /* should have ',' or ')' */
+            call Fatal(.aSyntaxError);
+    end;
+end;
+
+/* parse the <..> modifier i.e. for replace / delete */
+ParseModify: procedure;
+    declare replaceP address;       /* -> replace file name */
+
+    modifyFlag = TRUE;              /* note we are in modify group */
+
+    do while cmdCh <> '>';          /* go till end of modify modifier */
+        replaceP = spec.strP + 1;   /* single name is a short hand for replace */
+        noReplacement = FALSE;      /* so we have a replacement */
+        call ParseModuleName;       /* get the module name */
+        if tokenLen = 0 then        /* check if missing */
+            call Fatal(.aSyntaxError);
+
+        if cmdCh = '=' then         /* explicit replacement */
+        do;
+            hasAssign = TRUE;
+            replaceP = spec.strP + 1; /* point to start of replacement */
+            call GetReplacement;    /* get replacement file name to fcb1 */
+            if noReplacement then   /* it's a delete so no replacement */
+                replaceP = 0;
+        end;
+
+        if FindModule(.tokenName, tokenLen) then /* if already known update to record replacement */
+        do;
+            curModule.replaceP = replaceP;
+            curModule.len = curModule.len or 80h;   /* set replaceFlag */
+        end;
+        else                                    /* or create new if does not exist */
+            call InsertModule(.tokenName, tokenLen, TRUE, replaceP);
+
+        if IsNotDelim(.(',>', 0ffh)) then    /* need , or > here */
+            call Fatal(.aSyntaxError);
+    end;
+end;
+
+/* parse the 4 option modifiers */
+ParseOption: procedure;
+    
+    call advNextChar;
+
+    do while cmdCh <> ']';      /* should end with ] */
+        if cmdCh = 'D' then
+            dFlag = TRUE;
+        else if cmdCh = 'I' then
+            iFlag = TRUE;
+        else if cmdCh = 'M' then
+            mFlag = TRUE;
+        else if cmdCh = 'P' then
+            pFlag = TRUE;
+        else
+            call Fatal(.aSyntaxError);
+        call advNextChar;
+    end;
+end;
+
+/* parse a file spec and modifiers */
+
+ParseSpec: procedure(allowEq) public;
+    declare allowEq bool;
+
+    modifyFlag = FALSE;             /* no < or ( so far */
+    selectFlag = FALSE;
+    botP = topP;                    /* clear module list info */
+
+    call advNextChar;
+    spec.fcbP = .srcFcb;             /* fill srcFcb */
+
+    if (spec.strP := ParseFile(.spec)) >= 0fffeh then   /* parse the file and update the position in cmdline */
+        call Fatal(.aSyntaxError);                      /* error if bad file */
+
+    if spec.strP = 0 then           /* if NULL point to empty string - we are at end of line */
+        spec.strP = .nullStr;
+
+    do while IsNotDelim(.(',=', 0, 0ffh));   /* until ',' '=' or EOL */
+        if cmdCh = '(' then         /* (....) selection */
+            call ParseSelect;
+        else if cmdCh = '<' then    /* <...> delete/replace */
+            call ParseModify;
+        else if cmdCh = '[' then    /* [...] options */
+            call ParseOption;
+        else
+            call  Fatal(.aSyntaxError);
+        call advNextChar;
+    end;
+
+    if cmdCh = 0 then               /* note if at end of line */
+        isEOL = TRUE;
+    else if cmdCh = '=' and not allowEq then    /* if = then check if allowed here */
+        call Fatal(.aSyntaxError);
+end;
+
+/* initial scan of command line, does not build the output file */
+FirstScan: procedure public;
+    isEOL = FALSE;
+    call ParseSpec(TRUE);       /* parse first spec '=' allowed */
+    do while not isEOL;         /* parse remaining specs '=' not allowed at top level */
+        call ParseSpec(FALSE);
+    end;
+end;
+
+end;
+
+cpm.plm
+/* raw cpm interface procedures */
+/*
+    note although Delete & Rename return a result code
+    the main code assumes they don't hence the procedure
+    definitions don't match.
+    Modifying Delete & Rename to be simple procedures
+    would prevent the call to Mon2
+*/
+cpm: do;
+$include(cpm.ipx)
+
+CWrite: procedure(ch) public;
+    declare ch byte;
+   
+    call Mon1(COWR, ch);
+end;
+
+CWriteCRLF: procedure public;
+    call CWrite(CR);
+    call CWrite(LF);
+end;
+
+
+WriteStr: procedure(str) public;
+    declare str address;
+
+    call Mon1(COWSTR, str);
+end;
+
+
+
+CStat: procedure byte public;
+    return Mon2(COSTAT, 0);
+end;
+
+
+SetDMA: procedure(bufP) public;
+    declare bufP address;
+
+    call Mon1(FDMA, bufP);
+end;
+
+Delete: procedure(fcbP) byte public;        /* globally defined as returning nothing */
+    declare fcbP address;
+
+    return Mon2(FDEL, fcbP);
+end;
+
+Open: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return Mon2(FOPEN, fcbP);
+end;
+
+Read: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return Mon2(FREAD, fcbP);
+end;
+
+
+Write: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return Mon2(FWRITE, fcbP);
+end;
+
+Make: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    return Mon2(FMAKE, fcbP);
+end;
+
+Close: procedure(fcbP) byte public;
+    declare fcbP address;
+
+    call SetDMA(.cmdLine);
+    return Mon2(FCLOSE, fcbP);
+end;
+
+Rename: procedure(fcbP) byte public;        /* globally defined as returning nothing */
+    declare fcbP address;
+
+    return Mon2(FREN, fcbP);
+end;
+
+/* the core I/O buffer declarations */
+declare cmdBuffer(128) byte public;                 /* copy of command line */
+declare repBuf(512) byte public;                    /* input buffer for replacement file */
+declare srcBuf(1024) byte public;                   /* input buffer for source file */
+declare outIrlBuf(1024) byte public;                /* output buffer for IRL file */
+declare outRelBuf(1) byte public at(.MEMORY);       /* output buffer for REL file - uses all of remaining memory */
+end;
+
+cpmvec.asm
+    name cpmvec
+    public  Mon1, Mon2, Mon3, Reboot
+
+; misc thunks to the underlying CPM call at location 5
+; also provides a convinent place to note address of reboot
+    ASEG
+    org 0
+Reboot:
+    org 5
+cpm: 
+
+    CSEG
+
+Mon1:               ; cpm no result
+    jmp     cpm
+
+Mon2:               ; cpm byte result
+    jmp     cpm
+
+Mon3:               ; guess cpm word result. Not actually called
+    jmp     cpm
+
+    end
+
+io.plm
+io: do;
+$include(io.ipx)
+
+/* file operations that wrap the low level CPM calls */
+
+declare aAborted(*) byte initial('ABORTED$');
+declare aDiskReadError(*) byte initial('DISK READ ERROR$');
+declare aDiskWriteError(*) byte initial('DISK WRITE ERROR$');
+declare aCannotClose(*) byte initial('CANNOT CLOSE$');
+declare aDirectoryFull(*) byte initial('DIRECTORY FULL$');
+declare aNoFile(*) byte initial('NO FILE: $');
+declare rwSectorCnt word;
+
+/* print the file name stored in an fcb in the format name.ext to the console */
+PrintFileName: procedure(fcbP);
+    declare fcbP address;
+    declare fcb based fcbP (33) byte;
+    declare i byte;
+
+    do i = 1 to 11;
+        if fcb(i) <> ' ' then
+            call CWrite(fcb(i));
+        if i = 8 then
+            call CWrite('.');
+    end;
+end;
+
+/* report file error on the console in the format msg filename. Then exit */
+IOErr: procedure(msg, fcbP) public;
+    declare (msg, fcbP) address;
+
+    call WriteStr(msg);
+    call PrintFileName(fcbP);
+    call Fatal(.('$'));
+end;
+
+
+/* support procedure to read / write a buffer */
+RwFile: procedure(bufP, len, fcbP, isWrite);
+    declare (bufP, fcbP) address, len word, isWrite bool;
+
+    if CStat then           /* check if user pressed a key to abort */
+        call Fatal(.aAborted);
+
+    rwSectorCnt = 0;        /* count of sectors read/written */
+
+    do while (len := len - 128) <> 0ff80h;  /* transfer up to maximum len bytes */
+        call SetDMA(bufP);                  /* set transfer address */
+        if isWrite = FALSE then             /* select read / write operation */
+        do;
+            if Read(fcbP) > 0 then          /* read sector and check ok */
+                if rwSectorCnt = 0 then     /* if not and no sectors then error */
+                    call Fatal(.aDiskReadError);
+                else                        /* else treat as EOF */
+                    return;
+        end;
+        else if Write(fcbP) > 0 then        /* write and check ok */
+            call Fatal(.aDiskWriteError);
+
+        bufP = bufP + 128;                  /* update the transfer address and sector cnt */
+        rwSectorCnt = rwSectorCnt + 1;
+    end;
+    call SetDMA(.cmdLine);                  /* revert to default DMA. Note EOF rout doesn't do this */
+end;
+
+
+/* wrapper to read a buffer and return the number of sectors read */
+ReadFile: procedure(bufP, len, fcbP) word public;
+    declare (bufP, fcbP) address, len word;
+
+    call RwFile(bufP, len, fcbP, FALSE);
+    return rwSectorCnt;
+end;
+
+/* wrapper to write a buffer */
+WriteFile: procedure(bufP, len, fcbP) public;
+    declare (bufP, fcbP) address, len word;
+
+    call RwFile(bufP, len, fcbP, TRUE);
+end;
+
+
+/* create a new file using the passed in fcb */
+CreateFile: procedure(fcbP) public;
+    declare fcbP address;
+    declare fcb based fcbP (32) byte;
+    declare i byte;
+
+    call Delete(fcbP);              /* delete any existing file */
+
+    do i = 12 to 32;                /* clear out the fcb except for the drive and name.ext */
+        fcb(i) = 0;
+    end;
+
+    if Make(fcbP) = 255 then        /* make the new file - error then disk is full */
+        call Fatal(.aDirectoryFull);
+end;
+
+/* open existing file as per the passed in fcb */
+OpenFile: procedure(fcbP) public;
+    declare fcbP address;
+    declare fcb based fcbP (32) byte;
+
+    fcb(FCB$EX), fcb(FCB$CR) = 0;   /* set ex and cr to 0 to start at beginning */
+    if Open(fcbP) = 255 then        /* open and check ok */
+        call IOErr(.aNoFile, fcbP);
+end;
+
+/* close existing file as per passed in fcb */
+CloseFile: procedure(fcbP) public;
+    declare fcbP address;
+    
+    if Close(fcbP) = 255 then       /* close and check ok */
+        call Fatal(.aCannotClose);
+end;
+end;
+
+lib.patch
+# fill with control Z to end of 128 byte boundary
+1cdc 1a x 24
 lib.pex
 Close           P(A fcbP)B
 CloseFile       P(A fcbP)
@@ -744,6 +1181,114 @@ end;
 
 
 
+parsef.plm
+parseFile: do;
+$include(parsef.ipx)
+
+/* convert input to upper case or to CR if control character */
+
+ToUpper: procedure(ch) byte;
+    declare ch byte;
+    if ch < ' ' then
+        return CR;
+
+    if 'a' <= ch and ch <= 'z' then
+        ch = ch and 5fh;
+    return ch;
+end;
+
+/* parse a file name to fcb. Input is a pointer to 2 addresses the input string and output fcb */
+
+ParseFile: procedure(ptr) address public;
+    declare ptr address;
+    declare fspec based ptr FSPEC$T;
+    declare (strP, fcbP) address;
+    declare (curCh, nameIdx, fcbIdx) byte;
+    declare fcb based fcbP (32) byte;
+    declare str based strP (12) byte;
+    declare delim(*) byte data(CR, ' =.:<>_[],()');
+
+    ChFromStr: procedure;  /* get next char */
+        curCh = ToUpper(str(nameIdx := nameIdx + 1));
+    end;
+
+    /* return TRUE if curCh is a file delimiter */
+    IsFileDelim: procedure bool;
+        declare i byte;
+
+        do i = 0 to last(delim);
+            if delim(i) = curCh then
+                return TRUE;
+        end;
+        return FALSE;
+    end;
+
+    ChToFcb: procedure;     /* put char to fcb */
+        fcb(fcbIdx := fcbIdx + 1) = curCh;
+    end;
+
+
+    strP = fspec.strP;
+    fcbP = fspec.fcbP;
+
+    curCh = ' ';
+    fcbIdx =0;
+    nameIdx = 0ffh; 
+
+    do while fcbIdx < 15;       /* init fcb */
+        if fcbIdx = 11 then     /* name is spaces reset is 0 */
+            curCh = 0;
+        call ChToFcb;
+    end;
+
+    fcb(FCB$DR) = 0;            /* assume default drive */
+
+    do while 1;
+        call ChFromStr;
+        do while curCh = ' ';   /* skip leading spaces */
+            call ChFromStr;
+        end;
+
+        if IsFileDelim then         /* no name so return error */
+            return 0ffffh;
+
+        fcbIdx = 0;
+        do while not IsFileDelim;   /* get filename */
+            if fcbIdx >= 8 then /* more than 8 chars then error */
+                return 0ffffh;
+            call ChToFcb;
+            call ChFromStr;
+        end;
+        if curCh = ':' then     /* was it a drive spec ? */
+        do;
+            if not (fcb(0) = 0 and fcbIdx = 1) then     /* error if not x: or more than 1 drive spec */
+                return 0ffffh;
+            if (fcb(0) := fcb(1) - 'A' + 1) > 26 then   /* error if not A-Z */
+                return 0ffffh;
+            fcb(fcbIdx) = ' ';                          /* undo the char save */
+        end;
+        else                    /* get ext if present */
+        do;
+            fcbIdx = 8;         /* update insert point in fcb */
+            if curCh = '.' then /* check for '.' */
+            do;
+                call ChFromStr;        /* collect the ext */
+                do while not IsFileDelim;   /* make sure no more than 3 char ext else error */
+                    if fcbIdx >= 11 then
+                        return 0ffffh;
+                    call ChToFcb;
+                    call ChFromStr;
+                end;
+            end;
+            if curCh = CR then          /* return 0 for end of line */
+                return 0;
+            return .str(nameIdx);       /* else return pointer to next char */
+        end;
+    end;
+end;
+
+end;
+
 rel.plm
 rel: do;
 $include(rel.ipx)
@@ -1163,310 +1708,6 @@ RdRelItem: procedure byte public;
     end;
 end;
 end;
-cmdlin.plm
-parseCmdLine: do;
-$include(cmdlin.ipx)
-declare nullStr byte data(0);
-
-/* utility to advance cmdline pointer to next char */
-AdvNextChar: procedure;
-    spec.strP = spec.strP + 1;
-end;
-
-/*
-    utility of check if current cmdCh is not a delimiter
-    returns FALSE if in list and TRUE otherwise
-    Note not delimP points to the delimiters terminated with 0ffh
-*/
-IsNotDelim: procedure(delimP) bool;
-    declare delimP address;
-    declare ch based delimP byte;
-
-    do while ch <> 0ffh;
-        if cmdCh = ch then
-            return FALSE;
-        delimP = delimP + 1;
-    end;
-    return TRUE;
-end;
-
-/* get replacement file name in fcb1. Set noReplacement if missing */
-GetReplacement: procedure;
-
-    call advNextChar;
-    if cmdCh = '>' or cmdCh = ',' then  /* no file !! */
-        noReplacement = TRUE;
-    else
-    do;
-        spec.fcbP = .fcb1;      /* get replacement in fcb1 */
-        if (spec.strP := ParseFile(.spec)) >= 0fffeh then
-            call Fatal(.aSyntaxError);
-    end;
-end;
-
-
-/*
-    parse module name
-    updates cmdline ptr and sets isRange and isEOP appropriately
-*/
-ParseModuleName: procedure public;
-    isRange = FALSE;
-    tokenLen = 0;
-    call advNextChar;
-
-    do while IsNotDelim(.(',=', 0, '>)-', 0ffh));    /* continue until delimiter seen */
-        tokenName(tokenLen) = cmdCh;
-        if (tokenLen := tokenLen + 1) >= 7 then     /* oops too many chars */
-            call Fatal(.aSyntaxError); 
-        call advNextChar;
-    end;
-
-    if cmdCh = '-' then
-        isRange = TRUE;
-    if cmdCh = ')' then
-        isEOP = TRUE;
-end;
-
-
-/* parse the (..) modifier i.e. for select */
-ParseSelect: procedure;
-    if selectFlag then                /* nested select not allowed */
-        call Fatal(.aSyntaxError);
-
-    selectFlag = TRUE;
-    startSelectionP = spec.strP;    /* save start of selection */
-
-    do while cmdCh <> ')';          /* continue until end of select modifier */
-        call ParseModuleName;       /* parse a module */
-        if tokenLen = 0 then        /* record if none */
-            noName = TRUE;
-        else if not FindModule(.tokenName, tokenLen) then    /* add any new module */
-            call InsertModule(.tokenName, tokenLen, FALSE, 0);
-
-        if isRange then             /* we have a range so get end name */
-        do;
-            call ParseModuleName;   /* parse end module, but don't save as only syntax check here */
-            if tokenLen = 0 then    /* no name: use dummy name 'l' to signify to end of file */
-            do;
-                tokenLen = 1;
-                tokenName(0) = 'l';
-            end;
-        end;
-        if IsNotDelim(.(',)', 0ffh)) then    /* should have ',' or ')' */
-            call Fatal(.aSyntaxError);
-    end;
-end;
-
-/* parse the <..> modifier i.e. for replace / delete */
-ParseModify: procedure;
-    declare replaceP address;       /* -> replace file name */
-
-    modifyFlag = TRUE;              /* note we are in modify group */
-
-    do while cmdCh <> '>';          /* go till end of modify modifier */
-        replaceP = spec.strP + 1;   /* single name is a short hand for replace */
-        noReplacement = FALSE;      /* so we have a replacement */
-        call ParseModuleName;       /* get the module name */
-        if tokenLen = 0 then        /* check if missing */
-            call Fatal(.aSyntaxError);
-
-        if cmdCh = '=' then         /* explicit replacement */
-        do;
-            hasAssign = TRUE;
-            replaceP = spec.strP + 1; /* point to start of replacement */
-            call GetReplacement;    /* get replacement file name to fcb1 */
-            if noReplacement then   /* it's a delete so no replacement */
-                replaceP = 0;
-        end;
-
-        if FindModule(.tokenName, tokenLen) then /* if already known update to record replacement */
-        do;
-            curModule.replaceP = replaceP;
-            curModule.len = curModule.len or 80h;   /* set replaceFlag */
-        end;
-        else                                    /* or create new if does not exist */
-            call InsertModule(.tokenName, tokenLen, TRUE, replaceP);
-
-        if IsNotDelim(.(',>', 0ffh)) then    /* need , or > here */
-            call Fatal(.aSyntaxError);
-    end;
-end;
-
-/* parse the 4 option modifiers */
-ParseOption: procedure;
-    
-    call advNextChar;
-
-    do while cmdCh <> ']';      /* should end with ] */
-        if cmdCh = 'D' then
-            dFlag = TRUE;
-        else if cmdCh = 'I' then
-            iFlag = TRUE;
-        else if cmdCh = 'M' then
-            mFlag = TRUE;
-        else if cmdCh = 'P' then
-            pFlag = TRUE;
-        else
-            call Fatal(.aSyntaxError);
-        call advNextChar;
-    end;
-end;
-
-/* parse a file spec and modifiers */
-
-ParseSpec: procedure(allowEq) public;
-    declare allowEq bool;
-
-    modifyFlag = FALSE;             /* no < or ( so far */
-    selectFlag = FALSE;
-    botP = topP;                    /* clear module list info */
-
-    call advNextChar;
-    spec.fcbP = .srcFcb;             /* fill srcFcb */
-
-    if (spec.strP := ParseFile(.spec)) >= 0fffeh then   /* parse the file and update the position in cmdline */
-        call Fatal(.aSyntaxError);                      /* error if bad file */
-
-    if spec.strP = 0 then           /* if NULL point to empty string - we are at end of line */
-        spec.strP = .nullStr;
-
-    do while IsNotDelim(.(',=', 0, 0ffh));   /* until ',' '=' or EOL */
-        if cmdCh = '(' then         /* (....) selection */
-            call ParseSelect;
-        else if cmdCh = '<' then    /* <...> delete/replace */
-            call ParseModify;
-        else if cmdCh = '[' then    /* [...] options */
-            call ParseOption;
-        else
-            call  Fatal(.aSyntaxError);
-        call advNextChar;
-    end;
-
-    if cmdCh = 0 then               /* note if at end of line */
-        isEOL = TRUE;
-    else if cmdCh = '=' and not allowEq then    /* if = then check if allowed here */
-        call Fatal(.aSyntaxError);
-end;
-
-/* initial scan of command line, does not build the output file */
-FirstScan: procedure public;
-    isEOL = FALSE;
-    call ParseSpec(TRUE);       /* parse first spec '=' allowed */
-    do while not isEOL;         /* parse remaining specs '=' not allowed at top level */
-        call ParseSpec(FALSE);
-    end;
-end;
-
-end;
-
-parsef.plm
-parseFile: do;
-$include(parsef.ipx)
-
-/* convert input to upper case or to CR if control character */
-
-ToUpper: procedure(ch) byte;
-    declare ch byte;
-    if ch < ' ' then
-        return CR;
-
-    if 'a' <= ch and ch <= 'z' then
-        ch = ch and 5fh;
-    return ch;
-end;
-
-/* parse a file name to fcb. Input is a pointer to 2 addresses the input string and output fcb */
-
-ParseFile: procedure(ptr) address public;
-    declare ptr address;
-    declare fspec based ptr FSPEC$T;
-    declare (strP, fcbP) address;
-    declare (curCh, nameIdx, fcbIdx) byte;
-    declare fcb based fcbP (32) byte;
-    declare str based strP (12) byte;
-    declare delim(*) byte data(CR, ' =.:<>_[],()');
-
-    ChFromStr: procedure;  /* get next char */
-        curCh = ToUpper(str(nameIdx := nameIdx + 1));
-    end;
-
-    /* return TRUE if curCh is a file delimiter */
-    IsFileDelim: procedure bool;
-        declare i byte;
-
-        do i = 0 to last(delim);
-            if delim(i) = curCh then
-                return TRUE;
-        end;
-        return FALSE;
-    end;
-
-    ChToFcb: procedure;     /* put char to fcb */
-        fcb(fcbIdx := fcbIdx + 1) = curCh;
-    end;
-
-
-    strP = fspec.strP;
-    fcbP = fspec.fcbP;
-
-    curCh = ' ';
-    fcbIdx =0;
-    nameIdx = 0ffh; 
-
-    do while fcbIdx < 15;       /* init fcb */
-        if fcbIdx = 11 then     /* name is spaces reset is 0 */
-            curCh = 0;
-        call ChToFcb;
-    end;
-
-    fcb(FCB$DR) = 0;            /* assume default drive */
-
-    do while 1;
-        call ChFromStr;
-        do while curCh = ' ';   /* skip leading spaces */
-            call ChFromStr;
-        end;
-
-        if IsFileDelim then         /* no name so return error */
-            return 0ffffh;
-
-        fcbIdx = 0;
-        do while not IsFileDelim;   /* get filename */
-            if fcbIdx >= 8 then /* more than 8 chars then error */
-                return 0ffffh;
-            call ChToFcb;
-            call ChFromStr;
-        end;
-        if curCh = ':' then     /* was it a drive spec ? */
-        do;
-            if not (fcb(0) = 0 and fcbIdx = 1) then     /* error if not x: or more than 1 drive spec */
-                return 0ffffh;
-            if (fcb(0) := fcb(1) - 'A' + 1) > 26 then   /* error if not A-Z */
-                return 0ffffh;
-            fcb(fcbIdx) = ' ';                          /* undo the char save */
-        end;
-        else                    /* get ext if present */
-        do;
-            fcbIdx = 8;         /* update insert point in fcb */
-            if curCh = '.' then /* check for '.' */
-            do;
-                call ChFromStr;        /* collect the ext */
-                do while not IsFileDelim;   /* make sure no more than 3 char ext else error */
-                    if fcbIdx >= 11 then
-                        return 0ffffh;
-                    call ChToFcb;
-                    call ChFromStr;
-                end;
-            end;
-            if curCh = CR then          /* return 0 for end of line */
-                return 0;
-            return .str(nameIdx);       /* else return pointer to next char */
-        end;
-    end;
-end;
-
-end;
-
 util.asm
     name    util
 ; assembler routines to extract bits from the rel file and to do string equality check
@@ -1640,242 +1881,4 @@ str2:
 
     end
 
-
-io.plm
-io: do;
-$include(io.ipx)
-
-/* file operations that wrap the low level CPM calls */
-
-declare aAborted(*) byte initial('ABORTED$');
-declare aDiskReadError(*) byte initial('DISK READ ERROR$');
-declare aDiskWriteError(*) byte initial('DISK WRITE ERROR$');
-declare aCannotClose(*) byte initial('CANNOT CLOSE$');
-declare aDirectoryFull(*) byte initial('DIRECTORY FULL$');
-declare aNoFile(*) byte initial('NO FILE: $');
-declare rwSectorCnt word;
-
-/* print the file name stored in an fcb in the format name.ext to the console */
-PrintFileName: procedure(fcbP);
-    declare fcbP address;
-    declare fcb based fcbP (33) byte;
-    declare i byte;
-
-    do i = 1 to 11;
-        if fcb(i) <> ' ' then
-            call CWrite(fcb(i));
-        if i = 8 then
-            call CWrite('.');
-    end;
-end;
-
-/* report file error on the console in the format msg filename. Then exit */
-IOErr: procedure(msg, fcbP) public;
-    declare (msg, fcbP) address;
-
-    call WriteStr(msg);
-    call PrintFileName(fcbP);
-    call Fatal(.('$'));
-end;
-
-
-/* support procedure to read / write a buffer */
-RwFile: procedure(bufP, len, fcbP, isWrite);
-    declare (bufP, fcbP) address, len word, isWrite bool;
-
-    if CStat then           /* check if user pressed a key to abort */
-        call Fatal(.aAborted);
-
-    rwSectorCnt = 0;        /* count of sectors read/written */
-
-    do while (len := len - 128) <> 0ff80h;  /* transfer up to maximum len bytes */
-        call SetDMA(bufP);                  /* set transfer address */
-        if isWrite = FALSE then             /* select read / write operation */
-        do;
-            if Read(fcbP) > 0 then          /* read sector and check ok */
-                if rwSectorCnt = 0 then     /* if not and no sectors then error */
-                    call Fatal(.aDiskReadError);
-                else                        /* else treat as EOF */
-                    return;
-        end;
-        else if Write(fcbP) > 0 then        /* write and check ok */
-            call Fatal(.aDiskWriteError);
-
-        bufP = bufP + 128;                  /* update the transfer address and sector cnt */
-        rwSectorCnt = rwSectorCnt + 1;
-    end;
-    call SetDMA(.cmdLine);                  /* revert to default DMA. Note EOF rout doesn't do this */
-end;
-
-
-/* wrapper to read a buffer and return the number of sectors read */
-ReadFile: procedure(bufP, len, fcbP) word public;
-    declare (bufP, fcbP) address, len word;
-
-    call RwFile(bufP, len, fcbP, FALSE);
-    return rwSectorCnt;
-end;
-
-/* wrapper to write a buffer */
-WriteFile: procedure(bufP, len, fcbP) public;
-    declare (bufP, fcbP) address, len word;
-
-    call RwFile(bufP, len, fcbP, TRUE);
-end;
-
-
-/* create a new file using the passed in fcb */
-CreateFile: procedure(fcbP) public;
-    declare fcbP address;
-    declare fcb based fcbP (32) byte;
-    declare i byte;
-
-    call Delete(fcbP);              /* delete any existing file */
-
-    do i = 12 to 32;                /* clear out the fcb except for the drive and name.ext */
-        fcb(i) = 0;
-    end;
-
-    if Make(fcbP) = 255 then        /* make the new file - error then disk is full */
-        call Fatal(.aDirectoryFull);
-end;
-
-/* open existing file as per the passed in fcb */
-OpenFile: procedure(fcbP) public;
-    declare fcbP address;
-    declare fcb based fcbP (32) byte;
-
-    fcb(FCB$EX), fcb(FCB$CR) = 0;   /* set ex and cr to 0 to start at beginning */
-    if Open(fcbP) = 255 then        /* open and check ok */
-        call IOErr(.aNoFile, fcbP);
-end;
-
-/* close existing file as per passed in fcb */
-CloseFile: procedure(fcbP) public;
-    declare fcbP address;
-    
-    if Close(fcbP) = 255 then       /* close and check ok */
-        call Fatal(.aCannotClose);
-end;
-end;
-
-cpm.plm
-/* raw cpm interface procedures */
-/*
-    note although Delete & Rename return a result code
-    the main code assumes they don't hence the procedure
-    definitions don't match.
-    Modifying Delete & Rename to be simple procedures
-    would prevent the call to Mon2
-*/
-cpm: do;
-$include(cpm.ipx)
-
-CWrite: procedure(ch) public;
-    declare ch byte;
-   
-    call Mon1(COWR, ch);
-end;
-
-CWriteCRLF: procedure public;
-    call CWrite(CR);
-    call CWrite(LF);
-end;
-
-
-WriteStr: procedure(str) public;
-    declare str address;
-
-    call Mon1(COWSTR, str);
-end;
-
-
-
-CStat: procedure byte public;
-    return Mon2(COSTAT, 0);
-end;
-
-
-SetDMA: procedure(bufP) public;
-    declare bufP address;
-
-    call Mon1(FDMA, bufP);
-end;
-
-Delete: procedure(fcbP) byte public;        /* globally defined as returning nothing */
-    declare fcbP address;
-
-    return Mon2(FDEL, fcbP);
-end;
-
-Open: procedure(fcbP) byte public;
-    declare fcbP address;
-
-    return Mon2(FOPEN, fcbP);
-end;
-
-Read: procedure(fcbP) byte public;
-    declare fcbP address;
-
-    return Mon2(FREAD, fcbP);
-end;
-
-
-Write: procedure(fcbP) byte public;
-    declare fcbP address;
-
-    return Mon2(FWRITE, fcbP);
-end;
-
-Make: procedure(fcbP) byte public;
-    declare fcbP address;
-
-    return Mon2(FMAKE, fcbP);
-end;
-
-Close: procedure(fcbP) byte public;
-    declare fcbP address;
-
-    call SetDMA(.cmdLine);
-    return Mon2(FCLOSE, fcbP);
-end;
-
-Rename: procedure(fcbP) byte public;        /* globally defined as returning nothing */
-    declare fcbP address;
-
-    return Mon2(FREN, fcbP);
-end;
-
-/* the core I/O buffer declarations */
-declare cmdBuffer(128) byte public;                 /* copy of command line */
-declare repBuf(512) byte public;                    /* input buffer for replacement file */
-declare srcBuf(1024) byte public;                   /* input buffer for source file */
-declare outIrlBuf(1024) byte public;                /* output buffer for IRL file */
-declare outRelBuf(1) byte public at(.MEMORY);       /* output buffer for REL file - uses all of remaining memory */
-end;
-
-cpmvec.asm
-    name cpmvec
-    public  Mon1, Mon2, Mon3, Reboot
-
-; misc thunks to the underlying CPM call at location 5
-; also provides a convinent place to note address of reboot
-    ASEG
-    org 0
-Reboot:
-    org 5
-cpm: 
-
-    CSEG
-
-Mon1:               ; cpm no result
-    jmp     cpm
-
-Mon2:               ; cpm byte result
-    jmp     cpm
-
-Mon3:               ; guess cpm word result. Not actually called
-    jmp     cpm
-
-    end
 

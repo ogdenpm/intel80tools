@@ -3,8 +3,6 @@ ITOOLS ?= ..\..
 TARGETS = lib.com
 PEXFILE := lib.pex
 REF=ref
-PATCH = lib_1.1.patch
-PROTECT = $(PATCH)
 
 include $(ITOOLS)/tools/isis.mk
 
@@ -20,8 +18,8 @@ OBJS = lib.obj rel.obj cmdlin.obj parsef.obj util.obj io.obj cpm.obj cpmvec.obj
 all::
 	$(MAKE) $(TARGETS)
 
-%.com: %.abs $(PATCH)
-	$(OBJBIN) $^ $@
+%.com: %.abs %.patch
+	$(ABSBIN) $^ $@ 
 
 %.abs: %.rel
 	$(info $@ $^)
