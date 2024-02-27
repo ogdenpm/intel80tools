@@ -9,11 +9,8 @@ REF = ref
 
 all:: $(TARGETS)
 
-%.omf: %.hex
-	$(HEXOBJ) $^ $@
-
-%.com: %.omf %.patch
-	$(OBJBIN) $^ $@
+%.com: %.hex %.patch
+	$(ABSBIN) $*.hex $*.patch $@
 
 l82fix.patch:
 	@echo "; not needed" >$@
@@ -21,14 +18,8 @@ l82fix.patch:
 l82a.hex: l82.hex
 	cp l82.hex l82a.hex
 
-%.hex: %.plm
-	$(PLM81) $^
-	$(PLM82) $*
-	@perl $(ITOOLS)/tools/pretty.pl $*.lst $*.prn
-	@rm -fr $*.pol $*.sym $*.lst
-
 clean::
-	rm -fr *.hex *.prn *.omf
+	rm -fr *.hex *.prn *.omf *.com l82fix.patch
 
 .INTERMEDIATE: l82.hex l82a.hex l82fix.patch
-.PRECIOUS:	%.hex
+.PRECIOUS:	%.hex 
