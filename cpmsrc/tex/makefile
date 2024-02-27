@@ -11,7 +11,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 %.com: %.abs %.patch
-	$(OBJBIN) $^ $@
+	$(ABSBIN) $^ $@ 
 
 tex21a.patch:
 	@echo "; not needed" >$@
