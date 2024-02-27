@@ -257,7 +257,8 @@ declare currentBitmap byte public initial(0ffh),
         mapChange byte initial(FALSE),
         (baseSector, baseTrack) byte,
         bitmapIndex address,
-        mapDCB DCB$T initial(80h, 0, 2, 2, 2, 0);
+        mapDCB DCB$T external,
+        dcb DCB$T initial(80h, 0, 2, 2, 2, 0);
 
 
 
@@ -2969,7 +2970,7 @@ maskArray   BS(8)
 
 END;
 EOF;
-isis.t0_2.2.patch
+isis.t0.patch
 388E 32 31 45 44 37 33 37 31 32 34 32 45 37 30 34 45 32 43 34
 38A1 36 32 35 32 45 x 03 37 31 32 33 37 30 32 31 32 39 0D 0A 7F
 38B5 20 3A 31 44 35 45 46 31 30 x 04 37 31 34 45 32 43 34 36 32
@@ -3564,10 +3565,3 @@ WriteDirectory: procedure(drive) public;
 
 end;
 end;
-fake.asm
-; the binary has a random external for mapDCB even though it is not used
-;   the hack here is to create a reference to the external
-;   at build link & locate need to ignore the missing reference
-;   Note the real mapDCB is not made public to avoid this being resolved
-    extrn mapDCB
-    end

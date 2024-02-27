@@ -1,35 +1,3 @@
-isist0.pex
-CR	'0dh'
-LF	'0ah'
-TRUE	'0ffh'
-FALSE	'0'
-# isis commands
-IWRITE	'4'
-ICONSOL	'8'
-IEXIT	'9'
-
-$file(boot.asm)
-isis	P(B cmd,A  parameter$ptr)
-triopb	P(A iopb)
-CO	P(B val)
-IOCHK	PB
-IOSET	P(B val)
-iocdr1	P(B cmd)B 
-
-$file(memchk.asm)
-memchk	PA
-
-$file(t0boot.plm)
-t0boot	L
-
-$file(consol.plm)
-consol	P(A ci$p,A co$p,A status$p)
-
-$file(exit.plm)
-exit	P
-
-$file(write.plm)
-write	P(A conn,A buff$p,A count,A status$p)
 boot.asm
 	name	boot
 	public	iocdr1
@@ -80,6 +48,169 @@ trloop:
 	ret
 
 	end
+
+consol.plm
+console:
+do;
+$include(consol.ipx)
+
+consol: procedure (ci$p, co$p, status$p) public;
+    declare (ci$p, co$p, status$p) address;
+    call ISIS(ICONSOL, .ci$p);
+end consol;
+end;
+eof
+
+exit.plm
+exit:
+do;
+$include(exit.ipx)
+
+exit: procedure public;
+    declare tmp address;
+    tmp = .tmp;
+    call ISIS(IEXIT, .tmp);
+end exit;
+end;
+eof
+
+isis.t0_4.0.patch
+3A7C 70 2B 71 2B D1 C1 70 2B 71 2B C1 70 2B 71 D5 3E
+3A8D 11 4D C0 CD 08 AD B5 CA C4 AA 2A 49 C0 3A 4F C0 BE C2 A2
+3AA0 AA C9 2A 49 C0 E5
+3AC2 8B AA C9 30
+3ACF 41 42 43 44
+3ADC 58 44 58 58
+3AE5 55
+3B09 3A
+APPEND
+6B C0 36 10 C3 38 AB 3E 10 21 52 C0 BE D2 32 AB 21 6B C0 36 10
+C3 38 AB 3A 52 C0 32 6B C0 21 69 C0 36 00 3E 7F 21 53 C0 BE D2
+53 AB 21 69 C0 36 FF 3A 53 C0 2F 3C 32 53 C0 3E 10 21 53 C0 BE
+D2 61 AB 21 53 C0 36 10 21 6C C0 36 10 7E 21 6B C0 96 3C 32 6D
+C0 2A 6D C0 26 00 01 56 C0 09 E5 2A 68 C0 4D 2A 6B C0
+isist0.pex
+CR	'0dh'
+LF	'0ah'
+TRUE	'0ffh'
+FALSE	'0'
+# isis commands
+IWRITE	'4'
+ICONSOL	'8'
+IEXIT	'9'
+
+$file(boot.asm)
+isis	P(B cmd,A  parameter$ptr)
+triopb	P(A iopb)
+CO	P(B val)
+IOCHK	PB
+IOSET	P(B val)
+iocdr1	P(B cmd)B 
+
+$file(memchk.asm)
+memchk	PA
+
+$file(t0boot.plm)
+t0boot	L
+
+$file(consol.plm)
+consol	P(A ci$p,A co$p,A status$p)
+
+$file(exit.plm)
+exit	P
+
+$file(write.plm)
+write	P(A conn,A buff$p,A count,A status$p)
+junk.asm
+	name junk
+	ASEG
+
+CR	equ	0dh
+LF	equ	0ah
+; this file loads specific junk data into memory to make sure isis.t0 is the same
+; the file is loaded as a binary file, this file recreates the
+; the data that appears to have been at the locations of the uninitialised data
+; when the binary snap shot was taken
+; it actually appears to have some partial fragments of a listing
+
+
+	org	3A7Ch	; junk data in the stack area
+	db 70h, 2Bh, 71h, 2Bh
+	db 0D1h, 0C1h, 70h, 2Bh
+	db 71h, 2Bh, 0C1h, 70h
+	db 2Bh, 71h, 0D5h, 3Eh
+	db 0, 11h, 4Dh, 0C0h
+	db 0CDh, 8, 0ADh, 0B5h
+	db 0CAh, 0C4h, 0AAh, 2Ah
+	db 49h, 0C0h, 3Ah, 4Fh
+	db 0C0h, 0BEh, 0C2h, 0A2h
+	db 0AAh, 0C9h, 2Ah, 49h
+	db 0C0h, 0E5h	
+
+
+	org	3AC2h	; msg2
+	db	8bH, 0AAh, 0C9h, 30h
+
+	org	3ACFh	; msg4
+	db	'ABCD'
+
+	org	3ADCh	; msg7
+	db	'XDXX'
+
+	org	3AE5h	; errDisk
+	db	'U'
+
+	org	3B09h	; badDiskPort
+	db	':'
+
+	org	3B1Ah	; user$status to end of data block
+	db 6Bh, 0C0h, 36h, 10h
+	db 0C3h, 38h, 0ABh, 3Eh
+	db 10h, 21h, 52h, 0C0h
+	db 0BEh, 0D2h, 32h, 0ABh
+	db 21h, 6Bh, 0C0h, 36h
+	db 10h, 0C3h, 38h, 0ABh
+	db 3Ah, 52h, 0C0h, 32h
+	db 6Bh, 0C0h, 21h, 69h
+	db 0C0h, 36h, 0, 3Eh
+	db 7Fh, 21h, 53h, 0C0h
+	db 0BEh, 0D2h, 53h, 0ABh
+	db 21h, 69h, 0C0h, 36h
+	db 0FFh, 3Ah, 53h, 0C0h
+	db 2Fh, 3Ch, 32h, 53h
+	db 0C0h, 3Eh, 10h, 21h
+	db 53h, 0C0h, 0BEh, 0D2h
+	db 61h, 0ABh, 21h, 53h
+	db 0C0h, 36h, 10h, 21h
+	db 6Ch, 0C0h, 36h, 10h
+	db 7Eh, 21h, 6Bh, 0C0h
+	db 96h, 3Ch, 32h, 6Dh
+	db 0C0h, 2Ah, 6Dh, 0C0h
+	db 26h, 0, 1, 56h
+	db 0C0h, 9, 0E5h, 2Ah
+	db 68h, 0C0h, 4Dh, 2Ah
+	db 6Bh, 0C0h
+	end
+
+
+
+
+
+
+
+memchk.asm
+	name   memchk
+	public MEMCHK
+
+	CSEG
+
+MEMCHK:		
+	call	0F81Bh
+	mov	h, b
+	mov	l, a
+	ret
+
+	end;
 
 t0boot.plm
 
@@ -796,45 +927,6 @@ t0boot:
 end;
 eof
 
-consol.plm
-console:
-do;
-$include(consol.ipx)
-
-consol: procedure (ci$p, co$p, status$p) public;
-    declare (ci$p, co$p, status$p) address;
-    call ISIS(ICONSOL, .ci$p);
-end consol;
-end;
-eof
-
-exit.plm
-exit:
-do;
-$include(exit.ipx)
-
-exit: procedure public;
-    declare tmp address;
-    tmp = .tmp;
-    call ISIS(IEXIT, .tmp);
-end exit;
-end;
-eof
-
-memchk.asm
-	name   memchk
-	public MEMCHK
-
-	CSEG
-
-MEMCHK:		
-	call	0F81Bh
-	mov	h, b
-	mov	l, a
-	ret
-
-	end;
-
 write.plm
 write:
 do;
@@ -846,81 +938,4 @@ end write;
 
 end;
 eof
-
-junk.asm
-	name junk
-	ASEG
-
-CR	equ	0dh
-LF	equ	0ah
-; this file loads specific junk data into memory to make sure isis.t0 is the same
-; the file is loaded as a binary file, this file recreates the
-; the data that appears to have been at the locations of the uninitialised data
-; when the binary snap shot was taken
-; it actually appears to have some partial fragments of a listing
-
-
-	org	3A7Ch	; junk data in the stack area
-	db 70h, 2Bh, 71h, 2Bh
-	db 0D1h, 0C1h, 70h, 2Bh
-	db 71h, 2Bh, 0C1h, 70h
-	db 2Bh, 71h, 0D5h, 3Eh
-	db 0, 11h, 4Dh, 0C0h
-	db 0CDh, 8, 0ADh, 0B5h
-	db 0CAh, 0C4h, 0AAh, 2Ah
-	db 49h, 0C0h, 3Ah, 4Fh
-	db 0C0h, 0BEh, 0C2h, 0A2h
-	db 0AAh, 0C9h, 2Ah, 49h
-	db 0C0h, 0E5h	
-
-
-	org	3AC2h	; msg2
-	db	8bH, 0AAh, 0C9h, 30h
-
-	org	3ACFh	; msg4
-	db	'ABCD'
-
-	org	3ADCh	; msg7
-	db	'XDXX'
-
-	org	3AE5h	; errDisk
-	db	'U'
-
-	org	3B09h	; badDiskPort
-	db	':'
-
-	org	3B1Ah	; user$status to end of data block
-	db 6Bh, 0C0h, 36h, 10h
-	db 0C3h, 38h, 0ABh, 3Eh
-	db 10h, 21h, 52h, 0C0h
-	db 0BEh, 0D2h, 32h, 0ABh
-	db 21h, 6Bh, 0C0h, 36h
-	db 10h, 0C3h, 38h, 0ABh
-	db 3Ah, 52h, 0C0h, 32h
-	db 6Bh, 0C0h, 21h, 69h
-	db 0C0h, 36h, 0, 3Eh
-	db 7Fh, 21h, 53h, 0C0h
-	db 0BEh, 0D2h, 53h, 0ABh
-	db 21h, 69h, 0C0h, 36h
-	db 0FFh, 3Ah, 53h, 0C0h
-	db 2Fh, 3Ch, 32h, 53h
-	db 0C0h, 3Eh, 10h, 21h
-	db 53h, 0C0h, 0BEh, 0D2h
-	db 61h, 0ABh, 21h, 53h
-	db 0C0h, 36h, 10h, 21h
-	db 6Ch, 0C0h, 36h, 10h
-	db 7Eh, 21h, 6Bh, 0C0h
-	db 96h, 3Ch, 32h, 6Dh
-	db 0C0h, 2Ah, 6Dh, 0C0h
-	db 26h, 0, 1, 56h
-	db 0C0h, 9, 0E5h, 2Ah
-	db 68h, 0C0h, 4Dh, 2Ah
-	db 6Bh, 0C0h
-	end
-
-
-
-
-
-
 

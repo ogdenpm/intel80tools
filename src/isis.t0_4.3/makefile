@@ -7,7 +7,6 @@ include $(ITOOLS)/tools/isis.mk
 REF=$(call ipath,isis,4.3)
 
 PATCH = isis.t0_4.3.patch
-PROTECT = $(PATCH)
 
 LINKFLAGS := 
 PLMFLAGS := DEBUG CODE
@@ -21,7 +20,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.t0: isist0.abs $(PATCH)
-	$(OBJBIN) $^ $@
+	$(ABSBIN) $^ $@
 
 
 isist0.abs: isist0.rel

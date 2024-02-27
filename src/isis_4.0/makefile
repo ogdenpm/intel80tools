@@ -7,8 +7,6 @@ include $(ITOOLS)/tools/isis.mk
 REF = $(call ipath,isis,4.0)
 
 LOCATEFLAGS := PUBLICS SYMBOLS
-PATCH = isis_4.0.patch
-PROTECT = $(PATCH)
 
 objs =	loc62.obj isis.obj aft.obj attrib.obj\
 	close.obj consol.obj delete.obj diskio.obj\
@@ -20,8 +18,8 @@ objs =	loc62.obj isis.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis $(PATCH)
-	$(OBJBIN) -i $^ $@
+isis.bin: isis isis.patch
+	$(ABSBIN) -i $^ $@
 
 isis: isis.rel
 	$(call locate,$@,$^,code(3eh) name(isis) stacksize(0) memory(3000h) purge)

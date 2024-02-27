@@ -8,7 +8,78 @@ The version management scripts (fileVer.cmd, install.cmd, revisions.cmd & versio
 
 Note most tools now support being invoked with -v and -V. The lower case version shows simple version information, the uppercase version provides additional git information to help identify the version. Both of these should be the only option on the command line.
 
-### aomf2bin.exe (tool-src)
+### abstool (tool-src)
+
+This is a general purpose tool for converting between a number of absolute file formats and optionally applying patches. It subsumes obj2bin, which is now depreciated.
+
+```
+Usage:
+abstool [-v|-V|-h] |  [-l addr] [-a|-a51|-a85|-a96|-h|-i] infile [[patchfile] outfile]
+Where -v/-V   provide version information
+      -h      shows this help, if it is the only option
+      -l addr override the load address for binary images, default is 100H (CP/M)
+      -a51    produce AOMF51 file, note no symbols or debug info
+      -a|-a85 produce AOMF85 file, note no symbols or debug info
+      -a96    produce AOMF96 file, note no symbols or debug info
+      -h      produce Intel Hex file, note no symbols
+      -i      produce Intel ISIS I bin file
+File format can be AOMF51, AOMF85, AOMF96, Intel Hex, Intel ISIS I Bin or binary image
+The last format specified is used, default is binary image
+If outfile is omitted, only a summary of the infile is produced
+```
+
+The optional patch file has contains lines which are interpreted int one of two modes, PATCH and APPEND, with PATCH being the initial mode
+
+Unless part of a string, blanks are ignored and a punctuation symbol ends line processing
+
+In PATCH mode each line starts with a patch address followed by any number of patch data values.
+In APPEND mode, only patch data values are supported; the patch address is implicit
+
+Any number of meta token assignments (see below) can be interspersed between patch values
+
+#### Patch data values
+
+Patch data values can be either of the following
+
+```
+'APPEND'     switch to APPEND mode, rest of line is interpreted as per APPEND mode
+value ['x' repeatCnt] where repeatCnt is a hex number and value is one of
+	hexvalue
+    'string'  C string escapes \a \b \f \n \r \t \v \' \" \\ \xnn and \nnn are supported
+     -        set to uninitialised. (error in APPEND mode)
+     =        leave unchanged i.e. skip the bytes. (error in APPEND mode)
+```
+
+#### Meta token assignments
+
+```
+metaToken ['='] value
+where metaToken is one of
+  TARGET  issues a warning if the specified target format is different
+  SOURCE  issues a warning if the actual source file format is different
+  LOAD    issues a warning if the actual load address is different
+  START   set the start address if not set, else warn if source file start is different
+  NAME    sets the name for AOMFxx formats otherwise ignored
+  DATE    sets the date field for AOM96 otherwise ignored
+  TRN     sets the TRN value for AOMFxx otherwise ignored. Error if invalid
+  VER     sets the VER value for AOMF85 otherwise ignored
+  MAIN    sets the MAIN module value for AOMF85 & AOMF96 (bit 0 only use)
+  MASK    sets the MASK value f or AOMF51 (low 4 bits only)
+and value is one of
+  fileFormat, used for TARGET and SOURCE. Vaild values are
+    AOMF51   - Intel absolute OMF for 8051
+    AOMF85   - Intel absolute OMF for 8080/8085
+    AOMF96   - Intel absolute OMF for 8096
+    ISISBIN  - Intel ISIS I binary
+    HEX      - Intel Hex
+    IMAGE    - Binary Image
+  string for NAME and DATE
+  hex for other. Note LOAD and START are word values others are byte values
+```
+
+ The genpatch tool can be used to create patch files in the right format
+
+ Note APPEND mode is needed to support output files that are not simple binary images. A normal patch would incorrectly include the extra data within the loaded imageaomf2bin.exe (tool-src)
 
 This utility take an absolute omf85, omf86 or omf286 file and creates binary images suitable for a prom programmer. There is an ability to set the base address of the prom and, whether to pad to a prom boundary, with 0 or 0xff. Optionally separate files can be created for odd and even bytes
 
@@ -23,23 +94,11 @@ usage: aomf2bin -v | -V | option* infile [outfile | -o odd_outfile | -e even_out
 
 ### asm80.exe, locate.exe, lib.exe, link.exe, plm80.exe (c-ports)
 
-C port of Intel's ISIS tool chain. The usage is as per Intel's documentation, see [Cports.md](Cports.md) for more information, including how directories are mapped to drives.
+C port of Intel's ISIS tool chain. The usage is as per Intel's documentation with native file name support and removal of some limitations. See [Cports.md](Cports.md) for more information, including how directories are mapped to drives.
 
-### asm80x.pl
+### asm80x.pl [depreciated]
 
-This is a perl wrapper script that provides long label name support to Intel's ASM80. It takes as input a file with extension .asmx along with the usual asm80 options. It updates the listing and object files to reflect the long names. Since it uses thames and asm80 v4.1, the special features of thames are supported. See [thames.md](thames.md)
-
-In addition to long names _ and $ are ignored in names, this allows names to reflect PL/M conventions. However a label beginning with $ is passed through unchanged and as is a single _ . If these are invalid asm80 will report the error.
-
-Note names excluding the _ and $ can be up to 31 characters and are converted to uppercase.
-
-Due to the implementation there are a small number of limitations and differences in behaviour
-
-- For MACRO, IPR and IPRC long names are not supported in the text after the key word, however a long label before the opcode is supported
-- For MACRO attempts to create a label of the form @nnnnn, where nnnnn is a decimal number, using concatenation features is likely to cause problems unless nnnnn is a large number.
-- Include files are process before submission to asm80 since they may contain long label names.
-- As a bonus, by using a label beginning _n where n is  digit, it is possible to create label names in the that begin with a digit. These will appear in the object file if they are public or local symbols are requested.
-- The symbol table in the listing file is reformatted to accommodate the longer file names. This may cause the last page to be longer than the standard page length. Also any set page width is ignored.
+No longer needed as the newer c-port of asm80 supports long label names
 
 ### asmx.pl
 
@@ -61,7 +120,7 @@ Simple perl script to extract the contents of an Intel OMF85 or OMF86 library fi
 usage: delib.pl library targetdir
 ```
 
-### disIntelLib.exe (tool-src)
+### disIntelLib (tool-src)
 
 A homegrown utility to auto disassemble an Intel omf85 library into individual files. During the disassembly, whether the original code was PL/M or ASM is noted and the extension named accordingly.
 
@@ -69,12 +128,12 @@ A homegrown utility to auto disassemble an Intel omf85 library into individual f
 Usage: disIntelLib infile
 ```
 
-### dumpintel.exe (tool-src)
+### dumpomf (tool-src)
 
-Dumps the detail of the content of omf85, omf51, omf96 and omf86 files. omf96 currently only shows the record types as I have no samples to verify. The others decode as per the intel specifications with some of the none Intel additions for omf86
+Dumps the detail of the content of omf85, omf51, omf96 and omf86 files. Interpretation of the various formats is per the intel specifications with some extensions for omf86. Due to lack of samples, limited testing has been done on omf96. This supersedes **dumpIntel** which has now been depreciated.
 
 ```
-usage: dumpintel -v | -V | objfile [outputfile]
+usage: dumpomf -v | -V | objfile [outputfile]
 ```
 
 <div style="page-break-after: always; break-after: page;"></div>
@@ -138,7 +197,7 @@ The patch file option is used when more complex modifications are needed to make
 | Option | Typical Usage                                                |
 | ------ | ------------------------------------------------------------ |
 | n      | This performs the same basic operation as the -n command line option, however it also allows an entry point to be defined, with a \| c setting the seg id to ABS or CODE respectively and the address being the offset.<br />According to the OMF specification the entry info is ignored for non main modules and should be set to 0, however PLM v1.0 modules does not adhere to this standard, this option allows the PLM v1.0 behaviour to be mimicked. |
-| **p**  | This is used to patch a file in cases where it is not possible to get known compilers to generate the same code.  It only patches defined content and cannot be used to set data or uninitialised areas. Additionally fixup information is not changed, so care is needed when patching non located modules to make sure than only fixed data or offsets are modified. |
+| **p**  | This is used to patch a file in cases where it is not possible to get known compilers to generate the same code.  It only patches defined content and cannot be used to set data or uninitialised areas. Additionally fixup information is not changed, so care is needed when patching non located modules to make sure than only fixed data or offsets are modified.<br />For absolute file **abstool** may be a better choice. |
 | **r**  | There are two primary uses of this. One is to delete or mask public references in a more targeted manor than the -l option. The second is to rename between ASM80 short names and the compiler long names. |
 
 | Option | Typical Usage                                                |
@@ -151,19 +210,24 @@ Note **fixobj** is not able to resolve all differences between old files and tho
 
 ### genpatch.exe (tool-src)
 
-This is used to auto generate the patch files for obj2bin. They take as input the generated omf85 object file and the target binary file and generates the specified patchfile
+It compares two absolute files and generates patch information that **abstool** can use to generate files.
+
+Supported absolute formats are AOMF51, AOMF85, AOMF96, ISIS BIN, Intel Hex and binary images.
 
 ```
-usage: genpatch [-i] [-s] [-z] objFile binfile patchfile
-where -i	indicates to interpret the bin file as an Intel .BIN file
-	  -s	reserved for future use to show strings as a trailing comment
-	  -z	by default obj2bin auto fills uninitialised data to 0 and the patchfile
-	  		assumes this. The option forces the 0 initialisation to be in patchfile
+usage: genpatch (-v | -V | -h)  | [-b addr]  infile targetfile [patchfile]
+Where -v/-V provide version information
+      -h       shows this help
+      -l addr  set explicit load address for binary image files. Default 100H (CP/M)
+File format can be AOMF51, AOMF85, AOMF96 Intel Hex, Intel ISIS I Bin or binary image
+If patchfile is omitted then the patch data is output to stdout
 ```
 
 ### hexobj.exe (c-ports)
 
 A port of Intel's hexobj utility. This one supports windows/unix filenames and does not support ISIS drive mapping. 
+
+Consider using **abstool**, unless symbol loading is required.
 
 ```
 Usage: hexobj -v | -V | hexfile objfile [startaddr]
@@ -174,33 +238,15 @@ Intel style address formats are supported
 
 ### isisc.exe (tool-src) [depreciated]
 
-Compares files using Intel's BIN format. This is now depreciated and the equivalent capability can be achieved in one of two ways
-
-1. Convert the files to OMF85 format using binobj, then using omfcmp to check for differences
-2. Use obj2bin with a patch file to add the junk data at the end of the file and use omfcmp or fc /b to compare
-
-```
-Usage: isisc -v | -V | file1 file2
-```
+Use **genpatch** which will show any differences.
 
 ### isisu.exe (tool-src)
 
-This utility dumps the block ranges and start address from an Intel BIN format file. This is now of limited use as I tend to convert the BIN files to OMF and load directly into my disassembler, preserving the uninitialised data information.
+Use **abstool** to convert ISIS I bin to AOMF85
 
-```
-Usage: %s -v | -V | file
-```
+### makedepend.pl [depreciated]
 
-### 
-makedepend.pl [depreciated]
-
-Creates a dependency include file for gnu make for plm or asm source. This is now depreciated since thames allows this to be created as part of the normal assembly / compilation similar to modern C compilers
-
-```
-usage: makedepend.pl target source
-where target is the object file and source is the source file. The environment variables ISIS_Fn are used to map drives :Fn: to directories.
-The source file is scanned for include files.
-```
+ This is now depreciated since thames and the c-port of plm80 allows dependencies to be created as part of the normal assembly / compilation similar to modern C compilers
 
 ### mkisisdir.pl
 
@@ -260,51 +306,13 @@ See the genpex.txt file in the itools directory for the main details. My changes
    where the -p is optional and generates the .pub file noted above
    ```
 
-### obj2bin.exe (tool-src)
-
-This utility is designed to support the creation of .COM, .T0 and .BIN files and includes the ability to patch the resultant file. Patching is potentially needed for two reasons.
-
-1. Intel's tools support uninitialised data but the .COM and .T0 are pure memory images. By default obj2bin will set these locations to 0, however the original binary production is likely to have used data in memory at the time of creation. Patching allows this random data to be matched
-2. It is possible that the binary images have data after the end of the program to align with sector boundaries, The patch capability allows this to be added at the end of the file.
-
-```
-Usage: obj2bin -v | -V |  [-i | -j] infile [patchfile] outfile
-Where -v/-V provide version information
-      -i    produces Intel formast .BIN files
-      -j    writes a jmp to entry at the start of file using
-            any initial lxi sp, is skipped.
-            the first byte must either uninitalised or a jmp (0c3h)
-            
-The patch file, if used  has the following format and operates in one of two modes
-PATCH the initial mode and APPEND which starts after the key word APPEND is seen
-at the start of a line, the keyword is case insensitive. The two modes are required
-since for .BIN files in particular the extra data needs to occur after the start record
-Note for all lines leading space is ignored and all values are in hex.
-The address used to apply the patch is determined as follows
-PATCH mode:
-	Each line starts with a hex address to start the patch, anything other than a hex 		value is seen the line is ignored
-	
-APPEND mode:
-	Initially the address is set to the current highest used location when APPEND is 		seen there after the address increments for each new value appended
-
-Once the patch address is known all other data is a set of space separated values specifiers in one of the following
-	value ['x' repeatCnt]
-		where value can one of
-        hexvalue 
-		'string'                 note string supports \n \r \t \' and \\ escapes
-        -                        set to uninitialised
-		=                        leave unchanged i.e. skip the bytes
-Note in APPEND mode, - and = are teated as 0
-If the value is not a valid hex value, string, - or = the rest of the line is skipped
-if the x is present and repeatCnt is invalid an error is reported
-
-The above noted, it is safer to use a semicolon to start a comment as this is treated
-as the end of line
-```
+### obj2bin [replaced by abstool]
 
 ### objhex.exe (c-ports)
 
 A port of Intel's objhex utility. This one supports windows/unix filenames and does not support ISIS drive mapping.
+
+Consider using **abstool**, unless symbols are required in the hex file.
 
 ```
 usage: objhex -v | -V | objfile [to] hexfile
@@ -349,17 +357,7 @@ where -h            prints simple help and exits
 
 <div style="page-break-after: always; break-after: page;"></div>
 
-### patchbin.exe (tool-src) [depreciated]
-
-Patch a binary .COM file. The original reason for creating this is now manageable with obj2bin
-
-```
-Usage: patchbin -v | -V | patchfile filetopatch
-where patch file has lines in the format
-address value*
-both address and value are in hex and the filetopatch is assumed to be load ax 100H
-The file is extended if necessary
-```
+### patchbin.exe [replaced by abstool]
 
 ### plmpp.exe (tool-src)
 
@@ -451,6 +449,6 @@ where directory is current directory name
 ------
 
 ```
-Updated by Mark Ogden 25-Aug-2021
+Updated by Mark Ogden 7-Feb-2024
 ```
 

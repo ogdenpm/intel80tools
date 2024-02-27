@@ -10,8 +10,6 @@ REF = ref
 LOCATEFLAGS:=ORDER(DATA,STACK,MEMORY,CODE) SYMBOLS
 PLMFLAGS:= DEBUG CODE
 LINKFLAGS:=
-ASPATCH=as80_1.1.patch
-EDPATCH=editor_1.1.patch
 
 ASobjs = as80.obj pcktok.obj as81.obj as82.obj as83.obj\
 	     as84.obj as85.obj as86.obj as87.obj as88.obj keywrd.obj
@@ -21,11 +19,14 @@ EDobjs = editor.obj dblank.obj dlimit.obj fupper.obj numout.obj\
 
 $(ASobjs): PLM80=3.1
 
+%.bin: %.abs %.patch
+	$(ABSBIN) $^ $@
+
+%.patch:
+	echo "; not needed" >$@
+
 all::
 	$(MAKE) $(TARGETS)
-
-as80.bin: as80.abs $(ASPATCH)
-	$(OBJBIN) $^ $@
 
 as80.abs: as80.rel
 	$(call locate,$@,$^,data(40h) code(0B800h) stacksize(82))
@@ -38,10 +39,6 @@ editor.abs: editor.rel
 
 editor.rel: $(EDobjs) 
 	$(call link,$@,$^ $(system.lib) $(plm80.lib))
-
-editor.bin: editor.abs $(EDPATCH)
-	$(OBJBIN) $^ $@
-
 
 printedit: all
 	perl $(ITOOLS)/tools/relst.pl editor.abs editor.map $(EDobjs:.obj=.lst)

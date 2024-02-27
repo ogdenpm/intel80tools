@@ -2,10 +2,6 @@ ITOOLS ?= ../..
 TARGETS = isis.bin
 PEXFILE := isis42.pex
 
-PATCH = isis.bin_4.2.patch
-
-PROTECT = $(PATCH)
-
 include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,4.2)
@@ -23,8 +19,8 @@ objs =	loc62.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis $(PATCH)
-	$(OBJBIN) -i $^ $@
+isis.bin: isis isis.patch
+	$(ABSBIN) -i $^ $@
 	
 
 isis: isis.rel

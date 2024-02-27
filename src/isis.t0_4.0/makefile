@@ -7,7 +7,6 @@ include $(ITOOLS)/tools/isis.mk
 REF=$(call ipath,isis,4.0)
 
 PATCH = isis.t0_4.0.patch
-PROTECT = $(PATCH)
 
 LINKFLAGS := 
 PLMFLAGS += DEBUG
@@ -20,7 +19,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.t0: isist0.abs $(PATCH)
-	$(OBJBIN) $^ $@
+	$(ABSBIN) $^ $@
 
 isist0.abs: isist0.rel
 	$(call locate,$@,$^,name(isist0) stacksize(42) code(3000h))
