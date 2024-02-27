@@ -1,0 +1,2380 @@
+$nomacro
+$XREF
+$TITLE('SDK-51 MONITOR CODE	INTEL PROPRIETARY VERS. #1.03')
+;******************************************************************
+;
+;
+;	SDK-51 MONITOR INTEL PROPRIETARY
+;	THIS SOFTWARE IS COPYRIGHTED UNDER INTEL PART NUMBER 162787-004
+;
+;	VERSION 1.03		8-18-81;
+;
+;	NN  N  OOOOO  TTTTT  EEEEE	!!
+;	NN  N  O   O	T    E		!!
+;	N N N  O   O	T    EEEE	!!
+;	N  NN  O   O	T    E		!!
+;	N  NN  O   O	T    E
+;	N   N  OOOOO	T    EEEEE	!!
+;
+;
+;******************************************************************
+;
+;
+;	COPYRIGHT (C) 1981 INTEL CORPORATION.
+;	ALL RIGHTS RESERVED.
+;
+;	NO PART OF THIS PROGRAM OR PUBLICATION MAY BE REPRODUCED,
+;	TRANSMITTED, TRANSCRIBED, STORED IN A RETRIEVAL SYSTEM, OR
+;	TRANSLATED INTO ANY LANGUAGE OR COMPUTER LANGUAGE, IN ANY
+;	FORM' OR BY ANY MEANS, ELECTRONIC, MECHANICAL, MAGNETIC,
+;	OPTICAL, CHEMICAL, MANUAL OR OTHERWISE, WITHOUT THE PRIOR
+;	WRITTEN PERMISSION OF INTEL CORPORATION, 3065 BOWERS AVENUE,
+;	SANTA CLARA, CALIFORNIA 95051.
+;
+;
+;
+;******************************************************************
+$EJECT
+;******************************************************************
+;
+;		TABLE OF CONTENTS
+;
+;	PREFACE:	HOW TO USE THIS LISTING
+;
+;	This monftor and the assembler/disassembler are written
+;	in ASM51 code. These listings may serve the user as
+;	both debug aids and as an example of how many of the unique
+;	ASM51 commands may be used in context.
+;
+;	In general, the organization on this monitor listing is as
+;	follows. The POWER ON routine is the 'cold start' location,
+;	that is, it does a hardware reset. START is the main program
+;	which is the top of the idle loop. It is also the 'warm start'
+;	location, that is it does software resets and initializations.
+;
+;	Upon receipt of a command from the user via the console, START
+;	determines which routine will handle each conmandand branches
+;	to it. The command handler routines will always have a label
+;	with the suffix '_CMD'.
+;
+;	HEADER BLOCK INFORMATION:
+;
+;	At the beginning of each subroutine, on a new page, there will
+;	be a block containing the name of the routine. The name may
+;	have an '(I)' or a '(U)' as a prefix. The I indicates that
+;	the routine is internal only, the U indicates that the routine is
+;	only suitable for use by the user.
+;
+;	The abstract contains a brief description of what the function
+;	of that module is and highlights of any subtle cautions or user
+;	interface notes. There will also be lists of inputs, outputs.
+;	error exits, variables modified and subroutines called. The
+;	rules for these lists are strict.
+;
+;	Input lists contain only explicitly passed global or local variables.
+;	Information returned by any other procedure (i.e. passed parameters)
+;	that is called by the procedure whose block you are reading will not
+;	be included in the input list.
+;
+;	Output lists contain only variables altered by the procedure for
+;	the purpose of transmitting necessary information to another procedure.
+;
+;	The variables modified lists contains only local variables. registers
+;	or memory locations that are modified and not restored by the end on
+;	the routine.
+;
+;	The error exits will contain any error number that is locally
+;	generated. There is the possibility that an error may be detected
+;	in a rouTne with no error exits noted if the error number was set
+;	in a previous routine and just 'falls through' because the error is
+;	st ill the same.
+;
+;	The subroutines called list will contain any other routine that is
+;	directly called or jumped to by the procedure in question.
+;
+;	XREF:
+;
+;	At the back of the monitor listing and again at the back of the
+;	assembler/disassembler listing there is a table of cross references.
+;	Each variable name is listed in alphabetical order along with its
+;	type (that is in what type of memory does it reside, is it a label
+;	or a number), the address value it has and all of the line numbers
+;	where that variable name appears. The line number with the '#'
+;	designation is the line where the variable is defined.
+;
+;
+;	CONTENTS:
+;
+;	This monitor listing contains one source file and five
+;	include files. Each include file contains a number of functions,
+;	tables and subroutines which will each have their own header block
+;	and will begin on a new page. The files are as follows:
+;
+;	SDKMON.SRC (SOURCE FILE)
+;
+;			JUMP TABLE FOR USER ACCESSABLE ROUTINES
+;			CONSTANTS
+;			VARIABLES
+;			FLAGS
+;			TOKEN EQUATES
+;			TOKEN TABLE
+;
+;			POWER_ON
+;			SIGN_UN
+;			START
+;			INIT_IO
+;			(I)WAIT_FOR_USER
+;			CHECK_EPROMS
+;
+;		COMMON. INC (INCLUDE FILE)
+;
+;			CONSTANTS USED BY ALL MODULES
+;			GLOBAL VARIABLES USED BY MORE THAT ONE MAIN MOD.
+;			ARRAYS
+;			VARIABLES
+;			FLAGS
+;			REGISTERS
+;			JUMP TABLE ENTRY ADDRESSES FOR ALL MODULES
+;
+;		UTILIT.INC (INCLUDE FILE)
+;
+;			(I)ERROR
+;			(I)EOL_CHECK
+;			INC_PNT/DEC_PNT/SWAP_POINTERS
+;			SPACCO/(I)CO
+;			ICI
+;			ICSTS
+;			(U)CSTS
+;			(U)CI
+;			(I)UPI_CMD
+;			UPI_OUT
+;			UPI_IN
+;			(I)CONTINUATION LINE
+;			(I)FETCH/(I)STORE
+;			(I)NEWLINE
+;			AZTEST/NMTEST/HXTEST/ALFNUM
+;			LSSEQL
+;			(I)GETNUM/(I)GETEOL/(I)GET_COMMA
+;			ISIT_DISPLAY
+;			(I)GET_PART
+;			(I)SAVE_AND_DISPLAY
+;			CONVHEX
+;			(I)LSTWRD/(I)LSTBYT
+;			PAINTER
+;			GETCHR
+;			(I)GETOKE
+;			NUMBER
+;			SYMBOL
+;			STRING_SPACE
+;			(I)PRINT_STRING
+;			(I)DISPLAY_TOKEN
+;			ASCII_TO_HEX
+;			ITIME
+;
+;		DISCHA.INC (INCLUDE FILE)
+;
+;			DISPLAY
+;			LODMEM
+;			FILLMEM
+;			DISMEM
+;			BMOVE
+;			MODBRK
+;			ACC_MOD
+;			KEYWORD_DISPLAY
+;
+;		XQT.INC (INCLUDE FILE)
+;
+;			BREAK
+;			UNBREAK
+;			READ_PC/WRITE_PC
+;			CHECK_FROM
+;			BREAK_VECTOR
+;			STEP_CMD
+;			STEP51_RET
+;			GO_CMD
+;
+;		MONFUN.INC (INCLUDE FILE)
+;
+;			LIST_CMD
+;			BAUD_CMD
+;			TOP_CMD
+;			CAUSE_CMD
+;			SEND_BYTE
+;			HEXBIN
+;			GET_TYPE
+;			LOAD_HEX
+;			STORE_HEX
+;			LOAD_CMD
+;			SAVE_CMD
+;			DOWNLOAD_CMD
+;			UPLOAD_CMD
+;
+;
+;*******************************************************************
+$EJECT
+$INCLUDE(:F1:COMMON.INC)
+$EJECT
+;******************************************************************
+	ORG	BASE
+;
+	LJMP	POWER_ON		; Initialize and start monitor.
+;
+;******************************************************************
+;			JUMP TABLE FOR USER ACCESSABLE ROUTINES
+
+
+BREAK:	LJMP	IBREAK			;Do not access this vector except through
+					;norma1 SDK system interrupts,
+					;breaks and keyclosures
+
+	LJMP	ICO
+	LJMP	UCI
+	LJMP	UCSTS
+	LJMP	INEWLINE
+	LJMP	ITIME
+	LJMP	ILSTBYT
+	LJMP	ILSTWRD
+	LJMP	IASCII_TO_HEX
+	LJMP	IPRINT_STRING
+	LJMP	POWER_ON		;The rest of the jump table reserved
+	LJMP	POWER_ON		;for future expansion.
+	LJMP	POWER_ON
+	LJMP	POWER_ON
+	LJMP	POWER_ON
+
+	ORG	BASE + 030H
+
+
+COPYRIGHT:	DB		' (C) 1981 INTEL CORP. '
+DATECODE:	DB 008H,012H,081H;
+STORED_CHECK_SUM:	DB	0E4H
+	LJMP	IFETCH
+	LJMP	ISTORE
+	LJMP	IGETNUM
+	LJMP	IGETEOL
+	LJMP	IGETOKE
+	LJMP	IDISPLAY_TOKEN
+	LJMP	ISAVE_AND_DISPLAY
+	LJMP	IERROR
+	LJMP	IWAIT_FOR_USER
+	LJMP	IGET_PART
+	LJMP	ICONTINUATION_LINE
+	LJMP	IGET_COMMA
+	LJMP	IEOL_CHECK
+
+;***** CONSTANTS *****
+
+EQUAL_TOKE		EQU	4	;Constant (GETOKE,EQUAL TOKEN)
+COMMA_TOKE		EQU	002H	;Constant(Comma token)
+BACKSP			EQU	008H	;Constant (GETCHR,LITERAL 'BACK SPACE')
+CR			EQU	00DH	;Constant (NEWLIN,LITERAL 'CARRAGE RETURN')
+LF			EQU	00AH	;Constant (NEWLIN,LITERAL 'LINE FEED')
+HORIZONTAL_TAB		EQU	009H	;Constant (TAB KEY)
+RBOUT			EQU	07FH	;Constant (GETCHR,LITERAL 'DELETE')
+ESC			EQU	01BH	;Constant (EXECUT,LISTER 'ESCAPE')
+STACK			EQU	007H
+RESET_CMD		EQU	004H	;UPI reset command
+CLR_BRK_LATCHES 	EQU	008H
+TOP_PORT		EQU	083H	;UPI top port
+GR_PORT			EQU	003H	;UPI hardware GO register port
+NO_BREAK		EQU	009H	;Disables break logic
+CASSETTE_READ		EQU	002H	;UPI select cassette read mode
+CASSETTE_WRITE		EQU	082H	;UPI select cassette write mode
+USART_MODE		EQU	001H	;UPI serial port select for up/down load
+SINGLE_BREAK		EQU	001H	;Enables single step breaks.
+DATA_BREAK		EQU	00DH	;Enables data memory breaks
+PROGRAM_BREAK		EQU	00BH	;Enables program memory breaks
+UPI_CONTROL		EQU	0A001H
+UPI_DATA		EQU	0A000H
+RAMOFF			EQU	0B000H	;Constant (STORE,16-BIT INTERNAL RAM OFFSET)
+BRKOFF			EQU	0C000H	;Constant (STORE,16-BIT,BREAK RAM OFFSET)
+RAMIO			EQU	0B800H	;Constant (STORE,16-BIT INTERNAL RAM I/O OFFSET)
+TIMER_HIGH		EQU	005H	;Constant (ADDRESS OF 8155 TIMER HIGH BYTE)
+CONTINUOUS_MODE 	EQU	040H	;Constant (COMMAND MODE FOR TIMER)
+START_16_TIMER		EQU	0C0H	;Constant (COMMAND TO LOAD AND START TIMER)
+MAXLOW			EQU	0FFH	;Constant
+MAXHGH			EQU	01FH	;Constant
+UPI_DATA_IMAGE		EQU	0F1H	;Software version of UPI input data.
+SAVE_SEL		EQU	0F2H	;Used to store the token during emulation.
+ADDR_SAVE_HIGH		EQU	0F3H	;Saves display address during emulation.
+ADDR_SAVE_LOW		EQU	0F4H
+DELAY			EQU	0F5H	;Stores multi-step delay count.
+GR			EQU	0F6H	;GO register
+BAUD_HIGH		EQU	0F7H
+BAUD_LOW		EQU	0F8H	;Stores baud rate information.
+TOP_STORE		EQU	0F9H	;Stores the user TOP value
+MON_FLAGS		EQU	0FAH	;Stores monitor flags
+BREAK_STATUS		EQU	0FBH	;Used to store the step flag during emulation.
+BAUDKEY			EQU	0FCH	;Stores coded baud info in one byte
+UPC			EQU	0FDH	;Software copy of PC when not in execution.
+NOT_STEP		EQU	0FBH	;Stored in BREAK_STATUS to indicate not stepping
+SINGLESTEP		EQU	0FEH	;Stored in BREAK_STATUS to indicate single step
+MULTISTEP		EQU	0FFH	;Stored to indicate multiple single steps.
+
+
+;********** VARIABLES **********
+
+	DSEG
+	ORG		(PARTIT_HI_LOW + 1)
+TOKSAV:			DS	1	;DATA ADDR
+DLYCNT:			DS	1	;DATA ADDR
+COUNTR:			DS	1
+VPC_LOW:		DS	1
+VPC_HIGH:		DS	1
+CAUSE_IMAGE:		DS	1
+PCNTHI:			DS	1
+PCNTLO:			DS	1
+LENGTH_HIGH:		DS	1
+LENGTH_LOW:		DS	1
+TYPE:			DS	1
+
+	;***** FLAGS *****
+
+	BSEG
+	ORG	(LSTFLG + 1)
+ANY_BR_FLAG:		DBIT	1
+FIRST_FLAG:		DBIT	1
+MAXNUM_FLAG:		DBIT	1
+BINARY_FLG:		DBIT	1
+	CSEG
+$EJECT
+;******************************************************************
+;			TOKEN EQUATES
+;******************************************************************
+
+ATDPTR_TOKE		EQU	15 + REG + OFST
+ATR0_TOKE		EQU	2 + REG + OFST
+ATR1_TOKE		EQU	3 + REG + OFST
+A_TOKE			EQU	051H
+AB_TOKE			EQU	12 + REG + OFST
+ABR_TOKE		EQU	088H
+ACALL_TOKE		EQU	2 + OFST
+ACC_TOKE		EQU	098H
+ADD_TOKE		EQU	20 + OFST
+ADDC_TOKE		EQU	19+OFST
+AJMP_TOKE		EQU	3 + OFST
+ANL_TOKE		EQU	17 + OFST
+ASM_TOKE		EQU	0B0H
+B_TOKE			EQU	09BH
+BAUD_TOKE		EQU	0D0H
+BR_TOKE			EQU	089H
+CAUSE_TOKE		EQU	0D2H
+CJNE_TOKE		EQU	9 + OFST
+CLR_TOKE		EQU	26 + OFST
+CPL_TOKE		EQU	27 + OFST
+DA_TOKE			EQU	28 + OFST
+DASM_TOKE		EQU	0B8H
+DATA_TOKE		EQU	0D3H
+DBYTE_TOKE		EQU	082H
+DEC_TOKE		EQU	37 + OFST
+DIV_TOKE		EQU	33 + OFST
+DJNZ_TOKE		EQU	21 + OFST
+DOWNLOAD_TOKE		EQU	0E0H
+FOREVER_TOKE		EQU	008H
+FROM_TOKE		EQU	009H
+GO_TOKE			EQU	0C2H
+INC_TOKE		EQU	39 + OFST
+JB_TOKE			EQU	23 + OFST
+JBC_TOKE		EQU	24 + OFST
+JC_TOKE			EQU	8 + OFST
+JMP_TOKE		EQU	34 + OFST
+JNB_TOKE		EQU	22 + OFST
+JNC_TOKE		EQU	7 + OFST
+JNZ_TOKE		EQU	5 + OFST
+JZ_TOKE			EQU	6 + OFST
+LCALL_TOKE		EQU	0 + OFST
+LIST_TOKE		EQU	0D7H
+LJMP_TOKE		EQU	1 + OFST
+LOAD_TOKE		EQU	0E2H
+MODE_TOKE		EQU	0B9H
+MOV_TOKE		EQU	15 + OFST
+MOVC_TOKE		EQU	10 + OFST
+MOVX_TOKE		EQU	11 + OFST
+MUL_TOKE		EQU	32 + OFST
+NOP_TOKE		EQU	43 + OFST
+ON_TOKE			EQU	00FH
+OR_TOKE			EQU	00BH
+ORL_TOKE		EQU	18 + OFST
+POP_TOKE		EQU	29 + OFST
+PROGRAM_TOKE		EQU	0D5H
+PSW_TOKE		EQU	099H
+PUSH_TOKE		EQU	31 + OFST
+R0_TOKE			EQU	090H
+R1_TOKE			EQU	091H
+R2_TOKE			EQU	092H
+R3_TOKE			EQU	093H
+R4_TOKE			EQU	094H
+R5_TOKE			EQU	095H
+R6_TOKE			EQU	096H
+R7_TOKE			EQU	097H
+RBIT_TOKE		EQU	084H
+RBS_TOKE		EQU	000H
+RBYTE_TOKE		EQU	081H
+RESET_TOKE		EQU	00EH
+RET_TOKE		EQU	42 + OFST
+RETI_TOKE		EQU	41 + OFST
+RL_TOKE			EQU	36 + OFST
+RLC_TOKE		EQU	35 + OFST
+RR_TOKE			EQU	40 + OFST
+RRC_TOKE		EQU	38 + OFST
+SAVE_TOKE		EQU	0E3H
+SETB_TOKE		EQU	25 + OFST
+SJMP_TOKE		EQU	4 + OFST
+SP_TOKE			EQU	09AH
+STEP_TOKE		EQU	0C1H
+SUBB_TOKE		EQU	14 + OFST
+SWAP_TOKE		EQU	30 + OFST
+TILL_TOKE		EQU	00CH
+TM0_TOKE		EQU	0A2H
+TM1_TOKE		EQU	0A3H
+TO_TOKE			EQU	00DH
+TOP_TOKE		EQU	0D6H
+TRANSFER_TOKE		EQU	0BAH
+UPLOAD_TOKE		EQU	0E1H
+VERIFY_TOKE		EQU	0BBH
+XBYTE_TOKE		EQU	086H
+XCH_TOKE		EQU	13 + OFST
+XCHD_TOKE		EQU	12 + OFST
+XRL_TOKE		EQU	16 + OFST
+;
+;
+;***** TOKEN TABLE *****
+;		TOKTBL must match entry for entry with KEYTAB so that the ASCII
+;		for each token will match token.
+;
+TOKTBL:
+	DB	ATA_TOKE
+	DB	ATDPTR_TOKE
+	DB	ATR0_TOKE
+	DB	ATR1_TOKE
+	DB	A_TOKE
+	DB	AB_TOKE
+	DB	ABR_TOKE
+	DB	ACALL_TOKE
+	DB	ACC_TOKE
+	DB	ADD_TOKE
+	DB	ADDC_TOKE
+	DB	AJMP_TOKE
+	DB	ANL_TOKE
+	DB	ASM_TOKE
+	DB	B_TOKE
+	DB	BAUD_TOKE
+	DB	BR_TOkE
+	DB	C_TOKE
+	DB	CAUSE_TOKE
+	DB	CBYTE_TOKE
+	DB	CJNE_TOKE
+	DB	CLR_TOKE
+	DB	CPL_TOKE
+	DB	DASM_TOKE
+	DB	DA_TOKE
+	DB	DASM_TOKE
+	DB	DATA_TOKE
+	DB	DBYTE_TOKE
+	DB	DEC_TOKE
+	DB	DIV_TOKE
+	DB	DJNZ_TOKE
+	DB	DOWNLOAD_TOKE
+	DB	DPTR_TOKE
+	DB	FROM_TOKE
+	DB	FOREVER_TOKE
+	DB	FROM_TOKE
+	DB	GO_TOKE
+	DB	INC_TOKE
+	DB	JB_TOKE
+	DB	JBC_TOKE
+	DB	JC_TOKE
+	DB	JMP_TOKE
+	DB	JNB_TOKE
+	DB	JNC_TOKE
+	DB	JNZ_TOKE
+	DB	JZ_TOKE
+	DB	LCALL_TOKE
+	DB	LIST_TOKE
+	DB	LJMP_TOKE
+	DB	LOAD_TOKE
+	DB	MODE_TOKE
+	DB	MOV_TOKE
+	DB	MOVC_TOKE
+	DB	MOVX_TOKE
+	DB	MUL_TOKE
+	DB	NOP_TOKE
+	DB	ON_TOKE
+	DB	OR_TOKE
+	DB	ORG_TOKE
+	DB	ORL_TOKE
+	DB	PC_TOKE
+	DB	POP_TOKE
+	DB	PROGRAM_TOKE
+	DB	PSW_TOKE
+	DB	PUSH_TOKE
+	DB	R0_TOKE
+	DB	R1_TOKE
+	DB	R2_TOKE
+	DB	R3_TOKE
+	DB	R4_TOKE
+	DB	R5_TOKE
+	DB	R6_TOKE
+	DB	R7_TOKE
+	DB	RBIT_TOKE
+	DB	RBS_TOKE
+	DB	RBYTE_TOKE
+	DB	RESET_TOKE
+	DB	RET_TOKE
+	DB	RETI_TOKE
+	DB	RL_TOKE
+	DB	RLC_TOKE
+	DB	RR_TOKE
+	DB	RRC_TOKE
+	DB	SAVE_TOKE
+	DB	SETB_TOKE
+	DB	SJMP_TOKE
+	DB	SP_TOKE
+	DB	STEP_TOKE
+	DB	SUBB_TOKE
+	DB	SWAP_TOKE
+	DB	TILL_TOKE
+	DB	TILL_TOKE
+	DB	TM0_TOKE
+	DB	TM1_TOKE
+	DB	TO_TOKE
+	DB	TOP_TOKE
+	DB	TRANSFER_TOKE
+	DB	UPLOAD_TOKE
+	DB	VERIFY_TOKE
+	DB	XBYTE_TOKE
+	DB	XCH_TOKE
+	DB	XCHD_TOKE
+	DB	XRL_TOKE
+;***** END OF TOKTBL *****
+$EJECT
+
+
+;***** KEY WORD TABLE *****
+
+KEYTAB:	DB	'@A  '
+	DB	'@DPT'
+	DB	'@R0 '
+	DB	'@R1 '
+	DB	'A   '		;5
+	DB	'AB  '
+	DB	'ABR '
+	DB	'ACAL'
+	DB	'ACC '
+	DB	'ADD '		;10
+	DB	'ADDC'
+	DB	'AJMP'
+	DB	'ANL '
+	DB	'ASM '
+	DB	'B   '		;15
+	DB	'BAUD'
+	DB	'BR  '
+	DB	'C   '
+	DB	'CAUS'
+	DB	'CBYT'		;20
+	DB	'CJNE'
+	DB	'CLR '
+	DB	'CPL '
+	DB	'D   '
+	DB	'DA  '		;25
+	DB	'DASM'
+	DB	'DATA'
+	DB	'DBYT'
+	DB	'DEC '
+	DB	'DIV '		;30
+	DB	'DJNZ'
+	DB	'DOWN'
+	DB	'DPTR'
+	DB	'F   '
+	DB	'FORE'		;35
+	DB	'FROM'
+	DB	'GO  '
+	DB	'INC '
+	DB	'JB  '
+	DB	'JBC '		;40
+	DB	'JC  '
+	DB	'JMP '
+	DB	'JNB '
+	DB	'JNC '
+	DB	'JNZ '		;45
+	DB	'JZ  '
+	DB	'LCAL'
+	DB	'LIST'
+	DB	'LJMP'
+	DB	'LOAD'		;50
+	DB	'MODE'
+	DB	'MOV '
+	DB	'MOVC'
+	DB	'MOVX'
+	DB	'MUL '		;55
+	DB	'NOP '
+	DB	'ON  '
+	DB	'OR  '
+	DB	'ORG '
+	DB	'ORL '		;60
+	DB	'PC  '
+	DB	'POP '
+	DB	'PROG'
+	DB	'PSW '
+	DB	'PUSH'		;65
+	DB	'R0  '
+	DB	'R1  '
+	DB	'R2  '
+	DB	'R3  '
+	DB	'R4  '		;70
+	DB	'R5  '
+	DB	'R6  '
+	DB	'R7  '
+	DB	'RBIT'
+	DB	'RBS '		;75
+	DB	'RBYT'
+	DB	'RESE'
+	DB	'RET '
+	DB	'RETI'
+	DB	'RL  '		;80
+	DB	'RLC '
+	DB	'RR  '
+	DB	'RRC '
+	DB	'SAVE'
+	DB	'SETB'		;85
+	DB	'SJMP'
+	DB	'SP  '
+	DB	'STEP'
+	DB	'SUBB'
+	DB	'SWAP'		;90
+	DB	'T   '
+	DB	'TILL'
+	DB	'TM0 '
+	DB	'TM1 '
+	DB	'TO  '		;95
+	DB	'TOP '
+	DB	'TRAN'
+	DB	'UPLO'
+	DB	'VERI'
+	DB	'XBYT'		;100
+	DB	'XCH '
+	DB	'XCHD'
+	DB	'XRL '
+;***** END OF KEYTAB *****
+$EJECT
+;******************************************************************
+;
+;	NAME: POWER ON
+;
+;	ABSTRACT: This routine initializes the breakpoint RAM, I/O
+;	channels, output buffer flag, TOP value, break status, user
+;	DPTR, B register and user PC. It sets the baud rate to 2400
+;	and the GO condition to forever. At the end, it jumps to
+;	BREAK which sets up the user area and jumps to SIGN_ ON
+;	since the step flag has been cleared.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: LSTFLG, GR, UPI_DATA_IMAGE, BAUDKEY, BAUD_HIGH, BAUD_LOW,
+;	ERRNUM, TOP_STORE, MON_FLAG, BREAK_STATUS, CAUSE_IMAGE, ASM_PC_LOW,
+;	ASM_PC_HIGH, DPTR, B, 2 stack locations, CHRCNT, LNLGTH, CHARIN,
+;	MAXNUM_FLG
+;
+;	VARIABLES MODIFIED: SP, LSTFLG, DPTR, A, PARAM1, DPL, ERRNUM,
+;	ASM_PC_HIGH, ASM_PC_LOW, CAUSE_IMAGE, DPH, B
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: CHECK_EPROMS, INIT_IO, UPI_CMD,
+;	UPI_IN, UPI_OUT, SET_BAUD, BREAK
+;
+;******************************************************************
+POWER_ON:
+	LCALL	CLRBRK				;Clear breakpoint RAM and
+						;remove Monitor from over-
+						;laying user Config. Memory
+	MOV	SP,#007H
+	CLR	LSTFLG
+	LCALL	CHECK_EPROMS			;Verify integrity of Monitor code.
+	LCALL	INIT_IO
+	MOV	DPTR,#UPI_DATA
+	MOVX	A,@DPTR				;Initialize the IO channel and
+	MOV	DPTR,#(RAMOFF + GR)		;copy break enable image
+	MOV	A,#NO_BREAK			;into hardware
+	MOVX	@DPTR,A
+						;Sets GO FOREVER as the power up
+						;Default condition
+						;Clear the users output buffer flag.
+	MOV	DPTR,#(RAMOFF + UPI_DATA_IMAGE)
+	CLR	A
+	MOVX	@DPTR,A
+	MOV	PARAM1,#TOP_PORT		;Initialize TOP port.
+	LCALL	UPI_CMD
+	LCALL	UPI_IN				;Ignore current port value.
+	MOV	PARAM1,#000H			;Reselect the console.
+	LCALL	UPI_OUT
+	MOV	DPL,#BAUDKEY			;Set up the initial baud rate
+	MOV	A,#004H
+	MOVX	@DPTR,A
+	LCALL	SET_BAUD			;for 2400.
+	MOV	DPTR,#(RAMOFF + BAUD_HIGH)
+	MOV	A,#024H
+	MOVX	@DPTR,A
+	CLR	A
+	MOV	ERRNUM,A			;Firmware checksum error
+	INC	DPTR				;Point to BAUD_LOW
+	MOVX	@DPTR,A
+	INC	DPTR				;Point to TOP_STORE and zero.
+	MOVX	@DPTR,A
+	INC	DPTR				;Point to MON_FLAGS and zero
+	MOVX	@DPTR,A
+	INC	DPTR				;Point to BREAK_STATUS
+	MOVX	@DPTR,A				;Set it to the power on flag
+	MOV	ASM_PC_HIGH,A			;Zero out the asm PC
+	MOV	ASM_PC_LOW,A
+	MOV	CAUSE_IMAGE,A
+	MOV	DPL,A
+	MOV	DPH,A				;Clear DPTR and B so that
+	MOV	PSW,A				;break will report them correctly
+	MOV	B,A
+	PUSH	ACC				;Simulate the user PC in the.stack
+	PUSH	ACC
+	JMP	BREAK
+$EJECT
+;******************************************************************
+;
+;	NAME: SIGN_ON
+;
+;	ABSTRACT: Puts sign on message on the display and waits for
+;	a character to be input.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: PARAM1, PARAM2
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IPRINT_STRING, IWAIT_FOR_USER
+;
+;******************************************************************
+SIGN_ON:
+	MOV	PARAM1,#HIGH(SIGN_ON_MSG)
+	MOV	PARAM2,#LOW(SIGN_ON_MSG)
+	LCALL	IPRINT_STRING
+	LCALL	IWAIT_FOR_USER
+$EJECT
+;******************************************************************
+;
+;	NAME: START
+;
+;	ABSTRACT: This routine initializes the stack and gets tokens
+;	until an EOL is encountered. It then decodes the first token and
+;	branches to appropriate command routine.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: LINE_START, SP, TOKSTR
+;
+;	VARIABLES MODIFIED: PARAM1, PARAM2, DPTR, A, SP, B,
+;
+;	ERROR EXITS: 02H (INVALID COMMAND)
+;
+;	SUBROUTINE ACCESSED DIRECTRLY: IGETOKE, INIT_IO, IERROR
+;
+;******************************************************************
+START:	MOV	SP,#STACK
+	MOV	LINE_START,#000H		;Default beginning of line
+	LCALL	INIT_IO				;Reset UPI
+	LCALL	IGETOKE
+	CJNE	A,#EOL_TOKE,DECODE_CALL	;If EOL, branch to cmd routine
+	JMP	START
+DECODE_CALL:
+	MOV	DPTR,#CMDTAB
+	MOV	PARAM1,#((SIGN_ON_MSG-CMDTAB)/3) ;Length of command table
+	LCALL	DECODE
+	JMP	START
+DECODE:	CLR	A
+	MOVC	A,@A+DPTR
+	CJNE	A,TOKSTR,NEXT_ENTRY		;Check next entry if no match
+	CLR	A
+	INC	DPTR
+	MOVC	A,@A+DPTR			;Get high byte of cmd addr
+	MOV	B,A
+	CLR	A
+	INC	DPTR
+	MOVC	A,@A+DPTR			;Get low byte of cmd addr
+	PUSH	ACC
+	PUSH	B
+	RET					;'Return' to cmd addr
+NEXT_ENTRY:
+	INC	DPTR
+	INC	DPTR
+	INC	DPTR				;Skip over 3 byte entries
+	DJNZ	PARAM1,DECODE			;Check for end of table
+	MOV	ERRNUM,#002H			;Invalid command
+	LJMP	IERROR
+CMDTAB:
+	DB		ABR_TOKE
+	DW		BR_CMD
+	DB		ACC_TOKE
+	DW		ACC_CMD
+	DB	ASM_TOKE
+	DW	ASMBASE				;Assemble command.
+	DB	B_TOKE
+	DW	B_CMD
+	DB	BAUD_TOKE
+	DW	BAUD_CMD
+	DB	BR_TOKE
+	DW	BR_CMD
+	DB	CAUSE_TOKE
+	DW	CAUSE_CMD
+	DB	CBYTE_TOKE
+	DW	MEMORY_CMD
+	DB	DASM_TOKE
+	DW	(ASMBASE + 3)			;Disassemble command.
+	DB	DBYTE_TOKE
+	DW	MEMORY_CMD
+	DB	DOWNLOAD_TOKE
+	DW	DOWNLOAD_CMD
+	DB	DPTR_TOKE
+	DW	DPTR_CMD
+	DB	GO_TOKE
+	DW	GO_CMD
+	DB	LIST_TOKE
+	DW	LIST_CMD
+	DB	LOAD_TOKE
+	DW	LOAD_CMD
+	DB	MODE_TOKE
+	DW	MODE_CMD
+	DB	PC_TOKE
+	DW	PC_CMD
+	DB	PROGRAM_TOKE
+	DW	PROGRAM_CMD
+	DB	PSW_TOKE
+	DW	PSW_CMD
+	DB	RBIT_TOKE
+	DW	MEMORY_CMD
+	DB	RBYTE_TOKE
+	DW	MEMORY_CMD
+	DB	SAVE_TOKE
+	DW	SAVE_CMD
+	DB	SP_TOKE
+	DW	SP_CMD
+	DB	STEP_TOKE
+	DW	STEP_CMD
+	DB	TM0_TOKE
+	DW	TM0_CMD
+	DB	TM1_TOKE
+	DW	TM1_CMD
+	DB	TOP_TOKE
+	DW	TOP_CMD
+	DB	TRANSFER_TOKE
+	DW	TRANSFER_CMD
+	DB	UPLOAD_TOKE
+	DW	UPLOAD_CMD
+	DB	VERIFY_TOKE
+	DW	VERIFY_CMD
+	DB	XBYTE_TOKE
+	DW	MEMORY_CMD
+;******************************************************************
+;
+SIGN_ON_MSG:
+	DB	26,CR,LF,('SDK-51 MONITOR VER. 1.03')
+$EJECT
+;******************************************************************
+;
+;	NAME: INIT_IO
+;
+;	ABSTRACT: This routine initialized the UPI hardware ports
+;	and resets the line buffer.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: CHRCNT, LNLGTH, CHARIN, MAXNUM_FLAG
+;
+;	VARIABLES MODIFIED: A, CHRCNT, CHARIN, PARAM1, PARAM2,
+;	LNLGTH, PSW
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: UPI_CMD, ITIME
+;
+;******************************************************************
+INIT_IO:CLR	MAXNUM_FLAG
+	CLR	A
+	MOV	CHRCNT,A
+	MOV	LNLGTH,A
+	MOV	CHARIN,#' '
+	MOV	PARAM1,#RESET_CMD
+	LCALL	UPI_CMD
+	MOV	PARAM1,#GR_PORT
+	LCALL	UPI_CMD
+	MOV	PARAM1,#CLR_BRK_LATCHES
+	LCALL	UPI_OUT
+	MOV	PARAM1,#NO_BREAK
+	LCALL	UPI_OUT
+	MOV	PARAM1,#SELECT_CON
+	LCALL	UPI_CMD
+	MOV	PARAM1,#000H
+	MOV	PARAM2,#070H		;Delay approx. one UPI display scan (11.2ms)
+	LJMP	ITIME			;so ,the display won't flicker on reset.
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)WAIT_FOR_USER
+;
+;	ABSTRACT: Clears keyboard closures, waits for next keyboard
+;	entry and then returns. The entry causing the return is NOT
+;	read, therefore, the UPI will not overwrite it until it is
+;	read by some other procedure.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: DPTR, PARAM1, PARAM2
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: ITIME, ICSTS
+;
+;******************************************************************
+IWAIT_FOR_USER:
+	MOV	DPTR,#UPI_DATA
+	MOVX	A,@DPTR			;Clear any keyboard closures
+IWAIT_FOR_USER_1:
+	LCALL	ICSTS
+	JNC	IWAIT_FOR_USER_1
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: CHEC~EPROMS
+;
+;	ABSTRACT: This routine calculates the checksum for both
+;	EPROMS. If not ok, print an error message and lock up
+;	forever.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: DPTR, CHECK_SUM, PARAM1, PARAM2, A
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IPRINT_STRING, ILSTBYT, SPACCO
+;
+;*******************************************************************
+CHECK_EPROMS:
+	MOV	DPTR,#BASE			;Load dptr with beginning address
+	MOV	CHECKSUM,#000H			;Clear scratch pad
+CHECK_LOOP:
+	CLR	A
+	MOVC	A,@A+DPTR			;Get code byte
+	ADD	A,CHECKSUM			;Accumulate a running total
+	MOV	CHECKSUM,A			;Save it
+	INC	DPTR				;Point to next byte
+	MOV	A,DPH				;If address has not wrapped around,
+	JNZ	CHECK_LOOP			;continue adding
+	MOV	A,CHECKSUM			;else, check tally
+	JZ	CHECK_OUT_OK			;If everthing adds up, return
+	MOV	PARAM1,#HIGH(ERROR_MSG)
+	MOV	PARAM2,#LOW(ERROR_MSG)
+	LCALL	IPRINT_STRING
+	MOV	PARAM1,#000H			;Firmware checksum error
+	LCALL	ILSTBYT
+	LCALL	SPACCO
+	MOV	PARAM1,#HIGH(ERROR_TABLE)
+	MOV	PARAM2,#LOW(ERROR_TABLE)
+	LCALL	IPRINT_STRING
+	JMP	$				;and hang up here
+CHECK_OUT_OK:
+	RET
+
+$EJECT
+$INCLUDE(:F1:UTILIT.INC)
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)EOL_CHECK
+;
+;	ABSTRACT: This routine will check for a carraige return and error
+;	if one is not found. It returns to calling routine if one is.
+;
+;	INPUTS: A (byte to be checked)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: ERRNUM
+;
+;	ERROR EXITS: 04H (CARRAIGE RETURN EXPECTED)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IERROR
+;
+;
+;******************************************************************
+IEOL_CHECK:
+	CJNE	A,#EOL_TOKE,EOL_ERROR
+	RET
+EOL_ERROR:
+	MOV	ERRNUM,#004H		;Carriage return expected
+	JMP	IERROR
+$EJECT
+;******************************************************************
+;
+;	NAME: INC_PNT/ DEC_PNT/ SWAP_POINTERS
+;
+;	ABSTRACT: These are general purpose 16 bit arithmetic
+;	routines which will increment, decrement or swap pointers.
+;
+;	INPUTS: PNTLOW, PNTHGH, PCNTLO, PCNTHI
+;
+;	OUTPUTS: PNTLOW, PNTHGH, PNCTLO, PCNTHI
+;
+;	VARIABLES MODIFIED: A, PNTLOW, PNTHGH, PCNTLO, PCNTHI
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;
+;******************************************************************
+INC_PNT:INC	PNTLOW
+	MOV	A,PNTLOW
+	JNZ	INC_HIGH
+	INC	PNTHGH
+INC_HIGH:
+	RET
+;******************************************************************
+DEC_PNT:DEC	PNTLOW
+	MOV	A,PNTLOW
+	CPL	A
+	JNZ	DEC_HIGH
+	DEC	PNTHGH
+DEC_HIGH:
+	RET
+;******************************************************************
+SWAP_POINTERS:
+	MOV	A,PNTLOW
+	MOV	PNTLOW,PCNTLO
+	MOV	PCNTLO,A
+	MOV	A,PNTHGH
+	MOV	PNTHGH,PCNTHI
+	MOV	PCNTHI,A
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: SPACCO/ (I)CO
+;
+;	ABSTRACT: Outputs a space to the system console, falls through
+;	to ICO then returns.
+;
+;	INPUTS: PARAM1 (ASCII character to be printed)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: PARAM1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: UPI_OUT
+;
+;
+;******************************************************************
+SPACCO:	MOV	PARAM1,#' '
+ICO:	LJMP	UPI_OUT
+$EJECT
+;******************************************************************
+;
+;	NAME: ICI
+;
+;	ABSTRACT: Inputs an ASCII character from the system console, clears
+;	the parity bit and converts to upper case. If there is no
+;	user abort, it returns to caller.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: A
+;
+;	VARIABLES MODIFIED: A
+;
+;	ERROR EXITS: None.
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IUPI_IN
+;
+;******************************************************************
+
+ICI:	LCALL	UPI_IN
+	CLR	ACC.7			;Clear parity bit
+	CJNE	A,#'a',UPI_INA
+UPI_INA:
+	JC	UPI_INR
+	CJNE	A,#('z' + 1),UPI_INB
+UPI_INB:
+	JNC	UPI_INR
+	CLR	ACC.5			;Convert to upper case
+UPI_INR:
+	CJNE	A,#ESC,UPI_INE		;Abort if its an ESC key
+	JMP	START
+UPI_INE:	RET				;And return to the caller.
+$EJECT
+;******************************************************************
+;
+;	NAME: ICSTS
+;
+;	ABSTRACT: Returns carry=l if there is a character waiting from
+;	the system console. If no character is ready, carry will be
+;	cleared. CAUTION:	this is not available for use except to the
+;	monitor itself. See UCSTS for a general purpose version of
+;	this routine.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: Carry bit (C)
+;
+;	VARIABLES MODIFIED: DPTR, A, C, 2 locations of the stack
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+ICSTS:	PUSH	DPL
+	PUSH	DPH
+	MOV	DPTR,#UPI_CONTROL
+CSTS_1:	MOVX	A,@DPTR
+	JB	ACC.2,CSTS_1			;Wait for 'status to be valid
+	RRC	A				;Rotate UPI OBF into CARRY
+	POP	DPH
+	POP	DPL
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (U)CSTS
+;
+;	ABSTRACT: This routine gets the console status bit from bit 7
+;	of the accumulator into carry. Carry = 1 if a character
+;	is present.
+;
+;	Users writing application programs should use
+;	this routine instead of ICSTS. This reflects the buffered
+;	version of the console port.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: Carry bit (C)
+;
+;	VARIABLES MODIFIED: DPTR, A
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+
+UCSTS:	MOV	DPTR,#(RAMOFF + UPI_DATA_IMAGE)
+	MOVX	A,@DPTR
+	RLC	A
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (U)CI
+;
+;	ABSTRACT: This routine waits for the console status bit to
+;	indicate that a character is ready (C=1), inputs it from
+;	the console, clears the status bit and returns.
+;
+;	Users writing application programs should use
+;	this routine instead of ICSTS. This reflects the buffered
+;	version of the console port.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: UPI_DATA_IMAGE
+;
+;	VARIABLES MODIFIED: DPTR, A
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: UCSTS
+;
+;
+;******************************************************************
+UCI:	CALL	UCSTS
+	JNC	UCI
+	MOV	DPTR,#(RAMOFF + UPI_DATA_IMAGE)
+	MOVX	A,@DPTR
+	CLR	ACC.7
+	MOVX	@DPTR,A
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)UPI_CMD
+;
+;	ABSTRACT: Waits till the UPI is reaqy and then outputs a
+;	conmand to it.
+;
+;	INPUTS: PARAM1=byte to be sent to UPI cOllll1and port
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: A. 2 locations in the stack
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+UPI_CMD:
+	PUSH	DPL				;Save DPTR in the stack.
+	PUSH	DPH
+	MOV	DPTR,#UPI_CONTROL		;Point to UPI control channel
+UPI_C_1:
+	MOVX	A,@DPTR				;And wait for valid status.
+	ANL	A,#016H
+	JNZ	UPI_C_1
+	MOV	A,PARAM1			;Then send out the command.
+	MOVX	@DPTR,A
+	POP	DPH				;Restore DPTR
+	POP	DPL
+	RET					;Return to caller.
+$EJECT
+;******************************************************************
+;
+;	NAME: UPI_OUT
+;
+;	ABSTRACT: Waits until the UPI is rea~ and then outputs data to it.
+;
+;	INPUTS: PARAM1 = data to be sent to UPI
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: A, 2 locations on the stack
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+UPI_OUT:PUSH	DPL				;Save DPTR in the stack.
+	PUSH	DPH
+	MOV	DPTR,#UPI_CONTROL		;Point to UPI control channel
+UPI_0_1:MOVX	A,@DPTR				;and wait for valid status.
+	ANL	A,#016H
+	JNZ	UPI_0_1
+	INC	DPTR				;Point to data port
+	MOV	A,PARAM1
+	MOVX	@DPTR,A
+	POP	DPH				;Restore DPTR
+	POP	DPL
+	RET					;Return to caller.
+$EJECT
+;******************************************************************
+;
+;	NAME: UPI_IN
+;
+;	ABSTRACT: Waits for a character from the UPI and returns it to
+;	the caller in the accumulator.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: A
+;
+;	VARIABLES MODIFIED: A, 2 locations of the stack
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: ICSTS
+;
+;
+;******************************************************************
+UPI_IN:	CALL	ICSTS
+	JNC	UPI_IN				;Wait for character
+	PUSH	DPL
+	PUSH	DPH
+	MOV	DPTR,#UPI_DATA			;Point to UPI data port
+	MOVX	A,@DPTR				;Get byte
+	POP	DPH				;Restore DPTR
+	POP	DPL
+	RET					;and return to the caller
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)CONTINUATION_LINE
+;
+;	ABSTRACT: This routine looks for LIST=ON. If there is no user
+;	abort, it gets a character and returns. If LIST=RESET,
+;	it outputs a blinking comma to the display, discards the
+;	character, waits for the user to hit any key and returns.
+;
+;	INPUTS: LSTFLG
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: PARAM1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: ICO, ICI, ICSTS
+;
+;
+;******************************************************************
+ICONTINUATION_LINE:
+	JB	LSTFLG,DONT_WAIT
+	MOV	PARAM1,#(',' + BLINK)
+	CALL	ICO
+CHECK_ESC:
+	JMP	ICI
+DONT_WAIT:
+	CALL	ICSTS
+	JC	CHECK_ESC
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)FETCH/(I)STORE
+;
+;	ABSTRACT:
+;	This routine reads or writes one byte of data. SELECT indicates
+;	the type of memory operation to be performed. The following
+;	table lists the values of SELECT:
+;		0H) CBYTE - Program memory
+;		1H) RBYTE - Register memory
+;		2H) DBYTE - Internal data memory
+;		3H) Not used
+;		4H) RBIT - Bit memory
+;		5H) Not used
+;		6H) XBYTE - External data memory
+;	PNTLOW holds lower 8 bits of address
+;	PNTHGH Holds upper 8 bits of address and must be
+;		zeroed out if not used
+;	PARAM1 holds value to be stored, is only used by STORE
+;	A	holds the result of the fetch
+;	CBYTE does a read after write to verify byte value written,
+;		(i.e. detects writes to ROM).
+;
+;	INPUTS: SELECT, PARAM1, PNTLO
+;
+;	OUTPUTS: A, contents of memory being addressed
+;
+;	VARIABLES MODIFIED: A, PSW, DPTR, ERRNUM, TEMP1, B, C
+;
+;	ERROR EXITS: 12H (ADDRESS OUT OF RANGE)
+;		15H (READ AFTER WRITE ERROR)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IERROR
+;
+;
+;******************************************************************
+IFETCH:	MOV	A,SELECT		;Data value passed from calling routine
+	CLR	F0			;Zero = read memory
+	LJMP	MEMORY
+ISTORE:	MOV	A,SELECT
+	SETB	F0			;One = write memory
+MEMORY:	MOV	DPH, PNTHGH
+	MOV	DPL, PNTLOW		;Put addr in data pointer
+	CJNE	A,#(CBYTE_TOKE AND 007H),XBYTE
+	JNB	F0,C_READ		;Jump if not CBYTE
+	MOV	A,PARAM1
+	MOVX	@DPTR,A			;Program memory write
+	CLR	A
+	MOVC	A,@A+DPTR		;Program memory read after write
+	XRL	A,PARAM1
+	JNZ	FETERR			;Verify error if read doesn't match write
+	LJMP	FETEND
+C_READ:	CLR	A
+	MOVC	A,@A+DPTR		;Program memory read
+	LJMP	FETEND
+XBYTE:	CJNE	A,#(XBYTE_TOKE AND 007H),RBYTE ;Check if external RAM was selected
+	JB	F0,XWRITE		;Jump to STORE if flag is set
+XREAD:	MOVX	A,@DPTR		;Load EXT RAM into ACC
+	LJMP	FETEND
+XWRITE:	MOV	A,PARAM1		;Load ACC with data to be output
+X_WRT:	MOVX	@DPTR,A		;Output ACC to EXT RAM
+FETEND:	CLR	F0			;Clear flag
+	RET
+RBYTE:	MOV	DPTR,#RAMOFF		;Load DPTR with base addr of 8155 RAM
+	MOV	ERRNUM,#012H		;Address out of range
+	MOV	A,PNTHGH
+	JNZ	ERR			;Error if address is not 00XXH
+	MOV	A, SELECT
+	CJNE	A,#(RBYTE_TOKE AND 007H),DBYTE ;Jump if not RBYTE
+	MOV	A,PNTLOW
+	JNB	ACC.7,ERR		;Error if address is between 0 and 7FH
+	MOV	DPL,A
+	JB	F0,XWRITE		;Jump to STORE if flag is set
+	JMP	XREAD			;Exit from FETCH
+DBYTE:	CJNE	A,#(DBYTE_TOKE AND 007H),RBIT ;Jump if RBIT is selected
+	MOV	A,PNTLOW		;Load ACC with low pointer
+	JB	ACC.7,ERR		;Error if addr if between 80H and FFH
+	MOV	DPL,A			;Load DPL with new low point value
+	JB	F0,XWRITE		;Jump to STORE if flag is set
+	JMP	XREAD			;Exit from FETCH
+FETERR:	MOV	ERRNUM,#015H		;Read after write did not match.
+ERR:	JMP	IERROR			;Exit from FETCH/STORE
+RBIT:	CJNE	A,#(RBIT_TOKE AND 007H),FETEND ;Check if selector is for direct bit
+	MOV	A,PNTLOW		;Load ACC with pointer
+	ANL	A,#0F8H		;Mask off lower 3 bits
+	JB	ACC.7,SPEFUN		;Jump to register bit array if over 7FH
+	RRC	A
+	RR	A
+	RR	A			;Rotate ACC to obtain correct addr
+	ADD	A,#020H		;Add offset of internal bit registers
+SPEFUN:	ADD	A,DPL			;Add offset to pointer
+	MOV	DPL,A			;Load DPL with new addr
+	JB	F0,BITSTR		;Jump to STORE if flag is set
+	MOVX	A,@DPTR		;Move INT RAM simulator byte into ACC
+	MOV	TEMP1,PNTLOW		;Move pointer into TEMP1
+	ANL	TEMP1,#007H		;Mask lower 3 bits
+	INC	TEMP1			;For DJNZ
+BITLOP:	DJNZ	TEMP1,BITROT		;Loop until PARAM1=O
+	ANL	A,#001H		;Mask lowest bit
+	JMP	FETEND			;Exit from FETCH
+BITROT:	RR	A			;Rotate until PARAM1=O
+	JMP	BITLOP
+BITSTR:	MOV	TEMP1,PNTLOW		;Load TEMPI with pointer
+	ANL	TEMP1,#007H		;Mask lower 3 bits
+	INC	TEMP1			;For DJNZ
+	MOVX	A,@DPTR		;Load ACC with data in RAM simulator
+RHTROT:	RRC	A
+	DJNZ	TEMP1,RHTROT		;Rotate until pointer reaches zero
+	MOV	B,PARAM1		;Move data to be output into B reg
+	MOV	C,B.0			;Move into carry data to be output
+	MOV	TEMP1,PNTLOW		;Load TEMPI with pointer
+	ANL	TEMP1,#007H		;Mask lower 3 bits for counter
+	INC	TEMP1
+LFTROT:	RLC	A
+	DJNZ	TEMP1,LFTROT		;Rotate left until TEMPI reaches zero
+	JMP	X_WRT
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)NEWLINE
+;
+;	ABSTRACT: Outputs a CR/LF to the console device.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: PARAM1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: ICO
+;
+;
+;******************************************************************
+INEWLINE:
+	MOV	PARAM1,#CR		;Output a CR
+	CALL	ICO
+	MOV	PARAM1,#LF		;Output a LF
+	CALL	ICO
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: AZTEST / NMTEST / HXTEST / ALFNUM
+;
+;	ABSTRACT: AZTEST will check to see if the input character is
+;	an ASCII value between @ and Z. Carry is set if it is.
+;	NMTEST will check to see if the character was an ASCII number
+;	between 0 and 9 and set carry if true. HXTEST will look for the
+;	ASCII representation of a hex value 0-9 and A-F and will set carry
+;	if true. ALFNUM will test for character to be alpha or numeric
+;	and set carry if true.
+;
+;	INPUTS: PARAM1 (byte to be checked)
+;
+;	OUTPUTS: Carry bit (C)
+;
+;	VARIABLES MODIFIED: A, C
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSEO DIRECTRLY: None
+;
+;
+;******************************************************************
+AZTEST:	MOV	A,PARAM1	;Move char to be tested into ACC
+	CJNE	A,#'@',ZTEST	;Carry will reset if char is <= '@'
+	SJMP	CARSET		;Set carry if equal to '@'
+ZTEST:	JC	CARSET		;Reset carry if char is <= '@'
+	CJNE	A,#'Z',AZEND	;Carry will set if char is <= 'l'
+CARSET:	CPL	C		;Set carry if equal to 'l'
+AZEND:	RET				;Exit from AZTEST
+;******************************************************************
+NMTEST:MOV	A,PARAM1	;Move char into ACC
+	CLR	C
+	SUBB	A,#('0')	;See if char is <= ASCII '0'
+	CPL	C
+	JNC	NUMEND		;Carry left 0 if false
+	SUBB	A,#('9' - '0')	;See if char is > ASCII '9'
+NUMEND:	RET			;Exit from NMTEST
+;******************************************************************
+HXTEST:	CALL NMTEST		;See if char is between '0' and '9'
+				;Extra level of subroutine added
+	JC	HEXEND		;Jump if char between '0' and '9'
+	MOV	A,PARAM1	;Move char into ACC
+	SUBB	A,#'A'		;See if char is > 'A'
+	CPL	C
+	JNC	HEXEND		;Carry left 0 if false
+	SUBB	A,#('F' - 'A')	;See if char is less than 'F'
+HEXEND:	RET			;Exit from HXTEST
+;******************************************************************
+ALFNUM:	CALL	AZTEST		;See if char is between '@' and 'l'
+				;Add extra level of subroutine
+	JC	ANEND		;Carry set if true
+	CALL	NMTEST		;See if char is between '0' and '9'
+				;Added extra level of subroutine
+ANEND:	RET			;Exit from ALFNUM
+$EJECT
+;******************************************************************
+;
+;	NAME: LSSEQL
+;
+;	ABSTRACT: This is a 16-bit 'less than' or 'equal' check. The
+;	carry bit is set to indicate true. If MAXNUM_FLAGS is
+;	true, no check is made.
+;
+;	INPUTS: PARAM1 (high byte to be compared to)
+; 		PARAM2 (low byte to be compared to)
+; 		PARAM3 (high byte to be compared)
+; 		PARAM4 (low byte to be compared)
+;
+;	OUTPUTS: Carry bit (C)
+;
+;	VARIABLES MODIFIED: C, MAXNUM_FLAG, PARAM1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+LSSEQL:	JB	MAXNUM_FLAG,LAB1B
+	CJNE	PARAM3,#0FFH,START_COMPARE
+	CJNE	PARAM4,#0FFH,START_COMPARE
+	SETB	MAXNUM_FLAG
+START_COMPARE:
+	CLR	C
+	MOV	A,PARAM2	;Move byte to be compared t6 into ACC
+	SUBB	A,PARAM4	;Subtract byte to be compared
+	JNC	LAB1
+	DEC	PARAM1		;Decrement upper byte if lower byte was smaller
+	MOV	A,PARAM1
+	CPL	A
+	CLR	C
+	JZ	LAB1A		;ErroF if PARAM1 decremented to FF
+LAB1:	MOV	A,PARAM1	;Move upper byte to be compared,to into ACC
+	SUBB	A,PARAM3	;Subtract upper byte to be comp~red
+	CPL	C		;Set C if <= is true
+LAB1A:	RET			;Exit from LSSEQL
+LAB1B:	CLR	MAXNUM_FLAG
+	CLR	C
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)GETNUM / (I)GETEOL / (I)GET_COMMA
+;
+;	ABSTRACT: These routines are general purpose token checks.
+;	IGETNUM will get a token and error if it is not
+;	a number token, it will return if it is. IGETEOL will
+;	look for an end-of-line token and error if it is not
+;	found, it will return if it is. IGET_COMMA will look for
+;	a comma token and will error if one is not found and return
+;	if it is.
+;
+;	INPUTS: None
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: ERRNUM
+;
+;	ERROR EXITS: 03H (NUMBER EXPECTED)
+;		06H (COMMA REQUIRED)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IERROR, IGETOKE
+;
+;
+;******************************************************************
+IGETNUM:LCALL	IGETOKE
+	MOV	ERRNUM,#03H		;Number expected
+	CJNE	A,#NUMBER_TOKE,UTILIT_ERROR
+	RET
+;******************************************************************
+IGETEOL:LCALL	IGETOKE
+	JMP	IEOL_CHECK		;Check for end of 1ine token
+UTILIT_ERROR:
+	JMP	IERROR
+;******************************************************************
+IGET_COMMA:
+	LCALL	IGETOKE
+	MOV	ERRNUM,#006H		;Comma required
+	CJNE	A,#COMMA_TOKE,UTILIT_ERROR
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: ISIT_DISPLAY
+;
+;	ABSTRACT: This routine checks for an equal or an EOL token,
+;	sends the command token to the display with an = sign and
+;	sets carry if and equal sign is found. Carry is cleared
+;	if an EOL is found.. The value is filled in by another routine.
+;
+;	INPUTS: TOKSTR
+;
+;	OUTPUTS: Carry bit (C)
+;
+;	VARIABLES MODIFIED: C, TOKSAV, PARAM1
+;
+;	ERROR EXITS: 05H (EQUAL OR RETURN EXPECTED)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IGETOKE, INEWLINE, ICO, IERROR
+;
+;
+;******************************************************************
+ISIT_DISPLAY:
+	CLR	C
+	MOV	TOKSAV,TOKSTR
+	LCALL	IGETOKE
+	CJNE	A,#EOL_TOKE,CHANGE_CHECK
+	CALL	INEWLINE
+	MOV	PARAM1,TOKSAV
+	LCALL	IDISPLAY_TOKEN
+	MOV	PARAM1,#'='
+	CALL	ICO
+	SETB	C
+	RET
+CHANGE_CHECK:
+	MOV	ERRNUM,#005H		;Equal or return expected
+	CJNE	A,#EQUAL_TOKE,UTILIT_ERROR
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: ISIT_DISPLAY
+;
+;	ABSTRACT: This routine checks a token which is expected to be
+;	a number, sets up the partition addresses and looks for
+;	the upper partition limits from the user. Carry will be set
+;	if there is a partition or if there is an error condition.
+;	The partition range, or length, will also be calculated.
+;
+;	INPUTS: TOKSTR, VALLOW, VALHGH
+;
+;	OUTPUTS: Carry bit (C)
+;
+;	VARIABLES MODIFIED: A, ERRNUM, PARTIT_HI_LOW, PARTIT_HI_HIGH,
+;	PARTIT_LO_LOW, PARTIT_LO_HIGH, C, LENGTH_LOW, LENGTH_HIGH
+;
+;	ERROR EXITS: 07H (PARTITION ERROR, LOW ADDR > HIGH ADDR)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IGETOKE, IGETNUM, IERROR
+;
+;
+;******************************************************************
+IGET_PART:
+	MOV	A,TOKSTR
+	MOV	ERRNUM,#003H			;Number expected
+	CJNE	A,#NUMBER_TOKE,UTILIT_ERROR	;SetEA and SA to the
+	MOV	PARTIT_HI_LOW,VALLOW		;value of the number.
+	MOV	PARTIT_HI_HIGH,VALHGH
+	MOV	PARTIT_LO_LOW,VALLOW
+	MOV	PARTIT_LO_HIGH,VALHGH
+	LCALL	IGETOKE				;Get the next token.
+	CJNE	A,#TO_TOKE,PARTITION_E		;else set EA to the ending
+	CALL	IGETNUM				;address of the partition
+	MOV	PARTIT_HI_LOW,VALLOW
+	MOV	PARTIT_HI_HIGH,VALHGH
+	CLR	C
+	MOV	A,PARTIT_HI_LOW
+	SUBB	A,PARTIT_LO_LOW
+	MOV	LENGTH_LOW,A
+	MOV	A,PARTIT_HI_HIGH
+	SUBB	A,PARTIT_LO_HIGH
+	MOV	LENGTH_HIGH,A
+	MOV	ERRNUM,#007H		;Partition error, low adr > high adr
+	JC	UTILIT_ERROR
+	LCALL	IGETOKE			;and then read in the next token.
+	SETB	C
+	RET
+PARTITION_E:
+	CLR	C
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)SAVE_AND_DISPLAY
+;
+;	ABSTRACT: This routine will convert a hex byte into two ASCII
+;	characters for display the next time PAINTER is called.
+;	POINT0 must be set before calling this routine to the character
+;	position desired on the screen (ie LINBUF or LINBUF+n). LNLGTH
+;	and CHRCNT are not adjusted by this routine.
+;
+;	INPUTS: POINT0 (the location in the line buffer desired), PARAM1
+;	(the character to be displayed)
+;
+;	OUTPUTS: POINT0, 1 location in the line buffer
+;
+;	VARIABLES MODIFIED: POINT0, A, 1 location in the line buffer
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: CONVHEX
+;
+; ,
+; ,.******************************************************************
+ISAVE_AND_DISPLAY:
+	MOV	A,PARAM1
+	SWAP	A
+	LCALL	CONVHEX
+	MOV	@POINT0,A		;ASCII of hi gh byte in acc.
+	INC	POINT0
+	MOV	A,PARAM1
+	LCALL	CONVHEX
+	MOV	@POINT0,A		;ASCII of low byte in acc.
+	INC	POINT0
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: CONVHEX
+;
+;	ABSTRACT: Converts 4 bits to a hex character.
+;
+;	INPUTS: A (byte to be converted)
+;
+;	OUTPUTS: A
+;
+;	VARIABLES MODIFIED: A
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+CONVHEX:
+	ANL	A,#00FH			;ASCII No. 90-99, aux.C=O
+	ADD	A,#090H			;9A-9F aux. C=1
+	DA	A
+	ADDC	A,#040H
+	DA	A
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)LSTWRD/ (I)LSTBYT
+;
+;	ABSTRACT: Outputs a word or a byte to the system console.
+;
+;	INPUTS: PARAM2 (low byte of a word). PARAM1 (high byte of a word
+;	or the single byte in a byte display)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: A. PARAM1. PARAM3
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: CONVHEX. ICO
+;
+;
+;******************************************************************
+ILSTWRD:LCALL	ILSTBYT
+	MOV	A,PARAM2
+	MOV	PARAM1,A
+;******************************************************************
+ILSTBYT:MOV	A,PARAM1		;Move byte into ACC
+	MOV	PARAM3,A
+	SWAP	A
+	CALL	CONVHEX
+	MOV	PARAM1,A
+	CALL	ICO			;Save lower 4 bits in lower 4 of PARAM3
+	MOV	A,PARAM3		;Needed because reg to reg moves invalid
+	CALL	CONVHEX
+	MOV	PARAM1,A
+	JMP	ICO
+$EJECT
+;*****************************************************************
+;
+;	NAME: PAINTER
+;
+;	ABSTRACT: Repaints the contents of LINBUF to the display.
+;
+;	INPUTS: PARAM6 (contains line length, LNLGTH)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: A, PARAM1, POINT1, PARAM6
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: UPI_OUT
+;
+;
+;******************************************************************
+PAINTER:MOV	POINT1,#LINBUF
+REPAINT_2:
+	MOV	A,@POINT1
+	MOV	PARAM1,A
+	CALL	UPI_OUT
+	INC	POINT1
+	DJNZ	PARAM6,REPAINT_2
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: GETCHR
+;
+;	ABSTRACT: This routine returns one character from the line
+;	buffer in CHARIN if a carraige return has bee received.
+;	If no "CR" is present, it gets characters from the UPI and
+;	fills the line buffer until a "CR" is encountered. It echos
+;	each character, as it is received, to the display. If LIST
+;	is on, it echoes the entire line to the serial port after a
+;	"CR" is encountered.
+;
+;	INPUTS: CHRCNT, LNLGTH, LSTFLG, LINE_START
+;
+;	OUTPUTS: CHARIN
+;
+;	VARIABLES MODIFIED: A, PARAM1, PARAM2, LNLGTH, CHRCNT, C, CHARIN
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: ITIME, UPI_CMD, INEWLINE, PAINTER,
+;	UPI_OUT, ICI, ICO, SPACCO
+;
+;
+;******************************************************************
+GETCHR:	MOV	A,CHRCNT		;Move character counter into ACC
+	CJNE	A,LNLGTH,OUTCHR		;Compare ACC to 1ine length and jump to
+					;OUTCHR if not equal
+	MOV	PARAM1,#SELECT_CON
+	LCALL	UPI_CMD
+	MOV	A,LINE_START
+	MOV	LNLGTH,A		;Clear character count and line length
+	MOV	CHRCNT,A
+	ADD	A,#(LINBUF - 1 )	;Initialize RO as pointer to line buffer
+	MOV	POINT0,A
+CRWAIT:	LCALL	INEWLINE
+	MOV	PARAM6,LNLGTH		;Re-paint the alpha-numeric display.
+	CJNE	PARAM6,#000H,REPAINT
+	LJMP	REPAINT_1
+REPAINT:CALL	PAINTER
+REPAINT_1:
+	MOV	PARAM1,#('-' + BLINK)
+	LCALL	UPI_OUT
+	LCALL	ICI
+	MOV	CHARIN,A		;Move input into character storage
+	MOV	PARAM1,A		;Move CHARIN into R2
+	CJNE	PARAM1,#CR,RUBOUT	;Check for CR as input
+	MOV	A,#LINBUF
+	ADD	A,LNLGTH
+	MOV	POINT0,A		;Load RO to next char in 1ine buffer
+	MOV	@POINT0,#CR		;Load CR into line buffer
+	INC	LNLGTH
+	CLR	A
+	MOV	C,LSTFLG
+	MOV	ACC.6,C
+	MOV	PARAM1,A
+	LCALL	UPI_CMD			;Turn list mode on if selected
+	LCALL	INEWLINE
+	MOV	PARAM6,LNLGTH
+	CALL	PAINTER			;Echoes line a final time in list mode
+OUTCHR:	MOV	A,#LINBUF		;Load A with base addr of storage array
+	ADD	A,CHRCNT		;Add character count to ACC
+	MOV	POINT0,A		;RO used as indirect pointer to char.
+	MOV	A,@POINT0		;Return char to GETCHR call routine in ACC
+	MOV	CHARIN,A		;Move character pointer to by RO
+	INC	CHRCNT			;Increment character counter
+	RET				;Exit from GETCHR
+RUBOUT:	CJNE	PARAM1,#RBOUT,LEGALI	;Check for rub out as input
+	MOV	A,LNLGTH		;Move line length into ACC
+	CJNE	A,LINE_START,DELET	;Check if any characters were input yet
+	JMP	CRWAIT			;CR wait loop
+DELET:	MOV	PARAM1,#BACKSP
+	LCALL	ICO			;Output back space
+	LCALL	SPACCO			;Output space
+	MOV	PARAM1,#BACKSP
+	LCALL	ICO			;Output back space
+	DEC	LNLGTH			;Decrement line length
+	JMP	CRWAIT			;CR wait loop
+LEGALI:	MOV	A,LNLGTH
+	CJNE	A,#LINMAX - 1,TABKEY	;Check that line does not exceed max
+	JMP	CRWAIT			;CR wait loop
+TABKEY:	CJNE	PARAM1,#HORIZONTAL_TAB,INPUT
+	MOV	A,#LINBUF
+	ADD	A,LNLGTH
+	MOV	POINT0,A
+	MOV	A,LNLGTH
+MORE_SPACE:
+	INC	A
+	MOV	LNLGTH,A
+	MOV	@POINT0,#' '
+	INC	POINT0
+	CJNE	A,#LINMAX - 1,MORE_CONT
+	JMP	CRWAIT
+MORE_CONT:
+	JNB	ACC.0,MORE_SPACE
+	JNB	ACC.1,MORE_SPACE
+	JMP	CRWAIT
+INPUT:	MOV	A,CHARIN
+	JNB	ACC.5,INPUTOK
+	JNB	ACC.6,INPUTOK
+INPUTOK:MOV	A,#LINBUF		;Load A with line buffer base addr
+	ADD	A,LNLGTH		;Add line length to ACC
+	MOV	POINT0,A		;POINT0 used as pointer to array
+	MOV	@POINT0,CHARIN		;Load input into storage array
+	LCALL	ICO			;Output input
+	INC	LNLGTH			;Increment line length counter
+	JMP	CRWAIT			;CR wait routine
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)GETOKE
+;
+;	ABSTRACT: This routine inputs characters, ignoring spaces, until
+;	string buffer is full (LNCNT). If the characters are numbers
+;	the token type is designated "number" and its value goes into
+;	VALLOW and VALHGH. It compares the input token to the keyword table
+;	and errors if not found. If found, it checks the next keyword
+;	entry to see if the token is a valid abreviation. Assembler
+;	operands that are not numbers will have the basic operand type
+;	flag set (B_O_T).
+;
+;	INPUTS: None
+;
+;	OUTPUTS: TOKSTR, B_O_T, A
+;
+;	VARIABLES MODIFIED: A, POINT0, LINCNT, @POINT0, PARAM1, TEMP1,
+;	ERRNUM, DPTR, TOKSTR, B_O_T
+;
+;	ERROR EXITS: 01H (INVALID WORD i.e. token)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IERROR, GETCHR, IGETOKE, AZTEST,
+;	NUMBER, ALFNUM, STRING_SPACE
+;
+;
+;******************************************************************
+IGETOKE:CLR	B_O_T
+	MOV	A,CHARIN		;Move char into ACC
+	CJNE	A,#' ',ALPHA		;Loop on space inputs
+	CALL	GETCHR			;Get new input
+	SJMP	IGETOKE			;Space loop
+ALPHA:	MOV	POINT0,#STRGBF
+	MOV	LINCNT,#TOKSIZ + 1
+SPFILL:	MOV	A,#' '			;Load ACC with ASCII equiv of space
+	MOV	@POINT0,A		;Fill buffer with spaces
+	INC	POINT0			;Increment string buffer pointer
+	DJNZ	LINCNT,SPFILL		;Loop until string buffer is filled
+	MOV	LINCNT,#TOKSIZ		;Move length of string into R1
+	MOV	POINT0,#STRGBF		;Move base addr of string buffer into RO
+	MOV	PARAM1,CHARIN		;Move char into R2
+	LCALL	AZTEST			;See if char is a letter
+	JC	STRFIL
+	LJMP	_NUMBER			;Jump to number if false
+STRFIL:	LCALL	ALFNUM			;See if char is letter or number
+	JNC	STRTST			;Jump to filler routine if non-numerical
+	MOV	A,PARAM1		;Save char in string buffer
+	MOV	@POINT0,A		;Needed because reg to reg move invalid
+	INC	POINT0			;Increment string buffer pointer
+	MOV	TEMP1,POINT0		;Save pointer from GETCHAR
+	CALL	GETCHR			;Get next input
+	MOV	PARAM1,CHARIN		;To pass param for ALFNUM
+	MOV	POINT0,TEMP1		;Restore pointer for GETOKE
+	DJNZ	LINCNT,STRFIL		;Get more char if line counter is not 0
+SPWAIT:	LCALL	ALFNUM			;Check for alpha-numeric character
+	JNC	STRTST			;Loop until space is input
+	CALL	GETCHR			;Get next character
+	MOV	PARAM1,CHARIN		;Setup for ALFNUM
+	SJMP	SPWAIT
+STRTST:	MOV	PARAM1,#000H
+STRTST1:LCALL	STRING_SPACE		;Compare STRGBF to the keyword table.
+	JNZ	GOOD_TOKE_FOUND
+	JC	CHECK_ABREV
+	INC	PARAM1
+	CJNE	PARAM1,#(KEYTAB - TOKTBL + 1),STRTST1
+TOKERR:	MOV	ERRNUM,#001H		;Invalid word
+	LJMP	IERROR
+CHECK_ABREV:
+	INC	PARAM1
+	LCALL	STRING_SPACE
+	DEC	PARAM1
+	JC	TOKERR
+GOOD_TOKE_FOUND:
+	MOV	A,PARAM1
+	MOV	DPTR,#(TOKTBL - 1)
+	MOVC	A,@A+DPTR		;Get token from tabl e
+	MOV	TOKSTR,A		;Put token in storage
+	CJNE	A,#040H,GT0		;Set basic operand type flag for
+GT0:	JC	NOTBOT			;Tokens that are assembler operands
+	CJNE	A,#098H,GT1		;which are not numbers.
+GT1:	JNC	NOTBOT
+	SETB	B_O_T
+NOTBOT:	MOV	A,TOKSTR
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: _NUMBER (PMO: renamed from NUMBER to avoid asm clash)
+;
+;	ABSTRACT: This routine checks to see if a number of characters
+;	(1-24) is a valid hex number, converts it to a
+;	16 bit binary number and gives it a number token if
+;	is. It ignores leading zeros and trailing 'Hs'.
+;
+;	INPUTS: A
+;
+;	OUTPUTS: TOKSTR, VALHGH, VALLOW
+;
+;	VARIABLES MODIFIED: VALLOW, VALHGH, PARAM2, A, B, TOKSTR
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: NMTEST, HXTEST, GETCHR
+;
+;
+;******************************************************************
+_NUMBER:	CALL	NMTEST
+	JNC	SYMBOL			;Jump if char is not a number
+	MOV	VALLOW,#000H		;Initialize value storage
+	MOV	VALHGH,#000H
+HEXSTR:	LCALL	HXTEST
+	JNC	HTEST			;Jump if char is not a hex character
+	LCALL	NMTEST			;Check for character=O to 9
+	JNC	HEXCHR			;Load A into PARAM2 for hex char
+	MOV	PARAM2,#'0'		;Clear pointer
+RL4:	MOV	A,VALLOW
+	MOV	B,#16			;To RL 4 places
+	MUL	AB
+	MOV	VALLOW,A		;ACC now holds VALLOW RL 4 places
+	MOV	A,CHARIN		;Move last number entered into ACC
+	SUBB	A,PARAM2		;Subtract ASCII equiv of 'A' or '0'
+					;as appropriate for hex or decimal
+	ADD	A,VALLOW		;Add number to rotated VALLOW
+	MOV	VALLOW,A		;Store new value in VALLOW
+	MOV	PARAM1,B		;Store upper 4 bits from rotate
+	MOV	B,#010H
+	MOV	A,VALHGH		;Move VALHGH into ACC
+	MUL	AB			;Rotate VALHGH 4 places to left
+	ADD	A,PARAM1		;Add upper 4 bits from VALLOW
+	MOV	VALHGH,A		;Store new value in VALHGH
+	CALL	GETCHR			;Get next input
+	MOV	PARAM1,CHARIN		;Set up pass param for HXTEST
+	SJMP	HEXSTR			;Loop until non hex char entered
+HEXCHR:	MOV	PARAM2,#('A' - 00AH)	;Move ASCII equiv of 'A' into POINT1
+	SJMP	RL4
+HTEST:	MOV	A,CHARIN
+	CJNE	A,#'H',NUMBER_1		;See if char is 'H' and ignore if so
+	CALL	GETCHR
+NUMBER_1:
+	MOV	A,CHARIN		; Look at next character
+	CJNE	A,#',',NUMBER_2		; Check for valid delimiter - comma
+	SJMP	NUMBER_FOUND
+NUMBER_2:
+	CJNE	A,#CR,NUMBER_3		; Check for valid delimiter - CR
+	SJMP	NUMBER_FOUND
+NUMBER_3:
+	CJNE	A,#'=',NUMBER_4		; Check for valid delimiter - equal sign
+	SJMP	NUMBER_FOUND
+NUMBER_4:
+	CJNE	A,#' ',NUMBER_ERR	; Check for valid delimiter - space
+	SJMP	NUMBER_FOUND
+NUMBER_ERR:
+	MOV	ERRNUM,#003H		; Set up numver req error
+	JMP	IERROR
+NUMBER_FOUND:
+	MOV TOKSTR,#NUMBER_TOKE		;Load toke storage with number token
+	MOV	A,TOKSTR		;Load ACC with TOKEN
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: SYMBOL
+;
+;	ABSTRACT: This routine checks a token against the symbol
+;	table tokens (ie comma, equal sign, etc.), errors if
+;	there is no match and returns the token in ACC if it is
+;	found.
+;
+;	INPUTS: PARAM1
+;
+;	OUTPUTS: A, TOKSTR
+;
+;	VARIABLES MODIFIED: TOKSTR, A, DPTR, ERRNUM, CHARIN
+;
+;	ERROR EXITS: 01H (INVALID WORD)
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: IERROR, GETCHR
+;
+;
+;******************************************************************
+SYMBOL:	MOV	TOKSTR,PARAM1
+	MOV	DPTR,#SYMBOL_TBL
+SYM_TBL_SRCH:
+	CLR	A
+	MOVC	A,@A+DPTR
+	MOV	ERRNUM,#001H		; Inval id token (word)
+	JZ	ERRSET
+	CJNE	A,TOKSTR,NOT_MATCH_TBL
+	INC	DPTR
+	CLR	A
+	MOVC	A,@A+DPTR
+	MOV	TOKSTR,A
+	SJMP	SYMEND
+NOT_MATCH_TBL:
+	INC	DPTR
+	INC	DPTR
+	SJMP	SYM_TBL_SRCH
+SYMBOL_TBL:
+	DB	',',COMMA_TOKE
+	DB	'/',BAR_TOKE
+	DB	'=',EQUAL_TOKE
+	DB	'+',PLUS_TOKE
+	DB	'#',POUND_TOKE
+	DB	CR,EOL_TOKE
+	DB	0,0
+ERRSET:	LJMP	IERROR
+SYMEND:	CJNE	PARAM1,#CR,LAB10	;See if last input was a 'CR'
+	MOV	CHARIN,#' '		;Return a space to calling routine if 'CR'
+	MOV	A,TOKSTR		;Load ACC with token
+	RET				;Exit from GETOKE
+LAB10:	CALL	GETCHR			;Get next character if 'CR' wasn't last char
+	MOV	A,TOKSTR		;To return token in ACC
+	RET				;Exit from GETOKE
+$EJECT
+;******************************************************************
+;
+;	NAME: STRING_SPACE
+;
+;	ABSTRACT: This routine checks the contents of the string buffer
+;	against the keyword table for any match (ie a valid abreviation
+;	or an exact match) and returns to the calling routine. There
+;	are 4 places in every keyword and this routine matches for
+;	spaces as well as characters. Carry and ACC are set
+;	if match is exact, carry is set and ACC is cleared if match is
+;	not exact (ie spaces do not match - could be an abrev.), both
+;	carry and ACC are cleared if there is no match at all.
+;
+;	INPUTS: STRGBF, PARAM1 (token ordinal in KEYTAB)
+;
+;	OUTPUTS: Carry bit (C), A
+;
+;	VARIABLES MODIFIED: C, A, POINT0, STRGCT, DPTR, B, TEMP1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;*******************************************************************
+STRING_SPACE:
+	MOV	POINT0,#STRGBF		;Load RO with address of string buffer
+	MOV	STRGCT,#TOKSIZ		;Load counter with length of string
+	MOV	DPTR,#(KEYTAB - 4)	;Load DPTR with address of KEY TABLE
+	MOV	B,#4
+	MOV	A,PARAM1		;Load ACC with offset
+	MUL	AB			;Multiply by 4 characters
+	CLR	C
+	ADD	A,DPL			;Add offset to base
+	MOV	DPL,A
+	MOV	A,B
+	ADDC	A,DPH
+	MOV	DPH,A
+S_S_1:	CLR	A
+	MOVC	A,@A+DPTR
+	MOV	TEMP1,A
+	MOV	A,@POINT0
+	CJNE	A,TEMP1,S_S_2
+	INC	DPTR			;Next key character
+	INC	POINT0			;Next string character
+	DJNZ	STRGCT,S_S_1		;Test the whole 4 char string
+	SETB	C			;Match exactly including spaces
+	CLR	A
+	CPL	A
+	RET
+S_S_2:	CJNE	A,#' ',S_S_3		;Match but not exact (spaces)
+	SETB	C
+	CLR	A
+	RET
+S_S_3:	CLR	C			;No match at all
+	CLR	A
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: (I)PRINT_STRING
+;
+;	ABSTRACT: Prints a string from program memory. At entry, PARAM1
+;	and PARAM2 should point to the string. The first element of
+;	the string is the length (0-255), the rest of the elements are
+;	output as ASCII characters.
+;
+;	WARNING:	Calls to this routine may not be single-stepped through.
+;
+;	INPUTS: PARAM1(high byte), PARAM2(low byte)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: A, COUNT, DPTR, PARAM1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSEO DIRECTRLY: ICO
+;
+;******************************************************************
+IPRINT_STRING:
+	MOV	DPH,PARAM1
+	MOV	DPL,PARAM2
+	CLR	A			;Counter:=string length.
+	MOVC	A,@A+DPTR
+	MOV	COUNT,A
+	JZ	PRINT_STRING_E		;Exit if a null string or
+PRINT_STRING_1:
+	CLR	A			;else get the next element
+	INC	DPTR
+	MOVC	A,@A+DPTR
+	MOV	PARAM1,A		;and output it.
+	LCALL	ICO			;Repeat loop until count=O.
+	DJNZ	COUNT,PRINT_STRING_1
+PRINT_STRING_E:
+	RET				;Then return to the caller.
+$EJECT
+;********************************************************************
+;
+;	NAME: (I)DISPLAY_TOKEN
+;
+;	ABSTRACT: This routine displays an ASCII token using the token
+;	value passed to it (PARAM1) to indicate which token to display.
+;
+;	INPUTS: PARAM1 (token to be displayed)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: PARAM2. DPTR. A. PARAM3, PARAM1
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: ICO
+;
+;******************************************************************
+IDISPLAY_TOKEN:
+	MOV	PARAM2,#000H
+	CLR	C
+DT0_0:
+	MOV	DPTR,#TOKTBL
+	MOV	A,PARAM2
+	MOVC	A,@A+DPTR
+	CJNE	A,2,DT0		;2 is the direct addr of R2 which we call PARAM1
+	LJMP	DT1
+DT0:
+	INC	PARAM2
+	JMP	DT0_0
+DT1:
+	MOV	DPTR,#KEYTAB
+DT_LOOP:
+	INC	DPTR
+	INC	DPTR
+	INC	DPTR
+	INC	DPTR
+	DJNZ	PARAM2,DT_LOOP
+	MOV	PARAM3,#004H
+TOKLOP:	CLR	A
+	MOVC	A,@A+DPTR	;Load ACC with first character of token
+	CJNE	A,#' ',TOK_WRITE
+	RET
+TOK_WRITE:
+	MOV	PARAM1,A	;To output character
+	LCALL	ICO
+	INC	DPTR
+	DJNZ	PARAM3,TOKLOP	;Loop if less than 4 characters output
+	RET
+;***** END OF DISPLAY TOKEN *****
+$EJECT
+;******************************************************************
+;
+;	NAME: ASCII_TO_HEX (PARAM1)
+;
+;	ABSTRACT: Assumes that PARAM1 is an ASCII character representing
+;	a hexidecimal digit and converts it to binary. The result
+;	is returned in the lower four bits of the accumulator. The
+;	upper bits are cleared.
+;
+;	INPUTS: PARAM1 (ASCII character)
+;
+;	OUTPUTS: A
+;
+;	VARIABLES MODIFIED: A
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;******************************************************************
+IASCII_TO_HEX:
+	MOV	A,PARAM1		;Put ASCII character into ACC
+	JNB	ACC.6,HEX1		;Jump to HEX1 if CHAR < 40H
+	ADD	A,#009H			;Add nine if CHAR> 3FH
+HEX1:	ANL	A,#00FH			;Mask lower 4 bits
+	RET
+$EJECT
+;******************************************************************
+;
+;	NAME: ITIME
+;
+;	ABSTRACT: TIME is a general purpose routine available through
+;	the jump table. Parameter 1 and 2 are the high and low bytes
+;	of a sixteen bit timer where each increment represents
+;	100 uS as in PLM.
+;	Time simply delays for the specified time and then returns.
+;
+;	INPUTS: PARAM1 (high byte), PARAM2 (low byte)
+;
+;	OUTPUTS: None
+;
+;	VARIABLES MODIFIED: A, DPTR, R5
+;
+;	ERROR EXITS: None
+;
+;	SUBROUTINES ACCESSED DIRECTRLY: None
+;
+;
+;******************************************************************
+
+ITIME:	MOV	A,PARAM1	;Convert PARAM1 and PARAM2 into one 16-bit
+	CPL	A		;negative number in DPTR
+	MOV	DPH,A
+	MOV	A,PARAM2
+	CPL	A
+	MOV	DPL,A
+	INC	DPTR
+TIME1:	MOV	R5,#02EH	;Setup and
+	DJNZ	R5,$		;Loop for 100 us
+	INC	DPTR		;Count out the 16-bit parameter
+	MOV	A,DPL	;Check DPTR for zero
+	ORL	A,DPH
+	NOP
+	JNZ	TIME1
+	RET
+;******************************************************************
+$EJECT
+$INCLUDE(:F1:DISCHA.INC)
+$EJECT
+$INCLUDE(:F1:XQT.INC)
+$EJECT
+$INCLUDE(:F1:MONFUN.INC)
+ASMBASE:
+END

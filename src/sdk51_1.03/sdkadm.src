@@ -1,0 +1,1175 @@
+$NOMACRO
+$XREF
+$TITLE('SDK-51 ASSEMBLER/DISASSEMBLER INTEL PROPRIETARY VERS. #1.03')
+;******************************************************************************
+;
+;
+;	SDK-51 MONITOR  INTEL PROPRIETARY
+;   THIS SOFTWARE IS COPYRIGHTED UNDER INTEL PART NUMBER 162787-004
+;
+;	VERSION 1.03		    8-12-81;
+;
+;	NN  N  00000  TTTTT  EEEEE	!!
+;	NN  N  0   0    T    E		!!
+;	N N N  0   0    T    E		!!
+;	N N N  0   0    T    EEEE	!!
+;	N  NN  0   0    T    E		!!
+;	N  NN  0   0    T    E
+;	N   N  00000    T    EEEEE	!!
+;
+;******************************************************************************
+;
+;
+;	COPYRIGHT (C) 1981 INTEL CORPORATION.
+;	ALL RIGHTS RESERVED.
+;	NO PART OF THIS PROGRAM OR PUBLICATION MAY BE REPRODUCED,
+;	TRANSMITTED, TRANSCRIBED, STORED IN A RETRIEVAL SYSTEM, OR
+;	TRANSLATED INTO ANY LANGUAGE OR COMPUTER LANGUAGE, IN ANY
+;	FORM OR BY ANY MEANS, ELECTRONIC, MECHANICAL, MAGNETIC,
+;	OPTICAL, CHEMICAL, MANUAL OR OTHERWISE, WITHOUT THE PRIOR
+;	WRITTEN PERMISSION OF INTEL CORPORATION, 3065 BOWERS AVENUE,
+;	SANTA CLARA, CALIFORNIA 95051.
+
+
+;******************************************************************************
+ASMBASE EQU	0F581H
+	ORG	ASMBASE
+	LJMP	ASSEMBLY_CMD
+	LJMP	DISASSEMBLY_CMD
+;INCLUDE FOR COMMON.INC
+$NOLIST
+$INCLUDE(:F1:COMMON.INC)
+$LIST
+$EJECT
+;******************************************************************************
+;
+;	TABLE OF CONTENTS:
+;
+;	This listing contains a source file and 3 include files.
+;	Each include file contains a number of subroutines. Each
+;	subroutine listed has its own 'header' block and begins on
+;	a new page.
+;	The files are as follows:
+;
+;	SDKADM.SRC (SOURCE FILE)
+;
+;			MNEMONIC_TAB
+;			TEMPORARY VARIABLES
+;			FLAG ADDRESSES
+;			CONSTANTS
+;			INSTRUCTION_CODE
+;
+;			ONE_BYTE_TAIL
+;			MNEMONIC_FIRST_OPERAND
+;			MNEMONIC_TWO_OPERANDS
+;			MOVC_OPERANDS
+;			THREE_OPERANDS
+;			JUMP_OPERAND
+;			JUMP_TWO_OPERANDS
+;			JUMP_ABSOLUTE_OPERAND
+;			JUMP_LONG_OPERAND
+;			MNEMONIC_INSTRUCTION_TAIL
+;			MNEMONIC_INSTR_LIST_TAIL
+;			ASSEMBLY_CMD
+;
+;		ASM.INC (INCLUDE FILE)
+;
+;			START_DIVIDE
+;			CALCULATE_INSTRUCTION_VALUE
+;			UPDATE_OUR_CODE
+;			GET_FIRST_OPERAND
+;			CHECK_AND_SET_EXP_FLAG/SET_EXP_16_FLAG/SET_EXP_FLAG/CHECK_EXP_FLAG
+;				SET_POUND_FLAG/CHECK_AND_SET_SECOND_EXP_FLAG/SET_SLASH_EXP_FLAG
+;				SET_REL_FLAG/GET_SECOND_EXP
+;
+;		ASMA.INC (INCLUDE FILE)
+;
+;			CHECK_AND_CHANGE_ASM_PC
+;			CHANGE_TO_INSTRUCTION_OP
+;
+;		SDKDSM.INC (INCLUDE FILE)
+;
+;			DISASSEMBLY_CMD
+;			GET_HASH_VALUE
+;			OPERAND_BYTE_CHECK
+;			DISPLAY_OPERAND
+;			DISPLAY_COMMA
+;			DISASSEMBLE
+;
+;******************************************************************************
+$EJECT
+;************************************************************************
+; *									                                    *
+; * THIS MODULE CONTAINS THE TABLES USEO TO IMPLEMENT ASSEMBLY AND	    *
+; * DISASSEMBLY:							*
+; *									*
+; * INSTRUCTION$CODE - A table of 256 address entries, one per opcode.	*
+; * Each entry codes up for its opcode the mnemonic, first operand and	*
+; * second operand. Specifically, the entry equals			*
+; * M + F*MNEMONIC$FACTOR + S*MNEMONIC$FACTOR*OPERAND$FACTOR		*
+; * WHERE								*
+; * M is the ordinal of the mnemonic in MNEMONIC$TAB,			*
+; * F is 0 if there are no operands; otherwise F is one more than the	*
+; * ordinal of the first operand in the OPERAND$TAB, and		*
+; * S is 0 if there is no second operand; otherwise S is one more than	*
+; * the ordinal of the second operand in the OPERAND$TAB.		*
+; * The entry OFFFFH in this table indicates the opcode is undefined.	*
+; *									*
+; * MNEMONIC$TAB - A symbol table listing all the mnemonics (operands	*
+; * not included).  The value associated with each is the instruction	*
+; * format, a number between 7 and 15 corresponding to the instruction	*
+; * tail in the grammar appropriate to the mnemonic. The instruction	*
+; * format is also needed to disassemble the instruction.  The formats	*
+; * are:								*
+; *	7 - No operands (e.g. RETI)					*
+; *	8 - One operand (e.g. CLR A)					*
+; *	9 - Two operands (e.g. ADD A,RO)				*
+; *	10 - MOVC - Two operands (e.g. MOVC A,@A + DPTR)		*
+; *	11 - CJNE - Three operands (e.g. CJNE @RO,#56H,42H)		*
+; *	12 - JUMP - Relative - One operand (e.g. JC 44H)		*
+; *	13 - JUMP - Relative - Two operands (e.g. JNB 5H,45H)		*
+; *	14 - Absolute CALL and JUMP (e.g. ACALL 341H)			*
+; *	15 - Long CALL and JUMP (e.g. LJMP 4536H)			*
+; *									*
+; * The first mnemonics in this table are long call and jump(15), next	*
+; * are the absolute call and jump instructions(14), then jump-relative	*
+; * one-operand instructions(13), the CJNE three operand instructions	*
+; * 11), the MOVC instructions(10), the two operand instructions(9),	*
+; * the jump-relative one-operand instructions(12), the one operand	*
+; * instructions(8), and the no operand instructions(7). The jump-	*
+; * relative one-operand instructions are in between the two operand	*
+; * instructions and the one operand instructions because in the action	*
+; * SELECT$INSTRUCTION$TAIL it has to be determined if the mnemonic is	*
+; * JNB, JB, JBC, SETB, CLR, or CPL since these six instructions, if they*
+; * have an expression, have a bit expression so BIT$EXP must be set.	*
+; *									*
+; * OPERAND$TAB - A symbol table listing the operands. No value is	*
+; * associated with them. Only the ordinal in the table is important.   *
+; *									*
+;************************************************************************
+;
+;
+;	DECLARE
+;	UNDEF LIT '0FFFFH';
+;
+;	DECLARE
+;		MNEMONIC$TAB$HEAD TABLE PUBLIC DATA(
+;		.MNEMONIC$TAB + 0EDH,
+;		0FFFFH - 0EDH).
+;
+MNE_UNDEF	EQU	0FFFFH
+
+MNEMONIC_TAB:		;(*) BYTE PUBLIC DATA(
+
+	DB	0FH	; LCALL
+	DB	0FH	; LJMP
+	DB	0EH	; ACALL
+	DB	0EH	; AJMP
+	DB	0CH	; SJMP
+	DB	0CH	; JNZ
+	DB	0CH	; JZ
+	DB	0CH	; JNC
+	DB	0CH	; JC
+	DB	0BH	; CJNE
+	DB	0AH	; MOVC
+	DB	09H	; MOVX
+	DB	09H	; XCHD
+	DB	09H	; XCH
+	DB	09H	; SUBB
+	DB	09H	; MOV
+	DB	09H	; XRL
+	DB	09H	; ANL
+	DB	09H	; ORL
+	DB	09H	; ADDC
+	DB	09H	; ADD
+	DB	0DH	; DJNZ
+	DB	0DH	; JNB
+	DB	0DH	; JB
+	DB	0DH	; JBC
+	DB	08H	; SETB
+	DB	08H	; CLR
+	DB	08H	; CPL
+	DB	08H	; DA
+	DB	08H	; POP
+	DB	08H	; SWAP
+	DB	08H	; PUSH
+	DB	08H	; MUL
+	DB	08H	; DIV
+	DB	08H	; JMP(@A+DPTR)
+	DB	08H	; RLC
+	DB	08H	; RL
+	DB	08H	; DEC
+	DB	08H	; RRC
+	DB	08H	; INC
+	DB	08H	; RR
+	DB	07H	; RETI
+	DB	07H	; RET
+	DB	07H	; NOP
+
+; DECLARE	; ORDINALS OF MNEMONICS IN MNEMONIC$TAB
+
+
+MNE_LCALL	EQU	00
+MNE_LJMP	EQU	01
+MNE_ACALL	EQU	02
+MNE_AJMP	EQU	03
+MNE_SJMP	EQU	04
+MNE_JNZ		EQU	05
+MNE_JZ		EQU	06
+MNE_JNC		EQU	07
+MNE_JC		EQU	08
+MNE_CJNE	EQU	09
+MNE_MOVC	EQU	10
+MNE_MOVX	EQU	11
+MNE_XCHD	EQU	12
+MNE_XCH		EQU	13
+MNE_SUBB	EQU	14
+MNE_MOV		EQU	15
+MNE_XRL		EQU	16
+MNE_ANL		EQU	17
+MNE_ORL		EQU	18
+MNE_ADDC	EQU	19
+MNE_ADD		EQU	20
+MNE_DJNZ	EQU	21
+MNE_JNB		EQU	22
+MNE_JB		EQU	23
+MNE_JBC		EQU	24
+MNE_SETB	EQU	25
+MNE_CLR		EQU	26
+MNE_CPL		EQU	27
+MNE_DA		EQU	28
+MNE_POP		EQU	29
+MNE_SWAP	EQU	30
+MNE_PUSH	EQU	31
+MNE_MUL		EQU	32
+MNE_DIV		EQU	33
+MNE_JMP		EQU	34
+MNE_RLC		EQU	35
+MNE_RL		EQU	36
+MNE_DEC		EQU	37
+MNE_RRC		EQU	38
+MNE_INC		EQU	39
+MNE_RR		EQU	40
+MNE_RETI	EQU	41
+MNE_RET		EQU	42
+MNE_NOP		EQU	43;
+;******************************************************************************
+; DECLARE	; MNEMONIC_FACTOR (I.E. 44) TIMES ORDINAL+1 OF FIRST OPERANDS IN
+;		OPERAND_TAB.
+
+A_OP1		EQU	0044
+ATR0_OP1	EQU	0088
+ATR1_OP1	EQU	0132
+R0_OP1		EQU	0176
+R1_OP1		EQU	0220
+R2_OP1		EQU	0264
+R3_OP1		EQU	0308
+R4_OP1		EQU	0352
+R5_OP1		EQU	0396
+R6_OP1		EQU	0440
+R7_OP1		EQU	0484
+AB_OP1		EQU	0528
+DPTR_OP1	EQU	0572
+C_OP1		EQU	0616
+ATDPTR_OP1	EQU	660
+BYTE_EXP8_OP1	EQU	0704
+BIT_EXP8_OP1	EQU	0748
+EXP16_OP1	EQU	0880
+EXP11_OP1	EQU	0924
+REL8_OP1	EQU	0968
+ATA_PLUS_DPTR_OP1	EQU	1012;
+;DECLARE;OPERAND_FACTOR*MNEMONIC_FACTOR(I.E.1056)TIMESORDINALSOF
+;SECONDOPERANDSINOPERAND_TAB
+
+A_OP2		EQU	01056
+ATR0_OP2	EQU	02112
+ATR1_OP2	EQU	03168
+R0_OP2		EQU	04224
+R1_OP2		EQU	05280
+R2_OP2		EQU	06336
+R3_OP2		EQU	07392
+R4_OP2		EQU	08448
+R5_OP2		EQU	09504
+R6_OP2		EQU	10560
+R7_OP2		EQU	11616
+C_OP2		EQU	14784
+ATDPTR_OP2	EQU	15840
+BYTE_EXP8_OP2	EQU	16896
+BIT_EXP8_OP2	EQU	17952
+POUND_EXP_OP2	EQU	19008
+SLASH_EXP_OP2	EQU	20064
+EXP16_OP2	EQU	21120
+REL8_OP2	EQU	23232
+ATA_PLUS_DPTR_OP2 EQU	24288
+ATA_PLUS_PC_OP2	EQU	25344;
+$EJECT
+;********** TEMPORARY VARIABLES **********
+;***** DATA ADDRESSES *****
+
+	DSEG
+	ORG	(PARTIT_HI_LOW + 1)
+INSTRUCTION_VALUE:	DS	1
+ORDINAL:		DS	1
+OLD_ASM_PC_HIGH:	DS	1
+OLD_ASM_PC_LOW:		DS	1
+INSTRUCTION:		DS	1
+REL_OFFSET_HIGH:	DS	1
+REL_OFFSET_LOW:		DS	1
+TEMP_SEC:		DS	1
+FIRST_OPER_ORDINAL:	DS	1
+SECOND_OPER_ORDINAL:	DS	1
+THIRD_OPER_ORDINAL:	DS	1
+CURRENT_OPERAND:	DS	1
+NO_OF_OPERANDS_PRINTED:	DS	1
+EXPRESSIONS_PRINTED:	DS	1
+MEMORY_TRACE_ADDR_HIGH:	DS	1
+MEMORY_TRACE_ADDR_LOW:	DS	1
+NUMBER_OF_OPERANDS:	DS	1
+OPERAND_CHECK:		DS	1
+MNEMONIC_ORDINAL:	DS	1
+DIVIDEND_HIGH:		DS	1
+DIVIDEND_LOW:		DS	1
+DIVISOR:		DS	1
+QUOTIENT_HIGH:		DS	1
+QUOTIENT_LOW:		DS	1
+
+
+;***** FLAG ADDRESSES *****
+
+	BSEG
+	ORG		(LSTFLG + 1)
+BIT_EXP:		DBIT	1
+FIRST_EXP:		DBIT	1
+SECOND_EXP:		DBIT	1
+	CSEG
+
+;***** CONSTANTS *****
+JUMP_END		EQU	22
+BIT_END			EQU	27
+MNEMONIC_FACTOR		EQU	44
+OPERAND_FACTOR		EQU	24
+UNDEFINED_OPCODE	EQU	0A5H
+
+INSTRUCTION_CODE:			;Hash Table
+;00
+	DW	MNE_NOP
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_LJMP + EXP16_OP1
+	DW	MNE_RR + A_OP1
+;04
+	DW	MNE_INC + A_OP1
+	DW	MNE_INC + BYTE_EXP8_OP1
+	DW	MNE_INC + ATR0_OP1
+	DW	MNE_INC + ATR1_OP1
+;08
+	DW	MNE_INC + R0_OP1
+	DW	MNE_INC + R1_OP1
+	DW	MNE_INC + R2_OP1
+	DW	MNE_INC + R3_OP1
+
+;0C
+	DW	MNE_INC + R4_OP1
+	DW	MNE_INC + R5_OP1
+	DW	MNE_INC + R6_OP1
+	DW	MNE_INC + R7_OP1
+;10
+	DW	MNE_JBC + BIT_EXP8_OP1 + REL8_OP2
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_LCALL + EXP16_OP1
+	DW	MNE_RRC + A_OP1
+;14
+	DW	MNE_DEC + A_OP1
+	DW	MNE_DEC + BYTE_EXP8_OP1
+	DW	MNE_DEC + ATR0_OP1
+	DW	MNE_DEC + ATR1_OP1
+;18
+	DW	MNE_DEC + R0_OP1
+	DW	MNE_DEC + R1_OP1
+	DW	MNE_DEC + R2_OP1
+	DW	MNE_DEC + R3_OP1
+
+;1C
+	DW	MNE_DEC + R4_OP1
+	DW	MNE_DEC + R5_OP1
+	DW	MNE_DEC + R6_OP1
+	DW	MNE_DEC + R7_OP1
+;20
+	DW	MNE_JB + BIT_EXP8_OP1 + REL8_OP2
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_RET
+	DW	MNE_RL + A_OP1
+;24
+	DW	MNE_ADD + A_OP1 + POUND_EXP_OP2
+	DW	MNE_ADD + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_ADD + A_OP1 + ATR0_OP2
+	DW	MNE_ADD + A_OP1 + ATR1_OP2
+;28
+	DW	MNE_ADD + A_OP1 + R0_OP2
+	DW	MNE_ADD + A_OP1 + R1_OP2
+	DW	MNE_ADD + A_OP1 + R2_OP2
+	DW	MNE_ADD + A_OP1 + R3_OP2
+;2C
+	DW	MNE_ADD + A_OP1 + R4_OP2
+	DW	MNE_ADD + A_OP1 + R5_OP2
+	DW	MNE_ADD + A_OP1 + R6_OP2
+	DW	MNE_ADD + A_OP1 + R7_OP2
+;30
+	DW	MNE_JNB + BIT_EXP8_OP1 + REL8_OP2
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_RETI
+	DW	MNE_RLC + A_OP1
+;34
+	DW	MNE_ADDC + A_OP1 + POUND_EXP_OP2
+	DW	MNE_ADDC + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_ADDC + A_OP1 + ATR0_OP2
+	DW	MNE_ADDC + A_OP1 + ATR1_OP2
+;38
+	DW	MNE_ADDC + A_OP1 + R0_OP2
+	DW	MNE_ADDC + A_OP1 + R1_OP2
+	DW	MNE_ADDC + A_OP1 + R2_OP2
+	DW	MNE_ADDC + A_OP1 + R3_OP2
+;3C
+	DW	MNE_ADDC + A_OP1 + R4_OP2
+	DW	MNE_ADDC + A_OP1 + R5_OP2
+	DW	MNE_ADDC + A_OP1 + R6_OP2
+	DW	MNE_ADDC + A_OP1 + R7_OP2
+;40
+	DW	MNE_JC + REL8_OP1
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_ORL + BYTE_EXP8_OP1 + A_OP2
+	DW	MNE_ORL + BYTE_EXP8_OP1 + POUND_EXP_OP2
+;44
+	DW	MNE_ORL + A_OP1 + POUND_EXP_OP2
+	DW	MNE_ORL + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_ORL + A_OP1 + ATR0_OP2
+	DW	MNE_ORL + A_OP1 + ATR1_OP2
+;48
+	DW	MNE_ORL + A_OP1 + R0_OP2
+	DW	MNE_ORL + A_OP1 + R1_OP2
+	DW	MNE_ORL + A_OP1 + R2_OP2
+	DW	MNE_ORL + A_OP1 + R3_OP2
+;4C
+	DW	MNE_ORL + A_OP1 + R4_OP2
+	DW	MNE_ORL + A_OP1 + R5_OP2
+	DW	MNE_ORL + A_OP1 + R6_OP2
+	DW	MNE_ORL + A_OP1 + R7_OP2
+;50
+	DW	MNE_JNC + REL8_OP1
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_ANL + BYTE_EXP8_OP1 + A_OP2
+	DW	MNE_ANL + BYTE_EXP8_OP1 + POUND_EXP_OP2
+;54
+	DW	MNE_ANL + A_OP1 + POUND_EXP_OP2
+	DW	MNE_ANL + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_ANL + A_OP1 + ATR0_OP2
+	DW	MNE_ANL + A_OP1 + ATR1_OP2
+;58
+	DW	MNE_ANL + A_OP1 + R0_OP2
+	DW	MNE_ANL + A_OP1 + R1_OP2
+	DW	MNE_ANL + A_OP1 + R2_OP2
+	DW	MNE_ANL + A_OP1 + R3_OP2
+;5C
+	DW	MNE_ANL + A_OP1 + R4_OP2
+	DW	MNE_ANL + A_OP1 + R5_OP2
+	DW	MNE_ANL + A_OP1 + R6_OP2
+	DW	MNE_ANL + A_OP1 + R7_OP2
+;60
+	DW	MNE_JZ + REL8_OP1
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_XRL + BYTE_EXP8_OP1 + A_OP2
+	DW	MNE_XRL + BYTE_EXP8_OP1 + POUND_EXP_OP2
+;64
+	DW	MNE_XRL + A_OP1 + POUND_EXP_OP2
+	DW	MNE_XRL + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_XRL + A_oP1 + ATR0_OP2
+	DW	MNE_XRL + A_OP1 + ATR1_oP2
+;68
+	DW	MNE_XRL + A_OP1 + R0_OP2
+	DW	MNE_XRL + A_OP1 + R1_OP2
+	DW	MNE_XRL + A_OP1 + R2_OP2
+	DW	MNE_XRL + A_OP1 + R3_OP2
+;6C
+	DW	MNE_XRL + A_OP1 + R4_OP2
+	DW	MNE_XRL + A_OP1 + R5_OP2
+	DW	MNE_XRL + A_OP1 + R6_OP2
+	DW	MNE_XRL + A_OP1 + R7_OP2
+;70
+	DW	MNE_JNZ + REL8_OP1
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_ORL + C_OP1 + BIT_EXP8_OP2
+	DW	MNE_JMP + ATA_PLUS_DPTR_OP1
+;74
+	DW	MNE_MOV + A_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + ATR0_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + ATR1_OP1 + POUND_EXP_OP2
+;78
+	DW	MNE_MOV + R0_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + R1_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + R2_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + R3_OP1 + POUND_EXP_OP2
+;7C
+	DW	MNE_MOV + R4_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + R5_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + R6_OP1 + POUND_EXP_OP2
+	DW	MNE_MOV + R7_OP1 + POUND_EXP_OP2
+;80
+	DW	MNE_SJMP + REL8_OP1
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_ANL + C_OP1 + BIT_EXP8_OP2
+	DW	MNE_MOVC + A_OP1 + ATA_PLUS_PC_OP2
+;84
+	DW	MNE_DIV + AB_OP1
+	DW	MNE_MOV + BYTE_EXP8_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + ATR0_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + ATR1_OP2
+;88
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R0_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R1_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R2_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R3_OP2
+;8C
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R4_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R5_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R6_OP2
+	DW	MNE_MOV + BYTE_EXP8_OP1 + R7_OP2
+;90
+	DW	MNE_MOV + DPTR_OP1 + EXP16_OP2
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_MOV + BIT_EXP8_OP1 + C_OP2
+	DW	MNE_MOVC + A_OP1 + ATA_PLUS_DPTR_OP2
+;94
+	DW	MNE_SUBB + A_OP1 + POUND_EXP_OP2
+	DW	MNE_SUBB + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_SUBB + A_OP1 + ATR0_OP2
+	DW	MNE_SUBB + A_OP1 + ATR1_OP2
+;98
+	DW	MNE_SUBB + A_OP1 + R0_OP2
+	DW	MNE_SUBB + A_OP1 + R1_OP2
+	DW	MNE_SUBB + A_OP1 + R2_OP2
+	DW	MNE_SUBB + A_OP1 + R3_OP2
+;9C
+	DW	MNE_SUBB + A_OP1 + R4_OP2
+	DW	MNE_SUBB + A_OP1 + R5_OP2
+	DW	MNE_SUBB + A_OP1 + R6_OP2
+	DW	MNE_SUBB + A_OP1 + R7_OP2
+;A0
+	DW	MNE_ORL + C_OP1 + SLASH_EXP_OP2
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_MOV + C_OP1 + BIT_EXP8_OP2
+	DW	MNE_INC + DPTR_OP1
+;A4
+	DW	MNE_MUL + AB_OP1
+	DW	MNE_UNDEF
+	DW	MNE_MOV + ATR0_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + ATR1_OP1 + BYTE_EXP8_OP2
+;A8
+	DW	MNE_MOV + R0_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + R1_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + R2_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + R3_OP1 + BYTE_EXP8_OP2
+;AC
+	DW	MNE_MOV + R4_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + R5_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + R6_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + R7_OP1 + BYTE_EXP8_OP2
+;B0
+	DW	MNE_ANL + C_OP1 + SLASH_EXP_OP2
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_CPL + BIT_EXP8_OP1
+	DW	MNE_CPL + C_OP1
+;B4
+	DW	MNE_CJNE + A_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + A_OP1 + BYTE_EXP8_OP2
+	Dw	MNE_CJNE + ATR0_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + ATR1_OP1 + POUND_EXP_OP2
+;B8
+	DW	MNE_CJNE + R0_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + R1_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + R2_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + R3_OP1 + POUND_EXP_OP2
+;BC
+	DW	MNE_CJNE + R4_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + R5_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + R6_OP1 + POUND_EXP_OP2
+	DW	MNE_CJNE + R7_OP1 + POUND_EXP_OP2
+;C0
+	DW	MNE_PUSH + BYTE_EXP8_OP1
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_CLR + BIT_EXP8_OP1
+	DW	MNE_CLR + C_OP1
+;C4
+	DW	MNE_SWAP + A_OP1
+	DW	MNE_XCH + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_xCH + A_OP1 + ATR0_OP2
+	DW	MNE_XCH + A_OP1 + ATR1_OP2
+;C8
+	DW	MNE_XCH + A_OP1 + R0_OP2
+	DW	MNE_XCH + A_OP1 + R1_OP2
+	DW	MNE_XCH + A_OP1 + R2_OP2
+	DW	MNE_xCH + A_OP1 + R3_OP2
+;CC
+	DW	MNE_XCH + A_OP1 + R4_OP2
+	DW	MNE_xCH + A_OP1 + R5_OP2
+	DW	MNE_XCH + A_OP1 + R6_OP2
+	DW	MNE_XCH + A_OP1 + R7_OP2
+;D0
+	DW	MNE_POP + BYTE_EXP8_OP1
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_SETB + BIT_EXP8_OP1
+	DW	MNE_SETB + C_OP1
+;D4
+	DW	MNE_DA + A_OP1
+	DW	MNE_DJNZ + BYTE_EXP8_OP1 + REL8_OP2
+	DW	MNE_XCHD + A_OP1 + ATR0_OP2
+	DW	MNE_XCHD + A_OP1 + ATR1_OP2
+;D8
+	DW	MNE_DJNZ + R0_OP1 + REL8_OP2
+	DW	MNE_DJNZ + R1_OP1 + REL8_OP2
+	DW	MNE_DJNZ + R2_OP1 + REL8_OP2
+	DW	MNE_DJNZ + R3_OP1 + REL8_OP2
+;DC
+	DW	MNE_DJNZ + R4_OP1 + REL8_OP2
+	DW	MNE_DJNZ + R5_OP1 + REL8_OP2
+	DW	MNE_DJNZ + R6_OP1 + REL8_OP2
+	DW	MNE_DJNZ + R7_OP1 + REL8_OP2
+;E0
+	DW	MNE_MOVX + A_OP1 + ATDPTR_OP2
+	DW	MNE_AJMP + EXP11_OP1
+	DW	MNE_MOVX + A_OP1 + ATR0_OP2
+	DW	MNE_MOVX + A_OP1 + ATR1_OP2
+;E4
+	DW	MNE_CLR + A_OP1
+	DW	MNE_MOV + A_OP1 + BYTE_EXP8_OP2
+	DW	MNE_MOV + A_OP1 + ATR0_OP2
+	DW	MNE_MOV + A_OP1 + ATR1_OP2
+;E8
+	DW	MNE_MOV + A_OP1 + R0_OP2
+	DW	MNE_MOV + A_OP1 + R1_OP2
+	DW	MNE_MOV + A_OP1 + R2_OP2
+	DW	MNE_MOV + A_OP1 + R3_OP2
+;EC
+	DW	MNE_MOV + A_OP1 + R4_OP2
+	DW	MNE_MOV + A_OP1 + R5_OP2
+	DW	MNE_MOV + A_OP1 + R6_OP2
+	DW	MNE_MOV + A_OP1 + R7_OP2
+;F0
+	DW	MNE_MOVX + ATDPTR_OP1 + A_OP2
+	DW	MNE_ACALL + EXP11_OP1
+	DW	MNE_MOVX + ATR0_OP1 + A_OP2
+	DW	MNE_MOVX + ATR1_OP1 + A_OP2
+;F4
+	DW	MNE_CPL + A_OP1
+	DW	MNE_MOV + BYTE_EXP8_OP1 + A_OP2
+	DW	MNE_MOV + ATR0_OP1 + A_OP2
+	DW	MNE_MOV + ATR1_OP1 + A_OP2
+;F8
+	DW	MNE_MOV + R0_OP1 + A_OP2
+	DW	MNE_MOV + R1_OP1 + A_OP2
+	DW	MNE_MOV + R2_OP1 + A_OP2
+	DW	MNE_MOV + R3_OP1 + A_OP2
+;FC
+	DW	MNE_MOV + R4_OP1 + A_OP2
+	DW	MNE_MOV + R5_OP1 + A_OP2
+	DW	MNE_MOV + R6_OP1 + A_OP2
+	DW	MNE_MOV + R7_OP1 + A_OP2;
+;******************************************************************************
+$EJECT
+;******************************************************************************
+;
+;    NAME: ONE_BYTE_TAIL/ MNEMONIC_SECOND_OPERAND_TAIL
+;
+;    ABSTRACT: This routine finds the opcode in the hash table which
+;	matches the token entered and sets the NUMBER_OF_BYTES according
+;	to the expression flags. These are all one byte-instructions
+;	regardless of actual NUMBER_OF_BYTES setting. Opcodes include
+;	NOP, RET etc..
+;
+;    INPUTS: None
+;
+;    OUTPUTS: OUR_CODE_LOW, OUR_CODE_HIGH
+;
+;    VARIABLES MODIFIED: None
+;
+;    ERROR EXITS: None
+;
+;    SUBROUTINES ACCESSED DIRECTLY: CALCULATE_INSTRUCTION_VALUE,
+;	CHECK_EXP_FLAG
+;
+;******************************************************************************
+ONE_BYTE_TAIL:
+MNEMONIC_SECOND_OPERAND_TAIL:
+	LCALL	CALCULATE_INSTRUCTION_VALUE
+	JMP	CHECK_EXP_FLAG
+$EJECT
+;******************************************************************************
+;
+;    NAME: MNEMONIC_FIRST_OPERAND
+;
+;    ABSTRACT: This routine sets flags to indicate how to assemble
+;	one byte instructions with one operand. It gets a hash
+;	value and passes the expression or expressions to run time
+;	routines. Instructions include: CLR A, INC A, JMP @A+DPTR,
+;	etc.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: NUMBER_OF_BYTES, ORDINAL, OUR_CODE_HIGH, OUR_CODE_LOW,
+;	VALLOW
+;
+;    VARIABLES MODIFIED: A, ORDINAL, NUMBER_OF_BYTES
+;
+;    ERROR EXITS: 10H (ASSEMBLY SYNTAX ERROR)
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETOKE, ONE_BYTE_TAIL,
+;	UPDATE_OUR_CODE, CALCULATE_INSTRUCTION_VALUE,
+;	GET_FIRST_OPERAND, CHECK_AND_SET_EXP_FLAG
+;
+;******************************************************************************
+MNEMONIC_FIRST_OPERAND:
+	LCALL	GETOKE
+	CJNE	A,#ATA_TOKE,MF00		;Check for @A+DPTR
+	LCALL	GETOKE
+	CJNE	A,#PLUS_TOKE,ASERR
+	LCALL	GETOKE
+	CJNE	A,#DPTR_TOKE,ASERR
+	MOV	ORDINAL,#017H
+	LCALL	UPDATE_OUR_CODE
+	JMP	ONE_BYTE_TAIL
+MF00:	JNB	B_O_T,MF01
+	LCALL	GET_FIRST_OPERAND
+	JMP	ONE_BYTE_TAIL
+MF01:	CJNE	A,#DPTR_TOKE,MF02
+	MOV	ORDINAL,#00DH
+	LCALL	UPDATE_OUR_CODE
+	LCALL	CALCULATE_INSTRUCTION_VALUE
+	MOV	NUMBER_OF_BYTES,#001H
+	RET
+MF02:	CJNE	A,#NUMBER_TOKE,ASERR
+	LCALL	CHECK_AND_SET_EXP_FLAG
+	JMP	CALCULATE_INSTRUCTION_VALUE
+$EJECT
+;******************************************************************************
+;
+;    NAME: MNEMONIC_TWO_ORERANDS
+;
+;    ABSTRACT: This routine sets flags to indicate how to assemble
+;	two operand instructions with 2 or 3 bytes. It gets a hash
+;	value and passes the expression or expressions to run time
+;	routines. Instructions include: MOV DPTR,#<addr>,
+;	MOV <data addr>,<data addr>.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: NUMBER_OF_BYTES, ORDINAL, OUR_CODE_LOW, OUR_CODE_HIGH,
+;	TEMP_SEC, VALLOW
+;
+;    VARIABLES MODIFIED: A, ORDINAL, TEMP_SEC, ERRNUM
+;
+;    ERROR EXITS: 03H (NUMBER EXPECTED)
+;		10H (ASSEMBLY SYNTAX)
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETOKE, UPDATE_OUR_CODE, GET_COMMA,
+;	GETNUM, MNEMONIC_SECOND_OPERAND_TAIL, CALCULATE_INSTRUCTION_VALUE,
+;	GET_SECOND_OPERAND, SET_POUND_EXP_FLAG, SET_SLASH_EXP_FLAG,
+;	CHECK_AND_SET_SECOND_EXP_FLAG
+;
+;******************************************************************************
+MNEMONIC_TWO_OPERANDS:
+	LCALL	GETOKE
+	CJNE	A,#DPTR_TOKE,MT00
+	MOV	ORDINAL,#00DH
+	LCALL	UPDATE_OUR_CODE
+	LCALL	GET_COMMA
+	LCALL	GETOKE
+	CJNE	A,#POUND_TOKE,ASERR
+	LCALL	GETNUM
+	LCALL	SET_EXP_16_FLAG
+	LJMP	CALCULATE_INSTRUCTION_VALUE
+MT00:	JNB	B_O_T,MFT00
+	LCALL	GET_FIRST_OPERAND
+	LJMP	MT01
+MFT00:	CJNE	A,#NUMBER_TOKE,ASERR
+	LCALL	SET_EXP_FLAG
+	MOV	TEMP_SEC,VALLOW
+MT01:	LCALL	GET_COMMA
+	LCALL	GETOKE
+	JNB	B_O_T,MS00
+	LCALL	GET_SECOND_OPERAND
+	JMP	MNEMONIC_SECOND_OPERAND_TAIL
+ASERR:	MOV	ERRNUM,#010H			;Assembly syntax
+	JMP	ERROR
+MS00:	MOV	A,TOKSTR
+	CJNE	A,#POUND_TOKE,MS01
+	LCALL	SET_POUND_EXP_FLAG
+	LCALL	GETNUM
+	JMP	MNEMONIC_SECOND_OPERAND_TAIL
+MS01:	CJNE	A,#BAR_TOKE,MS02
+	LCALL	SET_SLASH_EXP_FLAG
+	LCALL	GETNUM
+	JMP	MNEMONIC_SECOND_OPERAND_TAIL
+MS02:	MOV	ERRNUM,#003H
+	CJNE	A,#NUMBER_TOKE,TOERR
+	LCALL	CHECK_AND_SET_SECOND_EXP_FLAG
+	JMP	MNEMONIC_SECOND_OPERAND_TAIL
+$EJECT
+;******************************************************************************
+;
+;    NAME: MOVC_OPERANDS
+;
+;    ABSTRACT: This routine divides operands into one of two possible
+;	cases and modifies the hash value. Instructions are
+;	MOVC A,@A+DPTR and MOVC A,@A+PC.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: ORDINAL, OUR_CODE_LOW, OUR_CODE_HIGH
+;
+;    VARIABLES MODIFIED: A, ORDINAL
+;
+;    ERROR EXITS: 10H (ASSEMBLY SYNTAX)
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETOKE, GET_FIRST_OPERAND, GET_COMMA,
+;	UPDATE_OUR_CODE, ONE_BYTE_TAIL
+;
+;******************************************************************************
+MOVC_OPERANDS:
+	LCALL	GETOKE
+	JNB	B_O_T,ASERR
+	LCALL	GET_FIRST_OPERAND
+	LCALL	GET_COMMA
+	LCALL	GETOKE				;MOVC_TAIL
+	CJNE	A,#ATA_TOKE,ASERR
+	LCALL	GETOKE
+	LCALL	GETOKE
+	CJNE	A,#DPTR_TOKE,MT0
+	MOV	ORDINAL,#017H
+	LCALL	UPDATE_OUR_CODE
+	JMP	ONE_BYTE_TAIL
+MT0:	CJNE	A,#PC_TOKE,ASERR
+	MOV	ORDINAL,#018H
+	LCALL	UPDATE_OUR_CODE
+	JMP	ONE_BYTE_TAIL
+$EJECT
+;******************************************************************************
+;
+;    NAME: THREE_OPERANDS
+;
+;    ABSTRACT: This routine parses the opcodes and modifies the
+;	hash value accordingly. It saves the data address or
+;	immediate data field and the destination address. Instructions
+;	are CJNE @RO,'<data>,<addr>; CJNE @R1,'<data>,<addr>;
+;	CJNE A,'<data>,<addr>; CJNE A,<data>,<addr>; CJNE Rn,'<data>,<data>
+;
+;    INPUTS: None
+;
+;    OUTPUTS: ORIDNAL, OUR_CODE_LOW, OUR_CODE_HIGH, VALLOW, TEMP_SEC,
+;	NUMBER_OF_BYTES
+;
+;    VARIABLES MODIFIED: NUMBER_OF_BYTES, TEMP_SEC, A
+;
+;    ERROR EXITS: 10H (ASSEMBLY SYNTAX)
+;		03H (NUMBER EXPECTED)
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETOKE, GET_FIRST_OPERAND,
+;	GET_COMMA, SET_POUND_EXP_FLAG, CHECK_AND_SET_SECOND_EXP_FLAG,
+;	GETNUM, CALCULATE_INSTRUCTION_VALUE, ERROR
+;
+;******************************************************************************
+THREE_OPERANDS:
+	LCALL	GETOKE
+	JNB	B_O_T,ASERR
+	LCALL	GET_FIRST_OPERAND
+	LCALL	GET_COMMA
+	LCALL	GETOKE
+	CJNE	A,#POUND_TOKE,ST01
+	LCALL	SET_POUND_EXP_FLAG
+	LCALL	GETNUM
+	LJMP	STORET
+ST01:	MOV	ERRNUM,#003H			;Number expected
+	CJNE	A,#NUMBER_TOKE,TOERR
+	LCALL	CHECK_AND_SET_SECOND_EXP_FLAG
+STORET:	MOV	TEMP_SEC,VALLOW
+	LCALL	GET_COMMA
+	LCALL	GETNUM
+	LCALL	CALCULATE_INSTRUCTION_VALUE
+	MOV	NUMBER_OF_BYTES,#005H
+	RET
+TOERR:	LJMP	ERROR
+	RET
+$EJECT
+;******************************************************************************
+;
+;    NAME: JUMP_OPERAND
+;
+;    ABSTRACT: This routine gets the destination for a jump from
+;	the command line and sets the relative operand flag to
+;	indicate the method of assembly. Instructions are SJMP<addr>,
+;	JNC<addr>, JC(addr>, JZ<addr>, JNZ<addr>.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: OUR_CODE_LOW, OUR_CODE_HIGH, VALLOW
+;
+;    VARIABLES MODIFIED: None
+;
+;    ERROR EXITS: None
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETNUM, SET_REL_FLAG,
+;	CALCULATE_INSTRUCTION_VALUE
+;
+;******************************************************************************
+JUMP_OPERAND:
+	LCALL	GETNUM
+	LCALL	SET_REL_FLAG
+	LJMP	CALCULATE_INSTRUCTION_VALUE
+$EJECT
+;******************************************************************************
+;
+;    NAME: JUMP_TWO_OPERANDS
+;
+;    ABSTRACT: This routine gets an expression for an address bit
+;	which will be tested by the jump. It modifies OUR CODE and
+;	REL FLAG to indicate proper means of assembly, then gets
+;	the-destination address. Instructions are JB<bit addr>,<addr>;
+;	JBC<bit addr>,<addr>; JNB<bit addr>,<addr>; DJNZ<bit addr>,<addr>;
+;	DJNZ Rn,<addr>.
+;
+;    INPUTS: B_O_T
+;
+;    OUTPUTS: NUMBER_OF_BYTES, TEMP_SEC, OUR_CODE_LOW, OUR_CODE_HIGH,
+;	VALLOW
+;
+;    VARIABLES MODIFIED: NUMBER_OF_BYTES, TEMP_SEC
+;
+;    ERROR EXITS: None
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETOKE, GET_FIRST_OPERAND,
+;	SET_REL_FLAG, CALCULATE_INSTRUCTION_VALUE, CHECK_AND_SET_EXP_FLAG,
+;	GET_COMMA, GETNUM
+;
+;******************************************************************************
+JUMP_TWO_OPERANDS:
+	LCALL	GETOKE
+	JNB	B_O_T,JT00
+	LCALL	GET_FIRST_OPERAND
+	LCALL	SET_REL_FLAG
+	LCALL	CALCULATE_INSTRUCTION_VALUE
+	LJMP	JTRET
+JT00:	CJNE	A,#NUMBER_TOKE,TOERR
+	LCALL	CHECK_AND_SET_EXP_FLAG
+	LCALL	SET_REL_FLAG
+	LCALL	CALCULATE_INSTRUCTION_VALUE
+	MOV	NUMBER_OF_BYTES,#005H
+JTRET:	MOV	TEMP_SEC,VALLOW
+	LCALL	GET_COMMA
+	LJMP	GETNUM
+$EJECT
+;******************************************************************************
+;
+;    NAME: JUMP_ABSOLUTE_OPERAND
+;
+;    ABSTRACT: This routine gets the destination address and
+;	modifies OUR CODE to indicate that the upper 3 bits of
+;	address must-be included in the final opcode. Instructions
+;	of this type are AJMP <addr>, ACALL <addr>.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: ORDINAL, NUMBER_OF_BYTES, OUR_CODE_LOW, OUR_CODE_HIGH,
+;	VALLOW, VALHGH
+;
+;    VARIABLES MODIFIED: ORDINAL, NUMBER_OF_BYTES
+;
+;    ERROR EXITS: None
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETNUM, UPDATE_OUR_CODE,
+;	CALCULATE_INSTRUCTION_VALUE
+;
+;******************************************************************************
+JUMP_ABSOLUTE_OPERAND:
+	LCALL	GETNUM
+	MOV	ORDINAL,#015H			;SET EXP 11 FLAG
+	LCALL	UPDATE_OUR_CODE			;2K page-jump
+	MOV	NUMBER_OF_BYTES,#006H		;Absolute instruction
+	LJMP	CALCULATE_INSTRUCTION_VALUE
+$EJECT
+;******************************************************************************
+;
+;    NAME: JUMP_LONG_OPERAND
+;
+;    ABSTRACT: This routine gets the destination address and sets
+;	the 16 bit expression flag. It then searches the hash table
+;	for a matching opcode. Instructions are LCALL <addr> and
+;	LJMP <addr>.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: ORDINAL, NUMBER_OF_BYTES, OUR_CODE_LOW, OUR_CODE_HIGH,
+;	VALHGH, VALLOW
+;
+;    VARIABLES MODIFIED: None
+;
+;    ERROR EXITS: None
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETNUM, SET_EXP_16_FLAG,
+;	CALCULATE_INSTRUCTION_VALUE
+;
+;******************************************************************************
+JUMP_LONG_OPERAND:
+	LCALL	GETNUM
+	LCALL	SET_EXP_16_FLAG
+	LJMP	CALCULATE_INSTRUCTION_VALUE
+$EJECT
+;******************************************************************************
+;
+;    NAME: MNEMONIC_INSTRUCTION_TAIL
+;
+;    ABSTRACT: This routine selects the type of instruction as determined
+;	by the MNEMONIC INSTRUCTION TABLE and calls the handler for the
+;	type specified. The handler completes the parsing of the command
+;	line and does the hash table look-up.
+;
+;    INPUTS: INSTRUCTION VALUE
+;
+;    OUTPUTS: ORDINAL, VALLOW, VALHGH, TEMP_SEC, NUMBER_OF_BYTES,
+;	OUR_CODE_LOW, OUR_CODE_HIGH
+;
+;    VARIABLES MODIFIED: DPTR, A, C, B, ERRNUM
+;
+;    ERROR EXITS: 10H (ASSEMBLY SYNTAX)
+;
+;    SUBROUTINES ACCESSED DIRECTLY: ONE_BYTE_TAIL, MNEMONIC_FIRST_OPERAND,
+;	MNEMONIC_TWO_OPERANDS, MOVC_OPERANDS, THREE_OPERANDS, JUMP_OPERAND, I
+;	JUMP_TWO_OPERANDS, JUMP_ABSOLUTE_OPERAND, JUMP_LONG_OPERAND
+;
+;******************************************************************************
+MNEMONIC_INSTRUCTION_TAIL:
+	MOV	ERRNUM,#010H
+	MOV	DPTR,#MIT_JMP_TBL
+	MOV	A,INSTRUCTION_VALUE
+	CLR	C
+	SUBB	A,#007H
+	MOV	B,#003H
+	MUL	AB				;Mult by 3,
+	JMP	@A+DPTR				;each tbl entry is 3 bytes
+MIT_JMP_TBL:
+	LJMP	ONE_BYTE_TAIL
+	LJMP	MNEMONIC_FIRST_OPERAND
+	LJMP	MNEMONIC_TWO_OPERANDS
+	LJMP	MOVC_OPERANDS
+	LJMP	THREE_OPERANDS
+	LJMP	JUMP_OPERAND
+	LJMP	JUMP_TWO_OPERANDS
+	LJMP	JUMP_ABSOLUTE_OPERAND
+	LJMP	JUMP_LONG_OPERAND
+$EJECT
+;******************************************************************************
+;
+;    NAME: MNEMONIC_INSTR_LIST_TAIL
+;
+;    ABSTRACT: This routine sets up information to be used in later
+;	processing of the mnemonic by deciphering the information
+;	in MNEMONIC TAB then the call to MNEMONIC_INSTRUCTION_TAIL and
+;	CHANGE_TO_INSTRUCTION_OP completes the assembly.
+;
+;    INPUTS: TOKSTR, ASM_PC_LOW, ASM_PC_HIGH
+;
+;    OUTPUTS: Code memory locations pointed to by ASM_PC.
+;
+;    VARIABLES MODIFIED: BIT_EXP, FIRST_EXP, SECOND_EXP, A, C, DPTR,
+;	INSTRUCTION_VALUE, OUR_CODE_LOW
+;
+;    ERROR EXITS: None
+;
+;    SUBROUTINES ACCESSED DIRECTLY: MNEMONIC_INSTRUCTION_TAIL,
+;	CHANGE_TO_INSTRUCTION_OP
+;
+;******************************************************************************
+MNEMONIC_INSTR_LIST_TAIL:
+	CLR	BIT_EXP				;MNEMONIC INSTR
+	CLR	FIRST_EXP			;Initialize flags
+	CLR	SECOND_EXP
+	MOV	NUMBER_OF_BYTES,#000H
+	MOV	OUR_CODE_HIGH,#000H
+	CLR	C
+	MOV	A,TOKSTR
+	SUBB	A,#OFST
+	MOV	OUR_CODE_LOW,A
+	MOV	DPTR,#MNEMONIC_TAB
+	MOVC	A,@A+DPTR
+	MOV	INSTRUCTION_VALUE,A		;Search for corresponding match using
+	MOV	A,#JUMP_END			;look-up and check to see if mnemonic
+	CJNE	A,OUR_CODE_LOW,OUR_GTRTHN	;is JBC, JB, JNB, CPL or SETB. If is,
+CONT_OUR_CODE:
+	CLR	C				;then set BIT_EXP. If OUR CODE=#JUMP_END
+	MOV	A,OUR_CODE_LOW			;Then fall thru or check for OUR_CODE>#JUMP_END
+	SUBB	A,#(BIT_END + 1)		;Check that OUR_CODE<=BIT_END
+	JNC	END_SELECT_INSTRUCTION_TAIL
+	SETB	BIT_EXP
+	LJMP	END_SELECT_INSTRUCTION_TAIL
+OUR_GTRTHN:
+	JC	CONT_OUR_CODE
+END_SELECT_INSTRUCTION_TAIL:
+	MOV	A,OUR_CODE_LOW
+	CJNE	A,#2BH,MI0
+	LJMP	MI1
+MI0:	JNC	AMTERR
+MI1:	CALL	MNEMONIC_INSTRUCTION_TAIL
+	LJMP	CHANGE_TO_INSTRUCTION_OP
+$EJECT
+;******************************************************************************
+;
+;    NAME: ASSEMBLY_CMD
+;
+;    ABSTRACT: This routine parses the rest of the command line
+;	for ORG or carraige return and enters the ASM mode. Once
+;	in ASM mode, control remains here in a loop assembling
+;	instructions until a carraige return is found on a line by
+;	itself.
+;
+;    INPUTS: None
+;
+;    OUTPUTS: Code memeory locations pointed to in ORG clause or
+;	pre-existing ASM_PC setting.
+;
+;    VARIABLES MODIFIED: ASM_PC_HIGH, ASM_PC_LOW, A, POINT0, PARAM1,
+;	ERRNUM
+;
+;    ERROR EXITS: 10H (ASSEMBY SYNTAX)
+;
+;    SUBROUTINES ACCESSED DIRECTLY: GETOKE, NEWLINE, GETNUM,
+;	SAVE_AND_DISPLAY, ERROR, MNEMONIC_INSTR_LIST_TAIL, GETEOL
+;
+;******************************************************************************
+ASSEMBLY_CMD:
+	MOV	LINE_START,#005H
+	LCALL	GETOKE
+	CJNE	A,#ORG_TOKE,AMT0
+	LCALL	GETNUM				;Get past address
+	MOV	ASM_PC_HIGH,VALHGH
+	MOV	ASM_PC_LOW,VALLOW
+	LCALL	NEWLINE
+	LCALL	GETOKE
+AMT0:	CJNE	A,#EOL_TOKE,AMTERR
+AMT1:	MOV	POINT0,#LINBUF
+	MOV	PARAM1,ASM_PC_HIGH
+	LCALL	SAVE_AND_DISPLAY
+	MOV	PARAM1,ASM_PC_LOW
+	LCALL	SAVE_AND_DISPLAY
+	MOV	@POINT0,#' '
+	LCALL	GETOKE
+	CJNE	A,#EOL_TOKE,AMT2
+	RET
+AMTERR:	MOV	ERRNUM,#010H			;Assembly syntax
+	LJMP	ERROR
+AMT2:	CALL	MNEMONIC_INSTR_LIST_TAIL
+	LCALL	GETEOL
+	JMP	AMT1
+$EJECT
+$INCLUDE(:F1:ASM.INC)
+$EJECT
+$INCLUDE(:F1:ASMA.INC)
+$EJECT
+$INCLUDE(:F1:SDKDSM.INC)
+	END
