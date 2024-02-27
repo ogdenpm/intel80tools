@@ -155,7 +155,9 @@ I modified the source code to support an equate, BASICE, which if set to 1, will
 
 At the start of basic.com there is a jmp instruction to the main code in the baspar module. The original program notes that this address was patched. 
 
-As I wanted to automate the build I would normally aim to use the technique described below for run.com, however in this case this wasn't possible, so I updated my obj2bin utility to write a jmp start instruction at the beginning of the program, using the start information stored in the object file.
+As I wanted to automate the build I used would normally aim to use the technique described below for run.com, however in this case this wasn't possible, so I added the start address to the patch file information using the special $START value.
+
+*Note previously I had modified my obj2bin utility to write a jmp start instruction at the beginning of the program, using the start information stored in the object file. This created a potential conflict between the utility writing the content and a patch file writing it. The replacement utility now only uses the patch file approach.*
 
 The other annotated manual fixups were in the MON1 & MON2 procedures. To get around this I replaced the GOTO's in the two procedures with a GOTO CPM and declaring CPM as an external label. In addition I created a simple asm file that defines CPM as a absolute location at 5h. By adding the  cpm.obj file to the link, the GOTO CPMs are automatically resolved
 
@@ -198,7 +200,7 @@ There are two reasons the final file needs to be patched to align with the origi
 1. As noted above there are a small number of cases where post build fixup is required to work around compiler differences.
 2. When the Intel omf file is converted to a CP/M executable, random data is used for uninitialised data and padding to the end of the last sector. 
 
-To create the final com files, I use my obj2bin utility that converts the omf file, together with a patch file, into a CP/M executable.
+To create the final com files, I use my abstool utility that converts the omf file, together with a patch file, into a CP/M executable.
 
 There is some annotation in the patch file that describes whether the changes are real patches, random date for uninitialised areas or random padding to the sector boundary.
 
@@ -211,5 +213,5 @@ To change the Floating point precision to 7 digits rather than 6, you will need 
 Note, if you do modify the code and in particular if you move the floating point library, the fpdata.src file declare data using INPAGE, which the rest of the floating point library relies on.
 
 ```
-Updated by Mark Ogden 22-Oct-2020
+Updated by Mark Ogden 14-Feb-2024
 ```

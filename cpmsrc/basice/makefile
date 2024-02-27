@@ -36,6 +36,7 @@ else
 	RUNFILES = $(RUNOBJ)
 	BUILDFILES = $(BUILDOBJ)
 	BASICFILES = $(BASICOBJ)
+	BASICPATCH = basic2-1.start.patch
 endif
 
 PROTECT = $(RUNPATCH) $(BASICPATCH) GettingToBinary.md GettingToBinary.pdf
@@ -63,12 +64,12 @@ all::
 # this convention allows rules to be used and avoids conflicts with .lst files
 
 b%.lob: b%.obj x%.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(call link-externok,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 # run requires special handling as it doesn't start with a b
 run.lob: run.obj xun.obj
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(call link-externok,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -l $@ $@
 
 # create basic.com, if BYTEMATCH is set then it will use lob files
@@ -80,16 +81,16 @@ basic.abs: basic.rel
 	$(call locate,$@,$^,code(100h))
 
 basic.com: basic.abs $(BASICPATCH)
-	$(OBJBIN) -j $^ $@
+	$(ABSBIN) $^ $@
 
 # the run.com build has two main modules so the fp routines and run itself
 # need to be built and have the @Pnnnn references and the main module flag removed
 fprun.rel: $(FPOBJ) $(RUNFILES)
-	$(call link-nocheck,$@,$^ $(plm80.lib))
+	$(call link-externok,$@,$^ $(plm80.lib))
 	$(ITOOLS)/tools/fixobj -n $@ $@
 
 fprun.abs: fprun.rel
-	$(call locate-nocheck,$@,$^,CODE(100h))
+	$(call locate-externok,$@,$^,CODE(100h))
 
 run23.rel: fprun.abs $(BASEOBJ) $(BUILDFILES)
 	$(call link,$@,$^ $(plm80.lib))
@@ -98,7 +99,7 @@ run23.abs: run23.rel
 	$(call locate,$@,$^,code(2b00h))
 
 run2-3.com: run23.abs $(RUNPATCH)
-	$(OBJBIN) $^ $@
+	$(ABSBIN) $^ $@
 
 
 print: all
