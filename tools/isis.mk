@@ -27,7 +27,7 @@ PLMPP:=plmpp
 ASM80X:=perl $(ITOOLS)/tools/asm80x.pl
 NGENPEX:=ngenpex
 MKDEPEND:=perl $(ITOOLS)/tools/makedepend.pl
-OBJBIN:=obj2bin
+ABSBIN:=abstool
 HEXOBJ:=hexobj
 PLM81:=plm81
 PLM82:=plm82
@@ -49,6 +49,7 @@ LINK80 ?= 3.0
 LOCATE80 ?= 3.0
 FORT80 ?= 2.1
 ASM48 ?= 4.2
+ASM51 ?= 2.1
 PLM86 ?= 2.1
 ASM86 ?= 2.1
 LINK86 ?= 1.3
@@ -101,7 +102,7 @@ vpath %.asm $(SRC)
 # $(call plm80,objfile,srcfile[,target specific options])
 define plm80
   $(if $(PEXFILE),$(NGENPEX) $(PEXFILE) $2)
-  $(call prog,plm80,$(PLM80),4.9) $2 "object($1)" "print($(call lst,$2))" $(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
+  $(call prog,plm80,$(PLM80),4.0) $2 "object($1)" "print($(call lst,$2))" $(if $(PLMFLAGS), "$(PLMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call asm80,objfile,srcfile[,target specific options])
@@ -125,6 +126,12 @@ endef
 define asm48
   @$(ISIS) $(call ifile,asm48,$(ASM48)) $2 "print($(call lst,$2))"\
 	  "object($1)"$(if $(ASM48FLAGS), "$(ASM48FLAGS)")$(if $3, "$3")
+endef
+
+# $(call asm51,objfile,srcfile[,target specific options])
+define asm51
+  $(ISIS) $(call ifile,asm51,$(ASM51)) $2 "print($(call lst,$2))"\
+	  "object($1)"$(if $(ASM51FLAGS), "$(ASM51FLAGS)")$(if $3, "$3")
 endef
 
 # $(call fort80,objfile,srcfile[,target specific options])
@@ -214,6 +221,11 @@ $(OBJ)/%.o86: %.plm | $(OBJ) $(LST)
 $(OBJ)/%.o86: %.asm  | $(OBJ) $(LST)
 	$(call asm86,$@,$<)
 
+$(OBJ)/%.hex: %.plm
+	$(PLM81) $^
+	$(PLM82) $*
+	@perl $(ITOOLS)/tools/pretty.pl $*.lst $*.prn
+	@rm -fr $*.pol $*.sym $*.lst
 
 # common targets
 .PHONY: all rebuild distclean
