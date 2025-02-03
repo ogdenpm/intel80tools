@@ -58,15 +58,16 @@ $PUB = 1;
 $SYM = 2;
 $PLM = 0;
 $inCseg = 0;
+my $depth;
 sub getOffset {
     my $file = $_[0];
     my $label;
 
     open my $in, "<", $file or die "$file $!";
     while (<$in>) {
-        last if /^ISIS-II/;
+        last if /^(ISIS-II|INTEL|PL\/M-80)/;
     }
-    if (/^ISIS-II 8080\/8085 MACRO ASSEMBLER/) {
+    if (/^(ISIS-II|INTEL) 8080\/8085 MACRO ASSEMBLER/) {
         my $method = $ANY;          # assume match on any
         my $mod = "MODULE";
         while (<$in>) {
@@ -89,15 +90,15 @@ sub getOffset {
                 return (defined($symbols{$label}) ? $symbols{$label} : $symbols{"$mod.$label"}) - hex($1);
             }
         } while (<$in>);
-    } elsif (/^ISIS-II PL\/M-80/) {
+    } elsif (/^(ISIS-II|INTEL) PL\/M-80/) {
         $PLM = 1;
         my $method = $ANY;
         my $mod;
         while (<$in>) {
             if (/^\s+1\s+([\$0-9A-Za-z]+):/) {
                 $mod = uc($1);
-            } elsif (/^ {25}(; PROC  (.*)|([^:]+):)/) { # proc or label
-                $label = uc($2 || $3);
+            } elsif (/^\s+; PROC\s+(.*)/) { # proc or label
+                $label = uc($1);
                 next if (defined($exclude{"$mod.$label"})); # skip if ambiguous
                 if (defined($symbols{"$mod.$label"})) {     # prefer match on unambigous SYM entry
                     $refloc = $symbols{"$mod.$label"};
@@ -108,23 +109,26 @@ sub getOffset {
                 } else {
                     next;
                 }
-                my $depth = 1;      # used for PLM to skip nested function definitions
                 while (<$in>) {
-                    if (/^\s{0,3}\d+\s(\d+)/) {
+                    if (/^\s{0,3}\d+\s+(\d+)/) {
                         $depth = $1;
-                    } elsif ($depth <= 2 && /^ {11}([0-9A-F]{4})/) {
+                    } elsif (/^\s+; PROC/) {
+                        $depth++;
+                    } elsif ($depth <= 2 && /^ {11,12}([0-9A-F]{4})/) {
                         close $in;
                         return $refloc - hex($1);
                     }
                 }
+            } elsif (/^\s{0,3}\d+\s+(\d+)/) {
+                $depth = $1;
             }
+                    
         }
     }
     close $in;
     return -1;
 }
-
-die "usage: relst.pl locfile mapfile lstfiles\n" if $#ARGV < 1;
+die "usage: relst.pl locfile mapfile lstfiles\n" if $#ARGV < 0;
 
 loadImage(shift @ARGV);
 loadMap(shift @ARGV);
