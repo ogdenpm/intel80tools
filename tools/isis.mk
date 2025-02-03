@@ -108,7 +108,7 @@ endef
 # $(call asm80,objfile,srcfile[,target specific options])
 #  
 define asm80
-  $(call prog,asm80,$(ASM80),4.1) $2 "object($1)" $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
+  $(call prog,asm80,$(ASM80),4.1) $2 "object($1)" "print($(call lst, $2))" $(if $(ASMFLAGS), "$(ASMFLAGS)")$(if $3, "$3")
 endef
 
 # $(call asm80x,objfile,srcfile[,target specific options])
