@@ -65,7 +65,7 @@ sub getOffset {
 
     open my $in, "<", $file or die "$file $!";
     while (<$in>) {
-        last if /^(ISIS-II|INTEL|PL\/M-80)/;
+        last if /^(ISIS-II|INTEL)/;
     }
     if (/^(ISIS-II|INTEL) 8080\/8085 MACRO ASSEMBLER/) {
         my $method = $ANY;          # assume match on any

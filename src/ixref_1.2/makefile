@@ -4,8 +4,8 @@ TARGETS := ixref
 PEXFILE:=ixref.pex
 
 # build options
-LOCATEFLAGS:=SYMBOLS LINES
-PLMFLAGS:=OPTIMIZE IXREF
+LOCATEFLAGS:=MAP SYMBOLS PUBLICS
+PLMFLAGS:=OPTIMIZE IXREF CODE DEBUG
 LINKFLAGS:=
 
 include $(ITOOLS)/tools/isis.mk
@@ -30,5 +30,4 @@ ixref.rel: $(objs)
 # invokes ixref on itself. Note the library functions are shown as unresolved as
 # their source is not included
 ixref.ixo: all
-	perl $(ITOOLS)/tools/mkisisdir.pl
-	$(ISIS) -m -E ixref $(call mklist,$(IXIS)) "print($@)"
+	$(ISIS) ixref $(call mklist,$(IXIS)) "print($@)"

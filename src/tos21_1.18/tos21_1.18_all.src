@@ -775,11 +775,11 @@ LDIG:
         jm      LDIG2
         cpi     'A'
         jm      LDIG1
-        cpi     '['
+        cpi     'Z'+1
         jm      LDIG2
         cpi     'a'
         jm      LDIG1
-        cpi     '{'
+        cpi     'z'+1
         jp      LDIG1
 LDIG2:
         ana     a
@@ -798,7 +798,7 @@ UPC2:
         mov     a, m
         cpi     'a'
         jm      UPC1
-        cpi     '{'
+        cpi     'z'+1
         jp      UPC1
         ani     0DFh
         mov     m, a
@@ -824,7 +824,7 @@ UPC3:
 UPCHAR:
         cpi     'a'
         rm
-        cpi     '{'
+        cpi     'z'+1
         rp
         ani     0DFh
         ret
@@ -3876,26 +3876,26 @@ COIB:
         jc      XITE_0
 loc_E8D6:
         lhld    CTLBLK
-        lxi     d, 22h ; '"'
+        lxi     d, 34
         dad     d
         mov     c, m
         mov     a, c
         sta     HDRSECT
         mvi     b, 0
-        lxi     h, 2680h
+        lxi     h, BUF1
         call    RIBM
         jc      XITE_0
         lhld    CTLBLK
-        lxi     d, 1Ch
+        lxi     d, 28
         dad     d
         mov     e, m
         inx     h
         mov     d, m
         xchg
         mov     a, h
-        lxi     d, 26CAh
+        lxi     d, BUF1 + 74
         call    ED2
-        mvi     a, 30h ; '0'
+        mvi     a, '0'
         stax    d
         inx     d
         mov     a, l
@@ -3903,7 +3903,7 @@ loc_E8D6:
         lda     HDRSECT
         mov     c, a
         mvi     b, 0
-        lxi     h, 2680h
+        lxi     h, BUF1
         call    WIBM
         jc      XITE_0
         pop     d
@@ -3937,6 +3937,7 @@ CBRDW   EQU     0AFH
 CTLBLK  EQU     2710H
 UNIT    EQU     2730H
 _NAME    EQU     2733H   ; better as extrn, rename as NAME reserved in asm80
+BUF1    EQU     2680H
 BUF2    EQU     2600H
 
 WRITE   EQU     0FD24H
@@ -4671,7 +4672,7 @@ loc_EE2F:
         ret
 loc_EE35:
         lhld    word_E91F
-        lxi     d, 11h
+        lxi     d, 17
         dad     d
         lda     byte_E929
         ana     a
@@ -4705,7 +4706,7 @@ loc_EE6B:
         inx     h
         mov     d, m
 loc_EE7B:
-        lxi     h, 2680h
+        lxi     h, BUF1
 loc_EE7E:
         mov     a, d
         ora     e
@@ -4769,7 +4770,7 @@ loc_EECB:
         mov     d, a
         jmp     loc_EE7B
 loc_EEEE:
-        mvi     a, 31h ; '1'
+        mvi     a, SEC31
 loc_EEF0:
         pop     b
         pop     d
@@ -5360,9 +5361,9 @@ bF1EA:  ds 1
 nameLen: ds 1
 ; =============== S U B R O U T I N E =======================================
 toupper:
-        cpi     61h ; 'a'
+        cpi     'a'
         rc
-        cpi     7Bh ; '{'
+        cpi     'z'+1
         rnc
         sui     20h ; ' '
         ret
@@ -5690,11 +5691,11 @@ loc_F3E1:
         jc      validNameChar
         cpi     'A'
         jc      physe3
-        cpi     '['
+        cpi     'Z'+1
         jc      validNameChar
         cpi     'a'
         jc      physe3
-        cpi     '{'
+        cpi     'z'+1
         jc      validNameChar
 physe3:
         pop     h
@@ -5756,11 +5757,11 @@ getExtent:
         jc      validExtChar
         cpi     'A'
         jc      physe3
-        cpi     '['
+        cpi     'Z'+1
         jc      validExtChar
         cpi     'a'
         jc      physe3
-        cpi     '{'
+        cpi     'z'+1
         jnc     physe3
 validExtChar:
         stax    d
