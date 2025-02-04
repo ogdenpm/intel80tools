@@ -32,5 +32,4 @@ ixref.rel: $(objs)
 # their source is not included
 # note this needs a copy of isis.ov0 to work
 ixref.ixo: all
-	perl $(ITOOLS)/tools/mkisisdir.pl
-	$(ISIS) -m -E ixref $(call mklist,$(IXIS)) "print($@)"
+	$(ISIS) ixref "*.ixi" "print($@)"

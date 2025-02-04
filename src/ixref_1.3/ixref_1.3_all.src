@@ -34,7 +34,7 @@ Delete		P(A path$p,A status$p)
 Rename		P(A old$p,A new$p,A status$p)
 Seek            P(A conn,A mode,A block$p,A byte$p,A status$p)
 Error		P(a error$num)
-Getd		P(A did,A conn$p,A count,A actual$p,A table$p,A status$p)
+Getd		P(A did,A startAt$p,A count,A actual$p,A table$p,A status$p)
 Load		P(A path$p,A load$offset,A switch,A entry$p,A status$p)
 
 ofile$t 'structure(fd address, count address, buf(1280) byte)'
@@ -93,7 +93,7 @@ PrintXref	P(B pubOrExt)
 ListModules	P
 sub$5317	P IXREF
 SkipFileName	P(A str)A
-FindDirEntry	P(B did,A conn$p,A count,A wcName$p,A table$p,A status$p)B
+FindDirEntry	P(B did,A startAt$p,A count,A wcName$p,A table$p,A status$p)B
 
 $file(ixref4.plm)
 FileError	P(A errcode,A path,B isFatal)
@@ -741,12 +741,12 @@ MergeSortRecords: procedure;
 	end;
 end;
 
-FindDirEntry: procedure(did, conn$p, count, wcName$p, table$p, status$p) byte;
-	declare (did, conn$p, count, wcName$p, table$p, status$p) address;
+FindDirEntry: procedure(did, startAt$p, count, wcName$p, table$p, status$p) byte;
+	declare (did, startAt$p, count, wcName$p, table$p, status$p) address;
 	declare actual address, i byte, status based status$p address;
 	i = TRUE;
 	do while i;
-		call Getd(did, conn$p, count, .actual, table$p, status$p);
+		call Getd(did, startAt$p, count, .actual, table$p, status$p);
 		if status <> 0 then
 		do;
 			call FileError(status, cmdLinePtr, TRUE);
@@ -765,7 +765,7 @@ collectRecords: procedure public;
 		isisFileEntry(10) byte,
 		info(20) byte,
 		(savedDrive, wcUsed, foundFile, needOutputFile) byte,
-		(startOfName, driveWrd, conn) address;
+		(startOfName, driveWrd, startAt) address;
 	declare fname based cmdLinePtr (1) byte;
 		
 	ixoutTmpFile.count = 0;
@@ -775,7 +775,7 @@ collectRecords: procedure public;
 	call Close(ixinTmpFile.fd, .status);
 
 	do while cmdLinePtr < endOfFiles;
-		conn = 0;
+		startAt = 0;
 		foundFile = 0;
 		startOfName = cmdLinePtr;
 		wcUsed = TRUE;
@@ -789,7 +789,7 @@ collectRecords: procedure public;
 		cmdLinePtr = SkipWS(SkipUntilSpaceOrComma(cmdLinePtr));
 		savedDrive = isisFileEntry(0);
 		isisFileEntry(0) = 0;
-		do while FindDirEntry(driveWrd, .conn, 1, .isisFileEntry, .info, .status);
+		do while FindDirEntry(driveWrd, .startAt, 1, .isisFileEntry, .info, .status);
 			foundFile = TRUE;
 			info(0) = savedDrive;
 			call InternalToDiskName(.info, .diskName);
