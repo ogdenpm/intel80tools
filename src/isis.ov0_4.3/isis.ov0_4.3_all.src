@@ -1,64 +1,64 @@
 getd.plm
 ISOV0: do;
 
-open: procedure (conn$p, path$p, access, echo, status$p) external;
-    declare (conn$p, path$p, access, echo, status$p) address;
+open: procedure (startAt$p, path$p, access, echo, status$p) external;
+    declare (startAt$p, path$p, access, echo, status$p) address;
 end open;
 
-close: procedure (conn, status$p) external;
-    declare (conn, status$p) address;
+close: procedure (startAt, status$p) external;
+    declare (startAt, status$p) address;
 end close;
 
-read: procedure (conn, buff$p, count, actual$p, status$p) external;
-    declare (conn, buff$p, count, actual$p, status$p) address;
+read: procedure (startAt, buff$p, count, actual$p, status$p) external;
+    declare (startAt, buff$p, count, actual$p, status$p) address;
 end read;
 
 spath: procedure (path$p, info$p, status$p) external;
     declare (path$p, info$p, status$p) address;
 end spath;
 
-getdType5: procedure(did, conn$p, count, actual$p, table$p, status$p) external;
-	declare (did, conn$p, count, actual$p, table$p, status$p) address;
+getdType5: procedure(drive, startAt$p, count, actual$p, table$p, status$p) external;
+	declare (drive, startAt$p, count, actual$p, table$p, status$p) address;
 end;
 
 declare	isisDir(*) byte initial(':F :ISIS.DIR '),
 	ii address,
-	wED03 address,
+	dirActual address,
 	uED05 byte,
-	bED06 byte,
-	bED07 byte;
+	done byte,
+	isEOF byte;
 
 declare getd byte data(0c3h), getdTarget address data(.realGetd);
 
-realGetd: procedure(did, conn$p, count, actual$p, table$p, status$p);
-	declare (did, conn$p, count, actual$p, table$p, status$p) address;
-	declare conn based conn$p address;
+realGetd: procedure(drive, startAt$p, count, actual$p, table$p, status$p);
+	declare (drive, startAt$p, count, actual$p, table$p, status$p) address;
+	declare startAt based startAt$p address;
 	declare actual based actual$p address;
 	declare status based status$p address;
 	declare info structure(devNo byte, name(9) byte, deviceType byte, driveType byte);
-	declare bED20 byte, (wED21, dirAFTN, padding) address,
+	declare remoteDrive byte, (dirCnt, dirAFTN, padding) address,
 		dirbuf(128) byte, dirEntryP address;
 	declare dirEmpty based dirEntryP byte;
 
 	actual = 0;
 	status = 0;
-	if count = 0 and bED07 then
+	if count = 0 and isEOF then
 	do;
-		bED07 = 0;
+		isEOF = 0;
 		return;
 	end;
-	if 0 = conn then
+	if 0 = startAt then
 	do;
-		bED20 = 0;
-		bED07 = 0;
-		bED06 = 0;
-		wED03 = 0;
-		isisDir(2) = did + '0';
+		remoteDrive = 0;
+		isEOF = 0;
+		done = 0;
+		dirActual = 0;
+		isisDir(2) = drive + '0';
 		call spath(.isisDir, .info, status$p);
 		if status <> 0 then
 			return;
 		if info.driveType = 5 then
-			bED20 = 0ffh;
+			remoteDrive = 0ffh;
 		else
 		do;
 			call open(.dirAFTN, .isisDir, 1, 0, status$p);
@@ -66,51 +66,51 @@ realGetd: procedure(did, conn$p, count, actual$p, table$p, status$p);
 				return;
 		end;
 	end;
-	if bED20 = 0ffh then
+	if remoteDrive = 0ffh then
 	do;
 		if count = 0 then
 		do;
-			call getdType5(did, conn$p, count, actual$p, table$p, status$p);
+			call getdType5(drive, startAt$p, count, actual$p, table$p, status$p);
 			return;
 		end;
 		ii = count;
 		do while ii <> 0;
-			if ii > 7 and bED06 = 0 then
+			if ii > 7 and done = 0 then
 			do while ii > 7; 
-				call getdType5(did, conn$p, 8, .wED03, table$p, status$p);
+				call getdType5(drive, startAt$p, 8, .dirActual, table$p, status$p);
 				if status <> 0 then
 					return;
 				ii = ii - 8;
-				actual = actual + wED03;
-				if wED03 < 8 or ii = 0 then
+				actual = actual + dirActual;
+				if dirActual < 8 or ii = 0 then
 					return;
 				table$p = table$p + 128;
 			end;	
-			if bED06 = 0 then
+			if done = 0 then
 			do;
-				if bED07 then
+				if isEOF then
 				do;
-					bED07 = 0;
+					isEOF = 0;
 					return;
 				end;
-				call getdType5(did, conn$p, 8, .wED03, .dirbuf, status$p);
+				call getdType5(drive, startAt$p, 8, .dirActual, .dirbuf, status$p);
 				if status <> 0 then
 					return;
-				if wED03 = 0 then
+				if dirActual = 0 then
 					return;
-				if wED03 < 8 then
-					bED07 = 0ffh;
-				bED06 = 0ffh;
-				wED21 = 0;
+				if dirActual < 8 then
+					isEOF = 0ffh;
+				done = 0ffh;
+				dirCnt = 0;
 			end;
-			call move(16, .dirbuf + wED21 * 16, table$p);
-			wED21 = wED21 + 1;
+			call move(16, .dirbuf + dirCnt * 16, table$p);
+			dirCnt = dirCnt + 1;
 			actual = actual + 1;
 			ii = ii - 1;
 			table$p = table$p + 16;
-			wED03 = wED03 - 1;
-			if wED03 =  0 then
-				bED06 = 0;
+			dirActual = dirActual - 1;
+			if dirActual =  0 then
+				done = 0;
 		end;
 		return;
 	end;
@@ -124,13 +124,13 @@ realGetd: procedure(did, conn$p, count, actual$p, table$p, status$p);
 			actual = 0;
 			return;
 		end;	
-		wED21 = 0;
-		do while wED21 < count;
-			dirEntryP = table$p + wED21 * 16;
+		dirCnt = 0;
+		do while dirCnt < count;
+			dirEntryP = table$p + dirCnt * 16;
 			call read(dirAFTN, dirEntryP, 16, actual$p, status$p);
 			if status <> 0 then
 				return;
-			if actual = 0 and wED21 = 0 then
+			if actual = 0 and dirCnt = 0 then
 			do;
 				call close(dirAFTN, status$p);
 				actual = 0;
@@ -139,14 +139,14 @@ realGetd: procedure(did, conn$p, count, actual$p, table$p, status$p);
 			if actual = 0 or dirEmpty = 7fh then
 			do;
 				call close(dirAFTN, status$p);
-				actual = wED21;
+				actual = dirCnt;
 				return;
 			end;
 			if dirEmpty = 0 then
-				wED21 = wED21 + 1;
+				dirCnt = dirCnt + 1;
 		end;
-		actual = wED21;
-		conn = conn + actual;
+		actual = dirCnt;
+		startAt = startAt + actual;
 		return;
 	end;
 end;
@@ -160,27 +160,27 @@ isis: procedure (type, parameter$ptr) external;
 end isis;
 
 
-getdType5: procedure(did, conn$p, count, actual$p, table$p, status$p) public;
-	declare (did, conn$p, count, actual$p, table$p, status$p) address;
-	declare conn based conn$p address;
+getdType5: procedure(drive, startAt$p, count, actual$p, table$p, status$p) public;
+	declare (drive, startAt$p, count, actual$p, table$p, status$p) address;
+	declare startAt based startAt$p address;
 	declare actual based actual$p address;
 	declare status based status$p address;
-	declare retDataP address, localDid byte, (localConn, localCount, localTableP, index) address;
-	declare retData based retDataP structure(status byte, conn address, actual address);
-    declare	sys82Args address data(508h),
-	wEB7F address data(0),
-	junk(2) address data(.localDid, .uEB85),
-	uEB85(6) byte data(0, 1, 1, 4, 5);	
+	declare retDataP address;
+    declare rpc structure(drive byte, startAt address, count address, tableP address, byteCnt address);
+	declare retData based retDataP structure(status byte, startAt address, actual address);
+    declare	rpc82 structure(cmd address, resultP address, rpcP address, rStatusP address)
+                             data(0508h, 0, .rpc, .extra);
+    declare extra(6) byte data(0, 1, 1, 4, 5);	
 
-	localDid = did;
-	localConn = conn;
-	localCount = count;
-	localTableP = table$p;
-	index = count * 16;
-	call ISIS(82, .sys82Args);
-	retDataP = wEB7F;
+	rpc.drive = drive;
+	rpc.startAt = startAt;
+	rpc.count = count;
+	rpc.tableP = table$p;
+	rpc.byteCnt = count * 16;
+	call ISIS(82, .rpc82);
+	retDataP = rpc82.resultP;
 	status = retData.status;
-	conn = retData.conn;
+	startAt = retData.startAt;
 	actual = retData.actual;
 end;
 end;
