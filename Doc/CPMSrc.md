@@ -6,6 +6,10 @@ Note there are additional CP/M applications, specifically the Whitesmith's devel
 
 Specific subdirectories are noted below. Both the lib_1.1 and link_1.31 directories use my packed source format. See [misc.md](misc.md) for details.
 
+### algolm
+
+Source for algolm. The original thesis is included but the listing reflects the widely available version of algolm v1.1 compiler and its runtime.
+
 ### basice
 
 Although not a decompilation, this directory contains the source for basic-e v2.1 and the runtime interpreter v2.3. It also contains a document that describes the challenge on getting this to compile to byte level matching, despite having access to the source
@@ -46,5 +50,5 @@ Note in addition to the  usual makefile, the directory also build.ninja to allow
 ------
 
 ```
-Updated by Mark Ogden 21-Oct-2020
+Updated by Mark Ogden 4-Feb-2025
 ```

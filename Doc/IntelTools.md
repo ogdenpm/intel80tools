@@ -66,7 +66,45 @@ Note there is a decompilation of the ftrans application in the src tree.
 
 These are not in sub-directories. They are Intel's genpex utility and documentation. They are for information purposes only, as ngenpex has fewer idiosyncrasies and handles local variables.
 
+### help
+
+Decompilation of Intel's help utility v1.1
+
+### ab22_cpmbios
+
+OCR'd version of the Insite library ab22 cpmbios. Builds with a mixture of ISIS and CP/M tools. As the source was a listing file, verification against binary images is not available.
+
+### sdk51_1.03
+
+Version of Intel's SDK51 that builds under the ISIS assembler and the 'as' assembler.
+
+### imgmds
+
+Copy of imgmds tool with a makefile to build using the Intel tools
+
+### isdm3.2
+
+Copy of isdm3.2 together with build makefile. This uses the old Intel tools that have restrictions on paths and file names. The main requirement is the path cannot contain spaces and the filename can only contain alpha numeric characters upto 8.3 format.
+
+### kermit
+
+ISIS build of kermit. Original source, makefile added.
+
+### edasm v1.1
+
+Decompilation of the ROM based editor assembler
+
+### monitors
+
+Copies of Bill Beech's monitor code, with a makefile.
+
+### tinybs
+
+Copy of tiny basic for the 8088
+
 ## ISIS-I and ISIS-II
+
+Note the ISIS.T0, ISIS.BIN, ISIS.CLI and ISIS.OV0 builds are in separate directories. Where the applications also decompiled in directories named isisUtil_*version.*
 
 ### Version 1.1 (16k ISIS)
 
@@ -206,6 +244,6 @@ Directory hashing is as per 4.2w
 ------
 
 ```
-Updated by Mark Ogden 21-Oct-2020
+Updated by Mark Ogden 4-Feb-2025
 ```
 

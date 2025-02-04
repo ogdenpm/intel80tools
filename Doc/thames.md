@@ -14,6 +14,10 @@ See [Enhancements](#Enhancements) for information on more recent changes.
 
 ### Recent changes
 
+#### 4-Feb-2025
+
+Fixed an issue where the auto generated ISIS.DIR file was incorrectly built when opened multiple times. It prevented ixref from working
+
 #### 14-Nov-2023
 
 Some limited support has been added for ISIS.LAB and ISIS.DIR, which allows PL/M 3.1 to use IXREF and for the ISIS version of IXREF to work.
@@ -271,4 +275,4 @@ Many ISIS applications use tmp files. Unfortunately as these file names are fixe
 __________________________________________________________________
 
 
-    Updated by Mark Ogden 14-Nov-2023
+    Updated by Mark Ogden 4-Feb-2025
