@@ -1,0 +1,172 @@
+;
+;	RUSSIAN ROULLETTE
+;
+;	AUTHOR:	P. STEFFENSEN
+;	DATE: 76 08 06
+;
+;	CONSTANT DEFINE
+;
+ETX	EQU	03
+STATUS  EQU     0F5H
+INDAT   EQU     02
+OUDAT   EQU     01
+DATA    EQU     0F4H
+ESCAP   EQU     1BH
+CR      EQU     0DH
+LF      EQU     0AH
+;
+;
+;
+        ORG     4000H
+        TITLE   'RUSSIAN ROULETTE'
+        LXI     SP,$
+START:  LXI     H,TXT1  ;HVOR MANGE SPILLERE
+        CALL    TXTUT
+INN:    IN      STATUS
+        ANI     INDAT
+        JZ      INN
+        IN      DATA
+        ANI     7FH
+        CPI     31H     ;VALID CAR.
+        JC      INN
+        CPI     3AH
+        JNC     INN
+        CALL    OUTTY
+        SUI     30H
+        STA     NSPIL
+;
+;       BUILD DEAD TABLE
+;
+        LXI     H,DEAD  ;TOP OF TABLE
+        MOV     D,A     ;COUNTER FOR N PLAYERS
+TABL:   MVI     M,1     ;SET PLAYER ALIVE
+        DCR     D       ;N PLAYERS-1
+        INX     H       ;NEXT PLAYER POSITION
+        JNZ     TABL    ;NEXT PLAYER
+;
+;       START ROULLET
+;
+        MVI     B,01    ;SPILLER NUMBER 1 TO B-REG
+SKSP:   LXI     H,TXT2  ;'SPILLER - '
+        CALL    TXTUT
+        MOV     A,B     ;PLAYER OUT
+        CALL    HEXA    ;HEX TO ASCII CONVERSION
+        CALL    OUTTY
+;
+;       REVOLVER PART
+;
+LDR:    MVI     C,0     ;C-REG=ROULLET, RESET
+TEST:   IN      STATUS  ;CHECK IF ANY BUTTON PRESSED
+        ANI     INDAT
+	JZ	INCR	;BUTTON NOT PRESSED
+	IN	DATA	;RESET STATUS WORD
+	ANI	7FH	;REMOVE PARITY BIT
+	CPI	ESCAP	;BREAK
+	JZ	START	;YES, NEW GAME
+	XRA	A
+        ORA     C       ;REVOLVER=0?
+        JZ      PANG
+        LXI     H,TXT3  ;KLIKK
+        CALL    TXTUT
+        JMP     INCSP   ;NEXT PLAYER
+;
+;       NEXT CHAMBER
+;
+INCR:	INR	C	;NEXT CHAMBER
+        MVI     A,6
+        CMP     C       ;LAST CHAMBER?
+        JZ      LDR     ;YES, RESET REVOLVER
+        JMP     TEST    ;TO CHECK IF ANY BUTTONS PRESSED
+;
+;       DECISION ROUTINE
+;
+PANG:   LXI     H,TXT4  ;PANG
+        CALL    TXTUT
+        LXI     H,DEAD
+        MOV     E,B
+        DCR     E       ;INDEX ADDRESS-1
+        MVI     D,0
+        DAD     D       ;TABLE ADDRESS
+        MVI     M,0     ;SET PLAYER DEAD
+;
+INCSP:  INR     B
+	PUSH	B
+	MOV	C,B
+	MVI	B,0
+	LXI	H,DEAD
+	DAD	B
+	DCX	H
+	POP	B
+        LDA     NSPIL
+        CMP     B
+	JC	ALD0D
+	XRA	A
+        ORA     M       ;PLAYER DEAD?
+        JZ      INCSP
+        JMP     SKSP
+;
+ALD0D:	LXI	H,DEAD
+	MVI	B,0
+	DCX	H
+LOOP1:	INR	B
+	LDA	NSPIL
+	CMP	B
+	JC	START
+	INX	H
+	MOV	A,M
+	ORA	A
+	JZ	LOOP1
+	JMP	SKSP
+;
+;       MISCELLANEOUS SUBROUTINES
+;
+TXTUT:  MOV     A,M
+        CPI     ETX
+        RZ
+        CALL    OUTTY
+        INX     H
+        JMP     TXTUT
+;
+;       OUTPUT TELETYPE
+;
+OUTTY:  STA     SAVAC
+INSTA:  IN      STATUS
+        ANI     OUDAT
+        JZ      INSTA
+        LDA     SAVAC
+	OUT	DATA
+        RET
+;
+;       HEX -> ASCII CONVERSION
+;
+HEXA:   ADI     30H
+        RET
+;
+;       TEXT DEFINE
+;
+TXT1:   DB      'HOW MANY PLAYERS? ',CR,LF,ETX
+
+
+
+
+
+TXT2:   DB      CR,LF,'PLAYER ',ETX
+
+
+TXT3:   DB      '  KLIKK',CR,LF,ETX
+
+
+TXT4:   DB      '  PANG, YOU ARE DEAD!',CR,LF,ETX
+
+
+
+
+
+;
+;       REGISTER DEFINE
+;
+NSPIL:  DB      0       ;N PLAYERS
+DEAD:	DS	9	;DEAD TABLE
+SAVAC:	DB	0	;SAVE ACCUMULATOR
+	END	START-3
+
