@@ -6,12 +6,13 @@ fixpath = $(if $1,$(subst |,,$(subst /|,,$(subst \,/,$(strip $1))|)),.)
 
 # normalise ITOOLS path
 ITOOLS := $(call fixpath,$(ITOOLS))
+
 export _ITOOLS=$(ITOOLS)
 #
 # make sure bash and other unix tools are on the path
 PATH := $(ITOOLS);$(ITOOLS)/tools;$(ITOOLS)/unix;$(PATH)
-SHELL := bash.exe
-COMPARE ?= $(ITOOLS)/tools/omfcmp
+SHELL = bash.exe
+COMPARE ?= $(ITOOLS)/tools/omfcmp.exe
 
 # default directories to . if not set
 SRC := $(call fixpath,$(SRC))
@@ -39,7 +40,12 @@ ipath = $(ITOOLS)/itools/$(strip $1)$(if $2,/$(strip $2))
 ifile = $(call ipath,$1,$2)/$(strip $1)
 #
 # usage: $(call prog,progname,progver[,cver])
-prog = $(if $(filter-out $3,$2),$(ISIS) $(call ifile,$1,$2), $1)
+prog = $(if $(filter-out $3,$2),$(ISIS) $(call ifile,$1,$2), $(ITOOLS)/tools/$1)
+
+#usage $(call copt,flag,progname,progver,cver)
+copt = $(if $(filter-out $3,$2),,$1)
+
+
 
 # set default tool versions if none given
 PLM80 ?= 4.0
@@ -144,13 +150,13 @@ endef
 # standard link
 # $(call link,relocfile,objs[,target specific options])
 define link
- $(call prog,link,$(LINK80),3.0)  $2  to $1 map "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
+ $(call prog,link,$(LINK80),3.0)  $2 to $1 map "print($(call lin,$1))"$(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 #
 # link but where warnings are not treated as errors. Useful for overlay builds
 # $(call link-warnok,relocfile,objs[,target specific options])
 define link-externok
- $(if $(filter-out 3.0,$(LINK80)),$(ISIS) -u $(call ifile,link,$(LINK80)) $2 to $1, link $2 to $1 EXTERNOK) \
+ $(call prog,link,$(LINK80),3.0) $2 to $1 $(call copt,EXTERNOK,$(LINK80),3.0) \
  map "print($(call lin,$1))" $(if $(LINKFLAGS), "$(LINKFLAGS)")$(if $3, "$3")
 endef
 
@@ -163,14 +169,14 @@ endef
 # locate with unresolved externs allowed
 # $(call locate-externok,target,relocfile[,target specific options])
 define locate-externok
-   $(if $(filter-out 3.0,$(LOCATE80)),$(ISIS) -u $(call ifile,link,$(LOCATE80)) $2 to $1, locate $2 to $1 EXTERNOK) \
+   $(call prog,locate,$(LOCATE80),3.0) $2 to $1 $(call copt,EXTERNOK,$(LOCATE80),3.0) \
    "print($(call map,$2))" $(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 
 # locate allowing overlaps
 # $(call locate-overlaps,target,relocfile[,target specific options])
 define locate-overlaps
-   $(if $(filter-out 3.0,$(LOCATE80)),$(ISIS) -o $(call ifile,link,$(LOCATE80)) $2 to $1, locate $2 to $1 OVERLAPOK) \
+   $(call prog,locate,$(LOCATE80),3.0) $2 to $1 $(call copt,OVERLAPOK,$(LOCATE80),3.0) \
    "print($(call map,$2))" $(if $(LOCATEFLAGS), "$(LOCATEFLAGS)")$(if $3, "$3") 
 endef
 

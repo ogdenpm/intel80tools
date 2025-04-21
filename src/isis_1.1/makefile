@@ -6,19 +6,18 @@ TARGETS := format delete isis.cli attrib dir rename copy hexbin\
 include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,1.1)
+ISIST0PATCH = isis.t0_1.1.patch
+PROTECT = $(ISIST0PATCH)
 
-all::
-	$(MAKE)	$(TARGETS)
+all:: $(TARGETS)
 
 % : %.hex
 	$(ABSBIN) -i $^ $@
 
-isis.t0: isis.t0.hex isis.t0.patch
+isis.t0: isis.t0.hex $(ISIST0PATCH)
 	$(ABSBIN) $^ $@
 
 # isis.bin is in assembler, creating the standard .obj output
-# it requires the ported ASM80 to build as I have used long names
-# If this is not available rename isis.asm to isis.asmx so that the asmx.pl wrapper is used
 isis.bin: isis.obj
 	$(ABSBIN) -i $^ $@
 

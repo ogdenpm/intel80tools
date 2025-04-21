@@ -174,7 +174,7 @@ startSym        B(7)
 startSymAddr    "word"
 startSymLen     B
 symDrive        B
-symHeadP        "pointer"(4)
+fixupHeadP        "pointer"(4)
 symP            "pointer"
 symTableP       "pointer"
 targetFile      B(12)
@@ -380,7 +380,7 @@ declare symTableP pointer public initial(0);
 declare symP pointer public initial(0);
 declare curCommonIsFixed bool public initial(FALSE);
 declare curCommonBase word public initial(0);
-declare symHeadP(4) word public initial(0, 0, 0, 0);
+declare fixupHeadP(4) word public initial(0, 0, 0, 0);
 declare botFixup pointer public initial(0);
 declare lowMarkFixup pointer public initial(0FFFFh);
 declare fixupP pointer public initial(0);
@@ -522,7 +522,7 @@ InitOverlay: procedure;
     curBase(ASEG), curBase(CSEG), curBase(DSEG), curBase(COMMON) = 0;               /* base offset of this module */
     modLengths(ASEG), modLengths(CSEG), modLengths(DSEG), modLengths(COMMON) = 0;   /* length of this module*/
     starts(ASEG), starts(CSEG), starts(DSEG), starts(COMMON) = 0;                   /* start of segment */
-    symHeadP(ASEG), symHeadP(CSEG), symHeadP(DSEG), symHeadP(COMMON) = 0;           /* symbols for this seg */
+    fixupHeadP(ASEG), fixupHeadP(CSEG), fixupHeadP(DSEG), fixupHeadP(COMMON) = 0;           /* symbols for this seg */
 
     segOrder(ASEG) = 0;             /* normal segment order */
     segOrder(CSEG) = CSEG;
@@ -1319,7 +1319,7 @@ declare ChainsAbove word;
 FindChainHead: procedure(addr, seg) bool public;
     declare addr word, seg byte;
     ChainsAbove = 0;
-    if (fixupP := symHeadP(seg)) = 0 then /* no chain */
+    if (fixupP := fixupHeadP(seg)) = 0 then /* no chain */
         return FALSE;
 
     do while GetFixupAddr > addr;            /* loop till found or insert point reached */
@@ -1359,7 +1359,7 @@ AddFixup: procedure(fixupAddr, fixupRef, fixupSeg, isExt, targetSeg, hasOffset, 
     fixup.control = 0;                          /* init the control flags */
     call SetFixupAddr(fixupAddr);
     if ChainsAbove = 0 then                     /* no chain or address greater */
-        call SetSegLink(symHeadP(targetSeg));   /* make this one point to the existing chain */
+        call SetSegLink(fixupHeadP(targetSeg));   /* make this one point to the existing chain */
     else
         call SetSegLink(GetBaseLink);           /* else point to what insertP points to */
 
@@ -1372,7 +1372,7 @@ AddFixup: procedure(fixupAddr, fixupRef, fixupSeg, isExt, targetSeg, hasOffset, 
     call SetHasOffset(hasOffset);               /* record the hasOffset and isMinus flags */
     call SetIsMinus(isMinus);
     if ChainsAbove = 0 then                     /* no chain for this segment */
-        symHeadP(targetSeg) = botFixup;         /* make this the head of the chain */
+        fixupHeadP(targetSeg) = botFixup;         /* make this the head of the chain */
     else
         call InsertInChain(botFixup);           /* entry at insertP points to this one */
 end;
@@ -1383,7 +1383,7 @@ ReverseChain: procedure public;
     declare i byte, (link, head) pointer;
     do i = ASEG to COMMON;                      /* process the 4 segments */
         head = 0;
-        fixupP = symHeadP(i);                   /* current last record for this segment */
+        fixupP = fixupHeadP(i);                   /* current last record for this segment */
 
         do while fixupP <> 0;                   /* reverse the chain linkage */
             link = GetSegLink;
@@ -1391,7 +1391,7 @@ ReverseChain: procedure public;
             head = fixupP;
             fixupP = link;
         end;
-        symHeadP(i) = head;                     /* now head is lowest address */
+        fixupHeadP(i) = head;                     /* now head is lowest address */
     end;
 end;
 
@@ -1401,7 +1401,7 @@ OverflowFixups: procedure public;
 
     call ReverseChain;                          /* put the fixups in address order */
     do i = ASEG to COMMON;
-        fixupP = symHeadP(i);                   /* get the lowest addressed item */
+        fixupP = fixupHeadP(i);                   /* get the lowest addressed item */
         call SelectYFile(yFileTable(i));        /* select the overflow file */
         do while fixupP <> 0;                   /* write all fixup records */
             call WriteYByte(GetFixupStatus);    /* status - 1 byte */
@@ -1413,7 +1413,7 @@ OverflowFixups: procedure public;
         end;
     end;
     /* all written to overflow files so reset */
-    symHeadP(ASEG), symHeadP(CSEG), symHeadP(DSEG), symHeadP(COMMON) = 0;
+    fixupHeadP(ASEG), fixupHeadP(CSEG), fixupHeadP(DSEG), fixupHeadP(COMMON) = 0;
 end;
 end;
 link1.plm
@@ -1856,7 +1856,7 @@ FixupImage: procedure;
         end;
         else
         do;
-            fixupP = symHeadP(curSeg);          /* chase down the linked symbols */
+            fixupP = fixupHeadP(curSeg);          /* chase down the linked symbols */
 
             do while fixupP <> 0;
                 fixupStatus = GetFixupStatus;
@@ -2859,7 +2859,7 @@ BuildImageFile: procedure;
 
         /* build the relocation map by scanning the fixup table */
         BuildSimpleBitMap: procedure;
-            fixupP = symHeadP(seg);
+            fixupP = fixupHeadP(seg);
 
             do while fixupP <> 0;
                 addr = GetFixupAddr + starts(seg);  /* adjust to reflect real location of fixup */
@@ -3644,6 +3644,8 @@ declare cpmVersion word;
 /*
    this appears to extract serial number information for use in the
    special common area ?FPBNX
+   only works sensibly for cp/m 3.x or later and mp/m
+   see https://www.retrotechnology.com/dri/cpm_serial.html for details
 */
 GetSerial: procedure public;
     declare (noSerial, isMPM) byte;
@@ -3654,7 +3656,11 @@ GetSerial: procedure public;
     cpmVersion =  GetVer;
     if high(cpmVersion) = 0 then        /* point to serial number */
     do;
-        bPtr = topMemory - 6;           /* cpm's is located just below cpm entry point */
+        bPtr = topMemory - 6;           /* cpm's is located just below cpm entry point for cp/m 3 */
+        /* before cp/m 3.x bPtr will point to other information. Check here detects it's not pointing
+           to a serial number, assumes all cp/m 3 serial numbers are of the form
+           mfg code, cpm ver, 0, 0, serial, serial
+        */
         if (serialNum(2) or serialNum(3)) <> 0 then   /* mfg code high byte, 1st byte of serial number */
             noSerial = TRUE;
     end;
