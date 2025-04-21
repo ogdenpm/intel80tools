@@ -7,9 +7,9 @@ include $(ITOOLS)/tools/isis.mk
 
 REF = $(call ipath,isis,1.1)
 ISIST0PATCH = isis.t0_1.1.patch
-PROTECT = $(ISIST0PATCH)
 
 all:: $(TARGETS)
+
 
 % : %.hex
 	$(ABSBIN) -i $^ $@
