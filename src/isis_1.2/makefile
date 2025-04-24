@@ -1,6 +1,6 @@
 # path to root of build tree
 ITOOLS ?= ../..
-TARGETS := asmb asmb12 attrib batch copy delete dir \
+TARGETS := asm80 asmb asmb12 attrib batch copy delete dir \
 		   edit format hexbin isis.bin isis.cli isis.t0 load rename \
 		   type
 
@@ -9,6 +9,7 @@ include $(ITOOLS)/tools/isis.mk
 REF = $(call ipath,isis,1.2)
 ISIST0PATCH=isis.t0_1.2.patch	# for uninitialised data
 ISISBINPATCH=isis.bin_1.2.patch	# for start overrite
+PROTECT = asm80.plm
 
 all:: 
 	$(MAKE) $(TARGETS)
