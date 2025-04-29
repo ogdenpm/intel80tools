@@ -9,7 +9,6 @@ include $(ITOOLS)/tools/isis.mk
 REF = $(call ipath,isis,1.2)
 ISIST0PATCH=isis.t0_1.2.patch	# for uninitialised data
 ISISBINPATCH=isis.bin_1.2.patch	# for start overrite
-PROTECT = asm80.plm
 
 all:: 
 	$(MAKE) $(TARGETS)
