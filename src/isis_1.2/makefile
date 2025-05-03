@@ -2,7 +2,7 @@
 ITOOLS ?= ../..
 TARGETS := asm80 asmb asmb12 attrib batch copy delete dir \
 		   edit format hexbin isis.bin isis.cli isis.t0 load rename \
-		   type
+		   type upm
 
 include $(ITOOLS)/tools/isis.mk
 

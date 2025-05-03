@@ -8219,3 +8219,1920 @@ status: ds      2
         ds      4
 stk:
         end     start
+upm.plm
+3200H:
+
+    DECLARE LIT LITERALLY 'LITERALLY',
+            CR LIT '0DH',
+            LF LIT '0AH',
+            DQUOTE LIT '22H',
+            AMPERSAND LIT '26H',
+            ATSIGN LIT '40H',
+            HASH LIT '23H';
+
+    DECLARE TRUE LIT '0FFH',
+            FALSE LIT '0';
+
+    DECLARE ERR$SYNTAX LIT '1',
+            ERR$BADSIZE LIT '2',
+            ERR$WORDTOOLONG LIT '13',
+            ERR$NOFORMAT LIT '14';
+
+    DECLARE SIGNON DATA('ISIS PROM MAPPER V1.1(C) 1976 INTEL CORP');
+    DECLARE XDIGITS DATA('0123456789ABCDEF');
+    DECLARE ERRSTR DATA(8CH, 'SYSTEM ERROR',        /* 0 */
+                        8CH, 'SYNTAX ERROR',
+                        95H, 'BAD LOGICAL WORD SIZE',
+                        8BH, 'STORE FAILS',
+                        8DH, 'KEYWORD ERROR',
+                        11H, 'MISSING PARAMETER',   /* 5 */
+                        0CH, 'BAD HEX DATA',
+                        0DH, 'BAD BNPF DATA',
+                        0FH, 'PROM READ ERROR',
+                        12H, 'NO PROM PROGRAMMER',
+                        0BH, 'STORE FAILS',         /* 10 */
+                        13H, 'CANNOT REDO PROGRAM',
+                        96H, 'BAD COMPOUND WORD SIZE',
+                        15H, 'LOGICAL WORD TOO LONG',
+                        09H, 'NO FORMAT',
+                        0DH, 'LINE TOO LONG',       /* 15 */
+                        11H, 'UPP ADDRESS ERROR',
+                        14H, 'WRONG LOGICAL LENGTH',
+                        0BH, 'START NOT 0',
+                        13H, 'MEMORY LIMITS WRONG',
+                        15H, 'UPP BOARD SENSE ERROR', /* 20 */
+                        14H, 'UPP HARDWARE FAILURE',
+                        8FH, 'TOO MANY FIELDS');
+
+    DECLARE BA33BF DATA(0, 8, 8, 4, 4, 8, 8);
+    DECLARE BA33C6 DATA(0, 0, 4, 0, 0, 0, 0, 3,
+                        2, 0, 0, 4, 0, 0, 0, 2,
+                        2, 1, 0, 0, 0, 2, 1, 2,
+                        2, 5);
+    DECLARE KEYWORDS DATA(6, 'CHANGE',
+                          7, 'COMPARE',
+                          4, 'DATA',
+                          7, 'DISPLAY',
+                          4, 'EXIT',
+                          6, 'FORMAT',
+                          6, 'HEADER',
+                          7, 'LOGICAL',
+                          6, 'OFFSET',
+                          7, 'PROGRAM',
+                          4, 'READ',
+                          6, 'SOCKET',
+                          8, 'TRANSFER',
+                          4, 'TYPE',
+                          5, 'WRITE',
+                          4, 'FROM',
+                          2, 'TO',
+                          6, 'BINARY',
+                          3, 'HEX',
+                          4, 'NULL',
+                          3, 'EOF',
+                          5, 'START',
+                          4, 'BNPF',
+                          4, 'INTO',
+                          5, 'UNTIL',
+                          4, 'FILE');
+    DECLARE BA347D DATA(3, 3, 1, 3, 3, 3, 3, 0,
+                       3, 3, 3, 2, 3, 3, 3, 3,
+                       3, 3, 3, 3, 3, 3, 3, 3,
+                       3, 3);
+    DECLARE PROMNAMES DATA(5, ' NONE',
+                           5, '1702A',
+                           4, '2708',
+                           4, '3601',
+                           4, '3602',
+                           4, '3604',
+                           4, '8048');
+
+    DECLARE B61F9 BYTE;
+    DECLARE DATAEOF BYTE;
+    DECLARE AFT BYTE;
+    DECLARE B61FC BYTE;
+    DECLARE ISINTELHEX BYTE;
+    DECLARE B61FE BYTE;
+    DECLARE B61FF BYTE;
+    DECLARE LINELEN BYTE;
+    DECLARE PAD6201 BYTE;
+    DECLARE B6202 BYTE;
+    DECLARE (B6203, B6204) BYTE;
+    DECLARE DATA$BYTE BYTE;
+    DECLARE B6206 BYTE;
+    DECLARE B6207 BYTE;
+    DECLARE STATUS BYTE;    /* WARNING B6209 WILL BE OVERWRITTEN */
+    DECLARE B6209 BYTE;
+    DECLARE LEN$IN BYTE;
+    DECLARE CRC$IN BYTE;
+    DECLARE B620C BYTE;
+    DECLARE B620D BYTE;
+    DECLARE B620E BYTE;
+    DECLARE B620F BYTE;
+    DECLARE W6210 ADDRESS;
+    DECLARE W6212 ADDRESS;
+    DECLARE W6214 ADDRESS;
+    DECLARE RECLEN ADDRESS;
+    DECLARE W6218 ADDRESS;
+    DECLARE LINEIDX ADDRESS;
+    DECLARE LOADADDR ADDRESS;
+    DECLARE W621E ADDRESS;
+    DECLARE W6220 ADDRESS;
+    DECLARE W6222 ADDRESS;
+    DECLARE W6224 ADDRESS;
+    DECLARE WA6226(16) ADDRESS INITIAL(8000H, 4000H, 2000H, 1000H, 800H, 400H, 200H, 100H,
+                                      80H,   40H,   20H,   10H,   8,    4,    2,    1);
+    DECLARE W6246(4) ADDRESS INITIAL(0FFFEh, 0, 0, 0);
+    DECLARE WA624E(8) ADDRESS;
+    DECLARE BA625E(8) BYTE;
+    DECLARE LINE(256) BYTE;
+    DECLARE WA6366(25) ADDRESS;
+    DECLARE U6398 ADDRESS;
+    DECLARE BITMASKS(16) ADDRESS INITIAL(1, 3, 7, 0Fh, 1Fh, 3Fh, 7Fh,
+                                0FFh, 1FFh, 3FFh, 7FFh, 0FFFh, 1FFFh, 3FFFh, 7FFFh, 0FFFFh);
+    DECLARE UNKNOWN(8) ADDRESS;
+    DECLARE PAD63CA BYTE;
+    DECLARE RECDATA(128) BYTE;
+
+    DECLARE RESTART LABEL; 
+
+    ISIS: PROCEDURE(CMD, PARAM$P);
+        DECLARE CMD BYTE, PARAM$P ADDRESS;
+        GOTO 40H;
+    END ISIS;
+
+    OPEN: PROCEDURE(CONN$P, PATH$P, ACCESS, ECHO, STATUS$P);
+        DECLARE (CONN$P, PATH$P, ACCESS, ECHO, STATUS$P) ADDRESS;
+
+        CALL ISIS(0, .CONN$P);
+    END;
+
+    READ: PROCEDURE(CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, ACTUAL$P, STATUS$P) ADDRESS;
+
+        CALL ISIS(3, .CONN);
+    END;
+
+    WRITE: PROCEDURE(CONN, BUFF$P, COUNT, STATUS$P);
+        DECLARE (CONN, BUFF$P, COUNT, STATUS$P) ADDRESS;
+
+        CALL ISIS(4, .CONN);
+    END;
+
+    CLOSE: PROCEDURE(CONN, STATUS$P);
+        DECLARE (CONN, STATUS$P) ADDRESS;
+
+        CALL ISIS(1, .CONN);
+    END;
+
+    ERROR: PROCEDURE(ERROR$NUM);
+        DECLARE (ERROR$NUM, STATUS) ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(12, .ERROR$NUM);
+    END;
+
+    EXIT: PROCEDURE;
+        DECLARE STATUS ADDRESS;
+
+        STATUS = .STATUS;
+        CALL ISIS(9, .STATUS);
+    END;
+
+    DEBLANK: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ' ');
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    DELIMIT: PROCEDURE(PTR) ADDRESS;
+        DECLARE PTR ADDRESS;
+        DECLARE C BASED PTR BYTE;
+
+        DO WHILE (C = ':' OR C = '.' OR
+                 ('0' <= C AND C <= '9') OR
+                 ('A' <= C AND C <= 'Z'));
+            PTR = PTR + 1;
+        END;
+        RETURN PTR;
+    END;
+
+    REPORTERROR: PROCEDURE(ERRNUM);
+        DECLARE ERRNUM ADDRESS;
+        DECLARE NUMBERBUFFER(3) BYTE, I ADDRESS, STATUS ADDRESS;
+     
+
+        DECLARE ERRMSG DATA(0, 0,
+            2, 'ILLEGAL AFTN ARGUMENT', 0,
+            4, 'INCORRECTLY SPECIFIED FILE', 0,
+            5, 'UNRECOGNIZED DEVICE NAME', 0,
+            6, 'ATTEMPT TO WRITE TO INPUT DEVICE', 0,
+            8, 'ATTEMPT TO READ FROM OUTPUT DEVICE', 0,
+            9, 'DIRECTORY FULL', 0,
+            0AH, 'NOT ON SAME DISK', 0,
+            0BH, 'FILE ALREADY EXISTS', 0,
+            0CH, 'FILE IS ALREADY OPEN', 0,
+            0DH, 'NO SUCH FILE', 0,
+            0EH, 'WRITE PROTECTED', 0,
+            0FH, 'LOAD TOO LOW', 0,
+            10H, 'BAD LOAD FORMAT', 0,
+            11H, 'NOT A DISK FILE', 0,
+            12H, 'ILLEGAL ISIS COMMAND', 0,
+            13H, 'ATTEMPTED SEEK ON NON-DISK FILE', 0,
+            14H, 'ATTEMPTED BACK SEEK TO FAR', 0,
+            16H, 'ILLEGAL ACCESS MODE TO OPEN', 0,
+            17H, 'MISSING FILENAME', 0,
+            19H, 'ILLEGAL ECHO FILE', 0,
+            1AH, 'ILLEGAL ATTRIBUTE IDENTIFIER', 0,
+            1BH, 'ILLEGAL SEEK COMMAND', 0,
+            1CH, 'MISSING EXTENSION', 0,
+            1FH, 'CAN''T SEEK ON WRITE ONLY FILE', 0,
+            20H, 'CAN''T DELETE OPEN FILE', 0,
+            23H, 'SEEK PAST EOF', 0,
+            0C9H, 'UNRECOGNIZED SWITCH', 0,
+            0CAH, 'UNRECOGNIZED DELIMITER', 0,
+            0CBH, 'INVALID SYNTAX', 0,
+            0CCH, 'PREMATURE EOF', 0,
+            0CEH, 'ILLEGAL DISKETTE LABEL', 0,
+            0D0H, 'CHECKSUM ERROR', 0,
+            0D1H, 'RELO FILE SEQUENCE ERROR', 0,
+            0D2H, 'TOO MANY CONTIGS', 0
+        );
+
+        IF ERRNUM <> 0 THEN
+        DO;
+            I = 0;
+            DO WHILE I < LENGTH(ERRMSG);
+                IF ERRNUM = ERRMSG(I) AND ERRMSG(I + 1) <> 0 THEN
+                DO;
+                    I = I + 1;
+                    CALL WRITE(0, .(' '), 1, .STATUS);
+                    DO WHILE ERRMSG(I) <> 0;
+                        CALL WRITE(0, .ERRMSG(I), 1, .STATUS);
+                        I = I + 1;
+                    END;
+                    CALL WRITE(0, .(0DH, 0AH), 2, .STATUS);
+                    RETURN;
+                END;
+                ELSE
+                DO;
+                    DO WHILE ERRMSG(I) <> 0;
+                        I = I + 1;
+                    END;
+                    I = I + 1;
+                END;
+            END;
+            CALL ERROR(ERRNUM);
+        END;
+    END;
+
+    WRITE$CO: PROCEDURE(C);
+        DECLARE C BYTE;
+        CALL WRITE(0, .C, 1, .STATUS);
+    END;
+
+    CO$CH: PROCEDURE(CH);
+        DECLARE CH BYTE;
+        CALL WRITE$CO(CH);
+    END;
+
+    CO$CRLF: PROCEDURE;
+        CALL CO$CH(CR);
+        CALL CO$CH(LF);
+    END;
+
+    CO$BUF: PROCEDURE(BUF$P, CNT);
+        DECLARE BUF$P ADDRESS, CNT BYTE;
+        DECLARE CH BASED BUF$P BYTE;
+        DECLARE I BYTE;
+
+        DO I = 1 TO CNT;
+            CALL CO$CH(CH);
+            BUF$P = BUF$P + 1;
+        END;
+    END;
+
+    SHOWERROR: PROCEDURE(ERR);
+        DECLARE ERR BYTE;
+
+        CO$LINE: PROCEDURE;
+            CALL CO$BUF(.LINE, LINELEN + 1);
+            IF LINE(LINELEN) = CR THEN
+                CALL CO$CH(LF);
+        END;
+
+        ERRSTROFFSET: PROCEDURE(ERR) ADDRESS;
+            DECLARE ERR BYTE;
+    `       DECLARE I BYTE, IDX ADDRESS;
+
+            IDX = 0;
+            DO I = 1 TO ERR;
+                IDX = (ERRSTR(IDX) AND 7FH) + IDX + 1;
+            END;
+            RETURN IDX;
+        END;
+
+        CO$ERROR: PROCEDURE;
+            GETERRSTR: PROCEDURE(ERR) ADDRESS;
+                DECLARE ERR BYTE;
+                RETURN .ERRSTR(ERRSTROFFSET(ERR) + 1);
+            END;
+
+            ERRSTRLEN: PROCEDURE(ERR) BYTE;
+                DECLARE ERR BYTE;
+                RETURN ERRSTR(ERRSTROFFSET(ERR)) AND 7FH;
+            END;
+
+            CALL CO$BUF(GETERRSTR(ERR), ERRSTRLEN(ERR));
+            CALL CO$CRLF;
+        END;
+
+        CHKSHOWLINE: PROCEDURE(ERR) BYTE;
+            DECLARE ERR BYTE;
+            RETURN ROL(ERRSTR(ERRSTROFFSET(ERR)), 1);
+        END;
+         
+        IF CHKSHOWLINE(ERR) THEN
+            CALL CO$LINE;
+        CALL CO$CH(HASH);
+        CALL CO$CRLF;
+        CALL CO$ERROR;
+        CALL CLOSE(AFT, .STATUS);
+        GOTO RESTART;
+    END;
+
+    CHKSTATUS: PROCEDURE(STATUS);
+        DECLARE STATUS ADDRESS;
+
+        IF STATUS <> 0 THEN DO;
+            CALL REPORTERROR(STATUS);
+            GOTO RESTART;
+        END;
+    END;
+            
+    BACKUP: PROCEDURE(CNT);
+        DECLARE CNT BYTE, I BYTE;
+      
+        DO I = 1 TO CNT; 
+            LINEIDX = LINEIDX - 1;
+            IF LINE(LINEIDX) = CR AND W6214 - 1 <> LINEIDX THEN DO;
+                DO WHILE LINE(LINEIDX := LINEIDX - 1) = ' ';
+                END;
+                LINEIDX = LINEIDX - 1;
+            END; 
+        END;
+    END;
+
+
+    GETBOOL: PROCEDURE(CH) BYTE;
+        DECLARE CH BYTE;
+
+        IF CH = 'T' THEN
+            RETURN TRUE;
+        ELSE IF CH = 'F' THEN
+            RETURN FALSE;
+        CALL SHOWERROR(ERR$SYNTAX);
+    END;
+
+    MASKBITS: PROCEDURE(VALUE, BITCNT) ADDRESS;
+        DECLARE VALUE ADDRESS, BITCNT BYTE;
+        RETURN BITMASKS(BITCNT - 1) AND VALUE;
+    END;
+
+    S3B9B: PROCEDURE(N) BYTE;
+        DECLARE N BYTE;
+        RETURN ROL(BA625E(N), 1);
+    END;
+    
+
+    S3BA8: PROCEDURE(N) BYTE;
+        DECLARE N BYTE;
+        RETURN BA625E(N) AND 7FH;
+    END;
+
+    S3BB6: PROCEDURE BYTE;
+        DECLARE (CH, IDX) BYTE;
+        IF W6214 < LINEIDX THEN
+            CALL SHOWERROR(ERR$SYNTAX);
+        IF (CH: = LINE(LINEIDX)) = AMPERSAND THEN DO;
+            IDX = LINEIDX;
+            DO WHILE LINE(LINEIDX := LINEIDX + 1) = ' ';
+            END;
+            IF LINE(LINEIDX) = CR THEN
+                CH = LINE(LINEIDX := LINEIDX + 2);
+            ELSE
+                LINEIDX = IDX;
+        END;
+        IF LINELEN < LINEIDX THEN
+            LINELEN = LINEIDX;
+        LINEIDX = LINEIDX + 1;
+        RETURN CH;
+    END;
+
+
+    TOHEXNIBBLE: PROCEDURE(CH) BYTE;
+        DECLARE CH BYTE;
+        IF (CH := CH - '0') > 9 THEN
+            RETURN CH - 7;
+        ELSE
+            RETURN CH;
+    END;
+
+    S3C63: PROCEDURE BYTE;
+        IF LINEIDX < W6214 THEN
+            RETURN TRUE;
+        ELSE
+            RETURN FALSE;
+    END;
+
+    S3C79: PROCEDURE(N) BYTE;
+        DECLARE N BYTE;
+        IF 0 < N AND N <= 16 THEN
+            RETURN N;
+        CALL SHOWERROR(ERR$BADSIZE);
+    END;
+
+    S3C93: PROCEDURE;
+        IF B61FC THEN DO;
+            IF B6202 > 8 THEN 
+                CALL SHOWERROR(ERR$WORDTOOLONG);
+            IF B6204 = 0 THEN
+                CALL SHOWERROR(ERR$NOFORMAT);
+        END;
+        ELSE IF B620D > 8 THEN
+            CALL SHOWERROR(ERR$WORDTOOLONG);
+    END;
+
+    OUT$CH: PROCEDURE(CH);
+        DECLARE CH BYTE;
+        CALL WRITE(AFT, .CH, 1, .STATUS);
+        CALL CHKSTATUS(STATUS);
+    END;
+
+    IN$CH: PROCEDURE(BUFF$P) BYTE;
+        DECLARE BUFF$P ADDRESS;
+        DECLARE C BASED BUFF$P BYTE;
+        DECLARE (CH, ACTUAL) BYTE;  /* WARNING SYSCALL: ACTUAL OVERWRITES 2 BYTES */ 
+
+        ACTUAL = 1;
+        CALL READ(AFT, .CH, 1, .ACTUAL, .STATUS);
+        CALL CHKSTATUS(STATUS);
+        C = CH AND 07FH;
+        IF ACTUAL <> 0 THEN
+            RETURN TRUE;
+        ELSE
+            RETURN FALSE;
+    END;
+
+    ROLCH: PROCEDURE(CH$P, CNT);
+        DECLARE CH$P ADDRESS, CNT BYTE;
+        DECLARE CH BASED CH$P BYTE;
+        IF CNT <> 0 THEN
+            CH = ROL(CH, CNT);
+    END;
+
+
+    RORCH: PROCEDURE(CH$P, CNT);
+        DECLARE CH$P ADDRESS, CNT BYTE;
+        DECLARE CH BASED CH$P BYTE;
+        IF CNT <> 0 THEN
+            CH = ROR(CH, CNT);
+    END;
+
+
+    ROLWRD: PROCEDURE(WRD$P, CNT);
+        DECLARE WRD$P ADDRESS, CNT BYTE;
+        DECLARE WRD BASED WRD$P ADDRESS;
+        DECLARE I BYTE;
+        IF CNT = 0 THEN
+            RETURN;
+        DO I = 1 TO CNT;
+            WRD = SCL(WRD, 1);
+            IF CARRY THEN
+                WRD = WRD OR 1;
+            ELSE
+                WRD = WRD AND 0FFFEH;
+        END;
+    END;
+
+    RORWRD: PROCEDURE(WRD$P, CNT);
+        DECLARE WRD$P ADDRESS, CNT BYTE;
+        IF CNT = 0 THEN
+            RETURN;
+        CALL ROLWRD(WRD$P, 16 - CNT);
+    END;
+
+    CK1OR2: PROCEDURE(CH) BYTE;
+        DECLARE CH BYTE;
+        IF CH = '1' OR CH = '2' THEN
+            RETURN CH;
+        CALL SHOWERROR(ERR$SYNTAX);
+    END;
+
+    S3E0D: PROCEDURE;
+        IF W6224 < W6218 THEN
+            W6224 = W6218;
+    END;
+
+    CO$NUM: PROCEDURE(VAL, BITCNT);
+        DECLARE VAL ADDRESS, BITCNT BYTE;
+        DECLARE I BYTE;
+
+        VAL = MASKBITS(VAL, BITCNT);
+        CALL RORWRD(.VAL, (BITCNT - 1) AND 0FCH);
+        X:  /* FORCE LXI LOAD OF I */
+        DO I = 1 TO (BITCNT + 3) / 4;
+            CALL CO$CH(XDIGITS(MASKBITS(VAL, 4)));
+            CALL ROLWRD(.VAL, 4);
+            Y: /* FORCE LXI LOAD IF I */
+        END;
+    END;
+
+    S3EC0: PROCEDURE;
+        DO WHILE S3BB6 = ' ';
+        END;
+        CALL BACKUP(1);
+    END;
+
+
+    CO$BINARY: PROCEDURE(VAL, BITCNT);
+        DECLARE VAL ADDRESS, BITCNT BYTE;
+        DECLARE (I, J) BYTE;
+        IF BITCNT <> 16 THEN
+            VAL = SHL(VAL, 16 - BITCNT);
+
+        DO WHILE BITCNT <> 0;
+            IF (J := BITCNT AND 3) = 0 THEN
+                J = 4;
+            DO I = 1 TO J;
+                VAL = SCL(VAL, 1);
+                IF CARRY THEN
+                    CALL CO$CH('1');
+                ELSE
+                    CALL CO$CH('0');
+            END;
+            IF (BITCNT := BITCNT - J) <> 0 THEN
+                CALL CO$CH('$');
+        END;
+    END;
+
+    S3F50: PROCEDURE(VAL, MVAL, PROMVAL);
+        DECLARE (VAL, MVAL, PROMVAL) ADDRESS;
+        CALL CO$NUM(VAL, 16);
+        CALL CO$BUF(.(' M='), 3);
+        CALL CO$NUM(MVAL, B620D);
+        CALL CO$BUF(.(' PROM='), 6);
+        CALL CO$NUM(PROMVAL, B620D);
+        CALL CO$CRLF;
+    END;
+
+
+    CHKNAME: PROCEDURE(NAME, NAMELEN) BYTE;
+        DECLARE NAME ADDRESS, NAMELEN BYTE;
+        DECLARE NCH BASED NAME BYTE;
+        DECLARE (I, J, CH) BYTE;
+        I = 0;
+        CALL S3EC0;
+        DO J = 1 TO NAMELEN;
+            I = I + 1;
+            IF NCH <> S3BB6 THEN DO;
+                CALL BACKUP(I);
+                RETURN FALSE;
+            END;
+            NAME = NAME + 1;
+        END;
+        IF ((CH := S3BB6) < 'A' OR CH > 'Z') AND (CH < '0' OR CH > '9') THEN DO;
+            CALL BACKUP(1);
+            RETURN TRUE;
+        END;
+        ELSE DO;
+            CALL BACKUP(I + 1);
+            RETURN FALSE;
+        END;
+    END;
+
+
+    S401B: PROCEDURE(FLAG) BYTE;
+        DECLARE FLAG BYTE;
+        DECLARE (I, PAD) BYTE, ACTUAL ADDRESS;
+
+        IF FLAG THEN DO;
+            LINEIDX = 0;
+            W6212 = 0;
+        END;
+        ELSE
+            W6212 = LINEIDX;
+        IF LINEIDX + 128 > 255 THEN
+            I = 255 - LINEIDX + 1;
+        ELSE
+            I = 128;
+        CALL READ(1, .LINE + LINEIDX, I, .ACTUAL, .STATUS);
+        CALL CHKSTATUS(STATUS);
+        LINEIDX = LINEIDX + ACTUAL;
+        IF 255 < LINEIDX AND LINE((W6214 := LINEIDX - 1)) <> LF THEN DO;
+            CALL READ(1, .LINE, 255, .ACTUAL, .STATUS);
+            CALL SHOWERROR(15);
+        END;
+        IF LINE(W6214) <> LF THEN
+            CALL CO$CRLF;
+        RETURN TRUE;
+    END;
+
+    S4102: PROCEDURE(WRD$P) BYTE;
+        DECLARE WRD$P ADDRESS;
+        DECLARE WRD BASED WRD$P ADDRESS;
+        DECLARE (B64D4, B64D5, CH, NUMTYPE, U64D8) BYTE;
+
+        S410B: PROCEDURE(B0, B1, B2, B3) BYTE;
+            DECLARE (B0, B1, B2, B3) BYTE;
+            DECLARE I BYTE, TMP ADDRESS;
+            WRD = 0;
+            DO I = 1 TO B64D4;
+                IF (CH := S3BB6) < '0' OR (B0 < CH AND CH < B1) OR B2 < CH THEN
+                    RETURN FALSE;
+                WRD = SHL(WRD, B3);
+                IF NUMTYPE = 2 THEN DO;
+                    TMP = WRD;                   /* *5 */
+                    WRD = SHL(WRD, 2) + TMP;
+                END;
+                WRD = WRD + TOHEXNIBBLE(CH); 
+            END;
+            RETURN TRUE;
+        END;
+
+        IF NOT S3C63 THEN
+            RETURN FALSE;
+
+        CALL S3EC0;
+        IF (CH := S3BB6) < '0' OR CH > '9' THEN
+            RETURN FALSE;
+        B64D4 = 1;
+        B64D5 = CH;
+        
+        CH = S3BB6;
+        DO WHILE (CH >= '0' AND CH <= '9') OR (CH >= 'A' AND CH <= 'Z');
+            B64D5 = CH;
+            B64D4 = B64D4 + 1;
+            CH = S3BB6;
+        END;
+        CALL BACKUP(B64D4 + 1);
+        IF B64D5 >= 'A' THEN DO;
+            B64D4 = B64D4 - 1;
+            IF B64D5 = 'B' THEN
+                NUMTYPE = 0;
+            ELSE DO;
+                IF B64D5 = 'O' OR B64D5 = 'Q' THEN
+                    NUMTYPE = 1;
+                ELSE IF B64D5 = 'D' THEN
+                    NUMTYPE = 2;
+                ELSE IF B64D5 = 'H' THEN
+                    NUMTYPE = 3;
+                ELSE
+                    RETURN FALSE;
+            END;
+        END;
+        ELSE
+            NUMTYPE = 2;
+        DO CASE NUMTYPE;
+            DO;     /* BINARY */
+                IF NOT S410B('1', '1', '1', 1) THEN
+                    RETURN FALSE;
+            END;
+            DO;     /* OCTAL */
+                IF NOT S410B('7', '7', '7', 3) THEN
+                    RETURN FALSE;
+            END;
+            DO;     /* DECIMAL */
+                IF NOT S410B('9', '9', '9', 1) THEN
+                    RETURN FALSE;
+            END;
+            DO;     /* HEX */
+                IF NOT S410B('9', 'A', 'F', 4) THEN
+                    RETURN FALSE;
+            END;
+        END;
+        IF B64D5 >= 'A' THEN
+            CH = S3BB6;
+        RETURN TRUE;
+    END;
+
+
+    S4303: PROCEDURE(N) BYTE;
+        DECLARE N BYTE;
+        CALL S3EC0;
+        IF S3BB6 = N THEN
+            RETURN TRUE;
+        ELSE DO;
+            CALL BACKUP(1);
+            RETURN FALSE;
+        END;
+    END;
+
+    S431E: PROCEDURE(VAL, BITCNT, DST);
+        DECLARE VAL ADDRESS, (BITCNT, DST) BYTE;
+        IF DST THEN
+            CALL CO$NUM(VAL, BITCNT);
+        ELSE
+            CALL CO$BINARY(VAL, BITCNT);
+    END;
+
+    S4341: PROCEDURE;
+        IF NOT S4303(13) THEN
+            CALL SHOWERROR(ERR$SYNTAX);
+    END;
+
+    PROMNAMEOFFSET: PROCEDURE(PROMID) ADDRESS;
+        DECLARE PROMID BYTE, I BYTE, IDX ADDRESS;
+        IDX = 0;
+        DO I = 1 TO PROMID;
+            IDX = IDX + PROMNAMES(IDX) + 1;
+        END;
+        RETURN IDX;
+    END;
+
+
+    S4389: PROCEDURE(PROM$P) BYTE;
+        DECLARE PROM$P ADDRESS, PROMID BASED PROM$P BYTE;
+        DECLARE I BYTE;
+
+        PROMNAMELEN: PROCEDURE(PROMID) BYTE;
+            DECLARE PROMID BYTE;
+            RETURN PROMNAMES(PROMNAMEOFFSET(PROMID));
+        END;
+
+        PROMNAME: PROCEDURE(PROMID) ADDRESS;
+            DECLARE PROMID BYTE;
+            RETURN .PROMNAMES(PROMNAMEOFFSET(PROMID) + 1);
+        END;
+
+        CALL S3EC0;
+        DO I = 0 TO 7 - 1;
+            IF CHKNAME(PROMNAME(I), PROMNAMELEN(I)) THEN DO;
+                PROMID = I;
+                RETURN TRUE;
+            END;
+        END;
+        RETURN FALSE;
+    END;
+
+    S43F1: PROCEDURE(N);
+        DECLARE N BYTE, VAL ADDRESS;
+
+        S43F8: PROCEDURE;
+            CALL CO$BUF(.PROMNAMES(PROMNAMEOFFSET(B620F) + 1), PROMNAMES(PROMNAMEOFFSET(B620F)));
+        END; 
+        IF S4303('=') THEN DO;
+            DO CASE N;
+                VAL = S3BB6;
+                IF NOT S4102(.VAL) THEN
+                    CALL SHOWERROR(1);
+                IF NOT S4102(.VAL) THEN
+                    CALL SHOWERROR(1);
+                VAL = S3BB6;
+                IF NOT S4389(.VAL) THEN
+                    CALL SHOWERROR(1);
+            END; 
+            CALL S4341;
+            B6206 = 0;
+            DO CASE N;
+                B61F9 = GETBOOL(VAL);
+                B61FE = S3C79(VAL);
+                W6220 = VAL;
+                B6207 = CK1OR2(VAL);
+                B61FE = BA33BF(B620F := LOW(VAL));
+            END;
+        END;
+        ELSE DO;
+            CALL S4341;
+            DO CASE N;
+                IF B61F9 THEN       /* 0 */
+                    CALL CO$CH('T');
+                ELSE
+                    CALL CO$CH('F');
+                CALL CO$NUM(B61FE, 5);  /* 1 */
+                CALL CO$NUM(W6220, 16); /* 2 */
+                CALL CO$CH(B6207);      /* 3 */
+                CALL S43F8;             /* 4 */
+            END;
+            CALL CO$CRLF;
+        END;
+    END;
+
+
+    S456C: PROCEDURE(BUF$P, IDX, BITCNT) BYTE;
+        DECLARE (BUF$P, IDX) ADDRESS, BITCNT BYTE;
+        DECLARE PTR ADDRESS;
+        DECLARE N BASED PTR BYTE;
+        PTR = IDX + BUF$P;
+        RETURN MASKBITS(N, BITCNT);
+    END;
+
+    S458D: PROCEDURE(VALB, BASE, IDX, BITCNT);
+        DECLARE (VALB, BITCNT) BYTE, (BASE, IDX) ADDRESS;
+        DECLARE PTR ADDRESS, N BASED PTR BYTE;
+        PTR = IDX + BASE;
+        N = MASKBITS(VALB, BITCNT);
+        IF S456C(BASE, IDX, BITCNT) <> MASKBITS(VALB, BITCNT) THEN
+            CALL SHOWERROR(B6209);
+    END;
+
+    S45EC: PROCEDURE(BASE);
+        DECLARE BASE ADDRESS;
+        DECLARE (B6506, B6507) BYTE;
+        B6506 = 0;
+        DATA$BYTE = 0;
+        B6507 = B6203;
+
+        DO WHILE B6507 > 0;
+            CALL ROLCH(.DATA$BYTE, S3BA8(B6506));
+            IF NOT S3B9B(B6506) THEN DO;
+                DATA$BYTE = DATA$BYTE OR S456C(BASE, WA624E(B6506), S3BA8(B6506));
+            END;
+            B6507 = B6507 - 1;
+            B6506 = B6506 + 1;
+        END;
+    END;
+
+
+    S465A: PROCEDURE(WRD);
+        DECLARE WRD ADDRESS, (B650B, B650C) BYTE;
+        B650C = B6203;
+        B650B = B61FF;
+
+        DO WHILE B650C > 0;
+            IF NOT S3B9B(B650B) THEN DO;
+                CALL S458D(MASKBITS(DATA$BYTE, S3BA8(B650B)), 
+                    WRD, WA624E(B650B) , S3BA8(B650B));
+            END;
+            CALL RORCH(.DATA$BYTE, S3BA8(B650B));
+            B650B = B650B - 1;
+            B650C = B650C - 1;
+        END;
+    END;
+
+    S46D8: PROCEDURE(N) BYTE;
+        DECLARE N BYTE;
+        RETURN ROL(BA33C6(N), 1);
+    END;
+
+
+    S46E5: PROCEDURE(N, FLAG);
+        DECLARE (N, FLAG) BYTE;
+        IF FLAG THEN
+            BA33C6(N) = BA33C6(N) OR 80H;
+        ELSE
+            BA33C6(N) = BA33C6(N) AND 7FH;
+    END;
+
+    S4724: PROCEDURE(PARRAYW, PBYTE) BYTE;
+        DECLARE (PARRAYW, PBYTE) ADDRESS;
+        DECLARE CH BASED PBYTE BYTE;
+        DECLARE (I, J, K) BYTE;
+
+        S4731: PROCEDURE;
+            GETKWDSTROFFSET: PROCEDURE(ID) ADDRESS;
+                DECLARE ID BYTE;
+                DECLARE I BYTE, IDX ADDRESS;
+                IDX = 0;
+                DO I = 1 TO ID;
+                    IDX = IDX + KEYWORDS(IDX) + 1;
+                END;                    
+                RETURN IDX;
+            END;
+
+            GETKEYWRDCHAR: PROCEDURE(ID, OFF) BYTE;
+                DECLARE (ID, OFF) BYTE;
+                RETURN KEYWORDS(GETKWDSTROFFSET(ID) + 1 + OFF);
+            END;
+
+            GETKEYWRDLEN: PROCEDURE(ID) BYTE;
+                DECLARE ID BYTE;
+                RETURN KEYWORDS(GETKWDSTROFFSET(ID));
+            END;
+
+            DO K = 0 TO 26 - 1;
+                IF S46D8(K) THEN DO;
+                    IF GETKEYWRDLEN(K) > J THEN DO;
+                        IF GETKEYWRDCHAR(K, J) <> I THEN
+                            CALL S46E5(K, 0);
+                    END;
+                    ELSE
+                        CALL S46E5(K, 0);
+                END;
+            END;
+        END;
+
+        S47E9: PROCEDURE BYTE;
+            DECLARE I BYTE;
+            DO I = 0 TO 26 - 1;
+                IF S46D8(I) THEN
+                    RETURN I;
+            END;
+            RETURN 0;
+        END;
+
+        S480F: PROCEDURE;
+            DECLARE I BYTE;
+
+            S4812: PROCEDURE(WRD$P, N) BYTE;
+                DECLARE WRD$P ADDRESS, N BYTE;
+                DECLARE WRD BASED WRD$P ADDRESS, JUNK BYTE;
+                IF (N := N + 1) > 16 THEN DO;
+                    WRD$P = WRD$P + 2;
+                    N = N - 16;
+                END;
+                JUNK = SCL(WRD, N); 
+                IF CARRY THEN
+                    RETURN TRUE;
+                ELSE
+                    RETURN FALSE;
+            END;
+
+            DO I = 0 TO 26 - 1;
+                CALL S46E5(I, S4812(PARRAYW, I));
+            END;
+        END;
+
+        S487D: PROCEDURE BYTE;
+            DECLARE (I, J) BYTE;
+            J = 0;
+            DO I = 0 TO 26 - 1;
+                IF S46D8(I) THEN
+                    J = J + 1;
+                IF J >= 2 THEN
+                    RETURN TRUE;
+            END;
+            RETURN FALSE;
+        END;
+
+        S48AF: PROCEDURE BYTE;
+            DECLARE I BYTE;
+            DO I = 0 TO 26 - 1;
+                IF S46D8(I) THEN
+                    RETURN FALSE;
+            END;
+            RETURN TRUE;
+        END;
+
+        CALL S480F;
+        CALL S3EC0;
+        I = S3BB6;
+        J = 0;
+        DO WHILE ('A' <= I AND I <= 'Z') OR ('0' <= I AND I <= '9');
+            CALL S4731;
+            IF S48AF THEN DO;
+                CALL BACKUP(J + 1);
+                RETURN FALSE;
+            END;
+            I = S3BB6;
+            J = J + 1;
+        END;
+        IF S487D OR J = 0 THEN DO;
+            CALL BACKUP(J + 1);
+            RETURN FALSE;
+        END;
+        CALL BACKUP(1);
+        CH = S47E9;
+        RETURN TRUE;
+    END;
+
+    S494D: PROCEDURE BYTE;
+        DECLARE I BYTE;
+        IF S4724(.W6246, .I) THEN
+            RETURN I;
+        CALL SHOWERROR(4);
+    END;
+
+    S4965: PROCEDURE(WRD$P);
+        DECLARE WRD$P ADDRESS, (B3, U4, B5) BYTE,
+                (W6, W8, W10) ADDRESS, WA12(2) ADDRESS, WA16(2) ADDRESS, W20 ADDRESS;
+        DECLARE WRD BASED WRD$P ADDRESS;
+        DECLARE BVAL BASED W6 BYTE, WVAL BASED W6 ADDRESS;;
+
+        S496E: PROCEDURE;
+            WA12(B3) = WA12(B3) AND (W20 := NOT WA6226(B5));
+            WA16(B3) = WA16(B3) AND W20;
+            IF B5 = 2 OR B5 = 1 OR B5 = 6 THEN DO;
+                WA12(B3) = WA12(B3) AND 9DFFH;
+                WA16(B3) = WA16(B3) AND 9DFFH;
+            END;
+            ELSE IF B5 = 5 OR B5 = 8 THEN DO;
+                WA12(B3) = WA12(B3) AND 0FB7FH;
+                WA16(B3) = WA16(B3) AND 0FB7FH;
+            END;
+        END;
+
+        S4A88: PROCEDURE(N) BYTE;
+            DECLARE N BYTE;
+            RETURN BA33C6(N) AND 7FH;
+        END;
+
+        S4A96: PROCEDURE;
+            DO CASE BA347D(B5);
+                W8 = S3C79(W8);     /* 0 */
+                W8 = GETBOOL(W8);   /* 1 */
+                W8 = CK1OR2(W8);    /* 2 */
+                /* ; */             /* 3 */
+            END;
+            /* TO WORK AROUND THE V4 COMPILER THE WORD BELOW
+               IS ADDED TO FORCE THE CASE 3 TO JMP DIRECTLY TO
+               THE END OF THE PROCEDURE RET */
+            DECLARE CASE3 DATA(0ECH, 04AH);
+        END;
+
+        WA12(0) = WRD;
+        WRD$P = WRD$P + 2;
+        WA12(1) = WRD;
+        WRD$P = WRD$P + 2;
+        WA16(0) = WRD;
+        WRD$P = WRD$P + 2;
+        WA16(1) = WRD;
+
+        DO WHILE NOT S4303(CR);
+            IF S4724(.WA12, .B5) THEN DO;
+                W6 = WA6366(B5);
+                DO CASE S4A88(B5);
+                    BVAL = TRUE;    /* 0 */
+                    BVAL = FALSE;   /* 1 */
+                    DO;             /* 2 */
+                        IF NOT S4102(.W8) THEN
+                            CALL SHOWERROR(1);
+                        CALL S4A96;
+                        X: /* FORCE LXI H */
+                        WVAL = W8;
+                    END;
+                    DO;             /* 3 */
+                        IF NOT S4102(.W8) THEN
+                            CALL SHOWERROR(1);
+                        CALL S4A96;
+                        Y: /* FORCE LXI H */
+                        BVAL = LOW(W8);
+                    END;
+                    DO;             /* 4 */
+                        CALL S3EC0;
+                        W8 = S3BB6;
+                        CALL S4A96;
+                        X: BVAL = LOW(W8);
+                    END;
+                    DO;             /* 5 */
+                        W10 = .LINE + LINEIDX;
+                        CALL OPEN(.AFT, W10, W6210, 0, .STATUS);
+                        CALL CHKSTATUS(STATUS);
+                        W10 = DELIMIT(DEBLANK(W10));
+                        LINEIDX = W10 - .LINE;
+                    END;
+                END;
+                IF B5 < 16 THEN
+                    B3 = 0;
+                ELSE DO;
+                    B5 = B5 - 16;
+                    B3 = 1;
+                END;
+                CALL S496E;
+            END;
+            ELSE
+                CALL SHOWERROR(4);
+        END;
+        IF WA16(0) + WA16(1) <> 0 THEN
+            CALL SHOWERROR(5);
+    END;
+
+    S4CA7: PROCEDURE BYTE;
+        DECLARE B6541 BYTE, B6542(5) BYTE INITIAL(0, 1, 0, 0, 0);
+        RETURN S4724(.B6542, .B6541);
+    END;
+
+
+    S4CB1: PROCEDURE BYTE;
+        DECLARE B6547 BYTE, B6548(5) BYTE INITIAL(80H, 0, 0, 0, 0);
+        RETURN S4724(.B6548, .B6547);
+    END;
+
+    GET$DATA$BYTE: PROCEDURE;
+
+        GET$DATA$CHUNK: PROCEDURE;
+
+            GET$BNPF: PROCEDURE;
+                DECLARE CH BYTE, UNUSED(3) BYTE;
+                DATA$BYTE = 0;
+                CH = 0;
+                DO WHILE CH <> 'B';
+                    IF NOT IN$CH(.CH) THEN DO;
+                        DATAEOF = TRUE;
+                        RETURN;
+                    END; 
+                END;
+                IF NOT IN$CH(.CH) THEN
+                    CALL SHOWERROR(7); 
+                DO WHILE CH <> 'F';
+                    DATA$BYTE = SHL(DATA$BYTE, 1);
+                    IF CH = 'P' THEN
+                        DATA$BYTE = DATA$BYTE OR 1;
+                    ELSE IF CH <> 'N' THEN
+                        CALL SHOWERROR(7);
+                
+                    IF NOT IN$CH(.CH) THEN
+                        CALL SHOWERROR(7);
+                END;
+            END;
+
+            GET$HEX: PROCEDURE;
+                DECLARE (CH, N, I) BYTE;
+
+                IN$HEX2: PROCEDURE BYTE;
+                    DECLARE (CH, N, I) BYTE;
+                    DO I = 1 TO 2;
+                        IF NOT IN$CH(.CH) THEN
+                            CALL SHOWERROR(6);
+                        IF (CH < 'A' OR 'F' < CH) AND (CH < '0' OR '9' < CH) THEN
+                            CALL SHOWERROR(6); 
+                        N = SHL(N, 4) OR TOHEXNIBBLE(CH);
+                    END;
+                    RETURN N;
+                END;
+
+                RECLEN = 0;
+                CRC$IN = 0;
+                CH = 0;
+
+                DO WHILE CH <> ':';
+                    IF NOT IN$CH(.CH) THEN DO;
+                        DATAEOF = TRUE;
+                        RETURN;
+                    END;
+                END; 
+                
+                LEN$IN = IN$HEX2;
+                LOADADDR = IN$HEX2;
+                LOADADDR = SHL(LOADADDR, 8) + IN$HEX2;
+                CRC$IN = CRC$IN + LEN$IN + HIGH(LOADADDR) + LOW(LOADADDR);
+                N = IN$HEX2;
+                CRC$IN = CRC$IN + N;
+                IF LEN$IN = 0 OR N = 1 THEN DO; /* END RECORD */
+                    DATAEOF = TRUE;
+                    RETURN;
+                END;
+
+                IF LEN$IN <= 128 THEN DO;
+                    DO I = 1 TO LEN$IN;
+                        RECDATA(RECLEN) = IN$HEX2;
+                        CRC$IN = CRC$IN + RECDATA(RECLEN);
+                        RECLEN = RECLEN + 1;
+                    END;
+                    IF IN$HEX2 + CRC$IN <> 0 THEN
+                        CALL SHOWERROR(6);
+                END;
+                ELSE
+                    CALL SHOWERROR(6);
+            END;
+
+            IF ISINTELHEX THEN
+                CALL GET$HEX;
+            ELSE
+                CALL GET$BNPF;
+            RECLEN = 0;
+        END;
+
+        IF ISINTELHEX THEN DO;
+            IF RECLEN >= LEN$IN THEN
+                CALL GET$DATA$CHUNK; 
+            IF DATAEOF THEN
+                RETURN;
+            DATA$BYTE = RECDATA(RECLEN);
+            RECLEN = RECLEN + 1;
+        END;
+        ELSE
+            CALL GET$DATA$CHUNK;
+    END;
+
+    S4EF0: PROCEDURE(N);
+        DECLARE N BYTE, U6558 ADDRESS;
+
+        S4EF7: PROCEDURE;
+            S4EFA: PROCEDURE;
+                DECLARE B655B BYTE;
+                CALL OUT$CH(' ');
+                CALL OUT$CH('B');
+                DO B655B = 1 TO 8;
+                    DATA$BYTE = SCL(DATA$BYTE, 1);
+                    IF CARRY THEN
+                        CALL OUT$CH('P');
+                    ELSE
+                        CALL OUT$CH('N');
+                END;
+                CALL OUT$CH('F');
+                CALL OUT$CH(CR);
+                CALL OUT$CH(LF);
+            END;
+
+            OUT$HEXREC: PROCEDURE;
+                DECLARE (B655C, B655D, RECCRC) BYTE;
+
+                OUT$HEX2: PROCEDURE(CH);
+                    DECLARE CH BYTE;
+                    CALL OUT$CH(XDIGITS(SHR(CH, 4)));
+                    CALL OUT$CH(XDIGITS(CH AND 0FH));
+                END;
+
+                IF RECLEN < 16 AND NOT N THEN DO;
+                    RECDATA(RECLEN) = DATA$BYTE;
+                    RECLEN = RECLEN + 1;
+                    RETURN;
+                END;
+                
+                B655C = 0;
+                DO WHILE B655C < RECLEN;
+                    CALL OUT$CH(' ');
+                    CALL OUT$CH(':');
+                    CALL OUT$HEX2(RECLEN);
+                    CALL OUT$HEX2(HIGH(LOADADDR));
+                    CALL OUT$HEX2(LOW(LOADADDR));
+                    CALL OUT$CH('0');
+                    CALL OUT$CH('0');
+                    RECCRC = RECLEN + HIGH(LOADADDR) + LOW(LOADADDR);
+                    DO B655D = 1 TO RECLEN;
+                        CALL OUT$HEX2(RECDATA(B655C));
+                        RECCRC = RECCRC + RECDATA(B655C);
+                        B655C = B655C + 1;
+                    END;
+                    RECCRC = 0 - RECCRC;
+                    CALL OUT$HEX2(RECCRC);
+                    CALL OUT$CH(CR);
+                    CALL OUT$CH(LF);
+                    LOADADDR = LOADADDR + 16;
+                END;
+
+                IF NOT N THEN DO;
+                    RECDATA(0) = DATA$BYTE;
+                    RECLEN = 1;
+                END;
+            END;
+
+            IF ISINTELHEX THEN
+                CALL OUT$HEXREC;
+            ELSE
+                CALL S4EFA;
+        END;
+
+        IF N AND ISINTELHEX THEN DO;
+            IF RECLEN > 0 THEN
+                CALL S4EF7;
+            RETURN;
+        END;
+        ELSE IF NOT ISINTELHEX AND N THEN
+            RETURN;
+        CALL S4EF7;
+    END;
+
+    OUT$HEXEND: PROCEDURE;
+        DECLARE I BYTE;
+        CALL OUT$CH(' ');
+        CALL OUT$CH(':');
+        DO I = 1 TO 7;
+            CALL OUT$CH('0');
+        END;
+        CALL OUT$CH('1');
+        CALL OUT$CH('F');
+        CALL OUT$CH('F');
+        CALL OUT$CH(CR);
+        CALL OUT$CH(LF);
+    END;
+
+    SHOW$UPP$ERR: PROCEDURE(UPP$STATUS, UPP$ERROR);
+        DECLARE UPP$STATUS BYTE, UPP$ERROR ADDRESS;
+
+        IF UPP$STATUS = 40H THEN
+            CALL SHOWERROR(20);
+        ELSE IF UPP$STATUS = 20H THEN
+            CALL SHOWERROR(21);
+        ELSE IF UPP$STATUS = 10H THEN
+            CALL SHOWERROR(16);
+        ELSE DO;
+            CALL CO$CH(HASH);
+            CALL CO$CRLF;
+            CALL CO$NUM(UPP$ERROR, 16);
+            CALL CO$BUF(.(' UPP ERROR - STATUS '), 20);
+            CALL CO$NUM(UPP$STATUS, 8);
+            CALL CO$CRLF;
+        END;
+    END;
+
+    UPP$READY: PROCEDURE;
+        DO WHILE INPUT(0F1H);
+        END;
+    END;
+
+
+    GET$UPP$STATUS: PROCEDURE BYTE;
+        RETURN NOT INPUT(0F1H);
+    END;
+
+    S5163: PROCEDURE(UPP$CMD, ARG2B) BYTE;
+        DECLARE UPP$CMD ADDRESS, ARG2B BYTE;
+        DECLARE BVAL BYTE, (B6568, B6569) BYTE;
+
+        CALL UPP$READY;
+        OUTPUT(0F2H) = UPP$CMD;
+        IF ARG2B = '1' THEN
+            BVAL = 20H;
+        ELSE
+            BVAL = 0;
+        OUTPUT(0F1H) = (HIGH(UPP$CMD) AND 0FH) OR BVAL;
+        B6568 = INPUT(0F0H);
+        B6569 = INPUT(0F1H);
+        IF (B6569 AND 2) = 0 THEN
+            CALL SHOW$UPP$ERR(B6569, UPP$CMD);
+        ELSE
+            RETURN B6568;
+    END;
+
+    S51B3: PROCEDURE(W0, B1, B2, W3) BYTE;
+        DECLARE W0 ADDRESS, (B1, B2) BYTE, W3 ADDRESS;
+        DECLARE BVAL BYTE, RESULT BASED W3 BYTE;
+
+        CALL UPP$READY;
+        IF B1 = '1' THEN
+            BVAL = 20H;
+        ELSE
+            BVAL = 0;
+
+        OUTPUT(0F1H) = (HIGH(W0) AND 0FH) OR BVAL;
+        OUTPUT(0F2H) = LOW(W0);
+        OUTPUT(0F0H) = B2;
+        CALL UPP$READY;
+        IF ((RESULT := INPUT(0F1H)) AND 2) = 0 THEN
+            RETURN FALSE;
+        ELSE
+            RETURN TRUE;
+    END;
+        
+    S5200: PROCEDURE;
+        DECLARE (W6572, U6574, W6576) ADDRESS;
+
+        S5203: PROCEDURE BYTE;
+            DECLARE B6579 BYTE, B657A(2) ADDRESS INITIAL(400H, 0);
+            RETURN S4724(.B657A, .B6579);
+        END;
+
+        IF NOT S4102(.W6572) THEN
+            CALL SHOWERROR(1);
+
+        IF S4CB1 THEN DO;
+            IF NOT S4102(.W6576) THEN
+                CALL SHOWERROR(1);
+
+            W6222 = W6576;
+        END;
+        ELSE IF S5203 THEN
+            B61FC = TRUE;
+
+        IF NOT S4303('=') THEN
+            CALL SHOWERROR(1);
+
+        DO WHILE S3C63;
+            IF NOT S4102(.DATA$BYTE) THEN
+                CALL SHOWERROR(1);
+            IF NOT B61FC THEN
+                CALL S458D(DATA$BYTE, W6572, W6222, B620D);
+            ELSE
+                CALL S465A(W6572);
+
+            IF NOT (S4303(',') OR S4303(CR)) THEN
+                CALL SHOWERROR(1);
+            W6572 = W6572 + 1;
+        END;
+    END;
+
+    S52CD: PROCEDURE(B0, B1, W2, B3, W4, W5, W6);
+        DECLARE (B0, B1, B3) BYTE, (W2, W4, W5, W6) ADDRESS;
+        DECLARE VAL ADDRESS;
+
+        DO WHILE W5 >= W4;
+            VAL = S5163(W6, B0);
+            IF NOT B1 THEN
+                VAL = NOT VAL;
+            IF B3 THEN
+                CALL S45EC(W4);
+            ELSE DO;
+                DATA$BYTE = S456C(W4, W2, B620D);
+            END;
+            IF (VAL := MASKBITS(VAL, B620D)) <> DATA$BYTE THEN
+                CALL S3F50(W6, DATA$BYTE, VAL);
+            
+            W6 = W6 + 1;
+            IF (W4 := W4 + 1) = 0 THEN
+                RETURN;
+        END;
+    END;
+
+    S5390: PROCEDURE;
+        DECLARE WA658C(4) ADDRESS INITIAL(2491H, 8000H, 1, 8000H);
+
+        CALL S4965(.WA658C);
+        CALL S3E0D;
+        IF NOT GET$UPP$STATUS THEN
+            CALL SHOWERROR(9);
+
+        IF B6204 = 0 AND B61FC THEN
+            CALL SHOWERROR(14);
+        CALL S52CD(B620E, B620C, W6222, B61FC, W6218, W6224, 0);
+    END;
+
+    S53FA: PROCEDURE;
+        CALL S43F1(0);
+    END;
+
+    S5400: PROCEDURE;
+        DECLARE WA6594(4) ADDRESS INITIAL(481H, 0E000H, 1, 8000H);
+        DECLARE (B659D, B659E, B659F) BYTE;
+
+        ISINTELHEX = TRUE;
+        CALL S4965(.WA6594);
+        CALL S3E0D;
+        IF B61FC THEN 
+            B659F = B6202;
+        ELSE
+            B659F = B620D;
+
+        IF B6204 = 0 AND B61FC THEN
+            CALL SHOWERROR(0Eh);
+        IF ISINTELHEX THEN
+            B659E = 15;
+        ELSE
+            B659E = 3;
+
+        DO WHILE W6224 >= W6218;
+            CALL CO$NUM(W6218, 16);
+            CALL CO$CH(' ');
+            B659D = TRUE;
+            DO WHILE W6224 >= W6218 AND ((W6218 AND B659E) <> 0 OR B659D);
+                CALL CO$CH(' ');
+                B659D = FALSE;
+                IF B61FC THEN
+                    CALL S45EC(W6218);
+                ELSE
+                    DATA$BYTE = S456C(W6218, W6222, B620D);
+
+                CALL S431E(DATA$BYTE, B659F, ISINTELHEX);
+                IF (W6218 := W6218 + 1) = 0 THEN DO;
+                    CALL CO$CRLF;
+                    RETURN;
+                END;
+            END;
+            CALL CO$CRLF;
+        END;
+    END;
+
+    S5514: PROCEDURE;
+        CALL EXIT;
+    END;
+
+    S5518: PROCEDURE;
+        DECLARE W65A0 ADDRESS, B65A3 BYTE;
+
+        S551B: PROCEDURE;
+            DECLARE I BYTE;
+            I = 0;
+            DO WHILE I <= B61FF;
+                IF NOT S3B9B(I) THEN DO;
+                    CALL CO$CH(ATSIGN);
+                    CALL CO$NUM(WA624E(I), 16);
+                END;
+                ELSE
+                    CALL CO$BUF(.('NULL'), 4);
+
+                CALL CO$CH(',');
+                CALL CO$NUM(S3BA8(I), 5);
+                I = I + 1;
+                IF I <= B61FF THEN
+                    CALL CO$CH(';');
+            END;
+            CALL CO$CRLF;
+        END;
+
+        S558B: PROCEDURE BYTE;
+            DECLARE B65A5 BYTE, BA65A6(5) BYTE INITIAL(0, 0, 0, 10H, 0);
+            RETURN S4724(.BA65A6, .B65A5);
+        END;
+
+        S5595: PROCEDURE(IDX, VALUE);
+            DECLARE VALUE ADDRESS, IDX BYTE;
+            WA624E(IDX) = VALUE;
+        END;
+
+        S55B4: PROCEDURE(IDX, FLAG);
+            DECLARE (IDX, FLAG) BYTE;
+
+            IF FLAG THEN
+                BA625E(IDX) = BA625E(IDX) OR 80H;
+            ELSE
+                BA625E(IDX) = BA625E(IDX) AND 7FH;
+        END;
+
+        S55F3: PROCEDURE(IDX, BVAL);
+            DECLARE (IDX, BVAL) BYTE;
+
+            BA625E(IDX) = BA625E(IDX) AND 80H;
+            BA625E(IDX) = BA625E(IDX) OR MASKBITS(BVAL, 7);
+        END;
+
+        IF NOT S4303(CR) THEN DO;
+            B6202 = 0;
+            B65A3 = 0;
+            B6204 = 0;
+            B6203 = 0;
+            B6206 = 0;
+
+            DO WHILE S3C63;
+                IF B65A3 >= 8 THEN
+                    CALL SHOWERROR(22);
+                IF S4CB1 THEN DO;
+                    IF S4102(.W65A0) THEN
+                        CALL S5595(B65A3, W65A0);
+                    ELSE
+                        CALL SHOWERROR(1);
+                    CALL S55B4(B65A3, FALSE);
+                    B6204 = B6204 + 1;
+                END;
+                ELSE IF S558B THEN
+                    CALL S55B4(B65A3, TRUE);
+                ELSE
+                    CALL SHOWERROR(1);
+
+                IF S4CA7 THEN DO;
+                    IF S4102(.W65A0) THEN DO;
+                        IF (B6202 := B6202 + S3C79(W65A0)) > 8 THEN
+                            CALL SHOWERROR(0Ch);
+                        CALL S55F3(B65A3, S3C79(W65A0));
+                    END;
+                    ELSE
+                        CALL SHOWERROR(1);
+                END;
+                ELSE
+                    CALL SHOWERROR(1);
+
+                IF NOT (S4303(',') OR S4303(CR)) THEN
+                    CALL SHOWERROR(1);
+
+                B65A3 = B65A3 + 1;
+                B6203 = B6203 + 1;
+            END;
+            B61FF = B65A3 - 1;
+        END;
+        ELSE DO;
+            IF B6203 = 0 THEN
+                CALL SHOWERROR(0Eh);
+            CALL S551B;
+        END;
+    END;
+
+    S5748: PROCEDURE;
+        CALL S43F1(1);
+    END;
+
+    S574E: PROCEDURE;
+        CALL S43F1(2);
+    END;
+
+    DECLARE WA65B2(4) ADDRESS INITIAL(2491H, 8400H, 1, 8400H);
+    DECLARE (B65BB, B65BC, B65BD) BYTE,
+            (W65BE, W65C0, W65C2, W65C4, W65C6, W65C8) ADDRESS;
+    DECLARE (B65CA, B65CB, B65CC, B65CD) BYTE;
+    DECLARE (W65CE, W65D0, W65D2, W65D4, W65D6) ADDRESS;
+    DECLARE B65D9 BYTE;
+    DECLARE WA65DA(4) ADDRESS INITIAL(2581H, 0A240H, 1, 8040H);
+    DECLARE WA65E2(5) ADDRESS INITIAL(2580H, 23C0H, 0, 140H, 0);
+    DECLARE WA65EC(4) ADDRESS INITIAL(2491H, 8000H, 1, 8000H);
+
+    S5754: PROCEDURE;
+        
+        S5757: PROCEDURE;
+            IF (B620D <> 8 AND NOT B65BD) OR (B6202 > 8 AND B65BD) THEN
+                CALL SHOWERROR(17);
+            W65C6 = W65C2;
+            W65C8 = W65BE;
+
+            DO WHILE W65C8 <= W65C0;
+                IF B65BD THEN
+                    CALL S45EC(W65C8);
+                ELSE DO;
+                    DATA$BYTE = S456C(W65C8, W65C4, B620D);
+                END;
+                IF NOT B65BC THEN
+                    DATA$BYTE = NOT DATA$BYTE;
+                IF NOT S51B3(W65C6, B65BB, DATA$BYTE, .B65CA) THEN
+                    CALL SHOW$UPP$ERR(B65CA, W65C6);
+                W65C6 = W65C6 + 1;
+                IF (W65C8 := W65C8 + 1) = 0 THEN
+                    GOTO DONE;
+            END;
+        DONE:
+            CALL S52CD(B65BB, B65BC, W65C4, B65BD, W65BE, W65C0, W65C2);
+        END;
+
+        S585E: PROCEDURE;
+            IF (B620D <> 8 AND NOT B65BD) OR (B6202 > 8 AND B65BD) THEN
+                CALL SHOWERROR(17);
+            IF W65C2 <> 0 THEN
+                CALL SHOWERROR(18);
+            W65D2 = W65C0 - W65BE + 1;
+            IF W65D2 <> 512 AND W65D2 <> 1024 THEN
+                CALL SHOWERROR(19);
+            DO B65CC = 1 TO 100;
+                W65CE = 0;
+                W65D0 = W65BE;
+                DO WHILE W65C0 >= W65D0;
+                    IF B65BD THEN
+                        CALL S45EC(W65D0);
+                    ELSE DO;
+                        DATA$BYTE = S456C(W65D0, W65C4, B620D);
+                    END;
+                    IF NOT B65BC THEN
+                        DATA$BYTE = NOT DATA$BYTE;        
+                    B65CD = S51B3(W65CE, B65BB, DATA$BYTE, .B65CB);
+                    W65CE = W65CE + 1;
+                    IF (W65D0 := W65D0 + 1) = 0 THEN
+                        GOTO BREAK;
+                END;
+        BREAK:
+            END;
+            CALL S52CD(B65BB, B65BC, W65C4, B65BD, W65BE, W65C0, 0);
+        END;
+
+
+        S59BA: PROCEDURE;
+            IF (B620D <> 4 AND NOT B65BD) OR (B6202 > 4 AND B65BD) THEN
+                CALL SHOWERROR(17);
+            W65D4 = W65C2;
+            W65D6 = W65BE;
+            DO WHILE W65C0 >= W65D6;
+                IF B65BD THEN
+                    CALL S45EC(W65D6);
+                ELSE
+                    DATA$BYTE = S456C(W65D6, W65C4, B620D);
+
+                IF NOT B65BC THEN
+                    DATA$BYTE = NOT DATA$BYTE;
+                IF NOT S51B3(W65D4, B65BB, DATA$BYTE, .B65D9) THEN
+                    CALL SHOW$UPP$ERR(B65D9, W65D4);
+                W65D4 = W65D4 + 1;
+                IF (W65D6 := W65D6 + 1) = 0 THEN
+                    GOTO BREAK;
+            END;
+        BREAK:
+            CALL S52CD(B65BB, B65BC, W65C4, B65BD, W65BE, W65C0, W65C2);
+        END; 
+
+        /* S5757 */
+        IF NOT S4303(DQUOTE) THEN DO;
+            CALL S4965(.WA65B2);
+            CALL S3E0D;
+            W65BE = W6218;
+            W65C0 = W6224;
+            W65C2 = W621E;
+            W65C4 = W6222;
+            B65BB = B620E;
+            B65BC = B620C;
+            B65BD = B61FC;
+            B6206 = TRUE;
+        END;
+        ELSE DO;
+            CALL S4341;
+            IF NOT B6206 THEN
+                CALL SHOWERROR(11);
+        END;
+        IF NOT GET$UPP$STATUS THEN
+            CALL SHOWERROR(9);
+        IF B6204 = 0 AND B65BD THEN
+            CALL SHOWERROR(14);
+        DO CASE B620F;
+            ;              /* 0 */
+            CALL S5757;    /* 1 */
+            CALL S585E;    /* 2 */
+            CALL S59BA;    /* 3 */
+            CALL S59BA;    /* 4 */
+            CALL S5757;    /* 5 */
+            CALL S5757;    /* 6 */
+        END;
+    END;
+
+    S5B9C: PROCEDURE;
+
+        W6210 = 2;
+        RECLEN = 0;
+        ISINTELHEX = TRUE;
+        CALL S4965(.WA65DA);
+        CALL S3E0D;
+        CALL S3C93;
+        LOADADDR = W6218;
+        IF B6204 = 0 AND B61FC THEN
+            CALL SHOWERROR(14);
+
+        DO WHILE W6224 >= W6218;
+            IF NOT B61FC THEN DO;
+                DATA$BYTE = S456C(W6218, W6222, B620D);
+            END;
+            ELSE
+                CALL S45EC(W6218);
+
+            IF NOT B620C THEN
+                DATA$BYTE = NOT DATA$BYTE;
+
+            CALL S4EF0(0);
+            IF (W6218 := W6218 + 1) = 0 THEN
+                GOTO BREAK;
+        END;
+    BREAK:
+        CALL S4EF0(TRUE);
+        CALL CLOSE(AFT, .STATUS);
+    END;
+
+    S5C5A: PROCEDURE;
+        W6210 = 1;
+        LEN$IN = 0;
+        CRC$IN = 0;
+        W6224 = 0FFFFH;
+        ISINTELHEX = TRUE;
+        DATAEOF = FALSE;
+        LOADADDR = 0;
+        CALL S4965(.WA65E2);
+        CALL S3E0D;
+        CALL S3C93;
+        IF B6204 = 0 AND B61FC THEN
+            CALL SHOWERROR(14);
+        DO WHILE (NOT (W6224 < LOADADDR) OR ISINTELHEX) AND NOT DATAEOF;
+            CALL GET$DATA$BYTE;
+            IF NOT DATA$EOF THEN DO;
+                IF NOT B620C THEN
+                    DATA$BYTE = NOT DATA$BYTE;
+                IF NOT B61FC THEN
+                    CALL S458D(MASKBITS(DATA$BYTE, B620D), W6218 + LOADADDR, W6222, B620D); 
+                ELSE
+                    CALL S465A(W6218 + LOADADDR);
+            END;
+            IF (LOADADDR := LOADADDR + 1) = 0 THEN DO;
+                CALL CLOSE(AFT, .STATUS);
+                RETURN;
+            END;
+        END;
+        CALL CLOSE(AFT, .STATUS);
+    END;
+
+    S5D4D: PROCEDURE;
+        CALL S43F1(3);
+    END;
+
+
+    S5D53: PROCEDURE;
+        DECLARE W65F4 ADDRESS, PAD ADDRESS;
+        CALL S4965(.WA65EC);
+        CALL S3E0D;
+        IF NOT GET$UPP$STATUS THEN
+            CALL SHOWERROR(9);
+        w65F4 = 0;
+        IF B6204 = 0 and B61FC THEN
+            CALL SHOWERROR(14);
+        DO WHILE W6224 >= W6218;
+            DATA$BYTE = S5163(W65F4, b620E);
+            IF NOT B620C THEN
+                DATA$BYTE = NOT DATA$BYTE;
+            IF B61FC THEN DO;
+                IF B6204 = 0 THEN
+                    CALL SHOWERROR(14);
+                CALL S465A(W6218);
+            END;
+            ELSE
+                CALL S458D(DATA$BYTE, W6218, W6222, B620D);
+            W65F4 = W65F4 + 1;
+            IF (W6218 := W6218 + 1) = 0 THEN
+                RETURN;
+        END;
+    END;
+
+    S5E13: PROCEDURE;
+        CALL S43F1(4);
+    END;
+
+    S5E19: PROCEDURE BYTE;
+
+        S5E1C: PROCEDURE BYTE;
+            DECLARE II ADDRESS;
+            II = W6212;
+            DO WHILE II <= W6214;
+                IF LINE(II) = AMPERSAND THEN DO;
+                    DO WHILE LINE(II := II + 1) = ' ';
+                    END;
+                    IF LINE(II) = CR THEN
+                        RETURN TRUE;
+                    ELSE
+                        II = II - 1;
+                END;
+                II = II + 1;
+            END;
+            RETURN FALSE;
+        END;
+
+        W6222 = W6220;
+        B620D = B61FE;
+        B620C = B61F9;
+        B620E = B6207;
+        B61FC = 0;
+        ISINTELHEX = TRUE;
+        B6209 = LF;
+        CALL CO$CH('*');
+        DO WHILE NOT S401B(TRUE);
+            CALL CO$CH('*');
+        END;
+
+        DO WHILE S5E1C;
+            CALL CO$BUF(.('**'), 2);
+            DO WHILE NOT S401B(FALSE);
+                CALL CO$BUF(.('**'), 2);
+            END;
+        END;
+        LINELEN = 0;
+        LINEIDX = 0;
+        RETURN S494D;
+    END;
+
+
+    INIT: PROCEDURE;
+        DECLARE (I, J) BYTE, (ACTUAL, U65FE) ADDRESS;
+        S5F07: PROCEDURE;
+            DO WHILE NOT S401B(TRUE);
+                CALL CO$CH('*');
+            END;
+            LINEIDX = 0;
+            LINELEN = 0;
+        END;
+
+        CALL READ(1, .LINE, 255, .ACTUAL, .STATUS);
+        B6204 = 0;
+        B6203 = 0;
+        B6202 = 0;
+        B6206 = 0;
+        DO J = 0 TO 26 - 1;
+            WA6366(J) = 0;
+        END;
+        WA6366(2) = .B620C;
+        WA6366(5) = .B61FC;
+        WA6366(7) = .B620D;
+        WA6366(8) = .W6222;
+        WA6366(11) = .B620E;
+        WA6366(15) = .W6218;
+        WA6366(16) = .W6224;
+        WA6366(17) = .ISINTELHEX;
+        WA6366(18) = .ISINTELHEX;
+        WA6366(21) = .W621E;
+        WA6366(22) = .ISINTELHEX;
+        WA6366(23) = .W6218;
+        WA6366(24) = .W6224;
+        CALL CO$BUF(.SIGNON, 21);
+        CALL CO$CRLF;
+        B620F = 0;
+        W6220 = .MEMORY;
+        B6207 = '1';
+        B61F9 = TRUE;
+        I = 255;
+        DO WHILE I;
+            CALL CO$BUF(.('TYPE* '), 6);
+            CALL S5F07;
+            IF S4389(.J) THEN DO;
+                IF S4303(CR) THEN DO;
+                    B61FE = BA33BF(B620F := J);
+                    I = FALSE;
+                END;
+            END;
+        END;
+    END;
+
+/* MAIN */
+    CALL INIT;
+RESTART:
+    DO WHILE 1;
+        DO CASE S5E19;
+            DO;             /* 0 */
+                B6209 = 3;
+                CALL S5200;
+            END;
+            CALL S5390;     /* 1 */
+            CALL S53FA;     /* 2 */
+            CALL S5400;     /* 3 */ 
+            CALL S5514;     /* 4 */
+            CALL S5518;     /* 5 */
+            CALL SHOWERROR(4); /* 6 */
+            CALL S5748;     /* 7 */
+            CALL S574E;     /* 8 */
+            CALL S5754;     /* 9 */
+            CALL S5C5A;     /* 10 */
+            CALL S5D4D;     /* 11 */
+            CALL S5D53;     /* 12 */
+            CALL S5E13;     /* 13 */
+            CALL S5B9C;     /* 14 */
+        END;
+    END;
+EOF
