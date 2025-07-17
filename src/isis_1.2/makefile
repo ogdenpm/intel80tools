@@ -10,6 +10,8 @@ REF = $(call ipath,isis,1.2)
 ISIST0PATCH=isis.t0_1.2.patch	# for uninitialised data
 ISISBINPATCH=isis.bin_1.2.patch	# for start overrite
 
+isis.bin.hex : PLM2OPT := -@1
+
 all:: 
 	$(MAKE) $(TARGETS)
 
@@ -27,7 +29,7 @@ isis.bin: isis.bin.hex $(ISISBINPATCH)
 	
 %.hex %.prn: %.plm
 	$(PLM81) $^
-	$(PLM82) $^
+	$(PLM82) $(PLM2OPT) $^
 	@perl $(ITOOLS)/tools/pretty.pl $*.lst $*.prn
 	rm -fr $*.pol $*.sym $*.lst
 

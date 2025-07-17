@@ -58,7 +58,7 @@ where metaToken is one of
   TARGET  issues a warning if the specified target format is different
   SOURCE  issues a warning if the actual source file format is different
   LOAD    issues a warning if the actual load address is different
-  START   set the start address if not set, else warn if source file start is different
+  START   set the start address warn if source file start is different
   NAME    sets the name for AOMFxx formats otherwise ignored
   DATE    sets the date field for AOM96 otherwise ignored
   TRN     sets the TRN value for AOMFxx otherwise ignored. Error if invalid
@@ -130,10 +130,13 @@ Usage: disIntelLib infile
 
 ### dumpomf (tool-src)
 
-Dumps the detail of the content of omf85, omf51, omf96 and omf86 files. Interpretation of the various formats is per the intel specifications with some extensions for omf86. Due to lack of samples, limited testing has been done on omf96. This supersedes **dumpIntel** which has now been depreciated.
+Dumps the detail of the content of omf85, omf51, omf96 and omf86 files. Interpretation of the various formats is per the intel specifications with some extensions for omf86. Due to lack of samples, limited testing has been done on omf96. There is also limited support for Keil AOMF51 file format, as the format is not documented publically, the interpretation is best guess based on sample compilations.
+This supersedes **dumpIntel** which has now been depreciated.
 
 ```
-usage: dumpomf -v | -V | objfile [outputfile]
+usage: dumpomf -v | -V | -r objfile [outputfile]
+
+-r dumps raw record content, although record type is identified if possible
 ```
 
 <div style="page-break-after: always; break-after: page;"></div>
@@ -449,6 +452,6 @@ where directory is current directory name
 ------
 
 ```
-Updated by Mark Ogden 7-Feb-2024
+Updated by Mark Ogden 15-May-2025
 ```
 

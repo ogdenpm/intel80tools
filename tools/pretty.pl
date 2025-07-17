@@ -23,10 +23,10 @@ sub printCode
         $dbcnt = 0;
     }
     if (!defined($code[$addr])) {
-        printf $out "        %-12s  ; %04X\n", $label[$addr] . ':', $addr;
+        printf $out "    %-12s  ; %04X\n", $label[$addr] . ':', $addr;
         return;
     }
-    print $out "        $label[$addr]:\n" if defined($label[$addr]);
+    print $out "    $label[$addr]:\n" if defined($label[$addr]);
     if ($dbcnt) {
         print $out ", $code[$addr]";
     } else {
@@ -47,16 +47,16 @@ open $out, ">$file" or die "can't open $file\n";
 
 $line = 0;
 
-while (($_ = <$in>) && ! /^ 8080 PLM2/) {
-    if (/^ (\d{5})/) {
+while (($_ = <$in>) && ! /^\s*pl\/m-8080 pass2 Version 4.0/) {
+    if (/^(\d{5})/) {
         $line = $1;
         $prog[$line] = $_;
-    } elsif ($line != 0) {
+    } elsif ($line) {
         $prog[$line] .= $_;
     }
 }
 
-while (($_ = <$in>) && ! /^ STACK/) {
+while (($_ = <$in>) && ! /^\s*STACK/) {
     next if /^\s*$/;
     chomp;
     foreach $interlist (split /\s+/) {
@@ -68,14 +68,13 @@ while (($_ = <$in>) && ! /^ STACK/) {
 
 $stack = $_;     # add stack size message to end
 
-while (($_ = <$in>) && /^ [A-Z]/) {
-    /^ ([^\.]+)\.+(....)/;
-    $label[hex($2)] = $1;
+while (($_ = <$in>) && !(/^....H /)) {
+    $label[hex($2)] = $1 if /^([^\.]+).*(....)H$/;
 }
 
 do {
     chomp;
-    if (s/^ (....)H\s*//) {
+    if (s/^(....)H\s*//) {
         $addr = hex($1);
         if (/^..H ..H/) {
             foreach $c (split / /) {
@@ -120,6 +119,7 @@ for ($i = 0; $i < $#code; $i++) {
         undef $code[++$i];
     }
 }
+
 $prog[$line] .= "PASS2 - " . $_;
 
 $addr = 0;
@@ -149,8 +149,10 @@ while ($addr < $#label) {
         $addr++;
     }
     if ($addr < $#label) {
-        printf $out "        %-11s ds %-4d ; %04XH\n", $label[$laddr] . ":", $addr - $laddr, $laddr;
+        printf $out "    %-11s ds %-4d ; %04XH\n", $label[$laddr] . ":", $addr - $laddr, $laddr;
     } else {
-        printf $out "        %-11s         ; %04XH\n", $label[$laddr] . ":", $laddr;
+        printf $out "    %-11s         ; %04XH\n", $label[$laddr] . ":", $laddr;
     }
 }
+
+print $out $stack;

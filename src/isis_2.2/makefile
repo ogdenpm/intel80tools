@@ -12,6 +12,8 @@ all::
 # makefile elements for isis.bin and isis.t0 which use the old plm compiler
 # note source is in isis.bin.plm and isis.t0.plm
 
+isis.bin.hex: PLM2OPT = -@1
+
 isis.bin: isis.bin.hex
 	$(ABSBIN) -i $^ $@
 
@@ -20,7 +22,7 @@ isis.t0: isis.t0.hex isis.t0.patch
 
 %.hex: %.plm $(CONFIG)
 	$(PLM81) $^
-	$(PLM82) $^
+	$(PLM82) $(PLM2OPT) $^
 	@perl $(ITOOLS)/tools/pretty.pl $*.lst $*.prn
 	rm -fr $*.pol $*.sym $*.lst
 
