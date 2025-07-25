@@ -10,16 +10,13 @@ REF = $(call ipath,isis,1.2)
 ISIST0PATCH=isis.t0_1.2.patch	# for uninitialised data
 ISISBINPATCH=isis.bin_1.2.patch	# for start overrite
 
-isis.bin.hex : PLM2OPT := -@1
+isis.bin.hex : PLM2OPT := -i1 -e0
 
 all:: 
 	$(MAKE) $(TARGETS)
 
 isis.t0: isis.t0.hex $(ISIST0PATCH)
 	$(ABSBIN) $^ $@
-
-isis.bin: isis.bin.hex $(ISISBINPATCH)
-	$(ABSBIN) -i $^ $@
 
 %: %.hex
 	$(ABSBIN) -i $^ $@

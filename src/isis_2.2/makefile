@@ -12,7 +12,7 @@ all::
 # makefile elements for isis.bin and isis.t0 which use the old plm compiler
 # note source is in isis.bin.plm and isis.t0.plm
 
-isis.bin.hex: PLM2OPT = -@1
+isis.bin.hex: PLM2OPT = -i1
 
 isis.bin: isis.bin.hex
 	$(ABSBIN) -i $^ $@
