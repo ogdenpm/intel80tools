@@ -1,7 +1,7 @@
 ITOOLS ?=..
 SHELL= $(ITOOLS)/unix/bash.exe
 
-DIRS = algolm basice lib_1.1 link_1.31 ml80 tex
+DIRS = algolm basice lib_1.1 link_1.31 ml80 tex cpm_2.2
 
 
 all: 

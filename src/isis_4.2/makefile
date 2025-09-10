@@ -19,8 +19,8 @@ objs =	loc62.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis isis.patch
-	$(ABSBIN) -i $^ $@
+isis.bin: isis
+	$(call abstool,$@,-i $^,isis.patch)
 	
 
 isis: isis.rel

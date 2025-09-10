@@ -18,8 +18,8 @@ objs =	loc62.obj isis.obj aft.obj attrib.obj\
 all::
 	$(MAKE) $(TARGETS)
 
-isis.bin: isis isis.patch
-	$(ABSBIN) -i $^ $@
+isis.bin: isis
+	$(call abstool,$@,-i $^,isis.patch)
 
 isis: isis.rel
 	$(call locate,$@,$^,code(3eh) name(isis) stacksize(0) memory(3000h) purge)

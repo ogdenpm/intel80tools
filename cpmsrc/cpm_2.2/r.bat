@@ -1,0 +1,12 @@
+ren DDT0MOV.ASM ddt0mov.asm
+ren DDT1ASM.ASM ddt1asm.asm
+ren DDT2MON.ASM ddt2mon.asm
+ren DEBLOCK.ASM deblock.asm
+ren DUMP.ASM dump.asm
+ren ED20PAT.ASM ed20pat.asm
+ren OS1BOOT.ASM os1boot.asm
+ren OS2CCP.ASM os2ccp.asm
+ren OS3BDOS.ASM os3bdos.asm
+ren OS4BIOS.ASM os4bios.asm
+ren XSUB0.ASM xsub0.asm
+ren XSUB1.ASM xsub1.asm

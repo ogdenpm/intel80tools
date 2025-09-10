@@ -5,12 +5,12 @@ version used on ml80.
 After some investigation, by disabling two of the optimisations introduced in
 the V4 fortran compiler, I have been able to create a version that works.
 Note I actually created my own C versions of the compiler, by translating the
-fortran to ratfor and then into C. It is still a work in progress and I haven't released
-the source yet but potentially the original fortan code could be patched if required.
+fortran to ratfor and then into C. This version allows the optimisations to be
+enabled with a -O option.
 
-The specific optimisations that I disabled are
-	adi,0, sui,0, xri,0 and ori,0 optimisations are disabled
-	and,0 optimisation is disabled
+The specific optimisations that are now controlled by -O are
+	adi,0, sui,0, xri,0 and ori,0 
+	and 0
 
 Below are the list of patch files that help put the same junk into unitialised data areas
 and apply manual patches found in the original distribution files

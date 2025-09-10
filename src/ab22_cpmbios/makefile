@@ -7,7 +7,12 @@ NOVERIFY = T
 include $(ITOOLS)/tools/isis.mk
 
 CTOOL=$(ITOOLS)/ctools/
-mkLower = mv $(shell echo $1 | tr a-z A-Z) $1
+# define the CPM tools
+CTOOLS =$(ITOOLS)/ctools
+CPM =$(CTOOLS)/cpm
+MAC =$(CPM) $(CTOOLS)/mac
+RMAC = $(CPM) $(CTOOLS)/rmac
+DRLINK = $(CPM) $(CTOOLS)/link
 
 PATH := $(PATH)
 
@@ -19,17 +24,15 @@ all:: $(TARGETS)
 bio115.hex: ORG := 0F200H
 ldcpm.hex:  ORG := 0H
 
-%.hex: %.obj
-	$(call locate,$*.loc,$^,code($(ORG)) name($*))
-	$(ABSBIN) -h $*.loc $@
-	rm $*.loc
+%.loc: %.obj
+	$(call locate,$@,$^,code($(ORG)) name($*))
 
-# the mkLower lines below compensate for cpm writing upper case names
+%.hex: %.loc
+	$(call abstool,$@,-h $^)
+
 %.com: %.asm
-	$(CTOOL)cpm $(CTOOL)asm $*
-	$(call mkLower,$*.hex)
-	$(call mkLower,$*.prn)
-	$(ABSBIN) $*.hex $@
+	$(MAC) $^
+	$(call abstool,$@,$*.hex)
 	rm $*.hex
 
 clean::

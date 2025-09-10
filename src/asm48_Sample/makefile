@@ -7,4 +7,4 @@ include $(ITOOLS)/tools/isis.mk
 # define a rule to make bin files from hex files
 
 %.bin: %.hex
-	$(ABSBIN) $^ $@
+	$(call abstool,$@,$^)

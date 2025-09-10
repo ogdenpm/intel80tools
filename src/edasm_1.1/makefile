@@ -19,8 +19,8 @@ EDobjs = editor.obj dblank.obj dlimit.obj fupper.obj numout.obj\
 
 $(ASobjs): PLM80=3.1
 
-%.bin: %.abs %.patch
-	$(ABSBIN) $^ $@
+%.bin: %.abs
+	$(call abstool,$@,$^)
 
 %.patch:
 	echo "; not needed" >$@

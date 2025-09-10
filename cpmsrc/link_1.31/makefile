@@ -22,7 +22,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 %.com: %.abs
-	$(ABSBIN) $^ $@
+	$(call abstool,$@,$^)
 
 %.abs: %.rel
 	$(info $@ $^)

@@ -15,14 +15,14 @@ isis.bin.hex : PLM2OPT := -i1 -e0
 all:: 
 	$(MAKE) $(TARGETS)
 
-isis.t0: isis.t0.hex $(ISIST0PATCH)
-	$(ABSBIN) $^ $@
+isis.t0: isis.t0.hex 
+	$(call abstool,$@,$^,$(ISIST0PATCH))
 
 %: %.hex
-	$(ABSBIN) -i $^ $@
+	$(call abstool,$@,-i $^)
 
 %: %.obj	# asm80 converts .asm files to .obj files
-	$(ABSBIN) -i $^ $@
+	$(call abstool,$@,-i $^)
 	
 %.hex %.prn: %.plm
 	$(PLM81) $^

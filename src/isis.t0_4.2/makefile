@@ -19,8 +19,8 @@ objs = boot.obj t0boot.obj consol.obj exit.obj memchk.obj write.obj
 all::
 	$(MAKE) $(TARGETS)
 
-isis.t0: isist0.abs $(PATCH)
-	$(ABSBIN) $^ $@
+isis.t0: isist0.abs
+	$(call abstool,$@,$^,$(PATCH))
 
 
 isist0.abs: isist0.rel

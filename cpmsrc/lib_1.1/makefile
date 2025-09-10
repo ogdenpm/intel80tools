@@ -18,8 +18,8 @@ OBJS = lib.obj rel.obj cmdlin.obj parsef.obj util.obj io.obj cpm.obj cpmvec.obj
 all::
 	$(MAKE) $(TARGETS)
 
-%.com: %.abs %.patch
-	$(ABSBIN) $^ $@ 
+%.com: %.abs
+	$(call abstool,$@,$^)
 
 %.abs: %.rel
 	$(info $@ $^)

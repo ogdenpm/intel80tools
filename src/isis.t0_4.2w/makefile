@@ -26,7 +26,7 @@ all::
 	$(MAKE) $(TARGETS)
 
 isis.t0: isist0.abs $(PATCH)
-	$(ABSBIN) $^ $@
+	$(call abstool,$@,$^)
 
 
 isist0.abs: isist0.rel

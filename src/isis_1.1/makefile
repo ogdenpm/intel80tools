@@ -12,14 +12,14 @@ all:: $(TARGETS)
 
 
 % : %.hex
-	$(ABSBIN) -i $^ $@
+	$(call abstool,$@,-i $^)
 
-isis.t0: isis.t0.hex $(ISIST0PATCH)
-	$(ABSBIN) $^ $@
+isis.t0: isis.t0.hex
+	$(call abstool,$@,$^,$(ISIST0PATCH))
 
 # isis.bin is in assembler, creating the standard .obj output
 isis.bin: isis.obj
-	$(ABSBIN) -i $^ $@
+	$(call abstool,$@,-i $^)
 
 
 %.hex %.lst %.prn: %.plm

@@ -15,10 +15,10 @@ all::
 isis.bin.hex: PLM2OPT = -i1
 
 isis.bin: isis.bin.hex
-	$(ABSBIN) -i $^ $@
+	$(call abstool,$@,-i $^)
 
-isis.t0: isis.t0.hex isis.t0.patch
-	$(ABSBIN) $^ $@
+isis.t0: isis.t0.hex
+	$(call abstool,$@,$^,$@.patch)
 
 %.hex: %.plm $(CONFIG)
 	$(PLM81) $^

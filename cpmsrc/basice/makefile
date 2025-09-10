@@ -80,8 +80,8 @@ basic.rel: $(BASICFILES) $(CPMOBJ)
 basic.abs: basic.rel
 	$(call locate,$@,$^,code(100h))
 
-basic.com: basic.abs $(BASICPATCH)
-	$(ABSBIN) $^ $@
+basic.com: basic.abs
+	$(call abstool,$@,$^,$(BASICPATCH))
 
 # the run.com build has two main modules so the fp routines and run itself
 # need to be built and have the @Pnnnn references and the main module flag removed
@@ -98,8 +98,8 @@ run23.rel: fprun.abs $(BASEOBJ) $(BUILDFILES)
 run23.abs: run23.rel
 	$(call locate,$@,$^,code(2b00h))
 
-run2-3.com: run23.abs $(RUNPATCH)
-	$(ABSBIN) $^ $@
+run2-3.com: run23.abs
+	$(call abstool,$@,$^,$(RUNPATCH))
 
 
 print: all
