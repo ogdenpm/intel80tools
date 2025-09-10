@@ -28,7 +28,6 @@ export ISIS_F0 ?= ./
 # shared build tools
 ISIS:=thames -m -T
 PLMPP:=plmpp
-ASM80X:=perl $(ITOOLS)/tools/asm80x.pl
 NGENPEX:=ngenpex
 MKDEPEND:=perl $(ITOOLS)/tools/makedepend.pl
 ABSTOOL:=abstool
@@ -93,6 +92,7 @@ lstdir = $(addprefix $(LST)/,$(notdir $1))
 publics = "publics($(call mklist,$(call objdir,$1)))"
 
 # macros to generate suitable output file names from $1 adding .$2
+# $(call mkname,file,ext)	note extent should not have leading dot
 mkname = $(LST)/$(basename $(notdir $(firstword $1))).$(strip $2)
 
 vpath %.plm $(SRC)

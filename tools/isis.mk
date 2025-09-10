@@ -9,6 +9,7 @@ PLM86 ?= 2.1
 ASM86 ?= 2.1
 LINK86 ?= 1.3
 LOC86 ?= 1.3
+ASM80X:=perl $(ITOOLS)/tools/asm80x.pl
 
 PLM86FLAGS ?= code
 

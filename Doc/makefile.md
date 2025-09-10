@@ -1,11 +1,11 @@
-# Make support for ISIS tools
+# Make support for ISIS and CP/M tools
 
-The current repository uses gnu make to build the various isis tools.
+The current repository uses gnu make to build the various isis and cp/m tools.
 To keep the the makefiles simple, a set of macros and rules have been predefined
-in an included file isis.mk.
+in an included isis.mk or cpm.mk file. Behind these is a shared makefile common.mk
 
-This document describes the usage of isis.mk, but assumes some basic knowledge
-of make and makefiles. Some [examples](#Examples) of the use of isis.mk are also provided to illustrate the how isis.mk simplifies the makefiles.
+This document describes the usage of isis.mk and cpm.mk but assumes some basic knowledge
+of make and makefiles. Some [examples](#Examples) of their use are also provided to illustrate the how they simplify user makefiles.
 
 ## Structure of the makefile
 
@@ -17,14 +17,14 @@ The basic structure of the makefile is
     #
     # optional pre include variables
     # ...
-    include $(ITOOLS)/tools/isis.mk
+    include $(ITOOLS)/tools/isis.mk		or $(ITOOLS)/tools/cpm.mk for CP/M
     #
     # variable definitions and rules
     # note target all:: must be defined
 
 ## Variables used by isis.mk
 
-### Variables defined pre inclusion of isis.mk
+### Variables defined pre inclusion of isis.mk or cpm.mk
 
 * **ITOOLS** - this is an optional environment variable which should point to the top of the tools tree. If defined then it makes it easier to support developments outside the intel tools tree, with out hard coding the tools tree location. The makefiles in the repository provide a default relative reference if **ITOOLS** isn't defined.
      **Note ITOOLS must use / path separators i.e. unix style.**
@@ -45,6 +45,8 @@ The basic structure of the makefile is
 
 * **SRC** - this is set to the location of the source file directory. It can be omitted if the current directory is used.
 
+* **IASM** - optionally set to set the extension used for assembly files processed by Intel's ASM80. Typically set where the project uses both the CP/M and Intel tools for assembling programs.
+
 * **ISIS_F0** - this is set to the directory containing the isis drive F0 files. It can be omitted if this is the current directory
 
 * **COMPARE** - set to the program used to compare files. Not needed if the default omfcmp is being used.
@@ -53,12 +55,13 @@ The basic structure of the makefile is
 
   *Note, when comparing files, path names are not translated to windows format, so some windows tools e.g fc may fail*
 
-## Variables modified or defined in isis.mk
+## Variables modified or defined in common.mk
 
 * **ITOOLS** is normalised using fixpath
-* **_ROOT** - is set to ITOOLS and exported. This is for external tools that require to know the location of the tools.
+* **_ITOOLS** - is set to ITOOLS and exported. This is for external tools that require to know the location of the tools.
 * **PATH** - environment variable updated to add the path to the unix tools
 * **SHELL** - set to bash.exe
+* **IASM** - see above, if not set set to *asm*
 * **COMPARE** - set to $(ITOOLS)/tools/omfcmp if not defined
 * **OBJ,LST,SRC** - set to current directory if not defined, paths converted to unix format and any trailing / removed.
 * **ISIS\_F0** - set to current directory if not defined
@@ -66,22 +69,17 @@ The basic structure of the makefile is
 * **PLMPP** - set to the plmpp program, a standalone PL/M pre-processor for pre V4 compilers
 * **NGENPEX** - set to the ngenpex program
 * **MKDEPEND** - set to the makedepend program. *Depreciated since thames can now generate the dependency information.*
-* **HEXOBJ** - set to the C port of Intel's hexobj utility
-* **OBJBIN** - set to the obj2bin program
+* **ABSTOOL** - set to the abstool program.
 * **PLM81 & PLM82** - set the the first and second pass of the old PL/M compiler - my port from the Fortran version.
 * **PLM80** - the version of the PLM80 compiler to be used. Set to 4.0 if not previously specified
-* **PLM86** - version of PLM86 compiler to use. Set to 2.1 if not previously specified
+* 
 * **PLMFLAGS** - set to code if not defined
 * **ASM80** - the version of ASM80 to be used. Set to 4.1 if not previously specified
-* **ASM48** - the version of ASM48 to be used. Set to 4.2 if not previously specified
 * **ASM80X** - set to the asm80x.pl program, which is a wrapper around asm80 to support long variable names.
   Note is set to asmx.pl which is a more experimental wrapper with struct support. With the latest port of ASM80 to C, the ASM80 v4.1 assembler now supports long variable names directly.
-* **ASM86** - the version of ASM86 to use. Set to 2.1 if not previously specified
 * **LIB80** - the version of the LIB to be used. Set to 2.1 if not previously specified
 * **LINK80** - the version of the LINK to be used. Set to 3.0 if not previously specified
-* **LINK86** - the version of the LINK86to be used. Set to 1.3 if not previously specified
 * **LOCATE80** - the version of the LOCATE to be used. Set to 3.0 if not previously specified
-* **LOC86** - the version of the LOC86 to be used. Set to 1.3 if not previously specified
 * **FORT80** - the version of the FORT80 compiler to be used. Set to 2.1 if not previously specified
 * **plm80.lib** - simple variable to reference plm80.lib
 * **system.lib** - simple variable to reference system.lib associated with specified PLM80 version
@@ -94,7 +92,24 @@ The basic structure of the makefile is
 * **space** - set to the space char - used in make macros
 * **comma** - set to the comma char - used in make macros
 
-### Variables defined pre or post inclusion of isis.mk
+## Variables modified or defined in isis.mk
+
+* **ASM48** - the version of ASM48 to be used. Set to 4.2 if not previously specified
+* **ASM86** - the version of ASM86 to use. Set to 2.1 if not previously specified
+* **LINK86** - the version of the LINK86to be used. Set to 1.3 if not previously specified
+* **LOC86** - the version of the LOC86 to be used. Set to 1.3 if not previously specified
+* **PLM86** - version of PLM86 compiler to use. Set to 2.1 if not previously specified
+* **PLM86FLAGS** - flags used when processing PLM-86 programs, default is code
+
+## Variables modified or defined in cpm.mk
+
+- **CTOOLS** - location of CP/M executables
+- **CPM** - emulation tool for CP/M
+- **MAC** - set to run the Digital Research MAC tool
+- **RMAC** - set to run the Digital Research RMAC tool
+- **DRLINK** - set to run the Digital Research LINK tool
+
+### Variables defined pre or post inclusion of isis.mk or cpm.mk
 
 * **TARGETS** - the list of default files to build see **all** target below.
 
@@ -106,8 +121,6 @@ The basic structure of the makefile is
 
 * <a name="asmflags"></a>**ASMFLAGS** - common options for asm80 - **print** and **object** should not be included as they are used internally. Also used for asmx.pl
 
-* <a name="asm48flags"></a>**ASM48FLAGS** - common options for asm48 - **print** and **object** should not be included as they are used internally
-
 * <a name="ftnflags"></a>**FTNFLAGS** - common options for fort80 - **print**, **object** and **workfiles** should not be included as they are used internally
 
 * <a name="plmflags"></a>**PLMFLAGS** - common options for plm80 - **print** and **object** should not be included as they are used internally. Set to code if not defined
@@ -118,7 +131,7 @@ The basic structure of the makefile is
 
 * **ISIS_Fn** - where n is a digit 0-9.
 
-     Although thames now supports automatic directory - drive mapping, it is occasionally necessary to explicitly define the mapping of an ISIS drive.
+     Although thames now supports automatic directory - drive mapping and the c-port versions support the OS filenames,  it is occasionally necessary to explicitly define the mapping of an ISIS drive.
      For example to define a specific directory for include files. These variables must use the make export feature.
 
      ```text
@@ -126,14 +139,18 @@ The basic structure of the makefile is
      export ISIS_F3 := ./include/
      ```
 
-     
+     ### Variables defined pre or post inclusion of isis.mk
+
+* <a name="asm48flags"></a>**ASM48FLAGS** - common options for asm48 - **print** and **object** should not be included as they are used internally
+* <a name="asm51flags"></a>**ASM51FLAGS** - common options for asm51 - **print** and **object** should not be included as they are used internally
+* <a name="asm86flags"></a>**ASM86FLAGS** - common options for asm86 - **print** and **object** should not be included as they are used internally
 
 ### Variables modified post inclusion of isis.mk
 
-For more complex builds it may be necessary to modify variables post isis.mk.
+For more complex builds it may be necessary to modify variables post isis.mk or cpm.mk
 Some of the more common examples are
 
-**ASM80, ASM48, FORT80, LIB, LINK, LOCATE, PLM80** - If a file needs to be compiled with a specific version of a tool you can set these variables to specify the appropriate version. In practice it is likely that this will  only be used for plm80 and fort80 as the others should produce equivalent code.
+**ASM80, ASM48, ASM51, ASM86, FORT80, LIB, LINK, LINK86, LOCATE, LOC86, PLM80, PLM86** - If a file needs to be compiled with a specific version of a tool you can set these variables to specify the appropriate version. In practice it is likely that this will  only be used for plm80 and fort80 as the others should produce equivalent code.
 Examples:
 
 ```text
@@ -153,11 +170,11 @@ V31:
 
 Other than the variables noted above and the macros noted below no other names are currently reserved or modified.
 
-### Macros defined in isis.mk
+### Macros defined 
 
-A number of macros are defined in isis.mk to simplify the invocation of the isis build tools. Additionally a number of supporting macros are used that may be of use in more complex makefiles.
+A number of macros are defined to simplify the invocation of the build tools. Additionally a number of supporting macros are used that may be of use in more complex makefiles.
 
-#### Build macros
+#### Build macros (common)
 
 For these macros file names should use the unix style pathname.
 Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
@@ -170,17 +187,10 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
   **Note** unlike PL/M-80, LIB, LINK and LOCATE, ASM80 does not support the & character to extend long lines. To support a long list of command line options, these need to be saved in a file using the same format as they would appear in the assembly file. The command line then needs to include this file using using the syntax INCLUDE(filename).
   Alternatively this file can be included in the assembly file itself or some of the options can be specified there, to reduce the length of the command line.
 
-* **asm48** - assemble an asmfile to produce the specified object file and a listing file, (asmfile with ext .lst) in the $(LST) directory.
+* **abstool** - converts between various absolute file formats, in addition to supporting merging of files and application of patch files
+    Usage: $(call abstool, target, options_and_inputs [,patchfile])
 
-  [**ASM48FLAGS**](#asm48flags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
-
-     Usage: $(call asm48,objfile,asmfile[,target specific options])
-
-* **asm80x** - assemble an asmfile with long name and structure support to produce the specified object file and a listing file, (asmfile with ext .lstx) in the $(LST) directory. *Currently experimental.*
-
-  [**ASMFLAGS**](#asmflags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
-
-     Usage: $(call asm80x,objfile,asmfile[,target specific options])
+  If patchfile is omitted, but a file with the prefix of target and extension .patch is found, it is treated as a patchfile
 
 * **fort80** - compile the specified ftnfile, to produce the specified object file and a listing file, (ftnfile with ext .lst), in the $(LST) directory.
 
@@ -240,6 +250,37 @@ Thames maps these to ISIS drive names, but see the note on ISIS_Fn above.
 
      ``Usage: $(call lib,target,objects)``
 
+#### Build macros (isis.mk)
+
+* **asm48** - assemble an asmfile to produce the specified object file and a listing file, (asmfile with ext .lst) in the $(LST) directory.
+
+  [**ASM48FLAGS**](#asm48flags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+
+     Usage: $(call asm48,objfile,asmfile[,target specific options])
+
+* **asm51** - assemble an asmfile to produce the specified object file and a listing file, (asmfile with ext .lst) in the $(LST) directory.
+
+  [**ASM51FLAGS**](#asm51flags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+
+     Usage: $(call asm51,objfile,asmfile[,target specific options])
+
+* **asm86** - assemble an asmfile to produce the specified object file and a listing file, (asmfile with ext .lst) in the $(LST) directory.
+
+  [**ASM86FLAGS**](#asm86flags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+
+     Usage: $(call asm86,objfile,asmfile[,target specific options])
+
+* **asm80x** - assemble an asmfile with long name and structure support to produce the specified object file and a listing file, (asmfile with ext .lstx) in the $(LST) directory. *Currently experimental.*
+
+  [**ASMFLAGS**](#asmflags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+
+     Usage: $(call asm80x,objfile,asmfile[,target specific options])
+
+* plm86 - compile a PL/M-86 file to produce the specified object file and a listing file, (srcfile with ext .lst) in the $(LST) directory.
+
+  [**PLM86FLAGS**](#plm86flags) are used and optional target specific options can be given except for **print** and **object** which are used internally.
+    Usage: $(call plm86,objfile,srcfile[,target specific options])
+
 #### Support macros
 
 ##### Changing paths
@@ -252,14 +293,13 @@ path of each file with a new path
         $(call srcdir,files)        # new path is $(SRC)
         $(call lstdir,files)        # new path is $(LST)
 
-##### Listing file names
+##### Changing extents
 
-Generate a listing file name based on the first file name passed in. This done by taking the base file name, adding the appropriate extension and path $(LST)
+Generate a file name based on the first argument passed in, replacing its extent with the second argument.
 
     Usage:
-        $(call lin,file)             # creates .lin file name
-        $(call map,file)             # creates .map file name
-        $(call lst,file)             # creates .lst file name
+        $(call mkname,file, ext)
+    e.g. $(call mkname,abc.plm,lst)	 # return abc.lst
 
 ##### Utility macros
 
@@ -324,9 +364,9 @@ elsewhere, especially fixpath, ipath and ifile
 
     
 
-### Rules defined in isis.mk
+### Predefined build rules
 
-As with normal make usage a number of predefined rules are added by isis.mk.
+As with normal make usage a number of predefined rules are added by isis.mk and cpm.mk
 Several of these support the specific way I work but should not get in the way of
 other usage.
 
@@ -339,32 +379,76 @@ Additionally I use ngenpex, which is my enhanced version of the ISIS toolbox gen
 utility. If PEXFILE is specified then the .ipx files are generated automatically as
 part of the plm build.
 
-#### Implicit build rules
+#### Implicit build rules (common)
 
-Only five implicit build rules are defined, one to generate a hex file from an asm48 source file, the rest generate .obj files from .plm, .asm, .f and .asmx files. An .asmx file is an Intel asm80 compatible assembly file, but with long variable names up to 31 characters, also _ and $ can be used as null separators in variables, similar to the use of $ in PL/M. The rules are
+There are currently only four common implicit build rules covering plm80, fort80 and asm80. The asm80 uses $(IASM) to allow the .asm to be changed to avoid conflict e.g. with CP/M builds and the old plm80 compiler which generates hex files can be disabled to avoid ambiguity on plm compilations to CP/M .com files. The rules are
 
     $(OBJ)/%.obj: %.plm  | $(OBJ) $(LST)
         $(call plm80,$@,$<)
     
-    $(OBJ)/%.obj: %.asm  | $(OBJ) $(LST)
+    $(OBJ)/%.obj: %.$(IASM) | $(OBJ) $(LST)		// normally IASM is asm, but can be overriden
         $(call asm80,$@,$<)
     
     $(OBJ)/$.obj: %.f | $(OBJ) $(LST)
         $(call fort80,$@,$<)
-    
-    $(OBJ)/%.obj: %.asmx | $(OBJ) $(LST)
-    	$(call asm80x,$@,$<)
-    
-    $(OBJ)/%.hex: %.a48 | $(OBJ) $(LST)
-    	$(call asm48,$@,$<)
-    	
-    $(OBJ)/%.o86: %.plm | $(OBJ) $(LST)
-    	$(call plm86,$@,$<)
-    
-    $(OBJ)/%.o86: %.asm  | $(OBJ) $(LST)
-    	$(call asm86,$@,$<)
+        
+    $(OBJ)/%.hex: %plm							// defining NOOLDPLM disables this
+    	$(PLM81) $^
+    	$(PLM82) $*
+    	@perl $(ITOOLS)/tools/pretty.pl $*.lst $*.prn
+    	@rm -fr $*.pol $*.sym $*.lst
 
 The **| \$(OBJ) \$(LST)** is used to auto create directories
+
+#### Implicit build rules (isis.mk)
+
+isis.mk adds four additional build rules. Adding support for asm48, asm86, plm86 and the experimental asmx tool. The rules are
+
+```
+(OBJ)/%.obj: %.asmx | $(OBJ) $(LST)
+	$(call asm80x,$@,$<)
+
+$(OBJ)/%.hex: %.a48 | $(OBJ) $(LST)
+	$(call asm48,$@,$<)
+	
+$(OBJ)/%.o86: %.plm | $(OBJ) $(LST)
+	$(call plm86,$@,$<)
+
+$(OBJ)/%.o86: %.asm  | $(OBJ) $(LST)
+	$(call asm86,$@,$<)
+```
+
+
+
+#### Implicit build rules (cpm.mk)
+
+cpm.mk adds six additional build rules. Adding support for Digital Research MAC, RMAX , LINK, tools and .com, .spr and .prl files. The rules are
+
+```
+# asm rules
+%.hex: %.asm 
+	$(MAC) $^
+
+%.rel: %.asm
+	$(RMAC) $^
+
+# com from hex file
+%.com: %.hex 
+	$(call abstool,$@,$^)
+
+%.spr: %.rel
+	$(DRLINK) $@ = $^ [OS]
+
+%.prl: %.rel
+	$(DRLINK) $@ = $^ [OP]
+
+# com from intel abs file 
+%.com: %.abs
+	$(call abstool,$@,$^)
+
+```
+
+
 
 #### .PHONY targets
 
@@ -372,7 +456,7 @@ The following .PHONY targets are defined in isis.mk
 
 * **all::** - the default rule. If a master file is detected it will make sure that the files are auto extracted. The main make file should also include a all:: rule.
 
-* **clean::** - used to clean *.obj, *.abs, *.lst, *.lin, *.map, *.hex, *.bin files.
+* **clean::** - used to clean *.obj, *.abs, *.lst, *.ipx, \*.lin, *.map, *.hex, *.bin, \*.prn, \*.sym, \*.irl files.
 
   If **\$(OBJ)**or **\$(LST)** are not set to the current directory they are deleted.
 
@@ -386,11 +470,14 @@ The following .PHONY targets are defined in isis.mk
 
 * **rebuild:** - runs targets distclean followed by the all target
 
+* **fullverify**: - runs rebuild followed by verify
+
 * **verify:** - verifies the \$(TARGETS) files with those of the same name in the \$(REF) directory.
 
-     If **NOVERIFY** is specified then this target is not generated by isis.mk, however one can be included in the main makefile.
+     If **NOVERIFY** is set to T then this target is not generated, however one can be included in the main makefile.
+     If **NOVERIFY** is set to a file list, then these files are skipped during verify
 
-Note to help with automated clean up isis.mk defines the target **.DELETE\_ON\_ERROR:**.
+Note to help with automated clean up the target **.DELETE\_ON\_ERROR:** is defined.
 
 ## Unix type tools
 
@@ -398,15 +485,19 @@ To make make work more consistently, a number of unix like tools are provided in
 
 ```
 bash		- used to allow bash control shell scripting
+basename	- extract basename from filename
 cat			- concatenate files cf. windows copy /B /Y file+file... file
 cmp			- compare files cf. windows fc /b file1 file2
 cp			- copy file cf. windows copy /B  /Y file file
 date		- show the date more powerful than the windows date/time functions
+echo		- echo command line arguments
 ls			- list files cf. windows dir
 mkdir		- make directory
 mv			- move file cf. windows move
 rm			- remove files/directories cf. windows rm and rmdir
 touch		- set timestamp on a file
+tr			- as per the unix tr command
+Note except for bash, all the tools are hardlinks to busybox64u
 ```
 
 ## Examples
@@ -616,6 +707,68 @@ clean::                         ~~ extra rule over the default clean
         $(PLMPP) -sBIG -o $(SRC)/$*b.plm $<
         $(call plm80,$@,$(SRC)/$*b.plm)
 
+### Example makefile for building CP/M 2.2 using Intel and Digital Research tools
+
+```
+# path to root of build tree
+ITOOLS ?= ..\..
+BDOS = os2ccp.spr os2ccp.prl os3bdos.spr os3bdos.prl os1boot.hex os4bios.hex
+APPS = pip.com ed.com load.com stat.com submit.com dump.com sysgen.com \
+	   ddt.com xsub.com
+TARGETS =  $(APPS) $(BDOS)
+
+NOVERIFY = $(BDOS)			~~ No reference available for intermediate BDOS files
+REF=ref
+# as we mix Intel and CPM assemblers use a80 suffix for Intel assembler
+IASM=a80
+# don't include the OLD plm81/plm82 compiler to avoid plm->hex->com build
+NOOLDPLM=T					~~ disable old PL/M compiler avoids conflict pl/m to .com (via .hex or .abs)
+
+include $(ITOOLS)/tools/cpm.mk
+
+# default interface for CPM
+CPMINT = os5trint.obj		~~ default CP/M interface file, overridden below
+
+# special case build rules
+ed.obj stat.obj submit.obj: PLM80=3.1				~~ older PL/M compiler
+ed.abs: STACK=STACKSIZE(80)							~~ extra stack space
+load.abs stat.abs submit.abs: CPMINT = ostrint.obj	~~ alternative CP/M interface
+
+.PHONY: all
+~~ rules for intermediate relocatable files using Intel tools
+%.irl: %.obj | interface							~~ | interface forces build of interface obj files
+	$(call link,$*.irl,$^ $(CPMINT) $(plm80.lib))
+
+%.abs: %.irl
+	$(call locate,$@,$^,CODE(100h) $(STACK) purge)
+
+all::
+	$(MAKE) $(TARGETS)
+
+~~ rule that forces interface object files to be generated
+interface: ostrint.obj os5trint.obj
+
+~~ specific rules for files with multiple inputs
+~~ note $(call abstool,@$,$^) will find any patch file and apply it
+
+asm.com: as0com.hex as1io.hex as2scan.hex as3sym.hex as4sear.hex as5oper.hex as6main.hex
+	$(call abstool,$@,$^)
+
+ed.com: ed.abs ed20pat.hex
+	$(call abstool,$@,$^)
+
+ddt.spr: ddt1asm.rel ddt2mon.rel
+	$(DRLINK) $@ = ddt1asm, ddt2mon [OS]
+
+ddt.com: ddt.spr ddt0mov.hex 
+	$(call abstool,$@,$^)
+
+xsub.com: xsub1.spr xsub0.hex
+	$(call abstool,$@,$^)
+
+
+```
+
 ### Example makefile for testing files
 
 ```make
@@ -663,6 +816,10 @@ V30:
 ```
 
 ## Change log
+
+### 10-Sep-2025
+
+Major update to reflect addition of cpm.mk and the refactoring of elements of isis.mk into a shared common.mk file
 
 ### 14-Nov-2023
 
@@ -728,5 +885,5 @@ Converted all makefiles to use ITOOLS and removed ROOT. Isis.mk exports _ITOOLS 
 ------
 
 ```
-Updated by Mark Ogden 14-Nov-2023
+Updated by Mark Ogden 10-Sep-2025
 ```
