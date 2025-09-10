@@ -24,3 +24,7 @@ rebuild:
 
 verify: 
 	@for f in $(DIRS) $(SPECIAL); do $(MAKE) -C $$f verify || exit 1; done;
+
+fullverify: 
+	$(MAKE) rebuild
+	$(MAKE) verify
