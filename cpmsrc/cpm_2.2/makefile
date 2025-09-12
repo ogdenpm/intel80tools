@@ -1,11 +1,8 @@
 # path to root of build tree
 ITOOLS ?= ..\..
-BDOS = os2ccp.spr os2ccp.prl os3bdos.spr os3bdos.prl os1boot.hex os4bios.hex
-APPS = pip.com ed.com load.com stat.com submit.com dump.com sysgen.com \
-	   ddt.com xsub.com
-TARGETS =  $(APPS) $(BDOS)
+TARGETS = pip.com ed.com load.com stat.com submit.com dump.com sysgen.com \
+	   ddt.com xsub.com movcpm.com asm.com
 
-NOVERIFY = $(BDOS)
 REF=ref
 # as we mix Intel and CPM assemblers use a80 suffix for Intel assembler
 IASM=a80
@@ -24,16 +21,32 @@ load.abs stat.abs submit.abs: CPMINT = ostrint.obj
 
 .PHONY: all
 
-%.irl: %.obj | interface
+%.abs: %.obj | interface
 	$(call link,$*.irl,$^ $(CPMINT) $(plm80.lib))
+	$(call locate,$@,$*.irl,CODE(100h) $(STACK) purge)
+	rm $*.irl
 
-%.abs: %.irl
-	$(call locate,$@,$^,CODE(100h) $(STACK) purge)
+%.bin: %.hex
+	$(call abstool,$@,$^)
+
 
 all::
 	$(MAKE) $(TARGETS)
 
 interface: ostrint.obj os5trint.obj
+
+movcpm.cpm: cpmove.bin os1boot.arel cpm.spr
+	mkMovecpm $^ $@
+
+movcpm.com: movcpm.cpm
+	$(call abstool,$@,$^)
+
+cpm0.hex: os2ccp0.hex os3bdos0.hex os4bios0.hex
+	wcat -o $@ $^
+
+cpm1.hex: os2ccp1.hex os3bdos1.hex os4bios1.hex
+	wcat -o $@ $^
+
 
 asm.com: as0com.hex as1io.hex as2scan.hex as3sym.hex as4sear.hex as5oper.hex as6main.hex
 	$(call abstool,$@,$^)
@@ -41,8 +54,13 @@ asm.com: as0com.hex as1io.hex as2scan.hex as3sym.hex as4sear.hex as5oper.hex as6
 ed.com: ed.abs ed20pat.hex
 	$(call abstool,$@,$^)
 
-ddt.spr: ddt1asm.rel ddt2mon.rel
-	$(DRLINK) $@ = ddt1asm, ddt2mon [OS]
+# join the two ddt files based at 0
+ddt0.hex: ddt1asm0.hex ddt2mon0.hex
+	wcat -o $@ $^
+
+# repeat join for the files based at 100h
+ddt1.hex: ddt1asm1.hex ddt2mon1.hex
+	wcat -o $@ $^
 
 ddt.com: ddt.spr ddt0mov.hex 
 	$(call abstool,$@,$^)
@@ -50,3 +68,10 @@ ddt.com: ddt.spr ddt0mov.hex
 xsub.com: xsub1.spr xsub0.hex
 	$(call abstool,$@,$^)
 
+clean::
+	-rm -f *.bin *.spr *.cpm *.arel
+
+
+# this is a pseudo .spr file as it is located abs but has relocatable link info into cpm
+os1boot.arel: os1boot.hex os1bootr.hex
+	genmod -a $^ $@
