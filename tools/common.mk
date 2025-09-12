@@ -115,7 +115,7 @@ endef
 # $(call abstool,target,options_and_inputs[,patchfile])
 # if patch file is omitted but $(basename $1).patch exists use it
 define abstool
-  $(ABSTOOL) -o $1 $(if $3,-p $3,$(if $(wildcard $(basename $1).patch),-p $(basename $1).patch)) $2
+  $(ABSTOOL) -o $1 $(if $3,$(if $(filter-out -,$3),-p $3),$(if $(wildcard $(basename $1).patch),-p $(basename $1).patch)) $2
 endef
 
 # $(call fort80,objfile,srcfile[,target specific options])

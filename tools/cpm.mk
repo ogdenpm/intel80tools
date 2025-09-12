@@ -9,6 +9,9 @@ MAC =$(CPM) $(CTOOLS)/mac
 RMAC = $(CPM) $(CTOOLS)/rmac
 DRLINK = $(CPM) $(CTOOLS)/link
 
+# the Digital Research applications create tmp files that are not unique
+# so force all build to be done serially
+.NOTPARALLEL:
 
 # CPM rules
 # asm rules
@@ -22,15 +25,21 @@ DRLINK = $(CPM) $(CTOOLS)/link
 %.com: %.hex 
 	$(call abstool,$@,$^)
 
-%.spr: %.rel
-	$(DRLINK) $@ = $^ [OS]
+%.spr: %0.hex %1.hex
+	genmod $^ $@
 
-%.prl: %.rel
-	$(DRLINK) $@ = $^ [OP]
+%.prl: %1.hex %0.hex
+	genmod $^ $@
 
 # com from intel abs file 
 %.com: %.abs
 	$(call abstool,$@,$^)
 
+# make the pair of files needed to generate a .spr/.prl file
+%0.hex %1.hex: %.asm
+	$(MAC) $^ $$+r
+	mv $*.hex $*1.hex
+	$(MAC) $^ 
+	mv $*.hex $*0.hex
 
 
