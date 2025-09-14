@@ -35,11 +35,12 @@ all::
 
 interface: ostrint.obj os5trint.obj
 
-movcpm.cpm: cpmove.bin os1boot.arel cpm.spr
-	mkMovecpm $^ $@
+movcpm.bin: cpmove.bin os1boot.arel cpm.spr
+	mkMovcpm $^ $@
 
-movcpm.com: movcpm.cpm
+movcpm.com: movcpm.bin 			# apply patch file
 	$(call abstool,$@,$^)
+
 
 cpm0.hex: os2ccp0.hex os3bdos0.hex os4bios0.hex
 	wcat -o $@ $^
