@@ -422,7 +422,7 @@ $(OBJ)/%.o86: %.asm  | $(OBJ) $(LST)
 
 #### Implicit build rules (cpm.mk)
 
-cpm.mk adds six additional build rules. Adding support for Digital Research MAC, RMAX , LINK, tools and .com, .spr and .prl files. The rules are
+cpm.mk adds seven additional build rules. Adding support for Digital Research MAC, RMAX , LINK, tools and .com, .spr and .prl files. The rules are
 
 ```
 # asm rules
@@ -436,16 +436,24 @@ cpm.mk adds six additional build rules. Adding support for Digital Research MAC,
 %.com: %.hex 
 	$(call abstool,$@,$^)
 
-%.spr: %.rel
-	$(DRLINK) $@ = $^ [OS]
+%.spr: %0.hex %1.hex
+	genmod $^ $@			~~ ported genmod tool
 
-%.prl: %.rel
-	$(DRLINK) $@ = $^ [OP]
+%.prl: %1.hex %0.hex
+	genmod $^ $@			~~~ reversed input args generates .prl
 
 # com from intel abs file 
 %.com: %.abs
 	$(call abstool,$@,$^)
 
+# make the pair of files needed to generate a .spr/.prl file
+%0.hex %1.hex: %.asm
+	$(MAC) $^ $$+r			~~ undocumented $+r option biases org by 100h
+	mv $*.hex $*1.hex
+	$(MAC) $^ 
+	mv $*.hex $*0.hex
+
+~~ abstool pulls in patch file if it exists
 ```
 
 
@@ -712,44 +720,53 @@ clean::                         ~~ extra rule over the default clean
 ```
 # path to root of build tree
 ITOOLS ?= ..\..
-BDOS = os2ccp.spr os2ccp.prl os3bdos.spr os3bdos.prl os1boot.hex os4bios.hex
-APPS = pip.com ed.com load.com stat.com submit.com dump.com sysgen.com \
-	   ddt.com xsub.com
-TARGETS =  $(APPS) $(BDOS)
+TARGETS = pip.com ed.com load.com stat.com submit.com dump.com sysgen.com \
+	   ddt.com xsub.com movcpm.com asm.com
 
-NOVERIFY = $(BDOS)			~~ No reference available for intermediate BDOS files
 REF=ref
 # as we mix Intel and CPM assemblers use a80 suffix for Intel assembler
 IASM=a80
 # don't include the OLD plm81/plm82 compiler to avoid plm->hex->com build
-NOOLDPLM=T					~~ disable old PL/M compiler avoids conflict pl/m to .com (via .hex or .abs)
+NOOLDPLM=T
 
 include $(ITOOLS)/tools/cpm.mk
 
 # default interface for CPM
-CPMINT = os5trint.obj		~~ default CP/M interface file, overridden below
+CPMINT = os5trint.obj
 
 # special case build rules
-ed.obj stat.obj submit.obj: PLM80=3.1				~~ older PL/M compiler
-ed.abs: STACK=STACKSIZE(80)							~~ extra stack space
-load.abs stat.abs submit.abs: CPMINT = ostrint.obj	~~ alternative CP/M interface
+ed.obj stat.obj submit.obj: PLM80=3.1
+ed.abs: STACK=STACKSIZE(80)
+load.abs stat.abs submit.abs: CPMINT = ostrint.obj
 
 .PHONY: all
-~~ rules for intermediate relocatable files using Intel tools
-%.irl: %.obj | interface							~~ | interface forces build of interface obj files
-	$(call link,$*.irl,$^ $(CPMINT) $(plm80.lib))
 
-%.abs: %.irl
-	$(call locate,$@,$^,CODE(100h) $(STACK) purge)
+%.abs: %.obj | interface		~~ plm code uses one of two CPM interfaces
+	$(call link,$*.irl,$^ $(CPMINT) $(plm80.lib))
+	$(call locate,$@,$*.irl,CODE(100h) $(STACK) purge)
+	rm $*.irl
+
+%.bin: %.hex
+	$(call abstool,$@,$^)
+
 
 all::
 	$(MAKE) $(TARGETS)
 
-~~ rule that forces interface object files to be generated
 interface: ostrint.obj os5trint.obj
 
-~~ specific rules for files with multiple inputs
-~~ note $(call abstool,@$,$^) will find any patch file and apply it
+movcpm.bin: cpmove.bin os1boot.arel cpm.spr
+	mkMovcpm $^ $@							~~ special tool to create movcpm
+
+movcpm.com: movcpm.bin 			# apply patch file
+	$(call abstool,$@,$^)
+
+cpm0.hex: os2ccp0.hex os3bdos0.hex os4bios0.hex
+	wcat -o $@ $^
+
+cpm1.hex: os2ccp1.hex os3bdos1.hex os4bios1.hex
+	wcat -o $@ $^
+
 
 asm.com: as0com.hex as1io.hex as2scan.hex as3sym.hex as4sear.hex as5oper.hex as6main.hex
 	$(call abstool,$@,$^)
@@ -757,8 +774,13 @@ asm.com: as0com.hex as1io.hex as2scan.hex as3sym.hex as4sear.hex as5oper.hex as6
 ed.com: ed.abs ed20pat.hex
 	$(call abstool,$@,$^)
 
-ddt.spr: ddt1asm.rel ddt2mon.rel
-	$(DRLINK) $@ = ddt1asm, ddt2mon [OS]
+# join the two ddt files based at 0
+ddt0.hex: ddt1asm0.hex ddt2mon0.hex
+	wcat -o $@ $^
+
+# repeat join for the files based at 100h
+ddt1.hex: ddt1asm1.hex ddt2mon1.hex
+	wcat -o $@ $^
 
 ddt.com: ddt.spr ddt0mov.hex 
 	$(call abstool,$@,$^)
@@ -766,7 +788,7 @@ ddt.com: ddt.spr ddt0mov.hex
 xsub.com: xsub1.spr xsub0.hex
 	$(call abstool,$@,$^)
 
-
+clean::
 ```
 
 ### Example makefile for testing files
@@ -816,6 +838,10 @@ V30:
 ```
 
 ## Change log
+
+### 14-Sep-2025
+
+Revised cp/m v2.2 example.
 
 ### 10-Sep-2025
 
