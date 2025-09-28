@@ -49,7 +49,7 @@ endef
 # the top  level rule to make sure all is up to date
 ####################################################
 all:
-	$(MAKE)	$(TARGETS) $(PROMS)
+	$(MAKE)	$(PROMS)
 
 # the msdos applications create tmp files that are not unique
 # so force all build to be done serially
@@ -78,14 +78,12 @@ verify:
 	$(LINK86) $<,cnfsdm.lib,8087.lib to $@ print($*.mp1)
 
 %: %.L86
-	$(file >loc.in,addresses(classes( &$(\n)\
+	$(file >$*.IN,addresses(classes( &$(\n)\
 		data(400h), &$(\n)\
 		code(0f8240h),&$(\n)\
 		restart(0fff80h))) &$(\n)\
 		start($(START)) bootstrap print($*.mp2) $(INIT))
-	-$(LOC86) $< ^& <loc.in
-	copy loc.in %*.in
-	@del loc.in
+	-$(LOC86) $< ^& <$*.IN
 
 ###################
 # 80286 build rules
@@ -106,10 +104,24 @@ verify:
 
 
 # rule to build odd / even PROMS cf. prom86.csd
-%.ODD %.EVN : %
+%.ODD %.EVN: %
 	$(AOMF2BIN) -b $(BASE) $< -o $*.ODD -e $*.EVN
 
 
+# force dependency match
+8825.PRM: 8825
+8840.PRM: 8840
+8845.PRM: 8845
 
+18848.ODD 18848.EVN: 18848
 
+8635.ODD 8635.EVN: 8635
 
+18603A.ODD 18603A.EVN: 18603A
+18651.ODD 18651.EVN: 18651
+
+286100.ODD 286100.EVN: 286100
+28610A.ODD 28610A.EVN: 28610A
+3861XX.ODD 3861XX.EVN: 3861XX
+3863X.ODD 3863X.EVN: 3863X
+ 
