@@ -71,7 +71,7 @@ verify:
 ##################################
 # 8088, 8086 and 80186 build rules
 ##################################
-%.O86: %.A86 cnf1.mac cnf2.mac
+%.O86: %.A86 cnf1.mac cnf2.mac omf86.inc
 	$(ASM86) $< object($@) macro(100) errorprint include(omf86.inc)
 
 %.L86: %.O86
@@ -84,18 +84,19 @@ verify:
 		restart(0fff80h))) &$(\n)\
 		start($(START)) bootstrap print($*.mp2) $(INIT))
 	-$(LOC86) $< ^& <$*.IN
+# comment out next line if you need to see to check the LOC command
 	-rm $*.IN
 
 ###################
 # 80286 build rules
 ###################
-%.O28: %.A28 cnf1.mac cnf2.mac
+%.O28: %.A28 cnf1.mac cnf2.mac omf286.inc
 	-$(ASM286) $< object($@) pagewidth(132) macro(100) include(omf286.inc)
 
 %.L28: %.O28
 	$(BND286) $<,cnfsdm.lb2 object($@) print($*.mp1) name($*) noload
 
-%: %.L28
+%: %.L28 cnf286.bld
 	$(BLD286) $< object($@) print($*.mp2) buildfile(cnf286.bld) bootload
 
 
