@@ -74,6 +74,8 @@ rebuild: distclean all
 verify:
 	$(info "verify not implemented")
 
+fullverify: rebuild verify
+
 ##################################
 # 8088, 8086 and 80186 build rules
 ##################################
