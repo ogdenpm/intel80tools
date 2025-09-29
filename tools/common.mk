@@ -11,7 +11,9 @@ export _ITOOLS=$(ITOOLS)
 #
 # make sure bash and other unix tools are on the path
 PATH := $(ITOOLS);$(ITOOLS)/tools;$(ITOOLS)/unix;$(PATH)
-SHELL = bash.exe
+SHELL = ash.exe
+MAKE = $(ITOOLS)/make
+
 COMPARE ?= $(ITOOLS)/tools/omfcmp.exe
 
 # default directories to . if not set
