@@ -1,6 +1,24 @@
 # Intel MSDOS tools
 
-The msdos directory contains a number of Intel's MSDOS based development tools. As they are ancient they will not directly run under 64 bit windows, so I have added an msdos wrapper around the tools to allow them to be used. The original 16 bit versions are the suffix _16 added to the file name, in case you wish to run them under 32 bit windows or in an environment such as dosbox.
+The msdos directory contains a number of Intel's MSDOS based development tools. As they are ancient they will not directly run under 64 bit windows.
+
+The msdos directory contains an emulator which can be used to run one of files e.g.
+
+```
+msdos asm86 ....			64bit version
+msdos32 asm86 ...			32bit version
+```
+
+Alternatively you can create versions of the old tools with msdos bound to them
+
+```
+mkrun32 file.exe		creates file_32.exe for a 32bit version
+mkrun64 file.exe		creates file_64.exe for a 64bit version
+```
+
+ Alternatively you can run them in a fuller does emulation environment such as dosbox.
+
+Note, I previously created bound versions and used them. This created more work when I wanted to use a later msdos emulator and also took up more github space. I now use the msdos emulator directly in my makefiles, but as noted you can create your own bound versions if desired.
 
 The applications themselves appear to have been written initially for iRMX / ISIS IV and to make them available MSDOS, the Intel UDI2DOS utility was used to encapsulate the applications in a wrapper that mapped iRMX UDI calls to MSDOS.
 
@@ -39,11 +57,15 @@ ovl286	version 3.2
 ```
 ipps		version 2.3 Intel's prom programming software
 pcpplod		version 3.0
-msdos.exe	the msdos 16 bit emulation / wrapper
+msdos.exe	the msdos 16 bit emulation / wrapper for 64bit OS
+msdos32.exe the msdos 16 bit emulation / wrapper for 32bit OS
+The latest versions of the msdos emulator can be found at
+http://takeda-toshiya.my.coocan.jp/msdos/index.html
+Where you can also obtain the source code and prebuild versios for emulating later CPUs.
 ```
 
 ------
 
 ```
-Updated by Mark Ogden 13-Sep-2020
+Updated by Mark Ogden 29-Sep-2025
 ```

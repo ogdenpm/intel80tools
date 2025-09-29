@@ -23,17 +23,17 @@ MSDOS=$(ITOOLS)\msdos
 UNIX=$(ITOOLS)\unix
 
 # add unix tools to path to avoid defining any that are used
-PATH:= $(UNIX);$(PATH)
+PATH:= $(UNIX);$(MSDOS);$(PATH)
 
-ASM86 = $(MSDOS)\asm86
-LINK86 =$(MSDOS)\link86
-LOC86 = $(MSDOS)\loc86
-ASM286 = $(MSDOS)\asm286
-BND286 = $(MSDOS)\bnd286
-BLD286 = $(MSDOS)\bld286
+ASM86 = msdos $(MSDOS)\asm86
+LINK86 =msdos $(MSDOS)\link86
+LOC86 = msdos $(MSDOS)\loc86
+ASM286 = msdos $(MSDOS)\asm286
+BND286 = msdos $(MSDOS)\bnd286
+BLD286 = msdos $(MSDOS)\bld286
 AOMF2BIN = $(TOOLS)\aomf2bin
 LCNAMES = $(TOOLS)\lcnames
-
+#
 # defaults for locate
 START=reset_8086
 INIT=noinitcode
