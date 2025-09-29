@@ -1,5 +1,6 @@
 ITOOLS ?=..
-SHELL= $(ITOOLS)/unix/bash.exe
+SHELL= $(ITOOLS)/unix/ash.exe
+MAKE = $(ITOOLS)/make
 
 DIRS = algolm basice lib_1.1 link_1.31 ml80 tex cpm_2.2
 
@@ -19,4 +20,6 @@ rebuild:
 verify: 
 	@for f in $(DIRS) $(SPECIAL); do $(MAKE) -C $$f verify || exit 1; done;
 
-fullverify: rebuild verify
+fullverify:
+	$(MAKE) rebuild
+	$(MAKE) fullverify

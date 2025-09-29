@@ -1,5 +1,6 @@
 ITOOLS ?=..
-SHELL= $(ITOOLS)/unix/bash.exe
+SHELL= $(ITOOLS)/unix/ash.exe
+MAKE = $(ITOOLS)/make
 
 DIRS = ab22_cpmbios asm80_4.1 edasm_1.1 fpal_2.1 ftrans_1.0 help_1.1 isdm3.2\
 	   isis.cli_3.4 isis.cli_4.0 isis.cli_4.1 isis.cli_4.2 isis.cli_4.3\
