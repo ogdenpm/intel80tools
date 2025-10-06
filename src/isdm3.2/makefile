@@ -21,6 +21,7 @@ TARGETS := $(PROMS_8) $(PROMS_16) $(PROMS_286)
 TOOLS=$(ITOOLS)\tools
 MSDOS=$(ITOOLS)\msdos
 UNIX=$(ITOOLS)\unix
+SHELL = cmd.exe		# incase user has sh.exe on PATH
 
 # add unix tools to path to avoid defining any that are used
 PATH:= $(UNIX);$(MSDOS);$(PATH)
