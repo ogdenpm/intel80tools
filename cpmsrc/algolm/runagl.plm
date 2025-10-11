@@ -1,0 +1,2581 @@
+$U=1
+100h: /*load point for interp program*/                                      
+
+declare /*global literals*/                                                 
+    lit             literally   'literally',
+    true            lit         '1',
+    false           lit         '0',
+    forever         lit         'while true',
+    cr              lit         '0dh',
+    lf              lit         '0ah';
+                             
+declare /*op codes for algol-m machine instructions*/                       
+    deci            lit         '25',
+    str             lit         '1',
+    int             lit         '2',
+    dcb             lit         '5',
+    brs             lit         '34',
+    bsc             lit         '35',
+    im1             lit         '27',
+    im2             lit         '28';                                 
+
+declare /*interface points for cp/m and interp*/                             
+    bdos            lit         '05h',
+    boot            lit         '0h',
+    diskbuffloc     lit         '80h',
+    fcbloc          lit         '5ch',
+    diskbuffend     lit         '100h',
+    bdosbegin       address     initial(06h),
+    max             based       bdosbegin address,
+    buff            address     initial(diskbuffend),
+    char            based       buff byte,
+    filename        address     initial(fcbloc),
+    fnp             based       filename byte;
+
+declare /*build variables*/                                                  
+    prtbase         address,
+    prt$addr        address,
+    prt$entry       based       prt$addr address,
+    codebase        address,
+    codeptr         address,
+    stackbase       address,
+    curchar         byte,
+    switch          byte        initial(false),
+    bld$flag        byte,
+    b               based       codeptr byte,
+    a               based       codeptr address,
+    temp1           address,
+    t1              based       temp1 byte,
+    temp2           address,
+    t2              based       temp2 byte;
+
+/* declarations for interpreter */                                           
+declare contz       lit         '1ah',
+        quote       lit         '22h',
+        what        lit         '63';
+
+declare eolchar     lit         '0dh',
+        eoffiller   lit         '1ah',
+        intrecsize  lit         '128',
+        diskrecsize lit         '128',
+        stringdelim lit         '22h',
+        conbuffsize lit         '80',
+        console     lit         '0',
+        nrstack     lit         '48', /*stack size times 4*/
+        max$blk$level lit       '40',
+        negative    lit         '0',
+        positive    lit         '1';
+
+declare ra              address,
+        rb              address,
+        rc              address,
+        c               based       rc byte,
+        twobyteoperand  based       rc address,
+        sb              address,
+        st              address,
+        bra             based       ra byte,
+        ara             based       ra address,
+        arb             based       rb address,
+        brb             based       rb byte;
+
+declare inputbuffer             byte initial(conbuffsize),
+        buff$space(conbuffsize) byte,
+        buffzero                byte,
+        conbuffptr              address,
+        con$char                based   conbuffptr byte,
+        inputptr                address,
+        input$char              based   inputptr byte,
+        num$read                byte,
+        printbufflength         lit    '71',
+        printbufferloc          lit    '80h',
+        tabpos1                 lit    '142',
+        tabpos2                 lit    '156',
+        tabpos3                 lit    '170',
+        tabpos4                 lit    '184',
+        printbuffer             address initial(printbufferloc),
+        printpos                based   printbuffer byte,
+        printbuffend            lit     '0c7h',
+        rereadaddr              address,
+
+        num$buf(8)              byte,
+
+        inputtype               byte,
+        inputindex              byte,
+        sign                    byte;
+
+declare fileaddr                address,
+        fcb                     based   fileaddr byte,
+        fcbadd                  based   fileaddr address,
+        eofaddr                 address,
+
+        include$stack(20)       address,
+        include$sp              byte initial(255),
+
+        buffer$end              address,
+        record$pointer          address,
+        buffer                  address, 
+        nextdiskchar            based   record$pointer byte,
+        reg$length              lit     '128',
+        blocksize               address,
+        blk$level               byte, 
+        error$flag              byte initial(false),
+        blk(max$blk$level)      address,
+        bytes$written           address,
+        firstfield              byte,
+        eofra                   address,
+        eofrb                   address;
+
+declare (r0,r1,r2) (11)           byte,
+        (sign0,sign1,sign2)       byte,
+        (dec$pt0,decpt1,dec$pt2)  byte,
+        ctr                       address,
+        no$shift                  byte,
+        base                      address,
+        b$byte  based base        byte,
+        b$addr  based base        address,
+        hold                      address,
+        h$byte  based hold        byte,
+        h$addr  based hold        address,
+        ptr$one                   address,
+        ptr$two                   address,
+        p$one   based ptr$one     byte,
+        p$two   based ptr$two     byte,
+        stacktop                  address,
+        ret$addr based stacktop   address,
+        pcb$ptr                   address,
+        pcb$value based pcb$ptr   address,
+        unsaved                   byte,
+        counter                   byte,
+        move$cnt                  address,
+        ret$value                 address,
+        testvalue                 address,
+        tad1                      address,
+        tad2                      address,
+        tad3                      address,
+        overflow                  byte, /* not used */
+        signif$no                 byte, /* not used */
+        e$flag                    byte,
+        b38E7                     byte,
+        s$flag                    byte,
+        zero$result               byte;
+
+declare decint(5) address initial(10000,1000,100,10,1);
+
+
+/*cp/m interface routines*/
+
+mon1: procedure(function, parameter);
+   declare function byte,
+           parameter address;
+   goto bdos;
+end mon1;
+
+mon2: procedure(function,parameter) byte;
+   declare function byte,
+           parameter address;
+    goto bdos;
+end mon2;
+
+mon3: procedure;
+   goto boot;
+end mon3;
+
+printchar:procedure(char);
+    declare char byte;
+    call mon1(2,char);
+end printchar;
+
+print:procedure(buffer);
+   declare buffer address;
+   call mon1(9,buffer);
+end print;
+
+
+crlf:procedure;
+    call printchar(cr);
+    call printchar(lf) ;
+end crlf;
+
+/* procedures for build */
+
+open$int$file:procedure;
+    fnp(9) = 'A';
+    fnp(10) = 'I';
+    fnp(11) = 'N';
+    /* fnp(32) = 0; */
+    if mon2(15,filename) = 255 then
+      do;
+        call print(. 'NA   $');
+        call crlf;
+        call mon3;
+      end;
+end open$int$file;
+
+read$int$file:procedure byte;
+    return mon2(20,filename);
+end read$int$file;
+
+
+/*global procedures*/
+
+incbuf: procedure;
+    if(buff := buff + 1) >= diskbuffend then
+      do;
+        buff = diskbuffloc;
+        if read$int$file <> 0 then
+          char = 7fh;
+      end;
+end incbuf;
+
+sto$char$inc:procedure;
+    b = char;
+    codeptr = codeptr+1;
+end sto$char$inc;
+
+next$char:procedure byte;
+    call incbuf;
+    return curchar := char;
+end nextchar;
+
+get$two$bytes:procedure;
+   b(1) = next$char;
+   b = next$char;
+end get$two$bytes;
+
+inc$codeptr$two:procedure;
+   codeptr = codeptr + 1 + 1;
+end inc$codeptr$two;
+
+getparm:procedure address;
+   return shl(double(nextchar), 8) + nextchar;
+end getparm;
+
+pack$decimal:procedure(loc$one, loc$two);
+    declare switch byte,
+            loc$one address,
+            loc$two address;
+
+    pack: procedure;
+        if (switch := not switch) then
+            p$two = shl(p$one-30h,4);       /* odd */
+        else
+          do;
+            p$two = p$two or (p$one-30h);   /* even */
+            ptr$two = ptr$two + 1;
+         end;
+    end pack;
+
+    ptr$one = loc$one;
+    ptr$two = loc$two;
+    switch = false;
+    temp1 = ptr$two;
+    p$two = 0;
+    ptr$two = ptr$two + 1;
+    temp2 = ptr$two;
+    p$two = 0;
+    ptr$two = ptr$two + 1;
+    do while p$one <> 0;
+      if (p$one >= '0') and (p$one <= '9') then
+        do;
+          call pack;
+          t1 = t1 + 1;
+        end;
+      else
+        if p$one = '.' then
+          t2 = t1; /* left offset to decpt */
+        else
+          do;
+            error$flag = true;
+            return;
+          end;
+      if ((ptr$one := ptr$one+1) >= diskbuffend) and bld$flag then
+        do;
+          ptr$one = diskbuffloc;
+          if read$int$file <> 0 then
+            do;
+              p$one(2) = 7fh;
+              return;
+            end;
+        end;
+    end;
+    if switch then
+      do;
+        t1 = t1 + 1;
+        ptr$two = ptr$two + 1;
+      end;
+    t2 = t1 - t2; /* right offset to decpt */
+    t1 = t1 / 2;
+    p$two = t1 + 2;
+    ptr$two = ptr$two + 1;
+    p$two = positive; /* this field used for dec sign */
+end pack$decimal;
+
+ /* procedures for interp */
+
+readchar:procedure byte;
+    return mon2(1,0);
+end readchar;
+
+read:procedure(a);
+    declare a address;
+    call mon1(10,a);
+end read;
+
+open:procedure byte;
+     return mon2(15,fileaddr);
+end open;
+
+close:procedure byte;
+    return mon2(16,fileaddr);
+end close ;
+
+diskread:procedure byte;
+    return mon2(20,fileaddr);
+end diskread;
+
+diskwrite:procedure byte;
+    return mon2(21,fileaddr);
+end diskwrite;
+
+make:procedure byte;
+    return mon2(22,fileaddr);
+end make;
+
+delete:procedure;
+    call mon1(19,fileaddr);
+end delete;
+
+setdma:procedure;
+    call mon1(26,buffer);
+end setdma ;
+
+select:procedure(drive);
+    declare drive byte;
+    call mon1(14,drive) ;
+end select;
+
+/* moved */
+error$msg:procedure(msg);
+    declare msg address;
+    call print$char(' ');
+    call print$char(high(msg)); 
+    call print$char(low(msg)); 
+end error$msg;
+
+warning:procedure(warncode) ;
+    declare warncode address;
+    call crlf;
+    call print(.'WARNING $');
+    call error$msg(warncode);
+end warning;
+
+
+error:procedure(errcode);
+    declare errcode address;
+    call crlf;
+    error$flag = true;
+    call print(.'ERROR $');
+    call error$msg(errcode);
+    goto boot;
+end error;
+
+/* no longer used */
+/*
+
+
+mask:procedure(location) address;
+    declare location address,
+            l based location address;
+    return l and 0bfffh;
+end mask;
+
+check$int$sign:procedure(value) byte;
+    declare value address;
+    if rol(high(value), 1) then
+        return negative;
+    else
+        return positive;
+end check$int$sign;
+
+check$int: procedure(stack$loc) byte;
+    declare stack$loc address;
+    if not(rol(high(stack$loc),2)) then
+        return true;
+    else
+        return false;
+end check$int;
+
+chk$marker: procedure(stack$loc) byte;
+    declare stack$loc address;
+    if (rol(high(stack$loc), 1)) and
+       (rol(high(stack$loc), 2)) then
+        return true;
+    else
+        return false;
+end chk$marker;
+
+
+set$up$neg:procedure;
+    if not check$int$sign(ara) then
+       ara = ara or 4000h;
+    if not check$int$sign(arb) then
+       arb = arb or 4000h;
+end set$up$neg;
+
+check$neg:procedure;
+    lf not check$int$slgn(arb) then
+       arb = arb and 0bfffh;
+end check$neg;
+*/
+
+chk$marker: procedure(stack$loc) byte;
+    declare stack$loc address,
+            marker based stack$loc address;
+    return marker = 0ffffh;
+end chk$marker;
+
+pop$stack:procedure;
+    rb = (ra := rb) - 2;
+    if chk$marker(ra) then
+        rb = rb - (brb + 2);
+end pop$stack;
+
+push$stack$chk:procedure(num);
+    declare num byte;
+    if (ra := ra + num) >= stacktop then
+        call error('SK');
+end push$stack$chk;
+
+push$stack:procedure(num);
+    declare num byte;
+    rb = ra;
+    call push$stack$chk(num);
+end push$stack;
+
+move:procedure(source,dest,count);
+    declare source address,
+            dest address,
+            count byte,
+            schar based source byte,
+            dchar based dest byte;
+    do while(count := count - 1) <> 255;
+        dchar = schar;
+        source = source + 1;
+        dest = dest + 1;
+      end ;
+end move;
+
+fill:procedure(dest,char,n);
+    /*fill locations starting at dest with char for n bytes*/
+    declare dest address,
+            n byte,
+            d based dest byte,
+            char byte;
+     do while (n:=n-1) <> 0ffh;
+        d = char;
+        dest = dest + 1;
+      end ;
+end fill;
+
+/*******************************************************************/
+/*    file processing routines for use with cp/m                   */
+/*******************************************************************/
+
+initialize$disk$buffer:procedure;
+    call fill(buffer,eoffiller,128);
+end initialize$disk$buffer;
+
+buffer$status$byte:procedure byte;
+    return fcb(33);
+end buffer$status$byte;
+
+set$buffer$status$byte:procedure(status);
+    declare status byte;
+    fcb(33) = status;
+end set$buffer$status$byte;
+
+write$mark:procedure byte;
+   return buffer$status$byte;
+end write$mark;
+
+set$write$mark:procedure;
+    call set$buffer$status$byte(buffer$status$byte or 01h);
+end set$write$mark;
+
+clear$write$mark:procedure;
+   call set$buffer$status$byte(buffer$status$byte and 0feh);
+end clear$write$mark;
+
+active$buffer:procedure byte;
+   return shr(buffer$status$byte,1);
+end active$buffer;
+
+set$buffer$inactive:procedure;
+   call set$buffer$status$byte(buffer$status$byte and 0fdh);
+end set$buffer$inactive;
+
+set$buffer$active:procedure ;
+   call set$buffer$status$byte(buffer$status$byte or 02h);
+end set$buffer$active;
+
+set$random$mode:procedure ;
+   call set$buffer$status$byte(buffer$status$byte or 80h);
+end set$random$mode;
+
+random$mode:procedure byte;
+   return rol(buffer$status$byte,1);
+end random$mode;
+
+/* moved */
+save$record$pointer:procedure;
+    fcbadd(18) = record$pointer;
+end save$record$pointer;
+
+disk$eof: procedure;
+    call warning('ef');
+    rc = rc + 3;
+    if record$pointer <> buffer then
+        call set$buffer$status$byte(buffer$status$byte or 04h);
+    record$pointer = record$pointer - 1;
+    call save$record$pointer;
+    ra = eofra;
+    rb = eofrb;
+    goto eofexit;
+end disk$eof;
+
+fill$file$buffer:procedure;
+    if diskread = 0 then
+    do;
+        call set$buffer$active;
+        return;
+    end;
+    if not random$mode then
+    do;
+        call disk$eof;
+        return;
+    end;
+    call initialize$disk$buffer;
+    call set$buffer$active;
+    fcb(32) = fcb(32) + 1;  /* next record */
+    return;
+end fill$file$buffer;
+
+write$disk$if$req:procedure;
+    if write$mark then
+    do;
+        if shr(buffer$status$byte, 2) then
+        do;
+            if fcb(32) > 0 then
+                fcb(32) = fcb(32) - 1;
+            call set$buffer$status$byte(buffer$status$byte and 0fbh);
+        end;
+        if diskwrite <> 0 then
+            call error('dw');
+        call clear$write$mark;
+        if random$mode then
+            call set$buffer$inactive;
+        else
+            call initialize$disk$buffer;
+    end;
+    record$pointer = buffer;
+end write$disk$if$req;
+
+at$end$disk$buffer:procedure byte;
+    return (record$pointer := record$pointer + 1) >= buffer$end;
+end at$end$disk$buffer;
+
+var$block$size:procedure byte;
+    return blocksize <> 0;
+end var$block$size;
+
+
+write$a$byte:procedure(char);
+    declare char byte;
+    if var$block$size and (byteswritten := byteswritten+1)
+            > blocksize then
+        call error('er');
+    if at$end$disk$buffer then
+        call write$disk$if$req;
+    if not active$buffer and random$mode then
+    do;
+        call fill$file$buffer;
+        fcb(32) = fcb(32) - 1; /* reset record no */
+    end;
+    nextdiskchar = char;
+    call set$write$mark;
+end write$a$byte;
+
+set$file$pointers:procedure;
+    buffer$end = (buffer := fileaddr + 38) + diskrecsize;
+    recordpointer = fcbadd(18);;
+    blocksize = fcbadd(17);
+    call setdma;
+end set$file$pointers;
+
+setup$file$extent:procedure;
+    if open = 255 then
+    do;
+        if make = 255 then
+            call error('me');
+    end;
+end setup$file$extent;
+
+get$loc:procedure(stack$loc) address;
+    declare stack$loc address,
+            loc based stack$loc address;
+    if chk$marker(stack$loc) then
+        return stack$loc - 2;
+    else
+        return loc;
+end get$loc;
+
+disk$open:procedure;
+    declare (filename,buff) address,
+            (i,j) byte,
+            char based buff byte;
+
+    inc$j:procedure byte;
+        return (j := j+1) ;
+    end inc$j;
+
+    buff = get$loc(ra);
+    call pop$stack;
+    buff = buff - char;
+    fileaddr,include$stack(include$sp:=include$sp+1)=ara;
+    buffer = fileaddr + 38;
+    call setdma;
+    call fill((filename := fileaddr + 1), ' ', 11);
+    if char(2) = ':' then
+    do;    
+        fcb(0) = char(1) and 0fh;
+        i = char(0) - 2;
+        buff = buff + 2;
+    end;
+    else
+        i = char;
+    if i > 12 then
+        i = 12;
+    buff = buff + 1;
+    j = 255;
+    do while (char(inc$j) <> '.') and (j < i);
+    end;
+    call move(buff,filename,j);
+    if i > inc$j then
+        call move(.char(j),filename+8,i-j);
+    call setup$file$extent;
+    call initialize$disk$buffer;
+    fcbadd(18) = fileaddr + 256;
+    call pop$stack;
+end disk$open;
+
+set$eof$stack:procedure;
+    eofra = ra;
+    eofrb = rb;
+end set$eof$stack;
+
+setup$disk$io:procedure;
+    fileaddr = ara;
+    call set$file$pointers;
+    bytes$written = 0;
+    firstfield = true;
+    call pop$stack;
+end setup$disk$io;
+
+random$setup:procedure;
+    declare bytecount address,
+            record address,
+            extent(3) byte,
+            ex byte;
+    if not var$block$size then
+        call error('ru');
+    if ara = 0 or rol(bra(1),2) then
+        call error('ir');
+
+    ara = ara - 1;
+    call set$random$mode;
+    call set$buffer$inactive;
+    call write$disk$if$req;
+    temp2 = low(blocksize) * high(ara) + low(ara) * high(blocksize);
+    temp1 = low(blocksize) * bra;
+    bytecount = shl(temp2, 8) + temp1;
+    ex = shl(extent(0),2) + shr(high(temp1) + temp2, 6);
+    record$pointer = (bytecount and 07fh) + buffer - 1;
+    call save$record$pointer;
+    record = shr(bytecount, 7);
+    if fcb(12) <> ex then
+    do;
+        if close = 0ffh then
+            call error('ce');
+        fcb(12) = ex;
+        call setup$file$extent;
+    end;
+    fcb(32) = low(record) and 7fh;
+    call pop$stack;
+end random$setup;
+
+get$disk$char:procedure byte;
+    if at$end$disk$buffer then
+    do;
+        call write$disk$if$req;
+        call fill$file$buffer;
+    end;
+    if not active$buffer then
+        call fill$file$buffer;
+    if nextdiskchar = eoffiller then
+        call disk$eof;
+    return nextdiskchar;
+end get$disk$char;
+
+disk$close:procedure(file);
+    declare file address;
+    fileaddr = file;
+    call set$file$pointers;
+    call write$disk$if$req;
+    if close = 255 then
+        call error('ce');
+end disk$close;
+
+/* not used */
+/*
+clear$print$buff:procedure;
+    call fill((printbuffer := printbufferloc),' ',72);
+end clear$print$buf;
+
+dump$print$buff:procedure;
+    declare temp address,
+            char based temp byte;
+    temp = printbuffend;
+    do while char = ' ';
+        temp = temp - 1;
+    end;
+    call crlf;
+    do printbuffer = prlntbufferloc to temp;
+        call printchar(printpos);
+    end;
+    call clear$print$buff;
+end dump$print$buff;
+
+load$print$buff:procedure(char);
+    declare char byte;
+    printpos = char;
+    if(printbuffer := printbuffer +1) >
+       printbuffend then
+        call dump$print$buff;
+end load$print$buff;
+*/
+
+int$to$ascii:procedure(val);
+    declare val address,
+            i byte,
+            i$out byte,
+            count byte,
+            flag byte;
+    num$buf(7) = 0;
+    i$out = 0;
+    if rol(high(val),2) then
+    do;
+        val = -val and 3fffh;
+        num$buf(0) = '-';
+    end;
+    else
+        num$buf(0) = ' ';
+    flag = 0;
+    do i = 0 to 4;
+        count = '0';
+        do while val >= decint(i);
+            val = val - decint(i);
+            count = count + 1;
+            flag = 1;
+        end;
+        if i = 4  or flag then
+            num$buf((i$out := i$out + 1)) = count;
+        else
+            num$buf((i$out := i$out + 1)) = ' ';
+    end;
+end int$to$ascii;
+
+sub$BAA:procedure(val);
+    declare val address,
+            (i,pad) byte;
+    i = 0;
+    call int$to$ascii(val);
+    do while num$buf((i := i + 1)) = ' ';
+    end;
+    num$buf(6) = '.';
+    call pack$decimal(.num$buf(i), ra);
+    if num$buf(0) = '-' then
+        bra(bra + 3) = 0;
+end sub$BAA;
+
+output: procedure(dest,char);
+    declare dest byte,
+            char byte;
+    if dest = console then
+        call print$char(char);      /* to console */
+    else
+        call write$a$byte(char);    /* to disk */
+end output;
+
+
+write$dec:procedure(source,dest);
+    declare source address,
+            num byte,
+            num$digits byte,
+            char byte,
+            index byte,
+            dest byte,
+            count byte;
+
+    store$one:procedure ;
+        if (switch := not switch) then
+        do;
+            char = shr(h$byte,4) or '0';
+            if (count=0) and (char='0') then;
+            else
+                call output(dest,char);
+        end;
+        else
+        do;
+            call output(dest,(h$byte and 0fh) or '0');
+            hold = hold + 1;
+        end;
+        count = count + 1;
+    end store$one;
+
+    hold = source;
+    if h$byte(1) then
+        call output(dest,' ');
+    else
+        call output(dest,'-');
+    count = 0;
+    hold = hold - h$byte;
+    num$digits = h$byte * 2;
+    hold = hold + 1;
+    num = num$digits - h$byte;
+    switch = false;
+    hold = hold + 1;
+    do index = 1 to num$digits+1;
+        if count = num then
+        do;
+            call output(dest,'.');
+            count = 100;
+        end;
+        else
+            call store$one;
+    end;
+end write$dec;
+
+write$str:procedure(hold,dest);
+    declare hold address,
+            h based hold byte,
+            dest byte,
+            index byte;
+    hold = hold - h;
+    do index = 1 to h;
+        call output(dest,h(index));
+    end;
+end write$str;
+
+write$int:procedure(value,dest);
+    declare value address, i byte, dest byte;
+    call int$to$ascii(value);
+    i = 0;
+    do while num$buf((i := i + 1)) = ' ';
+        call output(dest,num$buf(i));
+    end;
+    call output(dest,num$buf(0));   /* sign or space */
+    do i = i to 5;
+        call output(dest, num$buf(i));
+    end;
+end write$int;
+
+write$to$disk:procedure(type);
+    declare type byte;
+    if not firstfield then  /* separate fields with commas */
+        call write$a$byte(',');
+    else
+        firstfield = false;
+    if type = int then
+        call write$int(ara, 1);
+    else if type = deci then
+        call write$dec(get$loc(ra), 1);
+    else if type = str then
+    do;
+        call write$a$byte(quote);
+        call write$str(get$loc(ra), 1);
+        call write$a$byte(quote);
+    end;
+    call pop$stack;
+end write$to$disk;
+
+concatenate:procedure;
+    declare (size1,size2,t$size) byte;
+    if chk$marker(ra) then
+    do;
+        ra = ra - 2;
+        size1 = bra + 1;
+        ra = ra - bra;
+        temp2 = stacktop - size1;
+        call move(ra,temp2,size1);
+        ara = stacktop - 1;
+    end;
+    temp1 = ara;
+    call pop$stack;
+    if not chk$marker(ra) then
+    do;
+        temp2 = ara;    
+        temp2 = temp2 - t2;
+        size2 = t2 + 1;
+        call move(temp2,ra,size2);
+    end;
+    else
+    do;
+        ra = ra - 2;
+        ra = ra - bra;
+        size2 = bra + 1;
+    end;
+    temp1 = temp1 -  t1;
+    size1 = t1;
+    call move(temp1 + 1,ra + size2,size1);
+    t$size = size1 + size2;
+    bra = t$size - 1;
+    ra = ra + t$size;
+    bra = t$size;
+    ra = ra + 2;
+    ara = 0ffffh;
+end concatenate;
+
+convert$to$int:procedure(loc,size) address;
+    declare loc address,
+            num address,
+            h based loc byte,
+            (i,size) byte;
+
+    if size > 5 then
+        call error('io');
+    else
+    do;
+        num = 0;
+        do i = 0 to size-1;
+            num = shl(num,3) + shl(num,1) + h(i) - 30h;
+        end;
+        if num < 4000h then
+            return num;
+        call error('io');
+    end;
+end convert$to$int;
+
+one$left:procedure;
+    declare ctr byte;
+    if shr(b$byte(1),4) = 0 then
+    do;
+        do ctr = 1 to 9;
+            b$byte(ctr) = shl(b$byte(ctr),4) or shr(b$byte(ctr+1),4);
+        end;
+    end;
+    else
+        no$shift = true;
+end one$left;
+
+
+one$right:procedure;
+    declare ctr byte,
+            index byte;
+    ctr = 11;
+    do index = 1 to 10;
+        b$byte(ctr:=ctr-1) = shr(b$byte(ctr),4) or shl(b$byte(ctr-1),4);
+    end;
+end one$right;
+
+shift$right:procedure(count);
+    declare (count,ctr) byte;
+    do ctr = 1 to count;
+        call one$right;
+    end;
+end shift$right;
+
+shift$left:procedure(count);
+    declare count byte;
+    noshift = false;
+    do ctr = 1 to count;
+        call one$left;
+        if noshift then
+            return;
+    end;
+end shift$left;
+
+leading$zeroes:procedure(addr) byte;
+    declare count byte,
+            ctr byte,
+            addr address;
+    count = 0;
+    base = addr;
+    do ctr = 1 to 9;
+        if (b$byte(ctr) and 0f0h) <> 0 then
+            return count;
+        count = count + 1;
+        if (b$byte(ctr) and 0fh) <> 0 then
+            return count;
+        count = count + 1;
+    end;
+    if base = .r0 then
+    do;
+        call error('dz');
+        b$byte(9) = 10h;
+        decpt0 = 1;
+        return 16;
+    end;
+    return count;
+end leading$zeroes;
+
+r1$greater:procedure byte;
+    declare (i,ctr) byte;
+    do ctr = 1 to 10;
+        if r1(ctr) > (i := (99h-r0(ctr))) then
+            return true;
+        if r1(ctr) < i then
+            return false;
+    end;
+    e$flag = true;
+    return true;
+end r1$greater;
+
+
+allign:procedure;
+   declare(x,y) byte;
+
+    right$op:procedure(addr);
+        declare addr address;
+        if noshift then
+        do;
+            base = addr;
+            call shift$right(y := x - ctr);
+        end;
+    end right$op;
+
+    y = 0;
+    if dec$pt0 > dec$pt1 then
+    do;
+        base = .r1;
+        call shift$left(x := decpt0 - decpt1);
+        decpt1 = decpt1 + ctr-1;
+        call right$op(.r0);
+        decpt0 = decpt0 - y;
+    end;
+    else
+    do;
+        base = .r0;
+        call shift$left(x := decpt1 - dec$pt0);
+        decpt0 = decpt0 + ctr-1;
+        call right$op(.r1);
+        decpt1 = decpt1- y;
+    end;
+end allign;
+
+add$r0:procedure(second,dest);
+    declare (second, dest) address, (index,cy , a , b, i ) byte;
+    hold = second;
+    base = dest;
+    cy = 0;
+    ctr = 10;
+    do index = 1 to 11;
+        a = r0(ctr);
+        b = h$byte(ctr);
+        i = dec(a + cy);
+        cy = carry and 1;
+        i = dec(i+b);
+        cy = (cy or carry) and 1;
+        b$byte(ctr) = i;
+        ctr = ctr - 1;
+   end;
+   if cy then
+   do;
+     ctr = 10;
+     do index = 1 to 11;
+         i = b$byte(ctr);
+         i = dec(i + cy);
+         cy = carry and 1 ;
+         b$byte(ctr) = i;
+         ctr = ctr - 1 ;
+     end ;
+   end;
+end add$r0;
+
+compliment:procedure(numb);
+    declare numb byte;
+    do case numb;
+        hold = .r0;
+        hold = .r1;
+        hold = .r2;
+    end;
+    if sign$0(numb) then
+        sign$0(numb) = negative;
+    else
+        sign$0(numb) = positive;
+    do ctr = 0 to 10;
+        h$byte(ctr) = 99h - h$byte(ctr);
+    end;
+end compliment;
+
+right$justify:procedure(numb);
+    declare (numb,i) byte;
+    do case numb;
+        base = .r0;
+        base = .r1;
+        base = .r2;
+    end;
+    i = 0;
+    do while (((i:=i+2) < decpt0(numb)) and (b$byte(9)=0));
+        call shift$right(2);
+    end;
+    decpt0(numb) = decpt0(numb) - (i-2);
+end right$justify;
+
+set$mult$div:procedure;
+    noshift = false;
+    if (sign0 and sign1) or
+       (not sign0 and not sign1) then
+        sign2 = positive;
+    else
+        sign2 = negative;
+   call fill(.r2,0, 10);
+end set$mult$div;
+
+add$series:procedure(count);
+    declare (i,count) byte;
+    do i = 1 to count;
+        call add$r0(.r2, .r2);
+   end;
+end add$series;
+
+multiply:procedure(value);
+    declare value byte;
+    if value <> 0 then
+    do;
+        if noshift then
+            call error('ov');
+        call add$series(value);
+    end;
+    base = .r0;
+    call one$left;
+end multiply;
+
+divide:procedure;
+    declare (i,j,k,x,lz0,lz1) byte;
+    call set$mult$div;
+    s$flag = true;
+    e$flag = false;
+    if (lz0 := leading$zeroes(.r0)) <>
+       (lz1 := leading$zeroes(.r1)) then
+    do;
+        if lz0 > lz1 then
+        do;
+            base=.r0;
+            call shift$left(i:=lz0-lz1);
+            decpt0 = decpt0 + i;
+            x = lz1;
+         end;
+        else
+        do;
+            base = .r1;
+            call shift$left(i:=lz1-lz0);
+            dec$pt1 = decpt1 + i;
+            x = lz0;
+        end;
+    end;
+    else
+        x = lz1;
+    decpt2 = 19 - x + decpt1 - decpt0;
+    call compliment(0);
+    do i = x to 19;
+        j = 0;
+        do while r1$greater and s$flag;
+            call add$r0(.r1,.r1);
+            j = j + 1;
+            if e$flag = true then
+                s$flag = false;
+        end;
+        k = shr(i,1);
+        if i then
+            r2(k) = r2(k) or j;
+        else
+            r2(k) = r2(k) or shl(j,4);
+        base = .r0;
+        call one$right;
+    end;
+end divide;
+
+check$result:procedure;
+    if r2 = 99h then
+    do;
+        call compliment(2);
+        sign2 = sign2 xor 1;
+    end;
+    else
+    do;
+        if r2 <> 0 then
+            call error('ov');
+        if not s$flag then
+            sign2 = positive;
+    end;
+end check$result;
+
+check$sign: procedure;
+    s$flag= false;
+    if sign0 and sign1 then
+    do;
+        sign2 = positive;
+        return;
+    end ;
+    sign2 = negative;
+    if not sign0 and not sign1 then
+    do;
+        s$flag = true;
+        return;
+    end;
+    if sign0 then
+        call compliment(1);
+    else
+        call compliment(0);
+end check$sign;
+
+add:procedure;
+    call check$sign;
+    call add$r0(.r1,.r2);
+    call check$result;
+    decpt2 = decpt0;
+end add;
+
+cpy$reg2$onstack:procedure;
+    declare count byte,
+            i byte;
+    call right$justify(2);
+    call pop$stack;
+    count = 0;
+    base = .r2;
+    i = 10 - (decpt2+1)/2;
+    do while (b$byte = 0) and (count < i);
+        base = base + 1 ;
+        count = count + 1;
+    end;
+    ra = rb + 2;
+    bra(0) = (count := 10 - count);
+    bra(1) = dec$pt2;
+    call move(base,ra+2,count);
+    bra(count+2) = count+2;
+    bra(count+3) = sign2; /* set sign and temp bits */
+    ra = ra + count + 4;
+    ara = 0ffffh;
+end cpy$reg2$onstack;
+
+load$reg:procedure(source,reg$num);
+    declare source address,
+            reg$num byte,
+            count byte;
+    hold = get$loc(source);
+    sign0(reg$num) = h$byte(1);
+    hold = hold - h$byte;
+    count = h$byte;
+    do case reg$num;
+        base = .r0;
+        base = .r1;
+        base = .r2;
+    end;
+    call fill(base,0,11);
+    hold = hold + 1;
+    dec$pt0(reg$num) = h$byte;
+    hold = hold + 1;
+    call move(hold,base+10-count,count);
+end load$reg;
+
+set$up$regs:procedure;
+    noshift = false;
+    call load$reg(ra,0);
+    call load$reg(rb,1);
+    if not b38E7 then
+    do;
+        call right$justify(0);
+        call right$justify(1);
+    end;
+end set$up$regs;
+
+step$ins$cnt:procedure(num);
+    declare num byte;
+    rc=rc+num;
+end step$ins$cnt;
+
+branch$absolute:procedure;
+    call step$ins$cnt(1);
+    rc = twobyteoperand - 1;
+end branch$absolute;
+
+get$code$addr:procedure(offset) address;
+    declare offset address;
+    return codebase + offset;
+end get$code$addr;
+
+get$prt$addr:procedure(offset) address;
+    declare offset address;
+    return prtbase + offset;
+end get$prt$addr;
+
+load:procedure(addr);
+    declare addr address,
+            a based addr address;
+    prt$addr = a;
+    a = prt$entry;
+end load;
+
+store$dec:procedure(source,dest);
+    declare (source,dest,dest$sign) address,
+            (amt$sto,avail$sto,sig$bytes) byte,
+            s based source address,
+            d based dest address,
+            decpt byte,
+            sign based dest$sign byte;
+
+    temp1 = source;
+    temp2 = dest;
+    avail$sto = t2 - 2;
+    dest$sign  = temp2 + 1;
+    t2(1) = t1(1);
+    source = (temp1:= temp1 - t1);
+    dest = temp2-t2;
+    amt$sto = t1;
+    decpt = t1(1);
+    sig$bytes = ((amt$sto * 2 - decpt) + 1) / 2;
+    if amt$sto <= avail$sto then
+    do;
+        call fill(dest,00h,t2);
+        call move(source,dest,t1+2);
+    end;
+    else if sig$bytes <= avail$sto then
+    do;
+        call move(source,dest,t2);
+        temp2 = dest;
+        t2 = avail$sto;
+        t2(1) = (avail$sto - sig$bytes) * 2;
+        if decpt then
+            t2(1) = t2(1) + 1;
+    end;
+    else
+    do;
+        hold = dest;
+        h$addr = 0101h;
+        h$byte(2) = 10h;
+        sign = positive;
+        call error('do');
+    end;
+end store$dec;
+
+store$int:procedure(dest,value);
+    declare (dest,value) address;
+    prt$addr = dest;
+    prt$entry = value;
+end store$int;
+
+store$str:procedure(source,dest);
+    declare (dest,source) address,
+            s based source byte,
+            d based dest byte,
+            ch byte;
+    ch = d;
+    dest = dest - d;
+    source = source - s;
+    if ch > s then
+        call move(source, dest, s + 1); 
+    else
+    do;
+        call move(source, dest, ch);
+        d = ch - 1;
+        call warning('SO');
+    end;
+end store$str;
+
+allocate$str:procedure;
+    if bra = 0 then
+    do;
+        call warning('AZ');
+        bra = 10;
+    end;
+    call push$stack(bra := bra + 1); 
+    bra = brb;
+end allocate$str;
+
+allocate$dec:procedure;
+    declare store byte;
+    if bra = 0 then
+    do;
+        call warning('AZ');
+        bra = 9;
+    end;
+   ctr = bra;
+   store = (bra+1)/2+2;
+   call push$stack(store);
+   bra = store;
+   ara = ara or 0100h;
+end allocate$dec;
+
+set$up$alloc:procedure;
+   prt$addr = ara;
+   call pop$stack;
+end set$up$alloc;
+
+sav$pcb:procedure;
+    call push$stack(2);
+    call move(pcbptr,ra,move$cnt := pcb$value(3));
+    ra = ra + move$cnt;
+    ara = move$cnt;
+    pcb$value(1) = ra;
+end sav$pcb;
+
+unsave:procedure;
+    ra = h$addr(1);
+    call move(ra-ara,hold,ara);
+    unsaved = true;
+end unsave;
+
+calc$row:procedure;
+    declare (index,type) byte,
+            v address,
+            (num$arrays,num$dim,alloc$len,count,i) byte,
+            d(10) address,
+            (num,aindex,a$size) address;
+    type = bra; /* 1-int,2-dec,3-str */
+    call pop$stack;
+    num$arrays = bra;
+    call pop$stack;
+    num$dim = bra;
+    call pop$stack;
+    v = 0;
+    a$size = 1;
+    d(num$dim) = 1;
+    if num$dim = 1 then
+    do;
+        a$size = ara - arb + 1;
+        v = arb;
+        call pop$stack;
+        call pop$stack;
+    end;
+    else
+    do index = 1 to num$dim;
+        i = num$dim - index;
+        a$size = a$size * (num := ara - arb + 1);
+        d(i) = num * d(i + 1);
+        v = v + arb * d(i + 1);
+        call pop$stack;
+        call pop$stack;
+    end;
+    if type = int then
+        call push$stack(2);
+    else
+        alloc$len = bra;
+    do count = 1 to num$arrays;
+        call step$ins$cnt(1);
+        bra = c(1);
+        bra(1) = c and 7fh;
+        prt$addr = ara + prt$base;
+        prt$entry = ra;
+        bra = num$dim;
+        ra = ra + 1;
+        if num$dim <> 1 then
+            do index = 1 to num$dim - 1;
+                i = num$dim - index;
+                ara = d(i);
+                ra = ra + 2;
+            end;
+        ara = v;
+        ra = ra + 2;
+        bra = alloc$len;
+        if type = int then
+        do;
+            ara = 2;
+            ra = (hold := ra + 2) + a$size*2;
+            call push$stack(2);
+        end;
+        else
+        do;
+            if type = deci then
+                ara = (bra + 1)/2 + 4;
+            else
+                ara = bra + 3;
+            ra = (hold := ra + 2) + 2;
+            do aindex = 1 to a$size;
+                bra = alloc$len;
+                if type = deci then
+                    call allocate$dec;
+                else
+                    call allocate$str;
+                call push$stack(2);
+            end;
+        end;
+        h$addr = ra;
+        call step$ins$cnt(1);
+    end;
+    call pop$stack;
+end calc$row;
+
+calc$sub:procedure;
+    declare array$addr address,
+            location address,
+            a$byte based array$addr byte,
+            a$addr based array$addr address,
+            (i,num$dim) byte,
+            offset address;
+    array$addr = ara;
+    call pop$stack;
+    offset = ara;
+    num$dim = a$byte;
+    array$addr = array$addr + 1;
+    do i = 2 to num$dim;
+        call pop$stack;
+        offset = ara * a$addr + offset;
+        array$addr = array$addr + 2;
+    end;
+    offset = (offset - a$addr + 1) * a$addr(1);
+    array$addr = array$addr + 4;
+    if (location:=array$addr + offset) >= a$addr then
+        call error('ab');
+    ara = location;
+end calc$sub;
+
+decrement$blk:procedure(num) ;
+    declare num byte;
+    ra = blk((blk$level:=blk$level-num) + 1);
+    rb = ra - 2;
+    if chk$marker(ra) then
+        rb = rb - (brb + 2);
+    do while include$stack(include$sp) > ra;
+        call disk$close(include$stack(include$sp));
+        include$sp = include$sp - 1;
+    end;
+end decrement$blk;
+
+get$sign:procedure(num) byte;
+    declare num address;
+    return rol(high(num),2) and 1;
+end get$sign;
+
+swap$if$sign$dif:procedure;
+    if get$sign(ara) <> get$sign(arb) then
+    do;
+        temp1 = ara;
+        ara = arb;
+        arb = temp1;
+    end;    
+end swap$if$sign$dif;
+
+add$top2:procedure;
+    temp1 = ara + arb;
+    /* if signs are same check for overflow */
+    if get$sign(ara) = get$sign(arb) then
+        if (rol(high(temp1),1) and 1) <> (rol(high(temp1),2) and 1) then
+        do;
+            call warning('IA');
+            temp1 = 1;
+        end;
+    arb = temp1 and 7fffh;
+    call pop$stack;
+end add$top2;
+
+mul$int:procedure(int1,int2) address;
+    declare (int1,int2) address;
+    return (int1 * int2) and 7fffh;
+end mul$int;
+
+div$int:procedure(int1,int2) address;
+    declare (int1,int2) address,
+            (sign1,sign2) byte;
+    if int2 = 0 then
+    do;
+        call warning('IZ');
+        int2 = 1;
+    end;
+    if (sign1 := get$sign(int1)) then
+        int1 = -int1 and 3fffh;
+    if (sign2 := get$sign(int2)) then
+        int2 = -int2 and 3fffh;
+    temp1 = int1 / int2;
+    if sign1 <> sign2 then
+        return -temp1 and 7fffh;
+    return temp1;
+end div$int;
+     
+exit$interp: procedure;
+    call crlf;
+    call mon3;
+end exit$interp;
+
+console$read:procedure;
+    call crlf;
+    call print(.'-> $');
+    call read(.inputbuffer);
+    if buff$space(1) = contz then
+        call exit$interp;
+    num$read = buff$space;
+    conbuffptr = .buff$space;
+    buff$space(buff$space+1) = eolchar;
+end console$read;
+
+more$con$input:procedure byte;
+    return conbuffptr < .buff$space(num$read);
+end more$con$input;
+
+console$input$error: procedure;
+    rc = rereadaddr;    /* reset program counter */
+    call warning('II');
+    goto error$exit;    /* return to outer level */
+end console$input$error;
+
+input$error:procedure;
+    if inputtype = 1 then
+        call console$input$error;
+    else
+        call warning('DI');
+end input$error;
+
+get$con$char:procedure byte;
+    conbuffptr = conbuffptr + 1;
+    return con$char;
+end get$con$char;
+
+next$input$char:procedure byte;
+    if inputtype = 0 then   /* read from disk */
+    do while 1;
+        if input$index > 80 then
+            call error('DB');
+        if (buff$space(inputindex) := get$disk$char) = lf then
+        do;
+            if var$blocksize then
+                call error('RE');
+        end;
+        else
+           return next$disk$char;
+    end;
+    return get$con$char;
+end next$input$char;
+
+get$field:procedure;
+    declare hold byte,
+            delim byte;
+    inputindex = 0;     /* thesis used separate var field$length */
+    do while (hold := next$input$char) = ' ' or hold = ',';
+    end;
+    if inputtype = 0 then
+        inputptr = .buff$space;
+    else
+        inputptr = conbuffptr;
+    if hold <> quote then
+        delim = ',';
+    else
+    do;
+        delim = quote;
+        hold = next$input$char;
+    end;
+    do while (hold <> delim) and (hold <> eolchar);
+        inputindex = inputindex + 1;
+        hold = next$input$char;
+    end ;
+end get$field;
+
+get$int$field:procedure;
+    declare (sign,i) byte;
+    call get$field;
+    if input$char <> '+' and input$char <> '-' and (input$char - '0') > 9 then
+        call input$error;
+    if (sign := input$char) < '0' then
+    do;
+        inputptr = inputptr + 1;
+        inputindex = inputindex - 1;
+    end;
+    else
+        sign = '+';
+    do i = 0 to inputindex - 1;
+        if (input$char(i) - '0') > 9 then
+            call input$error;
+    end;
+    call push$stack(2);
+    ara = convert$to$int(inputptr,inputindex);
+    if error$flag then
+      call input$error;
+    if sign = '-' then
+        ara = -ara and 7fffh;   /* convert to negative */
+end get$int$field;
+
+get$str$field:procedure;
+    declare len byte;
+    call get$field;
+    len =  inputindex + 1;
+    call push$stack(2);
+    if inputtype = 0 then
+    do;
+        buff$space(len-1) = len;
+        ara = (input$ptr := input$ptr - 1) + len;
+    end;
+    else
+    do;
+        con$char = len;
+        inputptr = conbuffptr - con$char;
+        ara = conbuffptr;
+    end;
+    input$char = inputindex;
+end get$str$field;
+
+get$dec$field:procedure;
+    call get$field;
+    call push$stack(2);
+    /* mark end of dec */
+    if inputtype = 0 then
+        buff$space(inputindex) = 0;
+    else
+        con$char = 0;
+    if input$char = '+' then
+    do;
+        sign = positive;
+        inputptr = inputptr + 1;
+    end;
+    else if input$char = '-' then
+    do;
+        sign = negative;
+        inputptr = inputptr + 1;
+    end;
+    else
+        sign = positive;
+    if input$char <> '.' and (input$char - '0') > 9 then
+        call input$error;
+    do while input$char = '0';
+        inputptr = inputptr + 1;
+    end;
+    call pack$decimal(inputptr,ra);
+    if error$flag then
+        call input$error;
+    ra = ptr$two - 1;
+    bra(1) = sign; /* set sign */
+    ra = ra + 2;
+    ara = 0ffffh;
+end get$dec$field;
+
+test$non$int:procedure(test,type,loc1,loc2);
+    declare (test,type) byte,
+            (loc1,loc2) address,
+            cmp byte,
+            (pad,str1,str2) address,
+            ch1 based str1 byte,
+            ch2 based str2 byte;
+
+    cmpstr:procedure(len1,len2) byte;
+        declare (len1,len2) byte,
+                (cmplen,i) byte;
+        if len1 < len2 then
+            cmplen = len1;
+        else
+            cmplen = len2;
+        do i = 1 to cmplen;
+            if ch2(i) < ch1(i) then
+                return 1;
+            if ch2(i) > ch1(i) then
+                return 2;
+        end;
+        if len2 = len1 then
+            return 3;
+        if len1 > len2 then
+            return 1;
+        return 2;
+    end;
+    if type = deci then
+    do;
+        call load$reg(loc1,0);
+        call load$reg(loc2,1);
+        if sign$0 = sign$1 then
+        do;
+            call allign;
+            str1 = .r0;
+            str2 = .r1;
+            cmp = cmpstr(11,11);
+            if not sign$1 and cmp <> 3 then
+                if cmp = 1 then
+                    cmp = 2;
+                else
+                    cmp = 1;
+        end;
+        else if sign$1 = negative then
+            cmp = 1;
+        else
+            cmp =  2;
+    end;
+    else
+    do;
+        temp1 = get$loc(loc1);
+        temp2 = get$loc(loc2);
+        temp1 = temp1 - t1;
+        temp2 = temp2 - t2;
+        str1 = temp1;
+        str2 = temp2;
+        cmp = cmpstr(t1, t2);
+    end;
+    call pop$stack;
+    call pop$stack;
+    call push$stack(2);
+    if (test = 1 and cmp = 1) or (test = 2 and cmp = 3) or
+       (test = 3 and cmp <> 1) or (test = 4 and cmp <> 3) or
+       (test = 5 and cmp <> 2) then
+        bra = 1;
+    else
+        bra = 0;
+end;
+
+initialize$execute:procedure;
+    declare i byte;
+    do i = 0 to 20;
+        include$stack(i) = 0;
+    end;
+    stacktop = max - 2;
+    rc = codebase;
+    st,sb = stackbase;
+    blk, ra = (rb := sb) + 2;
+    bld$flag = false;
+end initialize$execute;
+
+    /*set up machine*/
+
+call print(.'algol-m interpreter-vers 1.0$');
+call crlf;
+call open$int$file;
+bld$flag = true;
+call incbuf; call incbuf; /* skip codesize */
+prtbase = .memory;
+codebase = getparm + prtbase;
+codeptr = codebase;
+
+    /*load machine*/
+
+do while next$char <> 7fh;
+    if curchar >= 128 then
+    do;
+        call sto$char$inc;
+        call incbuf;
+        call sto$char$inc;
+    end ;
+    else
+    if curchar = str then
+    do;
+        call sto$char$inc;
+        temp1 = codeptr;
+        char = 0; /* set Initial length to zero */
+        call sto$char$inc;
+        do while next$char <> 0;
+            call sto$char$inc;
+            t1 = t1+1;
+        end;
+        char = t1+1;
+        call sto$char$inc;
+        char = 0; /*must make str length an addr quantity */
+        call sto$char$inc;
+    end;
+    else if curchar = int then
+    do;
+        call sto$char$inc;
+        inputindex = 0;
+        do while next$char <> 0;
+            num$buf(inputindex) = curchar;
+            inputindex = inputindex + 1;
+        end;
+        a = convert$to$int(.num$buf,inputindex);
+        call inc$codeptr$two;
+    end;
+    else if curchar = deci then
+    do;
+        call sto$char$inc;
+        call incbuf;
+        call pack$decimal(buff,codeptr);
+        codeptr = ptr$two + 1;
+        buff = ptr$one;
+    end;
+    else
+    do;
+        call sto$char$inc;
+        if (curchar = brs) or (curchar = bsc) then
+        do;
+            call get$two$bytes;
+            a = a + codebase;
+            call inc$codeptr$two;
+        end;
+        else if (curchar = im1) or (curchar = dcb) or (curchar = 60h) then
+        do;
+            call incbuf;
+            call sto$char$inc;
+        end;
+        else if curchar = im2 then
+        do;
+            call incbuf;
+            call sto$char$inc;
+            call incbuf;
+            call sto$char$inc;
+        end;
+    end;
+end;
+
+stackbase = codeptr;
+
+    /* start of interp */
+
+execute:procedure;
+    do forever;
+        if rol(c,1) then  /* must be lit ort lit-lod */
+        do;
+            call push$stack(2);
+            bra = c(1); /* load in reverse order */
+            bra(1) = c and 3fh; /* mask bits 10 */
+            ara = ara + prt$base;
+            if rol(c,2) then
+                call load(ra);
+            call step$ins$cnt(1);
+        end;
+        else
+        do case c;
+
+        /* 0 case 0 not used*/
+            ;
+
+        /* 1 str */
+            do;
+                call push$stack(2);
+                call step$ins$cnt(1);
+                rc,ara = rc + c + 1;
+                call step$ins$cnt(1);
+            end;
+
+        /* 2 int */
+            do;
+                call push$stack(2);
+                call step$ins$cnt(1);
+                ara = two$byte$operand;
+                call step$ins$cnt(1);
+            end;
+
+        /* 3 xch */
+            do;
+                hold = ara;
+                ara = arb;
+                arb = hold;
+            end;
+
+        /* 4 lod */
+            call load(ra);
+
+        /* 5 dcb */
+            do ;
+                call step$ins$cnt(1);
+                call decrement$blk(c);
+            end;
+
+        /* 6 dmp */
+            call crlf;
+
+        /* 7 xit */
+            return;
+
+        /* 8 ald */
+            do;
+                call set$up$alloc;
+                call allocate$dec;
+                prt$entry = ra;
+            end;
+
+        /* 9 ais */
+            do;
+                call set$up$alloc;
+                call allocate$str;
+                prt$entry = ra;
+            end;
+
+        /*10 aid */
+            do;
+                call set$up$alloc;
+                call allocate$dec;
+                prt$entry = ra;
+                call push$stack(2);
+                bra = ctr;
+            end;
+
+        /*11 als */
+            do;
+                call set$up$alloc;
+                call allocate$str;
+                prt$entry = ra;
+                call push$stack(2);
+                bra = brb - 1;
+            end;
+
+        /*12 adl */
+            call add$top2;
+
+        /*13 add */
+            do;
+                call set$up$regs;   /* puts values of top  two items */
+                                    /* in reg0 and reg1 respectively */
+                call allign;
+                call add;
+                call cpy$reg2$onstack;
+            end;
+
+        /*14 sbi */
+            do;
+                ara = -ara and 07fffh;
+                call add$top2;
+            end;
+
+        /* 15 sbd */
+            do;
+                call set$up$regs;   /* puts values of top  two items */
+                                    /* in reg0 and reg1 respectively */
+                call allign;
+                sign0 = sign0 xor 1;    
+                call add;
+                call cpy$reg2$onstack;
+            end;
+
+        /*16 mpi */
+            do;
+                arb = mul$int(arb,ara);
+                call pop$stack;
+            end;
+
+        /*17 mpd */
+            do;
+                call set$up$regs;   /* puts values of top  two items */
+                                    /* in reg0 and reg1 respectively */
+                declare  (i,index) byte;
+                call set$mult$div;
+                decpt2 = decpt0 + decpt1;
+                i = 10;
+                do index = 1 to 10;
+                    call multiply(r1(i:=i-1) and 0fh);
+                    call multiply(shr(r1(i),4));
+                end;
+                call cpy$reg2$onstack;
+            end;
+
+        /*18 dvi */
+            do;
+                arb = div$int(arb, ara);
+                call pop$stack;
+            end;
+
+        /*19 dvd */
+            do;
+                b38E7 = true;
+                call set$up$regs;
+                call divide;
+                call cpy$reg2$onstack;
+            end;
+
+        /*20 not used */
+            ;
+
+        /*21 dneg*/
+            ara = -ara and 07fffh;
+
+        /*22 neg */
+            do;
+                call load$reg(ra,2);
+                sign$2 = sign$2 xor 1;
+                call push$stack(2);
+                call cpy$reg2$onstack;
+            end;
+
+        /*23 ci1 */
+            do;
+                call sub$BAA(ara);
+                ra = ra + bra + 4;
+                ara = 0ffffh;
+            end;
+
+        /*24 ci2 */
+            do;
+                hold = ra;
+                ra = ra + 2;
+                call sub$BAA(arb);
+                arb = ra + bra + 2;
+                ra = hold;
+            end;
+
+        /*25 deci */
+            do;
+                call push$stack(2);
+                call step$ins$cnt(1);
+                rc,ara = rc + c + 2;
+                call step$ins$cnt(1);
+            end;
+
+        /*26 pop */
+            call pop$stack;
+
+        /*27 lm1 */
+            do;
+                call push$stack(2);
+                call step$ins$cnt(1);
+                ara = c;
+            end;
+
+        /*28 lm2 */
+            do;
+                call push$stack(2);
+                call step$ins$cnt(1);
+                bra = c(1); /* load in reverse */
+                bra(1) = c;
+                call step$ins$cnt(1);
+            end;
+
+        /*29 ??? */
+            do;
+                declare i byte;
+                if ara < 3fffh then
+                    do i = 1 to ara;
+                        call printchar(' ');
+                    end;
+                call pop$stack;
+            end;
+
+        /*30 not used */
+            ;
+
+        /*31 cat */
+            call concatenate;
+
+        /*32 bli */
+            blk(blk$level:=blk$level+1) = ra;
+
+        /*33 bld */
+            call decrement$blk(1);
+
+        /*34 brs */
+            call branch$absolute;
+
+        /*35 bsc */
+            do;
+                if bra = 0 then
+                    call branch$absolute;
+                else
+                    call step$ins$cnt(2);
+                call pop$stack;
+            end;
+
+        /*36 lss*/
+            do;
+                call swap$if$sign$dif;
+                brb = (arb < ara) and 1;
+                call pop$stack;
+            end;
+
+        /*37 dlss */
+            call test$non$int(1,deci,ra,rb);
+
+        /*38 slss */
+            call test$non$int(1,str,ra,rb);
+            
+        /*39 gtr */
+            do;
+                call swap$if$sign$dif;
+                brb = (arb > ara) and 1;
+                call pop$stack;
+            end;
+
+        /*40 dgtr */
+            call test$non$int(1,deci,rb,ra);
+         
+        /*41 sgtr */
+            call test$non$int(1,str,rb,ra);
+
+        /*42 eql */
+            do;
+                call swap$if$sign$dif;
+                brb = (arb = ara) and 1;
+                call pop$stack;
+            end;
+
+        /*43 deql */
+            call test$non$int(2,deci,ra,rb);
+
+        /*44 seql */
+            call test$non$int(2,str,ra,rb);
+
+        /*45 neq */
+            do;
+                call swap$if$sign$dif;
+                brb = (arb <> ara) and 1;
+                call pop$stack;
+            end;
+
+        /*46 dneq */
+            call test$non$int(4,deci,ra,rb);
+
+        /*47 sneq */
+            call test$non$int(4,str,ra,rb);
+
+        /*48 geq */
+            do;
+                call swap$if$sign$dif;
+                brb = (arb >= ara) and 1;
+                call pop$stack;
+            end;
+
+        /*49 dgeq */
+            call test$non$int(3,deci,ra,rb);
+
+        /*50 sgeq */
+            call test$non$int(3,str,ra,rb);
+
+        /*51 leq */
+            do;
+                call swap$if$sign$dif;
+                brb = (arb <= ara) and 1;
+                call pop$stack;
+            end;
+
+        /*52 dleq */
+            call test$non$int(5,deci,ra,rb);
+
+        /*53 sleq */
+            call test$non$int(5,str,ra,rb);
+
+        /*54 inot */
+            bra = (bra = 0) and 1;
+        
+        /*55 dnot */
+            do;
+                declare i byte;
+                temp1 = arb;
+                if ara < 4000h and ara > 0 then
+                    do i = 1 to ara - 1;
+                        arb = mul$int(arb,temp1);
+                    end;
+                else if ara = 0 then
+                    arb = 1;
+                else
+                    call warning('NX');
+                call pop$stack;
+            end;
+
+        /*56 snot not implemented */
+            ;
+        
+        /*57 iand */
+            do;
+                brb = bra and brb;
+                call pop$stack;
+            end;
+
+        /*58 dand not implemented */
+            ;
+
+        /*59 sand not implemented */
+            ;
+
+        /*60 ior */
+            do;
+                brb = bra or brb;
+                call pop$stack;
+            end;
+
+        /*61 dor not implemented */
+            ;
+    
+        /*62 include? */
+            do;
+                call set$up$alloc;
+                include$stack(include$sp := include$sp + 1),prt$entry = ra;
+                call fill(ra + 2,0,164);
+                ara(17) = ara;
+                ara = 0;
+                call push$stack$chk(166);
+                bra = 166;
+                call push$stack$chk(2);
+                ara = 0ffffh;
+            end;
+
+        /*63 wic */
+            do;
+                call write$int(ara, 0);
+                call pop$stack;
+            end;
+
+        /*64 wdc */
+            do;
+                call write$dec(get$loc(ra), 0);
+                call pop$stack;
+            end;
+
+        /*65 wsc */
+            do;
+                call write$str(get$loc(ra), 0);
+                call pop$stack;
+            end;
+
+        /*66 wid */
+            call write$to$disk(int); 
+
+        /*67 wdd */
+            call write$to$disk(deci); 
+
+        /*68 wsd */
+            call write$to$disk(str); 
+
+        /*69 sbr */
+            do;
+                arb = ara - arb;
+                call pop$stack;
+            end;
+
+        /*70 bra */
+            do;
+                rc = code$base + ara;
+                call pop$stack;
+            end;
+
+        /*71 row */
+            call calc$row;
+
+        /*72 sub */
+            call calc$sub;
+
+        /*73 rci */
+            call get$int$field;
+
+        /*74 rcd */
+            call get$dec$field;
+
+        /*75 rcs */
+            call get$str$field;
+
+        /*76 rdi */
+            do;
+               inputtype = 0;
+               call get$int$field;
+            end;
+
+        /*77 rdd */
+            do;
+               inputtype = 0;
+               call get$dec$field;
+            end;
+
+        /*78 rds */
+            do;
+               inputtype = 0;
+               call get$str$field;
+            end;
+
+        /*79 rcn */
+            do;
+                inputtype = 1;
+                rereadaddr = rc;
+                call console$read;
+            end;
+    
+
+        /*80 ecr */
+            if more$con$input then
+                call input$error;
+
+        /*81 sii */
+            do;
+                call store$int(arb,ara);
+                arb = ara;
+                call pop$stack;
+            end;
+
+        /*82 sdi */
+            do;
+                call store$dec(get$loc(ra),arb);
+                call pop$stack;
+            end;
+
+        /*83 ssi */
+            do;
+                call store$str(get$loc(ra),arb);
+                call pop$stack;
+            end;
+
+        /*84 sid */
+            do;
+                call store$int(arb,ara);
+                call pop$stack;
+                call pop$stack;
+            end;
+
+        /*85 sdd */
+            do;
+                call store$dec(get$loc(ra),arb);
+                call pop$stack;
+                call pop$stack;
+            end;
+
+        /*86 ssd */
+            do;
+                call store$str(get$loc(ra),arb);
+                call pop$stack;
+                call pop$stack;
+            end;
+
+        /*87 opn */
+            call disk$open;
+
+        /*88 cls */
+            call pop$stack;
+
+        /*89 rdb */
+        /* ready sequential block */
+            do;
+                call setup$disk$io;
+                call set$eof$stack;
+            end;
+
+        /*90 rdf */
+        /* read random block */
+            do;
+                call setup$disk$io;
+                call random$setup;
+                call set$eof$stack;
+            end;
+
+        /*91 edr */
+        /* end of record for read */
+        /* advance to next line feed */
+            do;
+                if var$block$size then
+                    do while get$disk$char <> lf;
+                    end;
+                call save$record$pointer;
+            end;
+
+        /*92 edw */
+        /* end of record for write */
+            do;
+                if var$block$size then
+                    do while blocksize - 2 > bytes$written;
+                        call write$a$byte(' ');
+                    end;
+                call write$a$byte(cr);
+                call write$a$byte(lf);
+                call save$record$pointer;
+            end;
+
+        /*93 pro */
+            do;
+                stacktop = stacktop - 2;
+                ret$addr = rc;
+                rc = ara + codebase - 1;
+                call pop$stack;
+            end;
+
+        /*94 sav */
+            do;
+                declare (i,num) byte;
+                pcbptr = ara;
+                call pop$stack;
+                if ara <> 0 then
+                do;
+                    hold = ra;
+                    counter = 2 * ara + 1;
+                    do i = 1 to counter;
+                        call pop$stack;
+                    end;
+                    num = hold - ra ;
+                    if (temp1 := stacktop - num) <= ra then
+                        call error('sk');
+                    call move(ra + 2,temp1,num);
+                    call fill(temp1-2,00h,2);
+                end;
+                else
+                  call pop$stack;
+                blk(blklevel:=blklevel+1)=ra;
+                if pcb$value(1) = 0 then
+                    pcb$value(1) = 1;
+                else
+                    call sav$pcb;
+           end;
+
+        /*95 sv2 */
+            do;
+                declare i byte,
+                        (parm$count,top) address,
+                        atop based top address;
+                tad1 = ra;
+                tad2 = rb;
+                top,ra = stacktop - 2;
+                rb = ra - 2;
+                parmcount = ara;
+                call pop$stack;
+                pcbptr = pcbptr + 6 + parm$count * 2;
+                do i = 1 to parm$count;
+                    testvalue = ara;
+                    call pop$stack;
+                    if testvalue = int then
+                        pcb$value = ara;
+                    else if testvalue = deci then
+                        call store$dec(get$loc(ra),pcb$value);
+                    else
+                        call store$str(get$loc(ra),pcb$value);
+                    call pop$stack;
+                    pcbptr = pcbptr - 2;
+                end;
+                ra = tad1;
+                rb = tad2;
+                atop = 0;
+            end;
+
+        /*96 uns */
+            do;
+                call step$ins$cnt(1);
+                hold = ara;
+                ret$value = h$addr;
+                if h$addr(1) <> 1 then
+                    call unsave;
+                else
+                do;
+                    h$addr(1) = 0;
+                    unsaved = false;
+                end;
+                call decrement$blk(1);
+                call push$stack(2);
+                if c <> 2 then
+                do;
+                    if unsaved then
+                    do;
+                        temp2 = ret$value;
+                        call move(temp2-t2,ra,t2 + 2);
+                        ra = ra + t2 + 2;
+                    end;
+                    else
+                        ra = ret$value + 2;
+                    ara = 0ffffh;
+                end;
+                else
+                    ara = ret$value;
+              end;
+
+        /*97 rtn */
+            do;
+                rc = ret$addr;
+                stacktop = stacktop + 2;
+            end;
+        end; /*end case*/
+
+        call step$ins$cnt(1);
+        error$flag = false;
+    end; /* of do for ever */
+
+end execute;
+
+mainline:
+    call crlf;
+    call initialize$execute;
+
+eofexit:  /* on end of flle of current disk file come here */
+
+errorexit:   /* regroup on console input error */
+    call execute;
+    call exit$interp;
+
+eof

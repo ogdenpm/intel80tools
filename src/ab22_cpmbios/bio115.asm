@@ -1,0 +1,2284 @@
+;$TITLE('CP/M BIOS FOR SBX-218. JANUARY 15, 1982 VERSION.')
+;*******************************************************************************
+;*                                                                             *
+;*              CP/M 2.2 BIOS FOR THE INTEL SBC-80/24 AND SBX-218              *
+;*                                                                             *
+;*******************************************************************************
+;
+TRUE    EQU     0FFH            ; TRUTH FLAG
+FALSE   EQU     NOT TRUE        ; FALSITY FLAG
+DSKINT  EQU     TRUE            ; INTERRUPT DRIVEN DISK RECOGNITION
+KEYINT  EQU     TRUE            ; INTERRUPT DRIVEN BIOS CONSOLE INPUT FLAG
+INTRBIO EQU     (DSKINT OR KEYINT)
+CNTLST  EQU     FALSE           ; CENTRONICS PARALLEL LIST DRIVER
+ORS     EQU     FALSE           ; OBJECT RECOGNITION SYSTEMS BIOS TYPE FLAG
+SBX351  EQU     TRUE            ; SBX-351 LIST DEVICE FLAG
+SGLMST  EQU     TRUE            ; TRUE IF SINGLE MASTER SYSTEM, ALLOW BUS LOCK.
+;
+; (C) COPYRIGHT 1981 BY JAMES R. GRIER. ALL RIGHTS RESERVED.
+;
+; THIS IS A BIOS TO RUN CP/M 2.2 IN THE ISBC-80/24 ENVIRONMENT. BOTH SINGLE
+; AND DOUBLE DENSITY 8" IBM FORMAT DISKS ARE SUPPORTED. DOUBLE-SIDED DRIVES
+; ARE NOT CURRENTLY SUPPORTED.
+;
+; THE FOLLOWING JUMPER MODIFICATIONS MUST BE MADE TO THE BOARDS:
+;       ON THE SBC-80/24
+;       A. CHANGE THE ON-BOARD RAM ADDRESS RANGE TO 0F000H-0FFFFH.
+;               REMOVE JUMPER FROM E154-E155. INSTALL JUMPER AT E150-E151.
+;       B. SET APPROPRIATE EPROM TYPE THE ORIGNAL VERSION USES 2716S.
+;               REMOVE 4-SLOT SHORTING PLUG FROM J8-1. INSTALL AT J8-6.
+;               REMOVE 1-SLOT SHORTING PLUG FROM J7-7. INSTALL AT J7-6.
+;       C. CONNECT ON-BOARD PROM ENABLE LINE TO PORT E6 BIT 7 TO ALLOW
+;          DISABLING OF ON-BOARD EPROM.
+;               UNWRAP E50-E35. WIREWRAP E50-E54.
+;       D. CONNECT TERMINAL COUNT LINE ON SBX-218 (OPT0) TO PORT E6 BIT 6 TO
+;          ENABLE TERMINATION OF DISK READ/WRITE COMMANDS.
+;               UNWRAP E49-E34. WIREWRAP E49-E185.
+;       E FOR NON-INTERRUPT DRIVEN SYSTEM:
+;          CONNECT END-OF-SEEK INTERRUPT LINE FROM SBX-218 TO PORT E6 BIT 0
+;          TO ALLOW DETECTION OF THE TERMINATION OF A SEEK.
+;                UNWRAP E42-E28 AND E42-E40. WIREWRAP E91-E42.
+;                                     OR
+;          FOR INTERRUPT DRIVEN SYSTEM:
+;          CONNECT END-OF-SEEK INTERRUPT LINE FROM SBX-218 TO IR3
+;          TO ALLOW DETECTION OF THE TERMINATION OF A SEEK.
+;               WIREWRAP E91-E99.
+;       F. INSTALL APPROPRIATE I/O TERMINATION TO DRIVE CENTRONICS PRINTER
+;          INTERFACE                   .
+;               INSTALL 7437 DRIVER IN U8.
+;               INSTALL SBC-901 PULLUP IN U10.
+;       G. IF INTERRUPT DRIVEN CONSOLE INPUT IS DESIRED, CONNECT RXR TO
+;          IR6.
+;               WIREWRAP E117-E96.
+;
+; MISSING LINE
+;       A. SET BOARD FOR NON-DMA OPERATION.
+;               REMOVE JUMPER FROM W1-A TO W1-B.
+;               INSTALL JUMPER FROM W1-A TO W1-C.
+;
+;       MOUNT THE SBX-218 ON J6 OF THE SBC-80/24. THIS IS THE MULTIMODULE
+;       CONECTOR ON THE MIDDLE OF THE BOARD.
+;
+;  THIS BIOS PROGRAM MUST BE USED IN CONJUNCTION WITH THE CP/M PROM BOOT
+;  PROGRAM WHICH RESIDES ON EPROM ON THE 80/24. THE BOOT PROGRAM COPIES THE
+;  BIOS OUT OF THE EPROM INTO THE RAM IN UPPER MEMORY, AND JUMPS TO THE COLD
+;  START ROUTINE IN THE BIOS. THE BIOS TAKES CARE OF HARDWARE INITIALIZATION
+;  FOR BOTH BOARDS AND BOOTS CP/M. THIS REQUIRES THAT
+;  THE ON-BOARD RAM BE LOCATED AT THE TOP PAGE. THE ON-BOARD RAM IS USED
+;  IN THE BIOS TO PROVIDE THE SPEED NECESSARY TO HANDLE DOUBLE DENSITY
+;  TRANSFERS. THE BOOT IS TURFED OFF LP04 ENTRY INTO THE COLD BOOT ROUTINE
+;  IN THIS CBIOS TO ENABLE OFF-BOARD RAM AT THE BASE OF MEMORY.
+;
+;
+; THE MAXIMUM POSSIBLE CP/M SIZE WITH THIS BIOS IS 62K DUE TO THE EXTENSIVE
+; ERROR CHECKING IN THE BIOS. THIS REQUIRES AN SBC-064 OR BETTER, TO PROVIDE
+; THE FULL ADDRESS SPACE IN RAM.
+;
+MSIZE   EQU     62              ; CP/M SIZE IN KB
+CCP     EQU     (MSIZE-7)*1024  ; BASE OF CCP
+BDOS    EQU     CCP+806H        ; BASE OF BDOS
+BIOS    EQU     CCP+1600H       ; BASE OF BIOS
+CDISK   EQU     0004H           ; CURRENT DISK NUMBER 0=A,...,15=P
+IOBYTE  EQU     0003H           ; INTEL I/O BYTE
+NUMDSK  EQU     4               ; THIS IS A TWO DRIVE SYSTEM
+;
+        ORG     BIOS            ; WELCOME TO THE BIOS, FOLKS...
+;
+;
+;                       ***************
+;                       I/O DEFINITIONS
+;                       ***************
+;
+; DEFINE THE MULTIBUS CONTROL
+BUSLCK  EQU     0D5H            ; BUS LOCK CONTROL PORT
+LOCK    EQU     1               ; LOCK BUS
+UNLOCK  EQU     0               ; UNLOCK BUS
+;
+;
+; PORT DEFINITIONS FOR 8251A ON 80/24 (SERIAL I/O PORT)
+; THIS DEVICE IS THE SYSTEM CONSOLE
+CM8251  EQU     0EDH            ; COMMAND WORD OUTPUT PORT
+ST8251  EQU     0EEH            ; STATUS WORD IFFUT PORT
+RD8251  EQU     0ECH            ; DATA INPUT PORT
+WR8251  EQU     0ECH            ; DATA OUTPUT PORT
+;
+        IF     ORS
+CM51    EQU     08DH            ; COMMAND WORD OUTPUT PORT
+ST51    EQU     08DH            ; STATUS WORD INPUT PORT
+RD51    EQU     08CH            ; DATA INPUT PORT
+WR51    EQU     08CH            ; DATA OUTPUT PORT
+             ENDIF
+;
+        IF     SBX351
+CMX351  EQU     0C1H            ; COMMAND HORD OUTPUT PORT
+STX351  EQU     0C1H            ; STATUS WORD INPUT PORT
+RDX351  EQU     0C0H            ; DATA INPUT PORT
+WRX351  EQU     0C0H            ; DATA OUTPUT PORT
+CNTCTLX EQU     0CBH            ; BAUD RATE TIMER CONTROL
+CNTR2X  EQU     0CAH            ; BAUD RATE TIMER
+BX9600  EQU     008H            ; 9600 BAUD CONSTANT
+CTLQ    EQU     'Q' - 40H       ; XON
+CTLS    EQU     'S' - 40H       ; XOFF
+             ENDIF
+;
+; USART INITIALIZATION CONSTANTS
+CMD     EQU     027H    ; COMMAND INSTRUCTION FOR USART INITIALIZATION
+MODE    EQU     0CEH    ; MODE SET FOR USART INITIALIZATION
+RBR     EQU     2       ; MASK TO TEST RECEIVER STATUS
+TRDY    EQU     1       ; MASK TO TEST TRANSMITTER STATUS
+TXBE    EQU     04H     ; USART TRANSMITTER BYFFER EMPTY
+             ;
+ONEMS   EQU     200     ; 1 MILLISECOND CONSTANT AT 4.84 MHZ CLOCK.
+B9600   EQU     007D    ; RATE FACTOR FOR 9600 BAUD
+BOHO    EQU     611D    ; RATE FACTOR FOR 110 BAUD
+CHARR   EQU     0DH     ; CODE FOR BAUD RATE RECOGNITION CHAR = CR
+RSTUST  EQU     040H    ; COMMAND INSTRUCTION TO RESET USART
+             ;
+        ;     PORT DEFINITIONS AND INITIALIZATION CONSTANTS FOR 8259A PIC.
+PIC     EQU     0D8H    ; BASE ADDRESS
+ICW1    EQU     PIC+0   ; INITIALIZATION ADDRESS 1
+ICW2    EQU     PIC+1   ; INITIALIZATION ADDRESS 2
+OCW2    EQU     PIC
+OCW3    EQU     PIC
+IMR     EQU     PIC+1   ; MASK REGISTER
+EOIC    EQU     020H    ; END OF INTERRUPT COMMAND HORD
+OCW3A   EQU     0BH     ; INTERRUPT OPERATION COMMAND HORD 3
+;
+INTVEC  EQU     0FF80H
+ICW1A   EQU     (INTVEC AND 0E0H) + 16H ; INTERRUPT COMMAND WORD 1
+ICW2A   EQU     INTVEC SHR 8            ; INTERRUPT COMMAND WORD 2
+;
+IMASK   EQU   NOT ((KEYINT AND 40H) OR (DSKINT AND 8))
+;
+; PORT DEFINITIONS AND CONSTANTS FOR THE 8253 PIT. COUNTER #2 IS USED
+; AS THE BAUD RATE CLOCK FOR THE USART.
+TMCP    EQU     0DFH    ; INTERVAL TIMER COMMAND PORT
+CTR0    EQU     0DCH    ; COUNTER 0 PORT
+CTR1    EQU     0DDH    ; COUNTER 1 PORT
+CTR2    EQU     0DEH    ; COUNTER 2 PORT
+C2M3    EQU     0B6H    ; COUNTER 2 TO MODE 3 COMMAND WORD
+MSVC0   EQU     0       ; MOST SIGNIFICANT VALIE FOR COUNTER 0
+LSVC0   EQU     20H     ; LEAST SIGNIFICANT VALUE FOR COUNTER 0
+COM0    EQU     030H    ; COUNTER 0 TO MODE 0; SINGLE STEP COMMAND HORD
+;
+;
+; THE #1 PPI (U16 USES THREE BITS ON PORT C FOR SYSTEM CONTROL:
+;       PORT    BIT                     FUNCTION
+;       ====    ===                     ========
+;       0E6H     7      PROM ENABLE (ON-BOARD EPROM ADDRESSING ENABLED IF HIGH)
+;       0E6H     6      TERMINAL COUNT COMMAND TO FDDC ON SBX-218
+;       0E6H     0      INTERRUPT FROM END OF SEEK OR RECALIBRATE ON SBX-218.
+; THE #2 PPI  (U18) USES PORT A FOR DATA OUTPUT TO A CENTRONICS TYPE PRINTER.
+; TWO BITS ON PORT C OF #2 PPI ARE USED FOR CONTROL:
+;       0EAH     7      /DATA STROBE
+;       0EAH     0      /ACKNOWLEDGE
+; SETUP PPI #1 FOR PORTS A, B, AND C(HIGH) = OUTPUT, C(LOW) = INPUT.
+; SETUP PPI #2 FOR PORT A, B, AND C(HIGH) = OUTPUT, C(LOW) = INPUT.
+;
+; PORT DEFINITIONS FOR 8255A NO. 1 ON 80/24 (PARALLEL I/O PORTS)
+PORT1A  EQU     0E4H    ; READ/WRITE PORT A
+PORT1B  EQU     0E5H    ; READ/WRITE PORT B
+PORT1C  EQU     0E6H    ; READ/WRITE PORT C
+PT1CTL  EQU     0E7H    ; COMMAND PORT FOR 8255A
+;
+; PORT DEFINITIONS FOR 8255A NO. 2 ON 80/24 (PARALLEL I/O PORTS)
+PORT2A  EQU     0E8H    ; READ/WRITE PORT A
+PORT2B  EQU     0E9H    ; READ/WRITE PORT B
+PORT2C  EQU     0EAH    ; READ/WRITE PORT C
+PT2CTL  EQU     0EBH    ; COMMAND PORT FOR 8255A
+;
+; SPECIAL MASKS FOR SPECIAL I/O CONTROL LINES
+ROMMSK  EQU     80H     ; BIT 7 OF PORT1C TO TURN OFF ON-BOARD EPROM
+TCON    EQU     0DH     ; TERMINAL COUNT COMMAND LINE TO FDCC
+TCOFF   EQU     0CH     ; TERMINAL COUNT CANCEL
+PRTSTB  EQU     0EH     ; PRINTER STROBE ON (LOW ACTIVE)
+;
+;
+; JUMP VECTORS FOR INDIVIDUAL SUBROUTINES
+        JMP     BOOT            ; COLD START
+WBOOTE: JMP     WBOOT           ; WARM START
+        JMP     CONST           ; CONSOLE STATUS
+        JMP     CONIN           ; CONSOLE CHARACTER IN
+        JMP     CONOUT          ; CONSOLE CHARACTER OUT
+        JMP     LIST            ; LIST CHARACTER OUT
+        JMP     PUNCH           ; PUNCH CHARACTER OUT
+        JMP     READER          ; READER CHARACTER OUT
+        JMP     HOME            ; MOVE HEAD TO HOME POSITION
+        JMP     SELDSK          ; SELECT DISK
+        JMP     SETTRK          ; SET TRACK NUMBER
+        JMP     SETSEC          ; SET SECTOR NUMBER
+        JMP     SETDMA          ; SET DMA ADDRESS
+        JMP     READ            ; READ DISK
+        JMP     WRITE           ; WRITE DISK
+        JMP     LISTST          ; RETURN LIST STATUS
+        JMP     SECTRAN         ; SECTOR TRANSLATE
+;
+;
+; ROUTINE: PRINTM
+; FUNCTION: PRINT OUT MESSAGE TO CONSOLE MESSAGE MUST END WITH ASCII NULL (00)
+; USES: CONOUT
+; ARGUMENTS: STRING POINTER IN HL
+; RETURNS:
+; DESTROYS: PSH, HL, C
+PRINTM:
+        MOV     A,M
+        ORA     A
+             RZ
+        MOV     C,A
+        CALL     CONOUT
+        INX     H
+        JMP     PRINTM
+;
+;
+; SIGNON MESSAGE
+BMSG:   DB      0DH,0AH,'SBC-80/24 AND SBX-218 CP/M Z 2 V3.0'
+        DB     ' (REVISED 01/15/82)',0DH,0AH,0
+;
+;                       *****************************************
+;                       *                                       *
+;                       *         BOOTSTRAP OPERATIONS          *
+;                       *                                       *
+;                       *****************************************
+BOOT:
+; INITIALIZE THE PPIS AND TURNOFF THE EPROM.
+        MVI     A,81H
+        OUT     PT1CTL
+        OUT     PT2CTL          ; INITIALIZE PORTS AND TURN OFF EPROM
+;
+; INITIALIZE THE 8272
+        CALL     DKINIT
+;
+; INITIALIZE  INTERRUPT CONTROLLER
+             DI
+        MVI     A,ICW1A
+        OUT     ICW1
+        MVI     A,ICW2A
+        OUT     ICW2
+        MVI     A,IMASK
+        OUT     IMR
+             EI
+;
+; INITIALIZE THE CONSOLE PORT AT 9600 BAUD.
+        XRA     A
+        OUT     CMX351
+        OUT     CMX351
+        OUT     CMX351
+        MVI     A,RSTUST
+        OUT     CM8251
+        MVI     A,(MODE OR 80H)
+        OUT     CM8251
+        MVI     A,35H
+        OUT     CM8251
+        MVI     A,C2M3
+        OUT     TMCP
+        LXI     H,B9600
+        MOV     A,L
+        OUT     CTR2
+        MOV     A,H
+        OUT     CTR2
+;
+IF      ORS
+; IF THIS IS THE ORS BIOS, INITIALIZE THE SECOND SERIAL PORT.
+        XRA     A
+        OUT     CM51
+        OUT     CM51
+        OUT     CM51
+        MVI     A,RSTUST
+        OUT     CM51
+        MVI     A,(MODE OR 80H)
+        OUT     CM51
+        MVI     A,35H
+        OUT     CM51
+ENDIF
+;
+IF      SBX351
+; IF THIS IS THE SBX-351 BIOS, INITIALIZE THE SECOND SERIAL PORT.
+        XRA     A
+        OUT     CMX351
+        OUT     CMX351
+        OUT     CMX351
+        MVI     A,RSTUST
+        OUT     CMX351
+        MVI     A,(MODE OR 80H)
+        OUT     CMX351
+        MVI     A,35H
+        OUT     CMX351
+        MVI     A,C2M3
+        OUT     CNTCTLX
+        LXI     H,BX9600
+        MOV     A,L
+        OUT     CNTR2X
+        MOV     A,H
+        OUT     CNTR2X
+ENDIF
+;
+; NOW COMES THE TIME TO COLD BOOT CP/M. IE NEED TO READ ONLY THE CCP AND BDOS,
+; BECAUSE THE BIOS HAS ALREADY BEEN LOADED.
+        XRA     A               ; ZERO IN BE ACCW
+;       STA     IOBYTE          ; CLEAR THE lOBYTE
+        STA     CDISK           ; SELECT DISK ZERO
+        LXI     H,BMSG
+        CALL    PRINTM          ; PRINT SIGNON MESSAGE
+;
+; INITIALIZE DEBLOCKING ALGORITHM
+        XRA     A
+        STA     HSTACT
+        STA     UNACNT
+        STA     HSTWRT
+;
+; WARM BOOT. COME HERE ON CTL-C AS WELL
+WBOOT:
+        LXI     SP,STKTOP       ; USE SPACE IN BUFFER FOR STACK
+; INITIALIZE THE PPIS AND TURNOFF THE EPROM.
+        MVI     A,81H
+        OUT     PT1CTL
+        OUT     PT2CTL          ; INITIALIZE PORTS MID TURN OFF EPROM
+;
+IF      SGLMST
+; THIS IS AN OPTIONAL MANEUVER, AND CAN NOT BE USED IF OTHER BUS MASTERS RESIDE
+; IN THE SYSTEM: ASSERT BUS LOCK.
+        MVI     A, 1
+        OUT     BUSLCK
+ENDIF
+;
+;
+; SETUP JUMP AT 0 TO WBOOT
+        MVI     A, 0C3H         ; C3 IS BE JUMP INSTRUCTION
+        STA     0               ; STORE IT AT 0
+        LXI     H,WBOOTE        ; SET IN BE VECTOR
+        SHLD    1               ; AND STORE IT
+;
+; DO THE SAME FOR THE JUMP VECTOR TO BDOS AT 5
+        STA     5               ; STORE JUMP INSTRUCTION
+        LXI     H,BDOS          ; GET VECTOR
+        SHLD    6               ; STORE THE JUMP INSTRUCTION
+;
+        LXI     B,80H           ; SET BE DEFAULT DMA ADDRESS = 80H
+        CALL    SETDMA
+;
+        CALL    SNIFF           ; SNIFF FOR READY DRIVES
+;
+; RELOAD CP/M
+        MVI     C,0
+        CALL    SELDSK          ; BOOT FROM DRIVE 0
+        CALL    HOME
+        CALL    RECAL
+        CALL    BOOTCPM
+; END OF LOAD OPERATION, SET PARMETERS AND GO TO CP/M
+GOCPM:
+        LDA     CDISK           ; GET CURRENT DISK NUMBER
+        MOV     C, A            ; LOAD IT UP
+        JMP     CCP             ; AND AWAY WE GO TO CPMLAND
+;
+;
+;$EJECT
+;                       *****************************************
+;                       *                                       *
+;                       *         NON-DISK I/O HANDLERS         *
+;                       *                                       *
+;                       *****************************************
+;
+IF      NOT KEYINT
+; THE CONSOLE ROUTINES UTILIZE THE 8251A PCI.
+; BAUD RATE INITIALIZATION FOR THE PCI IS HANDLED IN THE BOOT PROM PROGRAM.
+; THE READER/PUNCH ROUTINES ARE UNIMFLEMENTED.
+; CONSOLE STATUS, RETURN 0FFH IF CHARACTER READY, 00 IF NOT
+; THIS ROUTINE ALSO OCCASIONALLY (EVERY 65K TRIES) CHECKS THE READY STATUS
+; OF THE DRIVES TO SEE IF A DISK IS BEING CHANGED.
+CONST:
+        LUD     COUNTR
+        DCX     H
+        MOV     A,L
+        ORA     H
+        SHLD    COUNTR
+        JNZ     NTSTCT          ; DON'T CHECK READY EXCEPT WEN WANTED
+        CALL    TSTRDY          ; OK, DO IT.
+NTSTCT:
+        IN      ST8251
+        RAR
+        RAR
+        MVI     A,0
+        RNC
+        MVI     A,0FFH
+        RET
+;
+;
+; ROUTINE: CONIN
+; FUNCTION: CONSOLE CHARACTER INTO REGISTER A
+; USES: CONST, CONIN
+; ARGUMENTS:
+; RETURNS: CHARACTERIN A
+; DESTROYS: PSW
+CONIN:
+        CALL    CONST
+        ORA     A
+        JZ      CONIN
+        IN      RD8251
+        ANI     7FH             ; STRIP PARITY BIT
+        RET
+;
+ININT   EQU     BOOT            ; MASK OFF INPUT INTERRIFT
+        ENDIF
+;
+        IF     KEYINT
+;
+; ROUTINE: CONST
+; FUNCTION: CONSOLE STATUS CHECK
+; USES: TSTRDY
+; ARGUMENTS:
+; RETURNS: A = FF IF INPUT READY
+; DESTROYS: PSW, BC, HL
+; THE CONSOLE ROUTINES UTILIZE THE 8251A PCI.
+; BAUD RATE INITIALIZATION FOR THE PCI IS HANDLED IN THE BOOT PROM PROGRAM.
+; THE READER/PUNCH ROUTINES ARE UNIMPLEMENTED.
+; CONSOLE STATUS, RETURN 0FFH IF CHARACTER READY, 00 IF NOT
+CONST:
+        LDA     RBIPTR + 1      ; LOAD INPUT POINTER
+        RET
+;
+; ROUTINE: CONIN
+; FUNCTION: CONSOLE CHARACTER INTO REGISTER A
+; USES: CONST, CONIN
+; ARGUMENTS:
+; RETURNS: CHARACTERIN A
+; DESTROYS: PSW
+CONIN:
+CONIN1:
+        CALL    CONST
+        ORA     A
+        JZ      CONIN1
+        LHLD    RBIPTR
+        MVI     H,0
+        SHLD    RBIPTR          ; GET DATA - ERASE INPUT FLAG
+        MOV     A,L
+        RET
+;
+; CONSOLE INTERRUPT SERVICE ROUTINE
+ININT:
+        PUSH    PSW
+        PUSH    H
+        IN      RD8251          ; GET INPUT
+        ANI     7FH             ; STRIP PARITY
+        EI                      ; CHARACTER IN - RESET INTERRUPT
+        MOV     L,A             ; SAVE NEW CHAR
+;
+        IN      ST8251
+        ANI     40H
+        JZ      NOBRK           ; JUMP IF NO BREAK
+;
+BREAKK:
+        IN      ST8251
+        ANI     40H             ; MASK FOR BREAK DETECT BIT
+        IN      RD8251          ; WASTE IFFUT
+        JNZ     BREAKK          ; LOOP IF BREAK
+        MVI     A,EOIC
+        OUT     OCW2
+        JMP     0               ; BOOT WHEN DONE
+;
+NOBRK:
+        MVI     H,TRUE
+        SHLD    RBIPTR          ; SAVE CHARACTER, SET CHARACTER READY FLAG
+        MVI     A, EOIC
+        OUT     OCW2
+        POP     H
+        POP     PSW
+        RET
+;
+OLDCHAR:DB      0       ; PREVIOUS CHARACTER
+RBIPTR: DW      0       ; INPUT RING BUFFER INSERT POINTER
+        ENDIF
+;
+; ROUTINE: CONOUT
+; FIWCTION: CONSOLE CHARACTER OUTPUT FROM REGISTER C
+; USES:
+; ARGUMENTS: CHARACTER IN C
+; RETURNS:
+; DESTROYS: PSW
+CONOUT:
+        IN      ST8251
+        RAR
+        JNC     CONOUT
+        MOV     A,C
+        OUT     WR8251
+        RET
+;
+        IF      CNTLST
+; ROUTINE: LIST
+; FUNCTION: LIST CHARACTER FROM REGISTER C
+; USES: LISTST
+; ARGUMENTS: CHARACTER IN C
+; RETURNS:
+; DESTROYS: PSW
+
+; THE LIST ROUTINE WORKS OFF THE SECOND 8255A, COMING OUT ON J2. THIS
+; INTERFACE ASSUMES THE CENTRONICS PARALLEL INTERFACE, AND USES ALL OF
+; PORT2A FOR DATA, PORT2C BIT 0 FOR THE /READY LINE, AND PORT2C BIT 7
+; FOR THE /STROBE LINE
+;
+; N B.  FOR TH USER: THIS ROUTINE HAS NEVER KEN TESTED!!!
+LIST:
+        CALL    LISTST          ; GET LIST STATUS
+        JNZ     LIST            ; LOOP IXTIL READY
+        MOV     A,C             ; CHARACTER TO KGISTER A
+        OUT     PORT2A          ; OUTPUT PRINTER DATA BYTE TO PKT 1A
+        MVI     A,PRTSTB        ; GET PRINTER STROBE WORD
+        OUT     PT2CTL
+        INR     A              ; TURN OFF STROBE
+        OUT     PT2CTL
+        RET
+;
+; ROUTINE: LISTST
+; FUNCTION: RETURN LIST STATUS (0 IF NOT READY, 1 IF READY)
+; USES:
+; ARGUMENTS:
+; RETURNS: STATUS IN A
+; DESTROYS: PSW
+LISTST:
+        IN      PORT1C
+        ANI     1
+        RET
+;
+        ENDIF
+;
+;
+        IF      ORS
+; ROUTINE: LIST
+; FUNCTION: LIST CHARACTER
+; USES:
+; ARGUMENTS: CHARACTER IN C
+; RETURNS:
+; DESTROYS: PSW
+; ORS CONFIGURATION FOR USE OF NSC BLC-104 CARD SERIAL PORT TO DRIVE RS-232C
+; PRINTER INTERFACE
+LIST:
+        IN      ST51
+        RAR
+        JNC     LIST
+        MOV     A,C
+        OUT     WR51
+        RET
+;
+; ROUTINE: LISTST
+; FUNCTION:
+; USES:
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS:
+LISTST:
+        RET
+;
+        ENDIF
+;
+        IF      SBX351
+; ROUTINE: LIST
+; FUNCTION: LIST CHARACTER
+; USES:
+; ARGUMENTS: CHARACTER IN C
+; RETURNS:
+; DESTROYS: PSW
+; SBX-351 CONFIGURATION FOR USE OF SBX-351 CARD SERIAL PORT TO DRIVE RS-232C
+; PRINTER INTERFACE SUPPORTS XON/XOFF PROTOCOL
+LIST:
+        IN      STX351
+        ANI     RBR
+        JZ      NORCVE
+        IN      RDX351          ; SKIP IF NO REVERSE CHANNEL STUFF
+        CPI     CTLS            ; IS INPUT CTL-S (XOFF)?
+        JNZ     NORCVE          ; JUMP PAST IF NOT
+WTCTLQ:
+        IN      STX351          ; WAIT FOR NEXT CHARACTER (SHOULD BE XON)
+        ANI     RBR
+        JZ      WTCTLQ          ; LOOP TIL IT COMES
+        IN      RDX351          ; TEST CHARACTER
+        CPI     CTLQ            ; IS IT CTL-Q (XON) ?
+        JNZ     WTCTLQ          ; LOOP BACK IF NOT
+;
+NORCVE:
+        IN      STX351          ; TEST FOR TX KADY
+        RAR
+        JNC     NORCVE          ; WAIT TIL SO
+        MOV     A,C             ; GET CHARACTER
+        OUT     WRX351          ; SEND IT
+        RET
+;
+; ROUTINE: LISTST
+; FUNCTION:
+; USES:
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS;
+LISTST:
+        RET
+;
+        ENDIF
+;
+;
+; ROUTINE: PUNCH
+; FUNCTION; PUNCH CHARACTER FROM REGISTER C
+; USES:
+; ARGUMENTS: CHARACTER IN C
+; RETURNS:
+; DESTROYS; PSW
+
+PUNCH:
+        MOV     A,C     ; CHARACTER TO REGISTER A
+        RET             ; NULLL SUBROUTINE
+;
+; ROUTINE: READER
+; FUNCTION: READ CHARACTER INTO REGISTER A FROM READER DEVICE
+; USES:
+; ARGUMENTS:
+; RETURNS: 1AH IN A
+; DESTROYS: PSW
+READER:
+
+        MVI     A,1AH   ; ENTER END OF FILE FOR NOW (REPLACE LATER)
+        RET
+;
+; ROUTINE: HOME
+; FUNCTION: SET CURRENT DRIVE TRACK NUMBER = 0
+; USES: SETTRK
+; ARGUMENTS;
+; RETURNS:
+; DESTROYS: C, PSW
+; DOES NOT PERFORM ACTUAL HEAD MOVEMENT
+HOME:
+        MVI     C,0     ; SELECT TRACK 0
+        CALL    SETTRK
+        RET             ; WE WILL MOVE TO 00 ON FIRST READ/WRITE
+;
+; ROUTINE: SELDSK
+; FUNCTION: SELECT DRIVE, TEST FOR VALID DRIVE
+; USES:
+; ARGUMENTS: DRIVE NUMBER IN C
+; RETURNS: HL = 0 IF INVALID DRIVE, ELSE HL = ADDRESS OF DRIVE PARAMETER BLOCK
+; DESTROYS: PSW, C, DE, HL
+SELDSK:
+        LXI     H,0000H ; LOAD ERROR CODE AND ANTICIPATE FAILURE (PESSIMISM)
+        MOV     A,C
+        STA     DISKNO  ; SAVE DESIRED DISK NO FOR REFERENCE
+        CPI     NUMDSK  ; MUST BE BETWEEN 0 AND NUMDSK-1
+        RNC             ; NO CARRY IF >= NUMDSK
+; DISK NUMBER IS IN THE PROPER RANGE
+; COMPUTE PROPER DISK PARAMETH? HEADER ADDRESS
+        MOV     L,A     ; L=DISK NUMBER 0,1,2,3
+        MVI     H,0     ; HIGH ORDER ZERO
+        DAD     H       ; *2
+        DAD     H       ; *4
+        DAD     H       ; *8
+        DAD     H       ; *16 (SIZE OF EACH HEADER)
+        LXI     D,DPBASE
+        DAD     D       ; HL=.DPBASE(DISKNO»16)
+        RET
+;
+
+; ROUTINE: SETTRK
+; FUNCTION: SET TRACK GIVEN BY REGISTER C
+; USES:
+; ARGUMENTS: TRACK NUMBER IN C
+; RETIKNS:
+; DESTROYS: PSW
+; DOES NOT MOVE HEAD
+SETTRK:
+        MOV     A, C
+        STA     TRACK
+        RET
+;
+
+; ROUTINE: SETSEC
+; FUNCTION: SET SECTOR GIVEN BY FEGISTER C
+; USES:
+; ARGUMENTS: SECTOR NUMBER IN C
+; RETURNS:
+; DESTROYS: PSW
+SETSEC:
+        MOV     A,C
+        STA     SECTOR
+        RET
+;
+; ROUTINE: SECTRAN
+; FUNCTION: TRANSLATE THE SECTOR GIVEN BY BC USING THE TABLE GIVEN BY DE
+; USES:
+; ARGUMENTS: BC, IE
+; RETURNS: IL = BC
+; DESTROYS: IL
+SECTRAN:
+; THIS IS A NULL ROUTINE DO NOTHING BUT RETURN LOGICAL AS PHYSICAL THE ACTUAL
+; TRANSLATION IS DONE JUST BEFORE DISK TRANSFER. THIS IS NECCESSARY DUE TO THE
+; USE OF THE SECTOR DEBLOCKING ALGORITHM.
+        MOV     H,B
+        MOV     L,C
+        RET
+;
+
+; ROUTINE: SETDMA
+; FUNCTION: SET DMA ADDRESS GIVEN BY AGISTER BC
+; USES:
+; ARGUMENTS: DMA ADDRESS IN BC
+; RETURNS:
+; DESTROYS: HL
+SETDMA:
+        MOV     L,C     ; LOW ORDER ADDRESS
+        MOV     H,B     ; HIGH ORDER ADDRESS
+        SHLD    DMAADR  ; SAVE THE ADDRESS
+        RET
+;
+;
+; ROUTINE: STSNGL
+; FUNCTION: SET DISK PARAMETERS
+; USES:
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW
+; SET ENTRY VALUES OF DISK, TRACK, AND SECTOR INTO THE SPOTS USED BY THE
+; ACTUAL ROUTINE. THIS IS NECESSITATED BY THE DEBLOCK PROCEDURE FOR DD.
+STSNGL:
+        MVI     A,80H
+        STA     DNSTYP          ; SET DENSITY TYPE FOR TRANSFER ROUTINE
+        LDA     DISKNO
+        STA     RUNDSK
+        LDA     TRACK
+        STA     RUNTRK
+        LDA     SECTOR
+        STA     RUNSEC
+        RET
+
+;
+; ROUTINE: STDBL
+; FUNCTION: SET DISK PARAMETERS
+; USES:
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW
+; SET ENTRY VALUES OF DISK, TRACK, AND SECTOR INTO THE SPOTS USED BY THE
+; ACTUAL ROUTINE THIS IS NECESSITATED BY THE DEBLOCK PROCEDURE FOR DD.
+STDBL:
+        LDA     HSTDSK
+        STA     RUNDSK
+        LDA     HSTTRK
+        STA     RUNTRK
+        LDA     HSTSEC
+        STA     RUNSEC
+        RET
+;
+; $EJECT
+;               *********************************
+;               *                               *
+;               *      CP/M READ AND WRITE      *
+;               *                               *
+;               *********************************
+;
+; CP/M TO HOST DISK CONSTANTS
+;
+BLKSIZ  EQU     2048            ; CP/M ALLOCATION SIZE
+HSTSIZ  EQU     256             ; HOST DISK SECTOR SIZE
+HSTSPT  EQU     26              ; HOST DISK SECTORS/TRK
+HSTBLK  EQU     HSTSIZ/128      ; CP/M SECTS/HOST BUFF
+CPMSPT  EQU     HSTBLK * HSTSPT ; CP/M SECTORS/TRACK
+SECMSK  EQU     HSTBLK-1        ; SECTOR MASK
+SECSHF  EQU     1               ; L0G2(HSTBLK)
+;
+; BDOS CONSTANTS ON ENTRY TO WRITE
+;
+WRALL   EQU     0               ; WRITE TO ALLOCATED
+WRDIR   EQU     1               ; WRITE TO DIRECTORY
+WRUAL   EQU     2               ; WRITE TO UNALLOCATED
+;
+;
+;
+; READ A 128 BYTE SECTOR FOR CP/M. SINGLE AND DOUBLE DENSITY MUST BE PERFORMED
+; IN DIFFERENT WAYS. SINGLE DENSITY IS FAIRLY TRIVIAL, SINCE IT USES A 128
+; BYTE SECTOR. DOUBLE DENSITY IS NO FUN AT ALL, SINCE 256 BYTE SECTORS ARE
+; USED. THEREFORE, THE DEBLOCKING ALGORITHM FROM THE CP/M 2.2 ALTERATION
+; GUIDE IS USED FOR DOUBLE DENSITY TRANSFERS. FOR FURTHER EXPLANATION OF THIS
+; AMAZING FEAT, SEE THE ABOVE MENTIONED GUIDE.
+READ:
+        CALL    GDNSTY          ; TEST THE DENSITY
+        JNZ     READ2           ; JKUMP IF DOUBLE DENSITY
+;
+        CALL    STSNGL          ; MOVE IN SINGLE DENSITY PARAMETERS
+        CALL    RDSST
+        LDA     ERFLAG
+        RET
+;
+READ2:
+; READ THE SELECTED DOUBLE DENSITY CP/M SECTOR
+        XRA     A
+        STA     UNACNT
+        MVI     A, 1
+        STA     READOP          ; READ OPERATION
+        STA     RSFLAG          ; MUST READ DATA
+        MVI     A,WRUAL
+        STA     WRTYPE          ; TREAT AS UNALLOC
+        JMP     RWOPER          ; TO PERFORM THE READ
+;
+; WRITE A CP/M SECTOR. SEE NOTES FOR READ, ABOVE THEY BASICALLY WORK HERE
+; TOO. UPON ENTRY, THE C REG CONTAINS 0 FOR NORMAL WRITE, 1 IF DIRECTORY WRITE,
+; OR 2 IF WRITE TO UNALLOCATED.
+WRITE:
+        PUSH    B               ; SAVE CONTENTS IN C
+        CALL    GDNSTY          ; TEST DENSITY OF DRIVE
+        POP     B               ; RECOVER C
+        JNZ     WRITE2          ; JUMP IF DOUBLE DENSITY
+;
+        CALL    STSNGL          ; ELSE SAVE SINGLE PARAMETERS
+        CALL    WRTSST          ; WRITE SINGLE DENSITY
+        LDA     ERFLAG          ; FLAG
+        RET
+;
+WRITE2:
+; WRITE THE SELECTED DOUBLE DENSITY CP/M SECTOR
+        XRA     A               ; 0 TO ACCUMULATOR
+        STA     READOP          ; NOT A READ OPERATION
+        MOV     A,C             ; WRITE TYPE IN C
+        STA     WRTYPE          ; SAVE NOW
+        CPI     WRUAL           ; WRITE UNALLOCATED?
+        JNZ     CHKUNA
+;
+; WRITE TO UNALLOCATED; SET PARAMETERS
+        MVI     A,BLKSIZ/128
+        STA     UNACNT
+        LDA     DISKNO          ; DISK TO SEEK
+        STA     UNADSK          ; UNADSK = DISKNO
+        LHLD    TRACK
+        SHLD    UNATRK          ; UNATRK = TRACK
+        LDA     SECTOR
+        STA     UNASEC          ; UNASEC = SECTOR
+;
+CHKUNA:
+; CHECK FOR WRITE TO UNALLOCATED SECTOR
+        LDA     UNACNT          ; ANY UNALLOC REMAIN?
+        ORA     A
+        JZ      ALLOC           ; SKIP IF NOT
+;
+; MORE UNALLOCATED RECORDS REMAIN
+        DCR     A               ; UNACNT = UNACNT-1
+        STA     UNACNT
+        LDA     DISKNO          ; SAME DISK?
+        LXI     H,UNADSK
+        CMP     M               ; DISKNO = UNADSK?
+        JNZ     ALLOC           ; SKIP IF NOT
+;
+; DISKS ARE THE SAME
+        LDA     TRACK
+        LXI     H,UNATRK
+        CMP     M               ; TRACK = UNATRK?
+        JNZ     ALLOC           ; SKIP IF NOT
+;
+; TRACKS ARE THE SAME
+        LDA     SECTOR          ; SAME SECTOR?
+        LXI     H,UNASEC
+        CMP     M               ; SECTOR = UNASEC?
+        JNZ     ALLOC           ; SKIP IF NOT
+;
+; MATCH, MOVE TO NEXT SECTOR FOR FUTURE REF
+        INR     M               ; UNASEC = UNASEC+1
+        MOV     A,M             ; END OF TRACK?
+        CPI     CPMSPT          ; COUNT CP/M SECTORS
+        JC      NOOVF           ; SKIP IF NO OVERFLOW
+;
+; OVERFLOW TO NEXT TRACK
+        MVI     M,0             ; UNASEC = 0
+        LHLD    UNATRK
+        INX     H
+        SHLD    UNATRK          ; UNATRK = UNATRK+1
+;
+NOOVF:
+; MATCH FOUND, MARK AS UNECESSARY READ
+        XRA     A               ; 0 TO ACCUMULATOR
+        STA     RSFLAG          ; RSFLAG = 0
+        JMP     RWOPER          ; TO PERFORM THE WRITE
+;
+ALLOC:
+; NOT AN UNALLOCATED RECORD, REQUIRES PRE-READ
+        XRA     A               ; 0 TO ACCOM
+        STA     UNACNT          ; UNACNT « 0
+        INR     A               ; 1 TO ACCUM
+        STA     RSFLAG          ; RSFLAG = 1
+;
+;****************************************************
+;*                                                  *
+;*      COMMON CODE FOR READ AND WRITE FOLLOWS      *
+;*                                                  *
+;****************************************************
+RWOPER:
+        ; ENTER HERE TO PERFORM THE READ/WRITE
+        XRA     A               ; ZERO TO ACCUM
+        STA     ERFLAG          ; NO ERRORS (YET)
+        STA     DNSTYP          ; SET DENSITY TYPE FLAG FOR TRANSER ROUTINE.
+        LDA     SECTOR          ; COMPUTE HOST SECTOR
+        ORA     A               ; CARRY = 0
+        RAR                     ; SHIFT RIGHT
+        STA     SEKHST          ; HOST SECTOR TO SEEK
+;
+; ACTIVE HOST SECTOR?
+        LXI     H,HSTACT        ; HOST ACTIVE FLAG
+        MOV     A,M
+        MVI     M, 1            ; ALWAYS BECOMES 1
+        ORA     A               ; WAS IT ALREADY?
+        JZ      FILHST          ; FILL HOST IF NOT
+;
+; HOST BUFFER ACTIVE, SME AS SEEK BUFFER?
+        LDA     DISKNO
+        LXI     H, HSTDSK       ; SME DISK?
+        CMP     M               ; DISKNO = HSTDSK?
+        JNZ     NOMATCH
+;
+; SAME DISK, SAME TRACK?
+        LDA     TRACK
+        LXI     H, HSTTRK
+        CMP     M               ; TRACK = HSTTRK?
+        JNZ     NOMATCH
+;
+; SAME DISK, SAME TRACK, SAME BUFFER?
+        LDA     SEKHST
+        LXI     H,HSTSEC        ; SEKHST = HSTSEC?
+        CMP     M
+        JZ      MATCH           ; SKIP IF MATOR
+;
+NOMATCH:
+; PROPER DISK, BUT NOT CORRECT SECTOR
+        LDA     HSTWRT          ; HOST WRITTEN?
+        ORA     A
+        CNZ     WRTHST          ; CLEAR HOST BUFF
+;
+FILHST:
+; MAY HAVE TO FILL THE HOST BUFFER
+        LDA     DISKNO
+        STA     HSTDSK
+        LHLD    TRACK
+        SHLD    HSTTRK
+        LDA     SEKHST
+        STA     HSTSEC
+        LDA     RSFLAG          ; NEED TO READ?
+        ORA     A
+        CNZ     RDHST           ; YES, IF 1
+        XRA     A               ; 0 TO ACCOM
+        STA     HSTWRT          ; NO PENDING WRITE
+;
+MATCH:
+; CORY DATA TO OR FROM BUFFER
+        LDA     SECTOR          ; MASK DIFFER NIMBER
+        ANI     SECMSK          ; LEAST SIGNIF BITS
+        MOV     L,A             ; READY TO SHIFT
+        MVI     H,0             ; DOUBLE COUNT
+        DAD     H
+        DAD     H
+        DAD     H
+        DAD     H
+        DAD     H
+        DAD     H
+        DAD     H
+; HL HAS RELATIVE HOST DIFFER ADDRESS
+        LXI     D,HSTBUF
+        DAD     D               ; HL = HOST ADDRESS
+        XCHG                    ; NOW IN DE
+        LHLD    DMAADR          ; GET/PUT CP/M DATA
+        MVI     C,128           ; LENGTH OF MOVE
+        LDA     READOP          ; WHICH WAY?
+        ORA     A
+        JNZ     RWMOVE          ; SKIP IF READ
+;
+; WRITE OPERATION, MARK AND SWITCH DIRECTION
+        MVI     A,1
+        STA     HSTWRT          ; HSTWT = 1
+        XCHG                    ; SOURCE/DEST SWAP
+;
+RWMOVE:
+; C INITIALLY 128, DE IS SOURCE, HL IS DEST
+        LDAX     D              ; SOURCE CHARACTER
+        INX     D
+        MOV     M,A             ; TO DEST
+        INX     H
+        DCR     C               ; LOOP 128 TIMES
+        JNZ     RWMOVE
+;
+; DATA HAS BEEN MOVED TO/FROM HOST BUFFER
+        LDA     WRTYPE          ; WRITE TYPE
+        CPI     WRDIR           ; TO DIRECTORY?
+        LDA     ERFLAG          ; IN CASE OF ERRORS
+        RNZ                     ; NO FURTHER PROCESSING
+;
+; CLEAR HOST BUFFER FOR DIRECTORY WRITE
+        ORA     A               ; ERRORS?
+        RNZ                     ; SKIP IF SO
+        XRA     A               ; 0 TO ACCOM
+        STA     HSTWRT          ; BUFFER WRITTEN
+        CALL    WRTHST
+        LDA     ERFLAG
+        RET
+;
+; SELECT
+; FIXED DATA TABLES FOR DOUBLE AND SINGLE DENSITY
+; IBM-COMPATIBLE 8" DISKS
+; DISK PARAMETER HEADER FOR DISK 00
+; DEFAULT ARRANGEMENT SETS DRIVES TO SINGLE DENSITY
+DPBASE: DW      TRANS, 0000H
+        DW      0000H, 0000H
+        DW      DIRBF,DPBLK1
+        DW      CHK00, ALL00
+; DISK PARAMETER HEADER FOR DISK 01
+        DW      TRANS,0000H
+        DW      0000H, 0000H
+        DW      DIRBF,DPBLK1
+        DW      CHK01,ALL01
+; DISK PARAMETER HEADER FOR DISK 02
+        DW      TRANS,0000H
+        DW      0000H,0000H
+        DW      DIRBF,DPBLK1
+        DW      CHK02,ALL02
+; DISK PARAMETER HEADER FOR DISK 03
+        DW      TRANS,0000H
+        DW      0000H, 0000H
+        DW      DIRBF, DPBLK1
+        DW      CHK03,ALL03
+;
+; SECTOR TRANSLATE VECTOR
+TRANS:  DB      1,7,13,19       ;SECTORS 1,2,3,4
+        DB      25,5,11,17      ;SECTORS 5,6,7,8
+        DB      23,3,9,15       ;SECTORS 9,10,11,12
+        DB      21,2,8,14       ;SECTORS 13,14,15,16
+        DB      20,26,6,12      ;SECTORS 17,18,19,20
+        DB      18,24,4,10      ;SECTORS 21,22,23,24
+        DB      16,22           ;SECTORS 25,26
+;
+; DISK PARAMETER BLOCK, COMMON TO ALL DOUBLE DENSITY DISKS
+DPBLK2:
+        DW      52              ;SECTORS PER TRACK
+        DB      4               ;BLOCK SHIFT FACTOR
+        DB      15              ;BLOCK MASK
+        DB      1               ;EXTENT MASK
+        DW      242             ;DISK SIZE-1
+        DW      127             ;DIRECTORY MAX
+        DB      192             ;ALLOC 0
+        DB      0               ;ALLOC 1
+        DW      32              ;CHECK SIZE
+        DW      2               ;TRACK OFFSET
+;
+; DISK PARAMETER BLOCK, COMMON TO ALL SINGLE DENSITY DISKS
+DPBLK1:
+        DW      26              ;SECTORS PER TRACK
+        DB      3               ;BLOCK SHIFT FACTOR
+        DB      7               ;BLOCK MASK
+        DB      0               ;NULL MASK
+        DW      242             ;DISK SIZE-1
+        DW      63              ;DIRECTORY MAX
+        DB      192             ;ALLOC 0
+        DB      0               ;ALLOC 1
+        DW      16              ;CHECK SIZE
+        DW      2               ;TRACK OFFSET
+;
+; END OF FIXED TABLES
+; $EJECT
+;                       *********************************
+;                       *                               *
+;                       *     VARIABLE DECLARATIONS     *
+;                       *                               *
+;                       *********************************
+;
+DISKNO: DB      0               ; SEEK DISK NUMBER
+TRACK:  DB      1               ; SEEK TRACK NUMBER
+SECTOR: DB      1               ; SEEK SECTOR NUMBER
+DMAADR: DS      2               ; DIRECT MEMORY ADDRESS
+TRKSEK: DB      0               ; TRACK TO SEEK
+;
+HSTDSK: DB      0               ; HOST DISK NUMBER
+HSTTRK: DB      0               ; HOST TRACK NUMBER
+HSTSEC: DB      1               ; HOST SECTOR NUMBER
+HSTBUF: DS      256             ; HOST TRANSFER BUFFER
+;
+SEKHST: DB      1               ; SEEK SHR SECSHF
+HSTACT: DB      0               ; HOST ACTIVE FLAG
+HSTWRT: DB      0               ; HOST WRITTEN FLAG
+;
+UNACNT: DB      0               ; UNALLOC REC CNT
+UNADSK: DB      0               ; LAST UNALLOC DISK
+UNATRK: DB      0               ; LAST UNALLOC TRACK
+UNASEC: DB      1               ; LAST UNALLOC SECTOR
+;
+ERFLAG: DS      1               ; ERROR REPORTING
+ERRCNT: DS      1               ; COUNT OF ERRORS ENCOUNTERED
+;
+RSFLAG: DS      1               ; READ SECTOR FLAG
+READOP: DS      1               ; 1 IF READ OPERATION
+WRTYPE: DS      1               ; WRITE OPERATION TYPE
+;
+COUNTR: DS      2               ; TIMER FOR READY CHECK
+;
+;
+DIRBF:  DS      128     ; SCRATCH DIRECTORY AREA
+ALL00:  DS      31      ; ALLOCATION VECTOR 0
+ALL01:  DS      31      ; ALLOCATION VECTOR 1
+ALL02:  DS      31      ; ALLOCATION VECTOR 2
+ALL03:  DS      31      ; ALLOCATION VECTOR 3
+CHK00:  DS      32      ; CHECK VECTOR 0
+CHK01:  DS      32      ; CHECK VECTOR 1
+CHK02:  DS      32      ; CHECK VECTOR 2
+CHK03:  DS      32      ; CHECK VECTOR 3
+STACKB: DS      32      ; STACK AREA
+STKTOP  EQU     $       ; INITIAL STACK POINTER
+;
+;$EJECT
+;               *************************************************   
+;               *                                               *
+;               *       DISK CONTROLLER DEPENDENT ROUTINES      *
+;               *                                               *
+;               *************************************************   
+;
+; PORT DEFINITIONS FOR THE 8272 ON THE SBX-218 (DISK CONTROLLER)
+ST8272  EQU     0F0H    ; READ MAIN STATUS REGISTER OF €272
+RD8272  EQU     0F1H    ; READ FROM 8272 DATA REGISTER
+WR8272  EQU     0F1H    ; WRITE TO 8272 DATA REGISTER
+;
+;
+;                       ****************************
+;                       COMMAND DEFINITIONS FOR 8272
+;                       ****************************
+;
+; CONTROLLER COMMANDS
+SPECFY  EQU     3       ; 8272 SPECIFY MODE COWAND
+SNSDRV  EQU     4       ; SENSE DRIVE STATUS COMMAOR
+XWRITE  EQU     5       ; WRITE
+XREAD   EQU     6       ; READ
+XRECAL  EQU     7       ; HOOR
+SNSINT  EQU     8       ; SENSE INTERRUPT STATUS COMMAND
+XSEEK   EQU     15      ; SEEK
+;
+SRT     EQU     9       ; STEP RATE TAKE
+HUT     EQU     15      ; HEAD UNLOAD TIME
+HLTIME  EQU     32      ; HEAD LOAD TIME
+;
+DNSTY1  EQU     0       ; SINGLE DENSITY FLAG
+DNSTY2  EQU     40H     ; DOUBLE DENSITY FLM3
+;
+EOT     EQU     26      ; LAST SECTOR CM TRACK
+GPL1    EQU     7       ; GAP LENGTH FOR SINGLE DENSITY
+GPL2    EQU     14      ; GAP LENGTH FOR DOUBLE EENSITY
+N1      EQU     0       ; SECTOR SIZE COOR FOR SINGLE DENSITY
+N2      EQU     1       ; SECTOR SIZE CODE FOR DOUBLE DENSITY
+DTL1    EQU     128     ; BYTES PER SECTOR FOR SINGLE DENSITY
+DTL2    EQU     0FFH    ; BYTES PER SECTOR FOR DOUBLE DENSITY
+;
+SCSMSK  EQU     0C0H    ; BIT MASK TO TEST ST0 FOR SUCCESSFUL OPERATION
+;
+; ROUTINE: DKINIT
+; FUNCTION: INITIALIZE 8272 ON SBX-218
+; USES: BSYCHK, OUTRDY
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW
+DKINIT:
+        CALL    BSYCHK          ; WAIT FOR CONTROLLER CLEAR (SHOULD BE)
+        MVI     A,3
+        OUT     WR8272          ; GIVE CONTROLLER SPECIFY COMMAND
+        CALL     OUTRDY
+        MVI     A, (SRT SHL 4) + HUT    ; SET STEP RATE AND HEAD UNLOAD TIME
+        OUT     WR8272
+        CALL    OUTRDY
+        MVI     A,HLTIME+1      ; SET HEAD LOAD TIME AND NON-DMA MODE
+        OUT     WR8272
+        RET
+;
+; ROUTINE: BSYCHK
+; RUCTION: TEST FOR 8272 BUSY
+; USES:
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS:
+BSYCHK:
+        IN      ST8272          ; READ MAIN STATUS
+        ANI     0F0H            ; MASK OF SEEK BITS (MAY BE SEEKING NOW)
+        CPI     80H             ; COMPARE TO INPUT PARMETER
+        JNZ     BSYCHK          ; LOOP IF NOT FOUND
+        RET
+;
+; ROUTINE: OUTRDY
+; FUNCTION: WAIT FOR 8272 READY FOR IOPB DATA
+; USES: WAITBT
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW
+OUTRDY:
+; UNBEKNOWNST TO THE UNWARY USER DUE TO INSUFFICIENT INTEL DOCUMENTATION,
+; NEC SPECIFIES THAT WE MUST WAIT AT LEAST 12 MICROSECONDS AFTER COMMAND
+; DATA IS WRITTEN BEFORE ATTEMPTING TO READ THE MAIN STATUS REGISTER, OR
+; ELSE UNFORTUNATE NASTIES CAN HAPPEN.
+        CALL    WAITBT
+        IN      ST8272          ; READ MAIN STATUS
+        ANI     0F0H            ; MASK OF SEEK BITS (MAY BE SEEKING NOW)
+        CPI     90H             ; COMPARE TO INPUT PARMETER
+        JNZ     OUTRDY          ; LOOP IF NOT FOUND
+        RET
+;
+; ROUTINE: STTRDY
+; FUNCTION: WAIT FOR 8272 RESULT STATUS READY
+; USES: WAITBT
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW
+STTRDY:
+        CALL    WAITBT
+        IN      ST8272          ; READ MAIN STATUS
+        ANI     0F0H            ; MASK OFF SEEK BITS (MAY BE SEEKING NOW)
+        CPI     0D0H
+        JNZ     STTRDY          ; LOOP IF NOT FOUND
+        RET
+;
+; ROUTINE: WAITBT
+; FUCTION: WAIT A FEW MICROSECONDS FOR 8272 MICROCODE TO ADJUST.
+; USES:
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW
+WAITBT:
+        MVI     A, 10H          ; WAIT A BIT
+WTABIT:
+        DCR     A
+        JNZ     WTABIT
+        RET
+;
+; ROUTINE: RECAL
+; FUNCTION: FORCE DRIVE TO RECALIBRATE USED IN ERROR RECOVERY ATTEMPTS.
+; USES: RECL
+; ARGUMENTS: USES DRIVE NUMBER FROM IOPB.
+; RETURNS:
+; DESTROYS: PSW
+RECAL:
+        LDA     IOPB+1
+        ANI     3
+        MOV     C, A
+;
+; ROUTINE: RECL
+; FUNCTION; SAME AS RECAL BUT USES DRIVE NUMBER IN C
+; USES: BSYCHK, OUTRDY, SENSEI
+; ARGUMENTS: DRIVE NUMBER IN C
+; RETURNS:
+; DESTROYS: PSW
+RECL:
+        CALL    BSYCHK
+        MVI     A,XRECAL
+        DI
+        OUT     WR8272
+        CALL    OUTRDY
+        MOV     A,C             ; GET DISK NUMBER
+        OUT     WR8272
+        EI
+        CALL    SENSEI
+        RET
+;
+; ROUTINE: GOSEEK
+; FUNCTION: SEEK A PHYSICAL TRACK. USED DURING READ AND WRITE OPERATIONS.
+; USES:  GOSK
+; ARGUMENTS: DRIVE AND TRACK VALUES IN IOPB.
+; USES:  GOSK
+; RETURNS:
+; DESTROYS: PSW, C, E
+GOSEEK:
+        LDA     IOPB+1
+        MOV     C, A
+        LDA     IOPB+2
+        MOV     E,A
+; SAME, ONLY ENTER WITH C = DRIVE, E = TRACK
+; USES:  BSYCHK,  OUTRDY, SENSEI
+; RETURNS:
+; DESTROYS: PSW
+GOSK:
+        CALL    BSYCHK
+        MVI     A,XSEEK
+        DI
+        OUT     WR8272
+        CALL    OUTRDY
+        MOV     A,C
+        ANI     3               ; DISK NUMBER
+        OUT     WR8272
+        CALL    OUTRDY
+        MOV     A,E             ; TRACK NUMBER
+        OUT     WR8272
+        EI
+        CALL     SENSEI
+        RET
+;
+; READ INTERRUPT STATUS AND STORE INTERRUPT STATUS IN ST0, CURRENT
+; TRACK IN ST1. THIS ROUTINE IS USED TO TERMINATE SEEK AND RECAL
+; USES:  STTRDY
+; RETURNS:
+; DESTROYS: PSW
+SENSEI:
+IF      NOT DSKINT
+        IN      PORT1C          ; TEST FOR INTERRIFT
+        RAR
+        JNC     SENSEI          ; JUMP IF NOT INTERRUPT
+        MVI     A,SNSINT
+        OUT     WR8272
+        CALL    STTRDY
+        IN      RD8272
+        CALL    STTRDY
+        IN      RD8272
+        RET
+        ENDIF
+;
+IF      DSKINT
+        MVI     A,1
+        STA     DSKIFLG         ; SET DISK INTERRUPT FLAG
+SNSLP:
+        EI
+        HLT                     ; WAIT FOR COMPLETION INTERRUPT
+        LDA     DSKIFLG         ; CHECK FLAG FOR WHAT HAPPENED WITH INTERRUPT
+        CPI     2               ; TEST FOR FLAG SET BY ACTUAL DISK INTERRUPT
+        JNZ     SNSLP
+        XRA     A
+        STA     DSKIFLG         ; CLEAR FLAG
+        RET
+;
+; COME HERE WHEN INTERRUPT ACTUALLY OCCURS
+INTSNS:
+        PUSH     PSW            ;
+        PUSH     B              ; SAVE REGISTERS
+        PUSH     H
+        MVI     A,2
+        STA     DSKIFLG
+        MVI     A,SNSINT
+        OUT     WR8272          ; SENSE INTERRUPT STATUS!
+        CALL    STTRDY
+        IN      RD8272
+        MOV     C,A
+        CALL    STTRDY
+        IN      RD8272
+;
+        MVI     A,EOIC          ; TERMINATE INTERRUPT FOR 8259
+        OUT     OCW2
+        EI
+;
+        MOV     A,C
+        ANI     0E0H
+        CPI     0C0H            ; TEST FOR READY CHANGE
+        CZ      IDSKCHG         ; IF CHANGE IN READY CAUSED INTERRUPT
+        POP     H
+        POP     B
+        POP     PSW
+        RET
+;
+IDSKCHG:
+        MOV     A,C
+        ANI     3
+        MOV     C,A             ; NOW TEST STATUS OF INTERRUPTING DRIVE
+        CALL     TSTRD1
+        RET
+;
+DSKIFLG:       DB       0
+        ENDIF
+;
+; ROUTINE: SENSED
+; FACTION: READ STATUS OF IOPB+1 AND RETURN BYTE IN A.
+; USES: SENSD
+; ARGUMENTS: IOPB
+; RETURNS: DRIVE STATUS IN A
+; DESTROYS: PSH, C
+SENSED:
+        LDA     IOPB+1
+        MOV     C,A
+;
+; ROUTINE: SENSD
+; FUNCTION: USE CONTENTS OF C AS DISK
+; USES: BSYCHG OUTRDY, STTRDY
+; ARHUMENTS: DRIVE NUMBER IN C
+; RETURNS: DRIVE STATUS WORD (ST3) IN A
+; DESTROYS: PSW
+SENSD:
+        CALL    BSYCHK
+        MVI     A, SNSDRV
+        DI
+        OUT     WR8272
+        CALL    OUTRDY
+        MOV     A,C             ; GET DISK NUMBER
+        ANI     3
+        OUT     WR8272
+        EI
+        CALL    STTRDY
+        IN      RD8272
+        RET
+;
+;
+IOPBK0: DB      XREAD,0,0,0,2
+SDBYTS: DB      N1,EOT,GPL1,DTL1
+IOPBK1: DB      XREAD,0,1,0,1
+        DB      N1,EOT,GPL1,DTL1
+IOPBK2: DB      XREAD + 40H,0,1,0,1
+DDBYTS: DB      N2,EOT,GPL2,DTL2
+;
+BOOTCPM:
+        LXI     D,IOPBK0        ; SET INITIAL IOPB FOR TRACK 0 READ
+        LXI     H,CCP           ; INITIAL DMA ABBESS TO CCP BASE
+        MVI     B,25            ; READ 25 SECTORS OFF FIRST TRACK (IGNORE BOOT)
+        MVI     C,80H           ; SINGLE DENSITY NO MATTER WHAT
+        CALL    DRDISK
+;
+        MVI     C, 1
+        CALL    SETTRK
+;
+        LDA     DNSITY          ; TEST DENSITY OF DRIVE 0
+        ORA     A
+        JZ      BOOTSD          ; SKIP IF SINGLE
+;
+; ATTEMPT BOOT FROM DOUBLE DENSITY DEVICE.
+        MVI     C,20
+        CALL    SETSEC
+        LXI     B,BIOS-80H
+        CALL    SETDMA
+        CALL    READ            ; READ ODDBALL HALF-SECTOR LAST PAGE IN BDOS
+;
+        LXI     D,IOPBK2
+        LXI     H,CCP+25*128
+        MVI     B,9
+        MVI     C,0
+        CALL    DRDISK          ; READ TRACK 1 BRUTE FORCE
+;
+         RET
+
+BOOTSD:
+        LXI     D, IOPBK1
+        LXI     H,CCP+25*80H
+        MVI     B, 19
+        MVI     C,80H
+        CALL    DRDISK          ; TRACK 1 READ, SINGLE DENSITY
+        RET
+;
+; ROUTINE: SNIFF
+; FACTION:   TEST ALL READY DRIVES FOR HEIR DENSITY
+; USES: SNIFF1
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW, BC, DE, HL
+SNIFF:
+; NOW "SNIFF' EACH READY DRIVE TO DETERMINE THE DENSITY OF THE DRIVE
+        MVI     C,NUMDSK
+SNFALL:
+        DCR     C
+        CALL    SNIFF1
+        MOV     A,C
+        ORA     A
+        JNZ     SNFALL          ; LOOP TIL ALL DRIVES DONE
+        RET
+;
+; ROUTINE: SNIFF1
+; FUNCTION:  TEST DRIVE FOR DENSITY
+; USES: SENSD, TSTDNS
+; ARGUMENTS: DISK NUMBER IN C
+; RETURNS:
+; DESTROYS: PSH, BC, DE, HL
+SNIFF1:
+; CHGTBL IS A TABLE THAT INDICATES THE READY STATUS OF A DRIVE IF THE DRIVE
+; IF NOT READY AT KMT, CHGTBL(DRIVE) = 0. IF THE DRIVE IS READY AT BOOT, THE
+; VALUE IS 1. IF A READY DRIVE GOES NOT READY, THE VALUE CHANGES TO 2. IF
+; THE DRIVE SHOULD GO READY ONCE MORE, THE VALUE OF CHGTBL BECOMES 3. THIS
+; IS INDICATIVE OF THE DISK BEING CHANGED, AND A CHGTBL VALIE OF 3 IS FLAGGED
+; BY THE READ/WRITE ROUTINE AND QUESTIONED (SEE GORW).
+        LXI     H, CHGTBL
+        MVI     B,0
+        DAD     B
+        MVI     M,0             ; CHGTBL INITIALLY 0
+        CALL    SENSD           ; TEST FOR DRIVE READY
+        ANI     20H             ; MASK FOR READY
+        RZ                      ; SKIP IF NOT READY
+        MVI     M,1             ; SET DRIVE STATUS = READY
+; NOW SNIFF FOR DENSITY OF DRIVE
+        PUSH    B
+        CALL    RECL
+        CALL    TSTDNS          ; TEST DENSITY OF DRIVE
+        POP     B
+        RET
+;
+; ROUTINE: TSTDNS
+; FUNCTION: READ TRACK 1, SECTOR 1 OF DISK TO DETERMINE DENSITY.
+; USES: MOVEIT, SELDSK, GOSEEK, DOIT
+; ARGUMENTS: DRIVE NUMBERIN C
+; RETURNS: SETS DNSITY TABLE ACCORDINGLY
+; DESTROYS: PSH, B, DE, HL
+TSTDNS:
+        LXI     D,IOPBK1        ; SINGLE DENSITY READ TRACK 1
+        LXI     H,IOPB
+        PUSH    B
+        MVI     C,9
+        CALL    MOVEIT          ; MOVE APPROPRIATE IOPB INTO IOPB AREA
+        POP     B
+        MOV     A,C
+        STA     IOPB+1          ; SET DISK
+; NOW FETCH PROPER CP/M POINTERS AND SET THEM
+        PUSH    B
+        CALL    SELDSK
+        POP     B
+        LXI     D,10
+        DAD     D
+        PUSH    H               ; SAVE POINTER
+        LXI     D,DPBLK1
+        MOV     M,E
+        INX     H
+        MOV     M,D
+;
+        MVI     B,0
+        LXI     H,DNSITY
+        DAD     B
+        MVI     M,0             ; ASSUME SIFMLE DENSITY
+;
+        PUSH    H
+        CALL    GOSEEK
+        LXI     D,SPRBUF        ; READ INTO SPARE BUFFER
+        LXI     B,8001H         ; SINGLE DENSITY COUNT, ONE SECTOR
+        CALL    DOIT
+        POP     H
+        POP     D
+;
+; THIS "SNIFFER* ROUTINE HINGES AROUND THE FACT THAT A WRONG DENSITY READ
+; WILL RETURN AN ADDRESS MARK ERROR. CHECK FOR THIS ERROR. IF NOT FOUND, WE
+; ALREADY HAVE THE PROPER DENSITY SET, SO RETURN. OTHERWISE, CHANGE ALL THE
+; APPROPRIATE PARAMETERS.
+        LDA     ST1
+        CPI     1               ; TEST FOR ADDRESS MARK ERROR
+        RNZ                     ; RETURN MON-ZERO IF SINGLE DENSITY
+;
+        MVI     M,40H           ; SET DOUBLE DENSITY FLAG
+        XCHG
+        LXI     D,DPBLK2        ; ADJUST CP/M
+        MOV     M,E
+        INX     H
+        MOV     M,D
+        RET                     ; RETURN ZERO IF DOUBLE DENSITY
+;
+; ROUTINE: TSTRDY
+; FUNCTION: TEST DRIVE STATUS AND SET STATUS TABLE
+; USES: TSTRD1
+; ARGUMENTS:
+; RETURNS: UPDATES CHGTBL
+; DESTROYS: PSW, BC, HL
+; THIS ROUTINE CALLED OCCASIONALLY DURING WAITS FOR CONSOLE INPUT.
+TSTRDY:
+        MVI     C,0
+        CALL    TSTRD1
+        INR     C
+        MOV     A,C
+        CPI     NUMDSK
+        JC      TSTRD1
+        RET
+;
+; ROUTINE: TSTRD1
+; FUNCTION: TEST READY STATUS OF DRIVE
+; USES: SENSD
+; ARGUMENTS: DRIVE NUMBER IN C
+; RETURNS: UPDATES CHGTBL
+; DESTROYS: PSW, B, HL
+TSTRD1:
+        MVI     B,0
+        CALL    SENSD
+        ANI     20H             ; MASK FOR READY BIT
+        LXI     H, CHGTBL
+        DAD     B               ; POINT TO CHGTBL
+        JZ      TSTRDN          ; SKIP IF NOT READY
+        MOV     A,M
+        ORA     A               ; DO NOTHING IF CODE = 0; THIS IS HANDLED AT
+        RZ                      ; ACCESS TIME
+        ORI     1
+        MOV     M,A             ; SET BIT 0 IF READY
+        RET
+TSTRDN:
+        MOV     A,M
+        CPI     1
+        RNZ
+        MVI     M,2
+        RET
+;
+; ROUTINE: GDNSTY
+; FUNCTION: FETCH DENSITY VALUE FOR DRIVE
+; USES: GDNST1
+; ARGUMENTS: DISKNO, TRACK
+; RETURNS: A = 40H IF DOUBLE 0 IF SINGLE
+; DESTROYS:  PSW, DE HL
+; POINT INTO THE DENSITY TABLE AND DETERMINE THE CURRENT DENSITY SETTING FOR
+; THE DRIVE  SELECTED BY DISKNO. THE VALUE SHOULD BE ZERO IF SINGLE DENSITY.
+; SET THE FLAGS BEFORE RETURN.
+GDNSTY:
+        LDA     TRACK
+        MOV     C,A
+        LDA     DISKNO
+        MOV     E,A
+;
+; ROUTINE: GDNST1
+; FUNCTION: SAME AS GDNSTY WITH DIFFERENT ARGUMENTS
+; USES:
+; ARGUMENTS: DRIVE IN E CURRENT TRACK IN C
+; RETURNS: SAME AS ABOVE
+; DESTROYS: PSW, D, H
+GDNST1:
+        MOV     A,C
+        ORA     A
+        RZ                      ; IF TRACK = 0, THEN DENSITY ALWAYS SINGLE
+;
+        LXI     H,DNSITY
+        MVI     D,0
+        DAD     D
+        MOV     A,M
+        ORA     A
+        RET
+;
+;
+;****************************************************
+;*                                                  *
+;*      WRTHST PERFORMS THE PHYSICAL WRITE TO       *
+;*      THE HOST DISK, RDHST READS THE PHYSICAL     *
+;*      DISK.                                       *
+;*                                                  *
+;****************************************************
+WRTHST:
+; HSTDSK = HOST DISK #, HSTTRK = HOST TRACK #,
+; HSTSEC = HOST SECT #, WRITE "HSTSIZ" BYTES
+; FROM HSTBUF AND RETURN ERROR FLAG IN ERFLAG.
+; RETURN ERFLAG NON-ZERO IF ERROR
+        CALL    STDBL
+WRTSST:
+        MVI     C,5             ; LOAD WRITE DATA IOPB CODE
+        JMP     GORW
+;
+RDHST:
+; HSTDSK = HOST DISK #, HSTTRK = HOST TRACK #,
+; HSTSEC = HOST SECT #, READ "HSTSIZ" BYTES
+; INTO HSTBUF Af© RETURN ERROR FLAG IN ERFLAG.
+        CALL    STDBL
+RDSST:
+        MVI     C,6             ; LOAD READ DATA IOPB CODE
+;
+; COMMON CODE SEQUENCE SHARED BY PHYSICAL READ AND WRITE ROUTINES.
+; CP/M LOGICAL SECTORS 0-25 ARE TRANSLATED TO PHYSICAL SECTORS 1-26 THROUGH
+; THE TRANSLATE TABLE THIS USES A SKEW OF SIX, AND COMPENSATES FOR THE LACK
+; OF TRANSLATION DONE BY THE SECTRAN ROUTINE
+GORW:
+        XRA     A
+        STA     ERFLAG          ; ANTICIPATE SUCCESS
+;
+        PUSH    B               ; SAVE DISK COMMAND
+;
+        LDA     RUNDSK
+        MOV     C,A
+        CALL    CHKRD1          ; TEST FOR READY
+;
+        LHLD    RUNDSK
+        MVI     H,0
+        LXI     D,CHGTBL        ; SEE IF DISK CHANGE OCCURRED
+        DAD     D
+        MOV     A,M
+        PUSH    PSW
+        CPI     0               ; CHECK FOR DISK NOT READY AT BOOT
+        CZ      RBDISK
+        POP     PSW
+        CPI     3
+        CZ     DSKCHG           ; ANNOUNCE DISK CHMGE IF APPROPRIATE
+;
+        CALL   GDNSTY           ; GET DENSITY OF RUNDSK
+        POP     B               ; RECOVER DISK COMMAND
+        ORA     C               ; MASK IN WITH COMMAND
+; COMMENCE CONSTRUCTION OF IOPB
+        STA     IOPB            ; SET FIRST BYTE OF IOPB
+;
+        LXI     H,IOPB+1        ; POINT TO SUCCESSIVE BYTES TO BE LOADED.
+        LDA     RUNDSK
+        MOV     M,A             ; SET IN THE DRIVE NUMBER
+        INX     H
+;
+        LDA     RUNSEC
+        MOV     E,A             ; SAVE SECTOR NUMBER FOR BELOW.
+;
+        LDA     RUNTRK
+        MOV     M,A             ; DON'T FORGET THE TRACK NUMBER!
+        INX     H
+        MVI     M,0             ; HEAD NUMBER ALWAYS = 0 (SINGLE-SIDED)
+        INX     H
+        CPI     2
+        JC      NOTRAN          ; DO NOT TRANSLATE IF ON BOOT TRACKS (0 OR 1)
+;
+        PUSH    H               ; SAVE IORB POINTER
+        MVI     D,0             ; RUNSEC ALREADY IN E
+        LXI     H,TRANS         ; POINT INTO TRANSLATE TABLE
+        DAD     D               ; DO SECTOR TRANSLATION
+        MOV     E,M             ; GET PHYSICAL SECTOR
+        POP     H               ; RECOVER IOPB POINTER
+;
+NOTRAN:
+        MOV     M,E             ; SECTOR NUMBER
+        INX     H
+        PUSH    H               ; SAVE IOPB POINTER
+        CALL    GDNSTY          ; FETCH DENSITY INTO A
+        POP     H               ; RECOVER IOPB POINTER
+        JNZ     ATTRB2          ; JUMP IF NOT SINGLE DENSITY
+;
+; NOW STORE THOSE ELEMENTS OR THE IOPB SPECIFIC TO A SINGLE DENSITY TRANSFER,
+; I.E,  N, DTL, GPL AND THE ACTUAL DMA TRANSFER ADDRESS DESIRED BY CP/M.
+        MVI     C,4
+        LXI     D,SDBYTS
+        CALL    MOVEIT
+        LHLD    DMAADR          ; SINGLE DENSITY ACCESS USES ACTUAL DMA ADDRESS
+        SHLD    ACTDMA          ; STORE AT WORKING SPOT
+        JMP     ENDATR
+;
+; LIKEWISE, HERE THROW IN THE UNIQUELY DOUBLE DENSITY ELEMENTS.
+ATTRB2:
+        MVI     C,4
+        LXI     D,DDBYTS
+        CALL    MOVEIT
+        LXI     H,HSTBUF        ; DOUBLE DENSITY ACCESS USES DEBLOCK BUFFER
+        SHLD    ACTDMA
+;
+; ALL BYTES OF THE IOPB ARE NOW FILLED.
+; NOW WE MUST SEND THE IOPB TO THE CONTROLLER.
+ENDATR:
+        MVI     A,1             ; TRANSFER ONE SECTOR ONLY
+        STA     TRNSIZ
+        CALL    TRYIT           ; GO FOR IT...
+        RET
+;
+; THIS ROUTINE PERMITS DIRECT DISK ACCESS FOR MULTISECTOR TRANSFERS AND ALLOWS
+; FOR USE OR SUCH ROUTINES BY SYSGEN, FORMAT, AND COPY ROUTINES.
+; IT ACCEPTS THREE PARAMETERS: A WORD PARMETER IN HL THAT DEFINES THE
+; BASE ADDRESS FOR THE DMA TRANSFER, A BYTE PARAMETER IN B THAT DEFINES THE
+; NUMBER OR SECTORS TO TRANSFER, A BYTE PARAMETER IN C THAT DEFINES THE
+; SIZE OF THE SECTOR, AND A HORD PARAMETER IN DE THAT DEFINES THE BASE ADDRESS
+; OF THE IOPB TO BE USED FOR THE TRANSFER.
+DRDISK:
+        SHLD    ACTDMA          ; INITIAL MA ADDRESS TO CCP BASE
+        MOV     A,B             ; NUMBER OF SECTORS
+        STA     TRNSIZ
+        MOV     A,C             ; SECTOR SIZE PARAMETER (DEPENDS ON DENSITY)
+        STA     DNSTYP
+        LXI     H, IOPB
+        MVI     C,9
+        CALL    MOVEIT          ; MOVE IN USER IOPB
+;
+; THIS ROUTINE DOES THE DISK TRANSFER AND ERROR CHECKING. IT IS CALLED FROM
+; GORW,  WHICH HANDLES THE NORMAL CP/M TRANSFER, AND ALSO FROM THE BOOT
+; PROCEDURE
+TRYIT:
+        CALL    CHKRDY          ; TEST FOR DRIVE READY
+        LDA     IOPB
+        ANI     0FH
+        CPI     XWRITE          ; IF WRITE OPERATION
+        JNZ     NWRCHK
+        CALL    WRTPRO          ; CHECK FOR WRITE PROTECT
+NWRCHK:
+        MVI     A,10            ; NUMBER OF ERROR RETRIES
+        STA     ERRCNT
+;
+        XRA     A
+        STA     DNSCHG          ; CLEAR DENSITY CHANGED FLAG
+        CALL    GOSEEK          ; SEEK TO TRACK
+TRYAGN:
+        LDA     TRNSIZ
+        MOV     C,A             ; FETCH TRANSFER SIZE
+        LHLD    ACTDMA
+        XCHG                    ; FETCH DMA ADDRESS
+        LDA     DNSTYP
+        MOV     B,A             ; SET DENSITY TYPE PARAMETER.
+        CALL    DOIT            ; WELL DO IT!
+;
+; NOW IS THE TIME TO TEST FOR ERRORS.
+        LDA     ST0
+        ANI     0C0H            ; MASK FOR ERROR INDICATORS
+        JNZ     ISERR           ; IF NO ERRORS, RETURN
+; NO ERRORS DETECTED.
+        XRA     A
+        RET
+;
+;                       *********************************
+;                       *                               *
+;                       *      DISK ERROR RECOVERY      *
+;                       *                               *
+;                       *********************************
+;
+;
+ISERR:
+        LDA     ST2             ; TEST FOR WRONG CYLINDER ERROR.
+        ANI     10H
+        JZ      CYLOK           ; SKIP IF NOT THIS ERROR
+;
+        CALL    RECAL           ; TRY RECALIBRATING
+        CALL    GOSEEK          ; SEEK TRACK
+;
+CYLOK:
+        LDA     ERRCNT          ; TEST FOR 4 TIMES AROUND
+        DCR     A
+        STA     ERRCNT
+        JNZ     TRYAGN          ; LOOP BACK AND TRY AGAIN IF NOT 4 TIMES
+;
+; NOW IS THE TIME TO DO SOME ERROR REPORTING TO THE CONSOLE, PRIOR TO
+; RETURNING CONTROL TO THE BDOS SO THAT IT CAN DO IT'S RATHER USELESS ERROR
+; HANDLING AND REPORTING. WE WILL PERFORM A DIAGNOSTIC PRINTOUT RATHER AKIN TO
+; THAT D0NE BY ISIS, ALTHOUGH MORE EXTENSIVE
+;
+; NOW FOR THE NEWS...
+        MVI     A,0FFH
+        STA     ERFLAG          ; SET FLAG TO INDICATE ERROR TO BDOS
+;
+; NOW FILL IN THE APPROPRIATE TEXT IN THE ERROR MESSAGE TO INDICATE EITHER
+; 'SINGLE' OR 'DOUBLE' DENSITY. THIS SECTION MOVES THE PROPER SIX BYTES INTO
+; POSITION TO GIVE THE ABOVE WORDS.
+        LXI     D,ERSD
+        LXI     H,ERDNST
+        MVI     C,6
+        LDA     IOPB            ; TEST FOR DENSITY
+        ANI     40H
+        JZ      NTERDD          ; JUMP IF NOT DOUBLE DENSITY
+        LXI     D,ERDD
+NTERDD:
+        CALL     MOVEIT        ; MOVE IN PROPER WORD
+;
+; NOW DO THE SAME PROCESS,  ONLY TO FILL IN 'READ' OR 'WRIT' IN THE SEQUENCE TO
+; INDICATE WETHER IT WAS A READ OR WRITE
+        LXI     D,RDING
+        LXI     H,OPSPOT
+        MVI     C,4
+        LDA     IOPB
+        ANI     0FH
+        CPI     XREAD
+        JZ      NTERWT
+        LXI     D,WRTING
+NTERWT:
+        CALL    MOVEIT
+;
+; FETCH THE DRIVE SELECT, CONVERT TO ASCII 'A' THROUGH 'D', AND STORE IN PLACE
+        LDA     IOPB+1
+        ANI     3
+        ADI     'A'
+        STA     ERDSK
+;
+; GET THE ATTEMPTED TRACK, CONVERT TO TWO DIGITS OF DECIMAL, AND STORE
+        LDA     IOPB+2
+        LXI     H,ERTRK
+        CALL    CONV10
+;
+; GET THE ATTEMPTED SECTOR, CONVRT TO TWO-DIGIT DECIMAL, AND STORE
+        LDA     IOPB+4
+        LXI     H,ERSEC
+        CALL    CONV10
+;
+; GET THE FIRST STATUS WORD, AND STORE AS 8 BINARY DIGITS.
+        LDA     ST0
+        LXI     H,ERST0
+        CALL    CONV2
+;
+; DO THE SAME FOR ST1.
+        LDA     ST1
+        LXI     H,ERST1
+        CALL    CONV2
+;
+; AND FOR ST2
+        LDA     ST2
+        LXI     H,ERST2
+        CALL    CONV2
+;
+; FINALLY, PRINT THE ERROR MESSAGE.
+        LXI     H,ERRTXT
+        CALL    PRINTM
+; WAIT FOR CONSOLE INPUT.  IF A CTL-C, REBOOT DIRECTLY.
+        CALL    CONIN
+        CPI     3
+        JZ     0
+        RET
+;
+; ENTER WITH BINARY IN A, MEMORY POINTER IN HL CONVERT BINARY TO TWO DIGITS OF
+; DECIMAL STORING MSD FIRST IN MEMORY.
+; DESTROYS BC.
+CONV10:
+        MVI     C,10            ; TEN'S CONVERSION
+        MVI     B,0FFH          ; INITIAL COUNT
+LP10S:
+        INR     B               ; INCREMENT COUNT
+        SUB     C               ; SUBTRACT TEN AGAIN
+        JNC     LP10S           ; LOOP IF SOMETHING LEFT
+;
+        ADD     C               ; LESS THAN ZERO, RESTORE TO PREVIOUS VALLE
+        MOV     C, A            ; SAVE UNITS DIGIT
+        MOV     A, B            ; FETCH TENS COUNT
+        ADI     '0'             ; CONVERT TO ASCII
+        MOV     M,A             ; STORE
+        INX     H
+        MOV     A,C             ; FETCH UNITS
+        ADI     '0'             ; ASCII CONVERT
+        MOV     M,A             ; STORE UNITS
+        RET
+
+; ENTER WITH DATA TO CONVERT IN A, POINTER IN HL LEAVES 8 DIGIT ASCII VECTOR
+; REPRESENTING THE BINARY VALUE IN MEMORY
+; DESTROYS BC.
+CONV2:
+        MOV     C,A             ; SAVE ENTRY VALUE
+        MVI     B,8             ; SET FOR EIGHT REPS
+LP2S:
+        MOV     A,C             ; PUT MSB INTO CARRY
+        RAL
+        MOV     C,A             ; SAVE SHIFTED VALUE
+        MVI     M,'0'           ; STORE A '0'
+        JNC     STILLO          ; SKIP IF CARRY = 0
+        MVI     M,'l'           ; IF CARRY = 1 TIEN STORE A '1'
+STILLO:
+        INX     H               ; LOOK TO NEXT SPOT
+        DCR     B               ; CHECK REP COUNT
+        JNZ     LP2S            ; LOOP IF NOT DONE
+        RET
+;
+ERSD:   DB      'SINGLE'
+ERDD:   DB      'DOUBLE'
+RDING:  DB      'READ'
+WRTING: DB      'WRIT'
+ERRTXT: DB      0DH,0AH,07H,'DISK ERROR WHILE '
+OPSPOT: DB      'XXXXING ON '
+ERDNST: DB      'XXXXXX DENSITY DISK '
+ERDSK:  DB      'X, TRACK '
+ERTRK:  DB      'XX, SECTOR '
+ERSEC:  DB      'XX.',0DH,0AH,'ERROR STATUS BYTES: ST0 = '
+ERST0:  DB      'XXXXXXXX, ST1 = '
+ERST1:  DB      'XXXXXXXX, ST2 = '
+ERST2:  DB      'XXXXXXXX.',0DH,0AH
+        DB      'HIT CTL-C TO REBOOT, ANY OTHER KEY TO RETURN ERROR TO BOOS.',0
+;
+; ROUTINE: CHKRDY
+; FUNCTION: SEE BELOW
+; USS: CHKRD1
+; ARGUMENTS: IOPB
+; RETURNS:
+; DESTROYS: PSW, C, HL
+; THIS ROUTINE TESTS THE DRIVE SPECIFIED BY IOPB FOR FAULT OR READY CONDITIONS.
+; NO GOOD FAULT HANDLING SCHEME HAS OCCURRED TO ME, SO IT SHARES THE SAME
+; TRACK AS THE NOT READY HANDLER: IT WILL PRINT A MESSAGE 'DRIVE X NOT READY,
+; HIT ANY KEY TO CONTINUE', WAIT FOR A CONSOLE IFPUT TO INDICATE THAT THE
+; FAULT CONDITION HAS BEEN CORRECTED (I.E, DISK INSERTED, DOOR CLOSED), AND
+; PERFORM THE TEST AGAIN.
+CHKRDY:
+        LDA     IOPB+1
+        MOV     C,A
+; ROUTINE: CHKRD1
+; FUNCTION: SAME AS CHKRDY
+; USES: SENSD, PRINTM, CONIN
+; ARGUMENTS: DRIVE NUMBER IN C
+; RETURNS:
+; DESTROYS: PSW, C, HL
+CHKRD1:
+        CALL    SENSD
+        RAL                     ; PUT FALLT BIT IN CARRY
+        JC      NOTRDY          ; ERROR IF FAULT
+        RAL
+        RAL                     ; PUT READY BIT IN CARRY
+        JNC     NOTRDY          ; ERROR IF NOT READY
+        RET
+;
+NRMSG:  DB      0DH, 0AH,'DRIVE'
+NRDISK: DB      'A NOT READY; HIT ANY KEY TO CONTINYUE',0Dh,0AH,0
+;
+NOTRDY:
+        MOV     A,C             ; GET CURRENT DISK
+        ANI     3
+        ADI     'A'             ; CONVERT TO EQUIVALENT LETTER
+        STA     NRDISK          ; STORE IN MESSAGE
+        LXI     H,NRMSG         ; POINT TO MESSAGE
+        CALL    PRINTM          ; TYPE IT OUT
+        CALL    CONIN           ; WAIT FOR INPUT
+        CPI     3
+        JZ      0               ; REBOOT IF CTL-C
+        JMP     CHKRDY          ; LOOP TO SEE IF OK NOW
+;
+; WRITE PROTECTION OF DISKS TO BE WRITTEN MUST BE SENSED BEFORE ACCESS.
+; HENCE THIS ROUTINE IT TESTS THE WP BIT AND PRINTS A MESSAGE IF IT IS
+; SET. IT THEN WAITS LIKE THE ROUTINE ABOVE, FOR A RESPONSE
+;
+WPMSG:  DB      0DH,0AH,'DRIVE '
+WPDISK: DB     'A IS WRITE PROTECTED! HIT ANY KEY TO CONTINUE.',0DH,0AH,0
+;
+; ROUTINE: WRTPRO
+; FACTION: TEST FOR DRIVE WRITE PROTECTED
+; USES: WRTPR1
+; ARGUMENTS: IOPB
+; RETURNS:
+; DESTROYS: PSH, C, HL
+WRTPRO:
+        LDA     IOPB+1
+        MOV     C,A
+;
+; ROUTINE: WRTPR1
+; FUNCTION: SAME AS WRTPRO
+; USES: SENSD, PRINTM, CONIN
+; ARGUMENTS: DRIVE NUMBER IN C
+; RETURNS:
+; DESTROYS: PSH, C, HL
+WRTPR1:
+        CALL    SENSD
+        ANI     40H             ; TEST WP BIT
+        RZ                      ; RETURN IF NOT SET
+        LDA     IOPB+1
+        ANI     3               ; GET DISK NUMBER
+        ADI     'A'
+        STA     WPDISK          ; SET THE APPROPRIATE LETTER
+        LXI     H,WPMSG
+        CALL    PRINTM          ; PRINT MESSAGE
+        CALL    CONIN           ; WAIT FOR INPUT
+        CPI     3
+        JZ      0               ; REBOOT ON CTL-C
+        JMP     WRTPRO
+;
+DKCHGM: DB      0DH,0AH,'DISK HAS BEEN CHANGED. PRESS SPACE BAR TO CONTINUE...'
+        DB      0DH,0AH,0
+;
+; ROUTINE: DSKCHG
+; FUNCTION: ANNOUNCE A DISK CHANGE AND AWAIT VERIFICATION
+; USES: PRINTM, CONIN
+; ARGUMENTS:
+; RETURNS:
+; DESTROYS: PSW, C, HL
+; DISK CHANGE DETECTED; TELL THE TROOPS...
+DSKCHG:
+        LXI     H,DKCHGM
+        CALL    PRINTM
+        CALL    CONIN
+        CPI     ' '
+        JNZ     WBOOT
+        LHLD    RUNDSK
+        MVI     H,0
+        LXI     D,CHGTBL
+        DAD     D
+        MVI     M,1             ; SET NORMAL READY STATUS
+        RET
+;
+; ROUTINE: RBDISK
+; FUNCTION: TEST DENSITY ON OFF-LINE DISK
+; USES: SENSD,  RECL, TSTDNS
+; ARGUMENTS: RUNDSK
+; RETURNS: SETS CHGTBL, DNSITY
+; DESTROYS: PSW, C, HL
+; COME HERE WHEN WE DISCOVER THAT THE DISC WE ARE ACCESSING WAS NOT
+; READY AT BOOT TIME/ WE WILL SNIFF THE DISK AGAIN.
+RBDISK:
+        LDA     RUNDSK
+        MOV     C,A
+        PUSH    H
+        CALL    SENSD
+        ANI     20H
+        JZ      STLNRDY
+        MVI     M, 1
+        CALL    RECL
+        CALL    TSTDNS
+STLNRDY:
+        POP     H
+        RET
+;
+; $EJECT
+;                       *****************************
+;                       *                           *
+;                       *   VARIABLE DECLARATIONS   *
+;                       *                           *
+;                       *****************************
+;
+RUNDSK: DS      1               ; ACTUAL CP/M DISK
+RUNTRK: DS      1               ; ACTUAL CP/M TRACK
+RUNSEC: DS      1               ; ACTUAL CP/M SECTOR
+;
+CHGTBL: DS      NUMDSK          ; DISK CHANGED TABLE
+DNSITY: DS      NUMDSK          ; DENSITY OF DISK IN DRIVE
+                                ; (0 = SINGLE, 40H = DOUBLE)
+DNSCHG: DS      1               ; DENSITY CHANGE DURING ACCESS FLAG.
+DNSTYP: DS      1               ; DENSITY TYPE FLAG USED DURING TRANSFER
+;
+TRNSIZ: DB      1               ; NUMBER OF SECTORS TO TRANSFER AT A TIME
+ACTDMA: DS      2               ; ACTUAL DMA ADDRESS FOR TRANSFER
+                                ; COMMAND AND RESULT TABLES TO DRIVE 8272
+IOPB:   DS      9               ; IOPB COMMAND WORDS
+ST0:    DS      1
+ST1:    DS      1
+ST2:    DS      1               ; RESULT WORDS
+ST3:    DS      4               ; NEW POSITION WORDS
+;
+        ORG     0FE80H
+SPRBUF: DS      128             ; SPARE READ BUFFER
+                                ; ALSO USED BY FORMAT ROUTINES TO INSERT
+                                ; THE FORMAT CODE HERE
+;$EJECT
+;                       *****************************************
+;                       *                                       *
+;                       *       DISK TRANSFER PROCEDURE         *
+;                       *                                       *
+;                       *****************************************
+;
+; THIS SECTION OF CODE HANDLES THE ACTUAL DATA TRANSFERS FOR READ AND
+; WRITE DUE TO THE TIGHT CODING REQUIREMENTS, THIS CODE IS RATHER
+; HAYWIRE THIS CODE IS BASED ON THE EXAMPLE CODE SUPPLIED BY INTEL IN THE
+; SBX-218 MANUAL THE CONTENT OF THE MASTER STATUS REGISTER AT ANY
+; TIME IS USED TO DETERMINE THE VECTOR DIRECTLY. THE SUCCESS OF THIS
+; TECHNIQUE REQUIRES THAT NO DRIVE BE SEEKING DURING A READ/WRITE
+; OPERATION. THIS IS NOT A PROBLEM IN CP/M, AS ALL OPERATIONS ARE
+; COMPLETED BEFORE ANOTHER IS INITIATED. WITH THIS CONDITION SATISFIED,
+; THE BOTTOM NYBBLE OF THE MSR  = 0. THE TOP HALF OF THE NYBBLE CONTROLS
+; THE OPERATIONS. BIT 4 IS THE BUSY BIT; THIS BIT IS SET THROUGHOUT
+; THE OPERATION. BITS 5-7 ARE THEREFORE THE UNIQUE DETERMINING BITS
+; THE ACTUAL OPERATIONS ARE AS FOLLOWS:
+;
+; BIT 7 6 5  LOW PAGE ADDRESS               OPERATION
+; --- -----  ----------------               ---------
+;     0 0 0        10H          INVALID CODE - SHOULD NOT OCCUR
+;     0 0 1        30H          WAITING FOR NEXT WRITE TRANSFER TO BE
+;                                READY.
+;     0 1 0        50H          INVALID CODE - MAY OCCUR IN ERROR
+;     0 1 1        70H          WAITING FOR NEXT READ TRANSFER
+;     1 0 0        90H          INVALID CODE - NOT USED.
+;     1 0 1        B0H          READY FOR NEXT BYTE OF WRITE DATA
+;                                FROM THE PROCESSOR
+;     1 1 0        D0H          READ/WRITE TERMINATED; READY FOR
+;                                RESULT BYTES TO BE READ.
+;     1 1 1        F0H          FDCC READY WITH NEXT BYTE OF READ
+;                                DATA FROM THE DISK.
+;
+; THE APPROPRIATE (VERY SHORT AND FAST) ROUTINES TO HANDLE THESE
+; CONDITIONS ARE LOCATED AT POSITIONS WITHIN THE PAGE AT 0FE00H WHICH
+; HAVE LOWER BYTE ADDRESSES EQUAL TO THE POSSIBLE CODE FROM THE MSR
+;
+;
+        DISKIO  EQU     0FF00H
+        ORG     DISKIO
+; THIS VECTOR AREA SUPPLIED FOR UTILITIES WHICH NEED DIRECT DISK ACCESS
+        JMP     DRDISK         ; B=NO. SECTORS, C=DENSITY, DE=IOPB, HL=DMA
+        JMP     GOSK           ; C = DRIVE, E = TRACK
+        JMP     SNIFF1         ; TESTS DENSITY OF DISK IN DRIVE NO. IN C
+
+        ORG     DISKIO + 10H
+        IN      ST8272
+        MOV     L,A
+        PCHL
+;
+; ROUTINE: DOIT
+; FUNCTION: ACTUAL DISK READ/WRITE
+; USES:
+; ARGUMENTS: B = FM/MFM, C = SECTOR COUNT
+; RETURNS:
+; DESTROYS: PSW, BC, DE, HL
+; ENTER AND HANDLE THE IOPB TRANSFER.
+; THE DE REGISTER MUST BE SET TO THE BUFFER WHERE THE TRANSFER WILL OCCUR.
+; DOUBLE DENSITY ACCESSES NORMALLY USE THE BUFFER AT THE END.
+; THE B REGISTER MUST CONTAIN EITHER 00 FOR MFM OR 80H FOR FM TRANSFERS.
+; THE C REGISTER MUST CONTAIN THE NUMBER OF SECTORS TO TRANSFER.
+; NORMAL CP/M CALLS WILL ENTER WITH D = 0FF00/0FF80, B = 00/80H, C = 1.
+DOIT:
+        DI
+        LXI     H, IOPB         ; POINT TO IOPB FOR COMMANDS
+        MOV     A, B
+        STA     DNSTYP
+        MVI     B, 8            ; NUMBER OF COMMAND BYTES
+        MOV     A,M
+        OUT     WR8272          ; GET IT STARTED AND WRITE THE FIRST BYTE
+DOIOPB:
+        CALL    OUTRDY          ; WAIT FOR FDCC READY FOR NEXT TRANSFER
+        INX     H               ; POINT TO NEXT
+        MOV     A,M             ; LOAD COMMAND BYTE
+        OUT     WR8272          ; SEND IT OUT.
+        DCR     B               ; TEST FOR END
+        JNZ     DOIOPB          ; LOOP IF NOT.
+        JP     GOTOIT           ; OTHERWISE GO FOR IT!
+;
+        ORG     DISKIO + 30H
+; WAIT HERE BETWEEN BYTES OF A SECTOR WRITE OPERATION
+WRWAIT:
+        IN      ST8272          ; FETCH MSR
+        MOV     L,A             ; LOAD BOTTOM HALF OF VECTOR = MSR.
+        PCHL                    ; JUMP ON VECTOR
+;
+GOTOIT:
+        LDA     DNSTYP          ; RECOVER BYTE COUNTER
+        MOV     B,A
+        LXI     H,DISKIO + 70H  ; LOAD VECTOR TO WAIT SPOT.
+        PCHL                    ; JUMP ON VECTOR
+;
+; THIS IS A MOVE BLOCK UTILITY.
+; ENTER WITH DE = SOURCE POINTER, HL = DEST PTR,
+; C = BLOCK LENGTH. NOTE THAT POINTERS INCRMENT DURING USE
+MOVEIT:
+        LDAX     D
+        MOV     M,A
+        INX     D
+        INX     H
+        DCR     C
+        JNZ     MOVEIT
+        RET
+;
+        ORG     DISKIO + 50H
+        JMP     FINISH
+RINGSIZE        EQU     1DH
+RNGBUF: DS      RINGSIZE        ; INPUT RINiG BUFFER
+;
+        ORG     DISKIO + 70H
+; SAME AS WRWAIT, BUT DURING READ SECTOR
+RDWAIT:
+        IN      ST8272
+        MOV     L,A
+        PCHL
+;
+        ORG     DISKIO + 80H
+INTTBL:
+        JMP     BOOT
+        NOP
+        JMP     BOOT
+        NOP
+        JMP     BOOT
+        NOP
+        JMP     INTSNS          ; INTERRUPT FROM SBX-218
+        NOP
+        JMP     BOOT
+        NOP
+        JMP     BOOT
+        NOP
+        JMP     ININT           ; KEYBOARD INTERRUPT
+        NOP
+        JMP     BOOT
+;
+; FOR MULTISECTOR TRANSFERS WE MUST DO HOUSEKEEPING BETWEEN SECTORS.
+; RESTORE THE (PIGINAL BYTE COUNT TO B.
+INTRSC:
+        LDA     DNSTYP          ; GET DENSITY TYPE
+        MOV     B,A             ; RECOVER BYTE COUNTER
+        DCR     C               ; DECREMENT SECTOR TRANSFER COUNT
+        JNZ     RDWAIT          ; LOOP BACK IF MORE TO GO
+        JMP     FINISH          ; NO MORE -  CLEAN UP.
+;
+        ORG     DISKIO + 80H
+        ORG     DISKIO + 0B0H
+; OUTPUT NEXT BYTE FROM MEMORY FOR DISK WRITE
+WRTOUT:
+        LDAX    D               ; GET NEXT BYTE FROM MEMORY
+        OUT     WR8272          ; OUTPUT IT
+        INX     D               ; INCREMENT POINTER
+        DCR     B               ; DECREMENT COUNTER
+        JNZ     WRWAIT          ; LOOP UNTIL PAGE ENDS
+        JMP     INTRSC          ; TEST FOR LAST SECTOR
+;
+        ORG     DISKIO + 0D0H
+; COME HERE IF PROCESS TERMINATES BY ERROR.
+FINISH:
+        MVI     A,TCON          ; PULSE TO TERMINAL COUNT
+        OUT     PT1CTL
+        MVI     A,TCOFF         ; END PULSE
+        OUT     PT1CTL
+; NOH FETCH THE SEVEN RELEVANT STATUS BYTES.
+        MVI     C,7
+        LXI     H,ST0
+GETST:
+        CALL    STTRDY
+        IN      RD8272
+        MOV     M,A
+        INX     H
+        DCR     C
+        JNZ     GETST           ; LOOP TILL ALL READ.
+        EI
+        RET                     ; GO TO CLEANUP ROUTINE
+;
+        ORG     DISKIO + 0F0H
+; INPUT NEXT BYTE DURING DISK READ.
+RDIN:
+        IN      RD8272          ; GET DATA BYTE FROM DISK.
+        STAX    D               ; STORE IT AHAY
+        INX     D               ; ADVANCE POINTER
+        DCR     B
+        JNZ     RDWAIT
+        JMP     INTRSC
+;
+             END
+

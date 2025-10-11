@@ -1,0 +1,2562 @@
+$U=1
+100h:    /*load point for compiler */
+    /*   *********************************************************    */
+    /*   **********          system literals            **********    */
+    /*   *********************************************************    */
+declare false           literally '0',
+        true            literally '1',
+        lit             literally 'literally',
+        bdos  lit '5h',     /* entry point to disk operating system */
+        startbdos address initial(6h), /*addr of ptr to top of bdos */
+        max based startbdos address,
+        boot            lit '0',       /* exit to return to operating system */
+        pstacksize      lit '48',           /* stack sizes for parser */
+        intrecsize      lit '128',
+        dcl             lit 'declare',
+        proc            lit 'procedure',
+        fileeof         lit '1',
+        rfile           lit '20',
+        identsize       lit '32',
+        addr            lit 'address',
+        forever         lit 'while true',
+        varcsize        lit '100',
+        indexsize       lit 'address',
+        statesize       lit 'address',
+        maxoncount      lit '25',
+        cr              lit '13',
+        lf              lit '10',
+        stringdelim     lit '22h',
+        questionmark    lit '3fh',
+        tab             lit '09h',
+        colin           lit '3ah',
+        comment         lit '0',
+        conbuffsize     lit '82',
+        eolchar         lit '0dh',
+        hashtblsize     lit '64',
+        sourcerecsize   lit '128',
+        hashmask        lit '63',
+        contchar        lit '3ch',
+        eoffiller       lit '1ah',
+        percent         lit '25h';
+
+declare maxrno          literally '135', /* max read count */
+        maxlno          literally '168', /* max look count */
+        maxpno          literally '168', /* max push count */
+        maxsno          literally '373', /* max state count */
+        starts          literally '1', /* start state */
+        prodno          literally '183', /* number of productions */
+        semic           literally '8', /* semicolon */
+        colonc          literally '13', /* colon */
+        doc             literally '18', /* do */
+        eofc            literally '24', /* eof */
+        endc            literally '26', /* end */
+        string          literally '47', /* string */
+        decimal         literally '49', /* decimal */
+        integerc        literally '50', /* integer */
+        procc           literally '54', /* procedure */
+        identifier lit '53', /*identlfier*/
+        termno          literally '55'; /* terminal count */
+
+declare cmdlineflags(9) byte initial('         '),
+        sbloc           address initial(80h),
+        sourcebuff based  sbloc(sourcerecsize) byte,
+        sourceptr       byte initial(sourcerecsize),
+        buffptr         byte initial(255),
+        errorcount      address initial(0),
+        linebuff(conbuffsize) byte,
+        lineptr         byte initial(0),
+        lineno          address,
+        pass1           byte initial(true),
+        pass2           byte initial(false),
+        nointfile       byte initial(false),
+        rfcbaddr        address initial(5ch),
+        rfcb based rfcbaddr(33) byte,
+        cmdargs         lit '6dh',
+        wfcb(33)        byte initial(0,'        ','ain',0,0,0,0),
+        cursourcerecsize byte initial(sourcerecsize),
+        nolook          byte,
+        production      byte,
+        arr$loc(5)      address,
+        arr$num         byte,
+        sub$proc$loc    address,
+        sub$proc$var$num byte,
+        arr$dim         byte,
+        diskoutbuff(intrecsize) byte;
+
+    /* the following global variables are used by the scanner */
+declare token           byte,   /* type of token just scanned */
+        hashcode        byte,   /* has value of current token */
+        nextchar        byte,   /* current character from getchar */
+        accum(identsize) byte,  /* holds current token */
+        cont            byte;   /* indicate accum was full, still more */
+
+   /***********************************************************/
+   /*             symbol table global variables               */
+   /***********************************************************/
+
+declare base            address, /* base of current entry */
+        hashtable(hashtblsize) address,
+        sbtbltop        address, /* current top of symbol table */
+        sbtbl           address,
+        ptr based base byte,     /* first byte of entry */
+        aptraddr        address, /* utility variable to access table */
+        addrptr based aptraddr address,
+        byteptr based aptraddr byte,
+        printname       address, /* set prior to lookup of enter*/
+        symhash         byte,
+        codesize        address, /* used to count size of code area */
+        w2DD2(12)       address,
+        b2DEA           byte,
+        b2DEB(12)       byte,
+        prev$blk$level(12) byte,
+        prev$index      byte initial(255),
+        blk$cnt         byte initial(0),
+        blk$level       byte initial(1);
+
+declare read1 data(
+        0,38,12,15,50,53,2,47,49,50,53,5,8,8,19,20,26,27,30,33,
+        34,38,39,41,42,46,50,53,19,20,26,27,30,33,34,38,39,41,42,46,
+        50,53,53,50,53,15,50,53,23,2,3,9,20,28,47,49,50,53,53,2,
+        3,9,20,47,49,50,53,2,3,9,20,47,49,50,53,2,53,53,2,53,
+        2,2,53,53,13,7,4,53,2,13,14,2,14,14,11,2,8,14,11,7,
+        11,7,11,11,2,8,4,6,10,24,50,53,16,17,7,11,7,53,11,19,
+        20,27,30,33,34,38,39,41,42,46,50,53,53,31,53,14,8,19,20,27,
+        30,32,33,34,38,39,41,42,43,44,45,46,50,52,53,4,11,1,12,15,
+        21,7,11,7,11,4,11,1,7,12,15,31,7,13,35,2,3,9,20,29,
+        47,49,50,53,8,8,8,2,2,2,25,38,18,53,32,43,44,45,52,53,
+        51,7,11,8,11,40,53,37,48,22,36,7,22,19,27,30,33,34,38,39,
+        41,42,46,53,7,3,5,9,0);
+
+declare look1 data(
+        0,12,15,0,15,0,2,0,2,0,8,17,31,0,2,14,0,14,0,11,
+        0,14,0,11,0,11,0,2,14,17,0,6,10,0,6,10,0,6,10,0,
+        6,10,0,6,10,0,6,10,0,16,0,16,0,16,0,17,0,11,0,25,
+        0,25,0,32,43,44,45,52,0,51,0,11,0,53,0,32,43,44,45,52,
+        0,31,0,22,0,3,5,9,0);
+
+declare apply1 data(
+        0,0,1,0,0,0,0,0,116,129,0,0,0,0,40,0,13,14,36,80,
+        0,33,80,128,0,33,128,0,0,0,24,133,0,3,4,29,82,0,0,3,
+        4,21,31,32,35,73,81,82,101,110,115,119,121,122,0,0,6,7,9,15,
+        16,0,10,17,0,23,0,0,3,4,5,13,14,24,29,33,36,80,82,84,
+        89,128,133,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,38,41,0,0,0,13,14,33,36,80,89,128,0,0,3,69,0,
+        27,0,28,30,0,0,0,0,0,0,0,0,0,0,0,0,112,0,0,0,
+        0,0,0,0,0,0,0,0,0,13,14,24,33,36,80,83,89,128,133,0,
+        0,0,0,0,0);
+
+declare read2(229) address initial(
+        0,173,294,295,44,142,4,236,235,234,141,9,316,321,25,26,174,29,32,260,
+        34,173,37,299,38,41,43,140,25,26,330,29,32,260,34,173,37,299,38,41,
+        43,140,307,278,277,296,45,60,259,3,6,15,26,30,236,235,234,141,142,3,
+        6,15,26,236,235,234,141,4,6,15,26,236,235,234,141,264,143,306,269,143,
+        5,271,143,59,201,190,245,51,326,200,255,326,255,255,19,323,320,22,249,11,
+        319,12,324,183,318,315,244,10,17,169,258,257,23,215,261,266,189,144,241,25,
+        26,29,32,260,34,173,37,299,38,41,43,140,58,33,145,251,13,25,26,29,
+        32,240,260,34,173,37,299,38,138,139,186,41,43,46,140,250,252,136,137,290,
+        329,267,273,325,327,254,256,136,233,137,290,281,233,21,35,4,6,15,26,31,
+        236,235,234,141,171,322,317,265,270,272,28,36,24,54,240,138,139,186,46,55,
+        263,268,274,14,18,304,146,248,42,27,280,288,27,25,29,32,260,34,173,37,
+        299,38,41,147,232,7,8,16,0);
+
+declare look2(89) address initial(
+        0,2,2,291,20,292,39,184,40,187,212,237,212,47,48,48,237,49,237,50,
+        275,52,243,53,247,56,181,57,57,237,212,61,61,218,62,62,223,63,63,222,
+        64,64,219,65,65,220,66,66,221,70,224,71,225,72,226,75,229,79,239,108,
+        282,109,283,116,116,116,116,116,314,118,206,124,210,182,127,129,129,129,129,129,
+        312,199,191,131,298,135,135,135,216);
+
+declare apply2(165) address initial(
+        0,0,67,202,89,172,170,88,103,104,102,178,126,164,188,185,176,332,331,196,
+        175,194,166,195,191,197,198,192,85,128,305,308,193,134,134,301,214,203,82,96,
+        98,253,279,92,302,289,97,213,93,94,217,95,303,99,91,168,149,151,153,150,
+        152,148,155,156,154,228,227,230,157,157,77,74,74,74,74,74,74,74,157,76,
+        74,74,74,229,177,78,158,242,179,87,86,246,122,90,238,119,209,68,162,83,
+        84,207,101,106,107,105,276,120,80,80,80,80,80,80,80,81,115,132,167,130,
+        160,159,286,285,284,287,73,293,205,113,69,204,100,125,112,121,300,297,163,180,
+        133,309,310,311,165,114,313,161,117,211,211,211,211,211,211,262,211,211,211,231,
+        110,208,111,328,123,0);
+
+declare index1 data(
+        0,1,2,49,67,4,6,6,11,6,6,12,13,14,28,6,6,6,42,43,
+        45,67,46,6,213,48,49,49,59,58,59,67,67,119,75,67,119,77,78,80,
+        80,81,83,84,85,86,87,88,91,93,94,95,97,98,99,101,103,91,88,104,
+        106,107,107,107,107,107,107,109,110,49,112,112,112,67,113,113,114,116,117,118,
+        119,67,67,132,58,133,134,135,136,137,155,157,160,161,163,165,167,171,172,173,
+        174,175,184,185,186,187,188,189,190,190,67,191,192,192,193,67,194,199,200,67,
+        201,67,67,203,204,205,206,207,119,194,209,209,211,213,224,225,1,4,6,8,
+        10,14,17,19,21,23,25,27,31,34,37,40,43,46,49,51,53,55,57,59,
+        61,63,69,71,73,75,81,83,85,1,2,4,4,5,6,7,7,8,8,8,
+        8,11,12,12,13,13,13,13,13,14,14,16,16,21,21,21,25,25,25,28,
+        29,29,30,30,30,30,30,30,30,30,30,30,30,33,33,38,39,39,55,55,
+        55,55,55,55,56,56,56,62,62,65,65,65,65,65,67,67,67,68,68,84,
+        85,85,86,86,87,87,88,89,90,90,91,92,92,93,94,95,95,96,96,97,
+        97,98,98,99,100,100,100,101,101,102,102,102,102,102,102,103,103,106,106,107,
+        108,116,117,117,120,120,120,122,122,125,126,126,126,126,127,127,127,128,129,130,
+        131,132,133,134,135,136,138,138,139,140,140,141,141,142,142,143,144,144,145,145,
+        146,147,147,148,148,149,160,160,161,162,163,164,164);
+
+declare index2 data(
+        0,1,2,9,8,2,5,5,1,5,5,1,1,14,14,5,5,5,1,2,1,8,2,5,11,1,9,9,8,1,
+        8,8,8,13,2,8,13,1,2,1,1,2,1,1,1,1,1,3,2,1,1,2,1,1,2,2,1,2,1,2,
+        1,2,2,2,2,2,2,1,2,9,1,1,1,8,1,1,2,1,1,1,13,8,8,1,1,1,1,1,1,18,
+        2,3,1,2,2,2,4,1,1,1,1,9,1,1,1,1,1,1,1,1,8,1,1,1,1,8,5,1,1,8,
+        2,8,8,1,1,1,1,2,13,5,2,1,2,11,1,3,3,2,2,2,4,3,2,2,2,2,2,4,3,3,
+        3,3,3,3,2,2,2,2,2,2,2,6,2,2,2,6,2,2,4,1,1,2,0,0,2,0,2,0,0,0,
+        0,1,0,2,0,1,0,0,1,2,2,0,0,0,3,1,1,3,1,0,1,1,0,0,0,0,0,0,0,0,
+        0,0,0,1,1,1,0,1,0,2,2,3,1,1,0,2,2,0,2,0,0,0,2,2,0,0,0,0,0,1,
+        0,2,1,0,2,2,1,1,1,2,2,0,2,2,2,1,2,1,1,1,0,2,2,0,1,2,2,2,2,1,
+        2,1,2,2,2,0,1,1,1,1,2,2,0,2,0,1,2,0,2,2,0,0,0,0,1,1,1,1,1,0,
+        3,1,1,1,0,1,1,2,1,0,0,0,0,0,0,3,3,2,3,2,2,3,2,2,2,2,1,2,1,2,
+        3,0,2);
+
+
+
+   /*****************************************************/
+   /*              global procedures                      */
+   /*****************************************************/
+
+mon1: procedure(f,a);
+    declare f byte,
+            a address;
+    go to bdos;
+end mon1;
+
+mon2: procedure(f,a) byte;
+    declare f byte, a address;
+    go to bdos;
+end mon2;
+
+mon3:procedure;
+    /*used to return to the system*/
+   go to boot;
+end mon3;
+
+move:procedure (a,b,l);
+     /* moves from a to b for l bytes ( l < 255) */
+    declare (a,b) address,
+    (s based a, d based b,l) byte;
+    do while (l := l - 1) <> 255;
+        d = s; b = b + 1; a = a + 1;
+    end;
+end move;
+
+fill: proc (a,char,n);
+      /* move char to a n times */
+    declare a addr,(char,n,dest based a) byte;
+    do while (n := n - 1) <> 255;
+        dest = char;
+        a = a + 1;
+    end;
+end fill;
+
+read:procedure;
+    declare toggle(3) byte;
+    toggle = 1;
+    call mon1(10, .toggle);
+end read;
+
+
+printchar: procedure(char);
+    declare char byte;
+    call mon1(2,char);
+end printchar;
+
+print: procedure(a);
+    declare a address;
+    call mon1(9,a);
+end print;
+
+diskerr: procedure;
+   call print(.'DE    $');
+   go to boot;
+end diskerr;
+
+open$sourcefile: procedure;
+    call move(.'alg',rfcbaddr+9,3);
+    rfcb(32),rfcb(12) = 0;
+    if mon2(15,rfcbaddr) = 255 then
+    do;
+        call print(.'ng $');
+        go to boot;
+    end;
+end open$sourcefile;
+
+close$int$file: procedure;
+    /* closes a file */
+    if nointfile then
+        return;
+    if mon2(16,.wfcb) = 255 then
+        call diskerr;
+end close$int$file;
+
+setup$int$file: procedure;
+    /* setup$int$files a new file */
+    if nointfile then /*only make file if this toggle is off */
+        return;
+    call move(rfcbaddr,.wfcb,9);
+    call mon1(19, .wfcb);
+    if mon2(22,.wfcb) = 255 then
+        call diskerr;
+    wfcb(32) = 0;
+end setup$int$file;
+
+rewind$source$file:proc;
+    /* cp/m does not require any
+       action prior to reopening */
+    return;
+end rewind$source$file;
+
+read$source$file:proc byte;
+    declare dcnt byte;
+    if (dcnt:=mon2(rfile,rfcbaddr)) > fileeof then
+        call diskerr;
+    return dcnt;
+end read$source$file;
+
+write$int$file: procedure;
+    if nointfile then
+        return;
+    call mon1(26,.diskoutbuff);
+    if mon2(21,.wfcb) <> 0 then
+        call diskerr;
+    call mon1(26,80h);   /* reset dma address */
+end write$int$file;
+
+crlf: procedure;
+    call printchar(cr);
+    call printchar(lf);
+end crlf;
+
+printdec: procedure(value);
+    declare value address, i byte, digit byte;
+    declare deci(4) address initial(1000, 100, 10, 1);
+    declare flag byte;
+    flag = false;
+    do i = 0 to 3;
+        digit = '0';
+        do while value >= deci(i);
+            value = value - deci(i);
+            flag = true;
+            digit = digit + 1;
+        end;
+        if i >= 3 or flag then
+            call printchar(digit);
+        else
+            call printchar(' ');
+    end;
+    return;
+end printdec;
+
+print$prod:proc;
+   call print(.' prod = $');
+   call printdec(production);
+   call crlf;
+end print$prod;
+
+print$token:proc;
+   call print(.' token = $');
+   call print$dec(token);
+   call crlf;
+end print$token;
+
+
+emit:proc(objcode);
+    declare objcode byte;
+    if(buffptr := buffptr+1) >= intrecsize then /*write to disk*/
+    do;
+        call write$int$file;
+       buffptr = 0;
+    end;
+  diskoutbuff(buffptr)=objcode;
+end emit;
+
+clear$line$buff:procedure;
+    call fill(.linebuff,' ',conbuffsize);
+end clear$line$buff;
+
+listline: procedure(length);
+    declare (length, spc, i) byte;
+    call print$dec(lineno);
+    call print$dec(prev$index+1);
+    call print$char(' ');
+    do i = 0 to length;
+        if linebuff(i) = tab then
+            do spc = 0 to 5;
+                call printchar(' ');
+            end;
+        else
+            call printchar(linebuff(i));
+    end ;
+    call crlf;
+end listline;
+
+generate: procedure(objcode);
+    /* writes generated code and counts size
+       of code area.*/
+    declare objcode byte;
+    codesize = codesize + 1;
+    if not pass1 then
+        call emit(objcode);
+end generate;
+
+gentwo:proc(a);
+    /* writes two bytes of object code on disk for literals */
+    declare a address;
+    call generate(high(a));
+    call generate(low(a));
+end gentwo;
+
+literal:proc(a);
+    declare a address;
+    call gentwo(a or 8000h);
+end literal; 
+
+   /************************************************************/
+   /* the following variables are used by the parser           */
+   /************************************************************/
+
+declare listprod        byte initial(false),
+        lowertoupper    byte initial(true),
+        listsource      byte initial(false),
+        debugln         byte initial(false),
+        listtoken       byte initial(false),
+        errset          byte initial(false),
+        compiling       byte,
+        prtct           address initial(0fffeh), /* used to count size of prt */
+
+        /* variables used during for loop code generation */
+        forcount        byte initial(0),
+        randomfile      byte,
+        fileio          byte initial(false),
+
+        /* variables used for case label code generation */
+        ncase           byte initial(255),
+        cases(16)       byte,
+        nclabel         byte initial(255),
+        caselabels(255) byte;
+
+ /*********************************************************/
+ /*             scanner procedures                        */
+ /*********************************************************/
+
+getchar: procedure byte;
+    declare addeof data ('eof',eolchar,lf); /* add to end if left off */
+
+    next$source$char: procedure byte;
+         return sourcebuff(sourceptr);
+    end next$source$char;
+
+    checkfile: procedure byte;
+        do forever;
+            if (sourceptr:=sourceptr+1) >= cursourcerecsize then
+            do;
+                sourceptr = 0;
+                if read$source$file=fileeof then
+                    return true;
+            end;
+            if (nextchar:=next$source$char) <> lf then
+                return false;
+        end;
+    end checkfile;
+
+    if checkfile or (nextchar = eoffiller) then
+    do; /* eof reached */
+        call move(.addeof,sbloc,5);
+        sourceptr = 0;
+        nextchar = next$source$char;
+    end;
+    linebuff(lineptr:=lineptr + 1)=nextchar; /*output line*/
+    if nextchar = eolchar then
+    do;
+        lineno = lineno + 1;
+        if debugln then
+        do;
+            call generate(14h);
+            call generate(low(lineno));
+            call generate(high(lineno));
+        end;
+        if listsource then 
+            call listline(lineptr - 1);
+        lineptr = 0;
+        call clear$line$buff;
+    end;
+    if nextchar = tab then
+        nextchar = ' ';
+    return nextchar;
+end getchar;
+
+getnoblank: procedure;
+         do while((getchar = ' ') or (nextchar = eoffiller));
+         end;
+end getnoblank;
+
+title:procedure;
+      call print( .'algol-m compiler vers 1.1$');
+      call crlf;
+end title;
+
+print$error:proc;
+    call printdec(errorcount);
+    call printchar(' ');
+    call print(.'error(s) detected$');
+    call crlf;
+end print$error;
+
+
+error:procedure(errcode);
+    declare errcode address,
+           i byte;
+    errorcount=errorcount+1;
+    call print(.'***$');
+    call print$dec(lineno);
+    call print(.'  error $');
+    call print$char(' ');
+    call print$char(high(errcode));
+    call print$char(low(errcode));
+    call print(.' near $');
+    call print$char(' ');
+    do i = 1 to accum;
+        call print$char(accum(i));
+    end;
+    call crlf;
+    if token=eofc then
+    do;
+        call print$error;
+        call mon3;
+    end; 
+end error;
+
+
+
+initialize$scanner: procedure;
+    declare (ch, count) byte;
+    if pass1 then
+    do;
+        call move(cmdargs,.cmdlineflags,8);
+        if cmdlineflags(0) = '$' then
+        do;
+            count = 0;
+            do while (ch := cmdlineflags(count:=count+1)) <> ' ';
+                if (ch := ch - 'A') <= 4 then
+                do case(ch);
+                    listsource = true;
+                    listprod = true;
+                    nointfile = true;
+                    listtoken = true; 
+                    debugln = true;
+                end;
+            end;
+            
+        end;
+    end;
+    call open$sourcefile;
+    cont,lineno,lineptr = 0;
+    call clear$line$buff;
+    sourceptr = 128;
+    call getnoblank;
+end initialize$scanner;
+
+   /****************************************************/
+   /*              scanner                             */
+   /****************************************************/
+
+scanner:procedure;
+
+    putinaccum: procedure;
+        if not cont then
+        do;
+            accum(accum := accum + 1) = nextchar;
+            hashcode = (hashcode + nextchar) and hashmask;
+            if accum = 31 then cont = true;
+        end;
+    end putinaccum;
+
+    putandget: procedure;
+         call putinaccum;
+         call getnoblank;
+    end putandget;
+
+    putandchar: procedure;
+         call putinaccum;
+         nextchar = getchar;
+    end putandchar;
+
+    numeric: procedure byte;
+        return(nextchar - '0') <= 9;
+    end numeric;
+
+    lowercase: procedure byte;
+        return (nextchar >= 61h) and (nextchar <= 7ah);
+    end lower$case;
+
+    decimalpt:proc byte;
+         return nextchar = '.';
+    end decimalpt;
+
+    conv$to$upper:proc;
+        if lowercase and lowertoupper then
+            nextchar=nextchar and 5fh;
+    end conv$to$upper;
+
+    letter: procedure byte;
+        call conv$to$upper;
+        return ((nextchar - 'a') <= 25) or lowercase;
+    end letter;
+
+    alphanum: procedure byte;
+        return numeric or letter or decimalpt;
+    end alphanum;
+
+    spoolnumeric: procedure;
+        do while numeric;
+            call putandchar;
+        end;
+    end spoolnumeric;
+
+
+    setup$next$call: procedure;
+        if nextchar = ' ' then
+            call getnoblank;
+        cont = false;
+    end setup$next$call;
+
+
+    lookup: procedure byte;
+        declare maxrwlng lit '9';
+        declare vocab data(0, '<','(','+',5dh,7ch,'*',')',';','-','/',',','>', ':',5bh,'=',
+                      '**',':=','DO','GO','IF','OF','OR','TO',
+                      'EOF','AND','END','FOR','NOT','TAB',
+                      'CASE','ELSE','FILE','GOTO','READ','STEP','THEN',
+                      'ARRAY','BEGIN','CLOSE','UNTIL','WHILE','WRITE',
+                      'STRING',
+                      'DECIMAL','INTEGER','WRITEON','COMMENT',
+                      'FUNCTION',
+                      'ONENDFILE','PROCEDURE');
+        declare vloc data(0, 1, 16, 32, 50, 78, 108, 114, 142, 150);
+        declare vnum data(0, 1, 16, 24, 30, 37, 43, 44, 48, 51);
+        declare count data(0, 14, 7, 5, 6, 5, 0, 3, 0, 1);
+
+        declare ptr address, (field based ptr) (9) byte;
+        declare i byte;
+
+
+        compare:procedure byte;
+            declare i byte;
+            i = 0;
+            do while (field(i) = accum(i := i + 1)) and i <= accum;
+            end;
+            return i > accum;
+        end compare;
+
+        if accum > maxrwlng then
+            return false;
+        ptr=vloc(accum) + .vocab;
+        do i = vnum(accum) to (vnum(accum)+count(accum));
+            if compare then
+            do;
+                if (token := i) = 47 then
+                    token = comment;
+                return true;
+            end;
+            ptr=ptr+accum;
+        end ;
+        return false;
+    end lookup;
+
+
+/***************************************************/
+/*            scanner maln code                    */
+/***************************************************/
+
+
+    do forever;
+        accum, hashcode, token = 0;
+        do while nextchar = eolchar;
+            call getnoblank;
+        end;
+        if (nextchar = stringdelim) or cont then
+        do; /* found string */
+            token = string;
+            cont = false;
+            do forever;
+                do while getchar <> stringdelim;
+                    call putinaccum;
+                    if cont then return;
+                end;
+                call getnoblank;
+                if nextchar <> stringdelim then
+                    return;
+                call put$in$accum;
+            end; /* of do forever */
+        end; /* of recognizing a string */
+
+        else if numeric or decimalpt then
+        do; /* have digit */
+            token = integerc;
+            do while nextchar ='0'; /* elim leading zeros*/
+                nextchar=getchar;
+            end;
+            call spoolnumeric;
+            if decimalpt then
+            do;
+                token=decimal;
+                call putandchar;
+                call spoolnumeric;
+            end;
+            if accum=0 then
+                hashcode, accum(accum := 1) = '0';
+            call setup$next$call;
+            return;
+        end; /* of recognizing numeric constant */
+
+        else if letter then
+        do; /* have a letter */
+            do while alphanum;
+                call putandchar;
+            end;
+            if not lookup then
+            do;
+                token = identifier;
+                call setup$next$call;
+                return;
+            end;
+            else /* is a rw but if comment skip */
+                if token = comment then
+                do;
+                    do while nextchar <> ';';
+                        nextchar = getchar;
+                    end;
+                    call get$no$blank;
+                end;
+                else
+                do;
+                    call set$up$next$call;
+                    return;
+                end;
+         end; /* of recognizing rw or ident */
+
+        else
+        do; /* special character */
+            if nextchar = 25h then  /* % */
+            do;
+                nextchar = getchar;
+                do while nextchar <> 25h;
+                    nextchar= getchar;
+                end;
+                call get$no$blank;
+            end;
+            else
+            do;
+                if nextchar = ':' then
+                do;
+                    call putandchar;
+                    if nextchar = '=' then
+                        call putandget;
+                end;
+                else
+                    if nextchar = '*' then
+                    do;
+                        call putandchar;
+                        if nextchar = '*' then
+                            call putandget;
+                    end;
+                    else
+                        call putandget;
+                    if not lookup then
+                        call error('ic');
+                call setup$next$call;
+                return;
+             end;
+        end; /* of recognizing special char */
+    end; /* of do forever */
+end scanner; /* end of scanner */
+
+ /***************************************************/
+ /*      procedures for synthesizer                 */
+ /***************************************************/
+
+initialize$symtbl: proc;
+    if pass1 then
+    do;
+        /* fill hashtable with 0's */
+        call fill(.hashtable,0,128);
+        sbtbl = .memory;
+    end;
+    /*initialize pointer to top of symbol table*/
+    sbtbltop = max - 2;
+    b2DEA = 0ffh;
+end initialize$symtbl;
+
+setaddrptr:proc(offset);/*set ptr for addr reference*/
+    declare offset byte;
+    aptraddr = base + ptr + offset; /*position for addr reference*/
+end setaddrptr;
+
+set$blk$level:proc(level);
+   declare level byte;
+   call setaddrptr(6);
+   byteptr = level;
+end set$blk$level;
+
+setlink:proc;
+   aptraddr = base + 1;
+end setlink;
+
+hashtbl$of$symhash:proc address;
+    return hashtable(symhash);
+end hashtbl$of$symhash;
+
+limits:proc(count);
+    /*check to see if additional sbtbl wtlI overflow limits of
+      memory. if so then punt else return */
+    declare count byte; /*size being added is count */
+    if sbtbltop <= (sbtbl + count) then
+    do;
+        call error('TO');
+        call mon3;
+    end;
+end limits;
+
+setaddr:proc(loc);
+    /*set the address field and resolved bit*/
+    declare loc address;
+    call setaddrptr(4);
+    addrptr= loc;
+end setaddr;
+
+lookup$current$blk:proc(chk$blk) byte;
+    declare chk$blk byte,
+            len byte,
+            n based printname byte;
+
+    base = hashtbl$of$symhash;
+    do while base <> 0;
+        call setaddrptr(6);
+        if byteptr = chk$blk then
+            if (len :=ptr) = n then
+                do while (ptr(len + 2) = n(len));
+                    if (len := len - 1) = 0 then
+                        return true;    
+                end;
+        call setlink;
+        base = addrptr;
+    end;
+    return false;
+end lookup$current$blk;
+
+lookup:proc byte;
+    declare test$blk byte,
+            test$index byte;
+    test$index = prev$index+1;
+    test$blk = blk$level;
+    do while (test$index := test$index - 1) <> 255;
+        if lookup$current$blk(test$blk) then
+            return true;
+        test$blk = prev$blk$level(test$index);
+    end;
+    return false;
+end lookup;
+
+enter:proc;
+  /*enter token reference by printname and symhash
+    into next available location in the symbol table,
+    set base to beginning of this entry and increment
+    sbtbl. also check for symbol table full. */
+    declare i byte,
+            n based printname byte;
+    call limits(i:=n+8);
+    base = sbtbl; /*base for new entry */
+    call move(printname + 1,sbtbl + 3,(ptr := n));
+    call setaddrptr(3); /*set resolve bit to 0*/
+    byteptr = 0;
+    call setlink;
+    addrptr = hashtbl$of$symhash;
+    hashtable(symhash) = base;
+    call set$blk$level(blk$level);
+    sbtbl = sbtbl + i;
+end enter;
+
+getlen:proc byte; /*return length of the p/n */
+    return ptr;
+end getlen;
+
+getype:proc byte; /*returns type of variable*/
+    call setaddrptr(3);
+    return byteptr;
+end getype;
+
+setsubtype:proc(stype);/*enter the subtype in sbtbl*/
+    declare stype byte;
+    call setaddrptr(7);
+    byteptr=stype;
+end setsubtype;
+
+get$parm:proc byte;
+    call setaddrptr(10);
+    return byteptr;
+end get$parm;
+
+getsubtype: proc byte;/*return the subtype*/
+    call setaddrptr(7);
+    return byteptr;
+end getsubtype;
+
+setype:proc (type); /*set typefield = type*/
+    declare type byte;
+    call setaddrptr(3);
+    byteptr = type;
+end setype;
+
+getaddr:proc address;
+    call setaddrptr(4);
+    return addrptr;
+end getaddr;
+
+
+
+do; /* block for parser */
+
+
+    /* pneumonics for ALGOL-M machine */
+    declare  nop  lit  '0',  str  lit  '1',  int  lit  '2',  xch  lit  '3',
+             lod  lit  '4',  dcb  lit  '5',  dmp  lit  '6',  xit  lit  '7',
+             ald  lit  '8',  als  lit  '9',  aid  lit '10',  ais  lit '11',
+             adi  lit '12',  add  lit '13',  sbi  lit '14',  sdb  lit '15',
+             mpi  lit '16',  mpd  lit '17',  dvi  lit '18',  dvd  lit '19',
+            dneg  lit '21',  neg  lit '22',  ci1  lit '23',  ci2  lit '24',
+            deci  lit '25',  pop  lit '26',  im1  lit '27',  im2  lit '28',
+                             cat  lit '31',  bli  lit '32',  bld  lit '33',
+             brs  lit '34',  bsc  lit '35',  lss  lit '36', dlss  lit '37',
+            slss  lit '38',  gtr  lit '39', dgtr  lit '40', sgtr  lit '41',
+             eql  lit '42', deql  lit '43', seql  lit '44',  neq  lit '45',
+            dneq  lit '46', sneq  lit '47',  geq  lit '48', dgeq  lit '49',
+            sgeq  lit '50',  leq  lit '51', dleq  lit '52', sleq  lit '53',
+            inot  lit '54', dnot  lit '55', snot  lit '56', iand  lit '57',
+            dand  lit '58', sand  lit '59',  ior  lit '60',  dor  lit '61',
+             sor  lit '62',  wic  lit '63',  wdc  lit '64',  wsc  lit '65',
+             wid  lit '66',  wdd  lit '67',  wsd  lit '68',  sbr  lit '69',
+             bra  lit '70',  row  lit '71',  sub  lit '72',  rci  lit '73',
+             rcd  lit '74',  rcs  lit '75',  rdi  lit '76',  rdd  lit '77',
+             rds  lit '78',  rcn  lit '79',  ecr  lit '80',  sil  lit '81',
+             sdl  lit '82',  ssl  lit '83',  sid  lit '84',  sdd  lit '85',
+             ssd  lit '86',  opn  lit '87',  cls  lit '88',  rdb  lit '89',
+             rdf  lit '90',  edr  lit '91',  edw  lit '92',  pro  lit '93',
+             sav  lit '94',  sv2  lit '95',  uns  lit '96',  rtn  lit '97';
+
+    declare state                   statesize,
+            statestack(pstacksize)  statesize,
+            hash(pstacksize)        byte,
+            symloc(pstacksize)      address,
+            srloc(pstacksize)       address,
+            var(pstacksize)         byte,
+            type(pstacksize)        byte,
+            stype(pstacksize)       byte,
+            varc(varcsize)          byte,
+            varindex                byte,
+            (sp,mp,mpp1,nolook)     byte,
+            clablng                 byte initial(2),
+            clab2                   byte initial(23),
+            clable                  byte,
+            pad3581                 byte,
+            saveparm                address,
+            parme based saveparm    byte,
+            fpcount                 byte,
+            parmbase                address,
+            proc$type(12)           byte,               
+            proc$depth               byte,
+            (ptest,i)               byte,
+            pcount                  byte initial(0),
+            pad3598                 byte,
+            lpcount                 byte,
+            sident                  address;
+
+    initialize$synthesize:procedure;
+        codesize,clable = 0;
+        prev$index = 255;
+        blk$cnt = 0;
+        blk$level = 0;
+        proc$depth = 0;
+    end initialize$synthesize;
+
+
+    synthesize: proc;
+
+    /* ****     synthesize local declarations **** */
+
+        declare simvar      lit '0bh',
+                subvar      lit '99',
+                ext$proc    lit '03',
+                blt$in$func lit '05',
+                const       lit '06',
+                lab         lit '07',
+                integer     lit '08',
+                file1       lit '0ch',
+                func        lit '0dh',
+                func2       lit '0eh',  /* to consider name */
+                parm        lit '10h';
+
+        declare (typesp, typemp, typemp1)       byte,
+                (stypesp,stypemp,stypemp1)      byte,
+                (symlocsp,symlocmp, symlocmp1)  address,
+                (srlocsp,srlocmp)               address,
+                (b,temp)                        byte;
+
+
+        /*   *********************************************************   */
+        /*   **********      code generation proc's         **********   */
+        /*   *********************************************************   */
+
+
+        copy:procedure;
+            typesp = type(sp);
+            typemp1 = type(mpp1);
+            typemp = type(mp);
+            stypesp = stype(sp);
+            stypemp1 = stype(mpp1);
+            stypemp = stype(mp);
+            symlocsp = symloc(sp);
+            symlocmp1 = symloc(mpp1);
+            symlocmp = symloc(mp);
+            srlocsp = srloc(sp);
+            srlocmp = srloc(mp);
+        end copy;
+
+        setsymlocsp: procedure(a);
+            declare a address;
+            symloc(sp) = a ;
+        end setsymlocsp;
+
+        setsymlocmp: procedure(a);
+            declare a address;
+            symloc(mp) = a;
+        end setsymlocmp;
+
+        settypesp: procedure(b);
+            declare b byte;
+            type(sp) = b;
+        end settypesp;
+
+        setstypesp: procedure(b);
+            declare b byte;
+            stype(sp) = b;
+        end setstypesp;
+
+        setstypemp: procedure(b);
+            declare b byte;
+            stype(mp) = b;
+        end setstypemp;
+
+
+        settypemp: procedure(b);
+            declare b byte;
+            type(mp) = b;
+        end settypemp;
+
+        sethashmp: procedure(b);
+            declare b byte;
+            hash(mp) = b;
+        end sethashmp;
+
+        sethashsp: procedure(b);
+            declare b byte;
+            hash(sp) = b;
+        end sethashsp;
+
+        setsrlocsp: procedure(a);
+            declare a address;
+            srloc(sp) = a;
+        end setsrlocsp;
+
+        setsrlocmp: proc(a);
+            declare a address;
+            srloc(mp) = a;
+        end setsrlocmp;
+
+        getsrloc: proc address;
+            call setaddrptr(8);
+            return addrptr;
+        end getsrloc;
+
+        gen$int$v: proc(a);
+            declare a byte;
+            call generate(im1) ;
+            call generate(a);
+        end gen$int$v;
+
+        incr$blk$level$nogen: proc;
+            prev$blk$level(prev$index := prev$index + 1) = blk$level;
+            blk$level,blk$cnt = blk$cnt + 1;
+        end incr$blk$level$nogen;
+
+        incr$blk$level: proc;
+            call incr$blk$level$nogen;
+            call generate(bli);
+        end;
+
+        decr$blk$level: proc;
+            blk$level = prev$blk$level(prev$index);
+            prev$index = prev$index - 1;
+            call generate(bld);
+        end decr$blk$level;
+
+        calc$varc: procedure(b) address;
+            declare b byte;
+            return var(b) + .varc;
+        end calc$varc;
+
+        setlookup: procedure(a);
+            declare a byte;
+            printname = calc$varc(a);
+            symhash = hash(a);
+        end setlookup;
+
+        lookup$only: procedure(a) byte;
+            declare a byte;
+            call setlookup(a);
+            if lookup$current$blk(blk$level) then
+                return true;
+            return false;
+        end lookup$only;
+
+        full$lookup:proc(a) byte;
+            declare a byte;
+            call setlookup(a);
+            if lookup then
+                return true;
+            return false;
+        end full$lookup;
+
+        normal$lookup: procedure(a) byte;
+            declare a byte;
+            if lookup$only(a) then
+                return true;
+            call enter;
+            return false;
+        end normal$lookup;
+
+        countprt:proc address;
+        /*counts the size of the prt */
+            return (prtct := prtct + 2);
+        end countprt;
+
+        setcname:proc;
+            printname = .clablng;
+            symhash = clable and hashmask;
+        end setcname;
+
+        enter$compiler$label:proc(b);
+            declare b byte;
+            if pass1 then
+            do;
+                call setcname;
+                call enter;
+                call setaddr(codesize + b);
+            end;
+        end enter$compiler$label;
+
+        set$compiler$label:proc;
+            declare x byte;
+            clable = clable + 1;
+            call setcname;
+            if pass2 then
+                x = lookup;
+         end set$compiler$label;
+
+        compiler$label:proc;
+            call set$compiler$label;
+            call gen$two(getaddr);
+        end compiler$label;
+
+        set$enter: proc(a);
+            declare (a,b) byte;
+            b = clable;
+            clable = a;
+            call enter$compiler$label(0);
+            clable = b;
+        end set$enter;
+
+        branch$clause: proc(a);
+            declare a byte;
+            call generate(a) ;
+            call compiler$label;
+            call settypemp(clable);
+        end branch$clause;
+
+        process$case$label: proc(a);
+            declare (a,b,x) byte;
+            b = clable;
+            clable = a;
+            call generate(brs);
+            call setcname;
+            if pass2 then
+                x = lookup;
+            call gen$two(getaddr);
+            clable = b;
+        end process$case$label;
+
+        case$state: proc;
+            call process$case$label(type(mp-2));
+            cases(ncase) = cases(ncase) + 1;
+            caselabels(nclabel := nclabel+ 1) = (clable := clable + 1);
+            call enter$compiler$label(0);
+        end case$state;
+
+        litload:proc(a);
+            declare a address;
+            call gentwo(a or 0c000h);
+         end litload;
+
+        chktyp1: proc(a);   /* check mp,sp to see if they are both decimal */
+            declare a byte; /* both integer, one of each, or neither */
+            if (stypemp=int) and (stypesp=int) then
+                call generate(a);
+            else if (stypemp=deci) and (stypesp=deci) then
+                call generate(a+1); /* generate decimal operator */
+            else if (stypemp=deci) and (stypesp=int) then
+            do;
+                call generate(ci1); /* convert integer to decimal */
+                call generate(a+1);
+            end;
+            else if (stypemp=int) and (stypesp=deci) then
+            do;
+                call generate(ci2);
+                call generate(a+1);
+                call setstypemp(deci);
+            end;
+            else if typemp<>func or pass2 then
+                call error('TM');
+        end chktyp1;
+          
+        step$gen: proc;
+            call chktyp1(adi);
+            call chktyp1(sid);
+            call enter$compiler$label(0);
+            call litload(sident);
+        end step$gen;
+
+        chktyp2: proc byte;
+            if stypesp <> stypemp then
+            do;
+                call error('TM');
+                return false;
+            end;
+            return true;
+        end chktyp2;
+
+        chktyp3:proc byte;
+            call setstypemp(stypesp);
+            if (stypesp=int) or (stypesp=deci) then
+                return true;
+            call error('TM');
+            return false;
+        end chktyp3;
+
+        chktyp5: proc byte;
+            return (stypemp=str) and (stypesp=str);
+        end chktyp5;
+
+        chktyp6: proc;
+            if pass2 then
+            do;
+                if (stypemp=int) and (stypesp=deci) then
+                    call error('id');
+                if (typemp<>simvar) and (typemp<> subvar) and (typemp<>func2) then
+                    call error('as');
+            end;
+        end chktyp6;
+
+        gencon: proc(subtype);
+            declare (i,subtype) byte;
+          
+            gen$accum: proc;
+                if pass2 then
+                    do i= 1 to accum;
+                        call emit(accum(i));
+                    end;
+            end gen$accum;
+
+            call generate(subtype);
+             call settypemp(const);
+            call setstypemp(subtype);
+            if subtype=int then
+            do;
+                if accum>5 then
+                    call error('io');
+                call gen$accum;
+                if pass2 then
+                    call emit(0);
+                codesize = codesize + 2;
+            end;
+            else if subtype = deci then
+            do;
+                call gen$accum;
+                codesize = codesize + accum / 2 + 3;
+                call generate(0);
+            end;
+            else
+                do forever;
+                    do i = 1 to accum;
+                        call generate(accum(i));
+                    end;
+                    if cont then
+                        call scanner;
+                    else
+                    do;
+                        codesize = codesize + 2;
+                        call generate(0);
+                        return;
+                    end;
+                end;
+        end gencon;
+
+        prod22a: proc;
+            call move(calc$varc(mpp1), .accum, 7);
+            call gencon(2);
+        end prod22a;
+
+        process$store: proc(a);
+            declare a byte;
+            if chktyp5 then
+                call generate(a + 2);
+            else
+                call chktyp1(a);
+        end process$store;
+
+        gen$loc: proc(a,b);
+            declare a byte,
+                    b address;    
+            if a = int then
+                call literal(b);
+            else
+                call litload(b);
+        end gen$loc;
+
+        get$field: proc;
+            gen$read: proc(a);
+                declare a byte;
+                if stypemp1=int then
+                do;
+                    call generate(a);
+                    call generate(sid);
+                end;
+                else if stypemp1=deci then
+                do;
+                    call generate(a+1);
+                    call generate(sdd);
+                end;
+                else
+                do;
+                    call generate(a+2);
+                    call generate(ssd);
+                end;
+            end gen$read;
+
+            if typemp1 <> subvar then
+                call genloc(stypemp1, symlocmp1);
+            if fileio then
+                call genread(rdi);
+            else
+                call genread(rci);
+        end get$field; 
+
+        put$field: proc(a);
+            declare a byte;
+            if fileio then
+                a=a+3;
+            if stypemp1 = int then
+                call generate(a);
+            else if stypemp1 = deci then
+                call generate(a+1);
+            else
+                call generate(a+2);
+        end put$field;
+
+        process$proc: proc(a);
+            declare a byte;
+            call settypemp(a);
+            call setsrlocmp(srlocmp := getsrloc);
+            call setstypemp(getsubtype);
+            parmbase = base + ptr + 11;
+        end process$proc;
+
+        process$ident:proc(a) byte;
+            declare a byte;
+            if full$lookup(a) then
+                return getype;
+            call error('UD');
+            return false;
+        end process$ident;
+
+        process$array:proc(a) ;
+            declare (a,b) byte;
+            if ((b:=process$ident(a)) <> subvar) and pass2 then
+            do;
+                if b<>0 then
+                call error('TS');
+            end;
+            else
+            do;
+                call setstypemp(getsubtype);
+                call setsymlocmp(symlocmp := getaddr);
+                call settypemp(subvar);
+            end;
+        end process$array;
+
+        process$ident$dcl: proc(a,b,c);
+            dcl (a,b,c) byte;
+            b2DEB(proc$depth) = b2DEB(proc$depth)+1;
+            if not normal$lookup(a) then
+            do;
+                call setype(b);
+                call setaddr(countprt);
+                call setsubtype(c);
+            end;
+            else
+            if pass1 then
+            do;
+                if getype=parm then
+                do;
+                    call setype(b);
+                    call setsubtype(c);
+                    ptest = ptest - 1;
+                end;
+                else
+                    call error('DD');
+            end;
+        end process$ident$dcl;
+
+        proc$sav: proc;
+            call gen$int$v(pcount);
+            b2DEB(proc$depth) = 0;
+            call literal(symlocmp);
+            call generate(sav);
+            if proc$type(proc$depth) = func2 then
+            do;
+                if stypemp <> int then
+                do; 
+                    call litload(symlocmp+4);
+                    call literal(symlocmp);
+                    if stypemp = deci then
+                        call generate(ald);
+                    else
+                        call generate(als);    
+                end; 
+            end;
+        end proc$sav;
+
+        check$parm: proc(a);
+            declare a byte,
+                    b address;
+            if pass2 then
+            do;
+                b = base;
+                base= parmbase;
+                if a <> getsubtype then
+                    call error('PM');
+                parmbase = base + ptr + 8;
+                base = b;
+            end;
+            call generate(im1);
+            call generate(a);
+        end check$parm;
+
+        proc$pro: proc;
+            call generate(im2);
+            call gen$two(srlocmp);
+            call generate(pro);
+        end proc$pro;
+
+        process$proc$dcl: proc(a,b,c);
+            declare (a,b,c) byte;
+            call process$ident$dcl(a,b,c);
+            pcount=0;
+            b2DEB(proc$depth) = b2DEB(proc$depth) + 3;
+            call setsymlocmp(symlocmp := getaddr);
+            if pass1 then
+                prtct = prtct + 6;
+            if (proc$type(proc$depth := proc$depth + 1) := b) = func2 then
+            do;
+                call setype(func2);
+                w2DD2(b2DEA := b2DEA + 1) = aptraddr;
+                if stypemp <> int then
+                do;
+                  call literal(symlocmp+4);
+                  call generate(xch);
+                  call generate(sid);
+                end;
+            end;
+            call branch$clause(brs);
+            if pass1 then
+            do;
+                call setaddrptr(8);
+                addrptr = codesize;
+                sbtbl = sbtbl + 3;
+                saveparm=sbtbl-1;
+            end;
+            call incr$blk$level$nogen;
+        end process$proc$dcl;
+
+        process$var: proc(a);
+            declare (a,b) byte;
+            if (b:=process$ident(a)) = simvar then
+            do;
+                call settypesp(simvar);;
+                call setstypesp(getsubtype);
+            end;
+            else if b = func or b = func2 then
+                call process$proc(b);
+            else if b = file1 then
+            do;
+                call settypesp(file1);
+                call setstypesp(file1);
+            end;
+            else
+                call error('US');
+            call setsymlocsp(symlocsp := getaddr);
+        end process$var;
+
+        process$simvar$dcl: proc(a,b);
+            declare (a,b) byte;
+            call process$ident$dcl(a,simvar,stypemp);
+            if stypemp <> int then
+            do;
+                call literal(getaddr);
+                if stypemp=deci then
+                    call generate(b);
+                else
+                    call generate(b+1);
+            end;
+        end process$simvar$dcl;
+
+        process$label:proc;
+            if pass1 then
+            do;
+                if full$look$up(mp) then
+                    call error('DD');
+                else
+                do;
+                    call enter;
+                    call setaddr(codesize);
+                    call setype(lab);
+                    call set$blk$level(blk$level);
+                end;
+            end;
+        end process$label;
+
+        resolve$label:proc;
+            declare (chk$blk,tindex) byte;
+            if pass2 then
+            do;
+                if ((not full$lookup(sp)) or (getype <> lab)) then
+                    call error('UL');
+                call setaddrptr(6);
+                chk$blk= byteptr;
+                tindex=prev$index;
+                if blk$level<>chk$blk then
+                do;
+                    do while prev$blk$level(tindex) > chk$blk;
+                        tindex= tindex-1;
+                    end;
+                    call generate(dcb);
+                    call generate(prev$index + 1 - tindex);
+                end;
+                else
+                    call gen$two(nop);   
+            end;
+            else
+                call gen$two(nop);
+            call generate(brs);
+            call gen$two(getaddr);
+        end resolve$label;
+
+        process$array$dcl: proc(a);
+            declare a byte;
+            call process$ident$dcl(a,subvar,stypemp);
+            arr$loc(arr$num)=getaddr;
+            arr$num=arr$num+1;
+        end process$array$dcl;
+
+        assign$stmt: proc;
+            if typemp = file1 then
+            do;
+                if stypesp <> str or (lpcount := lpcount - 1) <> 0 then
+                    call error('FP');
+                call generate(opn);
+            end;
+            else
+            do;
+                call chktyp6;
+                if (lpcount := lpcount - 1) <> 0 then /* tests multiple assign stmts */
+                    call process$store(sil);
+                else
+                    call process$store(sid);
+            end;
+        end assign$stmt;
+
+        prod107$8: proc(a,b);
+            declare (a,b) byte;
+            if process$ident(a) = file1 then
+            do;
+                call litload(getaddr);
+                call generate(b);
+            end;
+            else
+                call error('UF');
+            fileio = 1;
+        end prod107$8;
+
+      /* execution of synthesize begins here----       */
+
+        if listprod then
+            call print$prod;
+        call copy;
+        do case production; /* call to systheslze handles one prod */
+
+      /*case 0 not used */
+            ;
+      /*      1 <program> ::= <block> |                                  */
+
+            if pass1 then
+            do;
+                pass1 = false;
+                if errorcount > 0 then
+                do;
+                    call print$error;
+                    call mon3;
+                end;
+                call rewind$source$file;
+                call gentwo(codesize+1); /* plus one to include the xit */
+                call gentwo(countprt);
+            end;
+            else
+            do;
+                call print$error;
+                call generate(xit);
+                call generate(7fh);
+                call write$int$file;
+                call close$int$file;
+                call mon3;
+            end;
+
+    /*        2   <block> ::= <block head> <block end>                    */
+            ;
+
+    /*        3   <block head> ::= <block head> <declaration> ;           */
+            ;
+
+    /*        4   | <begin>                                               */
+            ;
+
+    /*        5   <begin> ::= begin                                       */
+            call incr$blk$level;
+
+    /*        6   <block end> ::= <block body> ; end                      */
+            call decr$blk$level;
+
+    /*        7   <block body> ::= <statement>                            */
+            ;
+
+    /*        8   | <block body> : <statement>                            */
+            ;
+
+    /*        9   <declaration> ::= <file declaration>                    */
+            ;
+
+    /*       10   | <simple declaration>                                  */
+            ;
+
+    /*       11   | <simple declaration> <initial option>                 */
+            ;
+
+    /*       12   | <array declaration>                                   */
+            ;
+
+    /*       13   | <array declaration> <initial option>                  */
+    /*       14   | <subprogram declaration>                              */
+
+    /*       13  <simple declaration> ::= <declaratlon head>              */
+    /*                                    <identifier>                    */
+            call process$simvar$dcl(sp, ald);
+
+    /*       17   <initial option> ::= <initial head> <constant> )        */
+    /*       18   <initial head> ::= initial (                            */
+    /*       19   | <initial head> <constant> ,                           */
+
+    /*       14   <declaration head> ::= <declaration type>               */
+            ;
+    /*       15   | <declaration head> <identifier>                       */
+            call process$simvar$dcl(mpp1, aid);
+
+    /*       16   <declaration type> ::= string                           */
+            do;
+                call setstypesp(str);
+                call gen$int$v(aid);
+            end;
+
+    /*       17   | string <size option>                                  */
+            call setstypemp(str);
+
+    /*       18   | integer                                               */
+            call setstypesp(int);
+
+    /*       19  | decimal                                                */
+            do ;
+                call setstypesp(deci);
+                call gen$int$v(adi);
+            end;
+
+    /*       20  | decimal <size option>                                  */
+            call setstypemp(deci);
+
+    /*       21  <size option> ::= ( <variable> )                         */
+            if stypemp1 = int then
+            do;
+                if typemp1 = subvar then
+                    call generate(lod);
+                else
+                    call litload(symlocmp1);
+            end;
+            else
+                call error('SI');
+
+    /*       22  | ( <integer> )                                          */
+            call prod22a;
+
+    /*       23  <statement> ::= <balanced statement>                     */
+            ;
+
+    /*       24                | <unbalanced statemenT>                   */
+            ;
+
+    /*       25  <balanced statement> ::= <simple statement>              */
+            ;
+
+    /*       26                         | <if clause) <true part> else    */
+    /*                                    <balanced statement>            */
+            call set$enter(typemp1);
+
+    /*       27                         | <label definition>              */
+    /*                                    <balanced statement>            */
+            ;
+            
+    /*       28  <unbalanced statement> ::= <if clause> <statement>       */
+            call set$enter(typemp);
+
+    /*       29                           | <if clause> <true part>       */
+    /*                                      else <unbalanced statement>   */
+            call set$enter(typemp1);
+
+    /*       30                           | < label definition>           */
+    /*                                      <unbalanced statement>        */
+            ;
+
+    /*       31  <true part> ::= <balanced statement>                     */
+            do;
+                call branch$clause(brs);
+                call set$enter(type(sp - 1));
+            end;
+
+    /*       32  <label definition> ::= <identifier> :                    */
+            call process$label;
+
+    /*       33                       | <integer>                         */
+            call process$label;
+
+    /*       34  <simple statement> ::= <block>                           */
+            ;
+    /*       35                       | <assignment statement>            */
+            ;
+    /*       36                       | <for statement>                   */
+            ;
+    /*       37                       | <while statement>                 */
+            ;
+    /*       38                       | <read statement)                  */
+            ;
+    /*       39                       | <file? statement>                 */
+            if fileio then
+            do;
+                call generate(edw);
+                fileio = false;
+            end;
+    /*       40                       | <write statement>                 */
+            ;
+    /*       41                       | <case statement>                  */
+            ;
+    /*       42                       | <go to statement)                 */
+            ;
+    /*       43                       | <close statement>                 */
+
+    /*       43                       | <procedure call>                  */
+        call generate(pop);
+
+    /*       44                       | <identifier>                      */
+            do;
+                if ((process$ident(sp) <> pro) and pass2) then
+                    call error('UP');
+                call process$proc(pro);
+                call proc$pro;
+                call generate(pop);
+            end;
+
+    /*       45  <assignment statement> ::= <left part> <expression>      */
+            call assign$stmt;
+
+    /*       46                            | <left part>                  */
+    /*                                       <assignment statement>       */
+            call assign$stmt;
+
+    /*       47  <left part> <variable> :=                                */
+            do;
+                if typemp<>subvar then
+                    call gen$loc(stypemp,symlocmp);
+                lpcount = lpcount + 1;
+            end;
+
+    /*       48  <expression> ::= <arithmetic expression>                 */
+            ;
+    /*       49                 | <if expression> <expression>            */
+            do;
+                call set$enter(typemp);
+                call setstypemp(stypesp);
+            end;
+    
+    /*       50  <arithmetic expression> ::= <term>                       */
+            ;
+
+    /*       51                            | <arithmetic expression> +    */
+    /*                                       <term>                       */
+            call chktyp1(adi);
+
+    /*       52                            | <arithmetic expression> -    */
+    /*                                       <term>                       */
+            call chktyp1(sbi);
+
+    /*       53                            | <arithmetic expression>  !   */
+    /*                                       ! <term>                     */
+            if chktyp5 then
+                call generate(cat);
+                
+    /*       54                            | - <term>                     */
+            if chktyp3 then
+            do;
+                stypemp = stypesp;
+                call chktyp1(dneg);
+            end;
+
+    /*       55                            | + <term>                     */
+            if chktyp3 then /* no action required */
+                ;
+
+    /*       56  <term> ::= <primary>                                     */
+            ;
+
+    /*       57           | <term> * <primary>                            */
+            call chktyp1(mpi);
+
+    /*       58           | <term> / <primary>                            */
+            call chktyp1(dvi);
+
+    /*       59  <primary> ::= <primary element>                          */
+            ;
+
+    /*       60              | <primary) ** <primary element>             */
+            call chktyp1(dnot);
+
+    /*       61  <pimary element> ::= variable>                           */
+            if typesp = simvar then
+                call litload(symlocsp);
+            else if typesp = subvar then
+            do;
+                if stypesp = int then
+                    call generate(4);
+            end;
+            else
+                call proc$pro;
+            
+     /*      62               | <constant>                                */
+            ;
+
+     /*      63               | <procedure call>                          */
+            ;
+
+    /*       64               | ( <assignment statement> )                */
+            do;
+                stypesp = stypemp1;
+                call setstypemp(stypemp := stypemp1);
+                if not pass1 then
+                do;
+                    codesize = codesize - 1;
+                    buffptr = buffptr - 1;
+                    if stypemp1 = str then
+                        call generate(ssl);
+                    else
+                        call chktyp1(sil);
+                end;
+            end;
+
+     /*      65               | ( <expression> )                          */
+            do;            
+                call setstypemp(stypemp1);
+                call settypemp(typemp1);
+            end;
+
+     /*      66  <constant> ::= <integer>                                 */
+            call gencon(int);
+
+     /*      67               | <decimal>                                 */
+            call gencon(deci);
+
+     /*      68               | <string>                                  */
+            call gencon(str);
+
+     /*      69  <variable> ::= <identifier>                              */
+            call process$var(sp);
+
+     /*      70               | <subscripted variable>                    */
+            ;
+
+     /* PMO
+        the thesis vs. the actual code differ at this point I assume here
+        that the <file head> was replaced with file, however it prevents
+        ists of file declarations.
+     */
+
+     /*      71  <file declaration> ::= file <file name>                  */
+            ;
+
+     /*      72  <file name> ::= <string> <length option>                 */
+            ;
+
+     /*      73                | <string>                                 */
+            ;
+
+     /*      74                | <identifier> <length option>             */
+            do;
+                call process$ident$dcl(mp,file1,0);
+                call literal(getaddr);
+                call generate(sor);
+            end;
+
+     /*      75                | <identifier>                             */
+            do;
+                call process$ident$dcl(sp,file1,0);
+                call gen$int$v(0);
+                call literal(getaddr);
+                call generate(sor);
+            end;
+
+     /*      76  <length option> ::= ( <identifier> )                     */
+            if process$ident(mpp1) = int then
+                call litload(getaddr);
+            else
+                call error('NI');
+
+     /*      77                    | ( <integer) )                        */
+            call prod22a;
+
+     /*      78  <array declaration> ::= <array list> <bound pair list>   */
+            do;
+                call gen$int$v(arr$dim);
+                call gen$int$v(arr$num);
+                call gen$int$v(stypemp);
+                call generate(row);
+                do while (arr$num := arr$num - 1) <> 255;
+                    call literal(arr$loc(arr$num));
+                end;
+            end;
+
+     /*      79  <array list> ::= <array head> <identifier>               */
+            call process$array$dcl(sp);
+
+     /*      80  <array head> ::= <declaratlon type> array                */
+            arr$num = 0;
+
+     /*      81                 | <array head> <ldent1fler> ,             */
+            call process$array$dcl(mpp1);
+
+     /*      82  <bound pair list> ::= <bound pair head> <bound pair> ,   */
+            arr$dim = arr$dim + 1;
+
+     /*      83  <bound pair head> ::= '                                  */
+            arr$dim=0;
+
+     /*      84                      | <bound pair head> <bound pair> ,   */
+            arr$dim = arr$dim + 1;
+
+     /*      85  <bound palr> ::= <expression> : <expression>             */
+            if (stypemp <> int) or (stypesp <> int) then
+                call error('BP');
+
+     /*      86  <subscripted variable> ::= <subscript head>              */
+     /*                                     <expression>                  */
+            do;
+                if stypemp1<> int then
+                    call error('SI');
+                call litload(symlocmp);
+                call generate(sub);
+            end;
+
+    /*       87  <subscript head> ::= <identifier>                        */
+            call process$array(mp);
+
+    /*       88                     | <subscript head> <expression> ,     */
+            if stypemp1 <> int then
+                call error('SI');
+
+    /*       89  <go to statement> ::= <go to> <identifier>               */
+            call resolve$label;
+
+    /*       90                      | <go to> <integer>                  */
+            call resolve$label;
+
+    /*       91  <go to> ::= go to                                        */
+            ;
+
+    /*       92            | go to                                        */
+            ;
+
+    /*       93 <read statement> ::= <read head> <variable> )             */
+            do;
+                call get$field;
+                if fileio then
+                do;
+                    call generate(edr);
+                    call generate(0);
+                    fileio = false;
+                end;
+                else
+                    call generate(ecr);
+            end;
+
+    /*       94 ??                                                        */
+            call set$enter(typemp1);
+
+    /*       95 ??                                                        */
+            call branch$clause(brs);
+
+    /*       96   <read head> ::=  read (                                 */
+            call generate(rcn);
+    
+    /*       97                 | read <file option> (                    */
+            ;
+
+    /*       98                 |  <read head> <varlable>  ,              */
+            call get$field;
+
+    /*       99  <write statement> ::= <write head> <expression> )        */
+            call put$field(wic);
+
+    /*      100                      | <write head> <tab expression> )    */
+            ;
+
+    /*      101   <write head> ::= write (                                */
+            call generate(dmp);
+
+    /*      102                  | write <fileoption> (                   */
+            ;
+
+    /*      103                  | writeon (                              */
+            ;
+
+    /*      104                  | writeon <file option> (                */
+            ;
+
+    /*      105                  | <write head> <expression> ,            */
+            call put$field(wic);
+
+    /*      106                  | <write head> <tab expression> ,        */
+            ;
+
+    /*      107  <file option ::= <identifier>                            */
+            call prod107$8(sp, rdb);
+
+    /*      108                  | <identifier> <rec option>              */
+            call prod107$8(mp, rdf);
+
+    /*                           | <string>                               */
+    /*                           | <string> <rec option>                  */
+
+    /*      109  <rec option> ::= , <identifier>                          */
+            if (process$ident(sp) = simvar) and (getsubtype = int) then
+                call litload(getaddr);
+            else
+                call error('NI');
+
+    /*      110                  | , <integer>                            */
+            call gencon(int);
+
+    /*      111  ??<tab expression> ::= tab <expression>                  */
+            if fileio then
+                ;
+            else
+                call generate(1dh);
+
+    /*      112  <if clause> ::= if <boolean expression> then             */
+            call branch$clause(bsc);
+
+    /*      113  ??<if expression) ::= <if clause> <expression> else      */
+            do;
+                call branch$clause(brs);
+                call set$enter(typemp);
+            end;
+
+    /*      114  <boolean expression> ::= <boolean term>                  */
+            ;
+    /*      115                         | <boolean expression> or         */
+    /*                                    <boolean term>                  */
+            call generate(ior);
+
+    /*      116 <boolean term> ::= <boolean primary>                      */
+            ;
+
+    /*      117                  | not <boolean primary>                  */
+            call generate(inot);
+
+    /*      118                  | <boolean term> and                     */
+    /*                             <booiean primary>                      */
+            call generate(iand);
+
+    /*      119  <boolean primary> ::= <logical expression>               */
+            ;
+
+    /*      120                      | ( <boolean expression> )           */
+            ;
+
+    /*      121  <logical expression> ::= <expressiou> <relation>         */
+    /*                                    <expression>                    */
+            if (stypemp = str) and (stypesp = str) then
+                call generate(typemp1 + 2);
+            else
+                call chktyp1(typemp1);
+
+    /*      122  <relatlon> ::= =                                         */
+            call settypesp(eql);
+
+    /*      123               | <                                         */
+            call settypesp(lss) ;
+
+    /*      124               | >                                         */
+            call settypesp(gtr);
+
+    /*      125               | <comp>                                    */
+            ;
+
+    /*      126  <comp> ::= < >                                           */
+            call settypemp(neq);
+
+    /*      127           | < =                                           */
+            call settypemp(leq);
+
+    /*      128           | > =                                           */
+            call settypemp(geq);
+
+    /*      129  <while statement> ::= <while clause> <do statement)      */
+            do;      
+                call generate(brs);
+                call gen$two(symlocmp);
+                call set$enter(typemp); 
+            end;
+
+    /*      130  <while clause> ::= <while> <boolean expression>          */
+            call branch$clause(bsc);
+
+    /*      131  <while> ::= while                                        */
+            call setsymlocmp(codesize);
+
+    /*      132 <for statement> ::= <for clause> <step expression>        */
+    /*                              <until clause> <do statement>         */
+            do;
+                if (stypemp = stypemp1) and (stype(sp - 1) = stypemp) then
+                do;
+                    call generate(brs);
+                    call gen$two(symlocmp);
+                    call set$enter(type(sp - 1));
+                end;
+                else
+                    call error('NT');
+            end;
+
+    /*      133  <for clause> ::= for <assignment statement>              */
+            do;
+                call setstypemp(stypesp);
+                call generate(brs);
+                call compiler$label;
+                call setsymlocmp(codesize);
+                do i = 1 to 2;
+                    call gen$loc(stypesp, symlocsp);
+                end;
+                call litload(sident := symlocsp);
+            end; 
+
+    /*      134  <step expression> ::= step <expression>                  */
+            do;
+                if chktyp3 then
+                    ;
+                stypemp = stypesp;
+                call step$gen;
+            end;
+
+    /*      135  <untll clause> ::= <until non-term> <expression>         */
+            do;
+                call chktyp1(leq);
+                call branch$clause(bsc);
+            end;
+
+    /*      136  <until non-term> ::= until                               */
+            ;
+
+    /*      137  <do statement> :: = do <simple statement>                */
+            ;
+
+    /*      138  <close statement> ::= close <identifier>                 */
+            ;
+
+
+    /*      139                      | <close statement>, <identifier>    */
+            ;
+
+    /*      140  <subprogram declaration) ::= <subprogram heading>        */
+    /*                                        <simple statement>          */
+            do;
+                if proc$type(proc$depth) = func2 then
+                do;
+                    aptraddr = w2DD2(b2DEA);
+                    byteptr = func;
+                    b2DEA = b2DEA - 1;
+                end;
+                call literal(symlocmp);
+                call generate(uns);
+                call generate(stypemp);
+                call generate(rtn);
+                blk$level = prev$blk$level(prev$index);
+                prev$index = prev$index - 1;
+                call set$enter(typemp);
+                call literal(symlocmp+2);
+                call gen$int$v(0);
+                call generate(sid);
+                call literal(symlocmp+6);
+                call gen$int$v((b2DEB(proc$depth) + 4) * 2);
+                call generate(sid);
+                proc$depth = proc$depth - 1;
+                pcount = 0;
+            end;
+
+    /*      141  <subprogram heading> ::= <function heading>              */
+            ;
+
+    /*      142                         | <procedure heading>             */
+            ;
+
+    /*      143  <functlon heading> ::= <paramless functlon>              */
+            ;
+
+    /*      144                         | <function & params>             */
+            do;
+                call generate(sv2);
+                if ptest <> 0 and pass1 then
+                    call error('PD');
+            end;
+
+    /*      145  <procedure heading> ::= <paramless proc>                 */
+            ;
+
+    /*      146                       | <proc & params>                   */
+            do;
+                call generate(sv2);
+                if ptest <> 0 and pass1 then
+                    call error('PD');
+            end;
+
+    /*      147  <paramless function> ::= <declaration type > function    */
+    /*                                    <identifier> ;                  */
+            do;
+                call process$proc$dcl(sp-1,func2,stypemp);
+                call proc$sav;
+            end;
+
+    /*      148  <function & params> ::= <function head> <identifier> ) ; */
+            do;
+                call process$ident$dcl(mpp1,parm,0);
+                parme,ptest = (pcount:=pcount+1);
+                call proc$sav;
+            end;
+
+    /*      149                        | <function & params>              */
+    /*                                   <declaration> ;                  */
+            ;
+
+    /*      150  <function head> ::= <declaration type> function          */
+    /*                              <identifier> (                        */   
+            call process$proc$dcl(sp-1,func2,stypemp);
+
+    /*      151                    | <function head> <identifier> ,       */
+            do;
+                call process$ident$dcl(mpp1,parm,0); 
+                pcount = pcount + 1;
+            end;
+
+    /*      152  <paramless proc> ::= <procedure ldentifier> ;            */
+            do;
+                stypemp = int;
+                call setstypemp(int);
+                call process$proc$dcl(mpp1,pro,2);
+                call proc$sav;
+            end;
+
+    /*      153  <proc & params> ::= <procedure head> <identifier> ;      */
+            do;
+                call process$ident$dcl(mpp1,parm,0);
+                parme, ptest = (pcount := pcount + 1);
+                call proc$sav;
+            end;
+
+    /*      154                     | <proc & params> <declaration> ;     */
+            ;
+
+    /*      155  <procedure head> ::= procedure ldentifier> (             */
+            do;
+                stypemp = int;
+                call setstypemp(int);
+                call process$proc$dcl(mpp1,pro,2);
+            end;
+    
+    /*      156                      | <procedure head> <identifier> ,    */
+            do;
+                pcount=pcount+1;
+                call process$ident$dcl(mpp1,parm,0);
+            end;
+
+    /*      157  <procedure call> ::= <call heading> <expression> )       */
+            do;
+                 pcount=pcount+1;
+                 call check$parm(stypemp1);
+                 call proc$pro;
+                 if fpcount<>pcount and pass2 then
+                    call error('PC');
+            end;
+
+    /*      158  <call heading> ::= <identifier> (                        */
+            do;
+                if ((b:=process$ident(mp)) <> func) and (b <> pro) and (b <> func2) then
+                    call error('UP');
+                call process$proc(b);
+                fpcount = get$parm;
+                pcount = 0;
+            end;
+
+    /*      159                    | <call heading> <expresslon> ,        */
+            do;
+                pcount=pcount+1;
+                call check$parm(stypemp1);
+            end;
+
+    /*      160  <case statement> ::= <case heading> <case block>         */
+            do;
+                do i = 1 to cases(ncase);
+                    call process$case$label(caselabels(nclabel));
+                    nclabel = nclabel - 1;
+                end;
+                ncase = ncase - 1;
+                call set$enter(typemp);
+            end;
+            
+    /*      161  <case heading> ::= case <expression> of                  */
+            do;
+                if stypemp1 <> int then
+                    call error('NI');
+                call gen$int$v(3);
+                call generate(mpi);
+                call set$compiler$label;
+                call settypemp(clable);
+                call generate(im2);
+                call gen$two(getaddr - 4);
+                call generate(sbr);
+                call generate(bra);
+                caselabels(nclabel := nclabel + 1) = (clable := clable + 1);
+                call enter$compiler$label(0);
+                cases(ncase := ncase + 1) = 0;
+            end;
+
+    /*      162  <case block> ::= begin <case block body> end             */
+            nclabel = nclabel - 1;
+
+    /*      163  <case block body> ::= <statement>                        */
+            call case$state;
+
+    /*      164                      | <case block body> ; <statement>    */
+            call case$state;
+        end; /*of case statement */
+
+    end synthesize;
+
+
+
+      /*******************************************/
+      /*       error recovery routines           */
+      /*******************************************/
+
+    noconflict: proc(cstate) byte;
+        declare cstate statesize, (i,j,k) indexsize;
+        j= index1(cstate);
+        k= j + index2(cstate) - 1;
+        do i = J to k;
+            if read1(i) = token then
+                return true;
+        end;
+        return false;
+    end noconflict;
+
+    recover:proc statesize;
+        declare tsp byte, rstate statesize;
+        do forever;
+            tsp = sp;
+            do while tsp <> 255;
+                if noconflict(rstate:= statestack(tsp)) then
+                do;    /* state will read token */
+                    if sp <> tsp then
+                        sp = tsp - 1;
+                    return rstate;
+                end;
+                tsp = tsp - 1;
+            end;
+            call scanner;
+        end;
+    end recover;
+
+
+
+       /* ********************************************************** */
+       /* **********         lalr parser routines        *********** */
+       /* ********************************************************** */
+
+    do; /*block for declarations*/
+        declare (i,j,k) indexsize, index byte;
+
+
+        initialize: procedure;
+            call initialize$scanner;
+            call initialize$symtbl;
+            call initialize$synthesize;
+        end initialize;
+
+
+        getin1 : procedure indexsize;
+            return index1(state);
+        end getin1;
+
+        getin2 : procedure indexsize;
+            return index2(state);
+        end getin2;
+
+        incsp: procedure;
+            if (sp := sp + 1) = length(statestack) then
+                call error('SO');
+        end incsp;
+
+        lookahead: procedure;
+            if nolook then
+            do;
+                call scanner;
+                nolook = false;
+                if listtoken then
+                    call print$token;
+            end;
+        end lookahead;
+
+        set$varc$i: procedure(i);
+            declare i byte;
+            /* get varc, and increment varindex */
+            varc(varindex) = i;
+            if (varindex:=varindex+1) > length(varc) then
+                call error('vo');
+        end set$varc$i;
+
+        /* initialize for input - output operations */
+        call title;
+        call move(rfcbaddr,.wfcb,9);
+        call setup$int$file;
+        call initialize;
+
+        do forever;
+            do while pass1 or pass2;
+                /* initalize variables */
+                compiling,nolook = true;
+                state = starts;
+                sp = 255;
+                varindex,var = 0;
+
+
+                do while compiling;
+                    if state<=maxrno then /* read state */
+                    do;
+                        call incsp;
+                        statestack(sp) = state;
+                        i = getin1;
+                        call lookahead;
+                        j = i + getin2 - 1;
+                        do  i = i to j;
+                            if read1(i)=token then /* save token */
+                            do;
+                                var(sp) = varindex;
+                                /* copy accumulator to proper position */
+                                do index = 0 to accum;
+                                    call set$varc$i(accum(index));
+                                end;
+                                hash(sp) = hashcode;
+                                /* save relative table location */
+                                state = read2(i);
+                                nolook = true;
+                                i = j;
+                            end;
+                            else if i = j then
+                            do;
+                                call error('np');
+                                if (state := recover) = 0 then
+                                    compiling = false;
+                            end;
+                        end;
+                    end;
+                    else if state>maxpno then /* apply production state */
+                    do;
+                        mp = sp - getin2;
+                        mpp1 = mp + 1;
+                        production = state-maxpno;
+                        call synthesize;
+                        sp = mp;
+                        i = getin1;
+                        varindex = var(sp);
+                        j = statestack(sp);
+                        do while (k:= apply1(i)) <> 0 and j <> k;
+                            i = i + 1;
+                        end;
+                        if (state := apply2(i)) = 0 then
+                            compiling = false;
+                    end;
+                    else if state<= maxlno then /* lookahead state */
+                    do;
+                        i = getin1;
+                        call lookahead;
+                        do while (k:=look1(i)) <> 0 and token <> k;
+                            i=i+1;
+                        end;
+                        state = look2(i);
+                    end;
+                    else /* push state */
+                    do;
+                        call incsp;
+                        statestack(sp) = getin2;
+                        state = getin1;
+                    end;
+                end;   /* of while compiling */
+            end; /*of while passl or pass2*/
+            listsource = false;
+            listprod = false;
+            listtoken = false;
+            call initialize;
+
+            pass2 = true;
+        end; /* of do forever */
+    end; /*of block for parser*/
+end;/*of block for declarations */
+eof
