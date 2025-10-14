@@ -5,7 +5,8 @@ include $(ITOOLS)/tools/common.mk
 # define the CPM tools
 CTOOLS =$(ITOOLS)/ctools
 CPM =$(CTOOLS)/cpm
-MAC =$(CPM) $(CTOOLS)/mac
+#MAC =$(CPM) $(CTOOLS)/mac
+MAC = $(ITOOLS)/tools/mac
 RMAC = $(CPM) $(CTOOLS)/rmac
 DRLINK = $(CPM) $(CTOOLS)/link
 
@@ -37,9 +38,7 @@ DRLINK = $(CPM) $(CTOOLS)/link
 
 # make the pair of files needed to generate a .spr/.prl file
 %0.hex %1.hex: %.asm
-	$(MAC) $^ $$+r
-	mv $*.hex $*1.hex
-	$(MAC) $^ 
-	mv $*.hex $*0.hex
+	$(MAC) -p. -h$*1 -c+r $^
+	$(MAC) -h$*0 $^ 
 
 
