@@ -1,0 +1,814 @@
+core.plm
+core: do;
+
+    declare ver(2) byte data(1, 4);
+    declare zero address data(0);
+    declare moduleContains(*) byte data(0Dh, 0Ah, 0Ah, '*** MODULE CONTAINS RELOCATABLE SEGMENTS.',
+                                        0Dh, 0Ah, '    PLEASE RUN THE LOCATE PROGRAM.', 0Dh, 0Ah, 0Ah);
+    declare fileNotObjformat(*) byte data(0Dh, 0Ah, 0Ah, '*** FILE NOT IN OBJECT MODULE FORMAT.',
+                                          0Dh, 0Ah, '    MAKE SURE FILENAME IS CORRECT.', 0Dh, 0Ah, 0Ah);
+    declare symbolSortFailed(*) byte data(0Dh, 0Ah, '*** SYMBOL TABLE SORT FAILED.', 0Dh, 0Ah);
+
+    declare inFd address external;
+    declare outFd address external;
+    declare recType byte;
+    declare pStrlen byte;
+    declare symLen byte;
+    declare status0 address;
+    declare actual0 address;
+    declare recIdx address;
+    declare pad4F7D address;
+    declare w4F7F address;
+    declare ancestor(32) byte public;
+    declare inRecord(500) byte public;
+    declare modTypMsg(500) byte public;
+    declare b5389(25) byte public;
+    declare maxSymLen byte public;
+    declare ancestorLen byte public;
+    declare recLen address public;
+    declare itemIdx address public;
+    declare w53A8 address public;
+    declare itemCnt address public;
+
+    declare b4E2D byte external;
+    declare b4E2E byte external;
+
+    doEndRecord: procedure external; end;
+    displaySymbols: procedure external; end;
+
+    errorExit: procedure(errCode) external;
+        declare errCode address;
+    end;
+
+    getRecord: procedure(len) external;
+        declare len address;
+    end;
+
+    memcmp: procedure(bufPtr, tokenPtr, len) byte external;
+        declare (bufPtr, tokenPtr) address, len byte;
+    end;
+
+    val2BCD: procedure(value, bufPtr) external;
+            declare (value, bufPtr) address;
+    end;
+
+    exit: procedure external; end;
+
+    read: procedure (conn, buff$p, count, actual$p, status$p) external;
+        declare (conn, buff$p, count, actual$p, status$p) address;
+    end read;
+
+    seek: procedure (conn, mode, block$p, byte$p, status$p) external;
+        declare (conn, mode, block$p, byte$p, status$p) address;
+    end seek;
+
+    write: procedure (conn, buff$p, count, status$p) external;
+        declare (conn, buff$p, count, status$p) address;
+    end write;
+
+
+
+    relocErr: procedure;
+        call write(0, .moduleContains, size(moduleContains), .status0);
+        if status0 <> 0 then
+            call errorExit(status0);
+        call exit;
+    end;
+
+    notObjErr: procedure;
+        call write(0, .fileNotObjformat, size(fileNotObjformat), .status0);
+        if status0 <> 0 then
+            call errorExit(status0);
+        call exit;
+    end;
+
+    getTypeLen: procedure;
+        call read(inFd, .inRecord, 3, .actual0, .status0);
+        if status0 <> 0 then
+            call errorExit(status0);
+        recType = inRecord(0);
+        call move(2, .inRecord(1), .recLen);
+    end;
+
+    doLineno: procedure;
+        call getRecord(recLen);
+        if inRecord(0) <> 0 then   /* check for abs segid */
+            call relocErr;
+
+        recIdx = 1;
+        do while recIdx < recLen - 3;
+            memory(itemIdx) = 7; /* itemSize */
+            memory(itemIdx + 1) = inRecord(recIdx + 1);  /* offset*/
+            memory(itemIdx + 2) = inRecord(recIdx);
+            memory(itemIdx + 3) = ' ';
+            memory(itemIdx + 4) = 2;
+            memory(itemIdx + 5) = 3;
+            call val2BCD(.inRecord(recIdx + 2), .memory(itemIdx + 6));
+            recIdx = recIdx + 4;
+            itemIdx = itemIdx + 8;
+            itemCnt = itemCnt + 1;
+        end;
+    end;
+
+
+    doLocals: procedure;
+        call getRecord(recLen);
+        if inRecord(0) <> 0 then   /* check for abs segid*/
+            call relocErr;
+
+        recIdx = 1;
+        do while recIdx < recLen - 3;
+            pStrlen = inRecord(recIdx + 2);
+            if not b4E2D and pStrlen > 10 then
+                symLen = 10;
+            else
+                symLen = pStrlen;
+            if symLen > maxSymLen then
+                maxSymLen = symLen;
+            memory(itemIdx) = symLen + 5;
+            memory(itemIdx + 1) = inRecord(recIdx + 1);  /* offset*/
+            memory(itemIdx + 2) = inRecord(recIdx);
+            memory(itemIdx + 3) = ' ';
+            memory(itemIdx + 4) = symLen;
+            memory(itemIdx + 5) = 2;
+            call move(symLen, .inRecord(recIdx + 3), .memory(itemIdx + 6)); 
+            recIdx = recIdx + pStrlen + 4;
+            itemIdx = itemIdx + symLen + 6;
+            itemCnt = itemCnt + 1;
+        end;
+    end;
+
+
+    sortSymbols: procedure;
+        declare (b53AC, b53AD, b53AE) byte,
+                (w53AF, w53B1, w53B3) address,
+                b53B5 byte;
+
+        if w53A8 >= itemIdx then
+            return;
+        w53B1 = 0;
+        b53B5 = 1;
+        do while (w53B1 := w53B1 + 1) < itemCnt + 3 and b53B5;
+            recIdx = w53A8;
+            b53B5 = 0;
+            do w53B3 = 1 to itemCnt - w53B1;
+                w53AF = recIdx + memory(recIdx) + 1;
+                pStrlen = memory(recIdx + 4);
+                b53AC = memory(w53AF + 4);
+                if pStrlen < b53AC then
+                    b53AD = pStrlen + 1;
+                else
+                    b53AD = b53AC + 1;
+
+                if b4E2E then do;
+                    b53AE = memcmp(.memory(recIdx + 5), .memory(w53AF + 5), 1);
+                    if b53AE = 1 then
+                        b53AE = memcmp(.memory(recIdx + 1), .memory(w53AF + 1), 2);
+                    if b53AE = 1 then
+                        b53AE = memcmp(.memory(recIdx + 6), .memory(w53AF + 6), b53AD);;
+                end;
+                else
+                    b53AE = memcmp(.memory(recIdx) + 5, .memory(w53AF) + 5, b53AD);;
+                if b53AE = 1 then do;
+                    if b53AC < pStrlen then
+                        b53AE = 2;
+                end;
+                if b53AE = 2 then do;
+                    /* this seems flawed as records may not be same size !!! */
+                    call move(memory(recIdx) + 1, .memory(recIdx), .inRecord);
+                    call move(memory(W53AF) + 1, .memory(w53AF), .memory(recIdx));        
+                    call move(inRecord(0) + 1, .inRecord, .memory(recIdx) + memory(recIdx) + 1);
+                    b53B5 = 1;
+                end;
+                recIdx = recIdx + memory(recIdx) + 1;
+            end;
+        end;
+        if w53B1 = itemCnt + 3 then DO;
+            call write(0, .symbolSortFailed, 33, .status0);
+            if status0 <> 0 then
+                call errorExit(status0);
+            call exit;
+        end;
+    end;
+
+
+    sub40B9: procedure;
+        call getRecord(recLen);
+        recIdx = 0;
+        do while recIdx < reclen - 3;
+            pStrlen = inRecord(recIdx);
+            if not b4E2D and pStrlen > 10 then
+                symLen = 10;
+            else
+                symLen = pStrlen;
+            if symLen > maxSymLen then
+                maxSymLen = symLen;
+            memory(itemIdx) = symLen + 5; 
+            memory(itemIdx + 1) = ' ';
+            memory(itemIdx + 2) = ' ';
+            memory(itemIdx + 3) = w4F7F;
+            memory(itemIdx + 4) = symLen;
+            memory(itemIdx + 5) = 0;
+            call move(pStrlen, .inRecord(recIdx + 1), .memory(itemIdx + 6));
+            w4F7F = w4F7F + 1;
+            recIdx = recIdx + pStrlen + 2;
+            itemIdx = itemIdx + pStrlen + 6;
+            itemCnt = itemCnt + 1;
+        end;
+    end;
+
+
+    doPublics: procedure;
+        call getRecord(recLen);
+        if inRecord(0) <> 0 then   /* check for abs segid*/
+            call relocErr;
+
+        recIdx = 1;
+        do while recIdx < recLen - 3;
+            pStrlen = inRecord(recIdx + 2);
+            if not b4E2D and pStrlen > 10 then
+                symLen = 10;
+            else
+                symLen = pStrlen;
+            if symLen > maxSymLen then
+                maxSymLen = symLen;
+            memory(itemIdx) = symLen + 5;
+            memory(itemIdx + 1) = inRecord(recIdx + 1);  /* offset*/
+            memory(itemIdx + 2) = inRecord(recIdx);
+            memory(itemIdx + 3) = ' ';
+            memory(itemIdx + 4) = symLen;
+            memory(itemIdx + 5) = 1;
+            call move(symLen, .inRecord(recIdx + 3), .memory(itemIdx + 6)); 
+            recIdx = recIdx + pStrlen + 4;
+            itemIdx = itemIdx + symLen + 6;
+            itemCnt = itemCnt + 1;
+        end;
+    end;
+
+    sub428E: procedure;
+        call getTypeLen;
+        if recType <> 2 then
+            call notObjErr;
+        call getRecord(recLen);
+        ancestorLen = inRecord(0);
+        if recLen <> ancestorLen + 4 then
+            call relocErr;
+        call move(ancestorLen, .inRecord(1), .ancestor);
+    end;
+
+    doAncestor: procedure;
+        call getRecord(recLen);
+        ancestorLen = inRecord(0);
+        call move(ancestorLen, .inRecord(1), .ancestor);
+    end;
+
+    sub42EE: procedure public;
+        itemIdx = 0;
+        w4F7F = 0;
+        maxSymLen = 4;
+        itemCnt = 0;
+        w53A8 = 0;
+        call sub428E;
+        call getTypeLen;
+        do while recType <> 4;
+            do while rectype <> 4 and recType <> 16;
+                if recType = 8 then
+                    call doLineno;
+                else if recType = 18 then
+                    call doLocals;
+                else if recType = 22 then
+                    call doPublics;
+                else do;
+                    call seek(inFd, 3, .zero, .recLen, .status0);
+                    if status0 <> 0 then
+                        call errorExit(status0);
+                end;
+                call getTypeLen;
+            end;
+            call sortSymbols;
+            call displaySymbols;
+            if recType = 16 then do;
+                call doAncestor;
+                call getTypeLen;
+            end;
+        end;
+        call doEndRecord;
+    end;
+end;
+disply.plm
+display: do;
+
+    declare aEndBlock(*) byte data(0Dh, 0Ah, 0Ah);
+    declare aLineNumbers(*) byte data('LINE NUMBERS:', 0Dh, 0Ah);
+    declare aSymbols(*) byte data('SYMBOLS:', 0Dh, 0Ah);
+    declare aPublics(*) byte data(0Ah, 'PUBLICS:', 0Dh, 0Ah);
+    declare aModule(*) byte data('MODULE: ');
+
+    declare ancestor(32) byte external;
+    declare inRecord(500) byte external;
+    declare modTypMsg(500) byte external;
+    declare b5389(25) byte external;
+    declare maxSymLen byte external;
+    declare ancestorLen byte external;
+    declare recLen address external;
+    declare itemIdx address external;
+    declare w53A8 address external;
+    declare itemCnt address external;
+    declare pageWidth byte external;
+    declare rowCnt byte external;
+    declare spaces200(200) byte external;
+    cvtTrimAscii: procedure(pVal, pBuf, pWidth) external;
+        declare (pVal, pBuf, pWidth) address;
+    end;
+
+    getRecord: procedure(len) external;
+        declare len address;
+    end;
+
+    pair2Ascii: procedure(valPtr, bufPtr) external;
+        declare (valPtr, bufPtr) address;
+    end;
+
+    sub4A31: procedure external; end;
+
+    writeLine: procedure(buf, count, rows) external;
+            declare (buf, count) address, rows byte;
+    end;
+
+    exit: procedure external;
+    end exit;
+
+    displaySymbols: procedure public;
+        declare (b53B6, b53B7, b53B8, b53B9, b53BA, b53BB, b53BC) byte,
+                (w53BD, w53BF, w53C1) address;
+
+        if itemIdx = 0 then
+            return;
+        w53BD = 0;
+        b53B9 = memory(5);
+        do while b53B9 = 0;
+            w53BD = w53BD + memory(W53BD) + 1;
+            b53B9 = memory(W53BD + 5);
+        end;
+        w53BF = w53BD;
+        if w53BD >= itemIdx then
+            return;
+
+        b53B7 = (pageWidth - 5) / (maxSymLen + 12);
+        b53B8 = b53B7 * (maxSymLen + 12);
+        if b53B9 <> 1 then do;
+            b53BA = (b53B8 - (ancestorLen + 8)) / 2;
+            inRecord(0) = 0Ah;
+            inRecord(1) = 0Ah;
+            call move(8, .aModule, .inRecord(2));
+            call move(ancestorLen, .ancestor, .inRecord(10));
+            w53C1 = ancestorLen + 10;
+            inRecord(w53C1) = 0Dh;
+            inRecord(w53C1 + 1) = 0Ah;
+            if rowCnt > 48 then
+                call sub4A31;
+            call writeLine(.inRecord, w53C1 + 2, 3);
+        end;
+        do while w53BD < itemIdx;
+            if b53B9 = 2 then
+                call writeLine(.aSymbols, 10, 1);
+            else if b53B9 = 1 then
+                call writeLine(.aPublics, 11, 2);
+            else if b53B9 = 3 then
+                call writeLine(.aLineNumbers, 15, 2);
+            b53BC = b53B9;
+            w53C1 = 0;
+            b53BB = 1;
+            do while b53BC - b53B9 < 1 and w53BD < itemIdx;
+                call pair2Ascii(.memory(w53BD + 1), .inRecord(w53C1));
+                call move(2, .spaces200, .inrecord(w53C1 + 5));
+                w53C1 = w53C1 + 7;
+                if b53BC <> 3 then do;
+                    b53B6 = memory(w53BD + 4);
+                    call move(b53B6, .memory(w53BD + 6), .inrecord(w53C1));
+                end;
+                else do;
+                    call cvtTrimAscii(.memory(w53BD + 6), .inRecord(w53C1), .b53B6);
+                end;
+                call move(maxSymLen - b53B6, .spaces200, .inRecord(w53C1 + b53B6)); 
+                w53BD = w53BD + memory(w53BD) + 1;
+                w53C1 = w53C1 + maxSymLen;
+                if b53BB = b53B7 then do;
+                    inRecord(w53C1) = 0Dh;
+                    inRecord(w53C1 + 1) = 0Ah;
+                    call writeLine(.inRecord, w53C1 + 2, 1);
+                    w53C1 = 0;
+                    b53BB = 1;
+                end;
+                else do;
+                    call move(5, .spaces200, .inRecord(w53C1));
+                    w53C1 = w53C1 + 5;
+                    b53BB = b53BB + 1;
+                end;
+                b53B9 = memory(w53BD + 5);
+            end;
+            if w53C1 <> 0 then do;
+                call move(3, .aEndBlock, .inRecord(w53C1));
+                call writeLine(.inRecord, w53C1 + 3, 2);
+            end;
+            else
+                call writeLine(.(0Ah), 1, 1);
+        end;
+        itemIdx = w53BF;
+        w53A8 = w53BF;
+        itemCnt = 0;
+        maxSymLen = 4;
+    end;
+
+    doEndRecord: procedure public;
+        call getRecord(recLen);
+        if inRecord(0) = 1 then do;
+            call move(18, .('STARTING ADDRESS: '), .modTypMsg);
+            call pair2Ascii(.inrecord(2), .modTypMsg(18));
+            call move(2, .modTypMsg(18), .b5389);
+            call move(2, .modTypMsg(20), .modTypMsg(18));
+            call move(2, .b5389, .modTypMsg(20));
+            call move(3, .aEndBlock, .modTypMsg(23));    /* PMO bug? */
+            call writeLine(.modTypMsg, 25, 1);
+        end;
+        else do;
+            call move(48,.('PROGRAM NOT A MAIN MODULE - NO STARTING ADDRESS.'), .modTypMsg);
+            call move(3, .aEndBlock, .modTypMsg(48));
+            call writeLine(.modTypMsg, 51, 1);
+        end;
+        call exit;
+    end;
+end;
+
+suport.plm
+support: do;
+    declare spaces200(200) byte public data(
+                   '                                                              ',
+                   '                                                              ',
+                   '                                                              ',
+                   '              ');
+
+    declare errorDetected(*) byte data(0Dh, 0Ah, 0Ah, 'ERROR DETECTED BY ISIS:', 0Dh, 0Ah);
+    declare executionTerminated(*) byte data(0Dh, 0Ah, 'EXECUTION TERMINATED.', 0Dh, 0Ah, 0Ah);
+
+    declare inFd address external;
+    declare outFd address external;
+    declare outLen byte external;
+    declare rowCnt byte external;
+    declare outBuf(190) byte external;
+    declare lineNum address external;
+    declare inRecord(500) byte external;
+
+    error: procedure (error$num) external;
+        declare (error$num) address;
+    end error;
+
+    exit: procedure external;
+    end exit;
+
+    read: procedure (conn, buff$p, count, actual$p, status$p) external;
+        declare (conn, buff$p, count, actual$p, status$p) address;
+    end read;
+
+    write: procedure (conn, buff$p, count, status$p) external;
+        declare (conn, buff$p, count, status$p) address;
+    end write;
+
+    errorExit: procedure(errCode) public;
+        declare errCode address;
+        declare status address;
+
+        call write(0, .errorDetected, size(errorDetected), .status);
+        call error(errCode);
+        call write(0, .executionTerminated, size(executionTerminated), .status);
+        call exit;
+    end;    
+
+    pair2Ascii: procedure(valPtr, bufPtr) public;
+        declare (valPtr, bufPtr) address,
+                inVal based valPtr (2) byte,
+                buf based bufPtr (5) byte;
+        declare val(2) byte;
+        declare (bufIdx, i) byte;
+
+        val(0) = inVal(0);
+        val(1) = inVal(1);
+        bufIdx = 0;
+        do i = 0 to 1;
+            buf(bufIdx) = shr(val(i), 4) + '0';
+            if buf(bufIdx) > '9' then
+                buf(bufIdx) = buf(bufIdx) + 7;
+            bufIdx = bufIdx + 1;
+            buf(bufIdx) = (val(i) and 0Fh) + '0';
+            if buf(bufIdx) > '9' then
+                buf(bufIdx) = buf(bufIdx) + 7;
+            bufIdx = bufIdx + 1;
+        end;     
+        buf(bufIdx) = 'H';
+    end;
+
+
+    val2BCD: procedure(pValue, bufPtr) public;
+        declare (pValue, bufPtr) address;
+        declare buf based bufPtr (2) byte;
+        declare value based pValue address;
+        declare digit byte, remainder address;
+
+        digit = value / 1000;
+        buf(0) = shl(digit, 4);
+        remainder = value - digit * 1000;
+        digit = remainder / 100;
+        buf(0) = buf(0) or digit;
+        remainder = remainder - digit * 100;
+        digit = remainder / 10;
+        buf(1) = shl(digit, 4);
+        buf(1) = buf(1) or (remainder - digit * 10);
+    end; 
+
+    sub4A31: procedure public;
+        declare i byte, (status, junk) address;
+        lineNum = lineNum + 1;
+        call val2BCD(.lineNum, .outBuf(outLen));
+        call pair2Ascii(.outBuf(outLen), .outBuf(outLen));
+        outBuf(outLen + 4) = 0Dh;
+        i = outLen;
+        do while outBuf(i) = '0';
+            outBuf(i) = ' ';
+            i = i + 1;
+        end;
+        call write(outFd, .outBuf, outLen + 7, .status);
+        if status <> 0 then
+            call errorExit(status);
+        rowCnt = 3;
+    end;
+
+    getRecord: procedure(len) public;
+        declare len address;
+        declare (status, actual) address;
+        call read(infd, .inRecord, len, .actual, .status);
+        if status <> 0 then
+            call errorExit(status);
+    end;
+        
+
+    writeLine: procedure(buf, count, rows) public;
+        declare (buf, count) address, rows byte;
+        declare status address;
+
+        if (rowCnt := rowCnt + rows) > 60 then
+        do;
+            call sub4A31;
+            rowCnt = rowCnt + rows;
+        end;  
+        call write(outFd, buf, count, .status);
+        if status <> 0 then
+            call errorExit(status);
+    end;
+
+    memcmp: procedure(bufPtr, tokenPtr, len) byte public;
+        declare (bufPtr, tokenPtr) address, len byte;
+        declare buf based bufPtr (1) byte;
+        declare tok based tokenPtr (1) byte;
+        declare i byte;
+        i = 0;
+        do while buf(i) = tok(i) and i < len;
+            i = i + 1;
+        end;
+        if i = len then
+            return 1;
+        if buf(i) < tok(i) then
+            return 0;
+        return 2;
+    end;
+
+    parseNum8: procedure(pDigits, pVal, cnt) public;
+        declare (pDigits, pVal) address, cnt byte;
+        declare val based pVal byte;
+        declare digits based pDigits (1) byte;
+        declare i byte;
+        val = 0;
+        i = 0;
+        do while i < cnt;
+            val = val * 10 + digits(i) - '0';
+            i = i + 1;
+        end;
+    end;
+
+    cvtTrimAscii: procedure(pVal, pBuf, pWidth) public;
+        declare (pVal, pBuf, pWidth) address;
+        declare buf based pbuf (1) byte;
+        declare width based pWidth byte;
+        declare i byte;
+        call pair2Ascii(pVal, pBuf);
+        i = 0;
+        do while buf(i) = '0';
+            i = i + 1;
+        end;
+        if i > 0 then
+            call move(4 - i, pbuf + i, pbuf);
+        width = 4 - i;
+    end;
+end;
+start.plm
+start: do;
+    sub3809: procedure external; end;
+    sub42EE: procedure external; end;
+
+    call sub3809;
+    call sub42EE;
+end;
+
+
+symbol.plm
+symbol: do;
+
+    declare b368B byte data(1);
+    declare b368C byte data(0);
+    declare errorInCommand(*) byte data(0Dh, 0Ah, 'ERROR IN COMMAND TAIL', 0Dh, 0Ah, 0Ah);
+    declare signOn(*) byte data(0Ch, 'SYMBOL TABLE PROGRAM, VERSION 1.2');
+    declare invoked(*) byte data('PROGRAM INVOKED BY:', 0Dh, 0Ah);
+    declare doubleSpc(*) byte data(0Dh, 0Ah, 0Ah);
+    declare page1(*) byte data('PAGE   1');
+
+    declare infd address public;
+    declare outFd address public;
+    declare b4E2D byte public;
+    declare b4E2E byte public;
+    declare pageWidth byte public;
+    declare symName(16) byte;
+    declare cmdLine(80) byte;
+    declare actual address;
+    declare status address;
+    declare i byte;
+    declare b4E95 byte;
+    declare tokStart(8) byte;
+    declare tokIdx byte;
+    declare b4E9F byte;
+    declare whoBuf(15) byte;
+    declare j byte;
+    declare w4EB0 address;
+    declare outLen byte public;
+    declare rowCnt byte public;
+    declare outBuf(190) byte public;
+    declare lineNum address public;
+    declare spaces200(200) byte external;
+
+    errorExit: procedure(errCode) external;
+        declare errCode address;
+    end;
+
+    memcmp: procedure(bufPtr, tokenPtr, len) byte external;
+        declare (bufPtr, tokenPtr) address, len byte;
+    end;
+
+    parseNum8: procedure(pDigits, pVal, cnt) external;
+        declare (pDigits, pVal) address, cnt byte;
+    end;
+
+    writeLine: procedure(buf, count, rows) external;
+        declare (buf, count) address, rows byte;
+    end;
+
+    exit: procedure external;
+    end exit;
+
+    open: procedure (conn$p, path$p, access, echo, status$p) external;
+        declare (conn$p, path$p, access, echo, status$p) address;
+    end open;
+
+    read: procedure (conn, buff$p, count, actual$p, status$p) external;
+        declare (conn, buff$p, count, actual$p, status$p) address;
+    end read;
+
+    rescan: procedure (conn, status$p) external;
+        declare (conn, status$p) address;
+    end rescan;
+
+    whocon: procedure (conn, buff$p) external;
+        declare (conn, buff$p) address;
+    end whocon;
+
+    write: procedure (conn, buff$p, count, status$p) external;
+        declare (conn, buff$p, count, status$p) address;
+    end write;
+
+
+    cmdError: procedure;
+        call write(0, .errorInCommand, size(errorInCommand), .status);
+        call exit;
+    end;
+
+    sub371D: procedure;
+        call rescan(1, .status);
+        if status <> 0 then
+            call errorExit(status);
+
+        call read(1, .cmdLine, 80, .actual, .status);
+        if status <> 0 then
+            call errorExit(status);
+        call  move(22h, .signOn, .outBuf);
+        outLen = pageWidth - 15;
+        call move((outLen - 22h) - 4, .spaces200, .outBuf(size(signOn)));
+        call move(8, .page1, .outbuf(outLen - 4)); 
+        call move(3, .doubleSpc, .outBuf(outLen + 4));
+        rowCnt = 1;
+        call writeLine(.outBuf, outLen + 7, 2);
+        call writeLine(.invoked, size(invoked), 1);
+        call writeLine(.cmdLine, actual, 1);
+        call writeLine(.(0Ah), 1, 1);
+        lineNum = 1;
+    end;
+
+    sub3809: procedure public;
+        declare a4EB0 based w4EB0 (1) byte;
+        call read(1, .cmdLine, 80, .actual, .status);
+        if status <> 0 then
+            call errorExit(status);
+        tokIdx = 0;
+        i = 0;
+        do while cmdLine(i) <> 0Dh;
+            do while cmdLine(i) = ' ';
+                i = i + 1;
+            end;
+            tokIdx = tokIdx + 1;
+            if tokIdx = 7 then
+                call cmdError;
+            tokStart(tokIdx) = i;
+            do while cmdLine(i) <> ' ' and cmdLine(i) <> 0Dh;
+                i = i + 1;
+            end;
+        end;
+        if cmdLine(tokStart(tokIdx)) = 0Dh then
+            tokIdx = tokIdx - 1;
+        else
+            tokStart(tokIdx + 1) = i;
+        call open(.inFd, .cmdLine, 1, 0, .status);
+        if status <> 0 then
+            call errorExit(status);
+        call whocon(0, .whoBuf);
+        j = 0;
+        do while whoBuf(j) <> ' ';
+            j = j + 1;
+        end;
+
+        if tokIdx > 2 and memcmp(.cmdLine(tokStart(2) - 1), .(' TO '), 4) then do;
+            call move(tokStart(4) - tokStart(3) + 1, .cmdLine(tokStart(3)), .symName);
+            b4E9F = 4;
+        end;
+        else do;
+            b4E95 = tokStart(1);
+            do while cmdLine(b4E95) <> ' ' and cmdLine(b4E95) <> '.' and cmdline(b4E95) <> 0Dh;
+                symName(b4E95 - tokStart(1)) = cmdLine(b4E95);
+                b4E95 = b4E95 + 1;
+            end;
+            call move(5, .('.SYM '), .symName(b4E95 - tokStart(1)));
+            b4E9F = 2;
+        end;
+        b4E2D = b368C;
+        b4E2E = b368C;
+        pageWidth = 80;
+        do while b4E9F <= tokIdx;
+            w4EB0 = .cmdLine(tokStart(b4E9F));
+            if memcmp(w4EB0, .('ADDR'), 4) then do;
+                if a4EB0(4) <> ' ' and a4EB0(4) <> 0Dh then
+                    call cmdError;
+                b4E2E = b368B;
+            end;
+            else if memcmp(w4EB0, .('NOTRUNC'), 7) then do;
+                if a4EB0(7) <> ' ' and a4EB0(7) <> 0Dh then
+                    call cmdError;
+                b4E2D = b368B;
+            end;
+            else if memcmp(w4EB0, .('PAGEWIDTH('), 10) then do;
+                if a4EB0(10) = ')' then
+                    call cmdError;
+                i = 10;
+                do while a4EB0(i) <> ')' and '0' <= a4EB0(i) and a4EB0(i) <= '9' and i < 13;
+                    i = i + 1;
+                end;
+                if a4EB0(i) <> ')' then
+                    call cmdError;
+                if a4EB0(i + 1) <> 0Dh and a4EB0(i + 1) <> ' ' then
+                    call cmdError;
+                call parseNum8(.a4EB0(10), .pageWidth, i - 10);
+                if pageWidth > 200 then
+                    call cmdError;
+            end;
+            else
+                call cmdError;
+
+            b4E9F = b4E9F + 1;
+        end;
+        if not memcmp(.symName, .whoBuf, j) then do;
+            call open(.outFd, .symName, 2, 0, .status);
+            if status <> 0 then
+                call errorExit(status);
+        end;
+        else
+            outFd = 0;
+
+        call sub371D;
+    end;
+
+end;
+
