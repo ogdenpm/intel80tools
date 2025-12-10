@@ -127,7 +127,7 @@ while ($opt = shift @ARGV) {
     } elsif ($opt eq "-a") {
         usage() unless ($pattern = shift @ARGV) && !$operation;
         $operation = $ADD;
-    } elsif ($opt eq "-C") {
+    } elsif ($opt eq "-A") {
         usage() unless !$operation;
         $operation = $ADD;
         $pattern = "*";
