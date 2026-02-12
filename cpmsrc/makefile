@@ -22,4 +22,4 @@ verify:
 
 fullverify:
 	$(MAKE) rebuild
-	$(MAKE) fullverify
+	$(MAKE) verify

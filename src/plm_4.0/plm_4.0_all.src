@@ -1124,7 +1124,7 @@ bC0C3           BS
 bC140           BS
 bC1BD           B
 bC1BF           B
-bC1D2           B
+nodeControlFlags           B
 bC1D9           B
 bC1DB           B
 bC1E6           B
@@ -1155,11 +1155,11 @@ procChainId     B
 procChainNext   BS
 tx2Aux1b        BS
 tx2Aux2b        BS
-tx2Auxw         AS
-tx2op1          AS
-tx2op2          AS
+tx2Cnt         AS
+tx2Left          AS
+tx2Right          AS
 tx2op3          AS
-tx2opc          BS
+tx2Type          BS
 tx2qEnd         B
 tx2qp           B
 wAF54           AS
@@ -1198,13 +1198,13 @@ b4CB4           BS
 b4D23           BS
 b4FA3           BS
 b5012           BS
-b5048           BS
+peepholePatterns           BS
 b50AD           BS
-b5112           BS
-b5124           BS
-b51E3           BS
-b5202           BS
-b5221           BS
+constFoldRules           BS
+nodeControlMap           BS
+optimisationStep2Map           BS
+optimisationStep1Map           BS
+step2ActionTable           BS
 b5286           BS
 b528D           BS
 b52B5           BS
@@ -1212,7 +1212,7 @@ b52DD           BS
 unused          BS
 w48DF           AS
 w493D           AS
-w502A           AS
+commonConstants           AS
 EmitTopItem     P
 EncodeFragData  P(B arg1b)
 EnterBlk        PB
@@ -1235,9 +1235,9 @@ Sub$5D27        P(B arg1b)
 Sub$5D6B        P(B arg1b)
 Sub$5E66        P(B arg1b)
 Sub$5EE8        P
-Sub$5F4B        P(A arg1w,A arg2w,B arg3b,B arg4b)
-Sub$5FBF        P(B arg1b,A arg2w$p,A arg3w$p)
-Sub$611A        P
+CreateConstantOrIdNode        P(A arg1w,A arg2w,B arg3b,B arg4b)
+GetOperandValue        P(B arg1b,A arg2w$p,A arg3w$p)
+DecrementExprRefs        P
 Sub$61A9        P(B arg1b)
 Sub$61E0        P(B arg1b)
 Sub$636A        P(B arg1b)
@@ -1255,8 +1255,8 @@ $file(plm2c.plm)
 Sub$6BD6        P
 
 $file(plm2d.plm)
-Sub$717B        P
-Sub$7550        P
+FoldConstantExpr        P
+OptimiseExpression        P
 
 $file(plm2e.plm)
 Sub$7A85        P
@@ -3847,13 +3847,13 @@ declare	tx2Buf(512) byte,
 	procChainNext(20) byte public,
 	wB528(10) address public,
 	wB53C(10) address public,
-	tx2opc(255) byte public initial(T2$SEMICOLON, T2$LOCALLABEL, T2$SEMICOLON, T2$SEMICOLON),
+	tx2Type(255) byte public initial(T2$SEMICOLON, T2$LOCALLABEL, T2$SEMICOLON, T2$SEMICOLON),
 	tx2Aux1b(255) byte public initial(12, 9),
 	tx2Aux2b(255) byte public,
-	tx2op1(255) address public,
-	tx2op2(255) address public,
+	tx2Left(255) address public,
+	tx2Right(255) address public,
 	tx2op3(255) address public initial(0, 0, 0, 0),
-	tx2Auxw(255) address public initial(0, 1),
+	tx2Cnt(255) address public initial(0, 1),
 	bC045(9) byte public,
 	bC04E(9) byte public,
 	boC057(9) byte public,
@@ -3892,7 +3892,7 @@ declare	tx2Buf(512) byte,
 	eofSeen byte public initial(0),
 	wC1CF address public initial(0),
 	curOp byte public,
-	bC1D2 byte public,
+	nodeControlFlags byte public,
 	padC1D3 byte public,
 	curExtProcId byte public initial(1),
 	procChainId byte public initial(0),
@@ -3938,7 +3938,7 @@ DECLARE copyRight(*) BYTE DATA('(C) 1976, 1977, 1982 INTEL CORP');
 	do while 1;
 		call FillTx2Q;
 		call Sub$67A9;
-		if tx2opc(4) = T2$EOF then
+		if tx2Type(4) = T2$EOF then
 			goto finalise;
 		call Sub$689E;
 		call Sub$6BD6;
@@ -11996,10 +11996,10 @@ declare unused(*) BYTE public DATA(2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 
 	b5012(*) BYTE public DATA(6, 8, 0Ah, 3Ah, 0Ah, 6, 7, 0Fh, 6Dh, 9, 12h, 11h, 10h,
 			10h, 0Dh, 0Ch, 0Bh, 0Bh, 4, 4, 0Eh, 5, 0, 0),
 
-	w502A(*) ADDRESS public DATA(0, 1, 2, 3, 4, 8, 9, 0Ah, 10h, 0FDh, 0FEh, 0FFh, 0FFFDh,
+	commonConstants(*) ADDRESS public DATA(0, 1, 2, 3, 4, 8, 9, 0Ah, 10h, 0FDh, 0FEh, 0FFh, 0FFFDh,
 			0FFFEh, 0FFFFh),
 
-	b5048(*) BYTE public DATA(0, 2Ah, 0, 2Ah, 0, 32h, 0, 32h, 0, 2Ah, 2Ah, 0, 2Ah,
+	peepholePatterns(*) BYTE public DATA(0, 2Ah, 0, 2Ah, 0, 32h, 0, 32h, 0, 2Ah, 2Ah, 0, 2Ah,
 			0, 5Ah, 2, 0Ah, 0, 2, 0, 9, 9, 11h, 11h, 19h, 71h,
 			59h, 69h, 51h, 61h, 1, 1, 1, 0, 1, 1, 0, 0Ah, 0Ah,
 			12h, 12h, 1Ah, 72h, 5Ah, 6Ah, 52h, 62h, 2, 2, 2, 0,
@@ -12018,10 +12018,10 @@ declare unused(*) BYTE public DATA(2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 
 			64h, 5, 4, 25h, 64h, 0FFh, 14h, 14h, 14h, 4, 4, 4,
 			0FFh, 4, 0FFh, 4, 0FFh, 4, 0FFh, 14h, 4, 0FFh),
 
-	b5112(*) BYTE public DATA(5Ah, 61h, 69h, 92h, 92h, 92h, 91h, 91h, 91h, 5Dh, 0D3h,
+	constFoldRules(*) BYTE public DATA(5Ah, 61h, 69h, 92h, 92h, 92h, 91h, 91h, 91h, 5Dh, 0D3h,
 			0D3h, 0DCh, 9Bh, 9Bh, 98h, 98h, 1Ah),
 
-	b5124(*) BYTE public DATA(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0Eh, 1, 1, 1, 1,
+	nodeControlMap(*) BYTE public DATA(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0Eh, 1, 1, 1, 1,
 			1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 2, 1, 1, 1,
 			1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 6, 1, 0, 0, 0,
@@ -12036,15 +12036,15 @@ declare unused(*) BYTE public DATA(2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 
 			0, 0C0h, 0C0h, 0C0h, 0C0h, 0C0h, 0D8h, 41h, 41h, 41h,
 			0C0h),
 
-	b51E3(*) BYTE public DATA(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	optimisationStep2Map(*) BYTE public DATA(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 12h, 14h, 22h, 33h, 47h, 47h, 41h, 49h, 4Fh, 0,
 			5Ch, 5Eh, 60h),
 
-	b5202(*) BYTE public DATA(0, 0, 0, 0, 0, 0, 1, 3, 5, 7, 9, 0Ch, 0Eh, 0, 0, 0,
+	optimisationStep1Map(*) BYTE public DATA(0, 0, 0, 0, 0, 0, 1, 3, 5, 7, 9, 0Ch, 0Eh, 0, 0, 0,
 			0, 0, 0, 14h, 25h, 33h, 3Ch, 3Fh, 41h, 49h, 4Fh, 55h,
 			0, 0, 62h),
 
-	b5221(*) BYTE public DATA(0, 4Dh, 0, 55h, 0, 5Dh, 0, 66h, 0, 6Fh, 6Fh, 0, 77h,
+	step2ActionTable(*) BYTE public DATA(0, 4Dh, 0, 55h, 0, 5Dh, 0, 66h, 0, 6Fh, 6Fh, 0, 77h,
 			0, 0B6h, 8Dh, 0B6h, 0, 41h, 0, 2Dh, 2Dh, 2Eh, 2Eh,
 			2Fh, 30h, 30h, 31h, 31h, 32h, 41h, 41h, 12h, 0, 1Fh,
 			1Fh, 0, 30h, 30h, 31h, 31h, 32h, 2Dh, 2Dh, 2Eh, 2Eh,
@@ -12164,25 +12164,25 @@ end;
 EmitTopItem: procedure public;
 	bC1E6 = 0;
 	if not PRINT then
-		if tx2opc(tx2qp) = T2$LINEINFO or tx2opc(tx2qp) = T2$INCLUDE then
+		if tx2Type(tx2qp) = T2$LINEINFO or tx2Type(tx2qp) = T2$INCLUDE then
 			return;
-	call PutTx1Byte(tx2opc(tx2qp));
-	if rol(b4029(tx2opc(tx2qp)), 1) then
+	call PutTx1Byte(tx2Type(tx2qp));
+	if rol(b4029(tx2Type(tx2qp)), 1) then
 	do;
-		call PutTx1Byte(tx2op2(tx2qp));
-		call PutTx1Word(tx2op1(tx2qp));
+		call PutTx1Byte(tx2Right(tx2qp));
+		call PutTx1Word(tx2Left(tx2qp));
 	end;
 	else 
-		do case b5124(tx2opc(tx2qp)) and 3;
+		do case nodeControlMap(tx2Type(tx2qp)) and 3;
 			;
-			call PutTx1Word(tx2op1(tx2qp));
+			call PutTx1Word(tx2Left(tx2qp));
 			do;
-				call PutTx1Word(tx2op1(tx2qp));
-				call PutTx1Word(tx2op2(tx2qp));
+				call PutTx1Word(tx2Left(tx2qp));
+				call PutTx1Word(tx2Right(tx2qp));
 			end;
 			do;
-				call PutTx1Word(tx2op1(tx2qp));
-				call PutTx1Word(tx2op2(tx2qp));
+				call PutTx1Word(tx2Left(tx2qp));
+				call PutTx1Word(tx2Right(tx2qp));
 				call PutTx1Word(tx2op3(tx2qp));
 			end;
 		end;
@@ -12191,8 +12191,8 @@ end;
 
 Tx2SyntaxError: procedure(arg1b) public;
 	declare arg1b byte;
-	tx2opc(tx2qp) = T2$SyntaxError;
-	tx2op1(tx2qp) = arg1b;
+	tx2Type(tx2qp) = T2$SyntaxError;
+	tx2Left(tx2qp) = arg1b;
 end;
 
 Sub$5679: procedure(arg1b) byte public;
@@ -12205,13 +12205,13 @@ end;
 
 Sub$56A0: procedure(arg1b, arg2b) public;
 	declare arg1b byte, arg2b byte;
-	tx2opc(arg2b) = tx2opc(arg1b);
+	tx2Type(arg2b) = tx2Type(arg1b);
 	tx2Aux1b(arg2b) = tx2Aux1b(arg1b);
 	tx2Aux2b(arg2b) = tx2Aux2b(arg1b);
-	tx2op1(arg2b) = tx2op1(arg1b);
-	tx2op2(arg2b) = tx2op2(arg1b);
+	tx2Left(arg2b) = tx2Left(arg1b);
+	tx2Right(arg2b) = tx2Right(arg1b);
 	tx2op3(arg2b) = tx2op3(arg1b);
-	tx2Auxw(arg2b) = tx2Auxw(arg1b);
+	tx2Cnt(arg2b) = tx2Cnt(arg1b);
 end;
 
 
@@ -12362,7 +12362,7 @@ Sub$597E: procedure public;
 		boC072(i) = FALSE;
 		boC07B(i) = FALSE;
 		k = bC04E(i);
-		n = b5124(tx2opc(k)) and 0c0h;
+		n = nodeControlMap(tx2Type(k)) and 0c0h;
 		if k <> 0 then
 		do;
 			boC060(i) = TRUE;
@@ -12379,7 +12379,7 @@ Sub$597E: procedure public;
 					if tx2Aux1b(k) = bC045(i)
 					  or (tx2Aux1b(k) = 0 and bC045(i) = 6) then
 					do;
-						if tx2Auxw(k) > 1 or boC069(i)
+						if tx2Cnt(k) > 1 or boC069(i)
 						  or (bC0B7(0) <> k and k <> bC0B7(1)) then
 							boC072(i) = TRUE;
 					end;
@@ -12564,27 +12564,27 @@ Sub$5EE8: procedure public;
 end;
 
 
-Sub$5F4B: procedure(arg1w, arg2w, arg3b, arg4b) public;
+CreateConstantOrIdNode: procedure(arg1w, arg2w, arg3b, arg4b) public;
 	declare arg1w address, arg2w address, arg3b byte, arg4b byte;
-	tx2op2(tx2qp) = arg1w;
-	tx2op1(tx2qp) = arg2w;
+	tx2Right(tx2qp) = arg1w;
+	tx2Left(tx2qp) = arg2w;
 	tx2Aux1b(tx2qp) = arg3b;
 	tx2Aux2b(tx2qp) = arg4b;
 	if arg4b = 8 then
-		tx2opc(tx2qp) = T2$NUMBER;
+		tx2Type(tx2qp) = T2$NUMBER;
 	else
-		tx2opc(tx2qp) = T2$VARIABLE;
+		tx2Type(tx2qp) = T2$VARIABLE;
 end;
 
-Sub$5FBF: procedure(arg1b, arg2w$p, arg3w$p) public;
+GetOperandValue: procedure(arg1b, arg2w$p, arg3w$p) public;
 	declare arg1b byte, arg2w$p address, arg3w$p address;
 	declare arg2w based arg2w$p address;
 	declare arg3w based arg3w$p address;
 
-	if tx2opc(arg1b) = T2$VARIABLE or tx2opc(arg1b) = T2$NUMBER then
+	if tx2Type(arg1b) = T2$VARIABLE or tx2Type(arg1b) = T2$NUMBER then
 	do;
-		arg2w = tx2op2(arg1b);
-		if (curInfo$p := tx2op1(arg1b)) = 0 then
+		arg2w = tx2Right(arg1b);
+		if (curInfo$p := tx2Left(arg1b)) = 0 then
 			arg3w = 0;
 		else if TestInfoFlag(F$MEMBER) then
 			arg3w = 0;
@@ -12618,14 +12618,14 @@ Sub$5FBF: procedure(arg1b, arg2w$p, arg3w$p) public;
 end;
 
 
-Sub$611A: procedure public;
+DecrementExprRefs: procedure public;
 	declare (i, j, k) byte;
 	do i = 0 to 1;
 		j = bC0B7(i);
 		if j <> 0 then
 		do;
-			tx2Auxw(j) = tx2Auxw(j) - 1;
-			if tx2Auxw(j) = 0 then
+			tx2Cnt(j) = tx2Cnt(j) - 1;
+			if tx2Cnt(j) = 0 then
 			do;
 				do k = 0 to 3;
 					if bC04E(k) = j then
@@ -12646,22 +12646,22 @@ end;
 
 Sub$61E0: procedure(arg1b) public;
 	declare arg1b byte;
-	if (b5124(tx2opc(arg1b)) and 0c0h) = 0 then
+	if (nodeControlMap(tx2Type(arg1b)) and 0c0h) = 0 then
 	do;
 		wC1DC(bC1DB) = 0ah;
 		wC1DC(bC1DB + 1) = tx2op3(arg1b);
 		wC1DC(bC1DB + 2) = shl(wC1C3 - tx2op3(arg1b), 1);
 		bC1DB = bC1DB + 3;
 	end;
-	else if tx2op1(arg1b) <> 0 then
+	else if tx2Left(arg1b) <> 0 then
 	do;
-		curInfo$p = tx2op1(arg1b);
+		curInfo$p = tx2Left(arg1b);
 		wC1DC(bC1DB + 2) = curInfo$p - botInfo;
-		wC1DC(bC1DB + 1) = tx2op2(arg1b) - GetLinkVal;
+		wC1DC(bC1DB + 1) = tx2Right(arg1b) - GetLinkVal;
 		if TestInfoFlag(F$AUTOMATIC) then
 		do;
 			wC1DC(bC1DB) = 0ch;
-			wC1DC(bC1DB + 3) = tx2op2(arg1b) + shl(wC1C3, 1);
+			wC1DC(bC1DB + 3) = tx2Right(arg1b) + shl(wC1C3, 1);
 			bC1DB = bC1DB + 4;
 		end;
 		else
@@ -12672,11 +12672,11 @@ Sub$61E0: procedure(arg1b) public;
 	end;
 	else
 	do;
-		if tx2op2(arg1b) < 100h then
+		if tx2Right(arg1b) < 100h then
 			wC1DC(bC1DB) = 8;
 		else
 			wC1DC(bC1DB) = 9;
-		wC1DC(bC1DB + 1) = tx2op2(arg1b);
+		wC1DC(bC1DB + 1) = tx2Right(arg1b);
 		bC1DB = bC1DB + 2;
 	end;
 end;
@@ -12729,18 +12729,18 @@ Sub$6416: procedure(arg1b) public;
 end;
 
 GetTx2Item: procedure public;
-	call fread(.tx2File, .tx2opc(tx2qp), 1);
-	do case 3 and b5124(tx2opc(tx2qp));
-		if tx2opc(tx2qp) = T2$EOF then
+	call fread(.tx2File, .tx2Type(tx2qp), 1);
+	do case 3 and nodeControlMap(tx2Type(tx2qp));
+		if tx2Type(tx2qp) = T2$EOF then
 			eofSeen = TRUE;
-		call fread(.tx2File, .tx2op1(tx2qp), 2);
+		call fread(.tx2File, .tx2Left(tx2qp), 2);
 		do;
-			call fread(.tx2File, .tx2op1(tx2qp), 2);
-			call fread(.tx2File, .tx2op2(tx2qp), 2);
+			call fread(.tx2File, .tx2Left(tx2qp), 2);
+			call fread(.tx2File, .tx2Right(tx2qp), 2);
 		end;
 		do;
-			call fread(.tx2File, .tx2op1(tx2qp), 2);
-			call fread(.tx2File, .tx2op2(tx2qp), 2);
+			call fread(.tx2File, .tx2Left(tx2qp), 2);
+			call fread(.tx2File, .tx2Right(tx2qp), 2);
 			call fread(.tx2File, .tx2op3(tx2qp), 2);
 		end;
 	end;
@@ -12750,22 +12750,22 @@ end;
 Sub$652B: procedure public;
 	if curOp = T2$MODULE then
 	do;
-		if tx2opc(tx2qp - 1) = T2$LABELDEF then
+		if tx2Type(tx2qp - 1) = T2$LABELDEF then
 		do;
-			curInfo$p = tx2op1(tx2qp - 1) + botInfo;
+			curInfo$p = tx2Left(tx2qp - 1) + botInfo;
 			if not (TestInfoFlag(F$MODGOTO) or TestInfoFlag(F$PUBLIC)) then
 				tx2qp = tx2qp - 1;  
 		end;
 	end;
 	else if curOp = T2$LINEINFO then
 	do;
-		if tx2op2(tx2qp) = 0 then
+		if tx2Right(tx2qp) = 0 then
 		do;
-			if tx2opc(tx2qp - 1) = T2$LINEINFO then
+			if tx2Type(tx2qp - 1) = T2$LINEINFO then
 			do;
-				if tx2op2(tx2qp - 1) = 0 then
+				if tx2Right(tx2qp - 1) = 0 then
 				do;
-					tx2op3(tx2qp - 1) = tx2op1(tx2qp);
+					tx2op3(tx2qp - 1) = tx2Left(tx2qp);
 					tx2qp = tx2qp - 1;  
 				end;
 			end;
@@ -12780,13 +12780,13 @@ FillTx2Q: procedure public;
 	if tx2qEnd > bC1BF then
 	do;
 		k = tx2qEnd - bC1BF;
-		call movmem(k, .tx2opc(bC1BF), .tx2opc(tx2qp));
+		call movmem(k, .tx2Type(bC1BF), .tx2Type(tx2qp));
 		call movmem(k, .tx2Aux1b(bC1BF), .tx2Aux1b(tx2qp));
 		call movmem(k, .tx2Aux2b(bC1BF), .tx2Aux2b(tx2qp));
-		call movmem(k * 2, .tx2op1(bC1BF), .tx2op1(tx2qp));
-		call movmem(k * 2, .tx2op2(bC1BF), .tx2op2(tx2qp));
+		call movmem(k * 2, .tx2Left(bC1BF), .tx2Left(tx2qp));
+		call movmem(k * 2, .tx2Right(bC1BF), .tx2Right(tx2qp));
 		call movmem(k * 2, .tx2op3(bC1BF), .tx2op3(tx2qp));
-		call movmem(k * 2, .tx2Auxw(bC1BF), .tx2Auxw(tx2qp));
+		call movmem(k * 2, .tx2Cnt(bC1BF), .tx2Cnt(tx2qp));
 		tx2qp = k + 4;
 		bC1BF = bC1BF + k;
 	end;
@@ -12794,14 +12794,14 @@ FillTx2Q: procedure public;
 	j = FALSE;
 	do while tx2qp < 255 and not eofSeen;
 		call GetTx2Item;
-		curOp = tx2opc(tx2qp);
+		curOp = tx2Type(tx2qp);
 		call Sub$652B;
 		if tx2qp = 4 then
 		do;
 			if curOp = T2$STMTCNT or curOp = T2$LOCALLABEL
 			  or curOp = T2$EOF then
 				tx2qp = tx2qp + 1;  
-			else if (b5124(curOp) and 20h) <> 0 then
+			else if (nodeControlMap(curOp) and 20h) <> 0 then
 				call EmitTopItem;
 			else if i then
 			do;
@@ -12814,7 +12814,7 @@ FillTx2Q: procedure public;
 		else
 			tx2qp = tx2qp + 1;  
 
-		if (b5124(curOp) and 8) <> 0 then
+		if (nodeControlMap(curOp) and 8) <> 0 then
 			j = TRUE;
 		if j then
 			if curOp  = T2$STMTCNT or curOp = T2$EOF
@@ -12833,8 +12833,8 @@ Sub$67A9: procedure public;
 	SkipBB: procedure(arg1b, arg2b);
 		declare arg1b byte, arg2b byte;
 		bC1BF = arg1b + arg2b;
-		do while tx2opc(bC1BF) <> T2$STMTCNT and tx2opc(bC1BF) <> T2$EOF
-		  and tx2opc(bC1BF) <> T2$LOCALLABEL;
+		do while tx2Type(bC1BF) <> T2$STMTCNT and tx2Type(bC1BF) <> T2$EOF
+		  and tx2Type(bC1BF) <> T2$LOCALLABEL;
 			bC1BF = bC1BF + arg2b;
 		end;
 	end;
@@ -12845,12 +12845,12 @@ Sub$67A9: procedure public;
 		bC1BF = tx2qEnd;
 	else
 		do tx2qp = 4 to bC1BF - 1;
-			bC1D2 = b5124(tx2opc(tx2qp));
-			if (bC1D2 and 10h) <> 0 then
+			nodeControlFlags = nodeControlMap(tx2Type(tx2qp));
+			if (nodeControlFlags and 10h) <> 0 then
 			do;
 				if i + 4 < tx2qp then
 				do;
-					if tx2opc(tx2qp) = T2$LOCALLABEL then
+					if tx2Type(tx2qp) = T2$LOCALLABEL then
 						bC1BF = tx2qp;
 					else
 						call SkipBB(tx2qp, 0ffh);
@@ -12858,12 +12858,12 @@ Sub$67A9: procedure public;
 				end;
 				i = i + 1;  
 			end;
-			if (bC1D2 and 8) <> 0 then
+			if (nodeControlFlags and 8) <> 0 then
 			do;
 				call SkipBB(tx2qp, 1);
 				return;
 			end;
-			if (bC1D2 and 20h) <> 0 then
+			if (nodeControlFlags and 20h) <> 0 then
 				i = i + 1;  
 		end;
 end;
@@ -12895,34 +12895,34 @@ Sub$689E: procedure public;
 			    do while p <> 0;
 				p = p - 1;  
 				arg2w = arg2w - 1;
-				if tx2opc(arg2w) = T2$LINEINFO then
-				    if tx2op2(arg2w) = 0 then
+				if tx2Type(arg2w) = T2$LINEINFO then
+				    if tx2Right(arg2w) = 0 then
 					if tx2op3(arg2w) <> 0 then
-					    p = p -(tx2op3(arg2w) - tx2op1(arg2w));
+					    p = p -(tx2op3(arg2w) - tx2Left(arg2w));
 			    end;
 			end;
 		    end;
 		end sub69EB;
 
 	/* Sub$68E8 */
-		bC252 = bC1D2 and 3;
-		if (bC1D2 and 4) <> 0 then
+		bC252 = nodeControlFlags and 3;
+		if (nodeControlFlags and 4) <> 0 then
 		do;
-			tx2op2(1) = tx2op1(tx2qp);
-			tx2op1(tx2qp) = 1;
+			tx2Right(1) = tx2Left(tx2qp);
+			tx2Left(tx2qp) = 1;
 		end;
 		else
-			call Sub$69EB(1, .tx2op1(tx2qp));
+			call Sub$69EB(1, .tx2Left(tx2qp));
 
-		call Sub$69EB(2, .tx2op2(tx2qp));
+		call Sub$69EB(2, .tx2Right(tx2qp));
 		if bC252 = 3 then
 		do;
 			if curOp = T2$CALL then
 				tx2op3(tx2qp) = tx2op3(tx2qp) + botInfo;
 			else if  curOp = T2$BYTEINDEX or curOp = T2$WORDINDEX then
 			do;
-				i = tx2op1(tx2qp);
-				tx2op2(i) = tx2op2(i) + tx2op3(tx2qp) *Sub$575E(tx2op1(i));
+				i = tx2Left(tx2qp);
+				tx2Right(i) = tx2Right(i) + tx2op3(tx2qp) *Sub$575E(tx2Left(i));
 			end;
 			else
 				call Sub$69EB(3, .tx2op3(tx2qp));
@@ -12934,7 +12934,7 @@ Sub$689E: procedure public;
 	Sub$6AA4: procedure;
 		if curOp = T2$VARIABLE then
 		do;
-			curInfo$p, tx2op1(tx2qp) = tx2op1(tx2qp) + botInfo;
+			curInfo$p, tx2Left(tx2qp) = tx2Left(tx2qp) + botInfo;
 			if TestInfoFlag(F$MEMBER) then
 			do;
 				curInfo$p = GetParentOffset;
@@ -12944,19 +12944,19 @@ Sub$689E: procedure public;
 				tx2Aux2b(tx2qp) = 0ah;
 			else
 				tx2Aux2b(tx2qp) = 4;
-			curInfo$p = tx2op1(tx2qp);
-			tx2op2(tx2qp) = GetLinkVal;
+			curInfo$p = tx2Left(tx2qp);
+			tx2Right(tx2qp) = GetLinkVal;
 			tx2Aux1b(tx2qp) = b5286(GetType);
 		end;
 		else if curOp <= T2$BIGNUMBER then
 		do;
-			tx2op2(tx2qp) = tx2op1(tx2qp);
+			tx2Right(tx2qp) = tx2Left(tx2qp);
 			tx2Aux2b(tx2qp) = 8;
-			tx2op1(tx2qp) = 0;
+			tx2Left(tx2qp) = 0;
 			if curOp = T2$BIGNUMBER then
 			do;
 				tx2Aux1b(tx2qp) = 1;
-				tx2opc(tx2qp) = T2$NUMBER;
+				tx2Type(tx2qp) = T2$NUMBER;
 			end;
 			else
 				tx2Aux1b(tx2qp) = 0;
@@ -12964,17 +12964,17 @@ Sub$689E: procedure public;
 		else
 		do;
 			tx2Aux1b(tx2qp) = 0;
-			tx2op2(tx2qp) = 0;
+			tx2Right(tx2qp) = 0;
 		end;
 	end;
 
 /* sub$679E */
 	do tx2qp = 4 to bC1Bf - 1;
-		curOp = tx2opc(tx2qp);
-		bC1D2 = b5124(curOp);
-		if (bC1D2 and 0c0h) = 0 then
+		curOp = tx2Type(tx2qp);
+		nodeControlFlags = nodeControlMap(curOp);
+		if (nodeControlFlags and 0c0h) = 0 then
 			call Sub$68E8;
-		else if (bC1D2 and 0c0h) = 40h then
+		else if (nodeControlFlags and 0c0h) = 40h then
 			call Sub$6AA4;
 	end;
 end;
@@ -12993,7 +12993,7 @@ Sub$6BD6: procedure public;
 	Sub$6C54: procedure(arg1b);
 	    declare arg1b byte;
 	    if arg1b <> 0 then
-		tx2Auxw(arg1b) = tx2Auxw(arg1b) + 1;  
+		tx2Cnt(arg1b) = tx2Cnt(arg1b) + 1;  
 	end;
 
 
@@ -13003,18 +13003,18 @@ Sub$6BD6: procedure public;
 	    if OPTIMIZE  then
 		do while tx2qp - 1 > arg1b;
 		    arg1b = arg1b + 1;
-		    if tx2opc(arg1b) = curOp then
+		    if tx2Type(arg1b) = curOp then
 		    do;
-			if tx2op1(arg1b) = tx2op1(tx2qp) then
+			if tx2Left(arg1b) = tx2Left(tx2qp) then
 			do;
-			    if tx2op2(arg1b) = tx2op2(tx2qp) then
+			    if tx2Right(arg1b) = tx2Right(tx2qp) then
 			    do;
 				if tx2Aux1b(arg1b) = tx2Aux1b(tx2qp) then
 				do;
 				    if tx2op3(arg1b) <> 0ff00h then
 				    do;
-				    	tx2opc(tx2qp) = T2$OPTBACKREF;
-				    	tx2op1(tx2qp) = arg1b;
+				    	tx2Type(tx2qp) = T2$OPTBACKREF;
+				    	tx2Left(tx2qp) = arg1b;
 				    	return;
 				    end;
 				end;
@@ -13022,10 +13022,10 @@ Sub$6BD6: procedure public;
 			end;
 		    end;
 		end; 
-	    if (bC1D2 and 0c0h) = 0 then
+	    if (nodeControlFlags and 0c0h) = 0 then
 	    do;
-		call Sub$6C54(tx2op1(tx2qp));
-		call Sub$6C54(tx2op2(tx2qp));
+		call Sub$6C54(tx2Left(tx2qp));
+		call Sub$6C54(tx2Right(tx2qp));
 	    end;
 	    tx2op3(tx2qp) = tx2qp;
 	end;
@@ -13039,8 +13039,8 @@ Sub$6BD6: procedure public;
 		    declare arg1w based arg1w$p address;
 		    if arg1w <> 0 then
 		    do;
-			if tx2opc(arg1w) = T2$OPTBACKREF then 
-			    arg1w = tx2op1(arg1w);
+			if tx2Type(arg1w) = T2$OPTBACKREF then 
+			    arg1w = tx2Left(arg1w);
 		    end;
 		end;
 
@@ -13053,22 +13053,22 @@ Sub$6BD6: procedure public;
 			Sub$6F20: procedure(arg1b);
 			    declare arg1b byte;
 			    declare i byte;
-			    if (i := tx2opc(arg1b)) = T2$BASED then
+			    if (i := tx2Type(arg1b)) = T2$BASED then
 				boC25D = 0ffh;
 			    else if i = T2$BYTEINDEX or i = T2$WORDINDEX then
 			    do;
-				if tx2opc(tx2op2(arg1b)) <> T2$NUMBER then
+				if tx2Type(tx2Right(arg1b)) <> T2$NUMBER then
 				    boC25D = 0ffh;
 				else
 				do;
-				    curInfo$p = tx2op1(tx2op1(arg1b));
-				    if tx2op2(tx2op2(arg1b)) >= GetDimension or TestInfoFlag(F$AT) then
+				    curInfo$p = tx2Left(tx2Left(arg1b));
+				    if tx2Right(tx2Right(arg1b)) >= GetDimension or TestInfoFlag(F$AT) then
 					boC25D = 0ffh;
 				end;
 			    end;
 			    else if i = T2$VARIABLE then
 			    do;
-				curInfo$p = tx2op1(arg1b);
+				curInfo$p = tx2Left(arg1b);
 				if TestInfoFlag(F$AT) then
 				    boC25D = 0ffh;
 			    end;
@@ -13076,10 +13076,10 @@ Sub$6BD6: procedure public;
 
 	/* Sub$6EE1 */
 		    boC25D = 0;
-		    if tx2opc(arg1b) = T2$MEMBER then
+		    if tx2Type(arg1b) = T2$MEMBER then
 		    do;
-			call Sub$6F20(tx2op1(arg1b));
-			call Sub$6F20(tx2op2(arg1b));
+			call Sub$6F20(tx2Left(arg1b));
+			call Sub$6F20(tx2Right(arg1b));
 		    end;
 		    else
 			call Sub$6F20(arg1b);
@@ -13094,7 +13094,7 @@ Sub$6BD6: procedure public;
 
 		    Sub$7018: procedure(arg1b);
 			declare arg1b byte;
-			if tx2opc(arg1b) <> T2$CALL then
+			if tx2Type(arg1b) <> T2$CALL then
 			    arg1b = tx2op3(arg1b);
 			if arg1b <> 0 then
 			    if arg1b > bC263 then
@@ -13106,8 +13106,8 @@ Sub$6BD6: procedure public;
 		    else
 			bC263 = bC25A;
 
-		    call Sub$7018(tx2op1(tx2qp));
-		    call Sub$7018(tx2op2(tx2qp));
+		    call Sub$7018(tx2Left(tx2qp));
+		    call Sub$7018(tx2Right(tx2qp));
 		    return bC263;
 		end;
 
@@ -13115,13 +13115,13 @@ Sub$6BD6: procedure public;
 		Sub$7055: procedure;
 			Bsub$70BC: procedure(nodeLoc) byte;
 			    declare nodeLoc byte;
-			    call Sub$6EE1(tx2op1(nodeLoc));
+			    call Sub$6EE1(tx2Left(nodeLoc));
 			    if boC25D then
 				return TRUE;
                 /* the code below appears to be wrong
                    a more appropriate test would be
 
-                   tx2opc(tx2op1(nodeLoc)) == T2$VARIABLE
+                   tx2Type(tx2Left(nodeLoc)) == T2$VARIABLE
 
                    as is the condition should be false except
                    for complex statements with more than
@@ -13135,9 +13135,9 @@ Sub$6BD6: procedure public;
                    is the same
                 */
 
-			    if tx2op1(nodeLoc) = 0ach then
+			    if tx2Left(nodeLoc) = 0ach then
 			    do;
-				curInfo$p = tx2op1(tx2op1(nodeLoc));
+				curInfo$p = tx2Left(tx2Left(nodeLoc));
 				if TestInfoFlag(F$AUTOMATIC) then
 				    return TRUE;
 			    end;
@@ -13146,20 +13146,20 @@ Sub$6BD6: procedure public;
 		/* Sub$7055 */
 		    if Bsub$70BC(tx2qp) then
 			bC25A = tx2qp;
-		    if tx2op3(tx2op1(bC259 := tx2qp)) <> 0ff00h then
-			tx2op3(tx2op1(tx2qp)) = tx2qp;
-		    call Sub$6C54(tx2op1(tx2qp));
-		    call Sub$6C54(tx2op2(tx2qp));
+		    if tx2op3(tx2Left(bC259 := tx2qp)) <> 0ff00h then
+			tx2op3(tx2Left(tx2qp)) = tx2qp;
+		    call Sub$6C54(tx2Left(tx2qp));
+		    call Sub$6C54(tx2Right(tx2qp));
 		end;
 
-	    call Sub$6EAB(.tx2op1(tx2qp));
-	    call Sub$6EAB(.tx2op2(tx2qp));
+	    call Sub$6EAB(.tx2Left(tx2qp));
+	    call Sub$6EAB(.tx2Right(tx2qp));
 	    if curOp = T2$STORE then
 		call Sub$7055;
 	    else if procCallDepth > 0 then
 	    do;
-		call Sub$6C54(tx2op1(tx2qp));
-		call Sub$6C54(tx2op2(tx2qp));
+		call Sub$6C54(tx2Left(tx2qp));
+		call Sub$6C54(tx2Right(tx2qp));
 		if curOp = T2$CALL then
 		    procCallDepth = procCallDepth - 1;  
 		else if curOp = T2$MOVE or curOp = T2$CALLVAR then
@@ -13173,8 +13173,8 @@ Sub$6BD6: procedure public;
 	    end;
 	    else if curOp = T2$OUTPUT or curOp = T2$TIME then
 	    do;
-		call Sub$6C54(tx2op1(tx2qp));
-		call Sub$6C54(tx2op2(tx2qp));
+		call Sub$6C54(tx2Left(tx2qp));
+		call Sub$6C54(tx2Right(tx2qp));
 	    end;
 	    else
 	    do;
@@ -13183,12 +13183,12 @@ Sub$6BD6: procedure public;
 		call Sub$6C73(Sub$6FE2);
 		if curOp = T2$JMPFALSE then
 		do;
-		    if tx2opc(tx2qp - 1) = T2$NOT then
+		    if tx2Type(tx2qp - 1) = T2$NOT then
 		    do;
 			boC20F = TRUE;
-			tx2op2(tx2qp) = tx2op1(tx2qp - 1);
+			tx2Right(tx2qp) = tx2Left(tx2qp - 1);
 			call Sub$56A0(tx2qp, tx2qp - 1);
-			tx2opc(tx2qp) = T2$SEMICOLON;
+			tx2Type(tx2qp) = T2$SEMICOLON;
 		    end;
 		end;
 	    end;
@@ -13207,7 +13207,7 @@ Sub$6BD6: procedure public;
 		tx2op3(tx2qp) = 0;
 		if curOp = T2$VARIABLE then
 		do;
-		    curInfo$p = tx2op1(tx2qp);
+		    curInfo$p = tx2Left(tx2qp);
 		    if TestInfoFlag(F$AT) then
 			call Sub$6C73(bC259);
 		    else
@@ -13222,12 +13222,12 @@ Sub$6BD6: procedure public;
 	bC259 = 4;
 	bC25A = 4;
 	do tx2qp = 4 to bC1BF - 1;
-		tx2Auxw(tx2qp) = 0;
-		curOp = tx2opc(tx2qp);
-		bC1D2 = b5124(curOp);
-		if (bC1D2 and 0c0h) = 0 then
+		tx2Cnt(tx2qp) = 0;
+		curOp = tx2Type(tx2qp);
+		nodeControlFlags = nodeControlMap(curOp);
+		if (nodeControlFlags and 0c0h) = 0 then
 			call Sub$6D52;
-		else if (bC1D2 and 0c0h) = 40h then
+		else if (nodeControlFlags and 0c0h) = 40h then
 			call Sub$7111;
 		if curOp = T2$BEGCALL or curOp = T2$BEGMOVE then
 			procCallDepth = procCallDepth + 1;  
@@ -13239,320 +13239,320 @@ END;
 plm2d: DO;
 $include(:f2:plm2d.ipx)
 
-Sub$717B: procedure public;
-	declare bC266 byte,
-		(wC267, wC269, wC26B, wC26D) address,
-		bC26F byte,
-		p address,
-		(bC272, bC273) byte;
+FoldConstantExpr: procedure public;
+	declare arithOp byte,
+		(lhsAcc, lhsAccFlag, rhsAcc, rhsAccFlag) address,
+		operand byte,
+		constVal address,
+		(resAttrib, resOpFlag) byte;
 
-	Bsub$7254: procedure(arg1b, arg2w) byte;
-	    declare arg1b byte, arg2w address;
-	    if arg1b = 0 then
+	CanFoldOperand: procedure(validationRule, operandFlag) byte;
+	    declare validationRule byte, operandFlag address;
+	    if validationRule = 0 then
 	    do;
-		if tx2Aux2b(bC26F) <> 4 then
+		if tx2Aux2b(operand) <> 4 then
 		    return FALSE;
 	    end;
-	    else if arg1b <> 3 then
+	    else if validationRule <> 3 then
 	    do;
-		if tx2Aux2b(bC26F) <> 8 then
+		if tx2Aux2b(operand) <> 8 then
 		    return FALSE;
-		if arg2w <> 0 then
+		if operandFlag <> 0 then
 		do;
-		    if arg1b = 2 then
-			return FALSE;
-		    if arg1b = 4 then
+		    if validationRule = 2 then
+			    return FALSE;
+		    if validationRule = 4 then
 		    do;
-			if wC269 <> 0 then
+			if lhsAccFlag <> 0 then
 			   return FALSE;
 		    end;
-		    else if arg1b = 5 then
+		    else if validationRule = 5 then
 		    do;
-			if wC269 <> wC26D then
+			if lhsAccFlag <> rhsAccFlag then
 			   return FALSE;
 		    end;
 		end;
 	    end;
-	    else if arg2w = 4000h then
+	    else if operandFlag = 4000h then
 		    return FALSE;
 	    return TRUE;
 	end;
 
 
-	Sub$72F2: procedure address;
-	    do case bC266;
-		return wC267;
-		return wC267 + wC26B;
-		return wC267 - wC26B;
-		return wC267 * wC26B;
-		return wC267 / wC26B;
-		return wC267 mod wC26B;
-		return wC267 and wC26B;
-		return wC267 or wC26B;
-		return wC267 xor wC26B;
-		return wC267 + wC26B;
-		return wC267 + wC26B;
-		return wC267 + wC26B + wC26B;
-		return wC267 + wC26B;
-		return -wC267;
-		return not wC267;
-		return low(wC267);
-		return high(wC267);
-		return wC267;
+	evalConst: procedure address;
+	    do case arithOp;
+		return lhsAcc;
+		return lhsAcc + rhsAcc;
+		return lhsAcc - rhsAcc;
+		return lhsAcc * rhsAcc;
+		return lhsAcc / rhsAcc;
+		return lhsAcc mod rhsAcc;
+		return lhsAcc and rhsAcc;
+		return lhsAcc or rhsAcc;
+		return lhsAcc xor rhsAcc;
+		return lhsAcc + rhsAcc;
+		return lhsAcc + rhsAcc;
+		return lhsAcc + rhsAcc + rhsAcc;
+		return lhsAcc + rhsAcc;
+		return -lhsAcc;
+		return not lhsAcc;
+		return low(lhsAcc);
+		return high(lhsAcc);
+		return lhsAcc;
 	    end;
 	end;
 
-	Sub$73C5: procedure;
-	    if curOp = T2$MEMBER and tx2Aux2b(tx2op1(tx2qp)) = 0ah then
+	DetermineResultType: procedure;
+	    if curOp = T2$MEMBER and tx2Aux2b(tx2Left(tx2qp)) = 0ah then
 	    do;
-		bC272 = tx2Aux1b(tx2op2(tx2qp));
-		bC273 = 0Ah;
+		resAttrib = tx2Aux1b(tx2Right(tx2qp));
+		resOpFlag = 0Ah;
 	    end;
 	    else 
-		do case b5112(bC266) and 7;
+		do case constFoldRules(arithOp) and 7;
 		    do;
-			bC272 = 0;
-			bC273 = 8;
+			resAttrib = 0;
+			resOpFlag = 8;
 		    end;
 		    do;
-			if tx2Aux1b(tx2op1(tx2qp)) = 0 and tx2Aux1b(tx2op2(tx2qp)) = 0 then
-			   bC272 = 0;
+			if tx2Aux1b(tx2Left(tx2qp)) = 0 and tx2Aux1b(tx2Right(tx2qp)) = 0 then
+			   resAttrib = 0;
 			else
-			   bC272 = 1;
-			bC273 = 8;
+			   resAttrib = 1;
+			resOpFlag = 8;
 		    end;
 		    do;
-			bC272 = 1;
-			bC273 = 8;
+			resAttrib = 1;
+			resOpFlag = 8;
 		    end;
 		    do;
-			bC272 = tx2Aux1b(tx2op1(tx2qp));
-			bC273 = tx2Aux2b(tx2op1(tx2qp));
+			resAttrib = tx2Aux1b(tx2Left(tx2qp));
+			resOpFlag = tx2Aux2b(tx2Left(tx2qp));
 		    end;
 		    do;
-			bC272 = tx2Aux1b(tx2op2(tx2qp));
-			bC273 = tx2Aux2b(tx2op2(tx2qp));
+			resAttrib = tx2Aux1b(tx2Right(tx2qp));
+			resOpFlag = tx2Aux2b(tx2Right(tx2qp));
 		    end;
 		    do;
-			bC272 = Sub$5748(tx2Aux1b(tx2op2(tx2qp)));
-			bC273 = 8;
+			resAttrib = Sub$5748(tx2Aux1b(tx2Right(tx2qp)));
+			resOpFlag = 8;
 		    end;
 		end;
-	    if wC269 = wC26D then
+	    if lhsAccFlag = rhsAccFlag then
 		curInfo$p = 0;
-	    else if wC26D = 0  then
-		curInfo$p = tx2op1(tx2op1(tx2qp));
+	    else if rhsAccFlag = 0  then
+		curInfo$p = tx2Left(tx2Left(tx2qp));
 	    else
-		curInfo$p = tx2op1(tx2op2(tx2qp));
+		curInfo$p = tx2Left(tx2Right(tx2qp));
 	end;
 
-/* Sub$717B */
-	bC266 = curOp - 12h;
-	bC26F = tx2op1(tx2qp);
-	call Sub$5FBF(bC26F, .wC267, .wC269);
-	if Bsub$7254(shr(b5112(bC266), 6), wC269) then
+/* FoldConstantExpr */
+	arithOp = curOp - 12h;
+	operand = tx2Left(tx2qp);
+	call GetOperandValue(operand, .lhsAcc, .lhsAccFlag);
+	if CanFoldOperand(shr(constFoldRules(arithOp), 6), lhsAccFlag) then
 	do;
-		bC26F = tx2op2(tx2qp);
-		call Sub$5FBF(bC26F, .wC26B, .wC26D);
-		if Bsub$7254(shr(b5112(bC266), 3) and 7h, wC26D) then
+		operand = tx2Right(tx2qp);
+		call GetOperandValue(operand, .rhsAcc, .rhsAccFlag);
+		if CanFoldOperand(shr(constFoldRules(arithOp), 3) and 7h, rhsAccFlag) then
 		do;
-			call Sub$611A;
-			p = Sub$72F2;
-			call Sub$73C5;
-			if bC272 = 0 and bC273 = 8 then
-				p = p and 0FFh;
-			call Sub$5F4B(p, curInfo$p, bC272, bC273);
-			bC1D2 = b5124(curOp := tx2opc(tx2qp));
+			call DecrementExprRefs;
+			constVal = evalConst;
+			call DetermineResultType;
+			if resAttrib = 0 and resOpFlag = 8 then
+				constVal = constVal and 0FFh;
+			call CreateConstantOrIdNode(constVal, curInfo$p, resAttrib, resOpFlag);
+			nodeControlFlags = nodeControlMap(curOp := tx2Type(tx2qp));
 		end;
 	end;
 end;
 
 
-Sub$7550: procedure public;
+OptimiseExpression: procedure public;
 
-	Bsub$765B: procedure(arg1b, arg2b, arg3b) byte;
-		declare arg1b byte, arg2b byte, arg3b byte,
-			bC27A byte, (wC27B, wC27D) address,
-			(bC27F, i) byte, p address;
+	ApplyStepOptimisation: procedure(stepIdx, left, right) byte;
+		declare stepIdx byte, left byte, right byte,
+			optResult byte, (acc, accFlag) address,
+			(curStepActions, i) byte, p address;
 
 
-		Bsub$76E2: procedure(arg1b) byte;
-			declare arg1b byte;
-			if (bC27F and 40h) <> 0 then
+		ExpectedAttr: procedure(nodeLoc) byte;
+			declare nodeLoc byte;
+			if (curStepActions and 40h) <> 0 then
 			do;
-				if tx2Aux1b(arg1b) = 1 then
+				if tx2Aux1b(nodeLoc) = 1 then
 					return TRUE;
-				if tx2Aux1b(arg1b) = 3 then
+				if tx2Aux1b(nodeLoc) = 3 then
 					return TRUE;
 				return FALSE;
 			end;
-			else if tx2Aux1b(arg1b) = 0 then
+			else if tx2Aux1b(nodeLoc) = 0 then
 				return TRUE;
-			else if tx2Aux1b(arg1b) = 2 then
+			else if tx2Aux1b(nodeLoc) = 2 then
 				return TRUE;
-			else if tx2Aux1b(arg1b) = 8 then
+			else if tx2Aux1b(nodeLoc) = 8 then
 				return TRUE;
 			else
 				return FALSE;
 		end;
 
-		Sub$7754: procedure;
+		TryEliminateCopyAssignment: procedure;
 			declare (i, j) byte;
 			i = tx2qp + 1;
-			do while tx2opc(i) = T2$OPTBACKREF and i < bC1BF;
+			do while tx2Type(i) = T2$OPTBACKREF and i < bC1BF;
 				i = i + 1;  
 			end;
 			j = tx2qp;
-			if tx2opc(i) = T2$STORE then
+			if tx2Type(i) = T2$STORE then
 			do;
-				if arg3b= tx2op1(i) then
+				if right= tx2Left(i) then
 				do;
-					if tx2op2(i) = j then
+					if tx2Right(i) = j then
 					do;
-						if tx2Auxw(j) = 1 then
+						if tx2Cnt(j) = 1 then
 						do;
-							bC27A = 6;
-							tx2opc(i) = T2$SEMICOLON;
-							tx2Auxw(j) = 0;
-							tx2Auxw(arg3b) = tx2Auxw(arg3b) - 1;  
+							optResult = 6;
+							tx2Type(i) = T2$SEMICOLON;
+							tx2Cnt(j) = 0;
+							tx2Cnt(right) = tx2Cnt(right) - 1;  
 						end;
 					end;
 				end;
 			end;
 		end;
 
-		Bsub$7801: procedure  byte;
-			if wC27D <> 0 or (curOp < T2$BASED and tx2Aux2b(arg2b) <> 8) then
+		ValidateOptimisationStep: procedure  byte;
+			if accFlag <> 0 or (curOp < T2$BASED and tx2Aux2b(left) <> 8) then
 				return FALSE;
-			if (bC27F and 20h) <> 0 then
-				if not Bsub$76E2(arg3b) then
+			if (curStepActions and 20h) <> 0 then
+				if not ExpectedAttr(right) then
 					return FALSE;
-			if (bC27F and 1) <> 0 then
-				if Bsub$76E2(arg2b) <> Bsub$76E2(arg3b) then
+			if (curStepActions and 1) <> 0 then
+				if ExpectedAttr(left) <> ExpectedAttr(right) then
 					return FALSE;
-			if (bC27F and 4) <> 0 then
+			if (curStepActions and 4) <> 0 then
 			do;
-				if (bC27F and 8) <> 0 then
-					if wC27B <> 0 then
+				if (curStepActions and 8) <> 0 then
+					if acc <> 0 then
 						return TRUE;
 					else
 						return FALSE;
-				p = w502A(shr(b5048(arg1b), 3));
-				if p <> wC27B then
+				p = commonConstants(shr(peepholePatterns(stepIdx), 3));
+				if p <> acc then
 					return FALSE;
-				if (bC27F and 80h) <> 0 then
-					call Sub$7754;
+				if (curStepActions and 80h) <> 0 then
+					call TryEliminateCopyAssignment;
 				return 0FFh;
 			end;
-			if (bC27F and 40h) = 0 then
+			if (curStepActions and 40h) = 0 then
 			do;
-				p = w502A(shr(b5048(arg1b), 3));
-				bC27A = wC27B mod p;
+				p = commonConstants(shr(peepholePatterns(stepIdx), 3));
+				optResult = acc mod p;
 				return TRUE;
 			end;
-			else if wC27B <= 4 then
+			else if acc <= 4 then
 			do;
-				bC27A = wC27B;
+				optResult = acc;
 				return TRUE;
 			end;
 			else
 				return FALSE;
 		end;
 
-		Sub$7925: procedure;
-			declare (i, j, k) byte;
-			arg1b = arg1b - 1;
-			i = b5221(arg1b) + bC27A;
-			j = b5048(arg1b) and 3;
-			if i = 0ADh then
+		ApplyTransformation: procedure;
+			declare (type, j, k) byte;
+			stepIdx = stepIdx - 1;
+			type = step2ActionTable(stepIdx) + optResult;
+			j = peepholePatterns(stepIdx) and 3;
+			if type = 0ADh then
 			do;
 				if j = 0 then
-					wC27B = 0;
-				call Sub$611A;
-				bC27F = 0;
+					acc = 0;
+				call DecrementExprRefs;
+				curStepActions = 0;
 				k = 1;
 				if curOp <> T2$STAR then
 				    if curOp <> T2$SLASH then
 					if curOp <> T2$MOD then
-					    if wC27B < 100h then
-						if Bsub$76E2(arg2b) then
-						    if arg3b = 0 then
+					    if acc < 100h then
+						if ExpectedAttr(left) then
+						    if right = 0 then
 							k = 0;
-						    else if Bsub$76E2(arg2b) then
+						    else if ExpectedAttr(left) then
 							k = 0;
-				call Sub$5F4B(wC27B, 0, k, 8);
+				call CreateConstantOrIdNode(acc, 0, k, 8);
 			end;
 			else
 			do;
 				if j = 1 then
 				do;
-					tx2op1(tx2qp) = arg3b;
-					tx2Auxw(arg2b) = tx2Auxw(arg2b) - 1;  
+					tx2Left(tx2qp) = right;
+					tx2Cnt(left) = tx2Cnt(left) - 1;  
 				end;
 				else
 				do;
-					if tx2op2(tx2qp) <> 0 then
-						tx2Auxw(tx2op2(tx2qp)) = tx2Auxw(tx2op2(tx2qp)) - 1;  
-					if (bC1D2 and 4) <> 0 then
+					if tx2Right(tx2qp) <> 0 then
+						tx2Cnt(tx2Right(tx2qp)) = tx2Cnt(tx2Right(tx2qp)) - 1;  
+					if (nodeControlFlags and 4) <> 0 then
 					do;
-						tx2op1(tx2qp) = tx2op2(1);
+						tx2Left(tx2qp) = tx2Right(1);
 						if boC20F then
 						do;
-							i = 43h - i;
+							type = 43h - type;
 							boC20F = 0;
 						end;
 					end;
 				end;
-				tx2opc(tx2qp) = i;
-				tx2op2(tx2qp) = 0;
+				tx2Type(tx2qp) = type;
+				tx2Right(tx2qp) = 0;
 			end;
-			bC1D2 = b5124(curOp := i);
+			nodeControlFlags = nodeControlMap(curOp := type);
 		end;
 
-/* Bsub$765B */
-		call Sub$5FBF(arg2b, .wC27B, .wC27D);
-		bC27A = 0;
+/* ApplyStepOptimisation */
+		call GetOperandValue(left, .acc, .accFlag);
+		optResult = 0;
 		i = TRUE;
 
 		do while i;
-			if (bC27F := b50AD(arg1b)) = 0ffh then
+			if (curStepActions := b50AD(stepIdx)) = 0ffh then
 				return FALSE;
-			if (bC27F and 10h) <> 0 then
+			if (curStepActions and 10h) <> 0 then
 			do;
-				i = not Bsub$76E2(arg2b);
-				if (bC27F and 4) <> 0 and not i then
-					i = not Bsub$7801;
+				i = not ExpectedAttr(left);
+				if (curStepActions and 4) <> 0 and not i then
+					i = not ValidateOptimisationStep;
 			end;
 			else 
-				i = not Bsub$7801;
-			arg1b = arg1b + 1;  
+				i = not ValidateOptimisationStep;
+			stepIdx = stepIdx + 1;  
 		end;
-		call Sub$7925;
+		call ApplyTransformation;
 		return TRUE;
-	end Bsub$765B;
+	end ApplyStepOptimisation;
 
-/* Sub$7550 */
+/* OptimiseExpression */
 	if curOp <= T2$GT then
 	do;
-		if tx2opc(tx2qp+1) = T2$JMPFALSE and tx2Auxw(tx2qp) = 1 then
+		if tx2Type(tx2qp+1) = T2$JMPFALSE and tx2Cnt(tx2qp) = 1 then
 		do;
-			tx2opc(tx2qp + 1) = T2$JNZ;
-			tx2op1(tx2qp + 1) = tx2op2(1);
+			tx2Type(tx2qp + 1) = T2$JNZ;
+			tx2Left(tx2qp + 1) = tx2Right(1);
 			if boC20F then
 			do;
-				tx2op2(tx2qp + 1) = bC209(curOp);
+				tx2Right(tx2qp + 1) = bC209(curOp);
 				boC20F = 0;
 			end;
 			else
-				tx2op2(tx2qp + 1) = curOp;
-			tx2Auxw(tx2qp) = 0;
+				tx2Right(tx2qp + 1) = curOp;
+			tx2Cnt(tx2qp) = 0;
 		end;
 		else
-			tx2opc(tx2qp), curOp = curOp + 26h;
+			tx2Type(tx2qp), curOp = curOp + 26h;
 	end;
-	else if Bsub$765B(b5202(curOp), tx2op2(tx2qp), tx2op1(tx2qp)) then
+	else if ApplyStepOptimisation(optimisationStep1Map(curOp), tx2Right(tx2qp), tx2Left(tx2qp)) then
 		;
-	else if Bsub$765B(b51E3(curOp), tx2op1(tx2qp), tx2op2(tx2qp)) then
+	else if ApplyStepOptimisation(optimisationStep2Map(curOp), tx2Left(tx2qp), tx2Right(tx2qp)) then
 			;
 end;
 
@@ -13740,7 +13740,7 @@ Sub$7DA9: procedure public;
 		end;
 		else if bC298 = 8 then
 		do;
-			if tx2op1(bC0B7(bC295)) <> 0 then
+			if tx2Left(bC0B7(bC295)) <> 0 then
 			do;
 				bC298 = 6;
 				if bC294 = 0 then
@@ -13845,7 +13845,7 @@ Sub$7DA9: procedure public;
 				boC057(bC294) = true;
 				bC0A8(bC294) = 0;
 				bC04E(bC294) = bC0B7(bC295);
-				call Sub$5FBF(bC04E(bC294), .wC084(bC294), .wC096(bC294));
+				call GetOperandValue(bC04E(bC294), .wC084(bC294), .wC096(bC294));
 			end;
 			do;
 				boC057(bC294) = 0;
@@ -13980,9 +13980,9 @@ Sub$84ED: procedure public;
 		do;
 			wC1DC(bC1DB) = arg2b + 9;
 			if arg2b = 6 then
-				wC1DC(bC1DB + 1) = tx2op2(1);
+				wC1DC(bC1DB + 1) = tx2Right(1);
 			else
-				call Sub$5FBF(bC0B7(i), .wC1DC(bC1DB+1), .p);
+				call GetOperandValue(bC0B7(i), .wC1DC(bC1DB+1), .p);
 			bC1DB = bC1DB + 2;
 		end;
 	end;
@@ -14086,7 +14086,7 @@ Sub$87CB: procedure public;
 		declare i byte;
 		declare p address;
 		if bC0B5(bC2A5) = 0Ah then
-			wC2A9 = tx2op2(bC2A6);
+			wC2A9 = tx2Right(bC2A6);
 		else if bC0B5(bC2A5) = 9 then
 		do;
 			wC2A9 = tx2op3(bC2A6);
@@ -14118,14 +14118,14 @@ Sub$87CB: procedure public;
 		end;
 		else if bC0B5(bC2A5) = 8 and bC0B3(bC2A5) = 1 then
 		do;
-			call Sub$5FBF(bC0B7(bC2A5), .p, .q);
+			call GetOperandValue(bC0B7(bC2A5), .p, .q);
 			i = 2;
 			j = 1;
 		end;
 		else if bC0B5(bC2A5) = 4 and
 		   (bC0B3(bC2A5) = 0 or bC0B3(bC2A5) = 8 or  not Bsub$8861) then
 		do;
-			call Sub$5FBF(bC0B7(bC2A5), .p, .q);
+			call GetOperandValue(bC0B7(bC2A5), .p, .q);
 			i = 2;
 			j = Sub$5748(bC0B3(bC2A5));
 		end;
@@ -14173,7 +14173,7 @@ Sub$87CB: procedure public;
 			do;
 				bC0B3(bC2A5) = 0Ch;
 			end;
-			else if (bC2A7 := tx2opc(bC2A6)) = T2$STACKPTR then
+			else if (bC2A7 := tx2Type(bC2A6)) = T2$STACKPTR then
 			do;
 				bC0B3(bC2A5) = 0Ah;
 			end;
@@ -14326,8 +14326,8 @@ Sub$87CB: procedure public;
 		if curOp = T2$STORE then
 		do;
 			call Sub$940D;
-			if tx2Auxw(bC0B7(1)) = 0 then
-			    if tx2Auxw(bC0B7(0)) > 0 then
+			if tx2Cnt(bC0B7(1)) = 0 then
+			    if tx2Cnt(bC0B7(0)) > 0 then
 				do;
 					if cfrag1 = CF$MOVMLR or cfrag1 = CF$STA then
 					do;
@@ -14369,7 +14369,7 @@ Sub$87CB: procedure public;
 			else if j = 4 then
 			do;
 				boC057(k := bC2A8) = 0;
-				if 0 < tx2Auxw(tx2qp) then
+				if 0 < tx2Cnt(tx2qp) then
 				do;
 					bC04E(bC2A8) = tx2qp;
 					bC045(bC2A8), tx2Aux1b(tx2qp) = shr(b43F8(cfrag1), 5);
@@ -14393,7 +14393,7 @@ Sub$87CB: procedure public;
 				boC057(bC2A8) = 0;
 			end;
 		end;
-		if k = 0 and tx2Auxw(tx2qp) > 0 then
+		if k = 0 and tx2Cnt(tx2qp) > 0 then
 		do;
 			do bC2A8 = 5 to 8;
 				if bC04E(bC2A8) = 0 then 
@@ -14416,8 +14416,8 @@ Sub$87CB: procedure public;
 	end Sub$90EB;
 
 /* Sub$87CB */
-	bC0B7(0) = tx2op1(tx2qp);
-	bC0B7(1) = tx2op2(tx2qp);
+	bC0B7(0) = tx2Left(tx2qp);
+	bC0B7(1) = tx2Right(tx2qp);
 	wC2AB = wAF54(curOp);
 	wC2AD = wC2AB + b499B(curOp) - 1;
 	call Sub$8CF5;
@@ -14434,7 +14434,7 @@ Sub$87CB: procedure public;
 	end;
 break:
 	call Sub$8F16;
-	call Sub$611A;
+	call DecrementExprRefs;
 	call Sub$5E66(shr(w48DF(bC1D9), 12));
 	call Sub$8F35;
 	call Sub$84ED;
@@ -14451,7 +14451,7 @@ Sub$9457: procedure public;
 		extProcId(procChainId) = curExtProcId;
 		procChainNext(blkSP) = procChainId;
 		procChainId = blkSP;
-		curInfo$p, blkCurInfo(blkSP) = tx2op1(tx2qp) + botInfo;
+		curInfo$p, blkCurInfo(blkSP) = tx2Left(tx2qp) + botInfo;
 		curExtProcId = GetProcId;
 		pc = 0;
 		call EmitTopItem;
@@ -14734,22 +14734,22 @@ Sub$994D: procedure public;
 	if curOp = T2$LABELDEF then
 	do;
 		boC1CC = 0;
-		curInfo$p = tx2op1(tx2qp) + botInfo;
+		curInfo$p = tx2Left(tx2qp) + botInfo;
 		call SetLinkVal(pc);
 	end;
 	else if curOp = T2$LOCALLABEL then
 	do;
 		boC1CC = 0;
-		localLabels(tx2op1(tx2qp)) = pc;
-		barray(tx2op1(tx2qp)) = curExtProcId;
+		localLabels(tx2Left(tx2qp)) = pc;
+		barray(tx2Left(tx2qp)) = curExtProcId;
 	end;
 	else if curOp = T2$CASELABEL then
 	do;
-		localLabels(tx2op1(tx2qp)) = pc;
-		barray(tx2op1(tx2qp)) = curExtProcId;
+		localLabels(tx2Left(tx2qp)) = pc;
+		barray(tx2Left(tx2qp)) = curExtProcId;
 		if (w3822 - botMem)/2 >= wC1CF then
 		do;
-			mwords(wC1CF) = tx2op1(tx2qp);
+			mwords(wC1CF) = tx2Left(tx2qp);
 			wC1CF = wC1CF + 1;  
 		end;
 		else
@@ -14762,7 +14762,7 @@ Sub$994D: procedure public;
 	else if curOp = T2$JMP or curOp = T2$JNC
 	   or curOp = T2$JNZ or curOp = T2$GO$TO then
 	do;
-		i = tx2opc(tx2qp - 1);
+		i = tx2Type(tx2qp - 1);
 		if i = T2$RETURN or i = T2$RETURNBYTE
 		  or i = T2$RETURNWORD or i = T2$GO$TO then
 			return;
@@ -14787,14 +14787,14 @@ Sub$994D: procedure public;
 	do;
 			j = tx2qp + 1;
 
-			do while tx2opc(j) <> T2$STMTCNT and tx2opc(j) <> T2$EOF
+			do while tx2Type(j) <> T2$STMTCNT and tx2Type(j) <> T2$EOF
 			    and j < 0FFh;
-				if (b5124(tx2opc(j)) and 20h) = 0 or tx2opc(j) = T2$MODULE then
+				if (nodeControlMap(tx2Type(j)) and 20h) = 0 or tx2Type(j) = T2$MODULE then
 					goto L9B8D;
 				j = j + 1;  
 			end;
 			curOp = CF$134;
-			tx2opc(tx2qp) = CF$134;
+			tx2Type(tx2qp) = CF$134;
 	end;
 L9B8D:
 	call EmitTopItem;
@@ -14815,18 +14815,18 @@ Sub$9BB0: procedure public;
 	Bsub$9C33: procedure  byte;
 		declare (i, j, k) byte;
 
-		i = tx2op1(tx2qp);
-		if (b5124(tx2opc(i)) and 0c0h) = 0 then
+		i = tx2Left(tx2qp);
+		if (nodeControlMap(tx2Type(i)) and 0c0h) = 0 then
 		do;
-			if tx2Auxw(i) > 1 then
+			if tx2Cnt(i) > 1 then
 				return 0;
 			if tx2op3(i) <> 0 then
 				bC140(tx2op3(i)) = tx2qp;
 		end;
-		k = tx2Auxw(tx2qp);
+		k = tx2Cnt(tx2qp);
 		call Sub$56A0(i, tx2qp);
-		tx2Auxw(tx2qp) = k;
-		tx2Auxw(i) = tx2Auxw(i) - 1;  
+		tx2Cnt(tx2qp) = k;
+		tx2Cnt(i) = tx2Cnt(i) - 1;  
 		do j = 0 to 3;
 			if bC04E(j) = i then
 				bC04E(j) = tx2qp;
@@ -14836,24 +14836,24 @@ Sub$9BB0: procedure public;
 
 
 /* Sub$9BB0 */
-	bC0B7(0) = tx2op1(tx2qp);
-	bC0B7(1) = tx2op2(tx2qp);
+	bC0B7(0) = tx2Left(tx2qp);
+	bC0B7(1) = tx2Right(tx2qp);
 	if T2$DOUBLE <= curOp and curOp <= T2$ADDRESSOF then
-		call Sub$717B;
+		call FoldConstantExpr;
 	if curOp <= T2$MEMBER then
 	do;
-		call Sub$7550;
+		call OptimiseExpression;
 		if curOp = T2$65 then
 			if Bsub$9C33 then
 				return;
 	end;
-	if (bC1D2 and 0c0h) = 0 then
+	if (nodeControlFlags and 0c0h) = 0 then
 	do;
 		call Sub$87CB;
 		if curOp = T2$MOVE then
 			procCallDepth = 0;
 	end;
-	else if (bC1D2 and 0c0h) = 80h then
+	else if (nodeControlFlags and 0c0h) = 80h then
 		call Sub$994D;
 end;
 
@@ -14919,9 +14919,9 @@ Sub$9DD7: procedure public;
 	if procCallDepth <= 10 then
 	do;
 		i = tx2op3(tx2qp);
-		if tx2opc(i) = T2$VARIABLE then
+		if tx2Type(i) = T2$VARIABLE then
 		do;
-			curInfo$p = tx2op1(i);
+			curInfo$p = tx2Left(i);
 			if TestInfoFlag(F$AUTOMATIC) then
 				wAF54(133) = 3;
 			else
@@ -14936,8 +14936,8 @@ Sub$9DD7: procedure public;
 			wAF54(133) = 2;
 
 		pb$C2EB = .b44F7(wAF54(133));
-		call Sub$9EAA(tx2op1(tx2qp), 0);
-		call Sub$9EAA(tx2op2(tx2qp), 1);
+		call Sub$9EAA(tx2Left(tx2qp), 0);
+		call Sub$9EAA(tx2Right(tx2qp), 1);
 		call Sub$9BB0;
 		wC1C3 = wB528(procCallDepth);
 	end;
@@ -15017,22 +15017,22 @@ end;
 Sub$A072: procedure(arg1b) public;
 	declare arg1b byte;
 	declare p address;
-	curInfo$p = tx2op1(tx2qp) + botInfo;
+	curInfo$p = tx2Left(tx2qp) + botInfo;
 	p = GetDimension - arg1b;
 	if p < 100h then
-		call Sub$5F4B(p, 0, 0, 8);
+		call CreateConstantOrIdNode(p, 0, 0, 8);
 	else
-		call Sub$5F4B(p, 0, 1, 8);
+		call CreateConstantOrIdNode(p, 0, 1, 8);
 end;
 
 
 Sub$A0C4: procedure public;
 	declare p address;
-	p = Sub$575E(tx2op1(tx2qp) + botInfo);
+	p = Sub$575E(tx2Left(tx2qp) + botInfo);
 	if p < 100h then
-		call Sub$5F4B(p, 0, 0, 8);
+		call CreateConstantOrIdNode(p, 0, 0, 8);
 	else
-		call Sub$5F4B(p, 0, 1, 8);
+		call CreateConstantOrIdNode(p, 0, 1, 8);
 end;
 
 Sub$A10A: procedure public;
@@ -15069,9 +15069,9 @@ Sub$A153: procedure public;
 /* Sub$A153 */
 	call Sub$A266;
 	do tx2qp = 4 to bC1BF - 1;
-		curOp = tx2opc(tx2qp);
-		bC1D2 = b5124(curOp);
-		do case shr(bC1D2, 6);
+		curOp = tx2Type(tx2qp);
+		nodeControlFlags = nodeControlMap(curOp);
+		do case shr(nodeControlFlags, 6);
 			do;
 				if curOp = T2$CALL then
 					call Sub$9D06;
@@ -16621,7 +16621,7 @@ declare ccBits(*) byte data(10h, 18h, 8, 0, 18h, 10h),
 Sub$5FE7: procedure(arg1w, arg2b) public;
 	declare arg1w address, arg2b byte;
 	declare p address, wA18D address,
-		bA18F byte, bA190 byte;
+		codeByte byte, codeParam byte;
 
 
 	Sub$603C: procedure;
@@ -16637,33 +16637,33 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 		end;
 
 		Sub$6175: procedure;
-			declare i byte, p address, j byte;
+			declare codeVal byte, codeStr address, codeMode byte;
 
-			j= ror(bA18F, 4) and 3;	
-			bA190 = bA18F and 0fh;
-			if bA190 < 4 then
+			codeMode= ror(codeByte, 4) and 3;	
+			codeParam = codeByte and 0fh;
+			if codeParam < 4 then
 			do;
-				i= wValAry(bA190);
-				p= sValAry(bA190);
+				codeVal= wValAry(codeParam);
+				codeStr= sValAry(codeParam);
 			end;
-			else if j= 0 then
+			else if codeMode= 0 then
 			do;
-				i= stkRegNo(bA190 - 4);
-				p= .opcodes(stkRegIdx(bA190 - 4));
+				codeVal= stkRegNo(codeParam - 4);
+				codeStr= .opcodes(stkRegIdx(codeParam - 4));
 			end;
 			else
 			do;
-				i= regNo(bA190 - 4);
-				p= .opcodes(regIdx(bA190 - 4));
+				codeVal= regNo(codeParam - 4);
+				codeStr= .opcodes(regIdx(codeParam - 4));
 			end;
 
-			do case j;
-				i = rol(i, 4);
-				i = rol(i, 3);
+			do case codeMode;
+				codeVal = rol(codeVal, 4);
+				codeVal = rol(codeVal, 3);
 				;
 			end;
-			opBytes(0) = opBytes(0) or i;
-			call PstrCat2Line(p);
+			opBytes(0) = opBytes(0) or codeVal;
+			call PstrCat2Line(codeStr);
 		end;
 
 
@@ -16674,9 +16674,9 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 
 			dstRec = b96D6;
 			pw = .opBytes(opByteCnt);
-			w = wValAry(bA190);
+			w = wValAry(codeParam);
 			opByteCnt = opByteCnt + 2;
-			call PstrCat2Line(sValAry(bA190));
+			call PstrCat2Line(sValAry(codeParam));
 		end;
 
 
@@ -16688,7 +16688,7 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 			declare helpers based helpers$p(1) address;
 
 			pw = .opBytes(opByteCnt);
-			if bA190 = 1 then
+			if codeParam = 1 then
 				q = 69h;
 			else
 			do;
@@ -16721,7 +16721,7 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 			opBytes(opByteCnt) = i;
 			opByteCnt = opByteCnt + 1;
 			/* extend to word on opBytes if not 84h */
-			if bA190 <> 0 then
+			if codeParam <> 0 then
 			do;
 				opBytes(opByteCnt) = 0;
 				opByteCnt = opByteCnt + 1;
@@ -16745,14 +16745,14 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 			declare str$p address,
 				str based str$p(1) byte;
 
-			opBytes(opByteCnt) = wValAry(bA190);
+			opBytes(opByteCnt) = wValAry(codeParam);
 			opByteCnt = opByteCnt + 1;
-			if wValAry(bA190) > 255 then
+			if wValAry(codeParam) > 255 then
 			do;		/* reformat number to byte size */
-				str$p = sValAry(bA190);
-				str(0) = Num2Asc(low(wValAry(bA190)), 0, -16, .str(1));
+				str$p = sValAry(codeParam);
+				str(0) = Num2Asc(low(wValAry(codeParam)), 0, -16, .str(1));
 			end;
-			call PstrCat2Line(sValAry(bA190));
+			call PstrCat2Line(sValAry(codeParam));
 		end;
 
 		AddPCRel: procedure;
@@ -16790,7 +16790,7 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 
 		Sub$64CF: procedure;
 			declare i byte;
-			do case bA190;
+			do case codeParam;
 				i= b425D(b969D);
 				i= b475E(b969D);
 				i= b4774(b969D);
@@ -16817,20 +16817,20 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 
 		do while 1;
 			wA18D = wA18D + 1;
-			bA18F = b4A78(wA18D);
-			if bA18F < 80h then
+			codeByte = b4A78(wA18D);
+			if codeByte < 80h then
 			do;
-				line(lineLen) = bA18F;
+				line(lineLen) = codeByte;
 				lineLen = lineLen + 1;
 			end;
-			else if bA18F >= 0c0h then 
+			else if codeByte >= 0c0h then 
 				call Sub$6175;
 			else
 			do;
-				bA190 = shr(bA18F,4) and 3;
-				do case bA18F and 0fh;
+				codeParam = shr(codeByte,4) and 3;
+				do case codeByte and 0fh;
 					return;
-					call PstrCat2Line(sValAry(bA190));
+					call PstrCat2Line(sValAry(codeParam));
 					call AddWord;
 					call AddHelper;
 					call AddSmallNum;
@@ -17159,7 +17159,7 @@ end;
 plm6a: DO;
 $include(:f2:plm6a.ipx)
 
-declare b5124(*) byte data(
+declare nodeControlMap(*) byte data(
 	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0Eh, 1, 1, 1, 1,
 	1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 2, 1, 1, 1,
 	1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0,
@@ -17253,7 +17253,7 @@ Sub$42E7: procedure public;
 	itemArgs(0), itemArgs(1), itemArgs(2) = 0;
 	call fread(.tx2File, .cfCode, 1);
 	if cfCode <> 0a2h then
-		call fread(.tx2File, .itemArgs, shl(b5124(cfCode) and 3,1));
+		call fread(.tx2File, .itemArgs, shl(nodeControlMap(cfCode) and 3,1));
 	if cfCode = 98h then
 		call Sub$4396;
 	else if cfCode = 97h then
