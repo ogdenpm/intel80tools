@@ -71,7 +71,15 @@ system.lib = $(system.lib,$(PLM80))
 fpal.lib,2.1 := $(call ifile,fpal.lib,2.1)
 fpal.lib,2.0 := $(call ifile,fpal.lib,2.0)
 fpal.lib = $(fpal.lib,2.1)
-
+f80iss.lib = $(call ipath,fort80,$(FORT80))/f80iss.lib
+f80nio.lib = $(call ipath,fort80,$(FORT80))/f80nio.lib
+f80run.lib = $(call ipath,fort80,$(FORT80))/f80run.lib
+fpchip.lib = $(call ipath,fort80,$(FORT80))/fpchip.lib
+fpef.lib = $(call ipath,fort80,$(FORT80))/fpef.lib
+fphard.lib = $(call ipath,fort80,$(FORT80))/fphard.lib
+fpnull.lib = $(call ipath,fort80,$(FORT80))/fpnull.lib
+fpsoft.lib = $(call ipath,fort80,$(FORT80))/fpsoft.lib
+fpa.lib = $(call ipath,fpal.lib,$(FPALIB))/fpa.lib
 
 # work out the master source file
 _masterfile:=$(firstword $(wildcard *_all.src))
