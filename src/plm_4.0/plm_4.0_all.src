@@ -271,7 +271,7 @@ T2$MINUS	'37'
 /*	T2$41 LIT '41', */
 /*	T2$42 LIT '42', */
 /*	T2$43 LIT '43', */
-T2$44	'44'
+T2$X10	'44'
 /*	T2$45 LIT '45', */
 /*	T2$46 LIT '46', */
 /*	T2$47 LIT '47', */
@@ -1180,11 +1180,11 @@ wC1DC           AS
 $file(plm2a.plm)
 b3FCD           BS
 b4029           BS
-b4128           BS
-b413B           BS
-b418C           BS
-b425D           BS
-b4273           BS
+helperIndexMap           BS
+fragmentHelperIndex           BS
+helperMap           BS
+helperGroup           BS
+nodeTypeToHelperGroup           BS
 b42F9           BS
 b43F8           BS
 b44F7           BS
@@ -1575,7 +1575,7 @@ fatalErrorCode  B
 hasErrors       B
 hashChains$p    A
 haveModule      B
-helpers$p       A
+helperAddr$p    A
 intVecLoc       A
 intVecNum       B
 invokeName      BS
@@ -2164,7 +2164,7 @@ DECLARE
 	srcFileIdx ADDRESS PUBLIC,
 	hashChains$p ADDRESS PUBLIC,
 	blockDepth ADDRESS PUBLIC,
-	(localLabels$p, w381E, helpers$p, w3822, linesRead) ADDRESS PUBLIC,
+	(localLabels$p, w381E, helperAddr$p, w3822, linesRead) ADDRESS PUBLIC,
 	programErrCnt ADDRESS PUBLIC,
 	procCnt ADDRESS PUBLIC,
 	w382A ADDRESS PUBLIC INITIAL(0),
@@ -4039,7 +4039,7 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
 
     Sub$4105: procedure;
 	declare (i, j, k, m) byte, p address;
-	declare helpers based helpers$p(1) address;
+	declare helperAddr based helperAddr$p(1) address;
 
 	if not standAlone then
 	    return;
@@ -4056,13 +4056,13 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
 	    do while k < j;
 		if m then
 		do;
-			helpers(k) = w7197;
+			helperAddr(k) = w7197;
 			w7197 = w7197 + b4813(k);
 		end;
-		else if helpers(k) <> 0 then
+		else if helperAddr(k) <> 0 then
 		do;
 			m = 0FFh;
-			helpers(k) = w7197;
+			helperAddr(k) = w7197;
 			w7197 = w7197 + b4813(k);
 		end;
 		k = k + 1;
@@ -4117,7 +4117,7 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
     Sub$436C: procedure;
 	declare (p, q) address, (i, j) byte,
 	    (r, s) address, (k, m) byte, t(6) byte;
-	declare helpers based helpers$p(1) address;
+	declare helperAddr based helperAddr$p(1) address;
 
 	s = 0;
 	curInfo$p = botInfo + 2;
@@ -4201,9 +4201,9 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP');
 	if not standAlone then
 	do;
 	    do k = 0 to 116;
-		if helpers(k) <> 0 then
+		if helperAddr(k) <> 0 then
 		do;
-			helpers(k) = s;
+			helperAddr(k) = s;
 			s = s + 1;
 			if rec18.len + 8 >= 299 then
 				call WriteRec(.rec18, 0);
@@ -4378,7 +4378,7 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
 
 
 	Sub$4162: procedure;
-		declare helpers based helpers$p(1) address;
+		declare helperAddr based helperAddr$p(1) address;
 
 		if not standAlone then
 			return;
@@ -4386,11 +4386,11 @@ declare copyright(*) byte data('(C) 1976, 1977, 1982 INTEL CORP'),
 			helperId = b42D6(helperModId);
 			endHelperId = helperId + b42A8(helperModId);
 			do while helperId < endHelperId;
-				if helpers(helperId) <> 0 then
+				if helperAddr(helperId) <> 0 then
 				do;
-					baseAddr = helpers(helperId);
+					baseAddr = helperAddr(helperId);
 					b969C = b4304(helperModId);
-					b969D = b4273(b969C);
+					b969D = nodeTypeToHelperGroup(b969C);
 					call Sub$5FE7(w4919(helperId), b4A03(helperId));
 					goto break;
 				end;
@@ -11561,8 +11561,8 @@ Sub$6EE0: PROCEDURE public;
 	botInfo = botMem + topMem - topInfo;
 	topInfo = topMem;
 	call RevMemMov(botMem, botInfo, topInfo - botInfo + 1);
-	helpers$p = botInfo - shl(117,1);
-	localLabels$p = helpers$p - (localLabelCnt+1) * 2;
+	helperAddr$p = botInfo - shl(117,1);
+	localLabels$p = helperAddr$p - (localLabelCnt+1) * 2;
 	w381E = localLabels$p - (localLabelCnt+1);
 	w3822 = botInfo - 2;
 	do while w3822 >= w381E;
@@ -11656,10 +11656,10 @@ declare unused(*) BYTE public DATA(2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 
 			80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h, 80h,
 			80h, 80h, 80h, 80h, 80h, 80h),
 
-	b4128(*) BYTE public DATA(0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
+	helperIndexMap(*) BYTE public DATA(0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
 			9, 0Ah),
 
-	b413B(*) BYTE public DATA(0, 2, 4, 6, 8, 0Ah, 0Ch, 10h, 11h, 0Eh, 12h, 0, 2,
+	fragmentHelperIndex(*) BYTE public DATA(0, 2, 4, 6, 8, 0Ah, 0Ch, 10h, 11h, 0Eh, 12h, 0, 2,
 			4, 6, 8, 0Ah, 0Ch, 10h, 11h, 0Eh, 12h, 0, 2, 4, 6,
 			8, 0Ah, 0Ch, 10h, 11h, 0Eh, 12h, 0, 2, 4, 6, 8, 0Ah,
 			0Ch, 10h, 11h, 0Eh, 12h, 0, 2, 4, 6, 8, 0Ah, 0Ch, 10h,
@@ -11667,7 +11667,7 @@ declare unused(*) BYTE public DATA(2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 
 			0, 4, 6, 8, 0Ah, 0Ch, 0Eh, 10h, 11h, 12h, 0Dh, 0Fh,
 			7, 9, 0Bh, 1, 5, 3),
 
-	b418C(*) BYTE public DATA(90h, 91h, 94h, 95h, 98h, 99h, 9Ah, 9Ch, 0A0h, 0A1h,
+	helperMap(*) BYTE public DATA(90h, 91h, 94h, 95h, 98h, 99h, 9Ah, 9Ch, 0A0h, 0A1h,
 			9Dh, 6Ch, 6Dh, 70h, 71h, 74h, 75h, 76h, 78h, 7Ch, 7Dh,
 			79h, 0, 0, 0, 0, 0, 0, 64h, 65h, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 68h, 69h, 0, 0, 0, 0, 58h, 0, 0, 59h, 5Ah,
@@ -11685,10 +11685,10 @@ declare unused(*) BYTE public DATA(2, 2, 3, 4, 3, 4, 2, 2, 3, 4, 2, 3, 2, 3, 3, 
 			0, 0, 2Dh, 2Eh, 0, 0, 0, 0, 0, 0A4h, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0),
 
-	b425D(*) BYTE public DATA(8, 1Ch, 0Ch, 0, 0Bh, 11h, 1, 0Ah, 0Fh, 10h, 0Dh, 9,
+	helperGroup(*) BYTE public DATA(8, 1Ch, 0Ch, 0, 0Bh, 11h, 1, 0Ah, 0Fh, 10h, 0Dh, 9,
 			2, 3, 4, 5, 6, 7, 0, 1Eh, 12h, 0Eh),
 
-	b4273(*) BYTE public DATA(3, 3, 3, 3, 3, 3, 0Ch, 0Dh, 0Eh, 0Fh, 10h, 11h, 0,
+	nodeTypeToHelperGroup(*) BYTE public DATA(3, 3, 3, 3, 3, 3, 0Ch, 0Dh, 0Eh, 0Fh, 10h, 11h, 0,
 			0, 0, 0, 0, 0, 0, 0, 12h, 7, 4, 4, 2, 0Ah, 15h, 0,
 			0, 0, 0, 8, 9, 0, 0, 0, 0Bh, 6, 12h, 12h, 12h, 12h,
 			12h, 12h, 5, 1, 1, 1, 13h, 13h, 13h, 1, 1, 1, 13h,
@@ -13935,7 +13935,7 @@ end;
 
 Sub$84ED: procedure public;
 	declare i byte;
-	declare helpers based helpers$p(1) address;
+	declare helperAddr based helperAddr$p(1) address;
 
 	Sub$8683: procedure(arg1b) byte;
 		declare arg1b byte;
@@ -13999,18 +13999,18 @@ Sub$84ED: procedure public;
 		pc = pc + (b43F8(cfrag1) and 01fh);
 		if cfrag1 = CF$DELAY then
 		do; 
-			helpers(105) = 1;
+			helperAddr(105) = 1;
 			if wC1C5 < shl(wC1C3 + 1, 1) then
 				wC1C5 = shl(wC1C3 + 1, 1);
 		end;
-		else if cfrag1 > CF$171 then
+		else if cfrag1 > CF$171 then    /*PMO: assumes 172 & 173 not used */
 		do;
-			i = b413B(cfrag1 - CF$174);
-			i = b4128(i) + 11 * b425D(b4273(curOp));
-			i = b3FCD(shr(b418C(i), 2)) + (b418C(i) and 3);
-			helpers(i) = 1;
-			if curOp = T2$SLASH or curOp = T2$MOD
-			 or curOp = T2$44 then
+			i = fragmentHelperIndex(cfrag1 - CF$174);
+			i = helperIndexMap(i) + 11 * helperGroup(nodeTypeToHelperGroup(curOp));
+            /* map to helperAddr index. C port avoids this */
+			i = b3FCD(shr(helperMap(i), 2)) + (helperMap(i) and 3);
+			helperAddr(i) = 1;
+			if curOp = T2$SLASH or curOp = T2$MOD or curOp = T2$X10 then
 			do;
 				if wC1C5 < shl(wC1C3 + 2, 1) then
 					wC1C5 = shl(wC1C3 + 2, 1);
@@ -15648,12 +15648,12 @@ declare b42A8(*) byte public data(
 	80h,80h,80h,80h,80h,80h,80h,80h,
 	80h,80h,80h,80h,80h,80h,80h),
 
-	b4128(*) byte public data(
+	helperIndexMap(*) byte public data(
 	0, 0, 1, 1, 2, 2, 3, 3,
 	4, 4, 5, 5, 6, 6, 7, 7,
 	8, 9, 0Ah),
 
-	b413B(*) byte public data(
+	fragmentHelperIndex(*) byte public data(
 	   0,   2,   4,   6,   8, 0Ah, 0Ch,10h,
 	11h, 0Eh,12h,   0,   2,   4,   6,   8,
 	 0Ah, 0Ch,10h,11h, 0Eh,12h,   0,   2,
@@ -15666,7 +15666,7 @@ declare b42A8(*) byte public data(
 	12h, 0Dh, 0Fh,   7,   9, 0Bh,   1,   5,
 	   3),
 
-	b418C(*) byte public data(	/* 11 byte entries */
+	helperMap(*) byte public data(	/* 11 byte entries */
 	90h,91h,94h,95h,98h,99h,9Ah,9Ch,0A0h,0A1h,9Dh,
 	6Ch,6Dh,70h,71h,74h,75h,76h,78h,7Ch,7Dh,79h,
 	   0,   0,   0,   0,   0,   0,64h,65h,   0,   0,   0,
@@ -15687,12 +15687,12 @@ declare b42A8(*) byte public data(
 	   0,2Ch,   0,   0,2Dh,2Eh,   0,   0,   0,   0,   0,
 	0A4h,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0),
 
-	b425D(*) byte public data(
+	helperGroup(*) byte public data(
 	   8,1Ch, 0Ch,   0, 0Bh,11h,   1, 0Ah,
 	 0Fh,10h, 0Dh,   9,   2,   3,   4,   5,
 	   6,   7,   0,1Eh,12h,0Eh),
 
-	b4273(*) byte public data(
+	nodeTypeToHelperGroup(*) byte public data(
 	   3,   3,   3,   3,   3,   3, 0Ch, 0Dh,
 	 0Eh, 0Fh,10h,11h,   0,   0,   0,   0,
 	   0,   0,   0,   0,12h,   7,   4,   4,
@@ -16682,32 +16682,32 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 
 
 		AddHelper: procedure;
-			declare (pw, q) address,
-				(i, j) byte;
+			declare (pw, helperId) address,
+				(grp, j) byte;
 			declare w based pw address;
-			declare helpers based helpers$p(1) address;
+			declare helperAddr based helperAddr$p(1) address;
 
 			pw = .opBytes(opByteCnt);
 			if codeParam = 1 then
-				q = 69h;
+				helperId = 105; /* delay */
 			else
 			do;
-				i = b425D(b969D);
-				j = b418C(b9692 + 11 * i);
-				q = b42D6(shr(j, 2)) + (j and 3);
+				grp = helperGroup(b969D);
+				j = helperMap(b9692 + 11 * grp);
+				helperId = b42D6(shr(j, 2)) + (j and 3);
 			end;
-			helperStr(0) = Num2Asc(q, -4, 10, .helperStr(3)) + 2;
+			helperStr(0) = Num2Asc(helperId, -4, 10, .helperStr(3)) + 2;
 			call PstrCat2Line(.helperStr);
 			if standAlone then
 			do;
-				w = helpers(q);
+				w = helperAddr(helperId);
 				dstRec = 1;
 			end;
 			else
 			do;
 				w = 0;
 				dstRec = 5;
-				curExtId = helpers(q);
+				curExtId = helperAddr(helperId);
 			end;
 			opByteCnt = opByteCnt + 2;
 		end;
@@ -16791,7 +16791,7 @@ Sub$5FE7: procedure(arg1w, arg2b) public;
 		Sub$64CF: procedure;
 			declare i byte;
 			do case codeParam;
-				i= b425D(b969D);
+				i= helperGroup(b969D);
 				i= b475E(b969D);
 				i= b4774(b969D);
 				i= b478A(b969D);
@@ -16923,8 +16923,8 @@ Sub$668B: procedure public;
 		do; 
 			i = cfCode - 0AEh;
 			cfCode = b4602(i);
-			i = b413B(i);
-			b9692 = b4128(i);
+			i = fragmentHelperIndex(i);
+			b9692 = helperIndexMap(i);
 		end;
 	end;
 
@@ -17084,7 +17084,7 @@ Sub$668B: procedure public;
 		if rol(b4029(cfCode), 1) then
 		do;
 			call fread(.tx1File, .b969C, 1);
-			b969D = b4273(b969C);
+			b969D = nodeTypeToHelperGroup(b969C);
 		end;
 		w969E = 0;
 		bA1AB = ror(b4029(cfCode), 4) and 7;
